@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 
 @Composable
 fun SetupNameField(
@@ -137,7 +138,8 @@ fun SetupNameField(
             },
             textStyle = TextStyle(
                 color = colors.primaryText,
-                fontSize = 14.sp,
+                fontFamily = XvoxPersonalFont,
+                fontSize = 17.sp,
                 textAlign = TextAlign.Center
             ),
             singleLine = true,
