@@ -1,4 +1,4 @@
-package com.xvox.music
+yypackage com.xvox.music
 
 import android.os.Bundle
 import android.view.WindowManager
