@@ -43,12 +43,12 @@ fun StartupAnimation(
         Paint(
             Paint.ANTI_ALIAS_FLAG
         ).apply {
-            typeface = typeface
-            textSize = textSize
-            color = colors.primaryText.toAndroidColor()
+            this.typeface = typeface
+            this.textSize = textSize
+            this.color = colors.primaryText.toAndroidColor()
         }
     }
-
+    
     Canvas(
         modifier = Modifier.size(
             width = 280.dp,
