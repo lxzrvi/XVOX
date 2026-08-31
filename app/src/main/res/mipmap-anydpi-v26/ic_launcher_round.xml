@@ -6,6 +6,6 @@
         android:drawable="@color/xvox_launcher_background" />
 
     <foreground
-        android:drawable="@drawable/xvox" />
+        android:drawable="@drawable/xvox_launcher_foreground" />
 
 </adaptive-icon>
