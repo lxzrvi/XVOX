@@ -11,16 +11,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxSuccess
+import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun PermissionCard(
@@ -29,21 +28,24 @@ fun PermissionCard(
     onAudioClick: () -> Unit,
     onNotificationClick: () -> Unit
 ) {
+    val colors = XvoxTheme.colors
+
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(
             text = "Permissions",
-            color = Color.White,
-            fontSize = 17.sp,
+            color = colors.primaryText,
+            fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
 
         PermissionItem(
             title = "Music access",
-            description = "Find and play audio files stored on this device.",
+            description =
+                "Allows XVOX to find and play music stored on your device.",
             granted = audioGranted,
             onClick = onAudioClick
         )
@@ -52,7 +54,8 @@ fun PermissionCard(
 
         PermissionItem(
             title = "Notifications",
-            description = "Show playback controls while XVOX plays in background.",
+            description =
+                "Shows playback controls while music continues in background.",
             granted = notificationGranted,
             onClick = onNotificationClick
         )
@@ -66,16 +69,22 @@ private fun PermissionItem(
     granted: Boolean,
     onClick: () -> Unit
 ) {
+    val colors = XvoxTheme.colors
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+            width = 1.dp,
+            color = if (granted) {
+                XvoxSuccess
+            } else {
+                colors.cardBorder
+            }
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = colors.card
         )
     ) {
         Row(
@@ -86,15 +95,16 @@ private fun PermissionItem(
                     vertical = 11.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement =
+                Arrangement.spacedBy(12.dp)
         ) {
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = title,
-                    color = Color.White,
-                    fontSize = 14.sp,
+                    color = colors.primaryText,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
 
@@ -102,22 +112,11 @@ private fun PermissionItem(
 
                 Text(
                     text = description,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = colors.secondaryText,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
             }
-
-            Text(
-                text = if (granted) "✓" else "×",
-                color = if (granted) {
-                    XvoxSuccess
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
