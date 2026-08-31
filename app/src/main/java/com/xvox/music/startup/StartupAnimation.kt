@@ -20,9 +20,9 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun StartupAnimation(
     progress: Float
 ) {
-    val colors = XvoxTheme.colors
     val context = LocalContext.current
     val density = LocalDensity.current
+    val colors = XvoxTheme.colors
 
     val typeface = remember {
         ResourcesCompat.getFont(
@@ -31,57 +31,47 @@ fun StartupAnimation(
         )
     }
 
-    val textSizePx = with(density) {
-        40.sp.toPx()
+    val textSize = with(density) {
+        42.sp.toPx()
     }
 
     val paint = remember(
         typeface,
-        colors.primaryText,
-        textSizePx
+        textSize,
+        colors.primaryText
     ) {
         Paint(
             Paint.ANTI_ALIAS_FLAG
         ).apply {
-            color = colors.primaryText.toArgb()
-            textSize = textSizePx
-            textAlign = Paint.Align.LEFT
-            this.typeface = typeface
+            typeface = typeface
+            textSize = textSize
+            color = colors.primaryText.toAndroidColor()
         }
     }
 
     Canvas(
         modifier = Modifier.size(
-            width = 240.dp,
-            height = 80.dp
+            width = 280.dp,
+            height = 90.dp
         )
     ) {
-        val xWidth =
-            paint.measureText("X")
+        val xWidth = paint.measureText("X")
+        val voxWidth = paint.measureText("VOX")
+        val fullWidth = xWidth + voxWidth
 
-        val voxWidth =
-            paint.measureText("VOX")
-
-        val fullWidth =
-            xWidth + voxWidth
-
-        val initialStart =
+        val initialX =
             size.width / 2f -
                 xWidth / 2f
 
-        val finalStart =
+        val finalX =
             size.width / 2f -
                 fullWidth / 2f
 
-        val startX =
-            initialStart +
-                (
-                    finalStart -
-                        initialStart
-                    ) * progress
+        val xPosition =
+            initialX +
+                (finalX - initialX) * progress
 
-        val metrics =
-            paint.fontMetrics
+        val metrics = paint.fontMetrics
 
         val baseline =
             size.height / 2f -
@@ -90,43 +80,54 @@ fun StartupAnimation(
                         metrics.descent
                     ) / 2f
 
-        drawContext.canvas
-            .nativeCanvas
-            .drawText(
-                "X",
-                startX,
-                baseline,
-                paint
-            )
+        val voxFinalX =
+            xPosition + xWidth
 
-        val revealWidth =
-            voxWidth * progress
+        val voxStartX =
+            xPosition +
+                xWidth * 0.18f
 
-        if (revealWidth > 0f) {
+        val voxPosition =
+            voxStartX +
+                (
+                    voxFinalX -
+                        voxStartX
+                    ) * progress
+
+        val revealRight =
+            voxFinalX +
+                voxWidth * progress
+
+        if (progress > 0f) {
             clipRect(
-                left =
-                    startX + xWidth,
+                left = xPosition + xWidth * 0.62f,
                 top = 0f,
-                right =
-                    startX +
-                        xWidth +
-                        revealWidth,
+                right = revealRight,
                 bottom = size.height
             ) {
                 drawContext.canvas
                     .nativeCanvas
                     .drawText(
                         "VOX",
-                        startX + xWidth,
+                        voxPosition,
                         baseline,
                         paint
                     )
             }
         }
+
+        drawContext.canvas
+            .nativeCanvas
+            .drawText(
+                "X",
+                xPosition,
+                baseline,
+                paint
+            )
     }
 }
 
-private fun androidx.compose.ui.graphics.Color.toArgb(): Int {
+private fun androidx.compose.ui.graphics.Color.toAndroidColor(): Int {
     return android.graphics.Color.argb(
         (alpha * 255f).toInt(),
         (red * 255f).toInt(),
