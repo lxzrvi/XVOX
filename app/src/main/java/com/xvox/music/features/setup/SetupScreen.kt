@@ -83,8 +83,7 @@ fun SetupScreen(
         ) {
             viewModel.updatePermissions(
                 audioGranted = audioGranted(),
-                notificationGranted =
-                    notificationGranted()
+                notificationGranted = notificationGranted()
             )
         }
 
@@ -94,8 +93,7 @@ fun SetupScreen(
         ) {
             viewModel.updatePermissions(
                 audioGranted = audioGranted(),
-                notificationGranted =
-                    notificationGranted()
+                notificationGranted = notificationGranted()
             )
         }
 
@@ -103,16 +101,13 @@ fun SetupScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickVisualMedia()
         ) { uri ->
-            uri?.let(
-                viewModel::setCustomPfp
-            )
+            uri?.let(viewModel::setCustomPfp)
         }
 
     LaunchedEffect(Unit) {
         viewModel.updatePermissions(
             audioGranted = audioGranted(),
-            notificationGranted =
-                notificationGranted()
+            notificationGranted = notificationGranted()
         )
     }
 
@@ -138,7 +133,7 @@ fun SetupScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(104.dp),
+                    .weight(0.62f),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -153,11 +148,9 @@ fun SetupScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                horizontalAlignment =
-                    Alignment.CenterHorizontally,
-                verticalArrangement =
-                    Arrangement.Center
+                    .weight(1.38f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
             ) {
                 Text(
                     text = "Let's get to know you",
@@ -185,10 +178,8 @@ fun SetupScreen(
                 PfpCarousel(
                     selected = state.selectedPfp,
                     username = state.name,
-                    customPfpUri =
-                        state.customPfpUri,
-                    onSelected =
-                        viewModel::selectPfp,
+                    customPfpUri = state.customPfpUri,
+                    onSelected = viewModel::selectPfp,
                     onAddClick = {
                         photoPicker.launch(
                             PickVisualMediaRequest(
@@ -213,16 +204,13 @@ fun SetupScreen(
 
                 SetupNameField(
                     value = state.name,
-                    onValueChange =
-                        viewModel::setName
+                    onValueChange = viewModel::setName
                 )
             }
 
             PermissionCard(
-                audioGranted =
-                    state.audioGranted,
-                notificationGranted =
-                    state.notificationGranted,
+                audioGranted = state.audioGranted,
+                notificationGranted = state.notificationGranted,
                 onAudioClick = {
                     val permission =
                         if (Build.VERSION.SDK_INT >= 33) {
@@ -232,9 +220,7 @@ fun SetupScreen(
                         }
 
                     if (!audioGranted()) {
-                        audioLauncher.launch(
-                            permission
-                        )
+                        audioLauncher.launch(permission)
                     }
                 },
                 onNotificationClick = {
@@ -243,8 +229,7 @@ fun SetupScreen(
                         !notificationGranted()
                     ) {
                         notificationLauncher.launch(
-                            Manifest.permission
-                                .POST_NOTIFICATIONS
+                            Manifest.permission.POST_NOTIFICATIONS
                         )
                     }
                 }
@@ -256,43 +241,32 @@ fun SetupScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 SetupCloseButton(
                     onClick = {
-                        (context as? Activity)
-                            ?.finish()
+                        (context as? Activity)?.finish()
                     }
                 )
 
                 Button(
                     onClick = onSetupComplete,
-                    enabled =
-                        state.setupComplete,
+                    enabled = state.setupComplete,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
-                    shape =
-                        RoundedCornerShape(18.dp),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor =
-                                colors.primaryAccent,
-                            contentColor =
-                                colors.background,
-                            disabledContainerColor =
-                                colors.accentSoft,
-                            disabledContentColor =
-                                colors.mutedText
-                        )
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.primaryAccent,
+                        contentColor = colors.background,
+                        disabledContainerColor = colors.accentSoft,
+                        disabledContentColor = colors.mutedText
+                    )
                 ) {
                     Text(
                         text = "Start",
-                        fontWeight =
-                            FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
