@@ -82,8 +82,8 @@ fun SetupScreen(
             ActivityResultContracts.RequestPermission()
         ) {
             viewModel.updatePermissions(
-                audioGranted = audioGranted(),
-                notificationGranted = notificationGranted()
+                audioGranted(),
+                notificationGranted()
             )
         }
 
@@ -92,8 +92,8 @@ fun SetupScreen(
             ActivityResultContracts.RequestPermission()
         ) {
             viewModel.updatePermissions(
-                audioGranted = audioGranted(),
-                notificationGranted = notificationGranted()
+                audioGranted(),
+                notificationGranted()
             )
         }
 
@@ -101,13 +101,15 @@ fun SetupScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickVisualMedia()
         ) { uri ->
-            uri?.let(viewModel::setCustomPfp)
+            uri?.let(
+                viewModel::setCustomPfp
+            )
         }
 
     LaunchedEffect(Unit) {
         viewModel.updatePermissions(
-            audioGranted = audioGranted(),
-            notificationGranted = notificationGranted()
+            audioGranted(),
+            notificationGranted()
         )
     }
 
@@ -133,14 +135,15 @@ fun SetupScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.62f),
-                contentAlignment = Alignment.Center
+                    .height(112.dp),
+                contentAlignment =
+                    Alignment.Center
             ) {
                 Text(
                     text = "XVOX",
                     color = colors.primaryText,
                     fontFamily = XvoxLogoFont,
-                    fontSize = 27.sp,
+                    fontSize = 31.sp,
                     textAlign = TextAlign.Center
                 )
             }
@@ -148,9 +151,9 @@ fun SetupScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.38f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top
+                    .weight(1f),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Let's get to know you",
@@ -172,14 +175,18 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(20.dp)
+                    modifier = Modifier.height(18.dp)
                 )
 
                 PfpCarousel(
-                    selected = state.selectedPfp,
-                    username = state.name,
-                    customPfpUri = state.customPfpUri,
-                    onSelected = viewModel::selectPfp,
+                    selected =
+                        state.selectedPfp,
+                    username =
+                        state.name,
+                    customPfpUri =
+                        state.customPfpUri,
+                    onSelected =
+                        viewModel::selectPfp,
                     onAddClick = {
                         photoPicker.launch(
                             PickVisualMediaRequest(
@@ -192,11 +199,12 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 Text(
-                    text = "choose your pfp and enter",
+                    text =
+                        "choose your pfp and enter",
                     color = colors.mutedText,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
@@ -204,13 +212,16 @@ fun SetupScreen(
 
                 SetupNameField(
                     value = state.name,
-                    onValueChange = viewModel::setName
+                    onValueChange =
+                        viewModel::setName
                 )
             }
 
             PermissionCard(
-                audioGranted = state.audioGranted,
-                notificationGranted = state.notificationGranted,
+                audioGranted =
+                    state.audioGranted,
+                notificationGranted =
+                    state.notificationGranted,
                 onAudioClick = {
                     val permission =
                         if (Build.VERSION.SDK_INT >= 33) {
@@ -220,7 +231,9 @@ fun SetupScreen(
                         }
 
                     if (!audioGranted()) {
-                        audioLauncher.launch(permission)
+                        audioLauncher.launch(
+                            permission
+                        )
                     }
                 },
                 onNotificationClick = {
@@ -240,33 +253,46 @@ fun SetupScreen(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
                 SetupCloseButton(
                     onClick = {
-                        (context as? Activity)?.finish()
+                        (context as? Activity)
+                            ?.finish()
                     }
                 )
 
                 Button(
-                    onClick = onSetupComplete,
-                    enabled = state.setupComplete,
+                    onClick =
+                        onSetupComplete,
+                    enabled =
+                        state.setupComplete,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.primaryAccent,
-                        contentColor = colors.background,
-                        disabledContainerColor = colors.accentSoft,
-                        disabledContentColor = colors.mutedText
-                    )
+                    shape =
+                        RoundedCornerShape(18.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                colors.primaryAccent,
+                            contentColor =
+                                colors.background,
+                            disabledContainerColor =
+                                colors.accentSoft,
+                            disabledContentColor =
+                                colors.mutedText
+                        )
                 ) {
                     Text(
                         text = "Start",
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight =
+                            FontWeight.SemiBold
                     )
                 }
             }
