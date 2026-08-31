@@ -27,7 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -253,7 +252,7 @@ fun SetupScreen(
                         .weight(1f)
                         .height(46.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedButtonDefaults.colors(
+                    colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White
                     )
                 ) {
