@@ -1,6 +1,8 @@
 package com.xvox.music.features.setup
 
 import android.net.Uri
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,18 +68,18 @@ fun PfpCarousel(
             if (layout.visibleItemsInfo.isEmpty()) {
                 initialIndex
             } else {
-                val center =
+                val viewportCenter =
                     (
                         layout.viewportStartOffset +
                             layout.viewportEndOffset
                         ) / 2f
 
                 layout.visibleItemsInfo
-                    .minByOrNull { info ->
+                    .minByOrNull { item ->
                         abs(
-                            info.offset +
-                                info.size / 2f -
-                                center
+                            item.offset +
+                                item.size / 2f -
+                                viewportCenter
                         )
                     }
                     ?.index
@@ -100,9 +102,7 @@ fun PfpCarousel(
             state.isScrollInProgress
         }
             .distinctUntilChanged()
-            .filter { scrolling ->
-                !scrolling
-            }
+            .filter { !it }
             .collect {
                 val type =
                     items.getOrNull(
@@ -120,13 +120,13 @@ fun PfpCarousel(
 
     LaunchedEffect(customPfpUri) {
         if (customPfpUri != null) {
-            val index =
+            val customIndex =
                 items.indexOf(
                     PfpType.CUSTOM
                 )
 
             state.animateScrollToItem(
-                index = index
+                customIndex
             )
 
             onSelected(
@@ -147,22 +147,16 @@ fun PfpCarousel(
 
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment =
-                Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             LazyRow(
                 state = state,
-                modifier =
-                    Modifier.fillMaxWidth(),
-                contentPadding =
-                    PaddingValues(
-                        horizontal =
-                            edgePadding
-                    ),
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    horizontal = edgePadding
+                ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(
-                        6.dp
-                    ),
+                    Arrangement.spacedBy(6.dp),
                 flingBehavior =
                     rememberSnapFlingBehavior(
                         state
@@ -175,51 +169,27 @@ fun PfpCarousel(
                     }
                 ) { index, type ->
 
-                    val scale by remember {
-                        derivedStateOf {
-                            val layout =
-                                state.layoutInfo
-
-                            val center =
-                                (
-                                    layout.viewportStartOffset +
-                                        layout.viewportEndOffset
-                                    ) / 2f
-
-                            val info =
-                                layout
-                                    .visibleItemsInfo
-                                    .firstOrNull {
-                                        it.index == index
-                                    }
-
-                            if (info == null) {
-                                0.94f
-                            } else {
-                                val itemCenter =
-                                    info.offset +
-                                        info.size / 2f
-
-                                val distance =
-                                    abs(
-                                        itemCenter -
-                                            center
-                                    )
-
-                                (
-                                    1.12f -
-                                        distance /
-                                        700f
-                                    ).coerceIn(
-                                    0.94f,
-                                    1.12f
-                                )
-                            }
-                        }
-                    }
-
                     val isCentered =
                         index == centeredIndex
+
+                    val scale by
+                        animateFloatAsState(
+                            targetValue =
+                                if (isCentered) {
+                                    1.12f
+                                } else {
+                                    0.94f
+                                },
+                            animationSpec =
+                                spring(
+                                    dampingRatio =
+                                        0.82f,
+                                    stiffness =
+                                        650f
+                                ),
+                            label =
+                                "pfpScale"
+                        )
 
                     val customClickable =
                         type ==
@@ -242,9 +212,7 @@ fun PfpCarousel(
                                     scaleX = scale
                                     scaleY = scale
                                 }
-                                .clip(
-                                    CircleShape
-                                )
+                                .clip(CircleShape)
                                 .background(
                                     colors.cardElevated
                                 )
@@ -252,9 +220,10 @@ fun PfpCarousel(
                                     if (
                                         customClickable
                                     ) {
-                                        Modifier.clickable {
-                                            onAddClick()
-                                        }
+                                        Modifier
+                                            .clickable {
+                                                onAddClick()
+                                            }
                                     } else {
                                         Modifier
                                     }
@@ -276,8 +245,7 @@ fun PfpCarousel(
                                             colors.primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
-                                        fontSize =
-                                            35.sp,
+                                        fontSize = 35.sp,
                                         textAlign =
                                             TextAlign.Center
                                     )
@@ -342,8 +310,7 @@ fun PfpCarousel(
 
     Text(
         text = centeredType.label,
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         color = colors.secondaryText,
         fontSize = 12.sp,
         textAlign = TextAlign.Center
