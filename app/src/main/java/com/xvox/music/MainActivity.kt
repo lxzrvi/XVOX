@@ -21,7 +21,6 @@ class MainActivity : ComponentActivity() {
             XvoxTheme {
                 SetupScreen(
                     onSetupComplete = {
-                        // Navigation to Home comes next.
                     }
                 )
             }
