@@ -116,7 +116,9 @@ fun SetupScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
             .windowInsetsPadding(
                 WindowInsets.statusBars.union(
                     WindowInsets.navigationBars
@@ -132,52 +134,72 @@ fun SetupScreen(
                     bottom = 10.dp
                 )
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(112.dp),
-                contentAlignment =
-                    Alignment.Center
+                    .weight(0.72f),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+                verticalArrangement =
+                    Arrangement.Center
             ) {
                 Text(
                     text = "XVOX",
-                    color = colors.primaryText,
-                    fontFamily = XvoxLogoFont,
+                    color =
+                        colors.primaryText,
+                    fontFamily =
+                        XvoxLogoFont,
                     fontSize = 31.sp,
-                    textAlign = TextAlign.Center
+                    textAlign =
+                        TextAlign.Center
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(
+                            14.dp
+                        )
+                )
+
+                Text(
+                    text =
+                        "Let's get to know you",
+                    color =
+                        colors.secondaryText,
+                    fontSize = 14.sp,
+                    textAlign =
+                        TextAlign.Center
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(
+                            3.dp
+                        )
+                )
+
+                Text(
+                    text =
+                        "Personalize your xvox",
+                    color =
+                        colors.primaryText,
+                    fontFamily =
+                        XvoxItalicFont,
+                    fontSize = 23.sp,
+                    textAlign =
+                        TextAlign.Center
                 )
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1.05f),
                 horizontalAlignment =
-                    Alignment.CenterHorizontally
+                    Alignment.CenterHorizontally,
+                verticalArrangement =
+                    Arrangement.Center
             ) {
-                Text(
-                    text = "Let's get to know you",
-                    color = colors.secondaryText,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(
-                    modifier = Modifier.height(3.dp)
-                )
-
-                Text(
-                    text = "Personalize your xvox",
-                    color = colors.primaryText,
-                    fontFamily = XvoxItalicFont,
-                    fontSize = 23.sp,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(
-                    modifier = Modifier.height(18.dp)
-                )
-
                 PfpCarousel(
                     selected =
                         state.selectedPfp,
@@ -199,15 +221,20 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(8.dp)
+                    modifier =
+                        Modifier.height(
+                            9.dp
+                        )
                 )
 
                 Text(
                     text =
                         "choose your pfp and enter",
-                    color = colors.mutedText,
+                    color =
+                        colors.mutedText,
                     fontSize = 12.sp,
-                    textAlign = TextAlign.Center
+                    textAlign =
+                        TextAlign.Center
                 )
 
                 SetupNameField(
@@ -224,10 +251,15 @@ fun SetupScreen(
                     state.notificationGranted,
                 onAudioClick = {
                     val permission =
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            Manifest.permission.READ_MEDIA_AUDIO
+                        if (
+                            Build.VERSION.SDK_INT >=
+                            33
+                        ) {
+                            Manifest.permission
+                                .READ_MEDIA_AUDIO
                         } else {
-                            Manifest.permission.READ_EXTERNAL_STORAGE
+                            Manifest.permission
+                                .READ_EXTERNAL_STORAGE
                         }
 
                     if (!audioGranted()) {
@@ -238,25 +270,30 @@ fun SetupScreen(
                 },
                 onNotificationClick = {
                     if (
-                        Build.VERSION.SDK_INT >= 33 &&
+                        Build.VERSION.SDK_INT >=
+                        33 &&
                         !notificationGranted()
                     ) {
                         notificationLauncher.launch(
-                            Manifest.permission.POST_NOTIFICATIONS
+                            Manifest.permission
+                                .POST_NOTIFICATIONS
                         )
                     }
                 }
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier =
+                    Modifier.height(12.dp)
             )
 
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
                 horizontalArrangement =
-                    Arrangement.spacedBy(10.dp),
+                    Arrangement.spacedBy(
+                        10.dp
+                    ),
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
@@ -276,18 +313,21 @@ fun SetupScreen(
                         .weight(1f)
                         .height(48.dp),
                     shape =
-                        RoundedCornerShape(18.dp),
+                        RoundedCornerShape(
+                            18.dp
+                        ),
                     colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor =
-                                colors.primaryAccent,
-                            contentColor =
-                                colors.background,
-                            disabledContainerColor =
-                                colors.accentSoft,
-                            disabledContentColor =
-                                colors.mutedText
-                        )
+                        ButtonDefaults
+                            .buttonColors(
+                                containerColor =
+                                    colors.primaryAccent,
+                                contentColor =
+                                    colors.background,
+                                disabledContainerColor =
+                                    colors.accentSoft,
+                                disabledContentColor =
+                                    colors.mutedText
+                            )
                 ) {
                     Text(
                         text = "Start",
