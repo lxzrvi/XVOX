@@ -1,7 +1,6 @@
 package com.xvox.music.features.setup
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -20,52 +19,69 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
 
 @Composable
 fun PfpCarousel(
     selected: PfpType,
     username: String,
-    onSelected: (PfpType) -> Unit
+    customPfpUri: Uri?,
+    onSelected: (PfpType) -> Unit,
+    onAddClick: () -> Unit
 ) {
     val items = PfpType.entries
     val state = rememberLazyListState()
     val colors = XvoxTheme.colors
 
     LaunchedEffect(state) {
-        snapshotFlow { state.layoutInfo }
-            .map { layout ->
+        snapshotFlow {
+            state.isScrollInProgress
+        }
+            .distinctUntilChanged()
+            .filter { scrolling ->
+                !scrolling
+            }
+            .collect {
+                val layout = state.layoutInfo
+
                 val center =
                     (
                         layout.viewportStartOffset +
                             layout.viewportEndOffset
                         ) / 2
 
-                layout.visibleItemsInfo.minByOrNull {
-                    abs(
-                        it.offset +
-                            it.size / 2 -
-                            center
-                    )
-                }?.index
-            }
-            .distinctUntilChanged()
-            .collect { index ->
-                index?.let {
-                    onSelected(items[it])
+                val item =
+                    layout.visibleItemsInfo.minByOrNull {
+                        abs(
+                            it.offset +
+                                it.size / 2 -
+                                center
+                        )
+                    }
+
+                item?.index?.let { index ->
+                    val type = items[index]
+
+                    if (type != selected) {
+                        onSelected(type)
+                    }
                 }
             }
     }
@@ -73,7 +89,7 @@ fun PfpCarousel(
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
-        val itemWidth = 84.dp
+        val itemWidth = 86.dp
         val edgePadding =
             (maxWidth - itemWidth) / 2
 
@@ -88,24 +104,57 @@ fun PfpCarousel(
                     horizontal = edgePadding
                 ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(8.dp),
+                    Arrangement.spacedBy(7.dp),
                 flingBehavior =
                     rememberSnapFlingBehavior(state)
             ) {
-                itemsIndexed(items) { _, type ->
-                    val centered =
-                        type == selected
+                itemsIndexed(
+                    items = items,
+                    key = { _, type ->
+                        type.name
+                    }
+                ) { index, type ->
 
-                    val scale =
-                        animateFloatAsState(
-                            targetValue =
-                                if (centered) 1.18f else 0.82f,
-                            animationSpec = spring(
-                                dampingRatio = 0.7f,
-                                stiffness = 450f
-                            ),
-                            label = "pfpScale"
-                        )
+                    val scale by remember {
+                        derivedStateOf {
+                            val layout =
+                                state.layoutInfo
+
+                            val viewportCenter =
+                                (
+                                    layout.viewportStartOffset +
+                                        layout.viewportEndOffset
+                                    ) / 2f
+
+                            val info =
+                                layout.visibleItemsInfo
+                                    .firstOrNull {
+                                        it.index == index
+                                    }
+
+                            if (info == null) {
+                                0.82f
+                            } else {
+                                val itemCenter =
+                                    info.offset +
+                                        info.size / 2f
+
+                                val distance =
+                                    abs(
+                                        itemCenter -
+                                            viewportCenter
+                                    )
+
+                                (
+                                    1.12f -
+                                        distance / 500f
+                                    ).coerceIn(
+                                    0.82f,
+                                    1.12f
+                                )
+                            }
+                        }
+                    }
 
                     Box(
                         modifier = Modifier.size(itemWidth),
@@ -113,10 +162,10 @@ fun PfpCarousel(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(62.dp)
+                                .size(64.dp)
                                 .graphicsLayer {
-                                    scaleX = scale.value
-                                    scaleY = scale.value
+                                    scaleX = scale
+                                    scaleY = scale
                                 }
                                 .clip(CircleShape)
                                 .background(
@@ -125,28 +174,49 @@ fun PfpCarousel(
                             contentAlignment =
                                 Alignment.Center
                         ) {
-                            if (type == PfpType.DEFAULT) {
-                                Text(
-                                    text =
-                                        username
-                                            .trim()
-                                            .firstOrNull()
-                                            ?.uppercase()
-                                            ?: "X",
-                                    color = colors.primaryText,
-                                    fontFamily =
-                                        XvoxPersonalFont,
-                                    fontSize = 29.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            } else {
-                                PfpIcon(
-                                    type = type,
-                                    color =
-                                        colors.primaryText,
-                                    modifier =
-                                        Modifier.size(30.dp)
-                                )
+                            when {
+                                type == PfpType.DEFAULT -> {
+                                    Text(
+                                        text =
+                                            username
+                                                .trim()
+                                                .firstOrNull()
+                                                ?.uppercase()
+                                                ?: "X",
+                                        color =
+                                            colors.primaryText,
+                                        fontFamily =
+                                            XvoxPersonalFont,
+                                        fontSize = 30.sp,
+                                        textAlign =
+                                            TextAlign.Center
+                                    )
+                                }
+
+                                type == PfpType.CUSTOM &&
+                                    customPfpUri != null -> {
+                                    AsyncImage(
+                                        model = customPfpUri,
+                                        contentDescription =
+                                            "Custom profile picture",
+                                        modifier =
+                                            Modifier
+                                                .size(64.dp)
+                                                .clip(CircleShape),
+                                        contentScale =
+                                            ContentScale.Crop
+                                    )
+                                }
+
+                                else -> {
+                                    PfpIcon(
+                                        type = type,
+                                        color =
+                                            colors.primaryText,
+                                        modifier =
+                                            Modifier.size(31.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -155,7 +225,7 @@ fun PfpCarousel(
 
             Box(
                 modifier = Modifier
-                    .size(84.dp)
+                    .size(86.dp)
                     .border(
                         width = 2.dp,
                         color = colors.primaryAccent,
@@ -165,14 +235,25 @@ fun PfpCarousel(
         }
     }
 
-    Spacer(Modifier.height(7.dp))
+    Spacer(
+        modifier = Modifier.height(7.dp)
+    )
 
     Text(
         text = selected.label,
         modifier = Modifier.fillMaxWidth(),
         color = colors.secondaryText,
         fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
         textAlign = TextAlign.Center
     )
+
+    LaunchedEffect(selected) {
+        if (
+            selected == PfpType.CUSTOM &&
+            customPfpUri == null &&
+            !state.isScrollInProgress
+        ) {
+            onAddClick()
+        }
+    }
 }
