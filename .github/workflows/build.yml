@@ -1,0 +1,35 @@
+name: Build XVOX APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Build Debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Upload XVOX APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XVOX-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
