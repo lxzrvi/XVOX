@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 
 enum class XvoxThemeMode {
     SYSTEM,
@@ -13,59 +15,74 @@ enum class XvoxThemeMode {
     AMOLED
 }
 
-private val LightColors = lightColorScheme(
-    primary = XvoxPurple,
-    onPrimary = XvoxLightSurface,
-    background = XvoxLightBackground,
-    onBackground = XvoxLightText,
-    surface = XvoxLightSurface,
-    onSurface = XvoxLightText,
-    surfaceVariant = XvoxLightSurfaceVariant,
-    onSurfaceVariant = XvoxLightSecondaryText,
-    error = XvoxError
-)
+private val LocalXvoxPalette =
+    staticCompositionLocalOf {
+        XvoxDarkPalette
+    }
 
-private val DarkColors = darkColorScheme(
-    primary = XvoxPurpleLight,
-    onPrimary = XvoxDarkBackground,
-    background = XvoxDarkBackground,
-    onBackground = XvoxDarkText,
-    surface = XvoxDarkSurface,
-    onSurface = XvoxDarkText,
-    surfaceVariant = XvoxDarkSurfaceVariant,
-    onSurfaceVariant = XvoxDarkSecondaryText,
-    error = XvoxError
-)
-
-private val AmoledColors = darkColorScheme(
-    primary = XvoxPurpleLight,
-    onPrimary = XvoxAmoledBackground,
-    background = XvoxAmoledBackground,
-    onBackground = XvoxDarkText,
-    surface = XvoxAmoledSurface,
-    onSurface = XvoxDarkText,
-    surfaceVariant = XvoxDarkSurfaceVariant,
-    onSurfaceVariant = XvoxDarkSecondaryText,
-    error = XvoxError
-)
+object XvoxTheme {
+    val colors: XvoxPalette
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalXvoxPalette.current
+}
 
 @Composable
 fun XvoxTheme(
     mode: XvoxThemeMode = XvoxThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val colors = when (mode) {
-        XvoxThemeMode.LIGHT -> LightColors
-        XvoxThemeMode.DARK -> DarkColors
-        XvoxThemeMode.AMOLED -> AmoledColors
-        XvoxThemeMode.SYSTEM ->
-            if (isSystemInDarkTheme()) DarkColors else LightColors
+    val palette = when (mode) {
+        XvoxThemeMode.LIGHT -> XvoxWhitePalette
+        XvoxThemeMode.DARK -> XvoxDarkPalette
+        XvoxThemeMode.AMOLED -> XvoxAmoledPalette
+
+        XvoxThemeMode.SYSTEM -> {
+            if (isSystemInDarkTheme()) {
+                XvoxDarkPalette
+            } else {
+                XvoxWhitePalette
+            }
+        }
     }
 
-    MaterialTheme(
-        colorScheme = colors,
-        typography = XvoxTypography,
-        shapes = XvoxShapes,
-        content = content
-    )
+    val materialColors =
+        if (
+            mode == XvoxThemeMode.LIGHT ||
+            (
+                mode == XvoxThemeMode.SYSTEM &&
+                !isSystemInDarkTheme()
+            )
+        ) {
+            lightColorScheme(
+                primary = palette.primaryAccent,
+                onPrimary = palette.background,
+                background = palette.background,
+                onBackground = palette.primaryText,
+                surface = palette.surface,
+                onSurface = palette.primaryText,
+                outline = palette.cardBorder
+            )
+        } else {
+            darkColorScheme(
+                primary = palette.primaryAccent,
+                onPrimary = palette.background,
+                background = palette.background,
+                onBackground = palette.primaryText,
+                surface = palette.surface,
+                onSurface = palette.primaryText,
+                outline = palette.cardBorder
+            )
+        }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalXvoxPalette provides palette
+    ) {
+        MaterialTheme(
+            colorScheme = materialColors,
+            typography = XvoxTypography,
+            shapes = XvoxShapes,
+            content = content
+        )
+    }
 }
