@@ -11,7 +11,7 @@
         </item>
 
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/splash_placeholder
+            @drawable/xvox_splash_x
         </item>
 
         <item name="postSplashScreenTheme">
@@ -40,8 +40,8 @@
             @android:color/transparent
         </item>
 
-        <item name="android:windowActionModeOverlay">
-            true
+        <item name="android:windowDisablePreview">
+            false
         </item>
 
     </style>
