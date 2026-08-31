@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-    <color name="xvox_launcher_background">#FAFAFA</color>
-    <color name="xvox_splash_background">#FAFAFA</color>
+    <color name="xvox_launcher_background">#0A0A0A</color>
+    <color name="xvox_splash_background">#0A0A0A</color>
 </resources>
