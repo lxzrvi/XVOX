@@ -2,10 +2,10 @@ package com.xvox.music.features.setup
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,109 +20,138 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlin.math.abs
 
 @Composable
 fun PfpCarousel(
     selected: PfpType,
-    onSelected: (PfpType) -> Unit,
-    onCustomClick: () -> Unit
+    username: String,
+    onSelected: (PfpType) -> Unit
 ) {
     val items = PfpType.entries
-    val state = rememberLazyListState(
-        initialFirstVisibleItemIndex = items.indexOf(selected)
-    )
+    val state = rememberLazyListState()
 
     LaunchedEffect(state) {
         snapshotFlow { state.layoutInfo }
             .map { layout ->
-                val center =
-                    (layout.viewportStartOffset + layout.viewportEndOffset) / 2
+                if (layout.visibleItemsInfo.isEmpty()) {
+                    null
+                } else {
+                    val center =
+                        (
+                            layout.viewportStartOffset +
+                                layout.viewportEndOffset
+                            ) / 2
 
-                layout.visibleItemsInfo.minByOrNull {
-                    kotlin.math.abs(
-                        (it.offset + it.size / 2) - center
-                    )
-                }?.index
+                    layout.visibleItemsInfo.minByOrNull {
+                        abs(
+                            (
+                                it.offset +
+                                    it.size / 2
+                                ) - center
+                        )
+                    }?.index
+                }
             }
             .distinctUntilChanged()
             .collect { index ->
-                if (index != null) {
-                    val item = items[index]
-                    if (item != PfpType.CUSTOM) {
-                        onSelected(item)
-                    }
+                index?.let {
+                    onSelected(items[it])
                 }
             }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        LazyRow(
-            state = state,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 132.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            flingBehavior = rememberSnapFlingBehavior(state)
-        ) {
-            itemsIndexed(items) { index, type ->
-                val isCentered = type == selected
-                val size = if (isCentered) 74.dp else 56.dp
+    val colors = XvoxTheme.colors
 
-                Box(
-                    modifier = Modifier
-                        .size(82.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(size)
-                            .clip(CircleShape)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .clickable {
-                                if (type == PfpType.CUSTOM) {
-                                    onCustomClick()
-                                } else {
-                                    onSelected(type)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = pfpSymbol(type),
-                            color = Color.White,
-                            fontSize = if (isCentered) 30.sp else 23.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val itemWidth = 74.dp
+        val edgePadding =
+            (maxWidth - itemWidth) / 2
 
         Box(
-            modifier = Modifier
-                .size(82.dp)
-                .border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape
-                )
-        )
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            LazyRow(
+                state = state,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    horizontal = edgePadding
+                ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp),
+                flingBehavior =
+                    rememberSnapFlingBehavior(state)
+            ) {
+                itemsIndexed(items) { _, type ->
+                    Box(
+                        modifier = Modifier.size(itemWidth),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .clip(CircleShape)
+                                .background(colors.cardElevated),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = pfpContent(
+                                    type = type,
+                                    username = username
+                                ),
+                                color = colors.primaryText,
+                                fontSize = 25.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(74.dp)
+                    .border(
+                        width = 2.dp,
+                        color = colors.primaryAccent,
+                        shape = CircleShape
+                    )
+            )
+        }
     }
+
+    Text(
+        text = selected.label,
+        modifier = Modifier.fillMaxWidth(),
+        color = colors.secondaryText,
+        fontSize = 12.sp,
+        textAlign = TextAlign.Center
+    )
 }
 
-private fun pfpSymbol(type: PfpType): String {
+private fun pfpContent(
+    type: PfpType,
+    username: String
+): String {
     return when (type) {
+        PfpType.DEFAULT ->
+            username
+                .trim()
+                .firstOrNull()
+                ?.uppercase()
+                ?: "X"
+
         PfpType.HEART -> "♥"
         PfpType.STAR -> "★"
         PfpType.CIRCLE -> "●"
