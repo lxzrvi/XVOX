@@ -6,29 +6,49 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedButtonDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.xvox.music.core.design.theme.XvoxSuccess
 
 @Composable
 fun SetupScreen(
@@ -36,14 +56,15 @@ fun SetupScreen(
     viewModel: SetupViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val state by viewModel.state.collectAsState()
 
     fun audioGranted(): Boolean {
-        val permission =
-            if (Build.VERSION.SDK_INT >= 33)
-                Manifest.permission.READ_MEDIA_AUDIO
-            else
-                Manifest.permission.READ_EXTERNAL_STORAGE
+        val permission = if (Build.VERSION.SDK_INT >= 33) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
 
         return ContextCompat.checkSelfPermission(
             context,
@@ -60,142 +81,155 @@ fun SetupScreen(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    val notificationLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) {
-            viewModel.updatePermissions(
-                audioGranted(),
-                notificationGranted()
-            )
-        }
-
-    val audioLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) {
-            viewModel.updatePermissions(
-                audioGranted(),
-                notificationGranted()
-            )
-
-            if (
-                Build.VERSION.SDK_INT >= 33 &&
-                !notificationGranted()
-            ) {
-                notificationLauncher.launch(
-                    Manifest.permission.POST_NOTIFICATIONS
-                )
-            }
-        }
-
-    val imageLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.GetContent()
-        ) { uri ->
-            uri?.let(viewModel::setCustomPfp)
-        }
-
-    LaunchedEffect(Unit) {
+    val audioLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
         viewModel.updatePermissions(
-            audioGranted(),
-            notificationGranted()
+            audioGranted = audioGranted(),
+            notificationGranted = notificationGranted()
         )
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.safeDrawing
-    ) { padding ->
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        viewModel.updatePermissions(
+            audioGranted = audioGranted(),
+            notificationGranted = notificationGranted()
+        )
+    }
 
+    val imageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let(viewModel::setCustomPfp)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.updatePermissions(
+            audioGranted = audioGranted(),
+            notificationGranted = notificationGranted()
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 20.dp),
+                .padding(
+                    horizontal = 18.dp,
+                    vertical = 10.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            Spacer(Modifier.weight(0.35f))
-
             Text(
                 text = "XVOX",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            Text(
-                text = "Let's get to know you",
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Text(
-                text = "Personalize your xvox",
-                style = MaterialTheme.typography.headlineMedium,
-                fontStyle = FontStyle.Italic,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(26.dp))
-
-            PfpCarousel(
-                selected = state.selectedPfp,
-                onSelected = { type ->
-                    if (type == PfpType.CUSTOM) {
-                        imageLauncher.launch("image/*")
-                    } else {
-                        viewModel.selectPfp(type)
-                    }
-                }
+                color = Color.White,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp
             )
 
             Spacer(Modifier.height(18.dp))
 
             Text(
-                text = "choose your pfp and enter",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "Let's get to know you",
+                color = Color.White.copy(alpha = 0.72f),
+                fontSize = 14.sp
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(3.dp))
+
+            Text(
+                text = "Personalize your xvox",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                fontStyle = FontStyle.Italic
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            PfpCarousel(
+                selected = state.selectedPfp,
+                onSelected = viewModel::selectPfp,
+                onCustomClick = {
+                    imageLauncher.launch("image/*")
+                }
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "choose your pfp and enter",
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 12.sp
+            )
+
+            Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::setName,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
                 placeholder = {
                     Text(
                         text = "your name",
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        color = Color.White.copy(alpha = 0.42f),
+                        textAlign = TextAlign.Center,
+                        fontSize = 13.sp
                     )
                 },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                ),
                 singleLine = true,
-                shape = MaterialTheme.shapes.large,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor =
+                        MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor =
+                        Color.White.copy(alpha = 0.25f),
+                    cursorColor =
+                        MaterialTheme.colorScheme.primary
+                ),
                 keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                    }
                 )
             )
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.weight(1f))
 
             PermissionCard(
                 audioGranted = state.audioGranted,
                 notificationGranted = state.notificationGranted,
-                onRequestPermissions = {
+                onAudioClick = {
                     val permission =
-                        if (Build.VERSION.SDK_INT >= 33)
+                        if (Build.VERSION.SDK_INT >= 33) {
                             Manifest.permission.READ_MEDIA_AUDIO
-                        else
+                        } else {
                             Manifest.permission.READ_EXTERNAL_STORAGE
+                        }
 
-                    if (!audioGranted()) {
-                        audioLauncher.launch(permission)
-                    } else if (
-                        Build.VERSION.SDK_INT >= 33 &&
-                        !notificationGranted()
-                    ) {
+                    audioLauncher.launch(permission)
+                },
+                onNotificationClick = {
+                    if (Build.VERSION.SDK_INT >= 33) {
                         notificationLauncher.launch(
                             Manifest.permission.POST_NOTIFICATIONS
                         )
@@ -203,23 +237,25 @@ fun SetupScreen(
                 }
             )
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .imePadding(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 OutlinedButton(
                     onClick = {
                         (context as? Activity)?.finish()
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp),
-                    shape = MaterialTheme.shapes.large
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedButtonDefaults.colors(
+                        contentColor = Color.White
+                    )
                 ) {
                     Text("Exit")
                 }
@@ -229,145 +265,17 @@ fun SetupScreen(
                     enabled = state.setupComplete,
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp),
-                    shape = MaterialTheme.shapes.large
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor = Color.White,
+                        disabledContentColor =
+                            Color.White.copy(alpha = 0.4f)
+                    )
                 ) {
                     Text("Start")
                 }
             }
-
-            Spacer(Modifier.height(8.dp))
         }
-    }
-}
-
-@Composable
-private fun PfpCarousel(
-    selected: PfpType,
-    onSelected: (PfpType) -> Unit
-) {
-    val items = PfpType.entries
-
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(horizontal = 28.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items(items) { item ->
-
-            val isSelected = item == selected
-
-            Box(
-                modifier = Modifier
-                    .size(if (isSelected) 88.dp else 62.dp)
-                    .graphicsLayer {
-                        alpha = if (isSelected) 1f else 0.6f
-                    }
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .then(
-                        if (isSelected) {
-                            Modifier.border(
-                                BorderStroke(
-                                    2.dp,
-                                    MaterialTheme.colorScheme.primary
-                                ),
-                                CircleShape
-                            )
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .clickable {
-                        onSelected(item)
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = pfpSymbol(item),
-                    style = MaterialTheme.typography.headlineMedium
-                )
-            }
-        }
-    }
-}
-
-private fun pfpSymbol(type: PfpType): String =
-    when (type) {
-        PfpType.HEART -> "♥"
-        PfpType.STAR -> "★"
-        PfpType.CIRCLE -> "●"
-        PfpType.DIAMOND -> "◆"
-        PfpType.HEXAGON -> "⬢"
-        PfpType.CUSTOM -> "+"
-    }
-
-@Composable
-private fun PermissionCard(
-    audioGranted: Boolean,
-    notificationGranted: Boolean,
-    onRequestPermissions: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onRequestPermissions),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-
-            Text(
-                text = "permissions",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Spacer(Modifier.height(18.dp))
-
-            PermissionRow(
-                title = "Audio and storage access",
-                granted = audioGranted
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            PermissionRow(
-                title = "Notifications permission",
-                granted = notificationGranted
-            )
-        }
-    }
-}
-
-@Composable
-private fun PermissionRow(
-    title: String,
-    granted: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f)
-        )
-
-        Text(
-            text = if (granted) "✓" else "X",
-            color = if (granted) {
-                XvoxSuccess
-            } else {
-                MaterialTheme.colorScheme.error
-            },
-            style = MaterialTheme.typography.titleMedium
-        )
     }
 }
