@@ -24,52 +24,78 @@ fun StartupAnimation(
     val density = LocalDensity.current
     val colors = XvoxTheme.colors
 
-    val typeface = remember {
+    val logoTypeface = remember {
         ResourcesCompat.getFont(
             context,
             R.font.xvoxcinzeldecorative
         )
     }
 
-    val textSize = with(density) {
+    val logoTextSize = with(density) {
         42.sp.toPx()
     }
 
+    val logoColor =
+        colors.primaryText.toAndroidColor()
+
     val paint = remember(
-        typeface,
-        textSize,
-        colors.primaryText
+        logoTypeface,
+        logoTextSize,
+        logoColor
     ) {
         Paint(
             Paint.ANTI_ALIAS_FLAG
         ).apply {
-            this.typeface = typeface
-            this.textSize = textSize
-            this.color = colors.primaryText.toAndroidColor()
+            typeface = logoTypeface
+            textSize = logoTextSize
+            color = logoColor
+            textAlign = Paint.Align.LEFT
         }
     }
-    
+
     Canvas(
         modifier = Modifier.size(
-            width = 280.dp,
-            height = 90.dp
+            width = 320.dp,
+            height = 100.dp
         )
     ) {
-        val xWidth = paint.measureText("X")
-        val voxWidth = paint.measureText("VOX")
-        val fullWidth = xWidth + voxWidth
+        val xWidth =
+            paint.measureText("X")
 
-        val initialX =
+        val voxWidth =
+            paint.measureText("VOX")
+
+        val completeWidth =
+            xWidth + voxWidth
+
+        val initialXPosition =
             size.width / 2f -
                 xWidth / 2f
 
-        val finalX =
+        val finalXPosition =
             size.width / 2f -
-                fullWidth / 2f
+                completeWidth / 2f
 
         val xPosition =
-            initialX +
-                (finalX - initialX) * progress
+            lerp(
+                start = initialXPosition,
+                end = finalXPosition,
+                fraction = progress
+            )
+
+        val finalVoxPosition =
+            finalXPosition + xWidth
+
+        val hiddenVoxPosition =
+            initialXPosition +
+                xWidth * 0.12f
+
+        val voxPosition =
+            lerp(
+                start = hiddenVoxPosition,
+                end = finalVoxPosition,
+                fraction = progress
+            )
 
         val metrics = paint.fontMetrics
 
@@ -80,29 +106,14 @@ fun StartupAnimation(
                         metrics.descent
                     ) / 2f
 
-        val voxFinalX =
-            xPosition + xWidth
-
-        val voxStartX =
-            xPosition +
-                xWidth * 0.18f
-
-        val voxPosition =
-            voxStartX +
-                (
-                    voxFinalX -
-                        voxStartX
-                    ) * progress
-
-        val revealRight =
-            voxFinalX +
-                voxWidth * progress
-
         if (progress > 0f) {
+            val revealLeft =
+                xPosition + xWidth * 0.68f
+
             clipRect(
-                left = xPosition + xWidth * 0.62f,
+                left = revealLeft,
                 top = 0f,
-                right = revealRight,
+                right = size.width,
                 bottom = size.height
             ) {
                 drawContext.canvas
@@ -125,6 +136,16 @@ fun StartupAnimation(
                 paint
             )
     }
+}
+
+private fun lerp(
+    start: Float,
+    end: Float,
+    fraction: Float
+): Float {
+    return start +
+        (end - start) *
+        fraction.coerceIn(0f, 1f)
 }
 
 private fun androidx.compose.ui.graphics.Color.toAndroidColor(): Int {
