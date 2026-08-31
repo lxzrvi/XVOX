@@ -1,5 +1,7 @@
 package com.xvox.music.features.setup
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -7,7 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -20,10 +24,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -37,28 +43,24 @@ fun PfpCarousel(
 ) {
     val items = PfpType.entries
     val state = rememberLazyListState()
+    val colors = XvoxTheme.colors
 
     LaunchedEffect(state) {
         snapshotFlow { state.layoutInfo }
             .map { layout ->
-                if (layout.visibleItemsInfo.isEmpty()) {
-                    null
-                } else {
-                    val center =
-                        (
-                            layout.viewportStartOffset +
-                                layout.viewportEndOffset
-                            ) / 2
+                val center =
+                    (
+                        layout.viewportStartOffset +
+                            layout.viewportEndOffset
+                        ) / 2
 
-                    layout.visibleItemsInfo.minByOrNull {
-                        abs(
-                            (
-                                it.offset +
-                                    it.size / 2
-                                ) - center
-                        )
-                    }?.index
-                }
+                layout.visibleItemsInfo.minByOrNull {
+                    abs(
+                        it.offset +
+                            it.size / 2 -
+                            center
+                    )
+                }?.index
             }
             .distinctUntilChanged()
             .collect { index ->
@@ -68,12 +70,10 @@ fun PfpCarousel(
             }
     }
 
-    val colors = XvoxTheme.colors
-
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
-        val itemWidth = 74.dp
+        val itemWidth = 84.dp
         val edgePadding =
             (maxWidth - itemWidth) / 2
 
@@ -88,32 +88,66 @@ fun PfpCarousel(
                     horizontal = edgePadding
                 ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(10.dp),
+                    Arrangement.spacedBy(8.dp),
                 flingBehavior =
                     rememberSnapFlingBehavior(state)
             ) {
                 itemsIndexed(items) { _, type ->
+                    val centered =
+                        type == selected
+
+                    val scale =
+                        animateFloatAsState(
+                            targetValue =
+                                if (centered) 1.18f else 0.82f,
+                            animationSpec = spring(
+                                dampingRatio = 0.7f,
+                                stiffness = 450f
+                            ),
+                            label = "pfpScale"
+                        )
+
                     Box(
                         modifier = Modifier.size(itemWidth),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(58.dp)
+                                .size(62.dp)
+                                .graphicsLayer {
+                                    scaleX = scale.value
+                                    scaleY = scale.value
+                                }
                                 .clip(CircleShape)
-                                .background(colors.cardElevated),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = pfpContent(
-                                    type = type,
-                                    username = username
+                                .background(
+                                    colors.cardElevated
                                 ),
-                                color = colors.primaryText,
-                                fontSize = 25.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center
-                            )
+                            contentAlignment =
+                                Alignment.Center
+                        ) {
+                            if (type == PfpType.DEFAULT) {
+                                Text(
+                                    text =
+                                        username
+                                            .trim()
+                                            .firstOrNull()
+                                            ?.uppercase()
+                                            ?: "X",
+                                    color = colors.primaryText,
+                                    fontFamily =
+                                        XvoxPersonalFont,
+                                    fontSize = 29.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                PfpIcon(
+                                    type = type,
+                                    color =
+                                        colors.primaryText,
+                                    modifier =
+                                        Modifier.size(30.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -121,7 +155,7 @@ fun PfpCarousel(
 
             Box(
                 modifier = Modifier
-                    .size(74.dp)
+                    .size(84.dp)
                     .border(
                         width = 2.dp,
                         color = colors.primaryAccent,
@@ -131,32 +165,14 @@ fun PfpCarousel(
         }
     }
 
+    Spacer(Modifier.height(7.dp))
+
     Text(
         text = selected.label,
         modifier = Modifier.fillMaxWidth(),
         color = colors.secondaryText,
         fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
         textAlign = TextAlign.Center
     )
-}
-
-private fun pfpContent(
-    type: PfpType,
-    username: String
-): String {
-    return when (type) {
-        PfpType.DEFAULT ->
-            username
-                .trim()
-                .firstOrNull()
-                ?.uppercase()
-                ?: "X"
-
-        PfpType.HEART -> "♥"
-        PfpType.STAR -> "★"
-        PfpType.CIRCLE -> "●"
-        PfpType.DIAMOND -> "◆"
-        PfpType.HEXAGON -> "⬢"
-        PfpType.CUSTOM -> "+"
-    }
 }
