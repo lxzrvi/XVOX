@@ -1,7 +1,7 @@
 package com.xvox.music.startup
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -34,27 +34,28 @@ fun StartupScreen(
     }
 
     val progress by animateFloatAsState(
-        targetValue =
-            if (reveal) 1f else 0f,
+        targetValue = if (reveal) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 900,
-            easing = FastOutSlowInEasing
+            durationMillis = 1100,
+            easing = CubicBezierEasing(
+                0.22f,
+                1f,
+                0.36f,
+                1f
+            )
         ),
         label = "xvoxReveal"
     )
 
     LaunchedEffect(Unit) {
-        delay(450)
-
         reveal = true
 
-        delay(900)
-
+        delay(1100)
         delay(1000)
 
         visible = false
 
-        delay(250)
+        delay(220)
 
         StartupState.animationShown = true
         onFinished()
@@ -70,7 +71,7 @@ fun StartupScreen(
             visible = visible,
             exit = fadeOut(
                 animationSpec = tween(
-                    durationMillis = 250
+                    durationMillis = 220
                 )
             )
         ) {
