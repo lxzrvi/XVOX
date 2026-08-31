@@ -7,26 +7,24 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,9 +42,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxItalicFont
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 
 @Composable
 fun SetupScreen(
@@ -108,15 +103,16 @@ fun SetupScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickVisualMedia()
         ) { uri ->
-            if (uri != null) {
-                viewModel.setCustomPfp(uri)
-            }
+            uri?.let(
+                viewModel::setCustomPfp
+            )
         }
 
     LaunchedEffect(Unit) {
         viewModel.updatePermissions(
             audioGranted = audioGranted(),
-            notificationGranted = notificationGranted()
+            notificationGranted =
+                notificationGranted()
         )
     }
 
@@ -136,14 +132,13 @@ fun SetupScreen(
                 .padding(
                     start = 18.dp,
                     end = 18.dp,
-                    top = 20.dp,
                     bottom = 10.dp
                 )
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp),
+                    .height(104.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -266,35 +261,12 @@ fun SetupScreen(
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
-                OutlinedButton(
+                SetupCloseButton(
                     onClick = {
                         (context as? Activity)
                             ?.finish()
-                    },
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape,
-                    contentPadding =
-                        PaddingValues(0.dp),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = colors.cardBorder
-                    ),
-                    colors =
-                        ButtonDefaults
-                            .outlinedButtonColors(
-                                contentColor =
-                                    colors.primaryText
-                            )
-                ) {
-                    Text(
-                        text = "×",
-                        fontSize = 24.sp,
-                        fontWeight =
-                            FontWeight.Normal,
-                        textAlign =
-                            TextAlign.Center
-                    )
-                }
+                    }
+                )
 
                 Button(
                     onClick = onSetupComplete,
