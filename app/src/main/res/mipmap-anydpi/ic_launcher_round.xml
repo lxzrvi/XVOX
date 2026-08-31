@@ -5,15 +5,12 @@
     <item
         android:drawable="@color/xvox_launcher_background" />
 
-    <item
-        android:left="20dp"
-        android:top="20dp"
-        android:right="20dp"
-        android:bottom="20dp">
+    <item>
 
         <bitmap
             android:src="@drawable/xvox"
-            android:gravity="center" />
+            android:gravity="center"
+            android:tileMode="disabled" />
 
     </item>
 
