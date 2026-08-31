@@ -1,8 +1,6 @@
 package com.xvox.music.features.setup
 
 import android.net.Uri
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +50,10 @@ fun PfpCarousel(
     val items = PfpType.entries
     val colors = XvoxTheme.colors
 
+    // ============================================================
+    // 1️⃣ INITIAL POSITION
+    // ============================================================
+
     val initialIndex = remember {
         items.indexOf(selected)
             .coerceAtLeast(0)
@@ -60,6 +62,14 @@ fun PfpCarousel(
     val state = rememberLazyListState(
         initialFirstVisibleItemIndex = initialIndex
     )
+
+    // ============================================================
+    // 2️⃣ FIND CENTER ITEM
+    // ============================================================
+    //
+    // Keep only ONE derived calculation for the carousel.
+    // No separate calculation per PFP.
+    //
 
     val centeredIndex by remember {
         derivedStateOf {
@@ -72,7 +82,7 @@ fun PfpCarousel(
                     (
                         layout.viewportStartOffset +
                             layout.viewportEndOffset
-                        ) / 2f
+                    ) / 2f
 
                 layout.visibleItemsInfo
                     .minByOrNull { item ->
@@ -97,6 +107,10 @@ fun PfpCarousel(
             PfpType.DEFAULT
         }
 
+    // ============================================================
+    // 3️⃣ UPDATE SELECTED PFP ONLY AFTER SCROLL STOPS
+    // ============================================================
+
     LaunchedEffect(state) {
         snapshotFlow {
             state.isScrollInProgress
@@ -105,9 +119,7 @@ fun PfpCarousel(
             .filter { !it }
             .collect {
                 val type =
-                    items.getOrNull(
-                        centeredIndex
-                    )
+                    items.getOrNull(centeredIndex)
 
                 if (
                     type != null &&
@@ -118,50 +130,69 @@ fun PfpCarousel(
             }
     }
 
+    // ============================================================
+    // 4️⃣ CUSTOM PFP AUTO-SCROLL
+    // ============================================================
+
     LaunchedEffect(customPfpUri) {
         if (customPfpUri != null) {
+
             val customIndex =
-                items.indexOf(
-                    PfpType.CUSTOM
+                items.indexOf(PfpType.CUSTOM)
+
+            if (customIndex >= 0) {
+
+                state.animateScrollToItem(
+                    customIndex
                 )
 
-            state.animateScrollToItem(
-                customIndex
-            )
-
-            onSelected(
-                PfpType.CUSTOM
-            )
+                onSelected(
+                    PfpType.CUSTOM
+                )
+            }
         }
     }
+
+    // ============================================================
+    // 5️⃣ CAROUSEL
+    // ============================================================
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
+
         val slotWidth = 90.dp
 
         val edgePadding =
             (
                 (maxWidth - slotWidth) / 2
-                ).coerceAtLeast(0.dp)
+            ).coerceAtLeast(0.dp)
 
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
+
             LazyRow(
                 state = state,
+
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(
-                    horizontal = edgePadding
-                ),
+
+                contentPadding =
+                    PaddingValues(
+                        horizontal = edgePadding
+                    ),
+
                 horizontalArrangement =
                     Arrangement.spacedBy(6.dp),
+
+                // Keep snapping
                 flingBehavior =
                     rememberSnapFlingBehavior(
                         state
                     )
             ) {
+
                 itemsIndexed(
                     items = items,
                     key = { _, type ->
@@ -169,33 +200,39 @@ fun PfpCarousel(
                     }
                 ) { index, type ->
 
+                    // ====================================================
+                    // 6️⃣ CENTER DETECTION
+                    // ====================================================
+
                     val isCentered =
                         index == centeredIndex
 
-                    val scale by
-                        animateFloatAsState(
-                            targetValue =
-                                if (isCentered) {
-                                    1.12f
-                                } else {
-                                    0.94f
-                                },
-                            animationSpec =
-                                spring(
-                                    dampingRatio =
-                                        0.82f,
-                                    stiffness =
-                                        650f
-                                ),
-                            label =
-                                "pfpScale"
-                        )
+                    // ====================================================
+                    // 7️⃣ PERFORMANCE FIX
+                    // ====================================================
+                    //
+                    // IMPORTANT:
+                    // No animateFloatAsState on every PFP.
+                    //
+                    // This removes the continuous spring animation
+                    // running independently for every item.
+                    //
+
+                    val scale =
+                        if (isCentered) {
+                            1.12f
+                        } else {
+                            0.94f
+                        }
+
+                    // ====================================================
+                    // 8️⃣ CUSTOM PFP CLICK
+                    // ====================================================
 
                     val customClickable =
-                        type ==
-                            PfpType.CUSTOM &&
-                            isCentered &&
-                            !state.isScrollInProgress
+                        type == PfpType.CUSTOM &&
+                        isCentered &&
+                        !state.isScrollInProgress
 
                     Box(
                         modifier =
@@ -205,35 +242,51 @@ fun PfpCarousel(
                         contentAlignment =
                             Alignment.Center
                     ) {
+
                         Box(
-                            modifier = Modifier
-                                .size(74.dp)
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                }
-                                .clip(CircleShape)
-                                .background(
-                                    colors.cardElevated
-                                )
-                                .then(
-                                    if (
-                                        customClickable
-                                    ) {
-                                        Modifier
-                                            .clickable {
+                            modifier =
+                                Modifier
+                                    .size(74.dp)
+
+                                    // Lightweight GPU transform
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+
+                                    .clip(
+                                        CircleShape
+                                    )
+
+                                    .background(
+                                        colors.cardElevated
+                                    )
+
+                                    .then(
+                                        if (
+                                            customClickable
+                                        ) {
+                                            Modifier.clickable {
                                                 onAddClick()
                                             }
-                                    } else {
-                                        Modifier
-                                    }
-                                ),
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
+
                             contentAlignment =
                                 Alignment.Center
                         ) {
+
+                            // =================================================
+                            // 9️⃣ PFP CONTENT
+                            // =================================================
+
                             when {
+
                                 type ==
                                     PfpType.DEFAULT -> {
+
                                     Text(
                                         text =
                                             username
@@ -241,11 +294,16 @@ fun PfpCarousel(
                                                 .firstOrNull()
                                                 ?.uppercase()
                                                 ?: "X",
+
                                         color =
                                             colors.primaryText,
+
                                         fontFamily =
                                             XvoxPersonalFont,
-                                        fontSize = 35.sp,
+
+                                        fontSize =
+                                            35.sp,
+
                                         textAlign =
                                             TextAlign.Center
                                     )
@@ -253,31 +311,35 @@ fun PfpCarousel(
 
                                 type ==
                                     PfpType.CUSTOM &&
-                                    customPfpUri !=
-                                    null -> {
+                                customPfpUri != null -> {
+
                                     AsyncImage(
                                         model =
                                             customPfpUri,
+
                                         contentDescription =
                                             "Custom profile picture",
+
                                         modifier =
                                             Modifier
-                                                .size(
-                                                    74.dp
-                                                )
+                                                .size(74.dp)
                                                 .clip(
                                                     CircleShape
                                                 ),
+
                                         contentScale =
                                             ContentScale.Crop
                                     )
                                 }
 
                                 else -> {
+
                                     PfpIcon(
                                         type = type,
+
                                         color =
                                             colors.primaryText,
+
                                         modifier =
                                             Modifier.size(
                                                 36.dp
@@ -290,29 +352,48 @@ fun PfpCarousel(
                 }
             }
 
+            // ============================================================
+            // 🔟 CENTER SELECTION RING
+            // ============================================================
+
             Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .border(
-                        width = 2.dp,
-                        color =
-                            colors.primaryAccent,
-                        shape =
-                            CircleShape
-                    )
+                modifier =
+                    Modifier
+                        .size(96.dp)
+                        .border(
+                            width = 2.dp,
+                            color =
+                                colors.primaryAccent,
+                            shape =
+                                CircleShape
+                        )
             )
         }
     }
 
+    // ============================================================
+    // 1️⃣1️⃣ SELECTED PFP LABEL
+    // ============================================================
+
     Spacer(
-        modifier = Modifier.height(8.dp)
+        modifier =
+            Modifier.height(8.dp)
     )
 
     Text(
-        text = centeredType.label,
-        modifier = Modifier.fillMaxWidth(),
-        color = colors.secondaryText,
-        fontSize = 12.sp,
-        textAlign = TextAlign.Center
+        text =
+            centeredType.label,
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        color =
+            colors.secondaryText,
+
+        fontSize =
+            12.sp,
+
+        textAlign =
+            TextAlign.Center
     )
 }
