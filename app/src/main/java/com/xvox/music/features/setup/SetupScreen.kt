@@ -159,7 +159,7 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(14.dp)
+                    modifier = Modifier.height(26.dp)
                 )
 
                 Text(
@@ -170,7 +170,7 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(3.dp)
+                    modifier = Modifier.height(6.dp)
                 )
 
                 Text(
