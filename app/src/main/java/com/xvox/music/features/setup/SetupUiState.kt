@@ -5,12 +5,12 @@ import android.net.Uri
 enum class PfpType(
     val label: String
 ) {
-    DEFAULT("Default"),
-    HEART("Heart"),
+    DEFAULT("You"),
+    HEART("Amour"),
     STAR("Nova"),
-    CIRCLE("Orbit"),
-    DIAMOND("Gem"),
-    HEXAGON("Hex"),
+    CIRCLE("Luna"),
+    DIAMOND("Prism"),
+    HEXAGON("Nexus"),
     CUSTOM("Add")
 }
 
