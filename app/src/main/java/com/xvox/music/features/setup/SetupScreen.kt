@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -126,7 +127,7 @@ fun SetupScreen(
                 )
             )
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
@@ -135,14 +136,16 @@ fun SetupScreen(
                     bottom = 10.dp
                 )
         ) {
+            val screenHeight = maxHeight
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.72f),
+                    .offset(
+                        y = screenHeight * 0.13f
+                    ),
                 horizontalAlignment =
-                    Alignment.CenterHorizontally,
-                verticalArrangement =
-                    Arrangement.Center
+                    Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "XVOX",
@@ -179,14 +182,11 @@ fun SetupScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.05f)
                     .offset(
-                        y = (-5).dp
+                        y = screenHeight * 0.30f
                     ),
                 horizontalAlignment =
-                    Alignment.CenterHorizontally,
-                verticalArrangement =
-                    Arrangement.Center
+                    Alignment.CenterHorizontally
             ) {
                 PfpCarousel(
                     selected = state.selectedPfp,
@@ -205,7 +205,7 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(9.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 Text(
@@ -217,82 +217,109 @@ fun SetupScreen(
 
                 SetupNameField(
                     value = state.name,
-                    onValueChange = viewModel::setName
+                    onValueChange =
+                        viewModel::setName
                 )
             }
 
-            PermissionCard(
-                audioGranted = state.audioGranted,
-                notificationGranted = state.notificationGranted,
-                onAudioClick = {
-                    val permission =
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            Manifest.permission.READ_MEDIA_AUDIO
-                        } else {
-                            Manifest.permission.READ_EXTERNAL_STORAGE
-                        }
-
-                    if (!audioGranted()) {
-                        audioLauncher.launch(
-                            permission
-                        )
-                    }
-                },
-                onNotificationClick = {
-                    if (
-                        Build.VERSION.SDK_INT >= 33 &&
-                        !notificationGranted()
-                    ) {
-                        notificationLauncher.launch(
-                            Manifest.permission.POST_NOTIFICATIONS
-                        )
-                    }
-                }
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(
+                        Alignment.BottomCenter
+                    )
             ) {
-                SetupCloseButton(
-                    onClick = {
-                        (context as? Activity)
-                            ?.finish()
+                PermissionCard(
+                    audioGranted =
+                        state.audioGranted,
+                    notificationGranted =
+                        state.notificationGranted,
+                    onAudioClick = {
+                        val permission =
+                            if (
+                                Build.VERSION.SDK_INT >=
+                                33
+                            ) {
+                                Manifest.permission
+                                    .READ_MEDIA_AUDIO
+                            } else {
+                                Manifest.permission
+                                    .READ_EXTERNAL_STORAGE
+                            }
+
+                        if (!audioGranted()) {
+                            audioLauncher.launch(
+                                permission
+                            )
+                        }
+                    },
+                    onNotificationClick = {
+                        if (
+                            Build.VERSION.SDK_INT >=
+                            33 &&
+                            !notificationGranted()
+                        ) {
+                            notificationLauncher.launch(
+                                Manifest.permission
+                                    .POST_NOTIFICATIONS
+                            )
+                        }
                     }
                 )
 
-                Button(
-                    onClick = onSetupComplete,
-                    enabled = state.setupComplete,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape =
-                        RoundedCornerShape(18.dp),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor =
-                                colors.primaryAccent,
-                            contentColor =
-                                colors.background,
-                            disabledContainerColor =
-                                colors.accentSoft,
-                            disabledContentColor =
-                                colors.mutedText
-                        )
+                Spacer(
+                    modifier =
+                        Modifier.height(12.dp)
+                )
+
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            10.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Start",
-                        fontWeight =
-                            FontWeight.SemiBold
+                    SetupCloseButton(
+                        onClick = {
+                            (context as? Activity)
+                                ?.finish()
+                        }
                     )
+
+                    Button(
+                        onClick =
+                            onSetupComplete,
+                        enabled =
+                            state.setupComplete,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape =
+                            RoundedCornerShape(
+                                18.dp
+                            ),
+                        colors =
+                            ButtonDefaults
+                                .buttonColors(
+                                    containerColor =
+                                        colors.primaryAccent,
+                                    contentColor =
+                                        colors.background,
+                                    disabledContainerColor =
+                                        colors.accentSoft,
+                                    disabledContentColor =
+                                        colors.mutedText
+                                )
+                    ) {
+                        Text(
+                            text = "Start",
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
