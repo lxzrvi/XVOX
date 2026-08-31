@@ -149,10 +149,12 @@ fun SetupScreen(
             ) {
                 Text(
                     text = "XVOX",
-                    modifier = Modifier.offset(y = (-8).dp),
+                    modifier = Modifier.offset(
+                        y = (-32).dp
+                    ),
                     color = colors.primaryText,
                     fontFamily = XvoxLogoFont,
-                    fontSize = 34.sp,
+                    fontSize = 37.sp,
                     textAlign = TextAlign.Center
                 )
 
@@ -184,7 +186,7 @@ fun SetupScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(
-                        y = screenHeight * 0.30f
+                        y = screenHeight * 0.36f
                     ),
                 horizontalAlignment =
                     Alignment.CenterHorizontally
