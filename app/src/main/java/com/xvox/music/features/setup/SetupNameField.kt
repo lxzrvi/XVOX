@@ -26,18 +26,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 
 @Composable
 fun SetupNameField(
@@ -56,14 +54,16 @@ fun SetupNameField(
         mutableIntStateOf(0)
     }
 
-    var shakeOffset by remember {
+    var shakeX by remember {
         mutableStateOf(0f)
     }
 
     LaunchedEffect(shakeTrigger) {
-        if (shakeTrigger == 0) return@LaunchedEffect
+        if (shakeTrigger == 0) {
+            return@LaunchedEffect
+        }
 
-        listOf(
+        val positions = listOf(
             -8f,
             8f,
             -6f,
@@ -71,8 +71,10 @@ fun SetupNameField(
             -3f,
             3f,
             0f
-        ).forEach {
-            shakeOffset = it
+        )
+
+        positions.forEach { position ->
+            shakeX = position
             delay(35)
         }
 
@@ -86,14 +88,12 @@ fun SetupNameField(
     ) {
         AnimatedVisibility(
             visible = showLimit,
-            enter = fadeIn() +
-                slideInVertically {
-                    it / 2
-                },
-            exit = fadeOut() +
-                slideOutVertically {
-                    it / 2
-                }
+            enter = fadeIn() + slideInVertically {
+                it / 2
+            },
+            exit = fadeOut() + slideOutVertically {
+                it / 2
+            }
         ) {
             Text(
                 text = "enough is 12 character :(",
@@ -102,7 +102,9 @@ fun SetupNameField(
             )
         }
 
-        Spacer(Modifier.height(5.dp))
+        Spacer(
+            modifier = Modifier.height(5.dp)
+        )
 
         OutlinedTextField(
             value = value,
@@ -111,7 +113,7 @@ fun SetupNameField(
                     onValueChange(newValue)
                 } else {
                     showLimit = true
-                    shakeTrigger++
+                    shakeTrigger += 1
 
                     view.performHapticFeedback(
                         HapticFeedbackConstants.REJECT
@@ -121,11 +123,8 @@ fun SetupNameField(
             modifier = Modifier
                 .width(210.dp)
                 .height(50.dp)
-                .offset {
-                    IntOffset(
-                        x = shakeOffset.roundToInt(),
-                        y = 0
-                    )
+                .graphicsLayer {
+                    translationX = shakeX
                 },
             placeholder = {
                 Text(
@@ -160,6 +159,6 @@ fun SetupNameField(
                     focusManager.clearFocus()
                 }
             )
-        }
+        )
     }
 }
