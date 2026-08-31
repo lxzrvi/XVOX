@@ -3,6 +3,7 @@ package com.xvox.music.features.setup
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +48,7 @@ fun PfpCarousel(
     onAddClick: () -> Unit
 ) {
     val items = PfpType.entries
+    val customIndex = items.indexOf(PfpType.CUSTOM)
     val state = rememberLazyListState()
     val colors = XvoxTheme.colors
 
@@ -55,9 +57,7 @@ fun PfpCarousel(
             state.isScrollInProgress
         }
             .distinctUntilChanged()
-            .filter { scrolling ->
-                !scrolling
-            }
+            .filter { !it }
             .collect {
                 val layout = state.layoutInfo
 
@@ -67,7 +67,7 @@ fun PfpCarousel(
                             layout.viewportEndOffset
                         ) / 2
 
-                val item =
+                val centeredItem =
                     layout.visibleItemsInfo.minByOrNull {
                         abs(
                             it.offset +
@@ -76,7 +76,7 @@ fun PfpCarousel(
                         )
                     }
 
-                item?.index?.let { index ->
+                centeredItem?.index?.let { index ->
                     val type = items[index]
 
                     if (type != selected) {
@@ -86,12 +86,24 @@ fun PfpCarousel(
             }
     }
 
+    LaunchedEffect(customPfpUri) {
+        if (customPfpUri != null) {
+            state.animateScrollToItem(
+                index = customIndex
+            )
+
+            onSelected(PfpType.CUSTOM)
+        }
+    }
+
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
-        val itemWidth = 86.dp
+        val itemWidth = 92.dp
+
         val edgePadding =
-            (maxWidth - itemWidth) / 2
+            ((maxWidth - itemWidth) / 2)
+                .coerceAtLeast(0.dp)
 
         Box(
             modifier = Modifier.fillMaxWidth(),
@@ -104,7 +116,7 @@ fun PfpCarousel(
                     horizontal = edgePadding
                 ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(7.dp),
+                    Arrangement.spacedBy(8.dp),
                 flingBehavior =
                     rememberSnapFlingBehavior(state)
             ) {
@@ -147,7 +159,7 @@ fun PfpCarousel(
 
                                 (
                                     1.12f -
-                                        distance / 500f
+                                        distance / 520f
                                     ).coerceIn(
                                     0.82f,
                                     1.12f
@@ -162,7 +174,7 @@ fun PfpCarousel(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(66.dp)
                                 .graphicsLayer {
                                     scaleX = scale
                                     scaleY = scale
@@ -170,6 +182,18 @@ fun PfpCarousel(
                                 .clip(CircleShape)
                                 .background(
                                     colors.cardElevated
+                                )
+                                .then(
+                                    if (type == PfpType.CUSTOM) {
+                                        Modifier.clickable {
+                                            onSelected(
+                                                PfpType.CUSTOM
+                                            )
+                                            onAddClick()
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
                                 ),
                             contentAlignment =
                                 Alignment.Center
@@ -187,7 +211,7 @@ fun PfpCarousel(
                                             colors.primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
-                                        fontSize = 30.sp,
+                                        fontSize = 31.sp,
                                         textAlign =
                                             TextAlign.Center
                                     )
@@ -199,10 +223,9 @@ fun PfpCarousel(
                                         model = customPfpUri,
                                         contentDescription =
                                             "Custom profile picture",
-                                        modifier =
-                                            Modifier
-                                                .size(64.dp)
-                                                .clip(CircleShape),
+                                        modifier = Modifier
+                                            .size(66.dp)
+                                            .clip(CircleShape),
                                         contentScale =
                                             ContentScale.Crop
                                     )
@@ -225,7 +248,7 @@ fun PfpCarousel(
 
             Box(
                 modifier = Modifier
-                    .size(86.dp)
+                    .size(88.dp)
                     .border(
                         width = 2.dp,
                         color = colors.primaryAccent,
@@ -246,14 +269,4 @@ fun PfpCarousel(
         fontSize = 12.sp,
         textAlign = TextAlign.Center
     )
-
-    LaunchedEffect(selected) {
-        if (
-            selected == PfpType.CUSTOM &&
-            customPfpUri == null &&
-            !state.isScrollInProgress
-        ) {
-            onAddClick()
-        }
-    }
 }
