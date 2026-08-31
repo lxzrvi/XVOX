@@ -11,7 +11,7 @@
         </item>
 
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/xvox_splash_icon
+            @drawable/xvox
         </item>
 
         <item name="postSplashScreenTheme">
