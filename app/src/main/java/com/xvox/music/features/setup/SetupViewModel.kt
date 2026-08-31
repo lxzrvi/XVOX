@@ -9,12 +9,17 @@ import kotlinx.coroutines.flow.update
 
 class SetupViewModel : ViewModel() {
 
-    private val _state = MutableStateFlow(SetupUiState())
-    val state: StateFlow<SetupUiState> = _state.asStateFlow()
+    private val _state =
+        MutableStateFlow(SetupUiState())
+
+    val state: StateFlow<SetupUiState> =
+        _state.asStateFlow()
 
     fun setName(name: String) {
-        _state.update {
-            it.copy(name = name.take(32))
+        if (name.length <= 12) {
+            _state.update {
+                it.copy(name = name)
+            }
         }
     }
 
