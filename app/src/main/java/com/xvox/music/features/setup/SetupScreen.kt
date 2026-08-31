@@ -181,7 +181,7 @@ fun SetupScreen(
                     .fillMaxWidth()
                     .weight(1.05f)
                     .offset(
-                        y = (-30).dp
+                        y = (-5).dp
                     ),
                 horizontalAlignment =
                     Alignment.CenterHorizontally,
