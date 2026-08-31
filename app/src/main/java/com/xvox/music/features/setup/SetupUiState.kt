@@ -5,7 +5,7 @@ import android.net.Uri
 enum class PfpType(
     val label: String
 ) {
-    DEFAULT("You"),
+    DEFAULT("Default"),
     HEART("Amour"),
     STAR("Nova"),
     CIRCLE("Luna"),
