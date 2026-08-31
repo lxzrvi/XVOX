@@ -4,16 +4,44 @@
 
     <style
         name="Theme.XVOX"
+        parent="Theme.SplashScreen">
+
+        <item name="windowSplashScreenBackground">
+            @color/xvox_splash_background
+        </item>
+
+        <item name="windowSplashScreenAnimatedIcon">
+            @drawable/xvox
+        </item>
+
+        <item name="postSplashScreenTheme">
+            @style/Theme.XVOX.PostSplash
+        </item>
+
+    </style>
+
+    <style
+        name="Theme.XVOX.PostSplash"
         parent="android:style/Theme.Material.NoActionBar">
 
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">
+            @color/xvox_splash_background
+        </item>
+
+        <item name="android:windowLightStatusBar">
+            false
+        </item>
 
         <item name="android:statusBarColor">
-            @android:color/black
+            @android:color/transparent
         </item>
 
         <item name="android:navigationBarColor">
-            @android:color/black
+            @android:color/transparent
+        </item>
+
+        <item name="android:windowActionModeOverlay">
+            true
         </item>
 
     </style>
