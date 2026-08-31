@@ -1,4 +1,4 @@
-package com.xvox.music.startup
+fgpackage com.xvox.music.startup
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
