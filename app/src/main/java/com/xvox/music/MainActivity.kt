@@ -28,6 +28,6 @@ class MainActivity : ComponentActivity() {
             XvoxTheme {
                 XvoxApp()
             }
-        }
+        }znnz
     }
 }
