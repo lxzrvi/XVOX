@@ -1,7 +1,10 @@
 package com.xvox.music.startup
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,29 +25,36 @@ fun StartupScreen(
 ) {
     val colors = XvoxTheme.colors
 
-    var revealVox by remember {
+    var reveal by remember {
         mutableStateOf(false)
     }
 
-    var centered by remember {
-        mutableStateOf(false)
+    var visible by remember {
+        mutableStateOf(true)
     }
 
-    val centerProgress by animateFloatAsState(
-        targetValue = if (centered) 1f else 0f,
+    val progress by animateFloatAsState(
+        targetValue =
+            if (reveal) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 450
+            durationMillis = 900,
+            easing = FastOutSlowInEasing
         ),
-        label = "startupCenter"
+        label = "xvoxReveal"
     )
 
     LaunchedEffect(Unit) {
-        delay(300)
+        delay(450)
 
-        revealVox = true
-        centered = true
+        reveal = true
 
-        delay(1450)
+        delay(900)
+
+        delay(1000)
+
+        visible = false
+
+        delay(250)
 
         StartupState.animationShown = true
         onFinished()
@@ -56,9 +66,17 @@ fun StartupScreen(
             .background(colors.background),
         contentAlignment = Alignment.Center
     ) {
-        StartupAnimation(
-            revealVox = revealVox,
-            centerProgress = centerProgress
-        )
+        AnimatedVisibility(
+            visible = visible,
+            exit = fadeOut(
+                animationSpec = tween(
+                    durationMillis = 250
+                )
+            )
+        ) {
+            StartupAnimation(
+                progress = progress
+            )
+        }
     }
 }
