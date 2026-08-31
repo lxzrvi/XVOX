@@ -1,13 +1,17 @@
 package com.xvox.music.features.setup
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -15,10 +19,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.core.design.theme.XvoxSuccess
 import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
@@ -40,22 +45,26 @@ fun PermissionCard(
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
         PermissionItem(
             title = "Music access",
             description =
-                "Allows XVOX to find and play music stored on your device.",
+                "Find and play music stored on this device.",
             granted = audioGranted,
             onClick = onAudioClick
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
         PermissionItem(
             title = "Notifications",
             description =
-                "Shows playback controls while music continues in background.",
+                "Show playback controls while XVOX plays in background.",
             granted = notificationGranted,
             onClick = onNotificationClick
         )
@@ -72,16 +81,21 @@ private fun PermissionItem(
     val colors = XvoxTheme.colors
 
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (!granted) {
+                    Modifier.clickable(
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = if (granted) {
-                XvoxSuccess
-            } else {
-                colors.cardBorder
-            }
+            color = colors.cardBorder
         ),
         colors = CardDefaults.cardColors(
             containerColor = colors.card
@@ -94,7 +108,8 @@ private fun PermissionItem(
                     horizontal = 14.dp,
                     vertical = 11.dp
                 ),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment =
+                Alignment.CenterVertically,
             horizontalArrangement =
                 Arrangement.spacedBy(12.dp)
         ) {
@@ -108,13 +123,114 @@ private fun PermissionItem(
                     fontWeight = FontWeight.Medium
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(
+                    modifier = Modifier.height(2.dp)
+                )
 
                 Text(
                     text = description,
                     color = colors.secondaryText,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
+                )
+            }
+
+            PermissionToggle(
+                checked = granted,
+                onClick = {
+                    if (!granted) {
+                        onClick()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionToggle(
+    checked: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+
+    val trackColor =
+        if (checked) {
+            colors.primaryAccent
+        } else {
+            colors.accentSoft
+        }
+
+    val thumbColor =
+        if (checked) {
+            colors.background
+        } else {
+            colors.mutedText
+        }
+
+    Box(
+        modifier = Modifier
+            .size(
+                width = 42.dp,
+                height = 24.dp
+            )
+            .clip(
+                RoundedCornerShape(12.dp)
+            )
+            .clickable(
+                enabled = !checked,
+                onClick = onClick
+            )
+            .then(
+                Modifier
+                    .padding(0.dp)
+            ),
+        contentAlignment =
+            if (checked) {
+                Alignment.CenterEnd
+            } else {
+                Alignment.CenterStart
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(
+                    RoundedCornerShape(12.dp)
+                )
+                .then(
+                    Modifier
+                )
+        )
+
+        androidx.compose.foundation.Canvas(
+            modifier =
+                Modifier.matchParentSize()
+        ) {
+            drawRoundRect(
+                color = trackColor,
+                cornerRadius =
+                    androidx.compose.ui.geometry.CornerRadius(
+                        size.height / 2f
+                    )
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 3.dp)
+                .size(18.dp)
+                .clip(CircleShape)
+                .then(
+                    Modifier
+                )
+        ) {
+            androidx.compose.foundation.Canvas(
+                modifier =
+                    Modifier.matchParentSize()
+            ) {
+                drawCircle(
+                    color = thumbColor
                 )
             }
         }
