@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
@@ -145,70 +146,53 @@ fun SetupScreen(
             ) {
                 Text(
                     text = "XVOX",
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxLogoFont,
+                    color = colors.primaryText,
+                    fontFamily = XvoxLogoFont,
                     fontSize = 31.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(
-                            14.dp
-                        )
+                    modifier = Modifier.height(14.dp)
                 )
 
                 Text(
-                    text =
-                        "Let's get to know you",
-                    color =
-                        colors.secondaryText,
+                    text = "Let's get to know you",
+                    color = colors.secondaryText,
                     fontSize = 14.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(
-                            3.dp
-                        )
+                    modifier = Modifier.height(3.dp)
                 )
 
                 Text(
-                    text =
-                        "Personalize your xvox",
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxItalicFont,
+                    text = "Personalize your xvox",
+                    color = colors.primaryText,
+                    fontFamily = XvoxItalicFont,
                     fontSize = 23.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.05f),
+                    .weight(1.05f)
+                    .offset(
+                        y = (-30).dp
+                    ),
                 horizontalAlignment =
                     Alignment.CenterHorizontally,
                 verticalArrangement =
                     Arrangement.Center
             ) {
                 PfpCarousel(
-                    selected =
-                        state.selectedPfp,
-                    username =
-                        state.name,
-                    customPfpUri =
-                        state.customPfpUri,
-                    onSelected =
-                        viewModel::selectPfp,
+                    selected = state.selectedPfp,
+                    username = state.name,
+                    customPfpUri = state.customPfpUri,
+                    onSelected = viewModel::selectPfp,
                     onAddClick = {
                         photoPicker.launch(
                             PickVisualMediaRequest(
@@ -221,45 +205,31 @@ fun SetupScreen(
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(
-                            9.dp
-                        )
+                    modifier = Modifier.height(9.dp)
                 )
 
                 Text(
-                    text =
-                        "choose your pfp and enter",
-                    color =
-                        colors.mutedText,
+                    text = "choose your pfp and enter",
+                    color = colors.mutedText,
                     fontSize = 12.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
                 SetupNameField(
                     value = state.name,
-                    onValueChange =
-                        viewModel::setName
+                    onValueChange = viewModel::setName
                 )
             }
 
             PermissionCard(
-                audioGranted =
-                    state.audioGranted,
-                notificationGranted =
-                    state.notificationGranted,
+                audioGranted = state.audioGranted,
+                notificationGranted = state.notificationGranted,
                 onAudioClick = {
                     val permission =
-                        if (
-                            Build.VERSION.SDK_INT >=
-                            33
-                        ) {
-                            Manifest.permission
-                                .READ_MEDIA_AUDIO
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            Manifest.permission.READ_MEDIA_AUDIO
                         } else {
-                            Manifest.permission
-                                .READ_EXTERNAL_STORAGE
+                            Manifest.permission.READ_EXTERNAL_STORAGE
                         }
 
                     if (!audioGranted()) {
@@ -270,30 +240,24 @@ fun SetupScreen(
                 },
                 onNotificationClick = {
                     if (
-                        Build.VERSION.SDK_INT >=
-                        33 &&
+                        Build.VERSION.SDK_INT >= 33 &&
                         !notificationGranted()
                     ) {
                         notificationLauncher.launch(
-                            Manifest.permission
-                                .POST_NOTIFICATIONS
+                            Manifest.permission.POST_NOTIFICATIONS
                         )
                     }
                 }
             )
 
             Spacer(
-                modifier =
-                    Modifier.height(12.dp)
+                modifier = Modifier.height(12.dp)
             )
 
             Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement =
-                    Arrangement.spacedBy(
-                        10.dp
-                    ),
+                    Arrangement.spacedBy(10.dp),
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
@@ -305,29 +269,24 @@ fun SetupScreen(
                 )
 
                 Button(
-                    onClick =
-                        onSetupComplete,
-                    enabled =
-                        state.setupComplete,
+                    onClick = onSetupComplete,
+                    enabled = state.setupComplete,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
                     shape =
-                        RoundedCornerShape(
-                            18.dp
-                        ),
+                        RoundedCornerShape(18.dp),
                     colors =
-                        ButtonDefaults
-                            .buttonColors(
-                                containerColor =
-                                    colors.primaryAccent,
-                                contentColor =
-                                    colors.background,
-                                disabledContainerColor =
-                                    colors.accentSoft,
-                                disabledContentColor =
-                                    colors.mutedText
-                            )
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                colors.primaryAccent,
+                            contentColor =
+                                colors.background,
+                            disabledContainerColor =
+                                colors.accentSoft,
+                            disabledContentColor =
+                                colors.mutedText
+                        )
                 ) {
                     Text(
                         text = "Start",
