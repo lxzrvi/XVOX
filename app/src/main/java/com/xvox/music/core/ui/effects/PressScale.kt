@@ -8,36 +8,37 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 
 fun Modifier.xvoxPressScale(
     onClick: () -> Unit
-): Modifier =
-    androidx.compose.ui.composed {
-        val interactionSource =
-            remember {
-                MutableInteractionSource()
-            }
+): Modifier = composed {
 
-        val pressed by
-            interactionSource.collectIsPressedAsState()
+    val interactionSource =
+        remember {
+            MutableInteractionSource()
+        }
 
-        val scale by animateFloatAsState(
-            targetValue =
-                if (pressed) 0.965f else 1f,
-            animationSpec = spring(
-                stiffness = 700f,
-                dampingRatio = 0.78f
-            ),
-            label = "xvoxPress"
-        )
+    val pressed by
+        interactionSource.collectIsPressedAsState()
 
-        graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }.clickable(
-            interactionSource = interactionSource,
-            indication = null,
-            onClick = onClick
-        )
-    }
+    val scale by animateFloatAsState(
+        targetValue =
+            if (pressed) 0.96f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.72f,
+            stiffness = 650f
+        ),
+        label = "xvoxPressScale"
+    )
+
+    graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }.clickable(
+        interactionSource = interactionSource,
+        indication = null,
+        onClick = onClick
+    )
+}
