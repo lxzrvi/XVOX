@@ -18,26 +18,44 @@ import coil3.size.Precision
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
+const val GridArtworkSize = 160
+const val RecentArtworkSize = 512
+
 @Composable
 fun SongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier,
-    requestSize: Int = 128
+    requestSize: Int = GridArtworkSize
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val context = LocalContext.current
 
-    val context =
-        LocalContext.current
+    if (artwork == null) {
+        Box(
+            modifier = modifier
+                .background(
+                    colors.cardElevated
+                ),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            Text(
+                text = "X",
+                color = colors.mutedText,
+                fontFamily = XvoxLogoFont,
+                fontSize = 20.sp
+            )
+        }
 
-    val request: ImageRequest =
+        return
+    }
+
+    val request =
         remember(
             artwork,
-            requestSize,
-            context
+            requestSize
         ) {
-            ImageRequest
-                .Builder(context)
+            ImageRequest.Builder(context)
                 .data(artwork)
                 .size(
                     requestSize,
@@ -58,50 +76,14 @@ fun SongArtwork(
                 .build()
         }
 
-    Box(
+    AsyncImage(
+        model = request,
+        contentDescription = null,
+        contentScale =
+            ContentScale.Crop,
         modifier = modifier
             .background(
                 colors.cardElevated
-            ),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        if (artwork == null) {
-            ArtworkFallback()
-        } else {
-            AsyncImage(
-                model = request,
-                contentDescription = null,
-                modifier =
-                    Modifier.fillMaxSize(),
-                contentScale =
-                    ContentScale.Crop
             )
-        }
-    }
-}
-
-@Composable
-private fun ArtworkFallback() {
-    val colors =
-        XvoxTheme.colors
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                colors.cardElevated
-            ),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        Text(
-            text = "X",
-            color =
-                colors.mutedText,
-            fontFamily =
-                XvoxLogoFont,
-            fontSize = 20.sp
-        )
-    }
+    )
 }
