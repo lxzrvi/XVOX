@@ -7,18 +7,19 @@ import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.request.bitmapConfig
+import okio.Path.Companion.toOkioPath
 
 class XvoxApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
 
-        val loader =
-            ImageLoader.Builder(this)
+        SingletonImageLoader.setSafe { context ->
+            ImageLoader.Builder(context)
                 .memoryCache {
                     MemoryCache.Builder()
                         .maxSizePercent(
-                            this,
+                            context,
                             0.25
                         )
                         .build()
@@ -26,9 +27,11 @@ class XvoxApplication : Application() {
                 .diskCache {
                     DiskCache.Builder()
                         .directory(
-                            cacheDir.resolve(
-                                "xvox_artwork"
-                            )
+                            context.cacheDir
+                                .resolve(
+                                    "xvox_artwork"
+                                )
+                                .toOkioPath()
                         )
                         .maxSizeBytes(
                             100L *
@@ -41,9 +44,6 @@ class XvoxApplication : Application() {
                     Bitmap.Config.RGB_565
                 )
                 .build()
-
-        SingletonImageLoader.set(
-            loader
-        )
+        }
     }
 }
