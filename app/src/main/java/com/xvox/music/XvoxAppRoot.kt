@@ -26,7 +26,7 @@ fun XvoxAppRoot(
         }
 
         AppUiState.Home -> {
-            HomeScreen()
+            XvoxMainShell()
         }
     }
 }
