@@ -57,16 +57,22 @@ private val ContentEasing =
     )
 
 private const val CapsuleDuration = 520
-private const val ContentDuration = 380
+private const val ContentDuration = 400
 
 private val StageWidth = 350.dp
-private val ParentHeight = 65.dp
-private val ItemHeight = 57.dp
 
+private val ParentHeight = 65.dp
 private val ParentPadding = 4.dp
+
+private val ItemHeight = 57.dp
 
 private val SlotWidth = 70.dp
 private val SlotGap = 8.dp
+
+private val IconSize = 22.dp
+private val IconTextGap = 6.dp
+
+private val ActiveHorizontalPadding = 16.dp
 
 @Composable
 fun XvoxBottomBar(
@@ -88,6 +94,40 @@ fun XvoxBottomBar(
     var dragDistance by remember {
         mutableFloatStateOf(0f)
     }
+
+    val activeWidth by
+        animateDpAsState(
+            targetValue =
+                activePillWidth(
+                    selected
+                ),
+            animationSpec =
+                tween(
+                    durationMillis =
+                        CapsuleDuration,
+                    easing =
+                        FluidEasing
+                ),
+            label =
+                "navActiveWidth"
+        )
+
+    val activeCenter by
+        animateDpAsState(
+            targetValue =
+                slotCenter(
+                    selectedIndex
+                ),
+            animationSpec =
+                tween(
+                    durationMillis =
+                        CapsuleDuration,
+                    easing =
+                        FluidEasing
+                ),
+            label =
+                "navActiveCenter"
+        )
 
     val parentWidth by
         animateDpAsState(
@@ -123,40 +163,6 @@ fun XvoxBottomBar(
                 "navParentShift"
         )
 
-    val activeWidth by
-        animateDpAsState(
-            targetValue =
-                activeWidthFor(
-                    selected
-                ),
-            animationSpec =
-                tween(
-                    durationMillis =
-                        CapsuleDuration,
-                    easing =
-                        FluidEasing
-                ),
-            label =
-                "navActiveWidth"
-        )
-
-    val activeCenter by
-        animateDpAsState(
-            targetValue =
-                slotCenter(
-                    selectedIndex
-                ),
-            animationSpec =
-                tween(
-                    durationMillis =
-                        CapsuleDuration,
-                    easing =
-                        FluidEasing
-                ),
-            label =
-                "navActiveCenter"
-        )
-
     Box(
         modifier = modifier
             .offset(y = 2.dp)
@@ -168,8 +174,7 @@ fun XvoxBottomBar(
         Box(
             modifier = Modifier
                 .offset(
-                    x =
-                        parentShift
+                    x = parentShift
                 )
                 .width(
                     parentWidth
@@ -249,8 +254,7 @@ fun XvoxBottomBar(
         Box(
             modifier = Modifier
                 .offset(
-                    x =
-                        parentShift
+                    x = parentShift
                 )
                 .width(
                     parentWidth
@@ -356,12 +360,12 @@ private fun NavigationTrack(
                     destination =
                         destination,
                     active =
-                        destination ==
-                            selected,
+                        selected ==
+                            destination,
                     onClick = {
                         if (
-                            destination !=
-                            selected
+                            selected !=
+                            destination
                         ) {
                             onSelected(
                                 destination
@@ -408,7 +412,7 @@ private fun NavigationItem(
                         ContentEasing
                 ),
             label =
-                "navItemContent"
+                "navContent"
         )
 
     val pressScale by
@@ -431,10 +435,10 @@ private fun NavigationItem(
                         ContentEasing
                 ),
             label =
-                "navItemPress"
+                "navPress"
         )
 
-    val iconColor =
+    val color =
         lerpColor(
             start =
                 colors.mutedText,
@@ -461,47 +465,56 @@ private fun NavigationItem(
         contentAlignment =
             Alignment.Center
     ) {
-        XvoxNavigationIcon(
-            destination =
-                destination,
-            color =
-                iconColor,
-            modifier = Modifier
-                .size(22.dp)
-                .graphicsLayer {
-                    scaleX =
-                        pressScale
-
-                    scaleY =
-                        pressScale
-
-                    translationX =
-                        -progress *
-                            iconShift(
-                                destination
-                            )
-                            .toPx()
-                }
-        )
-
-        NavigationLabel(
+        NavigationContent(
             destination =
                 destination,
             progress =
                 progress,
+            pressScale =
+                pressScale,
             color =
-                iconColor
+                color
         )
     }
 }
 
 @Composable
-private fun NavigationLabel(
+private fun NavigationContent(
     destination: XvoxDestination,
     progress: Float,
+    pressScale: Float,
     color: Color
 ) {
-    val alpha =
+    val textWidth =
+        labelWidth(
+            destination
+        )
+
+    val completeContentWidth =
+        IconSize +
+            IconTextGap +
+            textWidth
+
+    /*
+     * Icon location when the active content
+     * group is perfectly centered in its pill.
+     *
+     * Group:
+     * [22dp ICON] [6dp] [TEXT]
+     */
+    val activeIconCenter =
+        -completeContentWidth / 2 +
+            IconSize / 2
+
+    val easedProgress =
+        smoothStep(
+            progress.coerceIn(
+                0f,
+                1f
+            )
+        )
+
+    val textAlpha =
         smoothStep(
             (
                 (progress - 0.08f) /
@@ -513,68 +526,140 @@ private fun NavigationLabel(
                 )
         )
 
-    val motion =
-        smoothStep(
-            progress.coerceIn(
-                0f,
-                1f
-            )
+    val iconX =
+        activeIconCenter *
+            easedProgress
+
+    val textCenterFromGroupCenter =
+        -completeContentWidth / 2 +
+            IconSize +
+            IconTextGap +
+            textWidth / 2
+
+    Box(
+        modifier =
+            Modifier.matchParentSize()
+    ) {
+        XvoxNavigationIcon(
+            destination =
+                destination,
+            color =
+                color,
+            modifier = Modifier
+                .size(
+                    IconSize
+                )
+                .align(
+                    Alignment.Center
+                )
+                .graphicsLayer {
+                    translationX =
+                        iconX.toPx()
+
+                    scaleX =
+                        pressScale
+
+                    scaleY =
+                        pressScale
+                }
         )
 
-    Text(
-        text =
-            destination.label,
-        color =
-            color,
-        fontSize = 14.sp,
-        lineHeight = 17.sp,
-        fontWeight =
-            FontWeight.SemiBold,
-        maxLines = 1,
-        overflow =
-            TextOverflow.Visible,
-        modifier =
-            Modifier.graphicsLayer {
-                this.alpha =
-                    alpha
+        Text(
+            text =
+                destination.label,
+            color =
+                color,
+            fontSize = 14.sp,
+            lineHeight = 17.sp,
+            fontWeight =
+                FontWeight.SemiBold,
+            maxLines = 1,
+            overflow =
+                TextOverflow.Visible,
+            modifier = Modifier
+                .width(
+                    textWidth
+                )
+                .align(
+                    Alignment.Center
+                )
+                .graphicsLayer {
+                    alpha =
+                        textAlpha
 
-                translationX =
-                    labelOffset(
-                        destination
-                    )
-                        .toPx() +
-                        (
-                            1f -
-                                motion
-                            ) *
-                        7.dp.toPx()
+                    /*
+                     * Final position is derived
+                     * from the exact same group
+                     * geometry as the icon.
+                     */
+                    translationX =
+                        textCenterFromGroupCenter
+                            .toPx() +
+                            (
+                                1f -
+                                    easedProgress
+                                ) *
+                            5.dp.toPx()
 
-                val scale =
-                    0.96f +
-                        0.04f *
-                        motion
+                    val scale =
+                        0.97f +
+                            0.03f *
+                            easedProgress
 
-                scaleX =
-                    scale
+                    scaleX =
+                        scale
 
-                scaleY =
-                    scale
-            }
-    )
+                    scaleY =
+                        scale
+                }
+        )
+    }
+}
+
+private fun activePillWidth(
+    destination: XvoxDestination
+): Dp {
+    return ActiveHorizontalPadding *
+        2 +
+        IconSize +
+        IconTextGap +
+        labelWidth(
+            destination
+        )
+}
+
+private fun labelWidth(
+    destination: XvoxDestination
+): Dp {
+    return when (destination) {
+        XvoxDestination.HOME ->
+            40.dp
+
+        XvoxDestination.SEARCH ->
+            49.dp
+
+        XvoxDestination.SETTINGS ->
+            61.dp
+    }
 }
 
 private fun parentWidthFor(
     destination: XvoxDestination
 ): Dp {
+    /*
+     * Parent responds to selected content width
+     * while leaving comfortable room for the
+     * two inactive icon slots.
+     */
     return when (destination) {
         XvoxDestination.HOME ->
-            270.dp
+            266.dp
 
         XvoxDestination.SEARCH ->
-            282.dp
+            275.dp
 
         XvoxDestination.SETTINGS ->
-            298.dp
+            287.dp
     }
 }
 
@@ -583,28 +668,13 @@ private fun parentShiftFor(
 ): Dp {
     return when (destination) {
         XvoxDestination.HOME ->
-            (-10).dp
+            (-9).dp
 
         XvoxDestination.SEARCH ->
             0.dp
 
         XvoxDestination.SETTINGS ->
-            10.dp
-    }
-}
-
-private fun activeWidthFor(
-    destination: XvoxDestination
-): Dp {
-    return when (destination) {
-        XvoxDestination.HOME ->
-            124.dp
-
-        XvoxDestination.SEARCH ->
-            134.dp
-
-        XvoxDestination.SETTINGS ->
-            150.dp
+            9.dp
     }
 }
 
@@ -622,36 +692,6 @@ private fun slotCenter(
                 SlotGap
             ) *
         index
-}
-
-private fun iconShift(
-    destination: XvoxDestination
-): Dp {
-    return when (destination) {
-        XvoxDestination.HOME ->
-            27.dp
-
-        XvoxDestination.SEARCH ->
-            31.dp
-
-        XvoxDestination.SETTINGS ->
-            38.dp
-    }
-}
-
-private fun labelOffset(
-    destination: XvoxDestination
-): Dp {
-    return when (destination) {
-        XvoxDestination.HOME ->
-            25.dp
-
-        XvoxDestination.SEARCH ->
-            28.dp
-
-        XvoxDestination.SETTINGS ->
-            33.dp
-    }
 }
 
 private fun lerpColor(
