@@ -14,13 +14,16 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 private const val Columns = 4
 private const val Rows = 3
@@ -29,10 +32,38 @@ private const val SongsPerPage = 12
 @Composable
 fun AllSongsSection(
     songs: List<Song>,
-    onSongClick: (Song) -> Unit
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    onSongClick: (Song) -> Unit,
+    onPrefetch: (Int) -> Unit
 ) {
-    val colors = XvoxTheme.colors
-    val gridState = rememberLazyGridState()
+    val colors =
+        XvoxTheme.colors
+
+    val gridState =
+        rememberLazyGridState()
+
+    LaunchedEffect(
+        gridState,
+        songs.size
+    ) {
+        snapshotFlow {
+            gridState
+                .layoutInfo
+                .visibleItemsInfo
+                .maxOfOrNull {
+                    it.index
+                } ?: 0
+        }
+            .distinctUntilChanged()
+            .collect {
+                visibleSlot ->
+
+                onPrefetch(
+                    visibleSlot + 12
+                )
+            }
+    }
 
     Column(
         modifier = Modifier
@@ -46,7 +77,8 @@ fun AllSongsSection(
         ) {
             Text(
                 text = "All Songs",
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontSize = 20.sp,
                 lineHeight = 23.sp,
                 fontWeight =
@@ -54,8 +86,10 @@ fun AllSongsSection(
             )
 
             Text(
-                text = "Total ${songs.size} songs",
-                color = colors.mutedText,
+                text =
+                    "Total ${songs.size} songs",
+                color =
+                    colors.mutedText,
                 fontSize = 10.sp,
                 lineHeight = 14.sp
             )
@@ -89,15 +123,20 @@ fun AllSongsSection(
                         0
                     } else {
                         (
-                            (songs.size +
-                                SongsPerPage - 1) /
+                            (
+                                songs.size +
+                                    SongsPerPage -
+                                    1
+                                ) /
                                 SongsPerPage
-                            ) * SongsPerPage
+                            ) *
+                            SongsPerPage
                     }
                 }
 
             LazyHorizontalGrid(
-                rows = GridCells.Fixed(Rows),
+                rows =
+                    GridCells.Fixed(Rows),
                 state = gridState,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -107,9 +146,13 @@ fun AllSongsSection(
                         horizontal = edge
                     ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(gap),
+                    Arrangement.spacedBy(
+                        gap
+                    ),
                 verticalArrangement =
-                    Arrangement.spacedBy(gap)
+                    Arrangement.spacedBy(
+                        gap
+                    )
             ) {
                 items(
                     count = slots,
@@ -117,15 +160,17 @@ fun AllSongsSection(
                         "song_slot_$it"
                     },
                     contentType = {
-                        "song"
+                        "song_slot"
                     }
                 ) { slot ->
 
                     val page =
-                        slot / SongsPerPage
+                        slot /
+                            SongsPerPage
 
                     val local =
-                        slot % SongsPerPage
+                        slot %
+                            SongsPerPage
 
                     val row =
                         local % Rows
@@ -134,8 +179,10 @@ fun AllSongsSection(
                         local / Rows
 
                     val sourceIndex =
-                        page * SongsPerPage +
-                            row * Columns +
+                        page *
+                            SongsPerPage +
+                            row *
+                            Columns +
                             column
 
                     Box(
@@ -144,17 +191,34 @@ fun AllSongsSection(
                             .height(cardHeight)
                     ) {
                         songs
-                            .getOrNull(sourceIndex)
-                            ?.let { song ->
+                            .getOrNull(
+                                sourceIndex
+                            )
+                            ?.let {
+                                song ->
+
                                 AllSongCard(
                                     song = song,
+                                    current =
+                                        currentSongId ==
+                                            song.id,
+                                    playing =
+                                        currentSongId ==
+                                            song.id &&
+                                            isPlaying,
                                     onClick = {
-                                        onSongClick(song)
+                                        onSongClick(
+                                            song
+                                        )
                                     },
                                     modifier =
                                         Modifier
-                                            .width(cardWidth)
-                                            .height(cardHeight)
+                                            .width(
+                                                cardWidth
+                                            )
+                                            .height(
+                                                cardHeight
+                                            )
                                 )
                             }
                     }
