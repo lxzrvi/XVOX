@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,73 +28,97 @@ fun RecentlyPlayedSection(
     songs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column {
         Text(
-            text = "Recently Played",
-            color = colors.primaryText,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.SemiBold
+            text =
+                "Recently Played",
+            color =
+                colors.primaryText,
+            fontSize = 20.sp,
+            fontWeight =
+                FontWeight.SemiBold
         )
 
         Text(
-            text = "${songs.size} played",
-            color = colors.mutedText,
-            fontSize = 12.sp
+            text =
+                "${songs.size} played",
+            color =
+                colors.mutedText,
+            fontSize = 11.sp
         )
 
-        if (songs.isNotEmpty()) {
-            LazyRow(
-                contentPadding =
-                    PaddingValues(top = 12.dp),
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp)
-            ) {
-                items(
-                    items = songs,
-                    key = { it.id }
-                ) { song ->
-                    Column(
+        LazyRow(
+            contentPadding =
+                PaddingValues(
+                    top = 10.dp
+                ),
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            items(
+                items = songs,
+                key = { it.id }
+            ) { song ->
+
+                Column(
+                    modifier = Modifier
+                        .width(205.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                15.dp
+                            )
+                        )
+                        .background(
+                            colors.card
+                        )
+                        .xvoxPressScale {
+                            onSongClick(song)
+                        }
+                        .padding(6.dp)
+                ) {
+                    SongArtwork(
+                        artwork =
+                            song.artworkUri,
                         modifier = Modifier
-                            .width(210.dp)
-                            .xvoxPressScale {
-                                onSongClick(song)
-                            }
-                    ) {
-                        SongArtwork(
-                            artwork = song.artworkUri,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(92.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        14.dp
-                                    )
+                            .fillMaxWidth()
+                            .height(82.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    11.dp
                                 )
-                        )
+                            )
+                    )
 
-                        Text(
-                            text = song.title,
-                            color = colors.primaryText,
-                            maxLines = 1,
-                            overflow =
-                                TextOverflow.Ellipsis,
-                            modifier =
-                                Modifier.padding(
-                                    top = 6.dp
-                                )
-                        )
+                    Text(
+                        text =
+                            song.title,
+                        color =
+                            colors.primaryText,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
+                        modifier =
+                            Modifier.padding(
+                                top = 5.dp
+                            )
+                    )
 
-                        Text(
-                            text = song.artist,
-                            color = colors.secondaryText,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow =
-                                TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text =
+                            song.artist,
+                        color =
+                            colors.secondaryText,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis
+                    )
                 }
             }
         }
