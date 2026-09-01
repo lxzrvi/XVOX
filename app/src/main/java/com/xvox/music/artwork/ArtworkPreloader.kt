@@ -18,35 +18,53 @@ class ArtworkPreloader(
     private val appContext =
         context.applicationContext
 
-    suspend fun warmInitialCache(
-        songs: List<Song>
+    suspend fun warm(
+        songs: List<Song>,
+        fromIndex: Int,
+        count: Int
     ) {
-        val loader =
-            SingletonImageLoader.get(
-                appContext
+        if (songs.isEmpty()) return
+
+        val start =
+            fromIndex.coerceIn(
+                0,
+                songs.size
             )
 
-        val artwork =
+        val end =
+            (start + count)
+                .coerceAtMost(
+                    songs.size
+                )
+
+        if (start >= end) return
+
+        val artworkUris =
             songs
+                .subList(start, end)
                 .asSequence()
                 .mapNotNull {
                     it.artworkUri
                 }
                 .distinct()
-                .take(48)
                 .toList()
 
-        coroutineScope {
-            artwork
-                .chunked(4)
-                .forEach { batch ->
+        val loader =
+            SingletonImageLoader.get(
+                appContext
+            )
 
+        artworkUris
+            .chunked(3)
+            .forEach { batch ->
+                coroutineScope {
                     batch.map { uri ->
                         async {
                             val request =
-                                ImageRequest.Builder(
-                                    appContext
-                                )
+                                ImageRequest
+                                    .Builder(
+                                        appContext
+                                    )
                                     .data(uri)
                                     .size(
                                         GridArtworkSize,
@@ -74,6 +92,6 @@ class ArtworkPreloader(
                         }
                     }.awaitAll()
                 }
-        }
+            }
     }
 }
