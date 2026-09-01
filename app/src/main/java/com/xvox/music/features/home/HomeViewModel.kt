@@ -16,11 +16,9 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     application: Application
-) : AndroidViewModel(
-    application
-) {
+) : AndroidViewModel(application) {
 
-    private val songRepository =
+    private val songsRepository =
         MediaStoreSongRepository(
             application
         )
@@ -51,6 +49,7 @@ class HomeViewModel(
 
     init {
         observeProfile()
+        observePlayback()
         initialLoad()
     }
 
@@ -61,8 +60,25 @@ class HomeViewModel(
                 .collect { profile ->
                     _state.update {
                         it.copy(
-                            profile =
-                                profile
+                            profile = profile
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun observePlayback() {
+        viewModelScope.launch {
+            playback.state
+                .collect { playbackState ->
+                    _state.update {
+                        it.copy(
+                            currentSongId =
+                                playbackState
+                                    .currentSongId,
+                            isPlaying =
+                                playbackState
+                                    .isPlaying
                         )
                     }
                 }
@@ -71,15 +87,8 @@ class HomeViewModel(
 
     private fun initialLoad() {
         viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    loading = true
-                )
-            }
-
             val songs =
-                songRepository
-                    .loadSongs()
+                songsRepository.loadSongs()
 
             artworkPreloader
                 .warmInitialCache(
@@ -96,9 +105,7 @@ class HomeViewModel(
     }
 
     fun refresh() {
-        if (
-            _state.value.refreshing
-        ) {
+        if (_state.value.refreshing) {
             return
         }
 
@@ -110,8 +117,7 @@ class HomeViewModel(
             }
 
             val songs =
-                songRepository
-                    .loadSongs()
+                songsRepository.loadSongs()
 
             _state.update {
                 it.copy(
@@ -125,26 +131,30 @@ class HomeViewModel(
     fun play(song: Song) {
         playback.play(song)
 
-        _state.update {
-            current ->
-
-            val recent =
-                buildList {
-                    add(song)
-
-                    addAll(
-                        current
-                            .recentlyPlayed
-                            .filterNot {
-                                it.id ==
-                                    song.id
-                            }
-                    )
-                }.take(20)
-
+        _state.update { current ->
             current.copy(
                 recentlyPlayed =
-                    recent
+                    buildList {
+                        add(song)
+
+                        addAll(
+                            current
+                                .recentlyPlayed
+                                .filterNot {
+                                    it.id ==
+                                        song.id
+                                }
+                        )
+                    }.take(20)
+            )
+        }
+    }
+
+    fun toggleLibraryMode() {
+        _state.update {
+            it.copy(
+                showPlaylists =
+                    !it.showPlaylists
             )
         }
     }
