@@ -16,28 +16,29 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 
-private val HomeGreetings = listOf(
-    "What are you listening to today?",
-    "What's the mood today?",
-    "Need something energetic?",
-    "Time for something familiar?",
-    "Find your sound.",
-    "Press play and disappear.",
-    "Something calm today?",
-    "Turn the volume up.",
-    "Let the music take over.",
-    "Find something worth repeating.",
-    "Maybe an old favorite?",
-    "Your music is waiting.",
-    "Pick a track, set the mood.",
-    "A good song changes everything.",
-    "Time to get lost in sound.",
-    "Queue up something good.",
-    "Let the next song surprise you.",
-    "Your soundtrack starts here.",
-    "One track can change the mood.",
-    "Play whatever feels right."
-)
+private val Greetings =
+    listOf(
+        "What are you listening to today?",
+        "What's the mood today?",
+        "Need something energetic?",
+        "Time for something familiar?",
+        "Find your sound.",
+        "Press play and disappear.",
+        "Something calm today?",
+        "Turn the volume up.",
+        "Let the music take over.",
+        "Find something worth repeating.",
+        "Maybe an old favorite?",
+        "Your music is waiting.",
+        "Pick a track, set the mood.",
+        "A good song changes everything.",
+        "Time to get lost in sound.",
+        "Queue up something good.",
+        "Let the next song surprise you.",
+        "Your soundtrack starts here.",
+        "One track can change the mood.",
+        "Play whatever feels right."
+    )
 
 @Composable
 fun HomeGreeting() {
@@ -50,10 +51,9 @@ fun HomeGreeting() {
     LaunchedEffect(Unit) {
         while (true) {
             delay(8_000)
-
             index =
                 (index + 1) %
-                    HomeGreetings.size
+                    Greetings.size
         }
     }
 
@@ -65,10 +65,10 @@ fun HomeGreeting() {
         label = "homeGreeting"
     ) { current ->
         Text(
-            text = HomeGreetings[current],
+            text = Greetings[current],
             color = colors.secondaryText,
-            fontSize = 11.sp,
-            lineHeight = 12.sp,
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
