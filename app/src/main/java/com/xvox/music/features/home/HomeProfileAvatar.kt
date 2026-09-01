@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,8 +27,7 @@ fun HomeProfileAvatar(
     profile: UserPreferences,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     val type =
         runCatching {
@@ -42,11 +40,8 @@ fun HomeProfileAvatar(
 
     Box(
         modifier = modifier
-            .size(48.dp)
             .clip(CircleShape)
-            .background(
-                colors.cardElevated
-            )
+            .background(colors.cardElevated)
             .border(
                 width = 1.dp,
                 color = colors.cardBorder,
@@ -60,10 +55,9 @@ fun HomeProfileAvatar(
                 profile.customPfpUri != null -> {
 
                 AsyncImage(
-                    model =
-                        Uri.parse(
-                            profile.customPfpUri
-                        ),
+                    model = Uri.parse(
+                        profile.customPfpUri
+                    ),
                     contentDescription =
                         "Profile picture",
                     contentScale =
@@ -75,27 +69,23 @@ fun HomeProfileAvatar(
 
             type == PfpType.DEFAULT -> {
                 Text(
-                    text =
-                        profile.username
-                            .firstOrNull()
-                            ?.uppercase()
-                            ?: "X",
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxPersonalFont,
-                    fontSize = 22.sp
+                    text = profile.username
+                        .firstOrNull()
+                        ?.uppercase()
+                        ?: "X",
+                    color = colors.primaryText,
+                    fontFamily = XvoxPersonalFont,
+                    fontSize = 18.sp
                 )
             }
 
             else -> {
                 PfpIcon(
                     type = type,
-                    color =
-                        colors.primaryText,
+                    color = colors.primaryText,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(9.dp)
+                        .padding(8.dp)
                 )
             }
         }
