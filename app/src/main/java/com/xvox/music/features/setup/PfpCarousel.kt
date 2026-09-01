@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -136,7 +137,11 @@ fun PfpCarousel(
     }
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 18.dp
+            )
     ) {
         val slotWidth = 108.dp
 
@@ -146,7 +151,8 @@ fun PfpCarousel(
                 ).coerceAtLeast(0.dp)
 
         Box(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth(),
             contentAlignment =
                 Alignment.Center
         ) {
@@ -240,7 +246,8 @@ fun PfpCarousel(
                                             colors.primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
-                                        fontSize = 42.sp,
+                                        fontSize =
+                                            42.sp,
                                         textAlign =
                                             TextAlign.Center
                                     )
@@ -248,7 +255,8 @@ fun PfpCarousel(
 
                                 type ==
                                     PfpType.CUSTOM &&
-                                    customPfpUri != null -> {
+                                    customPfpUri !=
+                                    null -> {
                                     AsyncImage(
                                         model =
                                             customPfpUri,
@@ -304,7 +312,8 @@ fun PfpCarousel(
     )
 
     Text(
-        text = centeredType.label,
+        text =
+            centeredType.label,
         modifier =
             Modifier.fillMaxWidth(),
         color =
