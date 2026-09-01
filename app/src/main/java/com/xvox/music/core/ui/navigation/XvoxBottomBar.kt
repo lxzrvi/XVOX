@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import kotlin.math.abs
 
 private val NavFluidEasing =
     CubicBezierEasing(
@@ -43,6 +45,20 @@ private val NavFluidEasing =
         0.30f,
         1f
     )
+
+private val NavLabelEasing =
+    CubicBezierEasing(
+        0.20f,
+        0.90f,
+        0.25f,
+        1f
+    )
+
+private const val PillDuration = 580
+private const val LabelDuration = 440
+
+private val ItemHeight = 57.dp
+private val InactiveWidth = 70.dp
 
 @Composable
 fun XvoxBottomBar(
@@ -60,11 +76,19 @@ fun XvoxBottomBar(
         mutableFloatStateOf(0f)
     }
 
+    val parentShape =
+        CircleShape
+
     Row(
         modifier = modifier
-            .clip(CircleShape)
+            .clip(parentShape)
             .background(
                 colors.surface
+            )
+            .border(
+                width = 0.5.dp,
+                color = colors.cardBorder,
+                shape = parentShape
             )
             .padding(4.dp)
             .pointerInput(selected) {
@@ -74,18 +98,16 @@ fun XvoxBottomBar(
                     },
                     onHorizontalDrag = {
                         change,
-                        dragAmount ->
+                        amount ->
 
                         change.consume()
 
-                        dragDistance +=
-                            dragAmount
+                        dragDistance += amount
                     },
                     onDragEnd = {
                         if (
-                            kotlin.math.abs(
-                                dragDistance
-                            ) >= 35.dp.toPx()
+                            abs(dragDistance) >=
+                            35.dp.toPx()
                         ) {
                             val currentIndex =
                                 destinations.indexOf(
@@ -94,8 +116,7 @@ fun XvoxBottomBar(
 
                             val targetIndex =
                                 if (
-                                    dragDistance >
-                                    0f
+                                    dragDistance > 0f
                                 ) {
                                     currentIndex + 1
                                 } else {
@@ -140,8 +161,8 @@ fun XvoxBottomBar(
                         destination,
                 onClick = {
                     if (
-                        destination !=
-                        selected
+                        selected !=
+                        destination
                     ) {
                         onSelected(
                             destination
@@ -171,41 +192,36 @@ private fun XvoxNavigationItem(
         interactionSource
             .collectIsPressedAsState()
 
-    val activeWidth =
+    val expandedWidth =
         when (destination) {
             XvoxDestination.HOME ->
-                122.dp
+                124.dp
 
             XvoxDestination.SEARCH ->
-                130.dp
+                134.dp
 
             XvoxDestination.SETTINGS ->
-                145.dp
+                150.dp
         }
 
     val width by
         animateDpAsState(
             targetValue =
                 if (active) {
-                    activeWidth
+                    expandedWidth
                 } else {
-                    70.dp
+                    InactiveWidth
                 },
             animationSpec =
                 tween(
-                    durationMillis = 500,
+                    durationMillis =
+                        PillDuration,
                     easing =
                         NavFluidEasing
                 ),
-            label = "navPillWidth"
+            label = "navWidth"
         )
 
-    /*
-     * Active is intentionally the visually
-     * heavier semantic surface.
-     *
-     * No hardcoded mode-specific palette.
-     */
     val background by
         animateColorAsState(
             targetValue =
@@ -216,11 +232,11 @@ private fun XvoxNavigationItem(
                 },
             animationSpec =
                 tween(
-                    durationMillis = 250,
+                    durationMillis = 300,
                     easing =
                         NavFluidEasing
                 ),
-            label = "navPillColor"
+            label = "navBackground"
         )
 
     val foreground by
@@ -233,16 +249,18 @@ private fun XvoxNavigationItem(
                 },
             animationSpec =
                 tween(
-                    durationMillis = 220
+                    durationMillis = 260,
+                    easing =
+                        NavFluidEasing
                 ),
-            label = "navIconColor"
+            label = "navForeground"
         )
 
-    val pressAlpha by
+    val pressedAlpha by
         animateFloatAsState(
             targetValue =
                 if (pressed) {
-                    0.83f
+                    0.84f
                 } else {
                     1f
                 },
@@ -252,7 +270,7 @@ private fun XvoxNavigationItem(
                         if (pressed) {
                             70
                         } else {
-                            150
+                            160
                         },
                     easing =
                         NavFluidEasing
@@ -260,11 +278,11 @@ private fun XvoxNavigationItem(
             label = "navPressAlpha"
         )
 
-    val pressScale by
+    val pressedScale by
         animateFloatAsState(
             targetValue =
                 if (pressed) {
-                    0.985f
+                    0.982f
                 } else {
                     1f
                 },
@@ -272,9 +290,9 @@ private fun XvoxNavigationItem(
                 tween(
                     durationMillis =
                         if (pressed) {
-                            70
+                            75
                         } else {
-                            180
+                            190
                         },
                     easing =
                         NavFluidEasing
@@ -285,20 +303,20 @@ private fun XvoxNavigationItem(
     Box(
         modifier = Modifier
             .width(width)
-            .height(54.dp)
+            .height(ItemHeight)
             .graphicsLayer {
                 alpha =
-                    pressAlpha
+                    pressedAlpha
 
                 scaleX =
-                    pressScale
+                    pressedScale
 
                 scaleY =
-                    pressScale
+                    pressedScale
             }
             .clip(
                 RoundedCornerShape(
-                    27.dp
+                    28.5.dp
                 )
             )
             .background(
@@ -331,8 +349,8 @@ private fun NavigationItemContent(
     color: Color
 ) {
     Row(
-        modifier =
-            Modifier.padding(
+        modifier = Modifier
+            .padding(
                 start = 24.dp,
                 end = 20.dp
             ),
@@ -345,12 +363,10 @@ private fun NavigationItemContent(
             color =
                 color,
             modifier =
-                Modifier.size(
-                    22.dp
-                )
+                Modifier.size(22.dp)
         )
 
-        XvoxAnimatedNavigationLabel(
+        XvoxNavigationLabel(
             destination =
                 destination,
             visible =
@@ -362,38 +378,45 @@ private fun NavigationItemContent(
 }
 
 @Composable
-private fun XvoxAnimatedNavigationLabel(
+private fun XvoxNavigationLabel(
     destination: XvoxDestination,
     visible: Boolean,
     color: Color
 ) {
-    val labelWidth =
+    val expandedWidth =
         when (destination) {
             XvoxDestination.HOME ->
-                42.dp
+                44.dp
 
             XvoxDestination.SEARCH ->
-                51.dp
+                53.dp
 
             XvoxDestination.SETTINGS ->
-                63.dp
+                66.dp
         }
 
     val width by
         animateDpAsState(
             targetValue =
                 if (visible) {
-                    labelWidth
+                    expandedWidth
                 } else {
                     0.dp
                 },
             animationSpec =
                 tween(
-                    durationMillis = 420,
+                    durationMillis =
+                        LabelDuration,
+                    delayMillis =
+                        if (visible) {
+                            35
+                        } else {
+                            0
+                        },
                     easing =
-                        NavFluidEasing
+                        NavLabelEasing
                 ),
-            label = "navTextWidth"
+            label = "navLabelWidth"
         )
 
     val spacing by
@@ -406,11 +429,18 @@ private fun XvoxAnimatedNavigationLabel(
                 },
             animationSpec =
                 tween(
-                    durationMillis = 420,
+                    durationMillis =
+                        LabelDuration,
+                    delayMillis =
+                        if (visible) {
+                            25
+                        } else {
+                            0
+                        },
                     easing =
-                        NavFluidEasing
+                        NavLabelEasing
                 ),
-            label = "navTextSpacing"
+            label = "navLabelGap"
         )
 
     val alpha by
@@ -425,18 +455,20 @@ private fun XvoxAnimatedNavigationLabel(
                 tween(
                     durationMillis =
                         if (visible) {
-                            220
+                            270
                         } else {
                             150
                         },
                     delayMillis =
                         if (visible) {
-                            45
+                            80
                         } else {
                             0
-                        }
+                        },
+                    easing =
+                        NavFluidEasing
                 ),
-            label = "navTextAlpha"
+            label = "navLabelAlpha"
         )
 
     Spacer(
@@ -459,8 +491,7 @@ private fun XvoxAnimatedNavigationLabel(
                 destination.label,
             color =
                 color.copy(
-                    alpha =
-                        alpha
+                    alpha = alpha
                 ),
             fontSize = 14.sp,
             lineHeight = 17.sp,
