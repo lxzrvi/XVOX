@@ -1,13 +1,22 @@
 package com.xvox.music.features.setup
 
+import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class SetupViewModel : ViewModel() {
+class SetupViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val preferencesRepository =
+        UserPreferencesRepository(application)
 
     private val _state =
         MutableStateFlow(SetupUiState())
@@ -47,6 +56,28 @@ class SetupViewModel : ViewModel() {
                 audioGranted = audioGranted,
                 notificationGranted = notificationGranted
             )
+        }
+    }
+
+    fun completeSetup(
+        onComplete: () -> Unit
+    ) {
+        val current = _state.value
+
+        if (!current.setupComplete) {
+            return
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.completeSetup(
+                username = current.name.trim(),
+                selectedPfp =
+                    current.selectedPfp.name,
+                customPfpUri =
+                    current.customPfpUri?.toString()
+            )
+
+            onComplete()
         }
     }
 }
