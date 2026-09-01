@@ -1,12 +1,11 @@
 package com.xvox.music.core.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,16 +22,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+
+private val NavFluidEasing =
+    CubicBezierEasing(
+        0.16f,
+        1f,
+        0.30f,
+        1f
+    )
 
 @Composable
 fun XvoxBottomBar(
@@ -46,21 +56,15 @@ fun XvoxBottomBar(
     val destinations =
         XvoxDestination.entries
 
-    var dragDistance =
-        remember {
-            0f
-        }
+    var dragDistance by remember {
+        mutableFloatStateOf(0f)
+    }
 
     Row(
         modifier = modifier
             .clip(CircleShape)
             .background(
                 colors.surface
-            )
-            .border(
-                width = 1.dp,
-                color = colors.cardBorder,
-                shape = CircleShape
             )
             .padding(4.dp)
             .pointerInput(selected) {
@@ -70,12 +74,12 @@ fun XvoxBottomBar(
                     },
                     onHorizontalDrag = {
                         change,
-                        amount ->
+                        dragAmount ->
 
                         change.consume()
 
                         dragDistance +=
-                            amount
+                            dragAmount
                     },
                     onDragEnd = {
                         if (
@@ -83,23 +87,24 @@ fun XvoxBottomBar(
                                 dragDistance
                             ) >= 35.dp.toPx()
                         ) {
-                            val current =
+                            val currentIndex =
                                 destinations.indexOf(
                                     selected
                                 )
 
-                            val target =
+                            val targetIndex =
                                 if (
-                                    dragDistance > 0f
+                                    dragDistance >
+                                    0f
                                 ) {
-                                    current + 1
+                                    currentIndex + 1
                                 } else {
-                                    current - 1
+                                    currentIndex - 1
                                 }
 
                             destinations
                                 .getOrNull(
-                                    target
+                                    targetIndex
                                 )
                                 ?.let(
                                     onSelected
@@ -134,9 +139,14 @@ fun XvoxBottomBar(
                     selected ==
                         destination,
                 onClick = {
-                    onSelected(
-                        destination
-                    )
+                    if (
+                        destination !=
+                        selected
+                    ) {
+                        onSelected(
+                            destination
+                        )
+                    }
                 }
             )
         }
@@ -152,37 +162,50 @@ private fun XvoxNavigationItem(
     val colors =
         XvoxTheme.colors
 
-    val interaction =
+    val interactionSource =
         remember {
             MutableInteractionSource()
         }
 
     val pressed by
-        interaction.collectIsPressedAsState()
+        interactionSource
+            .collectIsPressedAsState()
+
+    val activeWidth =
+        when (destination) {
+            XvoxDestination.HOME ->
+                122.dp
+
+            XvoxDestination.SEARCH ->
+                130.dp
+
+            XvoxDestination.SETTINGS ->
+                145.dp
+        }
 
     val width by
         animateDpAsState(
             targetValue =
-                when {
-                    active &&
-                        destination ==
-                        XvoxDestination.SETTINGS ->
-                        132.dp
-
-                    active ->
-                        112.dp
-
-                    else ->
-                        54.dp
+                if (active) {
+                    activeWidth
+                } else {
+                    70.dp
                 },
             animationSpec =
-                spring(
-                    dampingRatio = 0.80f,
-                    stiffness = 380f
+                tween(
+                    durationMillis = 500,
+                    easing =
+                        NavFluidEasing
                 ),
-            label = "navWidth"
+            label = "navPillWidth"
         )
 
+    /*
+     * Active is intentionally the visually
+     * heavier semantic surface.
+     *
+     * No hardcoded mode-specific palette.
+     */
     val background by
         animateColorAsState(
             targetValue =
@@ -192,8 +215,12 @@ private fun XvoxNavigationItem(
                     colors.accentSoft
                 },
             animationSpec =
-                tween(220),
-            label = "navBackground"
+                tween(
+                    durationMillis = 250,
+                    easing =
+                        NavFluidEasing
+                ),
+            label = "navPillColor"
         )
 
     val foreground by
@@ -205,21 +232,54 @@ private fun XvoxNavigationItem(
                     colors.secondaryText
                 },
             animationSpec =
-                tween(200),
-            label = "navForeground"
+                tween(
+                    durationMillis = 220
+                ),
+            label = "navIconColor"
         )
 
     val pressAlpha by
         animateFloatAsState(
             targetValue =
                 if (pressed) {
-                    0.82f
+                    0.83f
                 } else {
                     1f
                 },
             animationSpec =
-                tween(90),
-            label = "navPress"
+                tween(
+                    durationMillis =
+                        if (pressed) {
+                            70
+                        } else {
+                            150
+                        },
+                    easing =
+                        NavFluidEasing
+                ),
+            label = "navPressAlpha"
+        )
+
+    val pressScale by
+        animateFloatAsState(
+            targetValue =
+                if (pressed) {
+                    0.985f
+                } else {
+                    1f
+                },
+            animationSpec =
+                tween(
+                    durationMillis =
+                        if (pressed) {
+                            70
+                        } else {
+                            180
+                        },
+                    easing =
+                        NavFluidEasing
+                ),
+            label = "navPressScale"
         )
 
     Box(
@@ -229,6 +289,12 @@ private fun XvoxNavigationItem(
             .graphicsLayer {
                 alpha =
                     pressAlpha
+
+                scaleX =
+                    pressScale
+
+                scaleY =
+                    pressScale
             }
             .clip(
                 RoundedCornerShape(
@@ -238,90 +304,113 @@ private fun XvoxNavigationItem(
             .background(
                 background
             )
-            .xvoxNavClick(
+            .clickable(
                 interactionSource =
-                    interaction,
+                    interactionSource,
+                indication = null,
                 onClick = onClick
             ),
         contentAlignment =
             Alignment.CenterStart
     ) {
-        Row(
-            modifier =
-                Modifier.padding(
-                    start = 16.dp,
-                    end = 16.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            XvoxNavigationIcon(
-                destination =
-                    destination,
-                color =
-                    foreground,
-                modifier =
-                    Modifier.size(
-                        22.dp
-                    )
-            )
-
-            AnimatedNavLabel(
-                visible = active,
-                label =
-                    destination.label,
-                color =
-                    foreground
-            )
-        }
+        NavigationItemContent(
+            destination =
+                destination,
+            active =
+                active,
+            color =
+                foreground
+        )
     }
 }
 
 @Composable
-private fun AnimatedNavLabel(
-    visible: Boolean,
-    label: String,
-    color: androidx.compose.ui.graphics.Color
+private fun NavigationItemContent(
+    destination: XvoxDestination,
+    active: Boolean,
+    color: Color
 ) {
+    Row(
+        modifier =
+            Modifier.padding(
+                start = 24.dp,
+                end = 20.dp
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        XvoxNavigationIcon(
+            destination =
+                destination,
+            color =
+                color,
+            modifier =
+                Modifier.size(
+                    22.dp
+                )
+        )
+
+        XvoxAnimatedNavigationLabel(
+            destination =
+                destination,
+            visible =
+                active,
+            color =
+                color
+        )
+    }
+}
+
+@Composable
+private fun XvoxAnimatedNavigationLabel(
+    destination: XvoxDestination,
+    visible: Boolean,
+    color: Color
+) {
+    val labelWidth =
+        when (destination) {
+            XvoxDestination.HOME ->
+                42.dp
+
+            XvoxDestination.SEARCH ->
+                51.dp
+
+            XvoxDestination.SETTINGS ->
+                63.dp
+        }
+
     val width by
         animateDpAsState(
             targetValue =
                 if (visible) {
-                    when (label) {
-                        "Settings" ->
-                            66.dp
-
-                        "Search" ->
-                            50.dp
-
-                        else ->
-                            43.dp
-                    }
+                    labelWidth
                 } else {
                     0.dp
                 },
             animationSpec =
-                spring(
-                    dampingRatio = 0.82f,
-                    stiffness = 380f
+                tween(
+                    durationMillis = 420,
+                    easing =
+                        NavFluidEasing
                 ),
-            label = "navLabelWidth"
+            label = "navTextWidth"
         )
 
     val spacing by
         animateDpAsState(
             targetValue =
                 if (visible) {
-                    10.dp
+                    12.dp
                 } else {
                     0.dp
                 },
             animationSpec =
-                spring(
-                    dampingRatio = 0.82f,
-                    stiffness = 380f
+                tween(
+                    durationMillis = 420,
+                    easing =
+                        NavFluidEasing
                 ),
-            label = "navLabelSpacing"
+            label = "navTextSpacing"
         )
 
     val alpha by
@@ -338,10 +427,16 @@ private fun AnimatedNavLabel(
                         if (visible) {
                             220
                         } else {
-                            130
+                            150
+                        },
+                    delayMillis =
+                        if (visible) {
+                            45
+                        } else {
+                            0
                         }
                 ),
-            label = "navLabelAlpha"
+            label = "navTextAlpha"
         )
 
     Spacer(
@@ -355,32 +450,23 @@ private fun AnimatedNavLabel(
         modifier =
             Modifier.width(
                 width
-            )
+            ),
+        contentAlignment =
+            Alignment.CenterStart
     ) {
         Text(
-            text = label,
+            text =
+                destination.label,
             color =
                 color.copy(
-                    alpha = alpha
+                    alpha =
+                        alpha
                 ),
             fontSize = 14.sp,
+            lineHeight = 17.sp,
             fontWeight =
                 FontWeight.SemiBold,
             maxLines = 1
         )
     }
 }
-
-private fun Modifier.xvoxNavClick(
-    interactionSource:
-        MutableInteractionSource,
-    onClick: () -> Unit
-): Modifier =
-    this.then(
-        Modifier.clickable(
-            interactionSource =
-                interactionSource,
-            indication = null,
-            onClick = onClick
-        )
-    )
