@@ -77,12 +77,15 @@ fun HomeScreen(
                         )
                 ) {
                     HomeHeader(
-                        profile =
-                            state.profile,
+                        profile = state.profile,
+                        showPlaylists =
+                            state.showPlaylists,
                         onRefresh =
                             viewModel::refresh,
-                        onMenuClick = {
-                        }
+                        onHeartClick = {
+                        },
+                        onLibraryModeClick =
+                            viewModel::toggleLibraryMode
                     )
 
                     AllSongsSection(
