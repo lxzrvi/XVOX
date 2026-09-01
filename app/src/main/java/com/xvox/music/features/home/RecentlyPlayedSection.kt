@@ -1,33 +1,36 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,18 +46,6 @@ fun RecentlyPlayedSection(
     onSongClick: (Song) -> Unit
 ) {
     val colors = XvoxTheme.colors
-
-    val listState =
-        rememberLazyListState()
-
-    val newestId =
-        songs.firstOrNull()?.id
-
-    LaunchedEffect(newestId) {
-        if (newestId != null) {
-            listState.animateScrollToItem(0)
-        }
-    }
 
     Column {
         Text(
@@ -74,79 +65,185 @@ fun RecentlyPlayedSection(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(132.dp),
+                    .height(153.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Nothing played yet",
                     color = colors.secondaryText,
-                    fontSize = 13.sp
+                    fontSize = 12.sp
                 )
             }
 
             return@Column
         }
 
-        val screenWidth =
-            LocalConfiguration.current
-                .screenWidthDp.dp
+        RecentCarousel(
+            songs = songs,
+            onSongClick = onSongClick
+        )
+    }
+}
 
-        val itemWidth =
-            screenWidth - 20.dp
+@Composable
+private fun RecentCarousel(
+    songs: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    val colors = XvoxTheme.colors
 
+    val state =
+        rememberLazyListState()
+
+    val fling =
+        rememberSnapFlingBehavior(state)
+
+    var currentIndex by remember {
+        mutableIntStateOf(0)
+    }
+
+    LaunchedEffect(songs.first().id) {
+        state.animateScrollToItem(0)
+    }
+
+    LaunchedEffect(state) {
+        snapshotFlow {
+            state.firstVisibleItemIndex
+        }.collect {
+            currentIndex =
+                it.coerceIn(
+                    0,
+                    songs.lastIndex
+                )
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(153.dp),
+        horizontalAlignment =
+            Alignment.CenterHorizontally
+    ) {
         LazyRow(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 9.dp),
-            contentPadding = PaddingValues(
-                horizontal = 10.dp
-            ),
+            state = state,
+            flingBehavior = fling,
+            contentPadding =
+                PaddingValues(
+                    horizontal = 10.dp
+                ),
             horizontalArrangement =
-                Arrangement.spacedBy(12.dp)
+                Arrangement.spacedBy(20.dp)
         ) {
             items(
-                count = songs.size,
-                key = { songs[it].id }
-            ) { index ->
-                val song = songs[index]
+                items = songs,
+                key = { it.id },
+                contentType = {
+                    "recent_song"
+                }
+            ) { song ->
 
-                RecentArtwork(
-                    song = song,
-                    onClick = {
-                        onSongClick(song)
-                    },
+                BoxWithConstraints(
                     modifier =
-                        Modifier.width(itemWidth)
-                )
+                        Modifier.fillParentMaxWidth()
+                ) {
+                    RecentArtwork(
+                        song = song,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(122.dp),
+                        onClick = {
+                            onSongClick(song)
+                        }
+                    )
+                }
             }
         }
 
-        RecentDots(
-            songCount = songs.size,
-            listState = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        )
+        val dots =
+            minOf(
+                7,
+                songs.size
+            )
+
+        val selected =
+            if (
+                songs.size <= 1
+            ) {
+                0
+            } else {
+                (
+                    currentIndex.toFloat() /
+                        (songs.size - 1) *
+                        (dots - 1)
+                    )
+                    .roundToInt()
+                    .coerceIn(
+                        0,
+                        dots - 1
+                    )
+            }
+
+        Row(
+            modifier =
+                Modifier.padding(
+                    top = 9.dp
+                ),
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    6.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            repeat(dots) { index ->
+
+                val active =
+                    selected == index
+
+                Box(
+                    modifier = Modifier
+                        .size(
+                            if (active) {
+                                7.dp
+                            } else {
+                                5.dp
+                            }
+                        )
+                        .background(
+                            color =
+                                if (active) {
+                                    colors.progressActive
+                                } else {
+                                    colors.progressTrack
+                                },
+                            shape =
+                                CircleShape
+                        )
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun RecentArtwork(
     song: Song,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
 
     Box(
         modifier = modifier
-            .aspectRatio(2.15f)
             .clip(
-                RoundedCornerShape(15.dp)
+                RoundedCornerShape(
+                    15.dp
+                )
             )
-            .background(colors.cardElevated)
+            .background(
+                colors.cardElevated
+            )
             .xvoxPressScale(
                 pressedScale = 0.975f,
                 onClick = onClick
@@ -155,19 +252,20 @@ private fun RecentArtwork(
         SongArtwork(
             artwork = song.artworkUri,
             requestSize = 720,
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxSize()
         )
 
         Box(
             modifier = Modifier
-                .matchParentSize()
+                .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
+                        listOf(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
-                                alpha = 0.70f
+                                alpha = 0.80f
                             )
                         )
                     )
@@ -182,93 +280,11 @@ private fun RecentArtwork(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(
-                    start = 13.dp,
-                    end = 13.dp,
-                    bottom = 10.dp
+                .align(
+                    Alignment.BottomStart
                 )
+                .fillMaxWidth(0.82f)
+                .padding(12.dp)
         )
-    }
-}
-
-@Composable
-private fun RecentDots(
-    songCount: Int,
-    listState:
-        androidx.compose.foundation.lazy.LazyListState,
-    modifier: Modifier = Modifier
-) {
-    if (songCount <= 0) {
-        return
-    }
-
-    val colors = XvoxTheme.colors
-
-    val dotCount =
-        songCount.coerceAtMost(7)
-
-    val currentSongIndex by remember(
-        listState,
-        songCount
-    ) {
-        derivedStateOf {
-            listState.firstVisibleItemIndex
-                .coerceIn(
-                    0,
-                    songCount - 1
-                )
-        }
-    }
-
-    val activeDot =
-        if (songCount <= 1) {
-            0
-        } else {
-            (
-                currentSongIndex.toFloat() /
-                    (songCount - 1) *
-                    (dotCount - 1)
-                )
-                .roundToInt()
-                .coerceIn(
-                    0,
-                    dotCount - 1
-                )
-        }
-
-    Row(
-        modifier = modifier,
-        horizontalArrangement =
-            Arrangement.Center,
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        repeat(dotCount) { index ->
-            val active =
-                index == activeDot
-
-            Box(
-                modifier = Modifier
-                    .padding(
-                        horizontal = 3.dp
-                    )
-                    .size(
-                        if (active) {
-                            7.dp
-                        } else {
-                            5.dp
-                        }
-                    )
-                    .clip(CircleShape)
-                    .background(
-                        if (active) {
-                            colors.progressActive
-                        } else {
-                            colors.progressTrack
-                        }
-                    )
-            )
-        }
     }
 }
