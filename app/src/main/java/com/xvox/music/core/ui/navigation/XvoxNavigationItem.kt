@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 
@@ -142,9 +143,7 @@ private fun XvoxNavigationLabel(
         overflow =
             TextOverflow.Visible,
         modifier = Modifier
-            .width(
-                labelWidth
-            )
+            .width(labelWidth)
             .graphicsLayer {
                 this.alpha =
                     alpha
@@ -157,16 +156,16 @@ private fun XvoxNavigationLabel(
                             ) *
                         5.dp.toPx()
 
-                val textScale =
+                val scale =
                     0.97f +
                         0.03f *
                         progress
 
                 scaleX =
-                    textScale
+                    scale
 
                 scaleY =
-                    textScale
+                    scale
             }
     )
 }
