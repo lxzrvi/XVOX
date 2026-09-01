@@ -47,30 +47,47 @@ fun RecentlyPlayedSection(
 ) {
     val colors = XvoxTheme.colors
 
-    Column {
-        Text(
-            text = "Recently Played",
-            color = colors.primaryText,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 26.dp)
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    horizontal = 12.dp
+                )
+        ) {
+            Text(
+                text = "Recently Played",
+                color = colors.primaryText,
+                fontSize = 20.sp,
+                lineHeight = 23.sp,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
 
-        Text(
-            text = "${songs.size} played",
-            color = colors.mutedText,
-            fontSize = 11.sp
-        )
+            Text(
+                text = "${songs.size} played",
+                color = colors.mutedText,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
+            )
+        }
 
         if (songs.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(153.dp),
-                contentAlignment = Alignment.Center
+                    .height(145.dp),
+                contentAlignment =
+                    Alignment.Center
             ) {
                 Text(
-                    text = "Nothing played yet",
-                    color = colors.secondaryText,
+                    text =
+                        "Nothing played yet",
+                    color =
+                        colors.secondaryText,
                     fontSize = 12.sp
                 )
             }
@@ -121,7 +138,7 @@ private fun RecentCarousel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(153.dp),
+            .padding(top = 10.dp),
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
@@ -130,16 +147,16 @@ private fun RecentCarousel(
             flingBehavior = fling,
             contentPadding =
                 PaddingValues(
-                    horizontal = 10.dp
+                    horizontal = 6.dp
                 ),
             horizontalArrangement =
-                Arrangement.spacedBy(20.dp)
+                Arrangement.spacedBy(12.dp)
         ) {
             items(
                 items = songs,
                 key = { it.id },
                 contentType = {
-                    "recent_song"
+                    "recent"
                 }
             ) { song ->
 
@@ -149,27 +166,22 @@ private fun RecentCarousel(
                 ) {
                     RecentArtwork(
                         song = song,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(122.dp),
                         onClick = {
                             onSongClick(song)
-                        }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(122.dp)
                     )
                 }
             }
         }
 
         val dots =
-            minOf(
-                7,
-                songs.size
-            )
+            minOf(7, songs.size)
 
         val selected =
-            if (
-                songs.size <= 1
-            ) {
+            if (songs.size <= 1) {
                 0
             } else {
                 (
@@ -197,9 +209,8 @@ private fun RecentCarousel(
                 Alignment.CenterVertically
         ) {
             repeat(dots) { index ->
-
                 val active =
-                    selected == index
+                    index == selected
 
                 Box(
                     modifier = Modifier
@@ -217,8 +228,7 @@ private fun RecentCarousel(
                                 } else {
                                     colors.progressTrack
                                 },
-                            shape =
-                                CircleShape
+                            shape = CircleShape
                         )
                 )
             }
@@ -229,21 +239,16 @@ private fun RecentCarousel(
 @Composable
 private fun RecentArtwork(
     song: Song,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = modifier
-            .clip(
-                RoundedCornerShape(
-                    15.dp
-                )
-            )
-            .background(
-                colors.cardElevated
-            )
+            .clip(shape)
+            .background(colors.cardElevated)
             .xvoxPressScale(
                 pressedScale = 0.975f,
                 onClick = onClick
@@ -265,7 +270,7 @@ private fun RecentArtwork(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
-                                alpha = 0.80f
+                                alpha = 0.8f
                             )
                         )
                     )
@@ -276,14 +281,16 @@ private fun RecentArtwork(
             text = song.title,
             color = Color.White,
             fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight =
+                FontWeight.SemiBold,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            overflow =
+                TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(
                     Alignment.BottomStart
                 )
-                .fillMaxWidth(0.82f)
+                .fillMaxWidth(0.8f)
                 .padding(12.dp)
         )
     }
