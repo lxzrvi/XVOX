@@ -389,8 +389,11 @@ fun SetupScreen(
                     )
 
                     Button(
-                        onClick =
-                            onSetupComplete,
+                        onClick = {
+                            viewModel.completeSetup(
+                                onComplete = onSetupComplete
+                            )
+                        },
                         enabled =
                             state.setupComplete,
                         modifier =
