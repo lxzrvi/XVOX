@@ -1,5 +1,8 @@
 package com.xvox.music.core.ui.navigation
 
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -12,17 +15,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
+
+private val ParentEasing =
+    CubicBezierEasing(
+        0.16f,
+        1f,
+        0.30f,
+        1f
+    )
+
+private const val ParentDuration = 520
 
 @Composable
 fun XvoxBottomBar(
@@ -36,131 +48,138 @@ fun XvoxBottomBar(
     val destinations =
         XvoxDestination.entries
 
-    val selectedIndex =
-        destinations.indexOf(
-            selected
-        )
-
     var dragDistance by remember {
         mutableFloatStateOf(0f)
     }
 
-    val motion =
-        rememberNavigationBarMotion(
-            selected =
-                selected,
-            selectedIndex =
-                selectedIndex
+    val targetParentWidth =
+        XvoxNavigationGeometry
+            .parentWidth(
+                selected
+            )
+
+    val parentWidth by
+        animateDpAsState(
+            targetValue =
+                targetParentWidth,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        ParentDuration,
+                    easing =
+                        ParentEasing
+                ),
+            label =
+                "navParentWidth"
         )
+
+    /*
+     * Track width is the parent's inner width.
+     * Both animate together from the same source.
+     *
+     * There is no second coordinate system.
+     */
+    val trackWidth =
+        parentWidth -
+            XvoxNavigationGeometry
+                .parentPadding *
+            2
 
     Box(
         modifier = modifier
             .offset(y = 2.dp)
             .width(
-                XvoxNavigationGeometry
-                    .stageWidth
+                parentWidth
             )
             .height(
                 XvoxNavigationGeometry
                     .parentHeight
+            )
+            .background(
+                color =
+                    colors.surface,
+                shape =
+                    CircleShape
+            )
+            .border(
+                width = 0.5.dp,
+                color =
+                    colors.cardBorder,
+                shape =
+                    CircleShape
+            )
+            .pointerInput(
+                selected
+            ) {
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        dragDistance =
+                            0f
+                    },
+                    onHorizontalDrag = {
+                        change,
+                        amount ->
+
+                        change.consume()
+
+                        dragDistance +=
+                            amount
+                    },
+                    onDragEnd = {
+                        if (
+                            abs(
+                                dragDistance
+                            ) >=
+                            35.dp.toPx()
+                        ) {
+                            val currentIndex =
+                                destinations
+                                    .indexOf(
+                                        selected
+                                    )
+
+                            val targetIndex =
+                                if (
+                                    dragDistance >
+                                    0f
+                                ) {
+                                    currentIndex + 1
+                                } else {
+                                    currentIndex - 1
+                                }
+
+                            destinations
+                                .getOrNull(
+                                    targetIndex
+                                )
+                                ?.let(
+                                    onSelected
+                                )
+                        }
+
+                        dragDistance =
+                            0f
+                    },
+                    onDragCancel = {
+                        dragDistance =
+                            0f
+                    }
+                )
+            }
+            .padding(
+                XvoxNavigationGeometry
+                    .parentPadding
             ),
         contentAlignment =
-            Alignment.Center
+            Alignment.CenterStart
     ) {
-        Box(
-            modifier = Modifier
-                .offset(
-                    x =
-                        motion.parentShift
-                )
-                .width(
-                    motion.parentWidth
-                )
-                .height(
-                    XvoxNavigationGeometry
-                        .parentHeight
-                )
-                .background(
-                    color =
-                        colors.surface,
-                    shape =
-                        CircleShape
-                )
-                .border(
-                    width = 0.5.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        CircleShape
-                )
-                .pointerInput(
-                    selected
-                ) {
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            dragDistance =
-                                0f
-                        },
-                        onHorizontalDrag = {
-                            change,
-                            amount ->
-
-                            change.consume()
-
-                            dragDistance +=
-                                amount
-                        },
-                        onDragEnd = {
-                            if (
-                                abs(
-                                    dragDistance
-                                ) >=
-                                35.dp.toPx()
-                            ) {
-                                val target =
-                                    if (
-                                        dragDistance >
-                                        0f
-                                    ) {
-                                        selectedIndex +
-                                            1
-                                    } else {
-                                        selectedIndex -
-                                            1
-                                    }
-
-                                destinations
-                                    .getOrNull(
-                                        target
-                                    )
-                                    ?.let(
-                                        onSelected
-                                    )
-                            }
-
-                            dragDistance =
-                                0f
-                        },
-                        onDragCancel = {
-                            dragDistance =
-                                0f
-                        }
-                    )
-                }
-        )
-
         NavigationTrack(
             selected =
                 selected,
-            motion =
-                motion,
+            animatedTrackWidth =
+                trackWidth,
             onSelected =
-                onSelected,
-            modifier = Modifier
-                .offset(
-                    x =
-                        motion.parentShift
-                )
+                onSelected
         )
     }
 }
@@ -168,9 +187,9 @@ fun XvoxBottomBar(
 @Composable
 private fun NavigationTrack(
     selected: XvoxDestination,
-    motion: XvoxNavigationBarMotion,
-    onSelected: (XvoxDestination) -> Unit,
-    modifier: Modifier = Modifier
+    animatedTrackWidth:
+        androidx.compose.ui.unit.Dp,
+    onSelected: (XvoxDestination) -> Unit
 ) {
     val colors =
         XvoxTheme.colors
@@ -178,37 +197,71 @@ private fun NavigationTrack(
     val destinations =
         XvoxDestination.entries
 
+    val targetActiveWidth =
+        XvoxNavigationGeometry
+            .activePillWidth(
+                selected
+            )
+
+    val activeWidth by
+        animateDpAsState(
+            targetValue =
+                targetActiveWidth,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        ParentDuration,
+                    easing =
+                        ParentEasing
+                ),
+            label =
+                "navActiveWidth"
+        )
+
+    /*
+     * Target active center is calculated from
+     * actual selected/inactive item widths.
+     */
+    val targetCenter =
+        XvoxNavigationGeometry
+            .activeCenter(
+                selected
+            )
+
+    val activeCenter by
+        animateDpAsState(
+            targetValue =
+                targetCenter,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        ParentDuration,
+                    easing =
+                        ParentEasing
+                ),
+            label =
+                "navActiveCenter"
+        )
+
     Box(
-        modifier = modifier
+        modifier = Modifier
             .width(
-                motion.parentWidth
+                animatedTrackWidth
             )
             .height(
                 XvoxNavigationGeometry
-                    .parentHeight
+                    .itemHeight
             )
-            .padding(
-                XvoxNavigationGeometry
-                    .parentPadding
-            ),
-        contentAlignment =
-            Alignment.TopStart
     ) {
         Box(
             modifier = Modifier
-                .offset {
-                    IntOffset(
-                        x = (
-                            motion.activeCenter -
-                                motion.activeWidth /
-                                2
-                            )
-                            .roundToPx(),
-                        y = 0
-                    )
-                }
+                .offset(
+                    x =
+                        activeCenter -
+                            activeWidth / 2
+                )
                 .width(
-                    motion.activeWidth
+                    activeWidth
                 )
                 .height(
                     XvoxNavigationGeometry
@@ -225,8 +278,7 @@ private fun NavigationTrack(
         Row(
             modifier = Modifier
                 .width(
-                    XvoxNavigationGeometry
-                        .trackWidth()
+                    animatedTrackWidth
                 )
                 .height(
                     XvoxNavigationGeometry
@@ -235,38 +287,102 @@ private fun NavigationTrack(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            destinations.forEachIndexed {
-                index,
-                destination ->
+            destinations
+                .forEachIndexed {
+                    index,
+                    destination ->
 
-                if (index > 0) {
-                    Spacer(
-                        modifier =
-                            Modifier.width(
-                                XvoxNavigationGeometry
-                                    .slotGap
-                            )
+                    if (index > 0) {
+                        Spacer(
+                            modifier =
+                                Modifier.width(
+                                    XvoxNavigationGeometry
+                                        .itemGap
+                                )
+                        )
+                    }
+
+                    NavigationSlot(
+                        destination =
+                            destination,
+                        selected =
+                            selected,
+                        onSelected =
+                            onSelected
                     )
                 }
-
-                XvoxNavigationItem(
-                    destination =
-                        destination,
-                    active =
-                        selected ==
-                            destination,
-                    onClick = {
-                        if (
-                            destination !=
-                            selected
-                        ) {
-                            onSelected(
-                                destination
-                            )
-                        }
-                    }
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun NavigationSlot(
+    destination: XvoxDestination,
+    selected: XvoxDestination,
+    onSelected: (XvoxDestination) -> Unit
+) {
+    val active =
+        destination ==
+            selected
+
+    val targetWidth =
+        if (active) {
+            XvoxNavigationGeometry
+                .activePillWidth(
+                    destination
+                )
+        } else {
+            XvoxNavigationGeometry
+                .inactiveWidth
+        }
+
+    val width by
+        animateDpAsState(
+            targetValue =
+                targetWidth,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        ParentDuration,
+                    easing =
+                        ParentEasing
+                ),
+            label =
+                "navSlotWidth"
+        )
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(
+                XvoxNavigationGeometry
+                    .itemHeight
+            ),
+        contentAlignment =
+            Alignment.Center
+    ) {
+        /*
+         * XvoxNavigationItem itself keeps the
+         * icon/text animation responsibility.
+         *
+         * It receives the current active state,
+         * while this wrapper owns only its slot.
+         */
+        XvoxNavigationItem(
+            destination =
+                destination,
+            active =
+                active,
+            onClick = {
+                if (
+                    destination !=
+                    selected
+                ) {
+                    onSelected(
+                        destination
+                    )
+                }
+            }
+        )
     }
 }
