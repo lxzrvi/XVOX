@@ -2,6 +2,7 @@ package com.xvox.music.core.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -38,15 +39,21 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
 
+/*
+ * Very smooth deceleration.
+ * No sharp acceleration at the beginning
+ * and no sudden stop at the end.
+ */
 private val NavFluidEasing =
     CubicBezierEasing(
-        0.16f,
+        0.22f,
         1f,
-        0.30f,
+        0.36f,
         1f
     )
 
-private const val MorphDuration = 520
+private const val MorphDuration = 620
+private const val ColorDuration = 360
 
 private val ItemHeight = 57.dp
 private val InactiveWidth = 70.dp
@@ -57,11 +64,8 @@ fun XvoxBottomBar(
     onSelected: (XvoxDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
-
-    val destinations =
-        XvoxDestination.entries
+    val colors = XvoxTheme.colors
+    val destinations = XvoxDestination.entries
 
     var dragDistance by remember {
         mutableFloatStateOf(0f)
@@ -71,9 +75,7 @@ fun XvoxBottomBar(
         modifier = modifier
             .offset(y = 2.dp)
             .clip(CircleShape)
-            .background(
-                colors.surface
-            )
+            .background(colors.surface)
             .border(
                 width = 0.5.dp,
                 color = colors.cardBorder,
@@ -85,76 +87,55 @@ fun XvoxBottomBar(
                     onDragStart = {
                         dragDistance = 0f
                     },
-                    onHorizontalDrag = {
-                        change,
-                        amount ->
 
+                    onHorizontalDrag = { change, amount ->
                         change.consume()
                         dragDistance += amount
                     },
+
                     onDragEnd = {
-                        if (
-                            abs(dragDistance) >=
-                            35.dp.toPx()
-                        ) {
+                        if (abs(dragDistance) >= 35.dp.toPx()) {
+
                             val currentIndex =
-                                destinations.indexOf(
-                                    selected
-                                )
+                                destinations.indexOf(selected)
 
                             val targetIndex =
-                                if (
-                                    dragDistance > 0f
-                                ) {
+                                if (dragDistance > 0f) {
                                     currentIndex + 1
                                 } else {
                                     currentIndex - 1
                                 }
 
                             destinations
-                                .getOrNull(
-                                    targetIndex
-                                )
-                                ?.let(
-                                    onSelected
-                                )
+                                .getOrNull(targetIndex)
+                                ?.let(onSelected)
                         }
 
                         dragDistance = 0f
                     },
+
                     onDragCancel = {
                         dragDistance = 0f
                     }
                 )
             },
-        verticalAlignment =
-            Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        destinations.forEachIndexed {
-            index,
-            destination ->
+
+        destinations.forEachIndexed { index, destination ->
 
             if (index > 0) {
                 Spacer(
-                    modifier =
-                        Modifier.width(8.dp)
+                    modifier = Modifier.width(8.dp)
                 )
             }
 
             NavigationItem(
-                destination =
-                    destination,
-                active =
-                    destination ==
-                        selected,
+                destination = destination,
+                active = destination == selected,
                 onClick = {
-                    if (
-                        destination !=
-                        selected
-                    ) {
-                        onSelected(
-                            destination
-                        )
+                    if (destination != selected) {
+                        onSelected(destination)
                     }
                 }
             )
@@ -168,8 +149,7 @@ private fun NavigationItem(
     active: Boolean,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     val interactionSource =
         remember {
@@ -177,69 +157,82 @@ private fun NavigationItem(
         }
 
     val pressed by
-        interactionSource
-            .collectIsPressedAsState()
+        interactionSource.collectIsPressedAsState()
 
+    /*
+     * One single animation controls the complete
+     * active/inactive morph.
+     *
+     * This is deliberately slower and softer than
+     * the previous animation so neighboring items
+     * don't get a sudden layout jump.
+     */
     val progress by
         animateFloatAsState(
-            targetValue =
-                if (active) {
-                    1f
-                } else {
-                    0f
-                },
+            targetValue = if (active) 1f else 0f,
             animationSpec =
                 tween(
-                    durationMillis =
-                        MorphDuration,
-                    easing =
-                        NavFluidEasing
+                    durationMillis = MorphDuration,
+                    easing = NavFluidEasing
                 ),
-            label =
-                "navMorph"
+            label = "navMorph"
         )
-
-    val inactiveWidth =
-        InactiveWidth.value
 
     val activeWidth =
         when (destination) {
             XvoxDestination.HOME ->
-                124.dp.value
+                124.dp
 
             XvoxDestination.SEARCH ->
-                134.dp.value
+                134.dp
 
             XvoxDestination.SETTINGS ->
-                150.dp.value
+                150.dp
         }
 
-    val currentWidth =
-        (
-            inactiveWidth +
-                (
-                    activeWidth -
-                        inactiveWidth
-                    ) *
-                progress
-            ).dp
+    /*
+     * Width itself is animated as a separate DP value.
+     *
+     * Because the Row receives a continuously changing
+     * width instead of an instant width change, the
+     * neighboring items move continuously as well.
+     */
+    val targetWidth =
+        if (active) {
+            activeWidth
+        } else {
+            InactiveWidth
+        }
 
+    val currentWidth by
+        animateDpAsState(
+            targetValue = targetWidth,
+            animationSpec =
+                tween(
+                    durationMillis = MorphDuration,
+                    easing = NavFluidEasing
+                ),
+            label = "navWidth"
+        )
+
+    /*
+     * IMPORTANT:
+     * Inactive items have NO pill/background.
+     */
     val background by
         animateColorAsState(
             targetValue =
                 if (active) {
                     colors.cardElevated
                 } else {
-                    colors.card
+                    Color.Transparent
                 },
             animationSpec =
                 tween(
-                    durationMillis = 300,
-                    easing =
-                        NavFluidEasing
+                    durationMillis = ColorDuration,
+                    easing = NavFluidEasing
                 ),
-            label =
-                "navBackground"
+            label = "navBackground"
         )
 
     val foreground by
@@ -252,58 +245,28 @@ private fun NavigationItem(
                 },
             animationSpec =
                 tween(
-                    durationMillis = 260,
-                    easing =
-                        NavFluidEasing
+                    durationMillis = 330,
+                    easing = NavFluidEasing
                 ),
-            label =
-                "navForeground"
+            label = "navForeground"
         )
 
+    /*
+     * Extremely subtle press feedback.
+     * This is intentionally tiny so the icon/text
+     * never feels bouncy.
+     */
     val pressScale by
         animateFloatAsState(
             targetValue =
-                if (pressed) {
-                    0.985f
-                } else {
-                    1f
-                },
+                if (pressed) 0.992f else 1f,
             animationSpec =
                 tween(
                     durationMillis =
-                        if (pressed) {
-                            70
-                        } else {
-                            170
-                        },
-                    easing =
-                        NavFluidEasing
+                        if (pressed) 80 else 180,
+                    easing = NavFluidEasing
                 ),
-            label =
-                "navPressScale"
-        )
-
-    val pressAlpha by
-        animateFloatAsState(
-            targetValue =
-                if (pressed) {
-                    0.84f
-                } else {
-                    1f
-                },
-            animationSpec =
-                tween(
-                    durationMillis =
-                        if (pressed) {
-                            65
-                        } else {
-                            160
-                        },
-                    easing =
-                        NavFluidEasing
-                ),
-            label =
-                "navPressAlpha"
+            label = "navPressScale"
         )
 
     Box(
@@ -311,39 +274,25 @@ private fun NavigationItem(
             .width(currentWidth)
             .height(ItemHeight)
             .graphicsLayer {
-                scaleX =
-                    pressScale
-
-                scaleY =
-                    pressScale
-
-                alpha =
-                    pressAlpha
+                scaleX = pressScale
+                scaleY = pressScale
             }
             .clip(
-                RoundedCornerShape(
-                    28.5.dp
-                )
+                RoundedCornerShape(28.5.dp)
             )
-            .background(
-                background
-            )
+            .background(background)
             .clickable(
-                interactionSource =
-                    interactionSource,
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.CenterStart
+        contentAlignment = Alignment.CenterStart
     ) {
+
         NavigationContent(
-            destination =
-                destination,
-            progress =
-                progress,
-            color =
-                foreground
+            destination = destination,
+            progress = progress,
+            color = foreground
         )
     }
 }
@@ -367,33 +316,25 @@ private fun NavigationContent(
         }
 
     /*
-     * Same progress drives pill width,
-     * spacing and label reveal.
-     * This prevents two animations from
-     * fighting during fast tab changes.
+     * Soft morph curve.
+     *
+     * Using the SAME progress for icon/text/pill
+     * keeps everything synchronized.
      */
     val reveal =
         smoothStep(
             (
-                (progress - 0.05f) /
-                    0.95f
-                )
-                .coerceIn(
-                    0f,
-                    1f
-                )
+                (progress - 0.08f) /
+                    0.92f
+            ).coerceIn(0f, 1f)
         )
 
     val textAlpha =
         smoothStep(
             (
-                (progress - 0.12f) /
-                    0.70f
-                )
-                .coerceIn(
-                    0f,
-                    1f
-                )
+                (progress - 0.18f) /
+                    0.62f
+            ).coerceIn(0f, 1f)
         )
 
     Row(
@@ -405,66 +346,54 @@ private fun NavigationContent(
         verticalAlignment =
             Alignment.CenterVertically
     ) {
+
         XvoxNavigationIcon(
-            destination =
-                destination,
-            color =
-                color,
-            modifier =
-                Modifier.size(
-                    22.dp
-                )
+            destination = destination,
+            color = color,
+            modifier = Modifier.size(22.dp)
         )
 
         Spacer(
             modifier =
                 Modifier.width(
-                    12.dp *
-                        reveal
+                    12.dp * reveal
                 )
         )
 
-        /*
-         * HTML-style horizontal reveal is
-         * retained, but text itself also fades
-         * and subtly translates so the edge
-         * doesn't look harsh.
-         */
         Box(
             modifier =
                 Modifier.width(
-                    labelWidth *
-                        reveal
+                    labelWidth * reveal
                 ),
             contentAlignment =
                 Alignment.CenterStart
         ) {
+
             Text(
-                text =
-                    destination.label,
+                text = destination.label,
                 color =
                     color.copy(
-                        alpha =
-                            textAlpha
+                        alpha = textAlpha
                     ),
                 fontSize = 14.sp,
                 lineHeight = 17.sp,
-                fontWeight =
-                    FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 modifier =
                     Modifier.graphicsLayer {
+
+                        /*
+                         * Very small movement only.
+                         * Prevents the text from looking like
+                         * it is being thrown into the pill.
+                         */
                         translationX =
-                            (
-                                1f -
-                                    reveal
-                                ) *
-                                5.dp.toPx()
+                            (1f - reveal) *
+                                3.dp.toPx()
 
                         val scale =
-                            0.98f +
-                                0.02f *
-                                reveal
+                            0.985f +
+                                (0.015f * reveal)
 
                         scaleX = scale
                         scaleY = scale
@@ -479,9 +408,5 @@ private fun smoothStep(
 ): Float {
     return value *
         value *
-        (
-            3f -
-                2f *
-                value
-            )
+        (3f - 2f * value)
 }
