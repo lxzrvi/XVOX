@@ -55,7 +55,9 @@ fun AllSongCard(
                     .fillMaxWidth()
                     .height(maxWidth)
                     .clip(
-                        RoundedCornerShape(7.dp)
+                        RoundedCornerShape(
+                            7.dp
+                        )
                     )
             )
         }
@@ -72,9 +74,11 @@ fun AllSongCard(
                 color = colors.primaryText,
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight =
+                    FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow =
+                    TextOverflow.Ellipsis
             )
 
             Text(
@@ -83,7 +87,8 @@ fun AllSongCard(
                 fontSize = 8.sp,
                 lineHeight = 9.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow =
+                    TextOverflow.Ellipsis
             )
         }
     }
