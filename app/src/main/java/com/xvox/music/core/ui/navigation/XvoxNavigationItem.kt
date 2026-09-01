@@ -54,12 +54,26 @@ fun XvoxNavigationItem(
                 motion.progress
         )
 
+    val contentWidth =
+        XvoxNavigationGeometry
+            .contentWidth(
+                destination
+            )
+
+    val iconCenter =
+        XvoxNavigationGeometry
+            .activeIconCenter(
+                destination
+            )
+
+    val labelCenter =
+        XvoxNavigationGeometry
+            .activeLabelCenter(
+                destination
+            )
+
     Box(
         modifier = Modifier
-            .width(
-                XvoxNavigationGeometry
-                    .slotWidth
-            )
             .fillMaxSize()
             .clickable(
                 interactionSource =
@@ -80,12 +94,12 @@ fun XvoxNavigationItem(
                     XvoxNavigationGeometry
                         .iconSize
                 )
+                .align(
+                    Alignment.Center
+                )
                 .graphicsLayer {
                     translationX =
-                        XvoxNavigationGeometry
-                            .activeIconCenter(
-                                destination
-                            )
+                        iconCenter
                             .toPx() *
                             motion
                                 .easedProgress
@@ -98,74 +112,50 @@ fun XvoxNavigationItem(
                 }
         )
 
-        XvoxNavigationLabel(
-            destination =
-                destination,
-            alpha =
-                motion.labelAlpha,
-            progress =
-                motion.easedProgress,
+        Text(
+            text =
+                destination.label,
             color =
-                color
+                color,
+            fontSize = 14.sp,
+            lineHeight = 17.sp,
+            fontWeight =
+                FontWeight.SemiBold,
+            maxLines = 1,
+            overflow =
+                TextOverflow.Visible,
+            modifier = Modifier
+                .width(
+                    XvoxNavigationGeometry
+                        .labelWidth(
+                            destination
+                        )
+                )
+                .align(
+                    Alignment.Center
+                )
+                .graphicsLayer {
+                    alpha =
+                        motion.labelAlpha
+
+                    translationX =
+                        labelCenter.toPx() +
+                            (
+                                1f -
+                                    motion
+                                        .easedProgress
+                                ) *
+                            5.dp.toPx()
+
+                    val scale =
+                        0.97f +
+                            0.03f *
+                            motion
+                                .easedProgress
+
+                    scaleX = scale
+                    scaleY = scale
+                }
         )
     }
-}
-
-@Composable
-private fun XvoxNavigationLabel(
-    destination: XvoxDestination,
-    alpha: Float,
-    progress: Float,
-    color: androidx.compose.ui.graphics.Color
-) {
-    val labelWidth =
-        XvoxNavigationGeometry
-            .labelWidth(
-                destination
-            )
-
-    val finalCenter =
-        XvoxNavigationGeometry
-            .activeLabelCenter(
-                destination
-            )
-
-    Text(
-        text =
-            destination.label,
-        color =
-            color,
-        fontSize = 14.sp,
-        lineHeight = 17.sp,
-        fontWeight =
-            FontWeight.SemiBold,
-        maxLines = 1,
-        overflow =
-            TextOverflow.Visible,
-        modifier = Modifier
-            .width(labelWidth)
-            .graphicsLayer {
-                this.alpha =
-                    alpha
-
-                translationX =
-                    finalCenter.toPx() +
-                        (
-                            1f -
-                                progress
-                            ) *
-                        5.dp.toPx()
-
-                val scale =
-                    0.97f +
-                        0.03f *
-                        progress
-
-                scaleX =
-                    scale
-
-                scaleY =
-                    scale
-            }
-    )
 }
