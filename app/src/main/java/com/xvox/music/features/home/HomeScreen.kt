@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,11 +44,14 @@ fun HomeScreen(
                             .navigationBars
                     )
             )
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(
                 start = 18.dp,
                 end = 18.dp,
                 top = 10.dp,
-                bottom = 8.dp
+                bottom = 18.dp
             ),
         verticalArrangement =
             Arrangement.spacedBy(
