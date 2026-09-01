@@ -5,15 +5,13 @@ import androidx.compose.ui.unit.dp
 
 object XvoxNavigationGeometry {
 
-    val stageWidth = 350.dp
-
     val parentHeight = 65.dp
     val parentPadding = 4.dp
 
     val itemHeight = 57.dp
 
-    val slotWidth = 70.dp
-    val slotGap = 8.dp
+    val inactiveWidth = 70.dp
+    val itemGap = 8.dp
 
     val iconSize = 22.dp
     val iconTextGap = 6.dp
@@ -50,63 +48,108 @@ object XvoxNavigationGeometry {
             contentWidth(destination)
     }
 
+    fun itemWidth(
+        destination: XvoxDestination,
+        selected: XvoxDestination
+    ): Dp {
+        return if (
+            destination == selected
+        ) {
+            activePillWidth(
+                destination
+            )
+        } else {
+            inactiveWidth
+        }
+    }
+
+    fun trackWidth(
+        selected: XvoxDestination
+    ): Dp {
+        return XvoxDestination.entries
+            .fold(0.dp) {
+                total,
+                destination ->
+
+                total +
+                    itemWidth(
+                        destination,
+                        selected
+                    )
+            } +
+            itemGap *
+            (
+                XvoxDestination.entries.size -
+                    1
+                )
+    }
+
     fun parentWidth(
-        destination: XvoxDestination
+        selected: XvoxDestination
     ): Dp {
-        return when (destination) {
-            XvoxDestination.HOME ->
-                266.dp
-
-            XvoxDestination.SEARCH ->
-                275.dp
-
-            XvoxDestination.SETTINGS ->
-                287.dp
-        }
+        return trackWidth(
+            selected
+        ) +
+            parentPadding * 2
     }
 
-    fun parentShift(
-        destination: XvoxDestination
+    fun activeCenter(
+        selected: XvoxDestination
     ): Dp {
-        return when (destination) {
-            XvoxDestination.HOME ->
-                (-9).dp
+        var position = 0.dp
 
-            XvoxDestination.SEARCH ->
-                0.dp
+        XvoxDestination.entries
+            .forEach {
+                destination ->
 
-            XvoxDestination.SETTINGS ->
-                9.dp
-        }
-    }
+                val width =
+                    itemWidth(
+                        destination,
+                        selected
+                    )
 
-    fun trackWidth(): Dp {
-        return slotWidth * 3 +
-            slotGap * 2
-    }
+                if (
+                    destination ==
+                    selected
+                ) {
+                    return position +
+                        width / 2
+                }
 
-    fun slotCenter(
-        index: Int
-    ): Dp {
-        return slotWidth / 2 +
-            (slotWidth + slotGap) *
-            index
+                position +=
+                    width +
+                        itemGap
+            }
+
+        return 0.dp
     }
 
     fun activeIconCenter(
         destination: XvoxDestination
     ): Dp {
-        return -contentWidth(destination) / 2 +
+        val contentWidth =
+            contentWidth(
+                destination
+            )
+
+        return -contentWidth / 2 +
             iconSize / 2
     }
 
     fun activeLabelCenter(
         destination: XvoxDestination
     ): Dp {
-        val textWidth =
-            labelWidth(destination)
+        val contentWidth =
+            contentWidth(
+                destination
+            )
 
-        return -contentWidth(destination) / 2 +
+        val textWidth =
+            labelWidth(
+                destination
+            )
+
+        return -contentWidth / 2 +
             iconSize +
             iconTextGap +
             textWidth / 2
