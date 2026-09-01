@@ -61,15 +61,14 @@ fun SetupScreen(
     val colors = XvoxTheme.colors
 
     val imeVisible =
-        WindowInsets.ime.getBottom(
-            density
-        ) > 0
+        WindowInsets.ime
+            .getBottom(density) > 0
 
-    val carouselKeyboardOffset by
+    val personalizationOffset by
         animateDpAsState(
             targetValue =
                 if (imeVisible) {
-                    (-92).dp
+                    (-105).dp
                 } else {
                     0.dp
                 },
@@ -79,7 +78,7 @@ fun SetupScreen(
                     FastOutSlowInEasing
             ),
             label =
-                "carouselKeyboardOffset"
+                "personalizationOffset"
         )
 
     fun audioGranted(): Boolean {
@@ -97,8 +96,7 @@ fun SetupScreen(
                 context,
                 permission
             ) ==
-            PackageManager
-                .PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED
     }
 
     fun notificationGranted(): Boolean {
@@ -112,8 +110,7 @@ fun SetupScreen(
                 Manifest.permission
                     .POST_NOTIFICATIONS
             ) ==
-            PackageManager
-                .PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED
     }
 
     val audioLauncher =
@@ -181,40 +178,38 @@ fun SetupScreen(
             val screenHeight =
                 maxHeight
 
+            Text(
+                text = "XVOX",
+                modifier = Modifier
+                    .align(
+                        Alignment.TopCenter
+                    )
+                    .offset(
+                        y =
+                            screenHeight *
+                                0.13f -
+                                32.dp
+                    ),
+                color = colors.primaryText,
+                fontFamily =
+                    XvoxLogoFont,
+                fontSize = 37.sp,
+                textAlign =
+                    TextAlign.Center
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(
                         y =
                             screenHeight *
-                                0.13f
+                                0.285f +
+                                personalizationOffset
                     ),
                 horizontalAlignment =
-                    Alignment
-                        .CenterHorizontally
+                    Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "XVOX",
-                    modifier =
-                        Modifier.offset(
-                            y = (-32).dp
-                        ),
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxLogoFont,
-                    fontSize = 37.sp,
-                    textAlign =
-                        TextAlign.Center
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(
-                            26.dp
-                        )
-                )
-
                 Text(
                     text =
                         "Let's get to know you",
@@ -228,7 +223,7 @@ fun SetupScreen(
                 Spacer(
                     modifier =
                         Modifier.height(
-                            6.dp
+                            5.dp
                         )
                 )
 
@@ -243,21 +238,14 @@ fun SetupScreen(
                     textAlign =
                         TextAlign.Center
                 )
-            }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(
-                        y =
-                            screenHeight *
-                                0.36f +
-                                carouselKeyboardOffset
-                    ),
-                horizontalAlignment =
-                    Alignment
-                        .CenterHorizontally
-            ) {
+                Spacer(
+                    modifier =
+                        Modifier.height(
+                            14.dp
+                        )
+                )
+
                 PfpCarousel(
                     selected =
                         state.selectedPfp,
@@ -307,8 +295,7 @@ fun SetupScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(
-                        Alignment
-                            .BottomCenter
+                        Alignment.BottomCenter
                     )
             ) {
                 PermissionCard(
@@ -329,9 +316,7 @@ fun SetupScreen(
                                     .READ_EXTERNAL_STORAGE
                             }
 
-                        if (
-                            !audioGranted()
-                        ) {
+                        if (!audioGranted()) {
                             audioLauncher.launch(
                                 permission
                             )
@@ -372,10 +357,8 @@ fun SetupScreen(
                 ) {
                     SetupCloseButton(
                         onClick = {
-                            (
-                                context
-                                    as? Activity
-                                )?.finish()
+                            (context as? Activity)
+                                ?.finish()
                         }
                     )
 
@@ -410,8 +393,7 @@ fun SetupScreen(
                         Text(
                             text = "Start",
                             fontWeight =
-                                FontWeight
-                                    .SemiBold
+                                FontWeight.SemiBold
                         )
                     }
                 }
