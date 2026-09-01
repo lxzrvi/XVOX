@@ -92,6 +92,14 @@ fun AllSongCard(
                             7.dp
                         )
                     )
+                    .clickable(
+                        indication = null,
+                        interactionSource =
+                            remember {
+                                androidx.compose.foundation.interaction.MutableInteractionSource()
+                            },
+                        onClick = onClick
+                    )
             ) {
                 SongArtwork(
                     artwork =
