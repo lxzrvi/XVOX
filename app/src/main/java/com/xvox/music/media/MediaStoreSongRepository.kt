@@ -17,21 +17,29 @@ class MediaStoreSongRepository(
 
     suspend fun loadSongs(): List<Song> =
         withContext(Dispatchers.IO) {
-            val result = mutableListOf<Song>()
+            val songs =
+                ArrayList<Song>()
 
-            val projection = arrayOf(
-                MediaStore.Audio.Media._ID,
-                MediaStore.Audio.Media.TITLE,
-                MediaStore.Audio.Media.ARTIST,
-                MediaStore.Audio.Media.ALBUM_ID
-            )
+            val projection =
+                arrayOf(
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM_ID
+                )
+
+            val selection =
+                "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+
+            val sortOrder =
+                "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
             resolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 projection,
-                "${MediaStore.Audio.Media.IS_MUSIC} != 0",
+                selection,
                 null,
-                "${MediaStore.Audio.Media.DATE_ADDED} DESC"
+                sortOrder
             )?.use { cursor ->
 
                 val idColumn =
@@ -54,56 +62,83 @@ class MediaStoreSongRepository(
                         MediaStore.Audio.Media.ALBUM_ID
                     )
 
-                while (cursor.moveToNext()) {
+                while (
+                    cursor.moveToNext()
+                ) {
                     val id =
-                        cursor.getLong(idColumn)
-
-                    val albumId =
-                        cursor.getLong(albumColumn)
+                        cursor.getLong(
+                            idColumn
+                        )
 
                     val title =
-                        cursor.getString(titleColumn)
-                            ?.takeIf { it.isNotBlank() }
+                        cursor
+                            .getString(
+                                titleColumn
+                            )
+                            ?.trim()
+                            ?.takeIf {
+                                it.isNotEmpty()
+                            }
                             ?: "Unknown song"
 
                     val rawArtist =
-                        cursor.getString(artistColumn)
+                        cursor
+                            .getString(
+                                artistColumn
+                            )
+                            ?.trim()
 
                     val artist =
-                        rawArtist?.takeIf {
-                            it.isNotBlank() &&
-                                it != "<unknown>"
-                        } ?: "Unknown artist"
+                        rawArtist
+                            ?.takeIf {
+                                it.isNotEmpty() &&
+                                    !it.equals(
+                                        "<unknown>",
+                                        ignoreCase = true
+                                    )
+                            }
+                            ?: "Unknown artist"
+
+                    val albumId =
+                        cursor.getLong(
+                            albumColumn
+                        )
 
                     val contentUri =
-                        ContentUris.withAppendedId(
-                            MediaStore.Audio.Media
-                                .EXTERNAL_CONTENT_URI,
-                            id
-                        )
+                        ContentUris
+                            .withAppendedId(
+                                MediaStore.Audio.Media
+                                    .EXTERNAL_CONTENT_URI,
+                                id
+                            )
 
                     val artworkUri =
                         if (albumId > 0L) {
-                            ContentUris.withAppendedId(
-                                Uri.parse(
-                                    "content://media/external/audio/albumart"
-                                ),
-                                albumId
-                            )
+                            ContentUris
+                                .withAppendedId(
+                                    Uri.parse(
+                                        "content://media/external/audio/albumart"
+                                    ),
+                                    albumId
+                                )
                         } else {
                             null
                         }
 
-                    result += Song(
-                        id = id,
-                        title = title,
-                        artist = artist,
-                        contentUri = contentUri,
-                        artworkUri = artworkUri
+                    songs.add(
+                        Song(
+                            id = id,
+                            title = title,
+                            artist = artist,
+                            contentUri =
+                                contentUri,
+                            artworkUri =
+                                artworkUri
+                        )
                     )
                 }
             }
 
-            result
+            songs
         }
 }
