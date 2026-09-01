@@ -22,57 +22,44 @@ fun HomeHeader(
     onRefresh: () -> Unit,
     onMenuClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Row(
-        verticalAlignment =
-            Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         HomeProfileAvatar(
             profile = profile,
-            modifier =
-                Modifier.xvoxPressScale {
-                }
+            modifier = Modifier.xvoxPressScale {}
         )
 
         Spacer(
-            modifier =
-                Modifier.width(11.dp)
+            modifier = Modifier.width(10.dp)
         )
 
         Column(
-            modifier =
-                Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         ) {
             Text(
-                text =
-                    profile.username,
-                color =
-                    colors.primaryText,
-                fontFamily =
-                    XvoxPersonalFont,
+                text = profile.username,
+                color = colors.primaryText,
+                fontFamily = XvoxPersonalFont,
                 fontSize = 21.sp,
+                lineHeight = 22.sp,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
 
             HomeGreeting()
         }
 
         HomeActionIcon(
-            type =
-                HomeActionType.REFRESH,
-            onClick =
-                onRefresh
+            type = HomeActionType.REFRESH,
+            onClick = onRefresh
         )
 
         HomeActionIcon(
-            type =
-                HomeActionType.MENU,
-            onClick =
-                onMenuClick
+            type = HomeActionType.MENU,
+            onClick = onMenuClick
         )
     }
 }
