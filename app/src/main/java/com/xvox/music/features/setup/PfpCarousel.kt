@@ -138,7 +138,7 @@ fun PfpCarousel(
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
-        val slotWidth = 98.dp
+        val slotWidth = 108.dp
 
         val edgePadding =
             (
@@ -147,16 +147,22 @@ fun PfpCarousel(
 
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
+            contentAlignment =
+                Alignment.Center
         ) {
             LazyRow(
                 state = state,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(
-                    horizontal = edgePadding
-                ),
+                modifier =
+                    Modifier.fillMaxWidth(),
+                contentPadding =
+                    PaddingValues(
+                        horizontal =
+                            edgePadding
+                    ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(6.dp),
+                    Arrangement.spacedBy(
+                        6.dp
+                    ),
                 flingBehavior =
                     rememberSnapFlingBehavior(
                         state
@@ -174,26 +180,28 @@ fun PfpCarousel(
 
                     val scale =
                         if (isCentered) {
-                            1.12f
+                            1.14f
                         } else {
-                            0.94f
+                            0.96f
                         }
 
                     val customClickable =
-                        type == PfpType.CUSTOM &&
+                        type ==
+                            PfpType.CUSTOM &&
                             isCentered &&
                             !state.isScrollInProgress
 
                     Box(
-                        modifier = Modifier.size(
-                            slotWidth
-                        ),
+                        modifier =
+                            Modifier.size(
+                                slotWidth
+                            ),
                         contentAlignment =
                             Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(82.dp)
+                                .size(90.dp)
                                 .graphicsLayer {
                                     scaleX = scale
                                     scaleY = scale
@@ -232,7 +240,7 @@ fun PfpCarousel(
                                             colors.primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
-                                        fontSize = 39.sp,
+                                        fontSize = 42.sp,
                                         textAlign =
                                             TextAlign.Center
                                     )
@@ -248,7 +256,9 @@ fun PfpCarousel(
                                             "Custom profile picture",
                                         modifier =
                                             Modifier
-                                                .size(82.dp)
+                                                .size(
+                                                    90.dp
+                                                )
                                                 .clip(
                                                     CircleShape
                                                 ),
@@ -264,7 +274,7 @@ fun PfpCarousel(
                                             colors.primaryText,
                                         modifier =
                                             Modifier.size(
-                                                40.dp
+                                                44.dp
                                             )
                                     )
                                 }
@@ -276,7 +286,7 @@ fun PfpCarousel(
 
             Box(
                 modifier = Modifier
-                    .size(106.dp)
+                    .size(116.dp)
                     .border(
                         width = 2.dp,
                         color =
