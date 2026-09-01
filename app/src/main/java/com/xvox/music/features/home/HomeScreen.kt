@@ -1,11 +1,11 @@
 package com.xvox.music.features.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,53 +24,79 @@ import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel =
+        viewModel()
 ) {
-    val state by viewModel.state.collectAsState()
-    val colors = XvoxTheme.colors
+    val state by
+        viewModel.state.collectAsState()
+
+    val colors =
+        XvoxTheme.colors
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
             .windowInsetsPadding(
                 WindowInsets.statusBars
-                    .union(WindowInsets.navigationBars)
-            ),
-        verticalArrangement =
-            Arrangement.Top
+                    .union(
+                        WindowInsets
+                            .navigationBars
+                    )
+            )
     ) {
         AnimatedContent(
-            targetState = state.loading,
+            targetState =
+                state.loading,
             transitionSpec = {
-                fadeIn() togetherWith fadeOut()
+                fadeIn(
+                    animationSpec =
+                        tween(260)
+                ) togetherWith
+                    fadeOut(
+                        animationSpec =
+                            tween(180)
+                    )
             },
-            label = "homeLoading"
+            label = "homeLoad"
         ) { loading ->
+
             if (loading) {
                 HomeSkeleton(
-                    modifier = Modifier.fillMaxSize()
+                    modifier =
+                        Modifier.fillMaxSize()
                 )
             } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 18.dp)
+                        .padding(
+                            top = 4.dp
+                        )
                 ) {
                     HomeHeader(
-                        profile = state.profile,
-                        onRefresh = viewModel::refresh,
-                        onMenuClick = {}
+                        profile =
+                            state.profile,
+                        onRefresh =
+                            viewModel::refresh,
+                        onMenuClick = {
+                        }
                     )
 
                     AllSongsSection(
-                        songs = state.songs,
-                        onSongClick = viewModel::play
+                        songs =
+                            state.songs,
+                        onSongClick =
+                            viewModel::play
                     )
 
                     RecentlyPlayedSection(
-                        songs = state.recentlyPlayed,
-                        onSongClick = viewModel::play
+                        songs =
+                            state.recentlyPlayed,
+                        onSongClick =
+                            viewModel::play
                     )
                 }
             }
