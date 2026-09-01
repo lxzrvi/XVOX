@@ -1,7 +1,10 @@
 package com.xvox.music.features.home
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,15 +40,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlin.math.roundToInt
 
 @Composable
 fun RecentlyPlayedSection(
     songs: List<Song>,
+    currentSongId: Long?,
+    isPlaying: Boolean,
     onSongClick: (Song) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
         modifier = Modifier
@@ -53,14 +58,15 @@ fun RecentlyPlayedSection(
             .padding(top = 26.dp)
     ) {
         Column(
-            modifier =
-                Modifier.padding(
-                    horizontal = 12.dp
-                )
+            modifier = Modifier.padding(
+                horizontal = 12.dp
+            )
         ) {
             Text(
-                text = "Recently Played",
-                color = colors.primaryText,
+                text =
+                    "Recently Played",
+                color =
+                    colors.primaryText,
                 fontSize = 20.sp,
                 lineHeight = 23.sp,
                 fontWeight =
@@ -68,8 +74,10 @@ fun RecentlyPlayedSection(
             )
 
             Text(
-                text = "${songs.size} played",
-                color = colors.mutedText,
+                text =
+                    "${songs.size} played",
+                color =
+                    colors.mutedText,
                 fontSize = 10.sp,
                 lineHeight = 14.sp
             )
@@ -79,7 +87,7 @@ fun RecentlyPlayedSection(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(145.dp),
+                    .height(153.dp),
                 contentAlignment =
                     Alignment.Center
             ) {
@@ -97,7 +105,12 @@ fun RecentlyPlayedSection(
 
         RecentCarousel(
             songs = songs,
-            onSongClick = onSongClick
+            currentSongId =
+                currentSongId,
+            isPlaying =
+                isPlaying,
+            onSongClick =
+                onSongClick
         )
     }
 }
@@ -105,21 +118,28 @@ fun RecentlyPlayedSection(
 @Composable
 private fun RecentCarousel(
     songs: List<Song>,
+    currentSongId: Long?,
+    isPlaying: Boolean,
     onSongClick: (Song) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val state =
         rememberLazyListState()
 
     val fling =
-        rememberSnapFlingBehavior(state)
+        rememberSnapFlingBehavior(
+            state
+        )
 
     var currentIndex by remember {
         mutableIntStateOf(0)
     }
 
-    LaunchedEffect(songs.first().id) {
+    LaunchedEffect(
+        songs.first().id
+    ) {
         state.animateScrollToItem(0)
     }
 
@@ -150,35 +170,48 @@ private fun RecentCarousel(
                     horizontal = 6.dp
                 ),
             horizontalArrangement =
-                Arrangement.spacedBy(12.dp)
+                Arrangement.spacedBy(
+                    12.dp
+                )
         ) {
             items(
                 items = songs,
                 key = { it.id },
                 contentType = {
-                    "recent"
+                    "recent_song"
                 }
             ) { song ->
-
                 BoxWithConstraints(
                     modifier =
-                        Modifier.fillParentMaxWidth()
+                        Modifier
+                            .fillParentMaxWidth()
                 ) {
                     RecentArtwork(
                         song = song,
+                        current =
+                            currentSongId ==
+                                song.id,
+                        playing =
+                            currentSongId ==
+                                song.id &&
+                                isPlaying,
                         onClick = {
                             onSongClick(song)
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(122.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(122.dp)
                     )
                 }
             }
         }
 
         val dots =
-            minOf(7, songs.size)
+            minOf(
+                7,
+                songs.size
+            )
 
         val selected =
             if (songs.size <= 1) {
@@ -209,26 +242,30 @@ private fun RecentCarousel(
                 Alignment.CenterVertically
         ) {
             repeat(dots) { index ->
-                val active =
-                    index == selected
-
                 Box(
                     modifier = Modifier
                         .size(
-                            if (active) {
+                            if (
+                                index ==
+                                selected
+                            ) {
                                 7.dp
                             } else {
                                 5.dp
                             }
                         )
                         .background(
-                            color =
-                                if (active) {
-                                    colors.progressActive
-                                } else {
-                                    colors.progressTrack
-                                },
-                            shape = CircleShape
+                            if (
+                                index ==
+                                selected
+                            ) {
+                                colors
+                                    .progressActive
+                            } else {
+                                colors
+                                    .progressTrack
+                            },
+                            CircleShape
                         )
                 )
             }
@@ -239,24 +276,38 @@ private fun RecentCarousel(
 @Composable
 private fun RecentArtwork(
     song: Song,
+    current: Boolean,
+    playing: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(16.dp)
+    val shape =
+        RoundedCornerShape(16.dp)
+
+    val interaction =
+        remember {
+            MutableInteractionSource()
+        }
 
     Box(
         modifier = modifier
             .clip(shape)
-            .background(colors.cardElevated)
-            .xvoxPressScale(
-                pressedScale = 0.975f,
+            .background(
+                XvoxTheme.colors
+                    .cardElevated
+            )
+            .clickable(
+                interactionSource =
+                    interaction,
+                indication = null,
                 onClick = onClick
             )
     ) {
         SongArtwork(
-            artwork = song.artworkUri,
-            requestSize = 720,
+            artwork =
+                song.artworkUri,
+            requestSize =
+                RecentArtworkSize,
             modifier =
                 Modifier.fillMaxSize()
         )
@@ -270,7 +321,7 @@ private fun RecentArtwork(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
-                                alpha = 0.8f
+                                alpha = 0.80f
                             )
                         )
                     )
@@ -290,8 +341,77 @@ private fun RecentArtwork(
                 .align(
                     Alignment.BottomStart
                 )
-                .fillMaxWidth(0.8f)
+                .fillMaxWidth(0.72f)
                 .padding(12.dp)
         )
+
+        Row(
+            modifier = Modifier
+                .align(
+                    Alignment.TopEnd
+                )
+                .padding(10.dp)
+                .height(32.dp)
+                .clip(CircleShape)
+                .background(
+                    Color.Black.copy(
+                        alpha = 0.58f
+                    )
+                )
+                .animateContentSize()
+                .clickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClick
+                )
+                .padding(
+                    horizontal =
+                        if (
+                            current &&
+                            playing
+                        ) {
+                            10.dp
+                        } else {
+                            8.dp
+                        }
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    5.dp
+                )
+        ) {
+            PlaybackIcon(
+                type =
+                    if (
+                        current &&
+                        playing
+                    ) {
+                        PlaybackIconType.PAUSE
+                    } else {
+                        PlaybackIconType.PLAY
+                    },
+                color = Color.White,
+                modifier =
+                    Modifier.size(15.dp)
+            )
+
+            if (
+                current &&
+                playing
+            ) {
+                Text(
+                    text = "Playing",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight =
+                        FontWeight.Medium
+                )
+            }
+        }
     }
 }
