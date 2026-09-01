@@ -56,7 +56,7 @@ fun HomeSkeleton(
 
     Column(
         modifier = modifier
-            .padding(top = 18.dp)
+            .padding(top = 4.dp)
     ) {
         Row(
             modifier = Modifier
