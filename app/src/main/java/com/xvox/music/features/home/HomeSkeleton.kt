@@ -2,6 +2,7 @@ package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,74 +24,133 @@ fun HomeSkeleton() {
 
     Column(
         verticalArrangement =
-            Arrangement.spacedBy(12.dp)
+            Arrangement.spacedBy(22.dp)
     ) {
         Row(
             horizontalArrangement =
                 Arrangement.spacedBy(10.dp)
         ) {
-            SkeletonBlock(
-                Modifier
-                    .size(44.dp)
+            Skeleton(
+                modifier = Modifier
+                    .size(46.dp)
                     .clip(CircleShape),
-                color
+                color = color
             )
 
-            SkeletonBlock(
-                Modifier
-                    .width(130.dp)
+            Skeleton(
+                modifier = Modifier
+                    .width(125.dp)
                     .height(30.dp)
                     .clip(
-                        RoundedCornerShape(9.dp)
+                        RoundedCornerShape(
+                            9.dp
+                        )
                     ),
-                color
+                color = color
             )
         }
 
-        SkeletonBlock(
-            Modifier
-                .width(150.dp)
-                .height(22.dp)
-                .clip(RoundedCornerShape(7.dp)),
-            color
-        )
-
-        SkeletonBlock(
-            Modifier
-                .fillMaxWidth()
-                .height(110.dp)
-                .clip(RoundedCornerShape(14.dp)),
-            color
-        )
-
-        SkeletonBlock(
-            Modifier
-                .width(110.dp)
-                .height(22.dp)
-                .clip(RoundedCornerShape(7.dp)),
-            color
-        )
-
-        repeat(5) {
-            SkeletonBlock(
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(7.dp)
+        ) {
+            Skeleton(
                 Modifier
-                    .fillMaxWidth()
-                    .height(88.dp)
+                    .width(155.dp)
+                    .height(21.dp)
                     .clip(
-                        RoundedCornerShape(14.dp)
+                        RoundedCornerShape(
+                            6.dp
+                        )
                     ),
                 color
             )
+
+            Skeleton(
+                Modifier
+                    .width(55.dp)
+                    .height(11.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            5.dp
+                        )
+                    ),
+                color
+            )
+
+            Row(
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        10.dp
+                    )
+            ) {
+                repeat(2) {
+                    Skeleton(
+                        Modifier
+                            .width(205.dp)
+                            .height(118.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    15.dp
+                                )
+                            ),
+                        color
+                    )
+                }
+            }
+        }
+
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+            Skeleton(
+                Modifier
+                    .width(100.dp)
+                    .height(21.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            6.dp
+                        )
+                    ),
+                color
+            )
+
+            repeat(5) {
+                Row(
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            7.dp
+                        )
+                ) {
+                    repeat(4) {
+                        Skeleton(
+                            Modifier
+                                .weight(1f)
+                                .height(104.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        14.dp
+                                    )
+                                ),
+                            color
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SkeletonBlock(
+private fun Skeleton(
     modifier: Modifier,
     color: androidx.compose.ui.graphics.Color
 ) {
-    androidx.compose.foundation.layout.Box(
-        modifier = modifier.background(color)
+    Box(
+        modifier =
+            modifier.background(
+                color
+            )
     )
 }
