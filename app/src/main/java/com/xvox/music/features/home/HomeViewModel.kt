@@ -1,6 +1,7 @@
 package com.xvox.music.features.home
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xvox.music.artwork.ArtworkPreloader
@@ -8,6 +9,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.media.MediaStoreSongRepository
 import com.xvox.music.player.playback.PlaybackController
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +20,7 @@ class HomeViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val songsRepository =
+    private val songRepository =
         MediaStoreSongRepository(
             application
         )
@@ -46,6 +48,12 @@ class HomeViewModel(
     val state:
         StateFlow<HomeUiState> =
         _state.asStateFlow()
+
+    private var prefetchJob: Job? = null
+    private var lastPrefetchStart = -1
+
+    private var lastTapAt = 0L
+    private var lastTappedSong = -1L
 
     init {
         observeProfile()
@@ -88,12 +96,13 @@ class HomeViewModel(
     private fun initialLoad() {
         viewModelScope.launch {
             val songs =
-                songsRepository.loadSongs()
+                songRepository.loadSongs()
 
-            artworkPreloader
-                .warmInitialCache(
-                    songs
-                )
+            artworkPreloader.warm(
+                songs = songs,
+                fromIndex = 0,
+                count = 12
+            )
 
             _state.update {
                 it.copy(
@@ -101,7 +110,43 @@ class HomeViewModel(
                     loading = false
                 )
             }
+
+            prefetchFrom(12)
         }
+    }
+
+    fun prefetchFrom(
+        sourceIndex: Int
+    ) {
+        val songs =
+            _state.value.songs
+
+        if (songs.isEmpty()) return
+
+        val pageStart =
+            (sourceIndex / 12) * 12
+
+        if (
+            pageStart ==
+            lastPrefetchStart
+        ) {
+            return
+        }
+
+        lastPrefetchStart =
+            pageStart
+
+        prefetchJob?.cancel()
+
+        prefetchJob =
+            viewModelScope.launch {
+                artworkPreloader.warm(
+                    songs = songs,
+                    fromIndex =
+                        pageStart,
+                    count = 36
+                )
+            }
     }
 
     fun refresh() {
@@ -117,7 +162,9 @@ class HomeViewModel(
             }
 
             val songs =
-                songsRepository.loadSongs()
+                songRepository.loadSongs()
+
+            lastPrefetchStart = -1
 
             _state.update {
                 it.copy(
@@ -125,10 +172,29 @@ class HomeViewModel(
                     refreshing = false
                 )
             }
+
+            prefetchFrom(0)
         }
     }
 
     fun play(song: Song) {
+        val now =
+            SystemClock.elapsedRealtime()
+
+        if (
+            song.id ==
+            lastTappedSong &&
+            now - lastTapAt < 220L
+        ) {
+            return
+        }
+
+        lastTappedSong =
+            song.id
+
+        lastTapAt =
+            now
+
         playback.play(song)
 
         _state.update { current ->
@@ -160,6 +226,7 @@ class HomeViewModel(
     }
 
     override fun onCleared() {
+        prefetchJob?.cancel()
         playback.release()
         super.onCleared()
     }
