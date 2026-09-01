@@ -6,13 +6,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -47,22 +47,34 @@ fun AllSongCard(
     val colors =
         XvoxTheme.colors
 
-    val shape =
+    val cardShape =
         RoundedCornerShape(11.dp)
 
-    var showPausedPlay by remember(
-        song.id
-    ) {
-        mutableStateOf(false)
-    }
+    val artworkShape =
+        RoundedCornerShape(7.dp)
+
+    val interactionSource =
+        remember {
+            MutableInteractionSource()
+        }
+
+    var showPausedPlay by
+        remember(song.id) {
+            mutableStateOf(false)
+        }
 
     LaunchedEffect(
         current,
         playing
     ) {
-        if (current && !playing) {
+        if (
+            current &&
+            !playing
+        ) {
             showPausedPlay = true
+
             delay(900)
+
             showPausedPlay = false
         } else {
             showPausedPlay = false
@@ -71,84 +83,83 @@ fun AllSongCard(
 
     Column(
         modifier = modifier
-            .clip(shape)
-            .background(colors.card)
+            .clip(cardShape)
+            .background(
+                colors.card
+            )
             .border(
                 width = 0.7.dp,
                 color = colors.cardBorder,
-                shape = shape
+                shape = cardShape
             )
             .padding(5.dp)
     ) {
-        BoxWithConstraints(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(maxWidth)
-                    .clip(
-                        RoundedCornerShape(
-                            7.dp
-                        )
-                    )
-                    .clickable(
-                        indication = null,
-                        interactionSource =
-                            remember {
-                                androidx.compose.foundation.interaction.MutableInteractionSource()
-                            },
-                        onClick = onClick
-                    )
-            ) {
-                SongArtwork(
-                    artwork =
-                        song.artworkUri,
-                    requestSize =
-                        GridArtworkSize,
-                    modifier =
-                        Modifier.fillMaxSize()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(artworkShape)
+                .background(
+                    colors.cardElevated
                 )
+                .clickable(
+                    interactionSource =
+                        interactionSource,
+                    indication = null,
+                    onClick = onClick
+                ),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            SongArtwork(
+                artwork =
+                    song.artworkUri,
+                requestSize =
+                    GridArtworkSize,
+                modifier =
+                    Modifier.fillMaxSize()
+            )
 
-                AnimatedVisibility(
-                    visible =
-                        current &&
-                            (
-                                playing ||
-                                    showPausedPlay
-                                ),
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier =
-                        Modifier.align(
-                            Alignment.Center
-                        )
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Color.Black.copy(
-                                    alpha = 0.58f
-                                )
+            androidx.compose.animation.AnimatedVisibility(
+                visible =
+                    current &&
+                        (
+                            playing ||
+                                showPausedPlay
                             ),
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        PlaybackIcon(
-                            type =
-                                if (playing) {
-                                    PlaybackIconType.PAUSE
-                                } else {
-                                    PlaybackIconType.PLAY
-                                },
-                            color = Color.White,
-                            modifier =
-                                Modifier.size(13.dp)
-                        )
-                    }
+                modifier =
+                    Modifier.align(
+                        Alignment.Center
+                    ),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Color.Black.copy(
+                                alpha = 0.58f
+                            )
+                        ),
+                    contentAlignment =
+                        Alignment.Center
+                ) {
+                    PlaybackIcon(
+                        type =
+                            if (playing) {
+                                PlaybackIconType.PAUSE
+                            } else {
+                                PlaybackIconType.PLAY
+                            },
+                        color =
+                            Color.White,
+                        modifier =
+                            Modifier.size(
+                                13.dp
+                            )
+                    )
                 }
             }
         }
