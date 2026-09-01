@@ -1,11 +1,11 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -30,100 +29,96 @@ fun AllSongsSection(
     songs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
-
-    val pageWidth =
-        LocalConfiguration.current
-            .screenWidthDp.dp - 36.dp
+    val colors = XvoxTheme.colors
 
     Column {
         Text(
             text = "All Songs",
-            color =
-                colors.primaryText,
+            color = colors.primaryText,
             fontSize = 20.sp,
-            fontWeight =
-                FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold
         )
 
         Text(
-            text =
-                "Total ${songs.size} songs",
-            color =
-                colors.mutedText,
+            text = "Total ${songs.size} songs",
+            color = colors.mutedText,
             fontSize = 11.sp
         )
 
-        val pages =
-            songs.chunked(
-                SongsPerPage
-            )
-
-        LazyRow(
-            modifier =
-                Modifier.padding(
-                    top = 10.dp
-                ),
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    14.dp
-                )
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp)
         ) {
-            itemsIndexed(
-                items = pages,
-                key = { index, _ ->
-                    index
-                }
-            ) { _, page ->
-                AllSongsPage(
-                    songs = page,
-                    width = pageWidth,
-                    onSongClick =
-                        onSongClick
+            val pageWidth =
+                maxWidth
+
+            val pages =
+                songs.chunked(
+                    SongsPerPage
                 )
+
+            LazyRow(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        14.dp
+                    )
+            ) {
+                itemsIndexed(
+                    items = pages,
+                    key = { index, _ ->
+                        index
+                    }
+                ) { _, page ->
+                    SongPage(
+                        songs = page,
+                        width = pageWidth,
+                        onSongClick =
+                            onSongClick
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AllSongsPage(
+private fun SongPage(
     songs: List<Song>,
     width: Dp,
     onSongClick: (Song) -> Unit
 ) {
-    val gap =
-        7.dp
+    val horizontalGap = 7.dp
+    val verticalGap = 8.dp
 
     val cardWidth =
         (
             width -
-                gap * (Columns - 1)
+                horizontalGap *
+                    (Columns - 1)
             ) / Columns
 
     Column(
-        modifier =
-            Modifier.width(width),
+        modifier = Modifier.width(width),
         verticalArrangement =
-            Arrangement.spacedBy(9.dp)
+            Arrangement.spacedBy(
+                verticalGap
+            )
     ) {
         repeat(Rows) { row ->
-
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.spacedBy(
-                        gap
+                        horizontalGap
                     )
             ) {
-                repeat(Columns) {
-                    column ->
-
+                repeat(Columns) { column ->
                     val index =
-                        row *
-                            Columns +
+                        row * Columns +
                             column
 
                     if (index < songs.size) {
@@ -133,9 +128,7 @@ private fun AllSongsPage(
                         AllSongCard(
                             song = song,
                             onClick = {
-                                onSongClick(
-                                    song
-                                )
+                                onSongClick(song)
                             },
                             modifier =
                                 Modifier.width(
