@@ -30,10 +30,11 @@ fun SongArtwork(
     val context =
         LocalContext.current
 
-    val request =
+    val request: ImageRequest =
         remember(
             artwork,
-            requestSize
+            requestSize,
+            context
         ) {
             ImageRequest
                 .Builder(context)
@@ -54,7 +55,6 @@ fun SongArtwork(
                 .networkCachePolicy(
                     CachePolicy.DISABLED
                 )
-                .allowHardware(true)
                 .build()
         }
 
