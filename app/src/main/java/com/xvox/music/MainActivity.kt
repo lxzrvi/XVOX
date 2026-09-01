@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.features.setup.SetupScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -27,10 +26,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             XvoxTheme {
-                SetupScreen(
-                    onSetupComplete = {
-                    }
-                )
+                XvoxAppRoot()
             }
         }
     }
