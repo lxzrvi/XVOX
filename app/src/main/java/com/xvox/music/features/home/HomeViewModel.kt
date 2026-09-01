@@ -3,6 +3,7 @@ package com.xvox.music.features.home
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.xvox.music.artwork.ArtworkPreloader
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.media.MediaStoreSongRepository
@@ -15,52 +16,107 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     application: Application
-) : AndroidViewModel(application) {
+) : AndroidViewModel(
+    application
+) {
 
     private val songRepository =
-        MediaStoreSongRepository(application)
+        MediaStoreSongRepository(
+            application
+        )
 
     private val preferencesRepository =
-        UserPreferencesRepository(application)
+        UserPreferencesRepository(
+            application
+        )
+
+    private val artworkPreloader =
+        ArtworkPreloader(
+            application
+        )
 
     private val playback =
-        PlaybackController(application)
+        PlaybackController(
+            application
+        )
 
     private val _state =
-        MutableStateFlow(HomeUiState())
+        MutableStateFlow(
+            HomeUiState()
+        )
 
-    val state: StateFlow<HomeUiState> =
+    val state:
+        StateFlow<HomeUiState> =
         _state.asStateFlow()
 
     init {
         observeProfile()
-        refresh()
+        initialLoad()
     }
 
     private fun observeProfile() {
         viewModelScope.launch {
-            preferencesRepository.preferences
+            preferencesRepository
+                .preferences
                 .collect { profile ->
                     _state.update {
-                        it.copy(profile = profile)
+                        it.copy(
+                            profile =
+                                profile
+                        )
                     }
                 }
         }
     }
 
-    fun refresh() {
+    private fun initialLoad() {
         viewModelScope.launch {
             _state.update {
-                it.copy(loading = true)
+                it.copy(
+                    loading = true
+                )
             }
 
             val songs =
-                songRepository.loadSongs()
+                songRepository
+                    .loadSongs()
+
+            artworkPreloader
+                .warmInitialCache(
+                    songs
+                )
 
             _state.update {
                 it.copy(
-                    loading = false,
-                    songs = songs
+                    songs = songs,
+                    loading = false
+                )
+            }
+        }
+    }
+
+    fun refresh() {
+        if (
+            _state.value.refreshing
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    refreshing = true
+                )
+            }
+
+            val songs =
+                songRepository
+                    .loadSongs()
+
+            _state.update {
+                it.copy(
+                    songs = songs,
+                    refreshing = false
                 )
             }
         }
@@ -69,21 +125,26 @@ class HomeViewModel(
     fun play(song: Song) {
         playback.play(song)
 
-        _state.update { current ->
-            val updated =
+        _state.update {
+            current ->
+
+            val recent =
                 buildList {
                     add(song)
 
                     addAll(
-                        current.recentlyPlayed
+                        current
+                            .recentlyPlayed
                             .filterNot {
-                                it.id == song.id
+                                it.id ==
+                                    song.id
                             }
                     )
                 }.take(20)
 
             current.copy(
-                recentlyPlayed = updated
+                recentlyPlayed =
+                    recent
             )
         }
     }
