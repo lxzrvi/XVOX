@@ -2,7 +2,6 @@ package com.xvox.music.core.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -10,10 +9,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -39,24 +38,32 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
 
-/*
- * Very smooth deceleration.
- * No sharp acceleration at the beginning
- * and no sudden stop at the end.
- */
 private val NavFluidEasing =
     CubicBezierEasing(
-        0.22f,
-        1f,
-        0.36f,
+        0.20f,
+        0.90f,
+        0.25f,
         1f
     )
 
-private const val MorphDuration = 620
-private const val ColorDuration = 360
+private const val MorphDuration = 520
 
 private val ItemHeight = 57.dp
-private val InactiveWidth = 70.dp
+
+/*
+ * Every destination gets the SAME fixed slot.
+ *
+ * The active pill lives independently on top
+ * of those slots, so activating one item does NOT
+ * resize the Row and push the other icons around.
+ */
+private val SlotWidth = 70.dp
+private val SlotGap = 8.dp
+
+private val HomeActiveWidth = 124.dp
+private val SearchActiveWidth = 134.dp
+private val SettingsActiveWidth = 150.dp
+
 
 @Composable
 fun XvoxBottomBar(
@@ -71,6 +78,12 @@ fun XvoxBottomBar(
         mutableFloatStateOf(0f)
     }
 
+    /*
+     * The whole bar has a fixed geometry.
+     *
+     * Nothing inside this Row changes its layout width
+     * when selection changes.
+     */
     Row(
         modifier = modifier
             .offset(y = 2.dp)
@@ -83,7 +96,9 @@ fun XvoxBottomBar(
             )
             .padding(4.dp)
             .pointerInput(selected) {
+
                 detectHorizontalDragGestures(
+
                     onDragStart = {
                         dragDistance = 0f
                     },
@@ -94,6 +109,7 @@ fun XvoxBottomBar(
                     },
 
                     onDragEnd = {
+
                         if (abs(dragDistance) >= 35.dp.toPx()) {
 
                             val currentIndex =
@@ -118,19 +134,24 @@ fun XvoxBottomBar(
                         dragDistance = 0f
                     }
                 )
-            },
-        verticalAlignment = Alignment.CenterVertically
+            }
     ) {
 
+        /*
+         * Fixed slots.
+         *
+         * IMPORTANT:
+         * The width of these slots NEVER changes.
+         */
         destinations.forEachIndexed { index, destination ->
 
             if (index > 0) {
                 Spacer(
-                    modifier = Modifier.width(8.dp)
+                    modifier = Modifier.width(SlotGap)
                 )
             }
 
-            NavigationItem(
+            NavigationSlot(
                 destination = destination,
                 active = destination == selected,
                 onClick = {
@@ -143,8 +164,9 @@ fun XvoxBottomBar(
     }
 }
 
+
 @Composable
-private fun NavigationItem(
+private fun NavigationSlot(
     destination: XvoxDestination,
     active: Boolean,
     onClick: () -> Unit
@@ -156,16 +178,10 @@ private fun NavigationItem(
             MutableInteractionSource()
         }
 
-    val pressed by
-        interactionSource.collectIsPressedAsState()
-
     /*
-     * One single animation controls the complete
-     * active/inactive morph.
+     * ONLY the visual state changes.
      *
-     * This is deliberately slower and softer than
-     * the previous animation so neighboring items
-     * don't get a sudden layout jump.
+     * The slot itself stays exactly 70.dp wide.
      */
     val progress by
         animateFloatAsState(
@@ -175,50 +191,56 @@ private fun NavigationItem(
                     durationMillis = MorphDuration,
                     easing = NavFluidEasing
                 ),
-            label = "navMorph"
+            label = "navProgress"
         )
 
     val activeWidth =
         when (destination) {
+
             XvoxDestination.HOME ->
-                124.dp
+                HomeActiveWidth
 
             XvoxDestination.SEARCH ->
-                134.dp
+                SearchActiveWidth
 
             XvoxDestination.SETTINGS ->
-                150.dp
+                SettingsActiveWidth
         }
 
     /*
-     * Width itself is animated as a separate DP value.
+     * Active pill grows INSIDE the fixed slot.
      *
-     * Because the Row receives a continuously changing
-     * width instead of an instant width change, the
-     * neighboring items move continuously as well.
+     * It does NOT affect Row measurement.
      */
-    val targetWidth =
-        if (active) {
-            activeWidth
-        } else {
-            InactiveWidth
-        }
+    val pillWidth =
+        SlotWidth +
+            (
+                activeWidth -
+                    SlotWidth
+                ) *
+            progress
 
-    val currentWidth by
-        animateDpAsState(
-            targetValue = targetWidth,
-            animationSpec =
-                tween(
-                    durationMillis = MorphDuration,
-                    easing = NavFluidEasing
-                ),
-            label = "navWidth"
+    /*
+     * Active pill background fades independently,
+     * but follows the same fluid progress.
+     */
+    val pillAlpha =
+        smoothFade(progress)
+
+    /*
+     * Text appears as ONE COMPLETE TEXT OBJECT.
+     *
+     * There is NO width clipping.
+     * Therefore characters cannot appear one-by-one.
+     */
+    val textProgress =
+        smoothFade(
+            (
+                (progress - 0.16f) /
+                    0.68f
+            ).coerceIn(0f, 1f)
         )
 
-    /*
-     * IMPORTANT:
-     * Inactive items have NO pill/background.
-     */
     val background by
         animateColorAsState(
             targetValue =
@@ -229,10 +251,10 @@ private fun NavigationItem(
                 },
             animationSpec =
                 tween(
-                    durationMillis = ColorDuration,
+                    durationMillis = 360,
                     easing = NavFluidEasing
                 ),
-            label = "navBackground"
+            label = "navPillColor"
         )
 
     val foreground by
@@ -245,42 +267,16 @@ private fun NavigationItem(
                 },
             animationSpec =
                 tween(
-                    durationMillis = 330,
+                    durationMillis = 300,
                     easing = NavFluidEasing
                 ),
             label = "navForeground"
         )
 
-    /*
-     * Extremely subtle press feedback.
-     * This is intentionally tiny so the icon/text
-     * never feels bouncy.
-     */
-    val pressScale by
-        animateFloatAsState(
-            targetValue =
-                if (pressed) 0.992f else 1f,
-            animationSpec =
-                tween(
-                    durationMillis =
-                        if (pressed) 80 else 180,
-                    easing = NavFluidEasing
-                ),
-            label = "navPressScale"
-        )
-
     Box(
         modifier = Modifier
-            .width(currentWidth)
+            .width(SlotWidth)
             .height(ItemHeight)
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
-            .clip(
-                RoundedCornerShape(28.5.dp)
-            )
-            .background(background)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -289,22 +285,73 @@ private fun NavigationItem(
         contentAlignment = Alignment.CenterStart
     ) {
 
-        NavigationContent(
+        /*
+         * ACTIVE PILL
+         *
+         * This is visually wider than the slot,
+         * but because it is drawn as an overlay,
+         * it doesn't push any neighboring item.
+         */
+        Box(
+            modifier =
+                Modifier
+                    .width(pillWidth)
+                    .fillMaxHeight()
+                    .clip(
+                        RoundedCornerShape(28.5.dp)
+                    )
+                    .background(
+                        background.copy(
+                            alpha = pillAlpha
+                        )
+                    )
+        )
+
+        /*
+         * CONTENT stays independent from pill geometry.
+         */
+        NavigationContentV2(
             destination = destination,
+            active = active,
             progress = progress,
+            textProgress = textProgress,
             color = foreground
         )
     }
 }
 
+
 @Composable
-private fun NavigationContent(
+private fun NavigationContentV2(
     destination: XvoxDestination,
+    active: Boolean,
     progress: Float,
+    textProgress: Float,
     color: Color
 ) {
-    val labelWidth =
+    /*
+     * Icon is always at the same fixed location.
+     *
+     * No horizontal movement when switching tabs.
+     */
+    XvoxNavigationIcon(
+        destination = destination,
+        color = color,
+        modifier =
+            Modifier
+                .padding(start = 24.dp)
+                .size(22.dp)
+    )
+
+    /*
+     * Text is positioned AFTER the icon,
+     * but it is NOT width-revealed.
+     *
+     * It simply fades and slides in as a complete object.
+     */
+    val textStart =
         when (destination) {
+
             XvoxDestination.HOME ->
                 44.dp
 
@@ -315,98 +362,101 @@ private fun NavigationContent(
                 66.dp
         }
 
-    /*
-     * Soft morph curve.
-     *
-     * Using the SAME progress for icon/text/pill
-     * keeps everything synchronized.
-     */
-    val reveal =
-        smoothStep(
-            (
-                (progress - 0.08f) /
-                    0.92f
-            ).coerceIn(0f, 1f)
-        )
+    val textOffset =
+        (1f - textProgress) *
+            5.dp.value
 
-    val textAlpha =
-        smoothStep(
-            (
-                (progress - 0.18f) /
-                    0.62f
-            ).coerceIn(0f, 1f)
-        )
-
-    Row(
+    Box(
         modifier =
-            Modifier.padding(
-                start = 24.dp,
-                end = 20.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
+            Modifier
+                .offset(
+                    x = textStart + 12.dp
+                )
+                .graphicsLayer {
+
+                    alpha = textProgress
+
+                    translationX =
+                        textOffset
+
+                    /*
+                     * Almost imperceptible scale.
+                     *
+                     * Prevents the text from looking
+                     * like it suddenly pops into existence.
+                     */
+                    val scale =
+                        0.985f +
+                            0.015f *
+                            textProgress
+
+                    scaleX = scale
+                    scaleY = scale
+                }
     ) {
 
-        XvoxNavigationIcon(
-            destination = destination,
+        Text(
+            text = destination.label,
             color = color,
-            modifier = Modifier.size(22.dp)
+            fontSize = 14.sp,
+            lineHeight = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
         )
-
-        Spacer(
-            modifier =
-                Modifier.width(
-                    12.dp * reveal
-                )
-        )
-
-        Box(
-            modifier =
-                Modifier.width(
-                    labelWidth * reveal
-                ),
-            contentAlignment =
-                Alignment.CenterStart
-        ) {
-
-            Text(
-                text = destination.label,
-                color =
-                    color.copy(
-                        alpha = textAlpha
-                    ),
-                fontSize = 14.sp,
-                lineHeight = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                modifier =
-                    Modifier.graphicsLayer {
-
-                        /*
-                         * Very small movement only.
-                         * Prevents the text from looking like
-                         * it is being thrown into the pill.
-                         */
-                        translationX =
-                            (1f - reveal) *
-                                3.dp.toPx()
-
-                        val scale =
-                            0.985f +
-                                (0.015f * reveal)
-
-                        scaleX = scale
-                        scaleY = scale
-                    }
-            )
-        }
     }
 }
 
+
+/*
+ * Soft fade curve.
+ *
+ * 0   = invisible
+ * 1   = completely visible
+ *
+ * No hard reveal edge.
+ */
+private fun smoothFade(
+    value: Float
+): Float {
+    val v =
+        value.coerceIn(
+            0f,
+            1f
+        )
+
+    /*
+     * Quintic smoothstep.
+     *
+     * Much softer than a simple linear fade.
+     */
+    return v *
+        v *
+        v *
+        (
+            v *
+                (
+                    v * 6f -
+                        15f
+                ) +
+                10f
+            )
+}
+
+
+/*
+ * Kept for compatibility if you were using
+ * smoothStep elsewhere in this file.
+ */
 private fun smoothStep(
     value: Float
 ): Float {
-    return value *
-        value *
-        (3f - 2f * value)
+    val v =
+        value.coerceIn(
+            0f,
+            1f
+        )
+
+    return v *
+        v *
+        (3f - 2f * v)
 }
