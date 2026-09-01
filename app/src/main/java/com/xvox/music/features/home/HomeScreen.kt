@@ -52,12 +52,10 @@ fun HomeScreen(
                 state.loading,
             transitionSpec = {
                 fadeIn(
-                    animationSpec =
-                        tween(260)
+                    tween(260)
                 ) togetherWith
                     fadeOut(
-                        animationSpec =
-                            tween(180)
+                        tween(180)
                     )
             },
             label = "homeLoad"
@@ -77,7 +75,8 @@ fun HomeScreen(
                         )
                 ) {
                     HomeHeader(
-                        profile = state.profile,
+                        profile =
+                            state.profile,
                         showPlaylists =
                             state.showPlaylists,
                         onRefresh =
@@ -85,19 +84,30 @@ fun HomeScreen(
                         onHeartClick = {
                         },
                         onLibraryModeClick =
-                            viewModel::toggleLibraryMode
+                            viewModel::
+                                toggleLibraryMode
                     )
 
                     AllSongsSection(
                         songs =
                             state.songs,
+                        currentSongId =
+                            state.currentSongId,
+                        isPlaying =
+                            state.isPlaying,
                         onSongClick =
-                            viewModel::play
+                            viewModel::play,
+                        onPrefetch =
+                            viewModel::prefetchFrom
                     )
 
                     RecentlyPlayedSection(
                         songs =
                             state.recentlyPlayed,
+                        currentSongId =
+                            state.currentSongId,
+                        isPlaying =
+                            state.isPlaying,
                         onSongClick =
                             viewModel::play
                     )
