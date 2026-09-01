@@ -6,11 +6,10 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.xvox.music.core.model.Song
-import kotlinx.coroutines.Dispatchers
+import com.xvox.music.features.home.GridArtworkSize
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
 
 class ArtworkPreloader(
     context: Context
@@ -22,64 +21,59 @@ class ArtworkPreloader(
     suspend fun warmInitialCache(
         songs: List<Song>
     ) {
-        val artworkUris =
+        val loader =
+            SingletonImageLoader.get(
+                appContext
+            )
+
+        val artwork =
             songs
                 .asSequence()
                 .mapNotNull {
                     it.artworkUri
                 }
                 .distinct()
-                .take(36)
+                .take(48)
                 .toList()
 
-        withContext(
-            Dispatchers.IO
-        ) {
-            coroutineScope {
-                artworkUris
-                    .chunked(4)
-                    .forEach { batch ->
-                        batch
-                            .map { uri ->
-                                async {
-                                    val request =
-                                        ImageRequest
-                                            .Builder(
-                                                appContext
-                                            )
-                                            .data(uri)
-                                            .size(
-                                                160,
-                                                160
-                                            )
-                                            .precision(
-                                                Precision.INEXACT
-                                            )
-                                            .memoryCachePolicy(
-                                                CachePolicy.ENABLED
-                                            )
-                                            .diskCachePolicy(
-                                                CachePolicy.ENABLED
-                                            )
-                                            .networkCachePolicy(
-                                                CachePolicy.DISABLED
-                                            )
-                                            .build()
+        coroutineScope {
+            artwork
+                .chunked(4)
+                .forEach { batch ->
 
-                                    runCatching {
-                                        SingletonImageLoader
-                                            .get(
-                                                appContext
-                                            )
-                                            .execute(
-                                                request
-                                            )
-                                    }
-                                }
+                    batch.map { uri ->
+                        async {
+                            val request =
+                                ImageRequest.Builder(
+                                    appContext
+                                )
+                                    .data(uri)
+                                    .size(
+                                        GridArtworkSize,
+                                        GridArtworkSize
+                                    )
+                                    .precision(
+                                        Precision.INEXACT
+                                    )
+                                    .memoryCachePolicy(
+                                        CachePolicy.ENABLED
+                                    )
+                                    .diskCachePolicy(
+                                        CachePolicy.ENABLED
+                                    )
+                                    .networkCachePolicy(
+                                        CachePolicy.DISABLED
+                                    )
+                                    .build()
+
+                            runCatching {
+                                loader.execute(
+                                    request
+                                )
                             }
-                            .awaitAll()
-                    }
-            }
+                        }
+                    }.awaitAll()
+                }
         }
     }
 }
