@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -31,34 +33,60 @@ fun HomeHeaderIcon(
         modifier = Modifier
             .size(36.dp)
             .xvoxPressScale(
-                pressedScale = 0.88f,
+                pressedScale = 0.90f,
                 onClick = onClick
             )
     ) {
         val stroke =
-            1.8.dp.toPx()
+            1.75.dp.toPx()
 
         when (type) {
             HomeHeaderIconType.SCAN -> {
                 drawArc(
                     color = color,
-                    startAngle = -45f,
+                    startAngle = -72f,
                     sweepAngle = 285f,
                     useCenter = false,
                     topLeft = Offset(
-                        size.width * .28f,
-                        size.height * .28f
+                        size.width * 0.27f,
+                        size.height * 0.27f
                     ),
-                    size =
-                        androidx.compose.ui.geometry.Size(
-                            size.width * .44f,
-                            size.height * .44f
-                        ),
+                    size = Size(
+                        size.width * 0.46f,
+                        size.height * 0.46f
+                    ),
                     style = Stroke(
-                        stroke,
-                        cap =
-                            StrokeCap.Round
+                        width = stroke,
+                        cap = StrokeCap.Round
                     )
+                )
+
+                drawLine(
+                    color = color,
+                    start = Offset(
+                        size.width * 0.72f,
+                        size.height * 0.28f
+                    ),
+                    end = Offset(
+                        size.width * 0.70f,
+                        size.height * 0.42f
+                    ),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
+                )
+
+                drawLine(
+                    color = color,
+                    start = Offset(
+                        size.width * 0.72f,
+                        size.height * 0.28f
+                    ),
+                    end = Offset(
+                        size.width * 0.58f,
+                        size.height * 0.31f
+                    ),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
                 )
             }
 
@@ -66,91 +94,116 @@ fun HomeHeaderIcon(
                 val path =
                     Path().apply {
                         moveTo(
-                            size.width * .5f,
-                            size.height * .7f
+                            size.width * 0.50f,
+                            size.height * 0.72f
                         )
+
                         cubicTo(
-                            size.width * .18f,
-                            size.height * .52f,
-                            size.width * .25f,
-                            size.height * .27f,
-                            size.width * .5f,
-                            size.height * .4f
+                            size.width * 0.18f,
+                            size.height * 0.54f,
+                            size.width * 0.22f,
+                            size.height * 0.30f,
+                            size.width * 0.39f,
+                            size.height * 0.30f
                         )
+
                         cubicTo(
-                            size.width * .75f,
-                            size.height * .27f,
-                            size.width * .82f,
-                            size.height * .52f,
-                            size.width * .5f,
-                            size.height * .7f
+                            size.width * 0.47f,
+                            size.height * 0.30f,
+                            size.width * 0.50f,
+                            size.height * 0.38f,
+                            size.width * 0.50f,
+                            size.height * 0.38f
                         )
+
+                        cubicTo(
+                            size.width * 0.50f,
+                            size.height * 0.38f,
+                            size.width * 0.53f,
+                            size.height * 0.30f,
+                            size.width * 0.61f,
+                            size.height * 0.30f
+                        )
+
+                        cubicTo(
+                            size.width * 0.78f,
+                            size.height * 0.30f,
+                            size.width * 0.82f,
+                            size.height * 0.54f,
+                            size.width * 0.50f,
+                            size.height * 0.72f
+                        )
+
+                        close()
                     }
 
                 drawPath(
-                    path,
-                    color
+                    path = path,
+                    color = color
                 )
             }
 
             HomeHeaderIconType.PLAYLIST -> {
-                repeat(3) { index ->
-                    val y =
-                        size.height *
-                            (.36f +
-                                index * .14f)
-
+                listOf(
+                    0.35f,
+                    0.50f,
+                    0.65f
+                ).forEach { y ->
                     drawLine(
-                        color,
-                        Offset(
-                            size.width * .3f,
-                            y
+                        color = color,
+                        start = Offset(
+                            size.width * 0.30f,
+                            size.height * y
                         ),
-                        Offset(
-                            size.width * .67f,
-                            y
+                        end = Offset(
+                            size.width * 0.70f,
+                            size.height * y
                         ),
-                        stroke,
-                        StrokeCap.Round
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
                     )
                 }
             }
 
             HomeHeaderIconType.SONGS -> {
+                val x =
+                    size.width * 0.56f
+
                 drawLine(
-                    color,
-                    Offset(
-                        size.width * .55f,
-                        size.height * .29f
+                    color = color,
+                    start = Offset(
+                        x,
+                        size.height * 0.27f
                     ),
-                    Offset(
-                        size.width * .55f,
-                        size.height * .63f
+                    end = Offset(
+                        x,
+                        size.height * 0.63f
                     ),
-                    stroke,
-                    StrokeCap.Round
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
                 )
 
                 drawLine(
-                    color,
-                    Offset(
-                        size.width * .55f,
-                        size.height * .29f
+                    color = color,
+                    start = Offset(
+                        x,
+                        size.height * 0.27f
                     ),
-                    Offset(
-                        size.width * .7f,
-                        size.height * .34f
+                    end = Offset(
+                        size.width * 0.72f,
+                        size.height * 0.32f
                     ),
-                    stroke,
-                    StrokeCap.Round
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
                 )
 
                 drawCircle(
-                    color,
-                    size.width * .08f,
-                    Offset(
-                        size.width * .47f,
-                        size.height * .67f
+                    color = color,
+                    radius =
+                        size.width * 0.075f,
+                    center = Offset(
+                        size.width * 0.48f,
+                        size.height * 0.67f
                     )
                 )
             }
