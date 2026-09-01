@@ -24,79 +24,46 @@ fun HomeSkeleton() {
 
     Column(
         verticalArrangement =
-            Arrangement.spacedBy(22.dp)
+            Arrangement.spacedBy(20.dp)
     ) {
         Row(
             horizontalArrangement =
-                Arrangement.spacedBy(10.dp)
+                Arrangement.spacedBy(11.dp)
         ) {
             Skeleton(
-                modifier = Modifier
-                    .size(46.dp)
+                Modifier
+                    .size(48.dp)
                     .clip(CircleShape),
-                color = color
-            )
-
-            Skeleton(
-                modifier = Modifier
-                    .width(125.dp)
-                    .height(30.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            9.dp
-                        )
-                    ),
-                color = color
-            )
-        }
-
-        Column(
-            verticalArrangement =
-                Arrangement.spacedBy(7.dp)
-        ) {
-            Skeleton(
-                Modifier
-                    .width(155.dp)
-                    .height(21.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            6.dp
-                        )
-                    ),
                 color
             )
 
-            Skeleton(
-                Modifier
-                    .width(55.dp)
-                    .height(11.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            5.dp
-                        )
-                    ),
-                color
-            )
-
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        10.dp
-                    )
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(5.dp)
             ) {
-                repeat(2) {
-                    Skeleton(
-                        Modifier
-                            .width(205.dp)
-                            .height(118.dp)
-                            .clip(
-                                RoundedCornerShape(
-                                    15.dp
-                                )
-                            ),
-                        color
-                    )
-                }
+                Skeleton(
+                    Modifier
+                        .width(125.dp)
+                        .height(21.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                6.dp
+                            )
+                        ),
+                    color
+                )
+
+                Skeleton(
+                    Modifier
+                        .width(180.dp)
+                        .height(11.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                5.dp
+                            )
+                        ),
+                    color
+                )
             }
         }
 
@@ -106,8 +73,8 @@ fun HomeSkeleton() {
         ) {
             Skeleton(
                 Modifier
-                    .width(100.dp)
-                    .height(21.dp)
+                    .width(150.dp)
+                    .height(20.dp)
                     .clip(
                         RoundedCornerShape(
                             6.dp
@@ -116,7 +83,36 @@ fun HomeSkeleton() {
                 color
             )
 
-            repeat(5) {
+            Skeleton(
+                Modifier
+                    .fillMaxWidth()
+                    .height(170.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            16.dp
+                        )
+                    ),
+                color
+            )
+        }
+
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+            Skeleton(
+                Modifier
+                    .width(100.dp)
+                    .height(20.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            6.dp
+                        )
+                    ),
+                color
+            )
+
+            repeat(3) {
                 Row(
                     horizontalArrangement =
                         Arrangement.spacedBy(
@@ -127,10 +123,10 @@ fun HomeSkeleton() {
                         Skeleton(
                             Modifier
                                 .weight(1f)
-                                .height(104.dp)
+                                .height(125.dp)
                                 .clip(
                                     RoundedCornerShape(
-                                        14.dp
+                                        15.dp
                                     )
                                 ),
                             color
