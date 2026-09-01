@@ -7,7 +7,11 @@ data class HomeUiState(
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val songs: List<Song> = emptyList(),
-    val recentlyPlayed: List<Song> = emptyList(),
+    val recentlyPlayed: List<Song> =
+        emptyList(),
     val profile: UserPreferences =
-        UserPreferences()
+        UserPreferences(),
+    val currentSongId: Long? = null,
+    val isPlaying: Boolean = false,
+    val showPlaylists: Boolean = false
 )
