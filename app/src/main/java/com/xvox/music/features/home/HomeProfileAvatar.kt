@@ -2,6 +2,7 @@ package com.xvox.music.features.home
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -27,7 +28,8 @@ fun HomeProfileAvatar(
     profile: UserPreferences,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val type =
         runCatching {
@@ -40,19 +42,28 @@ fun HomeProfileAvatar(
 
     Box(
         modifier = modifier
-            .size(46.dp)
+            .size(48.dp)
             .clip(CircleShape)
-            .background(colors.card),
-        contentAlignment = Alignment.Center
+            .background(
+                colors.cardElevated
+            )
+            .border(
+                width = 1.dp,
+                color = colors.cardBorder,
+                shape = CircleShape
+            ),
+        contentAlignment =
+            Alignment.Center
     ) {
         when {
             type == PfpType.CUSTOM &&
                 profile.customPfpUri != null -> {
 
                 AsyncImage(
-                    model = Uri.parse(
-                        profile.customPfpUri
-                    ),
+                    model =
+                        Uri.parse(
+                            profile.customPfpUri
+                        ),
                     contentDescription =
                         "Profile picture",
                     contentScale =
@@ -73,7 +84,7 @@ fun HomeProfileAvatar(
                         colors.primaryText,
                     fontFamily =
                         XvoxPersonalFont,
-                    fontSize = 21.sp
+                    fontSize = 22.sp
                 )
             }
 
