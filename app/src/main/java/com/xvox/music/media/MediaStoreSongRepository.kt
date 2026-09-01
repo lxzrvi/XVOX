@@ -2,18 +2,22 @@ package com.xvox.music.media
 
 import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
 import android.provider.MediaStore
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class MediaStoreSongRepository(
-    private val context: Context
+    context: Context
 ) {
+
+    private val resolver =
+        context.applicationContext.contentResolver
 
     suspend fun loadSongs(): List<Song> =
         withContext(Dispatchers.IO) {
-            val songs = mutableListOf<Song>()
+            val result = mutableListOf<Song>()
 
             val projection = arrayOf(
                 MediaStore.Audio.Media._ID,
@@ -22,59 +26,54 @@ class MediaStoreSongRepository(
                 MediaStore.Audio.Media.ALBUM_ID
             )
 
-            val selection =
-                "${MediaStore.Audio.Media.IS_MUSIC} != 0"
-
-            val sortOrder =
-                "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
-
-            context.contentResolver.query(
+            resolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 projection,
-                selection,
+                "${MediaStore.Audio.Media.IS_MUSIC} != 0",
                 null,
-                sortOrder
+                "${MediaStore.Audio.Media.DATE_ADDED} DESC"
             )?.use { cursor ->
 
-                val idIndex =
+                val idColumn =
                     cursor.getColumnIndexOrThrow(
                         MediaStore.Audio.Media._ID
                     )
 
-                val titleIndex =
+                val titleColumn =
                     cursor.getColumnIndexOrThrow(
                         MediaStore.Audio.Media.TITLE
                     )
 
-                val artistIndex =
+                val artistColumn =
                     cursor.getColumnIndexOrThrow(
                         MediaStore.Audio.Media.ARTIST
                     )
 
-                val albumIdIndex =
+                val albumColumn =
                     cursor.getColumnIndexOrThrow(
                         MediaStore.Audio.Media.ALBUM_ID
                     )
 
                 while (cursor.moveToNext()) {
                     val id =
-                        cursor.getLong(idIndex)
+                        cursor.getLong(idColumn)
+
+                    val albumId =
+                        cursor.getLong(albumColumn)
 
                     val title =
-                        cursor.getString(titleIndex)
+                        cursor.getString(titleColumn)
                             ?.takeIf { it.isNotBlank() }
                             ?: "Unknown song"
 
-                    val artist =
-                        cursor.getString(artistIndex)
-                            ?.takeIf {
-                                it.isNotBlank() &&
-                                    it != "<unknown>"
-                            }
-                            ?: "Unknown artist"
+                    val rawArtist =
+                        cursor.getString(artistColumn)
 
-                    val albumId =
-                        cursor.getLong(albumIdIndex)
+                    val artist =
+                        rawArtist?.takeIf {
+                            it.isNotBlank() &&
+                                it != "<unknown>"
+                        } ?: "Unknown artist"
 
                     val contentUri =
                         ContentUris.withAppendedId(
@@ -86,7 +85,7 @@ class MediaStoreSongRepository(
                     val artworkUri =
                         if (albumId > 0L) {
                             ContentUris.withAppendedId(
-                                android.net.Uri.parse(
+                                Uri.parse(
                                     "content://media/external/audio/albumart"
                                 ),
                                 albumId
@@ -95,7 +94,7 @@ class MediaStoreSongRepository(
                             null
                         }
 
-                    songs += Song(
+                    result += Song(
                         id = id,
                         title = title,
                         artist = artist,
@@ -105,6 +104,6 @@ class MediaStoreSongRepository(
                 }
             }
 
-            songs
+            result
         }
 }
