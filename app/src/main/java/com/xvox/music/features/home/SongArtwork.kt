@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import coil3.size.Precision
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
@@ -21,21 +22,28 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun SongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier,
-    requestSize: Int = 360
+    requestSize: Int = 128
 ) {
-    val colors = XvoxTheme.colors
-    val context = LocalContext.current
+    val colors =
+        XvoxTheme.colors
+
+    val context =
+        LocalContext.current
 
     val request =
         remember(
             artwork,
             requestSize
         ) {
-            ImageRequest.Builder(context)
+            ImageRequest
+                .Builder(context)
                 .data(artwork)
                 .size(
                     requestSize,
                     requestSize
+                )
+                .precision(
+                    Precision.INEXACT
                 )
                 .memoryCachePolicy(
                     CachePolicy.ENABLED
@@ -46,6 +54,7 @@ fun SongArtwork(
                 .networkCachePolicy(
                     CachePolicy.DISABLED
                 )
+                .allowHardware(true)
                 .build()
         }
 
@@ -74,7 +83,8 @@ fun SongArtwork(
 
 @Composable
 private fun ArtworkFallback() {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -87,8 +97,10 @@ private fun ArtworkFallback() {
     ) {
         Text(
             text = "X",
-            color = colors.mutedText,
-            fontFamily = XvoxLogoFont,
+            color =
+                colors.mutedText,
+            fontFamily =
+                XvoxLogoFont,
             fontSize = 20.sp
         )
     }
