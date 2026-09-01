@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -23,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import kotlinx.coroutines.launch
 
 @Composable
 fun XvoxBottomBar(
@@ -377,9 +376,11 @@ private fun Modifier.xvoxNavClick(
         MutableInteractionSource,
     onClick: () -> Unit
 ): Modifier =
-    androidx.compose.foundation.clickable(
-        interactionSource =
-            interactionSource,
-        indication = null,
-        onClick = onClick
+    this.then(
+        Modifier.clickable(
+            interactionSource =
+                interactionSource,
+            indication = null,
+            onClick = onClick
+        )
     )
