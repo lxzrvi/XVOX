@@ -7,9 +7,6 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,10 +33,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,6 +53,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxItalicFont
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import kotlin.math.max
 
 @Composable
 fun SetupScreen(
@@ -57,29 +62,43 @@ fun SetupScreen(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val view = LocalView.current
+
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
 
-    val imeVisible =
-        WindowInsets.ime
-            .getBottom(density) > 0
+    var personalizationBottom by remember {
+        mutableFloatStateOf(0f)
+    }
 
-    val personalizationOffset by
-        animateDpAsState(
-            targetValue =
-                if (imeVisible) {
-                    (-105).dp
-                } else {
-                    0.dp
-                },
-            animationSpec = tween(
-                durationMillis = 260,
-                easing =
-                    FastOutSlowInEasing
-            ),
-            label =
-                "personalizationOffset"
-        )
+    val imeBottom =
+        WindowInsets.ime.getBottom(
+            density
+        ).toFloat()
+
+    val keyboardTop =
+        view.height.toFloat() -
+            imeBottom
+
+    val safeGap =
+        with(density) {
+            12.dp.toPx()
+        }
+
+    val keyboardShift =
+        if (
+            imeBottom > 0f &&
+            personalizationBottom > 0f
+        ) {
+            max(
+                0f,
+                personalizationBottom -
+                    keyboardTop +
+                    safeGap
+            )
+        } else {
+            0f
+        }
 
     fun audioGranted(): Boolean {
         val permission =
@@ -190,7 +209,8 @@ fun SetupScreen(
                                 0.13f -
                                 32.dp
                     ),
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontFamily =
                     XvoxLogoFont,
                 fontSize = 37.sp,
@@ -204,9 +224,17 @@ fun SetupScreen(
                     .offset(
                         y =
                             screenHeight *
-                                0.285f +
-                                personalizationOffset
-                    ),
+                                0.285f
+                    )
+                    .onGloballyPositioned {
+                        personalizationBottom =
+                            it.boundsInWindow()
+                                .bottom
+                    }
+                    .graphicsLayer {
+                        translationY =
+                            -keyboardShift
+                    },
                 horizontalAlignment =
                     Alignment.CenterHorizontally
             ) {
@@ -222,9 +250,7 @@ fun SetupScreen(
 
                 Spacer(
                     modifier =
-                        Modifier.height(
-                            5.dp
-                        )
+                        Modifier.height(5.dp)
                 )
 
                 Text(
@@ -241,9 +267,7 @@ fun SetupScreen(
 
                 Spacer(
                     modifier =
-                        Modifier.height(
-                            14.dp
-                        )
+                        Modifier.height(14.dp)
                 )
 
                 PfpCarousel(
@@ -268,9 +292,7 @@ fun SetupScreen(
 
                 Spacer(
                     modifier =
-                        Modifier.height(
-                            8.dp
-                        )
+                        Modifier.height(8.dp)
                 )
 
                 Text(
@@ -316,7 +338,9 @@ fun SetupScreen(
                                     .READ_EXTERNAL_STORAGE
                             }
 
-                        if (!audioGranted()) {
+                        if (
+                            !audioGranted()
+                        ) {
                             audioLauncher.launch(
                                 permission
                             )
@@ -357,8 +381,10 @@ fun SetupScreen(
                 ) {
                     SetupCloseButton(
                         onClick = {
-                            (context as? Activity)
-                                ?.finish()
+                            (
+                                context
+                                    as? Activity
+                                )?.finish()
                         }
                     )
 
@@ -393,7 +419,8 @@ fun SetupScreen(
                         Text(
                             text = "Start",
                             fontWeight =
-                                FontWeight.SemiBold
+                                FontWeight
+                                    .SemiBold
                         )
                     }
                 }
