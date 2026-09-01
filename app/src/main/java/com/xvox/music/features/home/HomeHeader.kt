@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -40,20 +41,25 @@ fun HomeHeader(
                 Modifier.width(11.dp)
         )
 
-        Text(
-            text =
-                profile.username,
-            color =
-                colors.primaryText,
-            fontFamily =
-                XvoxPersonalFont,
-            fontSize = 21.sp,
-            maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis,
+        Column(
             modifier =
                 Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                text =
+                    profile.username,
+                color =
+                    colors.primaryText,
+                fontFamily =
+                    XvoxPersonalFont,
+                fontSize = 21.sp,
+                maxLines = 1,
+                overflow =
+                    TextOverflow.Ellipsis
+            )
+
+            HomeGreeting()
+        }
 
         HomeActionIcon(
             type =
