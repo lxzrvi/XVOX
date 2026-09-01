@@ -18,19 +18,30 @@ fun SongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier
 ) {
-    SubcomposeAsyncImage(
-        model = artwork,
-        contentDescription = null,
-        contentScale =
-            ContentScale.Crop,
-        modifier = modifier,
-        loading = {
-            ArtworkFallback()
-        },
-        error = {
-            ArtworkFallback()
-        }
-    )
+    val colors =
+        XvoxTheme.colors
+
+    Box(
+        modifier =
+            modifier.background(
+                colors.cardElevated
+            )
+    ) {
+        SubcomposeAsyncImage(
+            model = artwork,
+            contentDescription = null,
+            contentScale =
+                ContentScale.Fit,
+            modifier =
+                Modifier.fillMaxSize(),
+            loading = {
+                ArtworkFallback()
+            },
+            error = {
+                ArtworkFallback()
+            }
+        )
+    }
 }
 
 @Composable
@@ -53,7 +64,7 @@ private fun ArtworkFallback() {
                 colors.mutedText,
             fontFamily =
                 XvoxLogoFont,
-            fontSize = 22.sp
+            fontSize = 23.sp
         )
     }
 }
