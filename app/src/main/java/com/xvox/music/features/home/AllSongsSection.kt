@@ -1,105 +1,173 @@
 package com.xvox.music.features.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxPressScale
+
+private const val SongsPerPage = 20
+private const val RowsPerPage = 5
+private const val ColumnsPerPage = 4
 
 @Composable
 fun AllSongsSection(
     songs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
+
+    val screenWidth =
+        LocalConfiguration.current
+            .screenWidthDp.dp
+
+    val pageWidth =
+        screenWidth - 36.dp
 
     Column {
         Text(
             text = "All Songs",
-            color = colors.primaryText,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.SemiBold
+            color =
+                colors.primaryText,
+            fontSize = 20.sp,
+            fontWeight =
+                FontWeight.SemiBold
         )
 
         Text(
-            text = "Total ${songs.size} songs",
-            color = colors.mutedText,
-            fontSize = 12.sp
+            text =
+                "Total ${songs.size} songs",
+            color =
+                colors.mutedText,
+            fontSize = 11.sp
         )
 
-        LazyHorizontalGrid(
-            rows = GridCells.Fixed(5),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(505.dp)
-                .padding(top = 12.dp),
+        val pages =
+            songs.chunked(
+                SongsPerPage
+            )
+
+        LazyRow(
+            modifier =
+                Modifier.padding(
+                    top = 10.dp
+                ),
             horizontalArrangement =
-                Arrangement.spacedBy(10.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(10.dp)
+                Arrangement.spacedBy(
+                    12.dp
+                )
         ) {
-            items(
-                items = songs,
-                key = { it.id }
-            ) { song ->
+            itemsIndexed(
+                items = pages,
+                key = { index, _ ->
+                    index
+                }
+            ) { _, page ->
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth(0.24f)
-                        .clip(
-                            RoundedCornerShape(14.dp)
-                        )
-                        .background(colors.card)
-                        .padding(6.dp)
-                        .xvoxPressScale {
-                            onSongClick(song)
-                        }
-                ) {
-                    SongArtwork(
-                        artwork = song.artworkUri,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(
-                                RoundedCornerShape(
-                                    10.dp
+                SongPage(
+                    songs = page,
+                    pageWidth =
+                        pageWidth,
+                    onSongClick =
+                        onSongClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SongPage(
+    songs: List<Song>,
+    pageWidth: androidx.compose.ui.unit.Dp,
+    onSongClick: (Song) -> Unit
+) {
+    val horizontalGap =
+        7.dp
+
+    val verticalGap =
+        8.dp
+
+    val cardWidth =
+        (
+            pageWidth -
+                horizontalGap *
+                (ColumnsPerPage - 1)
+            ) / ColumnsPerPage
+
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                verticalGap
+            )
+    ) {
+        repeat(RowsPerPage) { row ->
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        horizontalGap
+                    )
+            ) {
+                repeat(
+                    ColumnsPerPage
+                ) { column ->
+
+                    val index =
+                        row *
+                            ColumnsPerPage +
+                            column
+
+                    if (
+                        index <
+                        songs.size
+                    ) {
+                        val song =
+                            songs[index]
+
+                        AllSongCard(
+                            song = song,
+                            onClick = {
+                                onSongClick(
+                                    song
                                 )
-                            )
-                    )
-
-                    Text(
-                        text = song.title,
-                        color = colors.primaryText,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = song.artist,
-                        color = colors.secondaryText,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
+                            },
+                            modifier = Modifier
+                                .width(
+                                    cardWidth
+                                )
+                                .height(
+                                    104.dp
+                                )
+                        )
+                    } else {
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier =
+                                Modifier
+                                    .width(
+                                        cardWidth
+                                    )
+                                    .height(
+                                        104.dp
+                                    )
+                        )
+                    }
                 }
             }
         }
