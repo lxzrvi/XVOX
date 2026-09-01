@@ -3,6 +3,7 @@ package com.xvox.music.features.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,14 +15,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
-private const val SongsPerPage = 20
-private const val RowsPerPage = 5
-private const val ColumnsPerPage = 4
+private const val Rows = 3
+private const val Columns = 4
+private const val SongsPerPage = 12
 
 @Composable
 fun AllSongsSection(
@@ -31,12 +33,9 @@ fun AllSongsSection(
     val colors =
         XvoxTheme.colors
 
-    val screenWidth =
-        LocalConfiguration.current
-            .screenWidthDp.dp
-
     val pageWidth =
-        screenWidth - 36.dp
+        LocalConfiguration.current
+            .screenWidthDp.dp - 36.dp
 
     Column {
         Text(
@@ -68,7 +67,7 @@ fun AllSongsSection(
                 ),
             horizontalArrangement =
                 Arrangement.spacedBy(
-                    12.dp
+                    14.dp
                 )
         ) {
             itemsIndexed(
@@ -77,11 +76,9 @@ fun AllSongsSection(
                     index
                 }
             ) { _, page ->
-
-                SongPage(
+                AllSongsPage(
                     songs = page,
-                    pageWidth =
-                        pageWidth,
+                    width = pageWidth,
                     onSongClick =
                         onSongClick
                 )
@@ -91,53 +88,45 @@ fun AllSongsSection(
 }
 
 @Composable
-private fun SongPage(
+private fun AllSongsPage(
     songs: List<Song>,
-    pageWidth: androidx.compose.ui.unit.Dp,
+    width: Dp,
     onSongClick: (Song) -> Unit
 ) {
-    val horizontalGap =
+    val gap =
         7.dp
-
-    val verticalGap =
-        8.dp
 
     val cardWidth =
         (
-            pageWidth -
-                horizontalGap *
-                (ColumnsPerPage - 1)
-            ) / ColumnsPerPage
+            width -
+                gap * (Columns - 1)
+            ) / Columns
 
     Column(
+        modifier =
+            Modifier.width(width),
         verticalArrangement =
-            Arrangement.spacedBy(
-                verticalGap
-            )
+            Arrangement.spacedBy(9.dp)
     ) {
-        repeat(RowsPerPage) { row ->
+        repeat(Rows) { row ->
 
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.spacedBy(
-                        horizontalGap
+                        gap
                     )
             ) {
-                repeat(
-                    ColumnsPerPage
-                ) { column ->
+                repeat(Columns) {
+                    column ->
 
                     val index =
                         row *
-                            ColumnsPerPage +
+                            Columns +
                             column
 
-                    if (
-                        index <
-                        songs.size
-                    ) {
+                    if (index < songs.size) {
                         val song =
                             songs[index]
 
@@ -148,24 +137,17 @@ private fun SongPage(
                                     song
                                 )
                             },
-                            modifier = Modifier
-                                .width(
+                            modifier =
+                                Modifier.width(
                                     cardWidth
-                                )
-                                .height(
-                                    104.dp
                                 )
                         )
                     } else {
-                        androidx.compose.foundation.layout.Spacer(
+                        Spacer(
                             modifier =
-                                Modifier
-                                    .width(
-                                        cardWidth
-                                    )
-                                    .height(
-                                        104.dp
-                                    )
+                                Modifier.width(
+                                    cardWidth
+                                )
                         )
                     }
                 }
