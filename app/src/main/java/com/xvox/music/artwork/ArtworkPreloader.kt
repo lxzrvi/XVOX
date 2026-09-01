@@ -22,7 +22,7 @@ class ArtworkPreloader(
     suspend fun warmInitialCache(
         songs: List<Song>
     ) {
-        val artwork =
+        val artworkUris =
             songs
                 .asSequence()
                 .mapNotNull {
@@ -36,7 +36,7 @@ class ArtworkPreloader(
             Dispatchers.IO
         ) {
             coroutineScope {
-                artwork
+                artworkUris
                     .chunked(4)
                     .forEach { batch ->
                         batch
@@ -63,9 +63,6 @@ class ArtworkPreloader(
                                             )
                                             .networkCachePolicy(
                                                 CachePolicy.DISABLED
-                                            )
-                                            .allowHardware(
-                                                true
                                             )
                                             .build()
 
