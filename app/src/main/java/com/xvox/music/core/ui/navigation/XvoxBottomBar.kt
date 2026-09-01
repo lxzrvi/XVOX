@@ -2,7 +2,6 @@ package com.xvox.music.core.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -11,10 +10,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
 
-private val NavFluidEasing =
+private val NavMotionEasing =
     CubicBezierEasing(
         0.16f,
         1f,
@@ -46,7 +47,7 @@ private val NavFluidEasing =
         1f
     )
 
-private val NavLabelEasing =
+private val NavColorEasing =
     CubicBezierEasing(
         0.20f,
         0.90f,
@@ -54,11 +55,13 @@ private val NavLabelEasing =
         1f
     )
 
-private const val PillDuration = 580
-private const val LabelDuration = 440
+private const val NavMorphDuration = 540
 
+private val NavigationWidth = 330.dp
+private val NavigationHeight = 65.dp
 private val ItemHeight = 57.dp
-private val InactiveWidth = 70.dp
+private val OuterPadding = 4.dp
+private val ItemGap = 8.dp
 
 @Composable
 fun XvoxBottomBar(
@@ -76,21 +79,21 @@ fun XvoxBottomBar(
         mutableFloatStateOf(0f)
     }
 
-    val parentShape =
-        CircleShape
-
     Row(
         modifier = modifier
-            .clip(parentShape)
+            .offset(y = 2.dp)
+            .width(NavigationWidth)
+            .height(NavigationHeight)
+            .clip(CircleShape)
             .background(
                 colors.surface
             )
             .border(
                 width = 0.5.dp,
                 color = colors.cardBorder,
-                shape = parentShape
+                shape = CircleShape
             )
-            .padding(4.dp)
+            .padding(OuterPadding)
             .pointerInput(selected) {
                 detectHorizontalDragGestures(
                     onDragStart = {
@@ -98,11 +101,12 @@ fun XvoxBottomBar(
                     },
                     onHorizontalDrag = {
                         change,
-                        amount ->
+                        dragAmount ->
 
                         change.consume()
 
-                        dragDistance += amount
+                        dragDistance +=
+                            dragAmount
                     },
                     onDragEnd = {
                         if (
@@ -110,13 +114,15 @@ fun XvoxBottomBar(
                             35.dp.toPx()
                         ) {
                             val currentIndex =
-                                destinations.indexOf(
-                                    selected
-                                )
+                                destinations
+                                    .indexOf(
+                                        selected
+                                    )
 
                             val targetIndex =
                                 if (
-                                    dragDistance > 0f
+                                    dragDistance >
+                                    0f
                                 ) {
                                     currentIndex + 1
                                 } else {
@@ -127,9 +133,9 @@ fun XvoxBottomBar(
                                 .getOrNull(
                                     targetIndex
                                 )
-                                ?.let(
-                                    onSelected
-                                )
+                                ?.let {
+                                    onSelected(it)
+                                }
                         }
 
                         dragDistance = 0f
@@ -139,30 +145,26 @@ fun XvoxBottomBar(
                     }
                 )
             },
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                ItemGap
+            ),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-        destinations.forEachIndexed {
-            index,
+        destinations.forEach {
             destination ->
 
-            if (index > 0) {
-                Spacer(
-                    modifier =
-                        Modifier.width(8.dp)
-                )
-            }
-
-            XvoxNavigationItem(
+            NavigationItem(
                 destination =
                     destination,
                 active =
-                    selected ==
-                        destination,
+                    destination ==
+                        selected,
                 onClick = {
                     if (
-                        selected !=
-                        destination
+                        destination !=
+                        selected
                     ) {
                         onSelected(
                             destination
@@ -175,7 +177,7 @@ fun XvoxBottomBar(
 }
 
 @Composable
-private fun XvoxNavigationItem(
+private fun RowScope.NavigationItem(
     destination: XvoxDestination,
     active: Boolean,
     onClick: () -> Unit
@@ -192,35 +194,28 @@ private fun XvoxNavigationItem(
         interactionSource
             .collectIsPressedAsState()
 
-    val expandedWidth =
-        when (destination) {
-            XvoxDestination.HOME ->
-                124.dp
-
-            XvoxDestination.SEARCH ->
-                134.dp
-
-            XvoxDestination.SETTINGS ->
-                150.dp
-        }
-
-    val width by
-        animateDpAsState(
+    val progress by
+        animateFloatAsState(
             targetValue =
                 if (active) {
-                    expandedWidth
+                    1f
                 } else {
-                    InactiveWidth
+                    0f
                 },
             animationSpec =
                 tween(
                     durationMillis =
-                        PillDuration,
+                        NavMorphDuration,
                     easing =
-                        NavFluidEasing
+                        NavMotionEasing
                 ),
-            label = "navWidth"
+            label =
+                "navMorph"
         )
+
+    val weight =
+        1f +
+            progress * 0.72f
 
     val background by
         animateColorAsState(
@@ -228,15 +223,16 @@ private fun XvoxNavigationItem(
                 if (active) {
                     colors.cardElevated
                 } else {
-                    colors.accentSoft
+                    colors.card
                 },
             animationSpec =
                 tween(
-                    durationMillis = 300,
+                    durationMillis = 360,
                     easing =
-                        NavFluidEasing
+                        NavColorEasing
                 ),
-            label = "navBackground"
+            label =
+                "navBackground"
         )
 
     val foreground by
@@ -245,40 +241,19 @@ private fun XvoxNavigationItem(
                 if (active) {
                     colors.primaryText
                 } else {
-                    colors.secondaryText
+                    colors.mutedText
                 },
             animationSpec =
                 tween(
-                    durationMillis = 260,
+                    durationMillis = 320,
                     easing =
-                        NavFluidEasing
+                        NavColorEasing
                 ),
-            label = "navForeground"
+            label =
+                "navForeground"
         )
 
-    val pressedAlpha by
-        animateFloatAsState(
-            targetValue =
-                if (pressed) {
-                    0.84f
-                } else {
-                    1f
-                },
-            animationSpec =
-                tween(
-                    durationMillis =
-                        if (pressed) {
-                            70
-                        } else {
-                            160
-                        },
-                    easing =
-                        NavFluidEasing
-                ),
-            label = "navPressAlpha"
-        )
-
-    val pressedScale by
+    val pressScale by
         animateFloatAsState(
             targetValue =
                 if (pressed) {
@@ -292,27 +267,51 @@ private fun XvoxNavigationItem(
                         if (pressed) {
                             75
                         } else {
-                            190
+                            180
                         },
                     easing =
-                        NavFluidEasing
+                        NavMotionEasing
                 ),
-            label = "navPressScale"
+            label =
+                "navPressScale"
+        )
+
+    val pressAlpha by
+        animateFloatAsState(
+            targetValue =
+                if (pressed) {
+                    0.86f
+                } else {
+                    1f
+                },
+            animationSpec =
+                tween(
+                    durationMillis =
+                        if (pressed) {
+                            70
+                        } else {
+                            170
+                        },
+                    easing =
+                        NavMotionEasing
+                ),
+            label =
+                "navPressAlpha"
         )
 
     Box(
         modifier = Modifier
-            .width(width)
+            .weight(weight)
             .height(ItemHeight)
             .graphicsLayer {
-                alpha =
-                    pressedAlpha
-
                 scaleX =
-                    pressedScale
+                    pressScale
 
                 scaleY =
-                    pressedScale
+                    pressScale
+
+                alpha =
+                    pressAlpha
             }
             .clip(
                 RoundedCornerShape(
@@ -329,13 +328,13 @@ private fun XvoxNavigationItem(
                 onClick = onClick
             ),
         contentAlignment =
-            Alignment.CenterStart
+            Alignment.Center
     ) {
-        NavigationItemContent(
+        NavigationContent(
             destination =
                 destination,
-            active =
-                active,
+            progress =
+                progress,
             color =
                 foreground
         )
@@ -343,161 +342,128 @@ private fun XvoxNavigationItem(
 }
 
 @Composable
-private fun NavigationItemContent(
+private fun NavigationContent(
     destination: XvoxDestination,
-    active: Boolean,
+    progress: Float,
     color: Color
 ) {
-    Row(
-        modifier = Modifier
-            .padding(
-                start = 24.dp,
-                end = 20.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        XvoxNavigationIcon(
-            destination =
-                destination,
-            color =
-                color,
-            modifier =
-                Modifier.size(22.dp)
-        )
+    /*
+     * Icon begins centered in the inactive pill
+     * and glides left as the label materializes.
+     *
+     * The label itself always has enough drawing
+     * space. We do not animate a clipping width,
+     * which prevents the straight-cut text effect.
+     */
 
-        XvoxNavigationLabel(
-            destination =
-                destination,
-            visible =
-                active,
-            color =
-                color
-        )
-    }
-}
-
-@Composable
-private fun XvoxNavigationLabel(
-    destination: XvoxDestination,
-    visible: Boolean,
-    color: Color
-) {
-    val expandedWidth =
+    val iconTravel =
         when (destination) {
             XvoxDestination.HOME ->
-                44.dp
+                27.dp
 
             XvoxDestination.SEARCH ->
-                53.dp
+                31.dp
 
             XvoxDestination.SETTINGS ->
-                66.dp
+                38.dp
         }
 
-    val width by
-        animateDpAsState(
-            targetValue =
-                if (visible) {
-                    expandedWidth
-                } else {
-                    0.dp
-                },
-            animationSpec =
-                tween(
-                    durationMillis =
-                        LabelDuration,
-                    delayMillis =
-                        if (visible) {
-                            35
-                        } else {
-                            0
-                        },
-                    easing =
-                        NavLabelEasing
-                ),
-            label = "navLabelWidth"
-        )
+    val labelOffset =
+        when (destination) {
+            XvoxDestination.HOME ->
+                25.dp
 
-    val spacing by
-        animateDpAsState(
-            targetValue =
-                if (visible) {
-                    12.dp
-                } else {
-                    0.dp
-                },
-            animationSpec =
-                tween(
-                    durationMillis =
-                        LabelDuration,
-                    delayMillis =
-                        if (visible) {
-                            25
-                        } else {
-                            0
-                        },
-                    easing =
-                        NavLabelEasing
-                ),
-            label = "navLabelGap"
-        )
+            XvoxDestination.SEARCH ->
+                28.dp
 
-    val alpha by
-        animateFloatAsState(
-            targetValue =
-                if (visible) {
+            XvoxDestination.SETTINGS ->
+                33.dp
+        }
+
+    val labelAlpha =
+        smoothStep(
+            (
+                (progress - 0.12f) /
+                    0.62f
+                )
+                .coerceIn(
+                    0f,
                     1f
-                } else {
-                    0f
-                },
-            animationSpec =
-                tween(
-                    durationMillis =
-                        if (visible) {
-                            270
-                        } else {
-                            150
-                        },
-                    delayMillis =
-                        if (visible) {
-                            80
-                        } else {
-                            0
-                        },
-                    easing =
-                        NavFluidEasing
-                ),
-            label = "navLabelAlpha"
+                )
         )
 
-    Spacer(
-        modifier =
-            Modifier.width(
-                spacing
-            )
+    val labelMotion =
+        smoothStep(
+            (
+                progress /
+                    0.84f
+                )
+                .coerceIn(
+                    0f,
+                    1f
+                )
+        )
+
+    XvoxNavigationIcon(
+        destination =
+            destination,
+        color =
+            color,
+        modifier = Modifier
+            .size(22.dp)
+            .graphicsLayer {
+                translationX =
+                    -iconTravel
+                        .toPx() *
+                        progress
+            }
     )
 
-    Box(
-        modifier =
-            Modifier.width(
-                width
-            ),
-        contentAlignment =
-            Alignment.CenterStart
-    ) {
-        Text(
-            text =
-                destination.label,
-            color =
-                color.copy(
-                    alpha = alpha
-                ),
-            fontSize = 14.sp,
-            lineHeight = 17.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-            maxLines = 1
-        )
-    }
+    Text(
+        text =
+            destination.label,
+        color =
+            color,
+        fontSize = 14.sp,
+        lineHeight = 17.sp,
+        fontWeight =
+            FontWeight.SemiBold,
+        maxLines = 1,
+        modifier = Modifier
+            .graphicsLayer {
+                alpha =
+                    labelAlpha
+
+                translationX =
+                    labelOffset
+                        .toPx() +
+                        (
+                            1f -
+                                labelMotion
+                            ) *
+                        8.dp.toPx()
+
+                val scale =
+                    0.965f +
+                        0.035f *
+                        labelMotion
+
+                scaleX =
+                    scale
+
+                scaleY =
+                    scale
+            }
+    )
+}
+
+private fun smoothStep(
+    value: Float
+): Float {
+    return value *
+        value *
+        (
+            3f -
+                2f * value
+            )
 }
