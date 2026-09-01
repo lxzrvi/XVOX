@@ -6,12 +6,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 fun Modifier.xvoxPressScale(
+    enabled: Boolean = true,
+    pressedScale: Float = 0.965f,
     onClick: () -> Unit
 ): Modifier = composed {
 
@@ -20,25 +27,49 @@ fun Modifier.xvoxPressScale(
             MutableInteractionSource()
         }
 
-    val pressed by
+    val scope =
+        rememberCoroutineScope()
+
+    val held by
         interactionSource.collectIsPressedAsState()
+
+    var tapPulse by
+        remember {
+            mutableStateOf(false)
+        }
+
+    val pressed =
+        held || tapPulse
 
     val scale by animateFloatAsState(
         targetValue =
-            if (pressed) 0.96f else 1f,
+            if (pressed) {
+                pressedScale
+            } else {
+                1f
+            },
         animationSpec = spring(
             dampingRatio = 0.72f,
-            stiffness = 650f
+            stiffness = 850f
         ),
-        label = "xvoxPressScale"
+        label = "xvoxPress"
     )
 
     graphicsLayer {
         scaleX = scale
         scaleY = scale
     }.clickable(
-        interactionSource = interactionSource,
-        indication = null,
-        onClick = onClick
-    )
+        enabled = enabled,
+        interactionSource =
+            interactionSource,
+        indication = null
+    ) {
+        scope.launch {
+            tapPulse = true
+            delay(75)
+            tapPulse = false
+        }
+
+        onClick()
+    }
 }
