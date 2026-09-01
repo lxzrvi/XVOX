@@ -17,13 +17,13 @@ class HomeViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val repository =
+    private val songRepository =
         MediaStoreSongRepository(application)
 
-    private val preferences =
+    private val preferencesRepository =
         UserPreferencesRepository(application)
 
-    private val playbackController =
+    private val playback =
         PlaybackController(application)
 
     private val _state =
@@ -39,11 +39,12 @@ class HomeViewModel(
 
     private fun observeProfile() {
         viewModelScope.launch {
-            preferences.preferences.collect { profile ->
-                _state.update {
-                    it.copy(profile = profile)
+            preferencesRepository.preferences
+                .collect { profile ->
+                    _state.update {
+                        it.copy(profile = profile)
+                    }
                 }
-            }
         }
     }
 
@@ -54,7 +55,7 @@ class HomeViewModel(
             }
 
             val songs =
-                repository.loadSongs()
+                songRepository.loadSongs()
 
             _state.update {
                 it.copy(
@@ -66,10 +67,10 @@ class HomeViewModel(
     }
 
     fun play(song: Song) {
-        playbackController.play(song)
+        playback.play(song)
 
         _state.update { current ->
-            val recent =
+            val updated =
                 buildList {
                     add(song)
 
@@ -82,13 +83,13 @@ class HomeViewModel(
                 }.take(20)
 
             current.copy(
-                recentlyPlayed = recent
+                recentlyPlayed = updated
             )
         }
     }
 
     override fun onCleared() {
-        playbackController.release()
+        playback.release()
         super.onCleared()
     }
 }
