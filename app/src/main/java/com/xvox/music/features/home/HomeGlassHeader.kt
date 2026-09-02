@@ -29,8 +29,8 @@ fun HomeGlassHeader(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                colors.surface.copy(
-                    alpha = 0.88f
+                colors.background.copy(
+                    alpha = 0.78f
                 )
             )
             .windowInsetsPadding(
