@@ -26,8 +26,7 @@ fun HomeScreen(
     isPlaying: Boolean,
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
-    viewModel:
-        HomeViewModel =
+    viewModel: HomeViewModel =
         viewModel()
 ) {
     val state by
@@ -65,12 +64,11 @@ fun HomeScreen(
     }
 
     Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    colors.background
-                )
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                colors.background
+            )
     ) {
         LazyColumn(
             modifier =
@@ -102,9 +100,7 @@ fun HomeScreen(
                                     currentSongId
                             )
 
-                        onPlay(
-                            song
-                        )
+                        onPlay(song)
                     },
                     onPrefetch =
                         viewModel::
@@ -125,22 +121,17 @@ fun HomeScreen(
                     transition =
                         state.recentTransition,
                     onSongClick = {
-                        song,
-                        mode ->
+                        song ->
 
                         viewModel
                             .recordPlayedFromRecent(
                                 song =
                                     song,
                                 currentSongId =
-                                    currentSongId,
-                                transitionMode =
-                                    mode
+                                    currentSongId
                             )
 
-                        onPlay(
-                            song
-                        )
+                        onPlay(song)
                     }
                 )
             }
