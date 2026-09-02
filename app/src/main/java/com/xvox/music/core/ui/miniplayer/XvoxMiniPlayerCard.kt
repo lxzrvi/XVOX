@@ -1,0 +1,243 @@
+package com.xvox.music.core.ui.miniplayer
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.PlaybackIcon
+import com.xvox.music.features.home.PlaybackIconType
+import com.xvox.music.features.home.SongArtwork
+
+@Composable
+fun XvoxMiniPlayerCard(
+    song: Song,
+    isPlaying: Boolean,
+    position: Long,
+    duration: Long,
+    transitionDirection: Int,
+    togglePlay: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors =
+        XvoxTheme.colors
+
+    val shape =
+        RoundedCornerShape(15.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(shape)
+            .background(
+                colors.surface
+            )
+            .border(
+                0.65.dp,
+                colors.cardBorder,
+                shape
+            )
+    ) {
+        val progress =
+            if (duration > 0L) {
+                (
+                    position.toFloat() /
+                        duration.toFloat()
+                    )
+                    .coerceIn(
+                        0f,
+                        1f
+                    )
+            } else {
+                0f
+            }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .align(
+                    Alignment.TopStart
+                )
+        ) {
+            drawRect(
+                color =
+                    colors.progressActive,
+                size = Size(
+                    width =
+                        size.width *
+                            progress,
+                    height =
+                        size.height
+                )
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = 4.dp,
+                    top = 4.dp,
+                    end = 50.dp,
+                    bottom = 4.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            11.dp
+                        )
+                    )
+            ) {
+                AnimatedContent(
+                    targetState = song,
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        XvoxMiniPlayerMotion
+                            .artworkChange()
+                    },
+                    label =
+                        "miniArtwork"
+                ) { visualSong ->
+                    SongArtwork(
+                        artwork =
+                            visualSong
+                                .artworkUri,
+                        requestSize = 160,
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            AnimatedContent(
+                targetState = song,
+                modifier =
+                    Modifier.weight(1f),
+                transitionSpec = {
+                    XvoxMiniPlayerMotion
+                        .metadataChange(
+                            transitionDirection
+                        )
+                },
+                label =
+                    "miniMetadata"
+            ) { visualSong ->
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 9.dp,
+                            end = 6.dp
+                        ),
+                    verticalArrangement =
+                        Arrangement.Center
+                ) {
+                    Text(
+                        text =
+                            visualSong.title,
+                        color =
+                            colors.primaryText,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight =
+                            FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text =
+                            visualSong.artist,
+                        color =
+                            colors.secondaryText,
+                        fontSize = 9.sp,
+                        lineHeight = 11.sp,
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(
+                    Alignment.CenterEnd
+                )
+                .padding(
+                    end = 7.dp
+                )
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    colors.cardElevated
+                )
+                .xvoxMiniClick(
+                    togglePlay
+                ),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            PlaybackIcon(
+                type =
+                    if (isPlaying) {
+                        PlaybackIconType.PAUSE
+                    } else {
+                        PlaybackIconType.PLAY
+                    },
+                color =
+                    colors.primaryText,
+                modifier =
+                    Modifier.size(17.dp)
+            )
+        }
+    }
+}
+
+private fun Modifier.xvoxMiniClick(
+    action: () -> Unit
+): Modifier =
+    this.then(
+        androidx.compose.ui.Modifier
+            .pointerInput(
+                action
+            ) {
+                androidx.compose.foundation.gestures
+                    .detectTapGestures {
+                        action()
+                    }
+            }
+    )
