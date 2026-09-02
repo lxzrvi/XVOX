@@ -21,23 +21,33 @@ enum class XvoxGlassStyle {
 
 object XvoxGlassLens {
 
-    // Subtle real-lens behaviour.
-    // Enough to bend the background without
-    // making the navbar look distorted.
+    /*
+     * Keep refraction LOW.
+     *
+     * This makes the pill behave like glass,
+     * but doesn't make the content behind it
+     * look like it's jumping around.
+     */
+    const val NavigationRefraction = 0.055f
 
-    const val NavigationRefraction = 0.08f
+    /*
+     * Gentle optical curvature.
+     */
+    const val NavigationCurve = 0.075f
 
-    const val NavigationCurve = 0.10f
-
-    // No rainbow/chromatic separation.
+    /*
+     * No rainbow / RGB splitting.
+     */
     const val NavigationDispersion = 0.0f
 
     const val NavigationSaturation = 1.0f
 
     const val NavigationContrast = 1.0f
 
-    // Very subtle glass rim.
-    const val NavigationEdge = 0.08f
+    /*
+     * Small glass rim.
+     */
+    const val NavigationEdge = 0.075f
 }
 
 @Composable
@@ -62,93 +72,91 @@ fun Modifier.xvoxGlass(
 
     return when (style) {
 
-        // ----------------------------------------------------
-        // HEADER
-        // ----------------------------------------------------
-
         XvoxGlassStyle.HEADER -> {
+
             cloudy(
                 sky = sky,
-
-                // Softer than before.
                 radius = 18,
-
-                // More transparent so the artwork/content
-                // remains visible behind the glass.
                 tint = colors.surface.copy(
                     alpha = 0.30f
-                )
+                ),
+                enabled = true
             )
         }
 
-        // ----------------------------------------------------
-        // HEADER ACTIONS
-        // ----------------------------------------------------
-
         XvoxGlassStyle.HEADER_ACTIONS -> {
+
             cloudy(
                 sky = sky,
                 radius = 15,
                 tint = colors.card.copy(
                     alpha = 0.22f
-                )
+                ),
+                enabled = true
             )
         }
 
-        // ----------------------------------------------------
-        // MINI PLAYER
-        // ----------------------------------------------------
-
         XvoxGlassStyle.MINI_PLAYER -> {
+
             cloudy(
                 sky = sky,
                 radius = 18,
                 tint = colors.surface.copy(
                     alpha = 0.32f
-                )
+                ),
+                enabled = true
             )
         }
 
-        // ----------------------------------------------------
-        // MINI PLAYER CONTROL
-        // ----------------------------------------------------
-
         XvoxGlassStyle.MINI_CONTROL -> {
+
             cloudy(
                 sky = sky,
                 radius = 14,
                 tint = colors.cardElevated.copy(
-                    alpha = 0.28f
-                )
+                    alpha = 0.26f
+                ),
+                enabled = true
             )
         }
 
-        // ----------------------------------------------------
-        // NAVIGATION
-        //
-        // Blur stays soft.
-        // The actual lens is applied separately through
-        // xvoxNavigationLens().
-        // ----------------------------------------------------
-
         XvoxGlassStyle.NAVIGATION -> {
+
+            /*
+             * Main navbar glass.
+             *
+             * Soft enough that the background
+             * remains visible.
+             */
             cloudy(
                 sky = sky,
-
-                // Smooth background blur.
-                radius = 18,
-
-                // Low tint = background stays visible.
+                radius = 16,
                 tint = colors.surface.copy(
-                    alpha = 0.30f
-                )
+                    alpha = 0.24f
+                ),
+                enabled = true
             )
         }
     }
 }
 
+/*
+ * Selected navigation pill.
+ *
+ * IMPORTANT:
+ *
+ * cloudy()
+ *      ↓
+ * liquidGlass()
+ *
+ * Both are applied to the SAME pill.
+ *
+ * cloudy  = real backdrop blur
+ * liquidGlass = optical lens/refraction
+ */
 @Composable
 fun Modifier.xvoxNavigationLens(
+    sky: Sky,
     lensCenter: Offset,
     lensSize: Size,
     cornerRadius: Float
@@ -156,46 +164,75 @@ fun Modifier.xvoxNavigationLens(
 
     val colors = XvoxTheme.colors
 
-    return liquidGlass(
-        lensCenter = lensCenter,
+    return this
 
-        lensSize = lensSize,
+        /*
+         * FIRST:
+         *
+         * Live backdrop blur.
+         *
+         * Very transparent so things behind
+         * the pill remain recognizable.
+         */
+        .cloudy(
+            sky = sky,
+            radius = 16,
+            tint = colors.cardElevated.copy(
+                alpha = 0.12f
+            ),
+            enabled = true
+        )
 
-        cornerRadius = cornerRadius,
+        /*
+         * SECOND:
+         *
+         * Actual Cloudy Liquid Glass lens.
+         */
+        .liquidGlass(
+            lensCenter = lensCenter,
 
-        // ------------------------------------------------
-        // REAL LENS CHARACTER
-        // ------------------------------------------------
+            lensSize = lensSize,
 
-        // Very subtle background bending.
-        refraction =
-            XvoxGlassLens.NavigationRefraction,
+            cornerRadius = cornerRadius,
 
-        // Slight optical curvature.
-        curve =
-            XvoxGlassLens.NavigationCurve,
+            /*
+             * Subtle optical distortion.
+             */
+            refraction =
+                XvoxGlassLens.NavigationRefraction,
 
-        // No RGB splitting.
-        dispersion =
-            XvoxGlassLens.NavigationDispersion,
+            curve =
+                XvoxGlassLens.NavigationCurve,
 
-        // Keep original artwork colours.
-        saturation =
-            XvoxGlassLens.NavigationSaturation,
+            /*
+             * No chromatic aberration.
+             */
+            dispersion =
+                XvoxGlassLens.NavigationDispersion,
 
-        contrast =
-            XvoxGlassLens.NavigationContrast,
+            saturation =
+                XvoxGlassLens.NavigationSaturation,
 
-        // Very subtle glass body.
-        // Don't make it opaque.
-        tint = colors.cardElevated.copy(
-            alpha = 0.12f
-        ),
+            contrast =
+                XvoxGlassLens.NavigationContrast,
 
-        // Subtle edge highlight.
-        edge =
-            XvoxGlassLens.NavigationEdge,
+            /*
+             * Almost transparent glass body.
+             *
+             * This is important:
+             * high alpha makes the pill look
+             * like a solid grey capsule.
+             */
+            tint = colors.cardElevated.copy(
+                alpha = 0.065f
+            ),
 
-        enabled = true
-    )
+            /*
+             * Soft optical rim.
+             */
+            edge =
+                XvoxGlassLens.NavigationEdge,
+
+            enabled = true
+        )
 }
