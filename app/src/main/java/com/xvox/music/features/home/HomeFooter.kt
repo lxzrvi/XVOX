@@ -10,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,11 +18,14 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
-fun HomeFooter() {
+fun HomeFooter(
+    modifier: Modifier = Modifier
+) {
     val colors =
         XvoxTheme.colors
 
     Column(
+        modifier = modifier,
         horizontalAlignment =
             Alignment.CenterHorizontally,
         verticalArrangement =
@@ -35,16 +37,12 @@ fun HomeFooter() {
                     R.drawable.xvox
                 ),
             contentDescription = null,
-            colorFilter =
-                ColorFilter.tint(
-                    colors.mutedText
-                ),
             modifier =
-                Modifier.size(18.dp)
+                Modifier.size(16.dp)
         )
 
         Spacer(
-            Modifier.height(8.dp)
+            Modifier.height(7.dp)
         )
 
         Text(
@@ -53,7 +51,7 @@ fun HomeFooter() {
                 colors.secondaryText,
             fontFamily =
                 XvoxLogoFont,
-            fontSize = 13.sp
+            fontSize = 12.sp
         )
 
         Text(
