@@ -21,13 +21,15 @@ fun rememberXvoxNavigationMotion(
 
     val animatedPosition by
         animateFloatAsState(
-            targetValue = position,
+            targetValue =
+                position,
             animationSpec =
                 spring(
-                    dampingRatio = 0.80f,
-                    stiffness = 760f
+                    dampingRatio = 0.72f,
+                    stiffness = 900f
                 ),
-            label = "navPosition"
+            label =
+                "navPosition"
         )
 
     val grow by
@@ -40,32 +42,37 @@ fun rememberXvoxNavigationMotion(
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.84f,
-                    stiffness = 720f
+                    dampingRatio = 0.78f,
+                    stiffness = 850f
                 ),
-            label = "navGrow"
+            label =
+                "navGrow"
         )
 
     val barScale by
         animateFloatAsState(
             targetValue =
                 if (dragging) {
-                    1.025f
+                    1.04f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.84f,
-                    stiffness = 760f
+                    dampingRatio = 0.78f,
+                    stiffness = 900f
                 ),
-            label = "navScale"
+            label =
+                "navBarScale"
         )
 
     return XvoxNavigationMotion(
-        position = animatedPosition,
-        grow = grow,
-        barScale = barScale
+        position =
+            animatedPosition,
+        grow =
+            grow,
+        barScale =
+            barScale
     )
 }
 
