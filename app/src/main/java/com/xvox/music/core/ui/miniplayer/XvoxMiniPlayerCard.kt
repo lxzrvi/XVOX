@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,8 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.PlaybackIcon
-import com.xvox.music.features.home.PlaybackIconType
 import com.xvox.music.features.home.SongArtwork
 
 @Composable
@@ -52,20 +53,19 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(60.dp)
             .clip(shape)
-            .background(
-                colors.surface
-            )
+            .background(colors.surface)
             .border(
-                0.65.dp,
-                colors.cardBorder,
-                shape
+                width = 0.65.dp,
+                color = colors.cardBorder,
+                shape = shape
             )
     ) {
         val progress =
             if (duration > 0L) {
                 (
                     position.toFloat() /
-                        duration.toFloat()
+                        duration
+                            .toFloat()
                     )
                     .coerceIn(
                         0f,
@@ -128,6 +128,7 @@ fun XvoxMiniPlayerCard(
                     label =
                         "miniArtwork"
                 ) { visualSong ->
+
                     SongArtwork(
                         artwork =
                             visualSong
@@ -149,8 +150,7 @@ fun XvoxMiniPlayerCard(
                             transitionDirection
                         )
                 },
-                label =
-                    "miniMetadata"
+                label = "miniMetadata"
             ) { visualSong ->
 
                 Column(
@@ -158,7 +158,7 @@ fun XvoxMiniPlayerCard(
                         .fillMaxWidth()
                         .padding(
                             start = 9.dp,
-                            end = 6.dp
+                            end = 5.dp
                         ),
                     verticalArrangement =
                         Arrangement.Center
@@ -197,47 +197,41 @@ fun XvoxMiniPlayerCard(
                 .align(
                     Alignment.CenterEnd
                 )
-                .padding(
-                    end = 7.dp
-                )
+                .padding(end = 7.dp)
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(
                     colors.cardElevated
                 )
-                .xvoxMiniClick(
-                    togglePlay
+                .clickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = togglePlay
                 ),
             contentAlignment =
                 Alignment.Center
         ) {
-            PlaybackIcon(
+            XvoxMiniIcon(
                 type =
                     if (isPlaying) {
-                        PlaybackIconType.PAUSE
+                        XvoxMiniIconType.PAUSE
                     } else {
-                        PlaybackIconType.PLAY
+                        XvoxMiniIconType.PLAY
                     },
                 color =
                     colors.primaryText,
                 modifier =
-                    Modifier.size(17.dp)
+                    Modifier.size(
+                        if (isPlaying) {
+                            17.dp
+                        } else {
+                            18.dp
+                        }
+                    )
             )
         }
     }
 }
-
-private fun Modifier.xvoxMiniClick(
-    action: () -> Unit
-): Modifier =
-    this.then(
-        androidx.compose.ui.Modifier
-            .pointerInput(
-                action
-            ) {
-                androidx.compose.foundation.gestures
-                    .detectTapGestures {
-                        action()
-                    }
-            }
-    )
