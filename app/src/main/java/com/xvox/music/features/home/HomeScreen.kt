@@ -2,7 +2,6 @@ package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -27,12 +26,15 @@ fun HomeScreen(
     isPlaying: Boolean,
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel =
+        viewModel()
 ) {
     val state by
-        viewModel.state.collectAsState()
+        viewModel.state
+            .collectAsState()
 
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val statusHeight =
         WindowInsets.statusBars
@@ -40,67 +42,89 @@ fun HomeScreen(
             .calculateTopPadding()
 
     val headerSpace =
-        statusHeight + 80.dp
+        statusHeight +
+            80.dp
 
     val screenHeight =
         LocalConfiguration.current
             .screenHeightDp.dp
 
-    LaunchedEffect(state.songs) {
-        if (state.songs.isNotEmpty()) {
-            onQueueReady(state.songs)
+    LaunchedEffect(
+        state.songs
+    ) {
+        if (
+            state.songs.isNotEmpty()
+        ) {
+            onQueueReady(
+                state.songs
+            )
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = headerSpace,
-                bottom = 0.dp
-            )
+            modifier =
+                Modifier.fillMaxSize(),
+            contentPadding =
+                PaddingValues(
+                    top =
+                        headerSpace
+                )
         ) {
             item(
                 key = "songs"
             ) {
                 AllSongsSection(
-                    songs = state.songs,
-                    currentSongId = currentSongId,
-                    isPlaying = isPlaying,
+                    songs =
+                        state.songs,
+                    currentSongId =
+                        currentSongId,
+                    isPlaying =
+                        isPlaying,
                     onSongClick = { song ->
-                        viewModel.recordPlayed(song)
+
+                        viewModel
+                            .recordPlayedFromLibrary(
+                                song
+                            )
+
                         onPlay(song)
                     },
                     onPrefetch =
-                        viewModel::prefetchFrom
+                        viewModel::
+                            prefetchFrom
                 )
             }
 
             item(
                 key = "recent"
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillParentMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                    RecentlyPlayedSection(
-                        songs =
-                            state.recentlyPlayed,
-                        currentSongId =
-                            currentSongId,
-                        isPlaying =
-                            isPlaying,
-                        onSongClick = { song ->
-                            viewModel.recordPlayed(song)
-                            onPlay(song)
-                        }
-                    )
-                }
+                RecentlyPlayedSection(
+                    songs =
+                        state.recentlyPlayed,
+                    currentSongId =
+                        currentSongId,
+                    isPlaying =
+                        isPlaying,
+                    frontTransitionKey =
+                        state
+                            .recentFrontTransitionKey,
+                    onSongClick = { song ->
+
+                        viewModel
+                            .recordPlayedFromRecent(
+                                song
+                            )
+
+                        onPlay(song)
+                    }
+                )
             }
 
             item(
@@ -110,21 +134,24 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillParentMaxWidth()
                         .heightIn(
-                            min = screenHeight
+                            min =
+                                screenHeight
                         )
                 )
             }
         }
 
         HomeGlassHeader(
-            profile = state.profile,
+            profile =
+                state.profile,
             showPlaylists =
                 state.showPlaylists,
             onRefresh =
                 viewModel::refresh,
             onHeartClick = {},
             onLibraryModeClick =
-                viewModel::toggleLibraryMode
+                viewModel::
+                    toggleLibraryMode
         )
     }
 }
