@@ -1,8 +1,13 @@
 package com.xvox.music.features.home
 
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +37,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,11 +54,17 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
+private data class RecentFrontTarget(
+    val transitionKey: Long,
+    val song: Song?
+)
+
 @Composable
 fun RecentlyPlayedSection(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
+    frontTransitionKey: Long,
     onSongClick: (Song) -> Unit
 ) {
     val colors =
@@ -67,8 +80,8 @@ fun RecentlyPlayedSection(
                 .padding(
                     start = 12.dp,
                     end = 12.dp,
-                    top = 13.dp,
-                    bottom = 14.dp
+                    top = 12.dp,
+                    bottom = 12.dp
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -76,7 +89,8 @@ fun RecentlyPlayedSection(
                 Alignment.CenterVertically
         ) {
             Text(
-                text = "Recently Played",
+                text =
+                    "Recently Played",
                 color =
                     colors.primaryText,
                 fontSize = 16.sp,
@@ -94,33 +108,17 @@ fun RecentlyPlayedSection(
             )
         }
 
-        if (songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(145.dp),
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Text(
-                    text =
-                        "Nothing played yet",
-                    color =
-                        colors.secondaryText,
-                    fontSize = 12.sp
-                )
-            }
-        } else {
-            RecentCarousel(
-                songs = songs,
-                currentSongId =
-                    currentSongId,
-                isPlaying =
-                    isPlaying,
-                onSongClick =
-                    onSongClick
-            )
-        }
+        RecentCarousel(
+            songs = songs,
+            currentSongId =
+                currentSongId,
+            isPlaying =
+                isPlaying,
+            frontTransitionKey =
+                frontTransitionKey,
+            onSongClick =
+                onSongClick
+        )
     }
 }
 
@@ -129,6 +127,7 @@ private fun RecentCarousel(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
+    frontTransitionKey: Long,
     onSongClick: (Song) -> Unit
 ) {
     val listState =
@@ -139,13 +138,40 @@ private fun RecentCarousel(
             listState
         )
 
+    /*
+     * Only an explicit external/library event is
+     * allowed to visually pull Recent to its front.
+     *
+     * Silent history reorder from Recent taps does
+     * not trigger this effect.
+     */
+    var handledTransitionKey by remember {
+        mutableLongStateOf(
+            frontTransitionKey
+        )
+    }
+
+    val showFrontTransition =
+        frontTransitionKey >
+            handledTransitionKey
+
     LaunchedEffect(
-        songs.firstOrNull()?.id
+        frontTransitionKey
     ) {
-        if (songs.isNotEmpty()) {
-            listState.animateScrollToItem(
-                0
-            )
+        if (
+            frontTransitionKey >
+            handledTransitionKey
+        ) {
+            /*
+             * Prepare the real row underneath at index 0.
+             * The AnimatedContent below visually covers this
+             * change, so intermediate history items don't
+             * animate through the viewport.
+             */
+            listState.scrollToItem(0)
+
+            handledTransitionKey =
+                frontTransitionKey
         }
     }
 
@@ -159,13 +185,6 @@ private fun RecentCarousel(
             maxWidth -
                 edge * 2
 
-        /*
-         * At rest:
-         *
-         * 6dp | CARD | 6dp
-         *
-         * Next card does not peek.
-         */
         val itemGap =
             edge * 2
 
@@ -176,56 +195,68 @@ private fun RecentCarousel(
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
-            LazyRow(
-                state = listState,
-                flingBehavior = fling,
-                modifier =
-                    Modifier.fillMaxWidth(),
-                contentPadding =
-                    PaddingValues(
-                        horizontal = edge
-                    ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        itemGap
-                    )
-            ) {
-                items(
-                    items = songs,
-                    key = { it.id },
-                    contentType = {
-                        "recent_song"
-                    }
-                ) { song ->
-                    RecentArtwork(
-                        song = song,
-                        current =
-                            song.id ==
-                                currentSongId,
-                        playing =
-                            song.id ==
-                                currentSongId &&
-                                isPlaying,
-                        onClick = {
-                            onSongClick(song)
+            /*
+             * Normal history row.
+             *
+             * NO animateItem.
+             * NO list-wide reorder animation.
+             */
+            if (songs.isEmpty()) {
+                EmptyRecent(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(122.dp)
+                )
+            } else {
+                LazyRow(
+                    state =
+                        listState,
+                    flingBehavior =
+                        fling,
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    contentPadding =
+                        PaddingValues(
+                            horizontal =
+                                edge
+                        ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            itemGap
+                        )
+                ) {
+                    items(
+                        items = songs,
+                        key = {
+                            it.id
                         },
-                        modifier = Modifier
-                            .width(itemWidth)
-                            .height(122.dp)
-                            .animateItem(
-                                fadeInSpec =
-                                    spring(),
-                                placementSpec =
-                                    spring(
-                                        dampingRatio =
-                                            0.86f,
-                                        stiffness =
-                                            520f
-                                    ),
-                                fadeOutSpec =
-                                    spring()
-                            )
-                    )
+                        contentType = {
+                            "recent_song"
+                        }
+                    ) { song ->
+                        RecentArtwork(
+                            song = song,
+                            current =
+                                song.id ==
+                                    currentSongId,
+                            playing =
+                                song.id ==
+                                    currentSongId &&
+                                    isPlaying,
+                            onClick = {
+                                onSongClick(
+                                    song
+                                )
+                            },
+                            modifier = Modifier
+                                .width(
+                                    itemWidth
+                                )
+                                .height(
+                                    122.dp
+                                )
+                        )
+                    }
                 }
             }
 
@@ -246,6 +277,161 @@ private fun RecentCarousel(
                     )
             )
         }
+
+        /*
+         * Front transition presentation.
+         *
+         * AnimatedContent identifies every explicit external
+         * front event with its own key, so replaying the same
+         * song can still animate.
+         */
+        RecentFrontTransition(
+            target =
+                RecentFrontTarget(
+                    transitionKey =
+                        frontTransitionKey,
+                    song =
+                        songs.firstOrNull()
+                ),
+            currentSongId =
+                currentSongId,
+            isPlaying =
+                isPlaying,
+            onSongClick =
+                onSongClick,
+            edge =
+                edge,
+            modifier =
+                Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun RecentFrontTransition(
+    target: RecentFrontTarget,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    onSongClick: (Song) -> Unit,
+    edge: Dp,
+    modifier: Modifier = Modifier
+) {
+    /*
+     * AnimatedContent itself retains the outgoing target
+     * long enough for:
+     *
+     * outgoing -> RIGHT
+     * incoming <- LEFT
+     *
+     * When there has never been an explicit front event,
+     * target key 0 acts as the resting state.
+     */
+    AnimatedContent(
+        targetState =
+            target,
+        contentKey = {
+            it.transitionKey
+        },
+        modifier =
+            modifier.height(
+                122.dp
+            ),
+        transitionSpec = {
+            (
+                slideInHorizontally(
+                    animationSpec =
+                        tween(260),
+                    initialOffsetX = {
+                        -it
+                    }
+                ) +
+                    fadeIn(
+                        animationSpec =
+                            tween(180)
+                    )
+                )
+                .togetherWith(
+                    slideOutHorizontally(
+                        animationSpec =
+                            tween(260),
+                        targetOffsetX = {
+                            it
+                        }
+                    ) +
+                        fadeOut(
+                            animationSpec =
+                                tween(180)
+                        )
+                )
+        },
+        label =
+            "recentFront"
+    ) { state ->
+
+        /*
+         * Key 0 is transparent so normal LazyRow remains
+         * interactive. Subsequent explicit front events draw
+         * the transition card over it.
+         */
+        if (
+            state.transitionKey > 0L
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal =
+                            edge
+                    )
+            ) {
+                val song =
+                    state.song
+
+                if (song == null) {
+                    EmptyRecent(
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+                } else {
+                    RecentArtwork(
+                        song = song,
+                        current =
+                            song.id ==
+                                currentSongId,
+                        playing =
+                            song.id ==
+                                currentSongId &&
+                                isPlaying,
+                        onClick = {
+                            onSongClick(song)
+                        },
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyRecent(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier =
+            modifier,
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Text(
+            text =
+                "Nothing played yet",
+            color =
+                XvoxTheme.colors
+                    .secondaryText,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -285,7 +471,8 @@ private fun RecentArtwork(
                 width = 0.7.dp,
                 color =
                     colors.cardBorder,
-                shape = shape
+                shape =
+                    shape
             )
             .clickable(
                 interactionSource =
@@ -299,15 +486,13 @@ private fun RecentArtwork(
                 song.artworkUri,
             requestSize =
                 RecentArtworkSize,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(shape)
+            modifier =
+                Modifier.fillMaxSize()
         )
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(shape)
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -425,12 +610,28 @@ private fun RecentPositionRail(
     railWidth: Dp,
     modifier: Modifier = Modifier
 ) {
-    if (songCount <= 0) {
-        return
-    }
-
     val colors =
         XvoxTheme.colors
+
+    if (
+        songCount <= 0
+    ) {
+        Box(
+            modifier = modifier
+                .width(
+                    railWidth
+                )
+                .height(
+                    3.dp
+                )
+                .background(
+                    colors.progressTrack,
+                    CircleShape
+                )
+        )
+
+        return
+    }
 
     val density =
         LocalDensity.current
