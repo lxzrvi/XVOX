@@ -3,10 +3,10 @@ package com.xvox.music.features.home
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 
 enum class PlaybackIconType {
     PLAY,
@@ -27,18 +27,45 @@ fun PlaybackIcon(
                 val path =
                     Path().apply {
                         moveTo(
-                            size.width * 0.34f,
-                            size.height * 0.23f
+                            size.width * 0.22f,
+                            size.height * 0.08f
+                        )
+
+                        cubicTo(
+                            size.width * 0.11f,
+                            size.height * 0.02f,
+                            size.width * 0.04f,
+                            size.height * 0.10f,
+                            size.width * 0.04f,
+                            size.height * 0.21f
                         )
 
                         lineTo(
-                            size.width * 0.76f,
-                            size.height * 0.50f
+                            size.width * 0.04f,
+                            size.height * 0.79f
+                        )
+
+                        cubicTo(
+                            size.width * 0.04f,
+                            size.height * 0.90f,
+                            size.width * 0.11f,
+                            size.height * 0.98f,
+                            size.width * 0.22f,
+                            size.height * 0.92f
                         )
 
                         lineTo(
-                            size.width * 0.34f,
-                            size.height * 0.77f
+                            size.width * 0.88f,
+                            size.height * 0.62f
+                        )
+
+                        cubicTo(
+                            size.width * 1.02f,
+                            size.height * 0.55f,
+                            size.width * 1.02f,
+                            size.height * 0.45f,
+                            size.width * 0.88f,
+                            size.height * 0.38f
                         )
 
                         close()
@@ -51,35 +78,43 @@ fun PlaybackIcon(
             }
 
             PlaybackIconType.PAUSE -> {
-                val stroke =
-                    size.width * 0.17f
+                val radius =
+                    size.minDimension * 0.14f
 
-                drawLine(
+                drawRoundRect(
                     color = color,
-                    start = Offset(
-                        size.width * 0.36f,
-                        size.height * 0.28f
+                    topLeft =
+                        androidx.compose.ui.geometry.Offset(
+                            size.width * 0.08f,
+                            size.height * 0.04f
+                        ),
+                    size = Size(
+                        size.width * 0.34f,
+                        size.height * 0.92f
                     ),
-                    end = Offset(
-                        size.width * 0.36f,
-                        size.height * 0.72f
-                    ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    cornerRadius =
+                        androidx.compose.ui.geometry.CornerRadius(
+                            radius,
+                            radius
+                        )
                 )
 
-                drawLine(
+                drawRoundRect(
                     color = color,
-                    start = Offset(
-                        size.width * 0.64f,
-                        size.height * 0.28f
+                    topLeft =
+                        androidx.compose.ui.geometry.Offset(
+                            size.width * 0.58f,
+                            size.height * 0.04f
+                        ),
+                    size = Size(
+                        size.width * 0.34f,
+                        size.height * 0.92f
                     ),
-                    end = Offset(
-                        size.width * 0.64f,
-                        size.height * 0.72f
-                    ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    cornerRadius =
+                        androidx.compose.ui.geometry.CornerRadius(
+                            radius,
+                            radius
+                        )
                 )
             }
         }
