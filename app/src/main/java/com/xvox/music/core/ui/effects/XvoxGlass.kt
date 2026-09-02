@@ -21,23 +21,23 @@ enum class XvoxGlassStyle {
 
 object XvoxGlassLens {
 
-    const val NavigationRefraction =
-        0.10f
+    // Subtle real-lens behaviour.
+    // Enough to bend the background without
+    // making the navbar look distorted.
 
-    const val NavigationCurve =
-        0.12f
+    const val NavigationRefraction = 0.08f
 
-    const val NavigationDispersion =
-        0.0f
+    const val NavigationCurve = 0.10f
 
-    const val NavigationSaturation =
-        1.0f
+    // No rainbow/chromatic separation.
+    const val NavigationDispersion = 0.0f
 
-    const val NavigationContrast =
-        1.0f
+    const val NavigationSaturation = 1.0f
 
-    const val NavigationEdge =
-        0.10f
+    const val NavigationContrast = 1.0f
+
+    // Very subtle glass rim.
+    const val NavigationEdge = 0.08f
 }
 
 @Composable
@@ -57,62 +57,91 @@ fun Modifier.xvoxGlass(
     sky: Sky,
     style: XvoxGlassStyle
 ): Modifier {
-    val colors =
-        XvoxTheme.colors
+
+    val colors = XvoxTheme.colors
 
     return when (style) {
+
+        // ----------------------------------------------------
+        // HEADER
+        // ----------------------------------------------------
+
         XvoxGlassStyle.HEADER -> {
             cloudy(
                 sky = sky,
-                radius = 24,
-                tint =
-                    colors.surface.copy(
-                        alpha = 0.38f
-                    )
+
+                // Softer than before.
+                radius = 18,
+
+                // More transparent so the artwork/content
+                // remains visible behind the glass.
+                tint = colors.surface.copy(
+                    alpha = 0.30f
+                )
             )
         }
+
+        // ----------------------------------------------------
+        // HEADER ACTIONS
+        // ----------------------------------------------------
 
         XvoxGlassStyle.HEADER_ACTIONS -> {
             cloudy(
                 sky = sky,
-                radius = 20,
-                tint =
-                    colors.card.copy(
-                        alpha = 0.26f
-                    )
+                radius = 15,
+                tint = colors.card.copy(
+                    alpha = 0.22f
+                )
             )
         }
+
+        // ----------------------------------------------------
+        // MINI PLAYER
+        // ----------------------------------------------------
 
         XvoxGlassStyle.MINI_PLAYER -> {
             cloudy(
                 sky = sky,
-                radius = 24,
-                tint =
-                    colors.surface.copy(
-                        alpha = 0.40f
-                    )
+                radius = 18,
+                tint = colors.surface.copy(
+                    alpha = 0.32f
+                )
             )
         }
+
+        // ----------------------------------------------------
+        // MINI PLAYER CONTROL
+        // ----------------------------------------------------
 
         XvoxGlassStyle.MINI_CONTROL -> {
             cloudy(
                 sky = sky,
-                radius = 18,
-                tint =
-                    colors.cardElevated.copy(
-                        alpha = 0.34f
-                    )
+                radius = 14,
+                tint = colors.cardElevated.copy(
+                    alpha = 0.28f
+                )
             )
         }
+
+        // ----------------------------------------------------
+        // NAVIGATION
+        //
+        // Blur stays soft.
+        // The actual lens is applied separately through
+        // xvoxNavigationLens().
+        // ----------------------------------------------------
 
         XvoxGlassStyle.NAVIGATION -> {
             cloudy(
                 sky = sky,
-                radius = 24,
-                tint =
-                    colors.surface.copy(
-                        alpha = 0.38f
-                    )
+
+                // Smooth background blur.
+                radius = 18,
+
+                // Low tint = background stays visible.
+                tint = colors.surface.copy(
+                    alpha = 0.30f
+                )
             )
         }
     }
@@ -124,38 +153,49 @@ fun Modifier.xvoxNavigationLens(
     lensSize: Size,
     cornerRadius: Float
 ): Modifier {
-    val colors =
-        XvoxTheme.colors
+
+    val colors = XvoxTheme.colors
 
     return liquidGlass(
-        lensCenter =
-            lensCenter,
-        lensSize =
-            lensSize,
-        cornerRadius =
-            cornerRadius,
+        lensCenter = lensCenter,
+
+        lensSize = lensSize,
+
+        cornerRadius = cornerRadius,
+
+        // ------------------------------------------------
+        // REAL LENS CHARACTER
+        // ------------------------------------------------
+
+        // Very subtle background bending.
         refraction =
-            XvoxGlassLens
-                .NavigationRefraction,
+            XvoxGlassLens.NavigationRefraction,
+
+        // Slight optical curvature.
         curve =
-            XvoxGlassLens
-                .NavigationCurve,
+            XvoxGlassLens.NavigationCurve,
+
+        // No RGB splitting.
         dispersion =
-            XvoxGlassLens
-                .NavigationDispersion,
+            XvoxGlassLens.NavigationDispersion,
+
+        // Keep original artwork colours.
         saturation =
-            XvoxGlassLens
-                .NavigationSaturation,
+            XvoxGlassLens.NavigationSaturation,
+
         contrast =
-            XvoxGlassLens
-                .NavigationContrast,
-        tint =
-            colors.cardElevated.copy(
-                alpha = 0.18f
-            ),
+            XvoxGlassLens.NavigationContrast,
+
+        // Very subtle glass body.
+        // Don't make it opaque.
+        tint = colors.cardElevated.copy(
+            alpha = 0.12f
+        ),
+
+        // Subtle edge highlight.
         edge =
-            XvoxGlassLens
-                .NavigationEdge,
+            XvoxGlassLens.NavigationEdge,
+
         enabled = true
     )
 }
