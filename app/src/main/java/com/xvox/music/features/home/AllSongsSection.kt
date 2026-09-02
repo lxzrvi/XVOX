@@ -125,7 +125,7 @@ fun AllSongsSection(
                     ) / 4
 
             val cardHeight =
-                cardWidth + 34.dp
+                cardWidth + 38.dp
 
             val gridHeight =
                 cardHeight * Rows +
