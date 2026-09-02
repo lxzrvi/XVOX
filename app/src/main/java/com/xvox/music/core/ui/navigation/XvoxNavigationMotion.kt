@@ -8,81 +8,29 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
 data class XvoxNavigationMotion(
-    val position: Float,
-    val grow: Float,
-    val barScale: Float
+    val position: Float
 )
 
 @Composable
 fun rememberXvoxNavigationMotion(
-    position: Float,
-    dragging: Boolean,
-    holding: Boolean
+    position: Float
 ): XvoxNavigationMotion {
-
-    /*
-     * When actively dragging, the selector follows
-     * the finger directly.
-     *
-     * Tap / release selection uses a short spring.
-     */
     val animatedPosition by
         animateFloatAsState(
-            targetValue = position,
-            animationSpec =
-                spring(
-                    dampingRatio = 0.90f,
-                    stiffness = 1400f
-                ),
-            label = "navPosition"
-        )
-
-    val finalPosition =
-        if (dragging) {
-            position
-        } else {
-            animatedPosition
-        }
-
-    /*
-     * IMPORTANT:
-     *
-     * Dragging does NOT grow the selector.
-     *
-     * Only a real stationary hold can grow it.
-     */
-    val grow by
-        animateFloatAsState(
             targetValue =
-                if (holding) {
-                    1f
-                } else {
-                    0f
-                },
+                position,
             animationSpec =
                 spring(
-                    dampingRatio = 0.86f,
-                    stiffness = 1250f
+                    dampingRatio = 0.88f,
+                    stiffness = 620f
                 ),
-            label = "navGrow"
+            label =
+                "navPosition"
         )
-
-    /*
-     * Parent navigation stays physically fixed.
-     *
-     * No tap zoom.
-     * No drag zoom.
-     * No hold zoom of the entire navbar.
-     */
-    val barScale = 1f
 
     return XvoxNavigationMotion(
         position =
-            finalPosition,
-        grow =
-            grow,
-        barScale =
-            barScale
+            animatedPosition
     )
 }
 
