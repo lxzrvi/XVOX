@@ -34,19 +34,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import kotlin.math.abs
+import kotlinx.coroutines.delay
+
+private const val RecentTransitionDuration =
+    260L
+
+private data class RecentFrontPresentation(
+    val eventId: Long,
+    val song: Song?
+)
 
 @Composable
 fun RecentCarousel(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
-    transition: RecentTransitionRequest,
+    transition:
+        RecentTransitionRequest,
     onSongClick:
-        (
-            Song,
-            RecentTransitionMode
-        ) -> Unit
+        (Song) -> Unit
 ) {
     val listState =
         rememberLazyListState()
@@ -56,58 +62,52 @@ fun RecentCarousel(
             listState
         )
 
-    var lastHandledTransition by remember {
+    var presentedEventId by remember {
         mutableLongStateOf(0L)
     }
 
-    /*
-     * Reconciliation happens only for an explicit
-     * transition request, never merely because the
-     * history List object changed.
-     */
+    var transitionVisible by remember {
+        androidx.compose.runtime
+            .mutableStateOf(false)
+    }
+
     LaunchedEffect(
         transition.id
     ) {
         if (
             transition.id == 0L ||
             transition.id ==
-            lastHandledTransition
+            presentedEventId ||
+            transition.mode !=
+            RecentTransitionMode.LIBRARY
         ) {
             return@LaunchedEffect
         }
 
-        lastHandledTransition =
+        presentedEventId =
             transition.id
 
-        when (
-            transition.mode
+        /*
+         * Underlying history immediately becomes correct.
+         *
+         * No animateScrollToItem here:
+         * hidden cards must never parade across the screen.
+         */
+        if (
+            songs.isNotEmpty()
         ) {
-            RecentTransitionMode.NONE ->
-                Unit
-
-            RecentTransitionMode
-                .ADJACENT_SWAP -> {
-
-                /*
-                 * Underlying order is already promoted.
-                 * Smoothly settle the new first item.
-                 */
-                listState
-                    .animateScrollToItem(0)
-            }
-
-            RecentTransitionMode
-                .FRONT_REPLACE -> {
-
-                /*
-                 * FAR/external transition has its own
-                 * front visual. Do not parade intermediate
-                 * history items through the viewport.
-                 */
-                listState
-                    .scrollToItem(0)
-            }
+            listState.scrollToItem(0)
         }
+
+        transitionVisible =
+            true
+
+        delay(
+            RecentTransitionDuration
+        )
+
+        transitionVisible =
+            false
     }
 
     BoxWithConstraints(
@@ -132,74 +132,15 @@ fun RecentCarousel(
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
-            /*
-             * This AnimatedContent handles ONLY:
-             *
-             * empty -> first song
-             *
-             * and explicit FRONT_REPLACE of the front
-             * presentation.
-             *
-             * The actual LazyRow remains the carousel.
-             */
-            AnimatedContent(
-                targetState =
-                    if (
-                        songs.isEmpty()
-                    ) {
-                        null
-                    } else {
-                        songs.first()
-                    },
-                contentKey = { song ->
-                    when {
-                        song == null ->
-                            "empty"
-
-                        transition.mode ==
-                            RecentTransitionMode
-                                .FRONT_REPLACE ->
-                            "front_${transition.id}_${song.id}"
-
-                        else ->
-                            "row"
-                    }
-                },
-                transitionSpec = {
-                    (
-                        slideInHorizontally(
-                            animationSpec =
-                                tween(260),
-                            initialOffsetX = {
-                                -it
-                            }
-                        ) +
-                            fadeIn(
-                                tween(150)
-                            )
-                        )
-                        .togetherWith(
-                            slideOutHorizontally(
-                                animationSpec =
-                                    tween(260),
-                                targetOffsetX = {
-                                    it
-                                }
-                            ) +
-                                fadeOut(
-                                    tween(150)
-                                )
-                        )
-                },
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(122.dp),
-                label =
-                    "recentPresentation"
-            ) { front ->
-
+                    .height(
+                        122.dp
+                    )
+            ) {
                 if (
-                    front == null
+                    songs.isEmpty()
                 ) {
                     Box(
                         modifier =
@@ -217,12 +158,6 @@ fun RecentCarousel(
                         )
                     }
                 } else {
-                    /*
-                     * Real horizontal carousel.
-                     *
-                     * No parent pointer overlay.
-                     * No animateItem.
-                     */
                     LazyRow(
                         state =
                             listState,
@@ -241,7 +176,8 @@ fun RecentCarousel(
                             )
                     ) {
                         items(
-                            items = songs,
+                            items =
+                                songs,
                             key = {
                                 it.id
                             },
@@ -250,7 +186,8 @@ fun RecentCarousel(
                             }
                         ) { song ->
                             RecentArtwork(
-                                song = song,
+                                song =
+                                    song,
                                 current =
                                     song.id ==
                                         currentSongId,
@@ -259,47 +196,8 @@ fun RecentCarousel(
                                         currentSongId &&
                                         isPlaying,
                                 onClick = {
-                                    val selectedIndex =
-                                        songs.indexOfFirst {
-                                            it.id ==
-                                                song.id
-                                        }
-
-                                    val focusedIndex =
-                                        focusedRecentIndex(
-                                            listState =
-                                                listState
-                                        )
-
-                                    val distance =
-                                        abs(
-                                            selectedIndex -
-                                                focusedIndex
-                                        )
-
-                                    val mode =
-                                        when {
-                                            song.id ==
-                                                currentSongId ->
-                                                RecentTransitionMode
-                                                    .NONE
-
-                                            distance == 0 ->
-                                                RecentTransitionMode
-                                                    .NONE
-
-                                            distance == 1 ->
-                                                RecentTransitionMode
-                                                    .ADJACENT_SWAP
-
-                                            else ->
-                                                RecentTransitionMode
-                                                    .FRONT_REPLACE
-                                        }
-
                                     onSongClick(
-                                        song,
-                                        mode
+                                        song
                                     )
                                 },
                                 modifier =
@@ -311,6 +209,93 @@ fun RecentCarousel(
                                             122.dp
                                         )
                             )
+                        }
+                    }
+                }
+
+                /*
+                 * ALL SONGS transition only.
+                 *
+                 * This presenter doesn't add click handlers,
+                 * and disappears after 260ms.
+                 */
+                if (
+                    transitionVisible
+                ) {
+                    AnimatedContent(
+                        targetState =
+                            RecentFrontPresentation(
+                                eventId =
+                                    transition.id,
+                                song =
+                                    songs.firstOrNull()
+                            ),
+                        contentKey = {
+                            it.eventId
+                        },
+                        transitionSpec = {
+                            (
+                                slideInHorizontally(
+                                    animationSpec =
+                                        tween(
+                                            RecentTransitionDuration
+                                                .toInt()
+                                        ),
+                                    initialOffsetX = {
+                                        -it
+                                    }
+                                ) +
+                                    fadeIn(
+                                        tween(150)
+                                    )
+                                )
+                                .togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec =
+                                            tween(
+                                                RecentTransitionDuration
+                                                    .toInt()
+                                            ),
+                                        targetOffsetX = {
+                                            it
+                                        }
+                                    ) +
+                                        fadeOut(
+                                            tween(150)
+                                        )
+                                )
+                        },
+                        modifier =
+                            Modifier.fillMaxSize(),
+                        label =
+                            "recentLibraryTransition"
+                    ) { front ->
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(
+                                        horizontal =
+                                            edge
+                                    )
+                        ) {
+                            front.song
+                                ?.let { song ->
+                                    RecentArtwork(
+                                        song =
+                                            song,
+                                        current =
+                                            song.id ==
+                                                currentSongId,
+                                        playing =
+                                            song.id ==
+                                                currentSongId &&
+                                                isPlaying,
+                                        onClick = {},
+                                        modifier =
+                                            Modifier.fillMaxSize()
+                                    )
+                                }
                         }
                     }
                 }
@@ -336,44 +321,4 @@ fun RecentCarousel(
             )
         }
     }
-}
-
-private fun focusedRecentIndex(
-    listState:
-        androidx.compose.foundation.lazy.LazyListState
-): Int {
-    val layout =
-        listState.layoutInfo
-
-    val visible =
-        layout.visibleItemsInfo
-
-    if (
-        visible.isEmpty()
-    ) {
-        return listState
-            .firstVisibleItemIndex
-    }
-
-    val center =
-        (
-            layout.viewportStartOffset +
-                layout.viewportEndOffset
-            ) / 2
-
-    return visible
-        .minByOrNull {
-            item ->
-
-            abs(
-                (
-                    item.offset +
-                        item.size / 2
-                    ) -
-                    center
-            )
-        }
-        ?.index
-        ?: listState
-            .firstVisibleItemIndex
 }
