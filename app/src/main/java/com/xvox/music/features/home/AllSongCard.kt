@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,23 +64,29 @@ fun AllSongCard(
         mutableStateOf(false)
     }
 
+    var pulseJob by remember {
+        mutableStateOf<Job?>(null)
+    }
+
     val pressed =
-        held || tapPulse
+        held ||
+            tapPulse
 
     val scale by
         animateFloatAsState(
             targetValue =
                 if (pressed) {
-                    0.955f
+                    0.94f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 900f
+                    dampingRatio = 0.82f,
+                    stiffness = 1050f
                 ),
-            label = "songCardPress"
+            label =
+                "songCardPress"
         )
 
     val cardShape =
@@ -92,13 +99,26 @@ fun AllSongCard(
             7.dp
         )
 
+    fun pulse() {
+        pulseJob?.cancel()
+
+        pulseJob =
+            scope.launch {
+                tapPulse = true
+                delay(95)
+                tapPulse = false
+            }
+    }
+
     Column(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(cardShape)
+            .clip(
+                cardShape
+            )
             .background(
                 colors.card
             )
@@ -114,24 +134,11 @@ fun AllSongCard(
                     interaction,
                 indication = null,
                 onClick = {
-                    scope.launch {
-                        tapPulse = true
-
-                        delay(85)
-
-                        tapPulse = false
-                    }
-
+                    pulse()
                     onClick()
                 },
                 onLongClick = {
-                    scope.launch {
-                        tapPulse = true
-
-                        delay(110)
-
-                        tapPulse = false
-                    }
+                    pulse()
                 }
             )
             .padding(5.dp)
