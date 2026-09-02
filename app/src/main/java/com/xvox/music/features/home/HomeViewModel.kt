@@ -32,15 +32,22 @@ class HomeViewModel(
             HomeUiState()
         )
 
-    val state: StateFlow<HomeUiState> =
+    val state:
+        StateFlow<HomeUiState> =
         _state.asStateFlow()
 
     private var recentIds:
-        List<Long> = emptyList()
+        List<Long> =
+        emptyList()
 
-    private var prefetchJob: Job? = null
+    private var prefetchJob:
+        Job? = null
 
-    private var lastPrefetchStart = -1
+    private var lastPrefetchStart =
+        -1
+
+    private var transitionId =
+        0L
 
     init {
         observeProfile()
@@ -68,15 +75,19 @@ class HomeViewModel(
                 .recentSongIds
                 .collect { ids ->
 
-                    recentIds = ids
+                    recentIds =
+                        ids
 
-                    _state.update { current ->
+                    _state.update {
+                        current ->
+
                         current.copy(
                             recentlyPlayed =
                                 resolveRecent(
                                     songs =
                                         current.songs,
-                                    ids = ids
+                                    ids =
+                                        ids
                                 )
                         )
                     }
@@ -144,41 +155,57 @@ class HomeViewModel(
         }
     }
 
-    /*
-     * From All Songs / external Home source:
-     *
-     * Move to front AND request the visible Recent
-     * front-transition animation.
-     */
     fun recordPlayedFromLibrary(
-        song: Song
-    ) {
-        recordPlayed(
-            song = song,
-            animateFront = true
-        )
-    }
-
-    /*
-     * From the Recent carousel itself:
-     *
-     * Persist/reorder history silently.
-     * Do not pull the user's carousel viewport around.
-     */
-    fun recordPlayedFromRecent(
-        song: Song
-    ) {
-        recordPlayed(
-            song = song,
-            animateFront = false
-        )
-    }
-
-    private fun recordPlayed(
         song: Song,
-        animateFront: Boolean
+        currentSongId: Long?
     ) {
-        _state.update { current ->
+        /*
+         * Same current song:
+         * playback toggles outside this VM,
+         * but Recent doesn't reorder/animate.
+         */
+        if (
+            currentSongId ==
+            song.id
+        ) {
+            return
+        }
+
+        promote(
+            song = song,
+            mode =
+                RecentTransitionMode
+                    .LIBRARY
+        )
+    }
+
+    fun recordPlayedFromRecent(
+        song: Song,
+        currentSongId: Long?,
+        mode: RecentTransitionMode
+    ) {
+        if (
+            currentSongId ==
+            song.id
+        ) {
+            return
+        }
+
+        promote(
+            song = song,
+            mode = mode
+        )
+    }
+
+    private fun promote(
+        song: Song,
+        mode: RecentTransitionMode
+    ) {
+        transitionId++
+
+        _state.update {
+            current ->
+
             val reordered =
                 buildList {
                     add(song)
@@ -187,7 +214,8 @@ class HomeViewModel(
                         current
                             .recentlyPlayed
                             .filterNot {
-                                it.id == song.id
+                                it.id ==
+                                    song.id
                             }
                     )
                 }
@@ -196,16 +224,15 @@ class HomeViewModel(
             current.copy(
                 recentlyPlayed =
                     reordered,
-
-                recentFrontTransitionKey =
-                    if (animateFront) {
-                        current
-                            .recentFrontTransitionKey +
-                            1L
-                    } else {
-                        current
-                            .recentFrontTransitionKey
-                    }
+                recentTransition =
+                    RecentTransitionEvent(
+                        id =
+                            transitionId,
+                        songId =
+                            song.id,
+                        mode =
+                            mode
+                    )
             )
         }
 
@@ -223,7 +250,9 @@ class HomeViewModel(
         val songs =
             _state.value.songs
 
-        if (songs.isEmpty()) {
+        if (
+            songs.isEmpty()
+        ) {
             return
         }
 
@@ -247,7 +276,8 @@ class HomeViewModel(
             viewModelScope.launch {
                 artworkPreloader.warm(
                     songs = songs,
-                    fromIndex = start,
+                    fromIndex =
+                        start,
                     count = 36
                 )
             }
@@ -285,7 +315,6 @@ class HomeViewModel(
 
     override fun onCleared() {
         prefetchJob?.cancel()
-
         super.onCleared()
     }
 }
