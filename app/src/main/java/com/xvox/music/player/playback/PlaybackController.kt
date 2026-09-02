@@ -1,9 +1,13 @@
 package com.xvox.music.player.playback
 
+import android.content.ComponentName
 import android.content.Context
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,8 +20,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.xvox.music.player.session.XvoxPlaybackService
 
 data class PlaybackState(
+    val connected: Boolean = false,
     val currentSongId: Long? = null,
     val currentIndex: Int = -1,
     val isPlaying: Boolean = false,
@@ -29,16 +35,17 @@ class PlaybackController(
     context: Context
 ) {
 
-    private val player =
-        ExoPlayer.Builder(
-            context.applicationContext
-        ).build()
+    private val appContext =
+        context.applicationContext
 
     private val scope =
         CoroutineScope(
             SupervisorJob() +
                 Dispatchers.Main.immediate
         )
+
+    private var controller:
+        MediaController? = null
 
     private var queue:
         List<Song> = emptyList()
@@ -57,51 +64,83 @@ class PlaybackController(
     private val listener =
         object : Player.Listener {
 
-            override fun onIsPlayingChanged(
-                isPlaying: Boolean
+            override fun onEvents(
+                player: Player,
+                events: Player.Events
             ) {
-                updateState()
-            }
-
-            override fun onMediaItemTransition(
-                mediaItem: MediaItem?,
-                reason: Int
-            ) {
-                updateState()
-            }
-
-            override fun onPlaybackStateChanged(
-                playbackState: Int
-            ) {
-                updateState()
+                publishState()
             }
         }
 
     init {
-        player.addListener(listener)
+        connect()
+    }
 
-        progressJob =
-            scope.launch {
-                while (isActive) {
-                    updateState()
-                    delay(500L)
+    private fun connect() {
+        val token =
+            SessionToken(
+                appContext,
+                ComponentName(
+                    appContext,
+                    XvoxPlaybackService::class.java
+                )
+            )
+
+        val future =
+            MediaController.Builder(
+                appContext,
+                token
+            ).buildAsync()
+
+        future.addListener(
+            {
+                runCatching {
+                    future.get()
+                }.onSuccess {
+                    mediaController ->
+
+                    controller =
+                        mediaController
+
+                    mediaController
+                        .addListener(
+                            listener
+                        )
+
+                    publishState()
+
+                    progressJob =
+                        scope.launch {
+                            while (isActive) {
+                                publishState()
+                                delay(500L)
+                            }
+                        }
                 }
-            }
+            },
+            ContextCompat.getMainExecutor(
+                appContext
+            )
+        )
     }
 
     fun setQueue(
         songs: List<Song>
     ) {
         queue = songs
-        updateState()
     }
 
     fun play(
         song: Song
     ) {
+        val mediaController =
+            controller ?: return
+
         if (
-            _state.value.currentSongId ==
-            song.id
+            mediaController
+                .currentMediaItem
+                ?.mediaId ==
+            song.id.toString()
         ) {
             togglePlay()
             return
@@ -112,106 +151,112 @@ class PlaybackController(
                 it.id == song.id
             }
 
-        load(
-            song = song,
-            index = index,
-            playWhenReady = true
+        val item =
+            song.toMediaItem()
+
+        mediaController.setMediaItem(
+            item
         )
+
+        mediaController.prepare()
+        mediaController.play()
+
+        _state.value =
+            _state.value.copy(
+                currentSongId =
+                    song.id,
+                currentIndex =
+                    index
+            )
     }
 
     fun playQueueIndex(
         index: Int,
-        preservePlayingState: Boolean
+        keepPlayingState: Boolean = true
     ) {
         val song =
             queue.getOrNull(index)
                 ?: return
 
+        val mediaController =
+            controller ?: return
+
         val shouldPlay =
-            if (preservePlayingState) {
-                player.isPlaying
+            if (keepPlayingState) {
+                mediaController
+                    .isPlaying
             } else {
                 true
             }
 
-        load(
-            song = song,
-            index = index,
-            playWhenReady = shouldPlay
+        mediaController.setMediaItem(
+            song.toMediaItem()
         )
+
+        mediaController.prepare()
+
+        if (shouldPlay) {
+            mediaController.play()
+        } else {
+            mediaController.pause()
+        }
+
+        publishState()
     }
 
     fun togglePlay() {
+        val mediaController =
+            controller ?: return
+
         if (
-            player.currentMediaItem ==
+            mediaController
+                .currentMediaItem ==
             null
         ) {
             return
         }
 
-        if (player.isPlaying) {
-            player.pause()
+        if (mediaController.isPlaying) {
+            mediaController.pause()
         } else {
-            player.play()
+            mediaController.play()
         }
     }
 
-    private fun load(
-        song: Song,
-        index: Int,
-        playWhenReady: Boolean
-    ) {
-        val mediaItem =
-            MediaItem.Builder()
-                .setMediaId(
-                    song.id.toString()
-                )
-                .setUri(
-                    song.contentUri
-                )
-                .build()
+    private fun publishState() {
+        val mediaController =
+            controller
 
-        player.setMediaItem(mediaItem)
-        player.prepare()
-
-        if (playWhenReady) {
-            player.play()
-        } else {
-            player.pause()
+        if (mediaController == null) {
+            _state.value =
+                PlaybackState()
+            return
         }
 
-        _state.value =
-            PlaybackState(
-                currentSongId = song.id,
-                currentIndex = index,
-                isPlaying = false,
-                position = 0L,
-                duration = 0L
-            )
-    }
-
-    private fun updateState() {
         val id =
-            player.currentMediaItem
+            mediaController
+                .currentMediaItem
                 ?.mediaId
                 ?.toLongOrNull()
 
-        val index =
-            queue.indexOfFirst {
-                it.id == id
-            }
-
         _state.value =
             PlaybackState(
+                connected = true,
                 currentSongId = id,
-                currentIndex = index,
+                currentIndex =
+                    queue.indexOfFirst {
+                        it.id == id
+                    },
                 isPlaying =
-                    player.isPlaying,
+                    mediaController
+                        .isPlaying,
                 position =
-                    player.currentPosition
+                    mediaController
+                        .currentPosition
                         .coerceAtLeast(0L),
                 duration =
-                    player.duration
+                    mediaController
+                        .duration
                         .takeIf {
                             it > 0L
                         }
@@ -221,8 +266,35 @@ class PlaybackController(
 
     fun release() {
         progressJob?.cancel()
-        player.removeListener(listener)
-        player.release()
+
+        controller?.removeListener(
+            listener
+        )
+
+        controller?.release()
+        controller = null
+
         scope.cancel()
+    }
+
+    private fun Song.toMediaItem():
+        MediaItem {
+        return MediaItem.Builder()
+            .setMediaId(
+                id.toString()
+            )
+            .setUri(
+                contentUri
+            )
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(title)
+                    .setArtist(artist)
+                    .setArtworkUri(
+                        artworkUri
+                    )
+                    .build()
+            )
+            .build()
     }
 }
