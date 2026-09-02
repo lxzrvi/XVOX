@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.delay
@@ -28,36 +29,22 @@ import kotlin.math.abs
 @Composable
 fun XvoxMiniPlayer(
     queue: List<Song>,
-    currentSongId: Long?,
+    currentSongId: Long,
     currentIndex: Int,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
+    riseKey: Int,
     togglePlay: () -> Unit,
     playQueueIndex: (Int) -> Unit,
+    dismiss: () -> Unit,
     openPlayer: () -> Unit,
-    closePlayer: () -> Unit,
     onLike: () -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (
-        currentSongId == null ||
-        queue.isEmpty()
-    ) {
-        return
-    }
-
-    val realIndex =
-        currentIndex
-            .takeIf {
-                it in queue.indices
-            }
-            ?: queue.indexOfFirst {
-                it.id ==
-                    currentSongId
-            }
-                .coerceAtLeast(0)
+    val density =
+        LocalDensity.current
 
     val scope =
         rememberCoroutineScope()
@@ -72,13 +59,22 @@ fun XvoxMiniPlayer(
             Animatable(0f)
         }
 
+    val exitDistance =
+        with(density) {
+            180.dp.toPx()
+        }
+
     var previewIndex by
         remember(
             currentSongId,
             queue
         ) {
             mutableIntStateOf(
-                realIndex
+                currentIndex
+                    .takeIf {
+                        it in queue.indices
+                    }
+                    ?: 0
             )
         }
 
@@ -87,7 +83,7 @@ fun XvoxMiniPlayer(
             mutableIntStateOf(0)
         }
 
-    var previewRevision by
+    var revision by
         remember {
             mutableIntStateOf(0)
         }
@@ -119,17 +115,34 @@ fun XvoxMiniPlayer(
             mutableStateOf(false)
         }
 
-    LaunchedEffect(
-        previewRevision
-    ) {
+    var exiting by
+        remember {
+            mutableStateOf(false)
+        }
+
+    LaunchedEffect(riseKey) {
         if (
-            previewRevision <= 0
+            riseKey > 0
         ) {
+            y.snapTo(
+                exitDistance
+            )
+
+            y.animateTo(
+                0f,
+                XvoxMiniPlayerMotion
+                    .riseSpec
+            )
+        }
+    }
+
+    LaunchedEffect(revision) {
+        if (revision == 0) {
             return@LaunchedEffect
         }
 
-        val revision =
-            previewRevision
+        val currentRevision =
+            revision
 
         delay(
             XvoxMiniPlayerMotion
@@ -137,26 +150,40 @@ fun XvoxMiniPlayer(
         )
 
         if (
-            revision ==
-            previewRevision
+            currentRevision ==
+            revision
         ) {
-            val target =
+            playQueueIndex(
                 previewIndex
+            )
 
-            if (
-                target in queue.indices &&
-                target != realIndex
-            ) {
-                playQueueIndex(
-                    target
-                )
-            }
-
-            previewRevision = 0
+            revision = 0
         }
     }
 
-    val song =
+    fun exit(
+        after: () -> Unit
+    ) {
+        if (exiting) {
+            return
+        }
+
+        exiting = true
+
+        scope.launch {
+            actionsVisible = false
+
+            y.animateTo(
+                exitDistance,
+                XvoxMiniPlayerMotion
+                    .exitSpec
+            )
+
+            after()
+        }
+    }
+
+    val visualSong =
         queue.getOrNull(
             previewIndex
         ) ?: return
@@ -180,8 +207,7 @@ fun XvoxMiniPlayer(
                 onAdd()
             },
             onClose = {
-                actionsVisible = false
-                closePlayer()
+                exit(dismiss)
             },
             modifier =
                 Modifier.align(
@@ -198,8 +224,13 @@ fun XvoxMiniPlayer(
                 )
                 .pointerInput(
                     currentSongId,
-                    queue
+                    queue,
+                    exiting
                 ) {
+                    if (exiting) {
+                        return@pointerInput
+                    }
+
                     detectDragGestures(
                         onDragStart = {
                             actionsVisible =
@@ -289,7 +320,6 @@ fun XvoxMiniPlayer(
 
                             rawX = 0f
                             rawY = 0f
-
                             axis =
                                 XvoxMiniAxis.NONE
 
@@ -307,7 +337,7 @@ fun XvoxMiniPlayer(
                                         ) {
                                             direction = 1
                                             previewIndex++
-                                            previewRevision++
+                                            revision++
                                         } else if (
                                             finalX >
                                             XvoxMiniPlayerMotion
@@ -316,7 +346,7 @@ fun XvoxMiniPlayer(
                                         ) {
                                             direction = -1
                                             previewIndex--
-                                            previewRevision++
+                                            revision++
                                         }
 
                                         x.animateTo(
@@ -331,29 +361,15 @@ fun XvoxMiniPlayer(
                                             finalY <=
                                                 XvoxMiniPlayerMotion
                                                     .OpenThreshold -> {
-
-                                                y.animateTo(
-                                                    -90f,
-                                                    XvoxMiniPlayerMotion
-                                                        .exitSpec
-                                                )
-
-                                                openPlayer()
-
-                                                y.snapTo(0f)
+                                                exit {
+                                                    openPlayer()
+                                                }
                                             }
 
                                             finalY >=
                                                 XvoxMiniPlayerMotion
                                                     .CloseThreshold -> {
-
-                                                y.animateTo(
-                                                    90f,
-                                                    XvoxMiniPlayerMotion
-                                                        .exitSpec
-                                                )
-
-                                                closePlayer()
+                                                exit(dismiss)
                                             }
 
                                             else -> {
@@ -397,8 +413,13 @@ fun XvoxMiniPlayer(
                     )
                 }
                 .pointerInput(
-                    currentSongId
+                    currentSongId,
+                    exiting
                 ) {
+                    if (exiting) {
+                        return@pointerInput
+                    }
+
                     detectTapGestures(
                         onLongPress = {
                             if (!moved) {
@@ -414,7 +435,9 @@ fun XvoxMiniPlayer(
                                     actionsVisible =
                                         false
                                 } else {
-                                    openPlayer()
+                                    exit {
+                                        openPlayer()
+                                    }
                                 }
                             }
                         }
@@ -422,12 +445,13 @@ fun XvoxMiniPlayer(
                 }
         ) {
             XvoxMiniPlayerCard(
-                song = song,
+                song =
+                    visualSong,
                 isPlaying =
                     isPlaying,
                 position =
                     if (
-                        song.id ==
+                        visualSong.id ==
                         currentSongId
                     ) {
                         position
@@ -436,14 +460,14 @@ fun XvoxMiniPlayer(
                     },
                 duration =
                     if (
-                        song.id ==
+                        visualSong.id ==
                         currentSongId
                     ) {
                         duration
                     } else {
                         0L
                     },
-                transitionDirection =
+                direction =
                     direction,
                 togglePlay =
                     togglePlay,
