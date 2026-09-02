@@ -20,15 +20,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.XvoxGlassStyle
+import com.xvox.music.core.ui.effects.xvoxGlass
+import com.xvox.music.core.ui.effects.xvoxNavigationLens
 import kotlin.math.abs
 
 @Composable
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
+    sky: Sky,
     modifier: Modifier = Modifier
 ) {
     val colors =
@@ -73,19 +80,14 @@ fun XvoxBottomBar(
                 dragging
         )
 
-    val parentBackground =
-        colors.surface.copy(
-            alpha = 0.97f
-        )
-
     val parentBorder =
         colors.cardBorder.copy(
             alpha = 0.70f
         )
 
-    val selectorBackground =
+    val selectorFallback =
         colors.cardElevated.copy(
-            alpha = 0.58f
+            alpha = 0.16f
         )
 
     val selectorBorder =
@@ -238,11 +240,12 @@ fun XvoxBottomBar(
                 }
             }
     ) {
-        /*
-         * 64dp visual parent sits inside the
-         * 84dp host with 10dp overflow space
-         * on both top and bottom.
-         */
+        val parentShape =
+            RoundedCornerShape(
+                XvoxNavigationGeometry
+                    .barRadius
+            )
+
         Box(
             modifier = Modifier
                 .align(
@@ -267,15 +270,15 @@ fun XvoxBottomBar(
                         motion.barScale
 
                     shape =
-                        RoundedCornerShape(
-                            XvoxNavigationGeometry
-                                .barRadius
-                        )
+                        parentShape
 
                     clip = true
                 }
-                .background(
-                    parentBackground
+                .xvoxGlass(
+                    sky = sky,
+                    style =
+                        XvoxGlassStyle
+                            .NAVIGATION
                 )
                 .border(
                     width =
@@ -284,10 +287,7 @@ fun XvoxBottomBar(
                     color =
                         parentBorder,
                     shape =
-                        RoundedCornerShape(
-                            XvoxNavigationGeometry
-                                .barRadius
-                        )
+                        parentShape
                 )
         )
 
@@ -326,17 +326,6 @@ fun XvoxBottomBar(
                 0f
             }
 
-        /*
-         * Selector is centered against the same
-         * 64dp bar center:
-         *
-         * host top 10
-         * + bar center 32
-         * = host Y 42.
-         *
-         * Therefore 80dp selector reaches Y 2..82,
-         * fully inside the 84dp host.
-         */
         Box(
             modifier = Modifier
                 .align(
@@ -420,7 +409,28 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .background(
-                    selectorBackground
+                    selectorFallback
+                )
+                .xvoxNavigationLens(
+                    lensCenter =
+                        Offset(
+                            selectorWidth
+                                .toPx() /
+                                2f,
+                            selectorHeight
+                                .toPx() /
+                                2f
+                        ),
+                    lensSize =
+                        Size(
+                            selectorWidth
+                                .toPx(),
+                            selectorHeight
+                                .toPx()
+                        ),
+                    cornerRadius =
+                        selectorRadius
+                            .toPx()
                 )
                 .border(
                     width =
@@ -435,10 +445,6 @@ fun XvoxBottomBar(
                 )
         )
 
-        /*
-         * Icons remain centered against the
-         * resting 64dp parent, not the 84dp host.
-         */
         Row(
             modifier = Modifier
                 .align(
