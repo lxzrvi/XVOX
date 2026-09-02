@@ -61,16 +61,17 @@ fun RecentlyPlayedSection(
         XvoxTheme.colors
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp)
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = 7.dp
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = 11.dp,
+                    bottom = 11.dp
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -78,8 +79,10 @@ fun RecentlyPlayedSection(
                 Alignment.CenterVertically
         ) {
             Text(
-                text = "Recently Played",
-                color = colors.primaryText,
+                text =
+                    "Recently Played",
+                color =
+                    colors.primaryText,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
@@ -89,7 +92,8 @@ fun RecentlyPlayedSection(
             Text(
                 text =
                     "${songs.size} played",
-                color = colors.mutedText,
+                color =
+                    colors.mutedText,
                 fontSize = 9.sp
             )
         }
@@ -151,10 +155,9 @@ private fun RecentCarousel(
             listState
         )
 
-    var centeredIndex by
-        remember {
-            mutableIntStateOf(0)
-        }
+    var centeredIndex by remember {
+        mutableIntStateOf(0)
+    }
 
     LaunchedEffect(
         songs.firstOrNull()?.id
@@ -183,117 +186,102 @@ private fun RecentCarousel(
                 .minByOrNull {
                     item ->
 
-                    val itemCenter =
-                        item.offset +
-                            item.size / 2
-
                     abs(
-                        itemCenter -
+                        item.offset +
+                            item.size / 2 -
                             center
                     )
                 }
                 ?.index
                 ?: 0
-        }.collect { index ->
+        }.collect {
             centeredIndex =
-                index.coerceIn(
+                it.coerceIn(
                     0,
                     songs.lastIndex
                 )
         }
     }
 
-    Column(
+    BoxWithConstraints(
         modifier =
-            Modifier.fillMaxWidth(),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
+            Modifier.fillMaxWidth()
     ) {
-        BoxWithConstraints(
-            modifier =
-                Modifier.fillMaxWidth()
+        val edge = 6.dp
+
+        val itemWidth =
+            maxWidth -
+                edge * 2
+
+        val railWidth =
+            itemWidth * 0.22f
+
+        Column(
+            horizontalAlignment =
+                Alignment.CenterHorizontally
         ) {
-            val edge = 6.dp
-
-            val itemWidth =
-                maxWidth -
-                    edge * 2
-
-            val railWidth =
-                itemWidth * 0.22f
-
-            Column(
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
+            LazyRow(
+                state = listState,
+                flingBehavior = fling,
+                modifier =
+                    Modifier.fillMaxWidth(),
+                contentPadding =
+                    PaddingValues(
+                        horizontal = edge
+                    ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        1.dp
+                    )
             ) {
-                LazyRow(
-                    state = listState,
-                    flingBehavior = fling,
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    contentPadding =
-                        PaddingValues(
-                            horizontal = edge
-                        ),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            1.dp
-                        )
-                ) {
-                    items(
-                        items = songs,
-                        key = {
-                            it.id
-                        },
-                        contentType = {
-                            "recent_song"
-                        }
-                    ) { song ->
-
-                        RecentArtwork(
-                            song = song,
-                            current =
-                                song.id ==
-                                    currentSongId,
-                            playing =
-                                song.id ==
-                                    currentSongId &&
-                                    isPlaying,
-                            onClick = {
-                                onSongClick(
-                                    song
-                                )
-                            },
-                            modifier = Modifier
-                                .width(
-                                    itemWidth
-                                )
-                                .height(
-                                    122.dp
-                                )
-                        )
+                items(
+                    items = songs,
+                    key = {
+                        it.id
+                    },
+                    contentType = {
+                        "recent_song"
                     }
+                ) { song ->
+
+                    RecentArtwork(
+                        song = song,
+                        current =
+                            song.id ==
+                                currentSongId,
+                        playing =
+                            song.id ==
+                                currentSongId &&
+                                isPlaying,
+                        onClick = {
+                            onSongClick(
+                                song
+                            )
+                        },
+                        modifier = Modifier
+                            .width(
+                                itemWidth
+                            )
+                            .height(
+                                122.dp
+                            )
+                    )
                 }
-
-                RecentPositionRail(
-                    songCount =
-                        songs.size,
-                    centeredIndex =
-                        centeredIndex,
-                    railWidth =
-                        railWidth,
-                    modifier =
-                        Modifier.padding(
-                            top = 8.dp
-                        )
-                )
             }
-        }
 
-        Box(
-            modifier =
-                Modifier.height(8.dp)
-        )
+            RecentPositionRail(
+                songCount =
+                    songs.size,
+                centeredIndex =
+                    centeredIndex,
+                railWidth =
+                    railWidth,
+                modifier =
+                    Modifier.padding(
+                        top = 8.dp
+                    )
+            )
+        }
     }
 }
 
@@ -336,7 +324,7 @@ private fun RecentArtwork(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
+                        listOf(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
@@ -348,7 +336,8 @@ private fun RecentArtwork(
         )
 
         Text(
-            text = song.title,
+            text =
+                song.title,
             color = Color.White,
             fontSize = 14.sp,
             fontWeight =
@@ -420,7 +409,8 @@ private fun RecentArtwork(
                     } else {
                         PlaybackIconType.PLAY
                     },
-                color = Color.White,
+                color =
+                    Color.White,
                 modifier =
                     Modifier.size(
                         14.dp
@@ -433,7 +423,8 @@ private fun RecentArtwork(
             ) {
                 Text(
                     text = "Playing",
-                    color = Color.White,
+                    color =
+                        Color.White,
                     fontSize = 9.sp
                 )
             }
@@ -448,10 +439,6 @@ private fun RecentPositionRail(
     railWidth: Dp,
     modifier: Modifier = Modifier
 ) {
-    if (songCount <= 0) {
-        return
-    }
-
     val colors =
         XvoxTheme.colors
 
@@ -461,19 +448,22 @@ private fun RecentPositionRail(
             7
         )
 
+    if (buckets <= 0) {
+        return
+    }
+
     val indicatorWidth =
         railWidth /
             buckets
 
-    val bucketIndex =
+    val bucket =
         if (
             songCount <= 1
         ) {
             0
         } else {
             (
-                centeredIndex
-                    .toFloat() /
+                centeredIndex.toFloat() /
                     (songCount - 1) *
                     (buckets - 1)
                 )
@@ -484,21 +474,17 @@ private fun RecentPositionRail(
                 )
         }
 
-    val targetX =
-        indicatorWidth *
-            bucketIndex
-
-    val animatedX by
+    val x by
         animateDpAsState(
             targetValue =
-                targetX,
+                indicatorWidth *
+                    bucket,
             animationSpec =
                 spring(
                     dampingRatio = 0.82f,
                     stiffness = 500f
                 ),
-            label =
-                "recentRailPosition"
+            label = "recentRail"
         )
 
     Box(
@@ -514,9 +500,7 @@ private fun RecentPositionRail(
     ) {
         Box(
             modifier = Modifier
-                .offset(
-                    x = animatedX
-                )
+                .offset(x = x)
                 .width(
                     indicatorWidth
                 )
