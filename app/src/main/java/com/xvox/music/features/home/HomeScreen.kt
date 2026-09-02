@@ -26,7 +26,8 @@ fun HomeScreen(
     isPlaying: Boolean,
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
-    viewModel: HomeViewModel =
+    viewModel:
+        HomeViewModel =
         viewModel()
 ) {
     val state by
@@ -41,16 +42,6 @@ fun HomeScreen(
             .asPaddingValues()
             .calculateTopPadding()
 
-    /*
-     * Header controls:
-     * 54dp
-     *
-     * Header lower extension:
-     * 8dp
-     *
-     * Shared content gap:
-     * 12dp
-     */
     val headerSpace =
         statusHeight +
             54.dp +
@@ -99,10 +90,15 @@ fun HomeScreen(
                         currentSongId,
                     isPlaying =
                         isPlaying,
-                    onSongClick = { song ->
+                    onSongClick = {
+                        song ->
+
                         viewModel
                             .recordPlayedFromLibrary(
-                                song
+                                song =
+                                    song,
+                                currentSongId =
+                                    currentSongId
                             )
 
                         onPlay(song)
@@ -123,13 +119,18 @@ fun HomeScreen(
                         currentSongId,
                     isPlaying =
                         isPlaying,
-                    frontTransitionKey =
-                        state
-                            .recentFrontTransitionKey,
-                    onSongClick = { song ->
+                    transition =
+                        state.recentTransition,
+                    onSongClick = {
+                        song,
+                        mode ->
+
                         viewModel
                             .recordPlayedFromRecent(
-                                song
+                                song = song,
+                                currentSongId =
+                                    currentSongId,
+                                mode = mode
                             )
 
                         onPlay(song)
@@ -141,12 +142,13 @@ fun HomeScreen(
                 key = "footer"
             ) {
                 HomeFooter(
-                    modifier = Modifier
-                        .fillParentMaxWidth()
-                        .heightIn(
-                            min =
-                                screenHeight
-                        )
+                    modifier =
+                        Modifier
+                            .fillParentMaxWidth()
+                            .heightIn(
+                                min =
+                                    screenHeight
+                            )
                 )
             }
         }
