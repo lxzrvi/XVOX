@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -37,23 +36,54 @@ fun HomeHeaderIcon(
                 onClick = onClick
             )
     ) {
-        val stroke =
-            1.75.dp.toPx()
-
         when (type) {
             HomeHeaderIconType.SCAN -> {
+                val s =
+                    size.minDimension
+
+                val stroke =
+                    s * 0.075f
+
+                drawLine(
+                    color = color,
+                    start = Offset(
+                        s * 0.458f,
+                        s * 0.25f
+                    ),
+                    end = Offset(
+                        s * 0.542f,
+                        s * 0.333f
+                    ),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
+                )
+
+                drawLine(
+                    color = color,
+                    start = Offset(
+                        s * 0.542f,
+                        s * 0.333f
+                    ),
+                    end = Offset(
+                        s * 0.458f,
+                        s * 0.417f
+                    ),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
+                )
+
                 drawArc(
                     color = color,
-                    startAngle = -72f,
-                    sweepAngle = 285f,
+                    startAngle = 212f,
+                    sweepAngle = 245f,
                     useCenter = false,
                     topLeft = Offset(
-                        size.width * 0.27f,
-                        size.height * 0.27f
+                        s * 0.25f,
+                        s * 0.333f
                     ),
-                    size = Size(
-                        size.width * 0.46f,
-                        size.height * 0.46f
+                    size = androidx.compose.ui.geometry.Size(
+                        s * 0.50f,
+                        s * 0.50f
                     ),
                     style = Stroke(
                         width = stroke,
@@ -64,26 +94,12 @@ fun HomeHeaderIcon(
                 drawLine(
                     color = color,
                     start = Offset(
-                        size.width * 0.72f,
-                        size.height * 0.28f
+                        s * 0.542f,
+                        s * 0.75f
                     ),
                     end = Offset(
-                        size.width * 0.70f,
-                        size.height * 0.42f
-                    ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
-
-                drawLine(
-                    color = color,
-                    start = Offset(
-                        size.width * 0.72f,
-                        size.height * 0.28f
-                    ),
-                    end = Offset(
-                        size.width * 0.58f,
-                        size.height * 0.31f
+                        s * 0.458f,
+                        s * 0.833f
                     ),
                     strokeWidth = stroke,
                     cap = StrokeCap.Round
@@ -95,43 +111,61 @@ fun HomeHeaderIcon(
                     Path().apply {
                         moveTo(
                             size.width * 0.50f,
-                            size.height * 0.72f
+                            size.height * 0.80f
                         )
 
                         cubicTo(
-                            size.width * 0.18f,
-                            size.height * 0.54f,
-                            size.width * 0.22f,
-                            size.height * 0.30f,
-                            size.width * 0.39f,
-                            size.height * 0.30f
+                            size.width * 0.29f,
+                            size.height * 0.67f,
+                            size.width * 0.16f,
+                            size.height * 0.51f,
+                            size.width * 0.16f,
+                            size.height * 0.36f
                         )
 
                         cubicTo(
-                            size.width * 0.47f,
-                            size.height * 0.30f,
-                            size.width * 0.50f,
-                            size.height * 0.38f,
-                            size.width * 0.50f,
-                            size.height * 0.38f
+                            size.width * 0.16f,
+                            size.height * 0.23f,
+                            size.width * 0.25f,
+                            size.height * 0.14f,
+                            size.width * 0.37f,
+                            size.height * 0.14f
                         )
 
                         cubicTo(
+                            size.width * 0.44f,
+                            size.height * 0.14f,
+                            size.width * 0.49f,
+                            size.height * 0.18f,
                             size.width * 0.50f,
-                            size.height * 0.38f,
+                            size.height * 0.25f
+                        )
+
+                        cubicTo(
                             size.width * 0.53f,
-                            size.height * 0.30f,
-                            size.width * 0.61f,
-                            size.height * 0.30f
+                            size.height * 0.18f,
+                            size.width * 0.58f,
+                            size.height * 0.14f,
+                            size.width * 0.64f,
+                            size.height * 0.14f
                         )
 
                         cubicTo(
-                            size.width * 0.78f,
-                            size.height * 0.30f,
-                            size.width * 0.82f,
-                            size.height * 0.54f,
+                            size.width * 0.77f,
+                            size.height * 0.14f,
+                            size.width * 0.84f,
+                            size.height * 0.23f,
+                            size.width * 0.84f,
+                            size.height * 0.36f
+                        )
+
+                        cubicTo(
+                            size.width * 0.84f,
+                            size.height * 0.52f,
+                            size.width * 0.71f,
+                            size.height * 0.68f,
                             size.width * 0.50f,
-                            size.height * 0.72f
+                            size.height * 0.80f
                         )
 
                         close()
@@ -144,11 +178,17 @@ fun HomeHeaderIcon(
             }
 
             HomeHeaderIconType.PLAYLIST -> {
-                listOf(
-                    0.35f,
-                    0.50f,
-                    0.65f
-                ).forEach { y ->
+                val stroke =
+                    size.minDimension * 0.09f
+
+                val ys =
+                    floatArrayOf(
+                        0.32f,
+                        0.50f,
+                        0.68f
+                    )
+
+                ys.forEach { y ->
                     drawLine(
                         color = color,
                         start = Offset(
@@ -156,55 +196,134 @@ fun HomeHeaderIcon(
                             size.height * y
                         ),
                         end = Offset(
-                            size.width * 0.70f,
+                            size.width * 0.76f,
                             size.height * y
                         ),
                         strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
                 }
+
+                val triangle =
+                    Path().apply {
+                        moveTo(
+                            size.width * 0.19f,
+                            size.height * 0.25f
+                        )
+                        lineTo(
+                            size.width * 0.30f,
+                            size.height * 0.32f
+                        )
+                        lineTo(
+                            size.width * 0.19f,
+                            size.height * 0.39f
+                        )
+                        close()
+                    }
+
+                drawPath(
+                    path = triangle,
+                    color = color
+                )
             }
 
             HomeHeaderIconType.SONGS -> {
-                val x =
-                    size.width * 0.56f
+                val note =
+                    Path().apply {
+                        moveTo(
+                            size.width * 0.50f,
+                            size.height * 0.20f
+                        )
 
-                drawLine(
-                    color = color,
-                    start = Offset(
-                        x,
-                        size.height * 0.27f
-                    ),
-                    end = Offset(
-                        x,
-                        size.height * 0.63f
-                    ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
+                        lineTo(
+                            size.width * 0.50f,
+                            size.height * 0.63f
+                        )
 
-                drawLine(
-                    color = color,
-                    start = Offset(
-                        x,
-                        size.height * 0.27f
-                    ),
-                    end = Offset(
-                        size.width * 0.72f,
-                        size.height * 0.32f
-                    ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
+                        cubicTo(
+                            size.width * 0.50f,
+                            size.height * 0.76f,
+                            size.width * 0.42f,
+                            size.height * 0.82f,
+                            size.width * 0.30f,
+                            size.height * 0.82f
+                        )
 
-                drawCircle(
-                    color = color,
-                    radius =
-                        size.width * 0.075f,
-                    center = Offset(
-                        size.width * 0.48f,
-                        size.height * 0.67f
-                    )
+                        cubicTo(
+                            size.width * 0.17f,
+                            size.height * 0.82f,
+                            size.width * 0.14f,
+                            size.height * 0.73f,
+                            size.width * 0.14f,
+                            size.height * 0.66f
+                        )
+
+                        cubicTo(
+                            size.width * 0.14f,
+                            size.height * 0.56f,
+                            size.width * 0.22f,
+                            size.height * 0.51f,
+                            size.width * 0.34f,
+                            size.height * 0.51f
+                        )
+
+                        cubicTo(
+                            size.width * 0.42f,
+                            size.height * 0.51f,
+                            size.width * 0.47f,
+                            size.height * 0.48f,
+                            size.width * 0.47f,
+                            size.height * 0.42f
+                        )
+
+                        lineTo(
+                            size.width * 0.47f,
+                            size.height * 0.25f
+                        )
+
+                        cubicTo(
+                            size.width * 0.47f,
+                            size.height * 0.20f,
+                            size.width * 0.50f,
+                            size.height * 0.18f,
+                            size.width * 0.55f,
+                            size.height * 0.18f
+                        )
+
+                        cubicTo(
+                            size.width * 0.65f,
+                            size.height * 0.18f,
+                            size.width * 0.66f,
+                            size.height * 0.27f,
+                            size.width * 0.79f,
+                            size.height * 0.27f
+                        )
+
+                        lineTo(
+                            size.width * 0.79f,
+                            size.height * 0.43f
+                        )
+
+                        cubicTo(
+                            size.width * 0.66f,
+                            size.height * 0.43f,
+                            size.width * 0.64f,
+                            size.height * 0.35f,
+                            size.width * 0.55f,
+                            size.height * 0.35f
+                        )
+
+                        lineTo(
+                            size.width * 0.55f,
+                            size.height * 0.63f
+                        )
+
+                        close()
+                    }
+
+                drawPath(
+                    path = note,
+                    color = color
                 )
             }
         }
