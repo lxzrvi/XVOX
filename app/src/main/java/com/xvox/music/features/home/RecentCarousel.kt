@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.yield
 import kotlin.math.abs
 
 private const val RecentSlideMillis =
@@ -59,20 +61,34 @@ fun RecentCarousel(
     isPlaying: Boolean,
     transition:
         RecentTransitionRequest,
-    onSongClick:
-        (Song) -> Unit
+    onSongClick: (Song) -> Unit
 ) {
+    /*
+     * This state belongs to the carousel.
+     *
+     * Playback changes do NOT recreate it.
+     * Recent order changes do NOT recreate it.
+     */
     val listState =
         rememberLazyListState()
 
-    val fling =
+    val flingBehavior =
         rememberSnapFlingBehavior(
             listState
         )
 
     /*
-     * What was actually visible before the latest
-     * All Songs event.
+     * Last presentation that the user was actually
+     * looking at.
+     *
+     * This is retained before an All Songs event so
+     * we can animate exactly:
+     *
+     * OLD -> RIGHT
+     * NEW <- LEFT
+     *
+     * without moving hidden history cards through
+     * the viewport.
      */
     var previousVisual by remember {
         mutableStateOf<RecentVisual>(
@@ -80,79 +96,138 @@ fun RecentCarousel(
         )
     }
 
+    /*
+     * Used only while the explicit All Songs
+     * transition is running.
+     */
     var transitionVisual by remember {
-        mutableStateOf<RecentVisual?>(null)
-    }
-
-    var handledEvent by remember {
-        mutableLongStateOf(0L)
+        mutableStateOf<RecentVisual>(
+            RecentVisual.Empty
+        )
     }
 
     var transitioning by remember {
         mutableStateOf(false)
     }
 
+    var handledTransitionId by remember {
+        mutableLongStateOf(0L)
+    }
+
     /*
-     * Keep our previous presentation synchronized while
-     * user manually scrolls Recent and there is no
-     * transition.
+     * ========================================================
+     * TRACK USER'S NORMAL CAROUSEL FOCUS
+     * ========================================================
+     *
+     * When the user manually swipes Recent, keep a snapshot
+     * of the card currently closest to the viewport center.
+     *
+     * This does NOT modify history order.
      */
     LaunchedEffect(
         listState.isScrollInProgress,
         songs,
         transitioning
     ) {
-        if (
-            !transitioning
-        ) {
-            val focused =
-                focusedSong(
-                    songs = songs,
-                    listState =
-                        listState
-                )
-
-            previousVisual =
-                if (focused == null) {
-                    RecentVisual.Empty
-                } else {
-                    RecentVisual.SongCard(
-                        song = focused,
-                        eventId = 0L
-                    )
-                }
+        if (transitioning) {
+            return@LaunchedEffect
         }
+
+        val focused =
+            focusedSong(
+                songs = songs,
+                listState = listState
+            )
+
+        previousVisual =
+            if (focused == null) {
+                RecentVisual.Empty
+            } else {
+                RecentVisual.SongCard(
+                    song = focused,
+                    eventId = 0L
+                )
+            }
     }
 
     /*
-     * Only All Songs creates this animation.
+     * ========================================================
+     * ALL SONGS -> RECENT TRANSITION
+     * ========================================================
+     *
+     * ONLY RecentTransitionMode.LIBRARY enters here.
+     *
+     * Tapping inside Recent itself never triggers this
+     * transition.
      */
     LaunchedEffect(
-        transition.id,
-        songs
+        transition.id
     ) {
         if (
             transition.id == 0L ||
             transition.id ==
-            handledEvent ||
+                handledTransitionId ||
             transition.mode !=
-            RecentTransitionMode.LIBRARY
+                RecentTransitionMode.LIBRARY
         ) {
             return@LaunchedEffect
         }
-
-        handledEvent =
-            transition.id
 
         val incoming =
             songs.firstOrNull {
                 it.id ==
                     transition.songId
-            } ?: songs.firstOrNull()
-            ?: return@LaunchedEffect
+            }
+                ?: songs.firstOrNull()
+                ?: return@LaunchedEffect
 
+        handledTransitionId =
+            transition.id
+
+        /*
+         * Freeze the presentation layer.
+         */
         transitioning = true
 
+        /*
+         * Start AnimatedContent from the OLD content.
+         *
+         * This can be:
+         *
+         * Nothing played yet
+         *
+         * OR the Recent card the user was currently
+         * looking at.
+         */
+        transitionVisual =
+            previousVisual
+
+        /*
+         * Underlying history is already newest-first.
+         *
+         * Jump it silently to index 0 underneath the
+         * temporary presentation layer.
+         *
+         * DO NOT animateScrollToItem here.
+         *
+         * Otherwise every intermediate history item can
+         * become visible.
+         */
+        listState.scrollToItem(0)
+
+        /*
+         * Give Compose one frame/chance to establish the
+         * retained OLD target before changing AnimatedContent
+         * to the incoming one.
+         */
+        yield()
+
+        /*
+         * Now trigger exactly one transition:
+         *
+         * OLD -> RIGHT
+         * NEW <- LEFT
+         */
         transitionVisual =
             RecentVisual.SongCard(
                 song = incoming,
@@ -160,23 +235,22 @@ fun RecentCarousel(
                     transition.id
             )
 
-        /*
-         * Real history becomes ready at front without
-         * scrolling intermediate songs past the screen.
-         */
-        listState.scrollToItem(0)
-
         delay(
             RecentSlideMillis.toLong()
         )
 
+        /*
+         * Transition finished.
+         *
+         * The real LazyRow underneath is already at the
+         * correct newest/front song.
+         */
         previousVisual =
             RecentVisual.SongCard(
                 song = incoming,
                 eventId = 0L
             )
 
-        transitionVisual = null
         transitioning = false
     }
 
@@ -184,12 +258,24 @@ fun RecentCarousel(
         modifier =
             Modifier.fillMaxWidth()
     ) {
-        val edge = 6.dp
+        val edge =
+            6.dp
 
+        /*
+         * At rest:
+         *
+         * 6dp | CURRENT CARD | 6dp
+         *
+         * No intentional adjacent-card peek.
+         */
         val itemWidth =
             maxWidth -
                 edge * 2
 
+        /*
+         * Combined with viewport edge padding, this keeps
+         * settled cards visually isolated.
+         */
         val itemGap =
             edge * 2
 
@@ -202,37 +288,34 @@ fun RecentCarousel(
                 Alignment.CenterHorizontally
         ) {
             Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(
-                            122.dp
-                        )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(
+                        122.dp
+                    )
             ) {
-                if (
-                    transitioning &&
-                    transitionVisual != null
-                ) {
+                if (transitioning) {
                     /*
-                     * During an All Songs event only this
-                     * retained presentation is rendered.
+                     * =================================================
+                     * TEMPORARY PRESENTATION
+                     * =================================================
                      *
-                     * outgoing:
-                     * previous focused/empty -> RIGHT
+                     * The LazyRow is NOT rendered over this.
                      *
-                     * incoming:
-                     * selected song <- LEFT
+                     * Only old/new visible content participates.
                      */
                     AnimatedContent(
                         targetState =
-                            transitionVisual!!,
+                            transitionVisual,
                         contentKey = {
-                            when (it) {
+                            visual ->
+
+                            when (visual) {
                                 RecentVisual.Empty ->
                                     "empty"
 
                                 is RecentVisual.SongCard ->
-                                    "event_${it.eventId}_${it.song.id}"
+                                    "song_${visual.eventId}_${visual.song.id}"
                             }
                         },
                         transitionSpec = {
@@ -240,28 +323,40 @@ fun RecentCarousel(
                                 slideInHorizontally(
                                     animationSpec =
                                         tween(
-                                            RecentSlideMillis
+                                            durationMillis =
+                                                RecentSlideMillis
                                         ),
                                     initialOffsetX = {
-                                        -it
+                                        fullWidth ->
+                                        -fullWidth
                                     }
                                 ) +
                                     fadeIn(
-                                        tween(170)
+                                        animationSpec =
+                                            tween(
+                                                durationMillis =
+                                                    170
+                                            )
                                     )
                                 )
                                 .togetherWith(
                                     slideOutHorizontally(
                                         animationSpec =
                                             tween(
-                                                RecentSlideMillis
+                                                durationMillis =
+                                                    RecentSlideMillis
                                             ),
                                         targetOffsetX = {
-                                            it
+                                            fullWidth ->
+                                            fullWidth
                                         }
                                     ) +
                                         fadeOut(
-                                            tween(170)
+                                            animationSpec =
+                                                tween(
+                                                    durationMillis =
+                                                        170
+                                                )
                                         )
                                 )
                         },
@@ -270,6 +365,7 @@ fun RecentCarousel(
                         label =
                             "recentLibrarySlide"
                     ) { visual ->
+
                         RecentVisualContent(
                             visual =
                                 visual,
@@ -277,11 +373,22 @@ fun RecentCarousel(
                                 currentSongId,
                             isPlaying =
                                 isPlaying,
-                            onSongClick = {},
-                            edge = edge
+                            edge =
+                                edge
                         )
                     }
                 } else {
+                    /*
+                     * =================================================
+                     * NORMAL RECENT CAROUSEL
+                     * =================================================
+                     *
+                     * This owns all normal horizontal swiping.
+                     *
+                     * No invisible animation overlay.
+                     * No animateItem().
+                     * No pointer interception.
+                     */
                     if (
                         songs.isEmpty()
                     ) {
@@ -294,7 +401,7 @@ fun RecentCarousel(
                             state =
                                 listState,
                             flingBehavior =
-                                fling,
+                                flingBehavior,
                             modifier =
                                 Modifier.fillMaxSize(),
                             contentPadding =
@@ -308,16 +415,20 @@ fun RecentCarousel(
                                 )
                         ) {
                             items(
-                                items = songs,
+                                items =
+                                    songs,
                                 key = {
-                                    it.id
+                                    song ->
+                                    song.id
                                 },
                                 contentType = {
                                     "recent_song"
                                 }
                             ) { song ->
+
                                 RecentArtwork(
-                                    song = song,
+                                    song =
+                                        song,
                                     current =
                                         song.id ==
                                             currentSongId,
@@ -327,9 +438,15 @@ fun RecentCarousel(
                                             isPlaying,
                                     onClick = {
                                         /*
-                                         * NO Recent animation.
-                                         * ViewModel promotes it
-                                         * silently.
+                                         * RECENT TAP:
+                                         *
+                                         * No visual Recent transition.
+                                         *
+                                         * HomeViewModel silently:
+                                         * - promotes selected song to 0
+                                         * - persists order
+                                         *
+                                         * Playback is handled separately.
                                          */
                                         onSongClick(
                                             song
@@ -350,6 +467,17 @@ fun RecentCarousel(
                 }
             }
 
+            /*
+             * =========================================================
+             * INDICATOR
+             * =========================================================
+             *
+             * It follows the real carousel scroll state.
+             *
+             * During an external transition the real row is silently
+             * prepared at item zero, so the rail also resolves to front
+             * without stepping through hidden songs.
+             */
             RecentPositionRail(
                 songCount =
                     songs.size,
@@ -377,11 +505,18 @@ private fun RecentVisualContent(
     visual: RecentVisual,
     currentSongId: Long?,
     isPlaying: Boolean,
-    onSongClick: () -> Unit,
     edge: androidx.compose.ui.unit.Dp
 ) {
     when (visual) {
         RecentVisual.Empty -> {
+            /*
+             * Same exact 122dp presentation viewport.
+             *
+             * Therefore first playback can animate:
+             *
+             * Nothing played yet -> RIGHT
+             * song             <- LEFT
+             */
             RecentEmpty(
                 modifier =
                     Modifier.fillMaxSize()
@@ -390,13 +525,12 @@ private fun RecentVisualContent(
 
         is RecentVisual.SongCard -> {
             Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(
-                            horizontal =
-                                edge
-                        )
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal =
+                            edge
+                    )
             ) {
                 RecentArtwork(
                     song =
@@ -408,8 +542,11 @@ private fun RecentVisualContent(
                         visual.song.id ==
                             currentSongId &&
                             isPlaying,
-                    onClick =
-                        onSongClick,
+                    /*
+                     * Presentation is intentionally
+                     * non-interactive.
+                     */
+                    onClick = {},
                     modifier =
                         Modifier.fillMaxSize()
                 )
@@ -435,15 +572,22 @@ private fun RecentEmpty(
             color =
                 XvoxTheme.colors
                     .secondaryText,
-            fontSize = 12.sp
+            fontSize =
+                12.sp
         )
     }
 }
 
+/*
+ * Returns the song that is actually closest to the
+ * center of the current Recent viewport.
+ *
+ * This is presentation state only.
+ * It never changes history ordering.
+ */
 private fun focusedSong(
     songs: List<Song>,
-    listState:
-        androidx.compose.foundation.lazy.LazyListState
+    listState: LazyListState
 ): Song? {
     if (
         songs.isEmpty()
@@ -466,13 +610,13 @@ private fun focusedSong(
         )
     }
 
-    val center =
+    val viewportCenter =
         (
             layout.viewportStartOffset +
                 layout.viewportEndOffset
             ) / 2
 
-    val index =
+    val focusedIndex =
         visible
             .minByOrNull {
                 item ->
@@ -482,13 +626,14 @@ private fun focusedSong(
                         item.offset +
                             item.size / 2
                         ) -
-                        center
+                        viewportCenter
                 )
             }
             ?.index
-            ?: 0
+            ?: listState
+                .firstVisibleItemIndex
 
     return songs.getOrNull(
-        index
+        focusedIndex
     )
 }
