@@ -5,12 +5,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +38,15 @@ fun HomeScreen(
     val colors =
         XvoxTheme.colors
 
+    val statusHeight =
+        WindowInsets.statusBars
+            .asPaddingValues()
+            .calculateTopPadding()
+
+    val headerSpace =
+        statusHeight +
+            76.dp
+
     LaunchedEffect(
         state.songs
     ) {
@@ -49,116 +59,115 @@ fun HomeScreen(
         }
     }
 
-    AnimatedContent(
-        targetState =
-            state.loading,
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 colors.background
             )
-            .windowInsetsPadding(
-                WindowInsets.statusBars
-            ),
-        transitionSpec = {
-            fadeIn() togetherWith
-                fadeOut()
-        },
-        label = "homeLoad"
-    ) { loading ->
+    ) {
+        AnimatedContent(
+            targetState =
+                state.loading,
+            modifier =
+                Modifier.fillMaxSize(),
+            transitionSpec = {
+                fadeIn() togetherWith
+                    fadeOut()
+            },
+            label = "homeLoad"
+        ) { loading ->
 
-        if (loading) {
-            HomeSkeleton(
-                modifier =
-                    Modifier.fillMaxSize()
-            )
-        } else {
-            LazyColumn(
-                modifier =
-                    Modifier.fillMaxSize(),
-                contentPadding =
-                    PaddingValues(
-                        top = 4.dp,
-                        bottom = 190.dp
-                    )
-            ) {
-                item(
-                    key = "header"
+            if (loading) {
+                HomeSkeleton(
+                    modifier =
+                        Modifier.fillMaxSize()
+                )
+            } else {
+                LazyColumn(
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    contentPadding =
+                        PaddingValues(
+                            top =
+                                headerSpace,
+                            bottom = 220.dp
+                        )
                 ) {
-                    HomeHeader(
-                        profile =
-                            state.profile,
-                        showPlaylists =
-                            state.showPlaylists,
-                        onRefresh =
-                            viewModel::refresh,
-                        onHeartClick = {},
-                        onLibraryModeClick =
-                            viewModel::
-                                toggleLibraryMode
-                    )
-                }
+                    item(
+                        key = "songs"
+                    ) {
+                        AllSongsSection(
+                            songs =
+                                state.songs,
+                            currentSongId =
+                                currentSongId,
+                            isPlaying =
+                                isPlaying,
+                            onSongClick = {
+                                song ->
 
-                item(
-                    key = "songs"
-                ) {
-                    AllSongsSection(
-                        songs =
-                            state.songs,
-                        currentSongId =
-                            currentSongId,
-                        isPlaying =
-                            isPlaying,
-                        onSongClick = {
-                            song ->
+                                viewModel
+                                    .recordPlayed(
+                                        song
+                                    )
 
-                            viewModel
-                                .recordPlayed(
-                                    song
-                                )
+                                onPlay(song)
+                            },
+                            onPrefetch =
+                                viewModel::
+                                    prefetchFrom
+                        )
+                    }
 
-                            onPlay(song)
-                        },
-                        onPrefetch =
-                            viewModel::
-                                prefetchFrom
-                    )
-                }
+                    item(
+                        key = "recent"
+                    ) {
+                        RecentlyPlayedSection(
+                            songs =
+                                state
+                                    .recentlyPlayed,
+                            currentSongId =
+                                currentSongId,
+                            isPlaying =
+                                isPlaying,
+                            onSongClick = {
+                                song ->
 
-                item(
-                    key = "recent"
-                ) {
-                    RecentlyPlayedSection(
-                        songs =
-                            state
-                                .recentlyPlayed,
-                        currentSongId =
-                            currentSongId,
-                        isPlaying =
-                            isPlaying,
-                        onSongClick = {
-                            song ->
+                                viewModel
+                                    .recordPlayed(
+                                        song
+                                    )
 
-                            viewModel
-                                .recordPlayed(
-                                    song
-                                )
+                                onPlay(song)
+                            }
+                        )
+                    }
 
-                            onPlay(song)
-                        }
-                    )
-                }
-
-                item(
-                    key = "footer"
-                ) {
-                    HomeFooter(
-                        modifier = Modifier
-                            .fillParentMaxWidth()
-                            .height(120.dp)
-                    )
+                    item(
+                        key = "footer"
+                    ) {
+                        HomeFooter(
+                            modifier = Modifier
+                                .fillParentMaxWidth()
+                                .height(260.dp)
+                        )
+                    }
                 }
             }
         }
+
+        HomeGlassHeader(
+            profile =
+                state.profile,
+            showPlaylists =
+                state.showPlaylists,
+            onRefresh =
+                viewModel::refresh,
+            onHeartClick = {},
+            onLibraryModeClick =
+                viewModel::
+                    toggleLibraryMode
+        )
     }
 }
