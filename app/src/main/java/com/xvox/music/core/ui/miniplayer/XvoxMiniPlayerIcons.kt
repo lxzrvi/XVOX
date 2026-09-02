@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 
-enum class XvoxMiniIconType {
+enum class XvoxMiniIcon {
     PLAY,
     PAUSE,
     HEART,
@@ -19,8 +19,8 @@ enum class XvoxMiniIconType {
 }
 
 @Composable
-fun XvoxMiniIcon(
-    type: XvoxMiniIconType,
+fun XvoxMiniPlayerIcon(
+    icon: XvoxMiniIcon,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -31,8 +31,8 @@ fun XvoxMiniIcon(
             size.minDimension *
                 0.095f
 
-        when (type) {
-            XvoxMiniIconType.PLAY -> {
+        when (icon) {
+            XvoxMiniIcon.PLAY -> {
                 val path =
                     Path().apply {
                         moveTo(
@@ -41,8 +41,8 @@ fun XvoxMiniIcon(
                         )
 
                         lineTo(
-                            size.width * 0.76f,
-                            size.height * 0.50f
+                            size.width * 0.77f,
+                            size.height * 0.5f
                         )
 
                         lineTo(
@@ -54,104 +54,102 @@ fun XvoxMiniIcon(
                     }
 
                 drawPath(
-                    path = path,
-                    color = color
+                    path,
+                    color
                 )
             }
 
-            XvoxMiniIconType.PAUSE -> {
+            XvoxMiniIcon.PAUSE -> {
                 drawLine(
-                    color = color,
-                    start = Offset(
-                        size.width * 0.37f,
+                    color,
+                    Offset(
+                        size.width * 0.36f,
                         size.height * 0.27f
                     ),
-                    end = Offset(
-                        size.width * 0.37f,
+                    Offset(
+                        size.width * 0.36f,
                         size.height * 0.73f
                     ),
-                    strokeWidth =
-                        stroke * 1.35f,
-                    cap = StrokeCap.Round
+                    stroke * 1.35f,
+                    StrokeCap.Round
                 )
 
                 drawLine(
-                    color = color,
-                    start = Offset(
-                        size.width * 0.63f,
+                    color,
+                    Offset(
+                        size.width * 0.64f,
                         size.height * 0.27f
                     ),
-                    end = Offset(
-                        size.width * 0.63f,
+                    Offset(
+                        size.width * 0.64f,
                         size.height * 0.73f
                     ),
-                    strokeWidth =
-                        stroke * 1.35f,
-                    cap = StrokeCap.Round
+                    stroke * 1.35f,
+                    StrokeCap.Round
                 )
             }
 
-            XvoxMiniIconType.ADD -> {
+            XvoxMiniIcon.ADD -> {
                 drawLine(
-                    color = color,
-                    start = Offset(
+                    color,
+                    Offset(
                         size.width * 0.25f,
                         size.height * 0.5f
                     ),
-                    end = Offset(
+                    Offset(
                         size.width * 0.75f,
                         size.height * 0.5f
                     ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    stroke,
+                    StrokeCap.Round
                 )
 
                 drawLine(
-                    color = color,
-                    start = Offset(
+                    color,
+                    Offset(
                         size.width * 0.5f,
                         size.height * 0.25f
                     ),
-                    end = Offset(
+                    Offset(
                         size.width * 0.5f,
                         size.height * 0.75f
                     ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    stroke,
+                    StrokeCap.Round
                 )
             }
 
-            XvoxMiniIconType.CLOSE -> {
+            XvoxMiniIcon.CLOSE -> {
                 drawLine(
-                    color = color,
-                    start = Offset(
+                    color,
+                    Offset(
                         size.width * 0.3f,
                         size.height * 0.3f
                     ),
-                    end = Offset(
+                    Offset(
                         size.width * 0.7f,
                         size.height * 0.7f
                     ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    stroke,
+                    StrokeCap.Round
                 )
 
                 drawLine(
-                    color = color,
-                    start = Offset(
+                    color,
+                    Offset(
                         size.width * 0.7f,
                         size.height * 0.3f
                     ),
-                    end = Offset(
+                    Offset(
                         size.width * 0.3f,
                         size.height * 0.7f
                     ),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
+                    stroke,
+                    StrokeCap.Round
                 )
             }
 
-            XvoxMiniIconType.HEART -> {
+            XvoxMiniIcon.HEART -> {
                 val path =
                     Path().apply {
                         moveTo(
@@ -161,8 +159,8 @@ fun XvoxMiniIcon(
 
                         cubicTo(
                             size.width * 0.14f,
-                            size.height * 0.55f,
-                            size.width * 0.20f,
+                            size.height * 0.54f,
+                            size.width * 0.19f,
                             size.height * 0.27f,
                             size.width * 0.39f,
                             size.height * 0.27f
@@ -187,18 +185,18 @@ fun XvoxMiniIcon(
                         )
 
                         cubicTo(
-                            size.width * 0.80f,
+                            size.width * 0.81f,
                             size.height * 0.27f,
                             size.width * 0.86f,
-                            size.height * 0.55f,
+                            size.height * 0.54f,
                             size.width * 0.5f,
                             size.height * 0.76f
                         )
                     }
 
                 drawPath(
-                    path = path,
-                    color = color,
+                    path,
+                    color,
                     style = Stroke(
                         width = stroke,
                         cap = StrokeCap.Round,
