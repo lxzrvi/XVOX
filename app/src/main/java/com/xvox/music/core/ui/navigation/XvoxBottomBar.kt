@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -20,9 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun XvoxBottomBar(
@@ -74,19 +73,29 @@ fun XvoxBottomBar(
         )
 
     val parentBackground =
-        colors.surface
+        colors.surface.copy(
+            alpha = 0.97f
+        )
 
     val parentBorder =
-        colors.cardBorder
+        colors.cardBorder.copy(
+            alpha = 0.70f
+        )
 
-    val selectorColor =
-        colors.cardElevated
+    val selectorBackground =
+        colors.cardElevated.copy(
+            alpha = 0.58f
+        )
 
     val selectorBorder =
-        colors.cardBorder
+        colors.cardBorder.copy(
+            alpha = 0.82f
+        )
 
     val inactive =
-        colors.mutedText
+        colors.mutedText.copy(
+            alpha = 0.78f
+        )
 
     val active =
         colors.primaryText
@@ -134,8 +143,7 @@ fun XvoxBottomBar(
                             awaitPointerEvent()
 
                         change =
-                            event.changes
-                                .first()
+                            event.changes.first()
 
                         if (
                             change.pressed
@@ -169,8 +177,7 @@ fun XvoxBottomBar(
                                     )
 
                             if (
-                                abs(total) >
-                                2f
+                                abs(total) > 2f
                             ) {
                                 change.consume()
                             }
@@ -179,8 +186,7 @@ fun XvoxBottomBar(
 
                     val target =
                         if (
-                            abs(total) <=
-                            7f
+                            abs(total) <= 7f
                         ) {
                             (
                                 first.position.x /
@@ -201,7 +207,6 @@ fun XvoxBottomBar(
                         }
 
                     velocity = 0f
-
                     position =
                         target.toFloat()
 
@@ -277,7 +282,7 @@ fun XvoxBottomBar(
                     .selectorGrowHeight *
                 motion.grow
 
-        val radius =
+        val selectorRadius =
             XvoxNavigationGeometry
                 .selectorBaseRadius +
                 XvoxNavigationGeometry
@@ -355,8 +360,7 @@ fun XvoxBottomBar(
                             density
 
                     rotationY =
-                        skew *
-                            0.20f
+                        skew * 0.20f
                 }
                 .size(
                     selectorWidth,
@@ -365,13 +369,13 @@ fun XvoxBottomBar(
                 .graphicsLayer {
                     shape =
                         RoundedCornerShape(
-                            radius
+                            selectorRadius
                         )
 
                     clip = true
                 }
                 .background(
-                    selectorColor
+                    selectorBackground
                 )
                 .border(
                     width =
@@ -381,7 +385,7 @@ fun XvoxBottomBar(
                         selectorBorder,
                     shape =
                         RoundedCornerShape(
-                            radius
+                            selectorRadius
                         )
                 )
         )
@@ -400,36 +404,33 @@ fun XvoxBottomBar(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            destinations
-                .forEachIndexed {
-                    index,
-                    destination ->
+            destinations.forEachIndexed {
+                index,
+                destination ->
 
-                    val proximity =
-                        navigationProximity(
-                            position =
-                                motion.position,
-                            index =
-                                index
-                        )
-
-                    XvoxNavigationItem(
-                        destination =
-                            destination,
-                        proximity =
-                            proximity,
-                        dragging =
-                            dragging,
-                        inactiveColor =
-                            inactive,
-                        activeColor =
-                            active,
-                        modifier =
-                            Modifier.weight(
-                                1f
-                            )
+                val proximity =
+                    navigationProximity(
+                        position =
+                            motion.position,
+                        index =
+                            index
                     )
-                }
+
+                XvoxNavigationItem(
+                    destination =
+                        destination,
+                    proximity =
+                        proximity,
+                    dragging =
+                        dragging,
+                    inactiveColor =
+                        inactive,
+                    activeColor =
+                        active,
+                    modifier =
+                        Modifier.weight(1f)
+                )
+            }
         }
     }
 }
