@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.rememberXvoxSky
+import com.xvox.music.core.ui.effects.xvoxGlassSource
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
@@ -39,6 +41,9 @@ fun XvoxMainShell(
         playerViewModel.state
             .collectAsState()
 
+    val sky =
+        rememberXvoxSky()
+
     var destination by remember {
         mutableStateOf(
             XvoxDestination.HOME
@@ -52,26 +57,36 @@ fun XvoxMainShell(
                 colors.background
             )
     ) {
-        when (destination) {
-            XvoxDestination.HOME -> {
-                HomeScreen(
-                    currentSongId =
-                        player.currentSongId,
-                    isPlaying =
-                        player.isPlaying,
-                    onQueueReady =
-                        playerViewModel::setQueue,
-                    onPlay =
-                        playerViewModel::play
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .xvoxGlassSource(
+                    sky
                 )
-            }
+        ) {
+            when (destination) {
+                XvoxDestination.HOME -> {
+                    HomeScreen(
+                        sky = sky,
+                        currentSongId =
+                            player.currentSongId,
+                        isPlaying =
+                            player.isPlaying,
+                        onQueueReady =
+                            playerViewModel::
+                                setQueue,
+                        onPlay =
+                            playerViewModel::play
+                    )
+                }
 
-            XvoxDestination.SEARCH -> {
-                SearchScreen()
-            }
+                XvoxDestination.SEARCH -> {
+                    SearchScreen()
+                }
 
-            XvoxDestination.SETTINGS -> {
-                SettingsScreen()
+                XvoxDestination.SETTINGS -> {
+                    SettingsScreen()
+                }
             }
         }
 
@@ -113,6 +128,7 @@ fun XvoxMainShell(
                 },
                 onLike = {},
                 onAdd = {},
+                sky = sky,
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -141,6 +157,7 @@ fun XvoxMainShell(
             onSelected = {
                 destination = it
             },
+            sky = sky,
             modifier = Modifier
                 .align(
                     Alignment.BottomCenter
