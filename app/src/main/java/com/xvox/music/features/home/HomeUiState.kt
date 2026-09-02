@@ -13,13 +13,7 @@ data class HomeUiState(
     val profile: UserPreferences =
         UserPreferences(),
     val showPlaylists: Boolean = false,
-
-    /*
-     * Increment only when Recent should visually
-     * transition to its new front item.
-     *
-     * Playing directly from the Recent carousel does
-     * NOT increment this.
-     */
-    val recentFrontTransitionKey: Long = 0L
+    val recentTransition:
+        RecentTransitionEvent =
+        RecentTransitionEvent()
 )
