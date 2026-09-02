@@ -12,15 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
-import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.XvoxGlassStyle
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.data.preferences.UserPreferences
 
 @Composable
 fun HomeGlassHeader(
-    sky: Sky,
     profile: UserPreferences,
     showPlaylists: Boolean,
     onRefresh: () -> Unit,
@@ -31,33 +27,21 @@ fun HomeGlassHeader(
     val colors = XvoxTheme.colors
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-
-        /*
-         * =====================================================
-         * HEADER GLASS
-         * =====================================================
-         *
-         * Light backdrop blur.
-         *
-         * Low radius + low tint = less visual latency
-         * and background remains clearly visible.
-         */
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .xvoxGlass(
-                    sky = sky,
-                    style = XvoxGlassStyle.HEADER
+                .background(
+                    colors.surface.copy(
+                        alpha = 0.88f
+                    )
                 )
                 .windowInsetsPadding(
                     WindowInsets.statusBars
                 )
         ) {
             HomeHeader(
-                sky = sky,
                 profile = profile,
                 showPlaylists = showPlaylists,
                 onRefresh = onRefresh,
@@ -66,15 +50,6 @@ fun HomeGlassHeader(
             )
         }
 
-        /*
-         * =====================================================
-         * SOFT BOTTOM FADE
-         * =====================================================
-         *
-         * Keep this very subtle.
-         * A strong gradient makes the header feel like a
-         * separate solid layer and reduces the glass effect.
-         */
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -83,7 +58,7 @@ fun HomeGlassHeader(
                     Brush.verticalGradient(
                         colors = listOf(
                             colors.surface.copy(
-                                alpha = 0.14f
+                                alpha = 0.54f
                             ),
                             colors.surface.copy(
                                 alpha = 0f
