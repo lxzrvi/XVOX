@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,6 +42,7 @@ fun XvoxMiniPlayer(
     openPlayer: () -> Unit,
     onLike: () -> Unit,
     onAdd: () -> Unit,
+    sky: Sky,
     modifier: Modifier = Modifier
 ) {
     val density =
@@ -59,6 +61,11 @@ fun XvoxMiniPlayer(
             Animatable(0f)
         }
 
+    /*
+     * Starts below the screen immediately.
+     * This prevents the one-frame flash at
+     * the final MiniPlayer position.
+     */
     val y =
         remember(riseKey) {
             Animatable(
@@ -80,39 +87,47 @@ fun XvoxMiniPlayer(
             )
         }
 
-    var direction by remember {
-        mutableIntStateOf(0)
-    }
+    var direction by
+        remember {
+            mutableIntStateOf(0)
+        }
 
-    var revision by remember {
-        mutableIntStateOf(0)
-    }
+    var revision by
+        remember {
+            mutableIntStateOf(0)
+        }
 
-    var axis by remember {
-        mutableStateOf(
-            XvoxMiniAxis.NONE
-        )
-    }
+    var axis by
+        remember {
+            mutableStateOf(
+                XvoxMiniAxis.NONE
+            )
+        }
 
-    var rawX by remember {
-        mutableFloatStateOf(0f)
-    }
+    var rawX by
+        remember {
+            mutableFloatStateOf(0f)
+        }
 
-    var rawY by remember {
-        mutableFloatStateOf(0f)
-    }
+    var rawY by
+        remember {
+            mutableFloatStateOf(0f)
+        }
 
-    var moved by remember {
-        mutableStateOf(false)
-    }
+    var moved by
+        remember {
+            mutableStateOf(false)
+        }
 
-    var actionsVisible by remember {
-        mutableStateOf(false)
-    }
+    var actionsVisible by
+        remember {
+            mutableStateOf(false)
+        }
 
-    var exiting by remember {
-        mutableStateOf(false)
-    }
+    var exiting by
+        remember {
+            mutableStateOf(false)
+        }
 
     LaunchedEffect(
         riseKey
@@ -132,7 +147,7 @@ fun XvoxMiniPlayer(
             return@LaunchedEffect
         }
 
-        val expected =
+        val expectedRevision =
             revision
 
         delay(
@@ -141,18 +156,26 @@ fun XvoxMiniPlayer(
         )
 
         if (
-            expected == revision
+            expectedRevision ==
+            revision
         ) {
-            playQueueIndex(
+            val target =
                 previewIndex
-            )
+
+            if (
+                target in queue.indices
+            ) {
+                playQueueIndex(
+                    target
+                )
+            }
 
             revision = 0
         }
     }
 
     fun exit(
-        stop: Boolean,
+        stopPlayback: Boolean,
         after: () -> Unit
     ) {
         if (exiting) {
@@ -164,6 +187,13 @@ fun XvoxMiniPlayer(
         scope.launch {
             actionsVisible = false
 
+            x.animateTo(
+                targetValue = 0f,
+                animationSpec =
+                    XvoxMiniPlayerMotion
+                        .horizontalReturnSpec
+            )
+
             y.animateTo(
                 targetValue =
                     exitDistance,
@@ -172,7 +202,7 @@ fun XvoxMiniPlayer(
                         .exitSpec
             )
 
-            if (stop) {
+            if (stopPlayback) {
                 stopAndDismiss()
             }
 
@@ -196,16 +226,20 @@ fun XvoxMiniPlayer(
             visible =
                 actionsVisible,
             onLike = {
-                actionsVisible = false
+                actionsVisible =
+                    false
+
                 onLike()
             },
             onAdd = {
-                actionsVisible = false
+                actionsVisible =
+                    false
+
                 onAdd()
             },
             onClose = {
                 exit(
-                    stop = true,
+                    stopPlayback = true,
                     after = {}
                 )
             },
@@ -241,6 +275,7 @@ fun XvoxMiniPlayer(
 
                             rawX = 0f
                             rawY = 0f
+
                             moved = false
                         },
 
@@ -250,8 +285,11 @@ fun XvoxMiniPlayer(
 
                             change.consume()
 
-                            rawX += amount.x
-                            rawY += amount.y
+                            rawX +=
+                                amount.x
+
+                            rawY +=
+                                amount.y
 
                             if (
                                 axis ==
@@ -304,8 +342,9 @@ fun XvoxMiniPlayer(
                                         )
                                     }
 
-                                    XvoxMiniAxis.NONE ->
+                                    XvoxMiniAxis.NONE -> {
                                         Unit
+                                    }
                                 }
                             }
                         },
@@ -338,8 +377,11 @@ fun XvoxMiniPlayer(
                                                 previewIndex <
                                                 queue.lastIndex -> {
 
-                                                direction = 1
+                                                direction =
+                                                    1
+
                                                 previewIndex++
+
                                                 revision++
                                             }
 
@@ -349,14 +391,18 @@ fun XvoxMiniPlayer(
                                                 previewIndex >
                                                 0 -> {
 
-                                                direction = -1
+                                                direction =
+                                                    -1
+
                                                 previewIndex--
+
                                                 revision++
                                             }
                                         }
 
                                         x.animateTo(
-                                            targetValue = 0f,
+                                            targetValue =
+                                                0f,
                                             animationSpec =
                                                 XvoxMiniPlayerMotion
                                                     .horizontalReturnSpec
@@ -370,7 +416,8 @@ fun XvoxMiniPlayer(
                                                     .OpenThreshold -> {
 
                                                 exit(
-                                                    stop = false
+                                                    stopPlayback =
+                                                        false
                                                 ) {
                                                     openPlayer()
                                                 }
@@ -381,14 +428,16 @@ fun XvoxMiniPlayer(
                                                     .CloseThreshold -> {
 
                                                 exit(
-                                                    stop = true,
+                                                    stopPlayback =
+                                                        true,
                                                     after = {}
                                                 )
                                             }
 
                                             else -> {
                                                 y.animateTo(
-                                                    targetValue = 0f,
+                                                    targetValue =
+                                                        0f,
                                                     animationSpec =
                                                         XvoxMiniPlayerMotion
                                                             .verticalReturnSpec
@@ -397,8 +446,9 @@ fun XvoxMiniPlayer(
                                         }
                                     }
 
-                                    XvoxMiniAxis.NONE ->
+                                    XvoxMiniAxis.NONE -> {
                                         Unit
+                                    }
                                 }
 
                                 moved = false
@@ -408,14 +458,16 @@ fun XvoxMiniPlayer(
                         onDragCancel = {
                             scope.launch {
                                 x.animateTo(
-                                    targetValue = 0f,
+                                    targetValue =
+                                        0f,
                                     animationSpec =
                                         XvoxMiniPlayerMotion
                                             .horizontalReturnSpec
                                 )
 
                                 y.animateTo(
-                                    targetValue = 0f,
+                                    targetValue =
+                                        0f,
                                     animationSpec =
                                         XvoxMiniPlayerMotion
                                             .verticalReturnSpec
@@ -424,8 +476,10 @@ fun XvoxMiniPlayer(
 
                             rawX = 0f
                             rawY = 0f
+
                             axis =
                                 XvoxMiniAxis.NONE
+
                             moved = false
                         }
                     )
@@ -445,6 +499,7 @@ fun XvoxMiniPlayer(
                                     !actionsVisible
                             }
                         },
+
                         onTap = {
                             if (!moved) {
                                 if (
@@ -454,7 +509,8 @@ fun XvoxMiniPlayer(
                                         false
                                 } else {
                                     exit(
-                                        stop = false
+                                        stopPlayback =
+                                            false
                                     ) {
                                         openPlayer()
                                     }
@@ -491,6 +547,8 @@ fun XvoxMiniPlayer(
                     direction,
                 togglePlay =
                     togglePlay,
+                sky =
+                    sky,
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
