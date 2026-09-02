@@ -7,35 +7,29 @@ object XvoxMiniPlayerPlacement {
     val horizontalEdge = 6.dp
 
     /*
-     * Visible geometry target:
+     * Navbar host placement remains unchanged.
      *
-     * MiniPlayer bottom
-     *      18dp
-     * Navbar 64dp
-     *      18dp
-     * Safe bottom
-     */
-    val visibleGap = 18.dp
-
-    val navigationVisualHeight = 64.dp
-
-    /*
-     * Navbar host is 84dp with 10dp invisible overflow
-     * below the visible 64dp bar.
+     * With 10dp host overflow this produces:
      *
-     * Therefore host bottom must sit 8dp from the safe
-     * bottom for the visible bar bottom to be 18dp away.
+     * visible navbar bottom = 18dp
+     * visible navbar top    = 82dp
      */
     val navigationHostBottom =
         8.dp
 
+    val navigationVisualHeight =
+        64.dp
+
     /*
-     * Do not move MiniPlayer.
+     * Visible MiniPlayer now sits only 6dp above
+     * the visible navbar.
      *
-     * 18 + 64 + 18 = 100dp.
+     * Navbar top:
+     * 18 + 64 = 82dp
+     *
+     * MiniPlayer bottom:
+     * 82 + 6 = 88dp
      */
     val miniPlayerBottom =
-        visibleGap +
-            navigationVisualHeight +
-            visibleGap
+        88.dp
 }
