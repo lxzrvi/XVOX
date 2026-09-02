@@ -69,9 +69,7 @@ class HomeViewModel(
                 .collect { ids ->
                     recentIds = ids
 
-                    _state.update {
-                        current ->
-
+                    _state.update { current ->
                         current.copy(
                             recentlyPlayed =
                                 resolveRecent(
@@ -90,12 +88,6 @@ class HomeViewModel(
             val songs =
                 songRepository.loadSongs()
 
-            artworkPreloader.warm(
-                songs = songs,
-                fromIndex = 0,
-                count = 12
-            )
-
             _state.update {
                 it.copy(
                     songs = songs,
@@ -108,7 +100,7 @@ class HomeViewModel(
                 )
             }
 
-            prefetchFrom(12)
+            prefetchFrom(0)
         }
     }
 
@@ -127,6 +119,7 @@ class HomeViewModel(
             val songs =
                 songRepository.loadSongs()
 
+            prefetchJob?.cancel()
             lastPrefetchStart = -1
 
             _state.update {
@@ -137,7 +130,8 @@ class HomeViewModel(
                             songs,
                             recentIds
                         ),
-                    refreshing = false
+                    refreshing = false,
+                    loading = false
                 )
             }
 
@@ -148,9 +142,7 @@ class HomeViewModel(
     fun recordPlayed(
         song: Song
     ) {
-        _state.update {
-            current ->
-
+        _state.update { current ->
             current.copy(
                 recentlyPlayed =
                     buildList {
@@ -186,13 +178,9 @@ class HomeViewModel(
         }
 
         val start =
-            (
-                sourceIndex / 12
-                ) * 12
+            (sourceIndex / 12) * 12
 
-        if (
-            start == lastPrefetchStart
-        ) {
+        if (start == lastPrefetchStart) {
             return
         }
 
