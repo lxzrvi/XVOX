@@ -40,6 +40,11 @@ class PlaybackController(
                 Dispatchers.Main.immediate
         )
 
+    private var queue:
+        List<Song> = emptyList()
+
+    private var progressJob: Job? = null
+
     private val _state =
         MutableStateFlow(
             PlaybackState()
@@ -48,11 +53,6 @@ class PlaybackController(
     val state:
         StateFlow<PlaybackState> =
         _state.asStateFlow()
-
-    private var queue:
-        List<Song> = emptyList()
-
-    private var progressJob: Job? = null
 
     private val listener =
         object : Player.Listener {
@@ -93,7 +93,6 @@ class PlaybackController(
         songs: List<Song>
     ) {
         queue = songs
-
         updateState()
     }
 
@@ -113,22 +112,32 @@ class PlaybackController(
                 it.id == song.id
             }
 
-        playSong(
+        load(
             song = song,
-            index = index
+            index = index,
+            playWhenReady = true
         )
     }
 
     fun playQueueIndex(
-        index: Int
+        index: Int,
+        preservePlayingState: Boolean
     ) {
         val song =
             queue.getOrNull(index)
                 ?: return
 
-        playSong(
+        val shouldPlay =
+            if (preservePlayingState) {
+                player.isPlaying
+            } else {
+                true
+            }
+
+        load(
             song = song,
-            index = index
+            index = index,
+            playWhenReady = shouldPlay
         )
     }
 
@@ -147,11 +156,12 @@ class PlaybackController(
         }
     }
 
-    private fun playSong(
+    private fun load(
         song: Song,
-        index: Int
+        index: Int,
+        playWhenReady: Boolean
     ) {
-        val item =
+        val mediaItem =
             MediaItem.Builder()
                 .setMediaId(
                     song.id.toString()
@@ -161,17 +171,22 @@ class PlaybackController(
                 )
                 .build()
 
-        player.setMediaItem(item)
+        player.setMediaItem(mediaItem)
         player.prepare()
-        player.play()
+
+        if (playWhenReady) {
+            player.play()
+        } else {
+            player.pause()
+        }
 
         _state.value =
-            _state.value.copy(
-                currentSongId =
-                    song.id,
-                currentIndex =
-                    index,
-                position = 0L
+            PlaybackState(
+                currentSongId = song.id,
+                currentIndex = index,
+                isPlaying = false,
+                position = 0L,
+                duration = 0L
             )
     }
 
