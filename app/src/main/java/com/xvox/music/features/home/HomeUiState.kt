@@ -14,6 +14,6 @@ data class HomeUiState(
         UserPreferences(),
     val showPlaylists: Boolean = false,
     val recentTransition:
-        RecentTransitionEvent =
-        RecentTransitionEvent()
+        RecentTransitionRequest =
+        RecentTransitionRequest()
 )
