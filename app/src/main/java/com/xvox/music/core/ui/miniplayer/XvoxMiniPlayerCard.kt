@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -21,7 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,8 +31,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.SongArtwork
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 
 @Composable
 fun XvoxMiniPlayerCard(
@@ -72,48 +72,87 @@ fun XvoxMiniPlayerCard(
         }
 
     Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .clip(shape)
-                .background(
-                    colors.surface.copy(
-                        alpha = 0.88f
-                    )
+        modifier = modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(shape)
+            .background(
+                colors.surface.copy(
+                    alpha = 0.88f
                 )
-                .border(
-                    width = 0.65.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        shape
-                )
+            )
+            .border(
+                width = 0.65.dp,
+                color =
+                    colors.cardBorder,
+                shape = shape
+            )
     ) {
-        Row(
+        Canvas(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .padding(
-                        start = 4.dp,
-                        top = 4.dp,
-                        end = 50.dp,
-                        bottom = 4.dp
-                    ),
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .align(
+                        Alignment.TopStart
+                    )
+        ) {
+            val inset =
+                2.dp.toPx()
+
+            val available =
+                (
+                    size.width -
+                        inset * 2f
+                    )
+                    .coerceAtLeast(
+                        0f
+                    )
+
+            if (
+                progress > 0f &&
+                available > 0f
+            ) {
+                drawRect(
+                    color =
+                        colors.progressActive,
+                    topLeft =
+                        Offset(
+                            x = inset,
+                            y = 0f
+                        ),
+                    size =
+                        Size(
+                            width =
+                                available *
+                                    progress,
+                            height =
+                                size.height
+                        )
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = 4.dp,
+                    top = 4.dp,
+                    end = 50.dp,
+                    bottom = 4.dp
+                ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
             Box(
-                modifier =
-                    Modifier
-                        .size(
-                            50.dp
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            11.dp
                         )
-                        .clip(
-                            RoundedCornerShape(
-                                11.dp
-                            )
-                        )
+                    )
             ) {
                 SongArtwork(
                     artwork =
@@ -125,13 +164,12 @@ fun XvoxMiniPlayerCard(
             }
 
             Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .padding(
-                            start = 9.dp,
-                            end = 5.dp
-                        ),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        start = 9.dp,
+                        end = 5.dp
+                    ),
                 verticalArrangement =
                     Arrangement.Center
             ) {
@@ -164,40 +202,34 @@ fun XvoxMiniPlayerCard(
         }
 
         Box(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.CenterEnd
+            modifier = Modifier
+                .align(
+                    Alignment.CenterEnd
+                )
+                .padding(
+                    end = 7.dp
+                )
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    colors.cardElevated.copy(
+                        alpha = 0.68f
                     )
-                    .padding(
-                        end = 7.dp
-                    )
-                    .size(
-                        38.dp
-                    )
-                    .clip(
+                )
+                .border(
+                    width = 0.5.dp,
+                    color =
+                        colors.cardBorder,
+                    shape =
                         CircleShape
-                    )
-                    .background(
-                        colors.cardElevated
-                            .copy(
-                                alpha = 0.68f
-                            )
-                    )
-                    .border(
-                        width = 0.5.dp,
-                        color =
-                            colors.cardBorder,
-                        shape =
-                            CircleShape
-                    )
-                    .clickable(
-                        interactionSource =
-                            interaction,
-                        indication = null,
-                        onClick =
-                            togglePlay
-                    ),
+                )
+                .clickable(
+                    interactionSource =
+                        interaction,
+                    indication = null,
+                    onClick =
+                        togglePlay
+                ),
             contentAlignment =
                 Alignment.Center
         ) {
@@ -217,61 +249,6 @@ fun XvoxMiniPlayerCard(
                         18.dp
                     )
             )
-        }
-
-        /*
-         * Draw LAST so active progress replaces the top
-         * border visually.
-         *
-         * 2dp inset prevents rounded-edge collision.
-         */
-        if (
-            progress > 0f
-        ) {
-            Canvas(
-                modifier =
-                    Modifier.fillMaxSize()
-            ) {
-                val inset =
-                    2.dp.toPx()
-
-                val available =
-                    (
-                        size.width -
-                            inset * 2f
-                        )
-                        .coerceAtLeast(
-                            0f
-                        )
-
-                val end =
-                    inset +
-                        available *
-                            progress
-
-                drawLine(
-                    color =
-                        colors.progressActive,
-                    start =
-                        Offset(
-                            x = inset,
-                            y =
-                                0.8.dp
-                                    .toPx()
-                        ),
-                    end =
-                        Offset(
-                            x = end,
-                            y =
-                                0.8.dp
-                                    .toPx()
-                        ),
-                    strokeWidth =
-                        1.5.dp.toPx(),
-                    cap =
-                        StrokeCap.Round
-                )
-            }
         }
     }
 }
