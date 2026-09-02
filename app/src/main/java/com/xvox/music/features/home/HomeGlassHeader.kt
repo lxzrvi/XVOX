@@ -12,11 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.XvoxGlassStyle
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.data.preferences.UserPreferences
 
 @Composable
 fun HomeGlassHeader(
+    sky: Sky,
     profile: UserPreferences,
     showPlaylists: Boolean,
     onRefresh: () -> Unit,
@@ -34,10 +38,10 @@ fun HomeGlassHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    colors.surface.copy(
-                        alpha = 0.72f
-                    )
+                .xvoxGlass(
+                    sky = sky,
+                    style =
+                        XvoxGlassStyle.HEADER
                 )
                 .windowInsetsPadding(
                     WindowInsets.statusBars
@@ -59,12 +63,12 @@ fun HomeGlassHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(12.dp)
+                .height(10.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
                             colors.surface.copy(
-                                alpha = 0.72f
+                                alpha = 0.30f
                             ),
                             colors.surface.copy(
                                 alpha = 0f
