@@ -67,26 +67,28 @@ fun XvoxMainShell(
                 )
             }
 
-            XvoxDestination.SEARCH ->
+            XvoxDestination.SEARCH -> {
                 SearchScreen()
+            }
 
-            XvoxDestination.SETTINGS ->
+            XvoxDestination.SETTINGS -> {
                 SettingsScreen()
+            }
         }
 
-        val currentId =
+        val currentSongId =
             player.currentSongId
 
         if (
             player.miniPlayerVisible &&
-            currentId != null &&
+            currentSongId != null &&
             player.queue.isNotEmpty()
         ) {
             XvoxMiniPlayer(
                 queue =
                     player.queue,
                 currentSongId =
-                    currentId,
+                    currentSongId,
                 currentIndex =
                     player.currentIndex,
                 isPlaying =
@@ -107,10 +109,6 @@ fun XvoxMainShell(
                     playerViewModel::
                         hideMiniPlayer,
                 openPlayer = {
-                    /*
-                     * Now Playing destination
-                     * will connect here.
-                     */
                     playerViewModel
                         .hideMiniPlayer()
                 },
@@ -127,7 +125,8 @@ fun XvoxMainShell(
                             .navigationBars
                     )
                     .padding(
-                        horizontal = 14.dp,
+                        start = 14.dp,
+                        end = 14.dp,
                         bottom = 100.dp
                     )
             )
