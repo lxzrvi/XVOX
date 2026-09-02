@@ -1,6 +1,5 @@
 package com.xvox.music.core.ui.miniplayer
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +53,20 @@ fun XvoxMiniPlayerCard(
             MutableInteractionSource()
         }
 
+    val progress =
+        if (duration > 0L) {
+            (
+                position.toFloat() /
+                    duration.toFloat()
+                )
+                .coerceIn(
+                    0f,
+                    1f
+                )
+        } else {
+            0f
+        }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -71,39 +84,58 @@ fun XvoxMiniPlayerCard(
                 shape = shape
             )
     ) {
-        val progress =
-            if (duration > 0L) {
-                (
-                    position.toFloat() /
-                        duration.toFloat()
-                    )
-                    .coerceIn(
-                        0f,
-                        1f
-                    )
-            } else {
-                0f
-            }
 
-        Canvas(
+        /*
+         * =====================================================
+         * PROGRESS
+         * =====================================================
+         *
+         * Kept INSIDE the card border.
+         *
+         * 1dp horizontal inset prevents the line from touching
+         * or visually escaping the rounded outer border.
+         *
+         * No progress animation here. Player position is already
+         * the source of truth, so new values appear immediately.
+         */
+        Box(
             modifier = Modifier
+                .align(
+                    Alignment.TopCenter
+                )
+                .padding(
+                    start = 1.dp,
+                    end = 1.dp,
+                    top = 1.dp
+                )
                 .fillMaxWidth()
                 .height(1.5.dp)
-                .align(
-                    Alignment.TopStart
+                .clip(
+                    RoundedCornerShape(
+                        1.dp
+                    )
+                )
+                .background(
+                    colors.progressTrack
+                        .copy(
+                            alpha = 0.45f
+                        )
                 )
         ) {
-            drawRect(
-                color =
-                    colors.progressActive,
-                size = Size(
-                    width =
-                        size.width *
-                            progress,
-                    height =
-                        size.height
+            if (
+                progress > 0f
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(
+                            progress
+                        )
+                        .background(
+                            colors.progressActive
+                        )
                 )
-            )
+            }
         }
 
         Row(
@@ -187,9 +219,10 @@ fun XvoxMiniPlayerCard(
                     CircleShape
                 )
                 .background(
-                    colors.cardElevated.copy(
-                        alpha = 0.68f
-                    )
+                    colors.cardElevated
+                        .copy(
+                            alpha = 0.68f
+                        )
                 )
                 .border(
                     width = 0.5.dp,
