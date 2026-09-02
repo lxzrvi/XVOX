@@ -73,9 +73,9 @@ class MainPlayerViewModel(
     fun play(
         song: Song
     ) {
-        val firstSong =
-            _state.value.currentSongId ==
-                null
+        val needsEntrance =
+            !_state.value
+                .miniPlayerVisible
 
         controller.play(song)
 
@@ -83,9 +83,12 @@ class MainPlayerViewModel(
             current ->
 
             current.copy(
-                miniPlayerVisible = true,
+                miniPlayerVisible =
+                    true,
                 miniPlayerRiseKey =
-                    if (firstSong) {
+                    if (
+                        needsEntrance
+                    ) {
                         current
                             .miniPlayerRiseKey +
                             1
@@ -113,7 +116,19 @@ class MainPlayerViewModel(
     fun hideMiniPlayer() {
         _state.update {
             it.copy(
-                miniPlayerVisible = false
+                miniPlayerVisible =
+                    false
+            )
+        }
+    }
+
+    fun stopPlayback() {
+        controller.stop()
+
+        _state.update {
+            it.copy(
+                miniPlayerVisible =
+                    false
             )
         }
     }
