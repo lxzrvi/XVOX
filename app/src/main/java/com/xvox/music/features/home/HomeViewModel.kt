@@ -49,8 +49,11 @@ class HomeViewModel(
         StateFlow<HomeUiState> =
         _state.asStateFlow()
 
-    private var prefetchJob: Job? = null
-    private var lastPrefetchStart = -1
+    private var prefetchJob: Job? =
+        null
+
+    private var lastPrefetchStart =
+        -1
 
     private var lastTapAt = 0L
     private var lastTappedSong = -1L
@@ -78,15 +81,26 @@ class HomeViewModel(
     private fun observePlayback() {
         viewModelScope.launch {
             playback.state
-                .collect { playbackState ->
+                .collect {
+                    playerState ->
+
                     _state.update {
                         it.copy(
                             currentSongId =
-                                playbackState
+                                playerState
                                     .currentSongId,
+                            currentIndex =
+                                playerState
+                                    .currentIndex,
                             isPlaying =
-                                playbackState
-                                    .isPlaying
+                                playerState
+                                    .isPlaying,
+                            playbackPosition =
+                                playerState
+                                    .position,
+                            playbackDuration =
+                                playerState
+                                    .duration
                         )
                     }
                 }
@@ -97,6 +111,8 @@ class HomeViewModel(
         viewModelScope.launch {
             val songs =
                 songRepository.loadSongs()
+
+            playback.setQueue(songs)
 
             artworkPreloader.warm(
                 songs = songs,
@@ -150,7 +166,9 @@ class HomeViewModel(
     }
 
     fun refresh() {
-        if (_state.value.refreshing) {
+        if (
+            _state.value.refreshing
+        ) {
             return
         }
 
@@ -163,6 +181,8 @@ class HomeViewModel(
 
             val songs =
                 songRepository.loadSongs()
+
+            playback.setQueue(songs)
 
             lastPrefetchStart = -1
 
@@ -179,26 +199,28 @@ class HomeViewModel(
 
     fun play(song: Song) {
         val now =
-            SystemClock.elapsedRealtime()
+            SystemClock
+                .elapsedRealtime()
 
         if (
             song.id ==
             lastTappedSong &&
-            now - lastTapAt < 220L
+            now - lastTapAt <
+            180L
         ) {
             return
         }
 
-        lastTappedSong =
-            song.id
-
-        lastTapAt =
-            now
+        lastTappedSong = song.id
+        lastTapAt = now
 
         playback.play(song)
 
-        _state.update { current ->
+        _state.update {
+            current ->
+
             current.copy(
+                miniPlayerVisible = true,
                 recentlyPlayed =
                     buildList {
                         add(song)
@@ -213,6 +235,62 @@ class HomeViewModel(
                         )
                     }.take(20)
             )
+        }
+    }
+
+    fun playQueueIndex(
+        index: Int
+    ) {
+        playback.playQueueIndex(index)
+
+        val song =
+            _state.value.songs
+                .getOrNull(index)
+                ?: return
+
+        _state.update {
+            current ->
+
+            current.copy(
+                miniPlayerVisible = true,
+                recentlyPlayed =
+                    buildList {
+                        add(song)
+                        addAll(
+                            current
+                                .recentlyPlayed
+                                .filterNot {
+                                    it.id ==
+                                        song.id
+                                }
+                        )
+                    }.take(20)
+            )
+        }
+    }
+
+    fun togglePlay() {
+        playback.togglePlay()
+    }
+
+    fun hideMiniPlayer() {
+        _state.update {
+            it.copy(
+                miniPlayerVisible = false
+            )
+        }
+    }
+
+    fun showMiniPlayer() {
+        if (
+            _state.value.currentSongId !=
+            null
+        ) {
+            _state.update {
+                it.copy(
+                    miniPlayerVisible = true
+                )
+            }
         }
     }
 
