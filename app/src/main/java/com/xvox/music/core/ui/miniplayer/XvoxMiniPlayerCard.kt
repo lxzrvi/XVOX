@@ -1,5 +1,6 @@
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,8 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,8 +72,6 @@ fun XvoxMiniPlayerCard(
     Box(
         modifier =
             modifier
-                .fillMaxWidth()
-                .height(60.dp)
                 .clip(shape)
                 .background(
                     colors.surface.copy(
@@ -87,40 +86,6 @@ fun XvoxMiniPlayerCard(
                         shape
                 )
     ) {
-        /*
-         * Top border progress.
-         *
-         * It overlays the same top edge rather than creating
-         * another progress rail below the border.
-         */
-        if (
-            progress > 0f
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(
-                            Alignment.TopStart
-                        )
-                        .padding(
-                            start = 2.dp,
-                            end = 2.dp
-                        )
-                        .fillMaxWidth(
-                            progress
-                        )
-                        .height(
-                            1.dp
-                        )
-                        .clip(
-                            CircleShape
-                        )
-                        .background(
-                            colors.progressActive
-                        )
-            )
-        }
-
         Row(
             modifier =
                 Modifier
@@ -248,6 +213,61 @@ fun XvoxMiniPlayerCard(
                         18.dp
                     )
             )
+        }
+
+        /*
+         * Draw LAST so active progress replaces the top
+         * border visually.
+         *
+         * 2dp inset prevents rounded-edge collision.
+         */
+        if (
+            progress > 0f
+        ) {
+            Canvas(
+                modifier =
+                    Modifier.fillMaxSize()
+            ) {
+                val inset =
+                    2.dp.toPx()
+
+                val available =
+                    (
+                        size.width -
+                            inset * 2f
+                        )
+                        .coerceAtLeast(
+                            0f
+                        )
+
+                val end =
+                    inset +
+                        available *
+                            progress
+
+                drawLine(
+                    color =
+                        colors.progressActive,
+                    start =
+                        Offset(
+                            x = inset,
+                            y =
+                                0.8.dp
+                                    .toPx()
+                        ),
+                    end =
+                        Offset(
+                            x = end,
+                            y =
+                                0.8.dp
+                                    .toPx()
+                        ),
+                    strokeWidth =
+                        1.5.dp.toPx(),
+                    cap =
+                        StrokeCap.Round
+                )
+            }
         }
     }
 }
