@@ -40,7 +40,7 @@ fun HomeScreen(
             .calculateTopPadding()
 
     val headerSpace =
-        statusHeight + 72.dp
+        statusHeight + 80.dp
 
     val screenHeight =
         LocalConfiguration.current
