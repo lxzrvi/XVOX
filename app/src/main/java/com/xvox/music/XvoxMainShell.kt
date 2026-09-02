@@ -45,7 +45,16 @@ fun XvoxMainShell(
         )
     }
 
-    val navigationGap = 28.dp
+    val navigationGap =
+        18.dp
+
+    val navigationHeight =
+        64.dp
+
+    val miniPlayerBottom =
+        navigationGap +
+            navigationHeight +
+            navigationGap
 
     Box(
         modifier = Modifier
@@ -113,8 +122,10 @@ fun XvoxMainShell(
                     playerViewModel
                         .hideMiniPlayer()
                 },
-                onLike = {},
-                onAdd = {},
+                onLike = {
+                },
+                onAdd = {
+                },
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -126,7 +137,8 @@ fun XvoxMainShell(
                     .padding(
                         start = 6.dp,
                         end = 6.dp,
-                        bottom = 120.dp
+                        bottom =
+                            miniPlayerBottom
                     )
             )
         }
