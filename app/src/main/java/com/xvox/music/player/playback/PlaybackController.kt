@@ -40,11 +40,6 @@ class PlaybackController(
                 Dispatchers.Main.immediate
         )
 
-    private var progressJob: Job? = null
-
-    private var queue:
-        List<Song> = emptyList()
-
     private val _state =
         MutableStateFlow(
             PlaybackState()
@@ -53,6 +48,11 @@ class PlaybackController(
     val state:
         StateFlow<PlaybackState> =
         _state.asStateFlow()
+
+    private var queue:
+        List<Song> = emptyList()
+
+    private var progressJob: Job? = null
 
     private val listener =
         object : Player.Listener {
@@ -93,14 +93,13 @@ class PlaybackController(
         songs: List<Song>
     ) {
         queue = songs
+
+        updateState()
     }
 
-    fun play(song: Song) {
-        val existingIndex =
-            queue.indexOfFirst {
-                it.id == song.id
-            }
-
+    fun play(
+        song: Song
+    ) {
         if (
             _state.value.currentSongId ==
             song.id
@@ -110,31 +109,14 @@ class PlaybackController(
         }
 
         val index =
-            existingIndex
-                .takeIf {
-                    it >= 0
-                }
-                ?: 0
+            queue.indexOfFirst {
+                it.id == song.id
+            }
 
-        val item =
-            MediaItem.Builder()
-                .setMediaId(
-                    song.id.toString()
-                )
-                .setUri(
-                    song.contentUri
-                )
-                .build()
-
-        player.setMediaItem(item)
-        player.prepare()
-        player.play()
-
-        _state.value =
-            _state.value.copy(
-                currentSongId = song.id,
-                currentIndex = index
-            )
+        playSong(
+            song = song,
+            index = index
+        )
     }
 
     fun playQueueIndex(
@@ -144,26 +126,10 @@ class PlaybackController(
             queue.getOrNull(index)
                 ?: return
 
-        val item =
-            MediaItem.Builder()
-                .setMediaId(
-                    song.id.toString()
-                )
-                .setUri(
-                    song.contentUri
-                )
-                .build()
-
-        player.setMediaItem(item)
-        player.prepare()
-        player.play()
-
-        _state.value =
-            _state.value.copy(
-                currentSongId = song.id,
-                currentIndex = index,
-                position = 0L
-            )
+        playSong(
+            song = song,
+            index = index
+        )
     }
 
     fun togglePlay() {
@@ -181,20 +147,48 @@ class PlaybackController(
         }
     }
 
+    private fun playSong(
+        song: Song,
+        index: Int
+    ) {
+        val item =
+            MediaItem.Builder()
+                .setMediaId(
+                    song.id.toString()
+                )
+                .setUri(
+                    song.contentUri
+                )
+                .build()
+
+        player.setMediaItem(item)
+        player.prepare()
+        player.play()
+
+        _state.value =
+            _state.value.copy(
+                currentSongId =
+                    song.id,
+                currentIndex =
+                    index,
+                position = 0L
+            )
+    }
+
     private fun updateState() {
-        val mediaId =
+        val id =
             player.currentMediaItem
                 ?.mediaId
                 ?.toLongOrNull()
 
         val index =
             queue.indexOfFirst {
-                it.id == mediaId
+                it.id == id
             }
 
         _state.value =
             PlaybackState(
-                currentSongId = mediaId,
+                currentSongId = id,
                 currentIndex = index,
                 isPlaying =
                     player.isPlaying,
