@@ -59,13 +59,16 @@ fun rememberXvoxNavigationMotion(
                     dampingRatio = 0.78f,
                     stiffness = 900f
                 ),
-            label = "navBarScale"
+            label = "navBar"
         )
 
     return XvoxNavigationMotion(
-        position = animatedPosition,
-        grow = grow,
-        barScale = barScale
+        position =
+            animatedPosition,
+        grow =
+            grow,
+        barScale =
+            barScale
     )
 }
 
@@ -91,7 +94,7 @@ fun navigationColor(
     active: Color,
     proximity: Float
 ): Color {
-    val value =
+    val amount =
         proximity.coerceIn(
             0f,
             1f
@@ -100,19 +103,31 @@ fun navigationColor(
     return Color(
         red =
             inactive.red +
-                (active.red - inactive.red) *
-                value,
+                (
+                    active.red -
+                        inactive.red
+                    ) *
+                amount,
         green =
             inactive.green +
-                (active.green - inactive.green) *
-                value,
+                (
+                    active.green -
+                        inactive.green
+                    ) *
+                amount,
         blue =
             inactive.blue +
-                (active.blue - inactive.blue) *
-                value,
+                (
+                    active.blue -
+                        inactive.blue
+                    ) *
+                amount,
         alpha =
             inactive.alpha +
-                (active.alpha - inactive.alpha) *
-                value
+                (
+                    active.alpha -
+                        inactive.alpha
+                    ) *
+                amount
     )
 }
