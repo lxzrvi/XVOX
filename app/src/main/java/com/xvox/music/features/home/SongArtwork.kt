@@ -14,26 +14,36 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import coil3.size.Precision
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
-const val GridArtworkSize = 160
-const val RecentArtworkSize = 512
+const val GridArtworkSize =
+    160
+
+const val RecentArtworkSize =
+    512
 
 @Composable
 fun SongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier,
-    requestSize: Int = GridArtworkSize
+    requestSize: Int =
+        GridArtworkSize
 ) {
-    val colors = XvoxTheme.colors
-    val context = LocalContext.current
+    val colors =
+        XvoxTheme.colors
 
-    if (artwork == null) {
+    val context =
+        LocalContext.current
+
+    if (
+        artwork == null
+    ) {
         Box(
-            modifier = modifier
-                .background(
+            modifier =
+                modifier.background(
                     colors.cardElevated
                 ),
             contentAlignment =
@@ -41,8 +51,10 @@ fun SongArtwork(
         ) {
             Text(
                 text = "X",
-                color = colors.mutedText,
-                fontFamily = XvoxLogoFont,
+                color =
+                    colors.mutedText,
+                fontFamily =
+                    XvoxLogoFont,
                 fontSize = 20.sp
             )
         }
@@ -55,7 +67,8 @@ fun SongArtwork(
             artwork,
             requestSize
         ) {
-            ImageRequest.Builder(context)
+            ImageRequest
+                .Builder(context)
                 .data(artwork)
                 .size(
                     requestSize,
@@ -64,6 +77,7 @@ fun SongArtwork(
                 .precision(
                     Precision.INEXACT
                 )
+                .crossfade(false)
                 .memoryCachePolicy(
                     CachePolicy.ENABLED
                 )
@@ -77,12 +91,14 @@ fun SongArtwork(
         }
 
     AsyncImage(
-        model = request,
-        contentDescription = null,
+        model =
+            request,
+        contentDescription =
+            null,
         contentScale =
             ContentScale.Crop,
-        modifier = modifier
-            .background(
+        modifier =
+            modifier.background(
                 colors.cardElevated
             )
     )
