@@ -2,6 +2,7 @@ package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,11 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.XvoxGlassStyle
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.SongArtwork
 
 @Composable
@@ -42,7 +40,6 @@ fun XvoxMiniPlayerCard(
     duration: Long,
     direction: Int,
     togglePlay: () -> Unit,
-    sky: Sky,
     modifier: Modifier = Modifier
 ) {
     val colors =
@@ -53,16 +50,20 @@ fun XvoxMiniPlayerCard(
             15.dp
         )
 
+    val controlInteraction =
+        remember {
+            MutableInteractionSource()
+        }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
             .clip(shape)
-            .xvoxGlass(
-                sky = sky,
-                style =
-                    XvoxGlassStyle
-                        .MINI_PLAYER
+            .background(
+                colors.surface.copy(
+                    alpha = 0.88f
+                )
             )
             .border(
                 width = 0.65.dp,
@@ -161,7 +162,6 @@ fun XvoxMiniPlayerCard(
                 label =
                     "miniMetadata"
             ) { current ->
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -211,11 +211,10 @@ fun XvoxMiniPlayerCard(
                 )
                 .size(38.dp)
                 .clip(CircleShape)
-                .xvoxGlass(
-                    sky = sky,
-                    style =
-                        XvoxGlassStyle
-                            .MINI_CONTROL
+                .background(
+                    colors.cardElevated.copy(
+                        alpha = 0.68f
+                    )
                 )
                 .border(
                     width = 0.5.dp,
@@ -226,9 +225,7 @@ fun XvoxMiniPlayerCard(
                 )
                 .clickable(
                     interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
+                        controlInteraction,
                     indication = null,
                     onClick =
                         togglePlay
