@@ -32,13 +32,11 @@ class HomeViewModel(
             HomeUiState()
         )
 
-    val state:
-        StateFlow<HomeUiState> =
+    val state: StateFlow<HomeUiState> =
         _state.asStateFlow()
 
     private var recentIds:
-        List<Long> =
-        emptyList()
+        List<Long> = emptyList()
 
     private var prefetchJob:
         Job? = null
@@ -74,9 +72,7 @@ class HomeViewModel(
             preferencesRepository
                 .recentSongIds
                 .collect { ids ->
-
-                    recentIds =
-                        ids
+                    recentIds = ids
 
                     _state.update {
                         current ->
@@ -86,8 +82,7 @@ class HomeViewModel(
                                 resolveRecent(
                                     songs =
                                         current.songs,
-                                    ids =
-                                        ids
+                                    ids = ids
                                 )
                         )
                     }
@@ -160,46 +155,56 @@ class HomeViewModel(
         currentSongId: Long?
     ) {
         /*
-         * Same current song:
-         * playback toggles outside this VM,
-         * but Recent doesn't reorder/animate.
+         * Current song:
+         * HomeScreen still sends playback click,
+         * but Recent remains completely untouched.
          */
         if (
-            currentSongId ==
-            song.id
+            song.id ==
+            currentSongId
         ) {
             return
         }
 
-        promote(
+        promoteRecent(
             song = song,
-            mode =
+            transitionMode =
                 RecentTransitionMode
-                    .LIBRARY
+                    .FRONT_REPLACE
         )
     }
 
     fun recordPlayedFromRecent(
         song: Song,
         currentSongId: Long?,
-        mode: RecentTransitionMode
+        transitionMode:
+            RecentTransitionMode
     ) {
+        /*
+         * Current playback song:
+         * toggle only.
+         *
+         * No reorder.
+         * No Recent transition.
+         */
         if (
-            currentSongId ==
-            song.id
+            song.id ==
+            currentSongId
         ) {
             return
         }
 
-        promote(
+        promoteRecent(
             song = song,
-            mode = mode
+            transitionMode =
+                transitionMode
         )
     }
 
-    private fun promote(
+    private fun promoteRecent(
         song: Song,
-        mode: RecentTransitionMode
+        transitionMode:
+            RecentTransitionMode
     ) {
         transitionId++
 
@@ -225,13 +230,13 @@ class HomeViewModel(
                 recentlyPlayed =
                     reordered,
                 recentTransition =
-                    RecentTransitionEvent(
+                    RecentTransitionRequest(
                         id =
                             transitionId,
                         songId =
                             song.id,
                         mode =
-                            mode
+                            transitionMode
                     )
             )
         }
@@ -276,8 +281,7 @@ class HomeViewModel(
             viewModelScope.launch {
                 artworkPreloader.warm(
                     songs = songs,
-                    fromIndex =
-                        start,
+                    fromIndex = start,
                     count = 36
                 )
             }
