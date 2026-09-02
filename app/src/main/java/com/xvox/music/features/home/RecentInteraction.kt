@@ -2,12 +2,11 @@ package com.xvox.music.features.home
 
 enum class RecentTransitionMode {
     NONE,
-    ADJACENT,
-    FAR,
-    LIBRARY
+    ADJACENT_SWAP,
+    FRONT_REPLACE
 }
 
-data class RecentTransitionEvent(
+data class RecentTransitionRequest(
     val id: Long = 0L,
     val songId: Long? = null,
     val mode: RecentTransitionMode =
