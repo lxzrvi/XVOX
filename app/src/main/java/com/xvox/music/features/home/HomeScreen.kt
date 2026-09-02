@@ -41,9 +41,21 @@ fun HomeScreen(
             .asPaddingValues()
             .calculateTopPadding()
 
+    /*
+     * Header controls:
+     * 54dp
+     *
+     * Header lower extension:
+     * 8dp
+     *
+     * Shared content gap:
+     * 12dp
+     */
     val headerSpace =
         statusHeight +
-            80.dp
+            54.dp +
+            8.dp +
+            HomeGeometry.sectionGap
 
     val screenHeight =
         LocalConfiguration.current
@@ -88,7 +100,6 @@ fun HomeScreen(
                     isPlaying =
                         isPlaying,
                     onSongClick = { song ->
-
                         viewModel
                             .recordPlayedFromLibrary(
                                 song
@@ -116,7 +127,6 @@ fun HomeScreen(
                         state
                             .recentFrontTransitionKey,
                     onSongClick = { song ->
-
                         viewModel
                             .recordPlayedFromRecent(
                                 song
