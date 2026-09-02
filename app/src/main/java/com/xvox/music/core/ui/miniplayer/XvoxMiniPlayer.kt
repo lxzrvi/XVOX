@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -49,19 +49,21 @@ fun XvoxMiniPlayer(
     val scope =
         rememberCoroutineScope()
 
+    val exitDistance =
+        with(density) {
+            190.dp.toPx()
+        }
+
     val x =
         remember {
             Animatable(0f)
         }
 
     val y =
-        remember {
-            Animatable(0f)
-        }
-
-    val exitDistance =
-        with(density) {
-            190.dp.toPx()
+        remember(riseKey) {
+            Animatable(
+                exitDistance
+            )
         }
 
     var previewIndex by
@@ -112,11 +114,9 @@ fun XvoxMiniPlayer(
         mutableStateOf(false)
     }
 
-    LaunchedEffect(riseKey) {
-        y.snapTo(
-            exitDistance
-        )
-
+    LaunchedEffect(
+        riseKey
+    ) {
         y.animateTo(
             targetValue = 0f,
             animationSpec =
@@ -125,7 +125,9 @@ fun XvoxMiniPlayer(
         )
     }
 
-    LaunchedEffect(revision) {
+    LaunchedEffect(
+        revision
+    ) {
         if (revision <= 0) {
             return@LaunchedEffect
         }
@@ -139,8 +141,7 @@ fun XvoxMiniPlayer(
         )
 
         if (
-            expected ==
-            revision
+            expected == revision
         ) {
             playQueueIndex(
                 previewIndex
@@ -242,6 +243,7 @@ fun XvoxMiniPlayer(
                             rawY = 0f
                             moved = false
                         },
+
                         onDrag = {
                             change,
                             amount ->
@@ -307,15 +309,20 @@ fun XvoxMiniPlayer(
                                 }
                             }
                         },
+
                         onDragEnd = {
                             val finalAxis =
                                 axis
 
-                            val finalX = rawX
-                            val finalY = rawY
+                            val finalX =
+                                rawX
+
+                            val finalY =
+                                rawY
 
                             rawX = 0f
                             rawY = 0f
+
                             axis =
                                 XvoxMiniAxis.NONE
 
@@ -349,9 +356,10 @@ fun XvoxMiniPlayer(
                                         }
 
                                         x.animateTo(
-                                            0f,
-                                            XvoxMiniPlayerMotion
-                                                .horizontalReturnSpec
+                                            targetValue = 0f,
+                                            animationSpec =
+                                                XvoxMiniPlayerMotion
+                                                    .horizontalReturnSpec
                                         )
                                     }
 
@@ -380,9 +388,10 @@ fun XvoxMiniPlayer(
 
                                             else -> {
                                                 y.animateTo(
-                                                    0f,
-                                                    XvoxMiniPlayerMotion
-                                                        .verticalReturnSpec
+                                                    targetValue = 0f,
+                                                    animationSpec =
+                                                        XvoxMiniPlayerMotion
+                                                            .verticalReturnSpec
                                                 )
                                             }
                                         }
@@ -395,18 +404,21 @@ fun XvoxMiniPlayer(
                                 moved = false
                             }
                         },
+
                         onDragCancel = {
                             scope.launch {
                                 x.animateTo(
-                                    0f,
-                                    XvoxMiniPlayerMotion
-                                        .horizontalReturnSpec
+                                    targetValue = 0f,
+                                    animationSpec =
+                                        XvoxMiniPlayerMotion
+                                            .horizontalReturnSpec
                                 )
 
                                 y.animateTo(
-                                    0f,
-                                    XvoxMiniPlayerMotion
-                                        .verticalReturnSpec
+                                    targetValue = 0f,
+                                    animationSpec =
+                                        XvoxMiniPlayerMotion
+                                            .verticalReturnSpec
                                 )
                             }
 
@@ -453,7 +465,8 @@ fun XvoxMiniPlayer(
                 }
         ) {
             XvoxMiniPlayerCard(
-                song = visualSong,
+                song =
+                    visualSong,
                 isPlaying =
                     isPlaying,
                 position =
