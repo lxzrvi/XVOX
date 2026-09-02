@@ -9,7 +9,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,40 +52,44 @@ fun AllSongCard(
             MutableInteractionSource()
         }
 
-    val pressed by
+    val held by
         interaction
             .collectIsPressedAsState()
 
     val scope =
         rememberCoroutineScope()
 
-    var pulse by remember {
+    var tapPulse by remember {
         mutableStateOf(false)
     }
+
+    val pressed =
+        held || tapPulse
 
     val scale by
         animateFloatAsState(
             targetValue =
-                if (
-                    pressed ||
-                    pulse
-                ) {
-                    0.965f
+                if (pressed) {
+                    0.955f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
                     dampingRatio = 0.78f,
-                    stiffness = 800f
+                    stiffness = 900f
                 ),
-            label =
-                "songPress"
+            label = "songCardPress"
         )
 
-    val shape =
+    val cardShape =
         RoundedCornerShape(
             11.dp
+        )
+
+    val artworkShape =
+        RoundedCornerShape(
+            7.dp
         )
 
     Column(
@@ -94,15 +98,16 @@ fun AllSongCard(
                 scaleX = scale
                 scaleY = scale
             }
+            .clip(cardShape)
             .background(
-                colors.card,
-                shape
+                colors.card
             )
             .border(
                 width = 0.7.dp,
                 color =
                     colors.cardBorder,
-                shape = shape
+                shape =
+                    cardShape
             )
             .combinedClickable(
                 interactionSource =
@@ -110,19 +115,22 @@ fun AllSongCard(
                 indication = null,
                 onClick = {
                     scope.launch {
-                        pulse = true
-                        delay(70)
-                        pulse = false
+                        tapPulse = true
+
+                        delay(85)
+
+                        tapPulse = false
                     }
 
                     onClick()
                 },
                 onLongClick = {
-                    pulse = true
-
                     scope.launch {
-                        delay(90)
-                        pulse = false
+                        tapPulse = true
+
+                        delay(110)
+
+                        tapPulse = false
                     }
                 }
             )
@@ -136,11 +144,8 @@ fun AllSongCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .background(
-                    colors.cardElevated,
-                    RoundedCornerShape(
-                        7.dp
-                    )
+                .clip(
+                    artworkShape
                 )
         )
 
