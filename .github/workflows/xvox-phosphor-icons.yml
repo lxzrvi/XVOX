@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   import-icons:
-    name: Import selected Phosphor icons
+    name: Import Phosphor Icons
     runs-on: ubuntu-latest
 
     steps:
@@ -17,26 +17,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install conversion tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            librsvg2-bin \
-            libxml2-utils \
-            python3
-
-      - name: Checkout official Phosphor icons
+      - name: Checkout Phosphor Core
         uses: actions/checkout@v4
         with:
           repository: phosphor-icons/core
           path: phosphor-core
           fetch-depth: 1
 
-      - name: Prepare XVOX drawable directory
+      - name: Prepare drawable directory
         run: |
           mkdir -p app/src/main/res/drawable
 
-      - name: Import selected icons
+      - name: Convert selected Phosphor icons
         shell: bash
         run: |
           set -euo pipefail
@@ -47,441 +39,907 @@ jobs:
           import sys
           import xml.etree.ElementTree as ET
 
-          ROOT = Path("phosphor-core")
-          OUTPUT = Path("app/src/main/res/drawable")
 
-          # --------------------------------------------------
-          # XVOX ICON SELECTION
+          # ============================================================
+          # PATHS
+          # ============================================================
+
+          PHOSPHOR_ROOT = Path("phosphor-core")
+
+          OUTPUT_ROOT = Path(
+              "app/src/main/res/drawable"
+          )
+
+          OUTPUT_ROOT.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+
+          # ============================================================
+          # XVOX ICON CATALOG
+          # ============================================================
           #
-          # Format:
-          # Android resource name:
-          #     (Phosphor icon name, Phosphor weight)
+          # Future icon:
           #
-          # Add future icons HERE and manually run workflow.
-          # --------------------------------------------------
+          # "ic_xvox_name": ("phosphor-name", "fill"),
+          #
+          # Then manually run this workflow again.
+          #
+          # Existing custom navbar icons are intentionally NOT here.
+          # ============================================================
 
           ICONS = {
-              # Current Home
+              # --------------------------------------------------------
+              # HOME
+              # --------------------------------------------------------
+
               "ic_xvox_refresh": (
                   "arrows-clockwise",
                   "fill",
               ),
+
               "ic_xvox_heart": (
                   "heart",
                   "fill",
               ),
+
               "ic_xvox_music_note": (
                   "music-note",
                   "fill",
               ),
+
               "ic_xvox_playlist": (
                   "playlist",
                   "fill",
               ),
 
-              # Playback
+
+              # --------------------------------------------------------
+              # PLAYBACK
+              # --------------------------------------------------------
+
               "ic_xvox_play": (
                   "play",
                   "fill",
               ),
+
               "ic_xvox_pause": (
                   "pause",
                   "fill",
               ),
+
               "ic_xvox_skip_previous": (
                   "skip-back",
                   "fill",
               ),
+
               "ic_xvox_skip_next": (
                   "skip-forward",
                   "fill",
               ),
+
               "ic_xvox_shuffle": (
                   "shuffle",
                   "fill",
               ),
+
               "ic_xvox_repeat": (
                   "repeat",
                   "fill",
               ),
 
-              # MiniPlayer / common
+
+              # --------------------------------------------------------
+              # MINIPLAYER / COMMON
+              # --------------------------------------------------------
+
               "ic_xvox_add": (
                   "plus",
                   "fill",
               ),
+
               "ic_xvox_close": (
                   "x",
                   "bold",
               ),
 
-              # Future
-              "ic_xvox_search_action": (
-                  "magnifying-glass",
-                  "bold",
-              ),
-              "ic_xvox_queue": (
-                  "list",
-                  "bold",
-              ),
               "ic_xvox_more": (
                   "dots-three",
                   "bold",
               ),
+
+
+              # --------------------------------------------------------
+              # FUTURE
+              # --------------------------------------------------------
+
+              "ic_xvox_search_action": (
+                  "magnifying-glass",
+                  "bold",
+              ),
+
+              "ic_xvox_queue": (
+                  "list",
+                  "bold",
+              ),
+
               "ic_xvox_equalizer": (
                   "sliders-horizontal",
                   "fill",
               ),
+
               "ic_xvox_timer": (
                   "timer",
                   "fill",
               ),
+
               "ic_xvox_volume_high": (
                   "speaker-high",
                   "fill",
               ),
+
               "ic_xvox_share": (
                   "share-network",
                   "fill",
               ),
+
               "ic_xvox_delete": (
                   "trash",
                   "fill",
               ),
           }
 
-          # --------------------------------------------------
-          # Locate SVG robustly.
-          #
-          # This intentionally does not hardcode one exact
-          # Phosphor repository directory layout.
-          # --------------------------------------------------
+
+          # ============================================================
+          # HELPERS
+          # ============================================================
+
+          def local_name(tag):
+              return tag.split("}")[-1]
+
+
+          def number(value, default=0.0):
+              if value is None:
+                  return default
+
+              match = re.search(
+                  r"-?(?:\d+(?:\.\d*)?|\.\d+)"
+                  r"(?:[eE][+-]?\d+)?",
+                  str(value),
+              )
+
+              if not match:
+                  return default
+
+              try:
+                  return float(match.group(0))
+              except ValueError:
+                  return default
+
+
+          def fmt(value):
+              value = float(value)
+
+              if value.is_integer():
+                  return str(int(value))
+
+              return (
+                  f"{value:.5f}"
+                  .rstrip("0")
+                  .rstrip(".")
+              )
+
 
           def find_svg(icon_name, weight):
-              candidates = []
+              preferred = [
+                  PHOSPHOR_ROOT
+                  / "assets"
+                  / weight
+                  / f"{icon_name}.svg",
 
-              for path in ROOT.rglob("*.svg"):
-                  name = path.name.lower()
-                  full = str(path).lower()
+                  PHOSPHOR_ROOT
+                  / "raw"
+                  / weight
+                  / f"{icon_name}-{weight}.svg",
 
-                  if icon_name.lower() not in name:
+                  PHOSPHOR_ROOT
+                  / "raw"
+                  / weight
+                  / f"{icon_name}.svg",
+              ]
+
+              for path in preferred:
+                  if path.exists():
+                      return path
+
+              matches = []
+
+              expected_names = {
+                  f"{icon_name}.svg",
+                  f"{icon_name}-{weight}.svg",
+              }
+
+              for path in PHOSPHOR_ROOT.rglob("*.svg"):
+                  lower_name = path.name.lower()
+
+                  if lower_name not in {
+                      name.lower()
+                      for name in expected_names
+                  }:
                       continue
+
+                  full = str(path).lower()
 
                   score = 0
 
-                  if path.stem.lower() == icon_name.lower():
-                      score += 10
-
                   if weight.lower() in full:
-                      score += 20
+                      score += 100
 
                   if (
-                      path.stem.lower()
-                      == f"{icon_name}-{weight}".lower()
+                      lower_name ==
+                      f"{icon_name}-{weight}.svg".lower()
                   ):
-                      score += 30
+                      score += 50
 
-                  candidates.append((score, path))
+                  if (
+                      lower_name ==
+                      f"{icon_name}.svg".lower()
+                  ):
+                      score += 25
 
-              if not candidates:
+                  matches.append(
+                      (score, path)
+                  )
+
+              if not matches:
                   return None
 
-              candidates.sort(
-                  key=lambda item: (
-                      item[0],
-                      -len(str(item[1]))
+              matches.sort(
+                  key=lambda entry: (
+                      entry[0],
+                      -len(str(entry[1])),
                   ),
                   reverse=True,
               )
 
-              return candidates[0][1]
+              return matches[0][1]
 
-          # --------------------------------------------------
-          # SVG -> Android VectorDrawable
-          #
-          # Supports standard Phosphor:
-          # path / rect / circle / line / polyline / polygon.
-          #
-          # To guarantee exact complex SVG conversion, we use
-          # Android's vector path representation where possible.
-          # --------------------------------------------------
 
-          def num(value, default=0.0):
-              if value is None:
-                  return default
+          # ============================================================
+          # SVG STYLE
+          # ============================================================
 
-              value = re.sub(
-                  r"[^0-9eE+.\-]",
-                  "",
-                  value,
+          def is_none(value):
+              return (
+                  str(value)
+                  .strip()
+                  .lower()
+                  == "none"
               )
 
-              try:
-                  return float(value)
-              except ValueError:
-                  return default
 
-          def fmt(value):
-              if int(value) == value:
-                  return str(int(value))
-              return f"{value:.4f}".rstrip("0").rstrip(".")
+          def inherited_attr(
+              element,
+              inherited,
+              name,
+              default=None,
+          ):
+              if name in element.attrib:
+                  return element.attrib[name]
 
-          def svg_to_vector(svg_path, output_path):
-              tree = ET.parse(svg_path)
-              root = tree.getroot()
+              return inherited.get(
+                  name,
+                  default,
+              )
 
-              view_box = root.attrib.get(
-                  "viewBox",
-                  "0 0 256 256",
-              ).replace(",", " ").split()
 
-              if len(view_box) != 4:
-                  raise RuntimeError(
-                      f"Invalid viewBox: {svg_path}"
+          # ============================================================
+          # VECTOR BUILDER
+          # ============================================================
+
+          class VectorBuilder:
+
+              def __init__(
+                  self,
+                  viewport_width,
+                  viewport_height,
+              ):
+                  self.root = ET.Element(
+                      "vector",
+                      {
+                          "xmlns:android":
+                              "http://schemas.android.com/apk/res/android",
+
+                          "android:width":
+                              "24dp",
+
+                          "android:height":
+                              "24dp",
+
+                          "android:viewportWidth":
+                              fmt(viewport_width),
+
+                          "android:viewportHeight":
+                              fmt(viewport_height),
+                      },
                   )
 
-              min_x, min_y, width, height = map(
-                  float,
-                  view_box,
-              )
+                  self.count = 0
 
-              if min_x != 0 or min_y != 0:
-                  print(
-                      f"WARNING: non-zero viewBox origin "
-                      f"in {svg_path}: {view_box}"
-                  )
-
-              vector = ET.Element(
-                  "vector",
-                  {
-                      "xmlns:android":
-                          "http://schemas.android.com/apk/res/android",
-                      "android:width": "24dp",
-                      "android:height": "24dp",
-                      "android:viewportWidth":
-                          fmt(width),
-                      "android:viewportHeight":
-                          fmt(height),
-                  },
-              )
-
-              paths_added = 0
 
               def add_path(
+                  self,
                   path_data,
-                  fill=True,
-                  stroke=False,
-                  stroke_width=None,
-                  linecap=None,
-                  linejoin=None,
+                  fill,
+                  stroke,
+                  stroke_width,
+                  line_cap,
+                  line_join,
               ):
-                  nonlocal paths_added
-
-                  attrs = {
+                  attributes = {
                       "android:pathData":
                           path_data,
                   }
 
                   if fill:
-                      attrs["android:fillColor"] = "#FFFFFFFF"
+                      attributes[
+                          "android:fillColor"
+                      ] = "#FFFFFFFF"
+
                   else:
-                      attrs["android:fillColor"] = "#00000000"
+                      attributes[
+                          "android:fillColor"
+                      ] = "#00000000"
 
                   if stroke:
-                      attrs["android:strokeColor"] = "#FFFFFFFF"
-                      attrs["android:strokeWidth"] = (
-                          fmt(stroke_width or 1.0)
+                      attributes[
+                          "android:strokeColor"
+                      ] = "#FFFFFFFF"
+
+                      attributes[
+                          "android:strokeWidth"
+                      ] = fmt(
+                          stroke_width
                       )
 
-                      if linecap in {
+                      if line_cap in {
+                          "butt",
                           "round",
                           "square",
-                          "butt",
                       }:
-                          attrs[
+                          attributes[
                               "android:strokeLineCap"
-                          ] = linecap
+                          ] = line_cap
 
-                      if linejoin in {
+                      if line_join in {
+                          "miter",
                           "round",
                           "bevel",
-                          "miter",
                       }:
-                          attrs[
+                          attributes[
                               "android:strokeLineJoin"
-                          ] = linejoin
+                          ] = line_join
 
                   ET.SubElement(
-                      vector,
+                      self.root,
                       "path",
-                      attrs,
+                      attributes,
                   )
 
-                  paths_added += 1
+                  self.count += 1
 
-              def strip(tag):
-                  return tag.split("}")[-1]
 
-              def walk(element):
-                  tag = strip(element.tag)
+          # ============================================================
+          # PRIMITIVE -> PATH
+          # ============================================================
 
-                  if tag == "path":
-                      d = element.attrib.get("d")
+          def circle_path(element):
+              cx = number(
+                  element.attrib.get("cx")
+              )
 
-                      if d:
-                          fill_value = element.attrib.get(
-                              "fill",
-                              "black",
-                          )
+              cy = number(
+                  element.attrib.get("cy")
+              )
 
-                          stroke_value = element.attrib.get(
-                              "stroke",
-                              "none",
-                          )
+              radius = number(
+                  element.attrib.get("r")
+              )
 
-                          add_path(
-                              d,
-                              fill=fill_value != "none",
-                              stroke=stroke_value != "none",
-                              stroke_width=num(
-                                  element.attrib.get(
-                                      "stroke-width"
-                                  ),
-                                  1.0,
-                              ),
-                              linecap=element.attrib.get(
-                                  "stroke-linecap"
-                              ),
-                              linejoin=element.attrib.get(
-                                  "stroke-linejoin"
-                              ),
-                          )
+              if radius <= 0:
+                  return None
 
-                  elif tag == "line":
-                      x1 = num(
-                          element.attrib.get("x1")
+              return (
+                  f"M {fmt(cx - radius)},{fmt(cy)} "
+                  f"A {fmt(radius)},{fmt(radius)} "
+                  f"0 1,0 "
+                  f"{fmt(cx + radius)},{fmt(cy)} "
+                  f"A {fmt(radius)},{fmt(radius)} "
+                  f"0 1,0 "
+                  f"{fmt(cx - radius)},{fmt(cy)} "
+                  f"Z"
+              )
+
+
+          def ellipse_path(element):
+              cx = number(
+                  element.attrib.get("cx")
+              )
+
+              cy = number(
+                  element.attrib.get("cy")
+              )
+
+              rx = number(
+                  element.attrib.get("rx")
+              )
+
+              ry = number(
+                  element.attrib.get("ry")
+              )
+
+              if rx <= 0 or ry <= 0:
+                  return None
+
+              return (
+                  f"M {fmt(cx - rx)},{fmt(cy)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 1,0 "
+                  f"{fmt(cx + rx)},{fmt(cy)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 1,0 "
+                  f"{fmt(cx - rx)},{fmt(cy)} "
+                  f"Z"
+              )
+
+
+          def line_path(element):
+              x1 = number(
+                  element.attrib.get("x1")
+              )
+
+              y1 = number(
+                  element.attrib.get("y1")
+              )
+
+              x2 = number(
+                  element.attrib.get("x2")
+              )
+
+              y2 = number(
+                  element.attrib.get("y2")
+              )
+
+              return (
+                  f"M {fmt(x1)},{fmt(y1)} "
+                  f"L {fmt(x2)},{fmt(y2)}"
+              )
+
+
+          def rect_path(element):
+              x = number(
+                  element.attrib.get("x")
+              )
+
+              y = number(
+                  element.attrib.get("y")
+              )
+
+              width = number(
+                  element.attrib.get("width")
+              )
+
+              height = number(
+                  element.attrib.get("height")
+              )
+
+              if width <= 0 or height <= 0:
+                  return None
+
+              rx = number(
+                  element.attrib.get("rx")
+              )
+
+              ry = number(
+                  element.attrib.get("ry")
+              )
+
+              if rx <= 0 and ry > 0:
+                  rx = ry
+
+              if ry <= 0 and rx > 0:
+                  ry = rx
+
+              rx = min(
+                  rx,
+                  width / 2,
+              )
+
+              ry = min(
+                  ry,
+                  height / 2,
+              )
+
+              if rx <= 0 or ry <= 0:
+                  return (
+                      f"M {fmt(x)},{fmt(y)} "
+                      f"H {fmt(x + width)} "
+                      f"V {fmt(y + height)} "
+                      f"H {fmt(x)} "
+                      f"Z"
+                  )
+
+              return (
+                  f"M {fmt(x + rx)},{fmt(y)} "
+                  f"H {fmt(x + width - rx)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 0,1 "
+                  f"{fmt(x + width)},"
+                  f"{fmt(y + ry)} "
+
+                  f"V {fmt(y + height - ry)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 0,1 "
+                  f"{fmt(x + width - rx)},"
+                  f"{fmt(y + height)} "
+
+                  f"H {fmt(x + rx)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 0,1 "
+                  f"{fmt(x)},"
+                  f"{fmt(y + height - ry)} "
+
+                  f"V {fmt(y + ry)} "
+                  f"A {fmt(rx)},{fmt(ry)} "
+                  f"0 0,1 "
+                  f"{fmt(x + rx)},"
+                  f"{fmt(y)} "
+                  f"Z"
+              )
+
+
+          def points_path(element, close):
+              raw = element.attrib.get(
+                  "points",
+                  "",
+              )
+
+              values = re.findall(
+                  r"-?(?:\d+(?:\.\d*)?|\.\d+)"
+                  r"(?:[eE][+-]?\d+)?",
+                  raw,
+              )
+
+              if len(values) < 4:
+                  return None
+
+              if len(values) % 2 != 0:
+                  values = values[:-1]
+
+              points = []
+
+              for index in range(
+                  0,
+                  len(values),
+                  2,
+              ):
+                  points.append(
+                      (
+                          number(values[index]),
+                          number(
+                              values[
+                                  index + 1
+                              ]
+                          ),
                       )
-                      y1 = num(
-                          element.attrib.get("y1")
-                      )
-                      x2 = num(
-                          element.attrib.get("x2")
-                      )
-                      y2 = num(
-                          element.attrib.get("y2")
+                  )
+
+              if not points:
+                  return None
+
+              data = (
+                  f"M "
+                  f"{fmt(points[0][0])},"
+                  f"{fmt(points[0][1])}"
+              )
+
+              for x, y in points[1:]:
+                  data += (
+                      f" L "
+                      f"{fmt(x)},"
+                      f"{fmt(y)}"
+                  )
+
+              if close:
+                  data += " Z"
+
+              return data
+
+
+          # ============================================================
+          # TREE WALK
+          # ============================================================
+
+          DRAWABLE_TAGS = {
+              "path",
+              "circle",
+              "ellipse",
+              "rect",
+              "line",
+              "polyline",
+              "polygon",
+          }
+
+
+          def walk(
+              element,
+              builder,
+              inherited=None,
+          ):
+              if inherited is None:
+                  inherited = {}
+
+              current = dict(
+                  inherited
+              )
+
+              for attribute in [
+                  "fill",
+                  "stroke",
+                  "stroke-width",
+                  "stroke-linecap",
+                  "stroke-linejoin",
+              ]:
+                  if attribute in element.attrib:
+                      current[attribute] = (
+                          element.attrib[
+                              attribute
+                          ]
                       )
 
-                      add_path(
-                          f"M {fmt(x1)},{fmt(y1)} "
-                          f"L {fmt(x2)},{fmt(y2)}",
-                          fill=False,
-                          stroke=True,
-                          stroke_width=num(
-                              element.attrib.get(
+              tag = local_name(
+                  element.tag
+              )
+
+              path_data = None
+
+              if tag == "path":
+                  path_data = (
+                      element.attrib.get(
+                          "d"
+                      )
+                  )
+
+              elif tag == "circle":
+                  path_data = circle_path(
+                      element
+                  )
+
+              elif tag == "ellipse":
+                  path_data = ellipse_path(
+                      element
+                  )
+
+              elif tag == "rect":
+                  path_data = rect_path(
+                      element
+                  )
+
+              elif tag == "line":
+                  path_data = line_path(
+                      element
+                  )
+
+              elif tag == "polyline":
+                  path_data = points_path(
+                      element,
+                      close=False,
+                  )
+
+              elif tag == "polygon":
+                  path_data = points_path(
+                      element,
+                      close=True,
+                  )
+
+              if (
+                  tag in DRAWABLE_TAGS
+                  and path_data
+              ):
+                  fill_value = inherited_attr(
+                      element,
+                      current,
+                      "fill",
+                      "black",
+                  )
+
+                  stroke_value = inherited_attr(
+                      element,
+                      current,
+                      "stroke",
+                      "none",
+                  )
+
+                  fill_enabled = not is_none(
+                      fill_value
+                  )
+
+                  stroke_enabled = not is_none(
+                      stroke_value
+                  )
+
+                  # Lines/polyline normally rely on stroke.
+                  if tag == "line":
+                      fill_enabled = False
+
+                      if "stroke" not in current:
+                          stroke_enabled = True
+
+                  builder.add_path(
+                      path_data =
+                          path_data,
+
+                      fill =
+                          fill_enabled,
+
+                      stroke =
+                          stroke_enabled,
+
+                      stroke_width =
+                          number(
+                              current.get(
                                   "stroke-width"
                               ),
                               1.0,
                           ),
-                          linecap=element.attrib.get(
+
+                      line_cap =
+                          current.get(
                               "stroke-linecap"
                           ),
-                          linejoin=element.attrib.get(
+
+                      line_join =
+                          current.get(
                               "stroke-linejoin"
                           ),
-                      )
-
-                  elif tag in {"polyline", "polygon"}:
-                      points = re.findall(
-                          r"-?[0-9.]+(?:e[-+]?[0-9]+)?",
-                          element.attrib.get(
-                              "points",
-                              "",
-                          ),
-                          flags=re.I,
-                      )
-
-                      if len(points) >= 4:
-                          pairs = list(
-                              zip(
-                                  points[0::2],
-                                  points[1::2],
-                              )
-                          )
-
-                          data = (
-                              f"M {pairs[0][0]},"
-                              f"{pairs[0][1]} "
-                          )
-
-                          for x, y in pairs[1:]:
-                              data += f"L {x},{y} "
-
-                          if tag == "polygon":
-                              data += "Z"
-
-                          fill_value = (
-                              element.attrib.get(
-                                  "fill",
-                                  "none",
-                              )
-                          )
-
-                          stroke_value = (
-                              element.attrib.get(
-                                  "stroke",
-                                  "black",
-                              )
-                          )
-
-                          add_path(
-                              data,
-                              fill=fill_value != "none",
-                              stroke=stroke_value != "none",
-                              stroke_width=num(
-                                  element.attrib.get(
-                                      "stroke-width"
-                                  ),
-                                  1.0,
-                              ),
-                              linecap=element.attrib.get(
-                                  "stroke-linecap"
-                              ),
-                              linejoin=element.attrib.get(
-                                  "stroke-linejoin"
-                              ),
-                          )
-
-                  # Phosphor files primarily use paths and
-                  # simple primitives. Child nodes still need
-                  # recursive processing.
-                  for child in element:
-                      walk(child)
-
-              walk(root)
-
-              if paths_added == 0:
-                  raise RuntimeError(
-                      f"No convertible paths found: {svg_path}"
                   )
 
-              ET.indent(
-                  vector,
-                  space="    ",
+              for child in element:
+                  walk(
+                      child,
+                      builder,
+                      current,
+                  )
+
+
+          # ============================================================
+          # SVG -> VECTOR
+          # ============================================================
+
+          def convert_svg(
+              source,
+              destination,
+          ):
+              tree = ET.parse(
+                  source
               )
 
+              root = tree.getroot()
+
+              view_box = (
+                  root.attrib
+                  .get(
+                      "viewBox",
+                      "0 0 256 256",
+                  )
+                  .replace(
+                      ",",
+                      " ",
+                  )
+                  .split()
+              )
+
+              if len(view_box) != 4:
+                  raise RuntimeError(
+                      "Invalid SVG viewBox"
+                  )
+
+              min_x = number(
+                  view_box[0]
+              )
+
+              min_y = number(
+                  view_box[1]
+              )
+
+              viewport_width = number(
+                  view_box[2],
+                  256.0,
+              )
+
+              viewport_height = number(
+                  view_box[3],
+                  256.0,
+              )
+
+              if (
+                  viewport_width <= 0
+                  or viewport_height <= 0
+              ):
+                  raise RuntimeError(
+                      "Invalid viewport size"
+                  )
+
+              if (
+                  min_x != 0
+                  or min_y != 0
+              ):
+                  print(
+                      "WARNING: "
+                      f"{source} has non-zero "
+                      f"viewBox origin "
+                      f"({min_x}, {min_y})"
+                  )
+
+              builder = VectorBuilder(
+                  viewport_width,
+                  viewport_height,
+              )
+
+              walk(
+                  root,
+                  builder,
+              )
+
+              if builder.count == 0:
+                  raise RuntimeError(
+                      "No convertible paths found"
+                  )
+
+              try:
+                  ET.indent(
+                      builder.root,
+                      space="    ",
+                  )
+              except AttributeError:
+                  pass
+
               xml = ET.tostring(
-                  vector,
+                  builder.root,
                   encoding="unicode",
               )
 
-              output_path.write_text(
-                  '<?xml version="1.0" encoding="utf-8"?>\n'
+              destination.write_text(
+                  '<?xml version="1.0" '
+                  'encoding="utf-8"?>\n'
                   + xml
                   + "\n",
                   encoding="utf-8",
               )
 
+              return builder.count
+
+
+          # ============================================================
+          # IMPORT
+          # ============================================================
+
           failures = []
+          generated = []
+
+          print(
+              "\n"
+              "============================================"
+          )
+
+          print(
+              "XVOX PHOSPHOR IMPORT"
+          )
+
+          print(
+              "============================================"
+          )
 
           for android_name, (
               phosphor_name,
@@ -495,29 +953,63 @@ jobs:
 
               if source is None:
                   failures.append(
-                      f"{phosphor_name} ({weight})"
+                      f"{android_name}: "
+                      f"could not locate "
+                      f"{phosphor_name} "
+                      f"({weight})"
                   )
+
                   continue
 
               destination = (
-                  OUTPUT /
+                  OUTPUT_ROOT /
                   f"{android_name}.xml"
               )
 
-              print(
-                  f"{phosphor_name} [{weight}] "
-                  f"-> {destination}"
-              )
-
               try:
-                  svg_to_vector(
+                  path_count = convert_svg(
                       source,
                       destination,
                   )
-              except Exception as exc:
-                  failures.append(
-                      f"{phosphor_name}: {exc}"
+
+                  generated.append(
+                      destination
                   )
+
+                  print(
+                      f"OK  "
+                      f"{phosphor_name} "
+                      f"[{weight}] "
+                      f"-> "
+                      f"{destination} "
+                      f"({path_count} paths)"
+                  )
+
+              except Exception as error:
+                  failures.append(
+                      f"{android_name}: "
+                      f"{source}: "
+                      f"{error}"
+                  )
+
+          print(
+              "\n"
+              "============================================"
+          )
+
+          print(
+              f"Generated: "
+              f"{len(generated)}"
+          )
+
+          print(
+              f"Failures: "
+              f"{len(failures)}"
+          )
+
+          print(
+              "============================================"
+          )
 
           if failures:
               print(
@@ -533,29 +1025,46 @@ jobs:
 
               sys.exit(1)
 
-          print(
-              f"\nImported {len(ICONS)} icons."
-          )
           PY
 
-      - name: Show generated icons
+      - name: Validate generated VectorDrawables
+        shell: bash
         run: |
-          ls -lah app/src/main/res/drawable/ic_xvox_*.xml
+          set -euo pipefail
 
-      - name: Commit generated icons
+          echo "Generated XVOX icon files:"
+          echo
+
+          find \
+            app/src/main/res/drawable \
+            -maxdepth 1 \
+            -type f \
+            -name 'ic_xvox_*.xml' \
+            -print \
+            | sort
+
+      - name: Commit icons to XVOX
         shell: bash
         run: |
           set -euo pipefail
 
           if git diff --quiet -- app/src/main/res/drawable; then
-            echo "No icon changes to commit."
+            echo "Icons are already up to date."
             exit 0
           fi
 
-          git config user.name "xvox-actions"
-          git config user.email "actions@users.noreply.github.com"
+          git config \
+            user.name \
+            "xvox-actions"
 
-          git add app/src/main/res/drawable/ic_xvox_*.xml
+          git config \
+            user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git commit -m "Import XVOX Phosphor icons"
+          git add \
+            app/src/main/res/drawable/ic_xvox_*.xml
+
+          git commit \
+            -m "Import XVOX Phosphor icons"
+
           git push
