@@ -11,9 +11,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.spacedBy
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -57,8 +58,7 @@ fun XvoxMiniPlayerActions(
     ) {
         Row(
             horizontalArrangement =
-                androidx.compose.foundation.layout.Arrangement
-                    .spacedBy(12.dp),
+                Arrangement.spacedBy(12.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -88,7 +88,7 @@ private fun ActionCircle(
     val colors =
         XvoxTheme.colors
 
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = Modifier
             .size(42.dp)
             .background(
