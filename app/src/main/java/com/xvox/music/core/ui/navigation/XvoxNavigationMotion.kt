@@ -16,21 +16,15 @@ data class XvoxNavigationMotion(
 @Composable
 fun rememberXvoxNavigationMotion(
     position: Float,
-    dragging: Boolean
+    dragging: Boolean,
+    holding: Boolean
 ): XvoxNavigationMotion {
 
     /*
-     * DURING DRAG:
+     * When actively dragging, the selector follows
+     * the finger directly.
      *
-     * Do NOT animate position.
-     *
-     * The pill follows the finger immediately.
-     *
-     * This removes the "behind my finger" feeling.
-     *
-     * AFTER DRAG:
-     *
-     * Keep a tiny spring only for settling.
+     * Tap / release selection uses a short spring.
      */
     val animatedPosition by
         animateFloatAsState(
@@ -43,10 +37,6 @@ fun rememberXvoxNavigationMotion(
             label = "navPosition"
         )
 
-    /*
-     * Direct while dragging.
-     * Slightly animated when releasing.
-     */
     val finalPosition =
         if (dragging) {
             position
@@ -55,52 +45,44 @@ fun rememberXvoxNavigationMotion(
         }
 
     /*
-     * Grow animation.
+     * IMPORTANT:
      *
-     * Fast enough that it doesn't feel delayed.
+     * Dragging does NOT grow the selector.
+     *
+     * Only a real stationary hold can grow it.
      */
     val grow by
         animateFloatAsState(
             targetValue =
-                if (dragging) {
+                if (holding) {
                     1f
                 } else {
                     0f
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.88f,
-                    stiffness = 1500f
+                    dampingRatio = 0.86f,
+                    stiffness = 1250f
                 ),
             label = "navGrow"
         )
 
     /*
-     * Keep navbar scale extremely subtle.
+     * Parent navigation stays physically fixed.
      *
-     * Your previous 1.04f made the whole bar
-     * feel like it was bouncing.
+     * No tap zoom.
+     * No drag zoom.
+     * No hold zoom of the entire navbar.
      */
-    val barScale by
-        animateFloatAsState(
-            targetValue =
-                if (dragging) {
-                    1.018f
-                } else {
-                    1f
-                },
-            animationSpec =
-                spring(
-                    dampingRatio = 0.88f,
-                    stiffness = 1500f
-                ),
-            label = "navBarScale"
-        )
+    val barScale = 1f
 
     return XvoxNavigationMotion(
-        position = finalPosition,
-        grow = grow,
-        barScale = barScale
+        position =
+            finalPosition,
+        grow =
+            grow,
+        barScale =
+            barScale
     )
 }
 
@@ -126,7 +108,6 @@ fun navigationColor(
     active: Color,
     proximity: Float
 ): Color {
-
     val value =
         proximity.coerceIn(
             0f,
