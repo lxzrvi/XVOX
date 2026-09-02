@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,14 +36,21 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
-private const val RecentTransitionDuration =
-    260L
+private const val RecentSlideMillis =
+    280
 
-private data class RecentFrontPresentation(
-    val eventId: Long,
-    val song: Song?
-)
+private sealed interface RecentVisual {
+
+    data object Empty :
+        RecentVisual
+
+    data class SongCard(
+        val song: Song,
+        val eventId: Long
+    ) : RecentVisual
+}
 
 @Composable
 fun RecentCarousel(
@@ -62,60 +70,121 @@ fun RecentCarousel(
             listState
         )
 
-    var presentedEventId by remember {
+    /*
+     * What was actually visible before the latest
+     * All Songs event.
+     */
+    var previousVisual by remember {
+        mutableStateOf<RecentVisual>(
+            RecentVisual.Empty
+        )
+    }
+
+    var transitionVisual by remember {
+        mutableStateOf<RecentVisual?>(null)
+    }
+
+    var handledEvent by remember {
         mutableLongStateOf(0L)
     }
 
-    var transitionVisible by remember {
-        androidx.compose.runtime
-            .mutableStateOf(false)
+    var transitioning by remember {
+        mutableStateOf(false)
     }
 
+    /*
+     * Keep our previous presentation synchronized while
+     * user manually scrolls Recent and there is no
+     * transition.
+     */
     LaunchedEffect(
-        transition.id
+        listState.isScrollInProgress,
+        songs,
+        transitioning
+    ) {
+        if (
+            !transitioning
+        ) {
+            val focused =
+                focusedSong(
+                    songs = songs,
+                    listState =
+                        listState
+                )
+
+            previousVisual =
+                if (focused == null) {
+                    RecentVisual.Empty
+                } else {
+                    RecentVisual.SongCard(
+                        song = focused,
+                        eventId = 0L
+                    )
+                }
+        }
+    }
+
+    /*
+     * Only All Songs creates this animation.
+     */
+    LaunchedEffect(
+        transition.id,
+        songs
     ) {
         if (
             transition.id == 0L ||
             transition.id ==
-            presentedEventId ||
+            handledEvent ||
             transition.mode !=
             RecentTransitionMode.LIBRARY
         ) {
             return@LaunchedEffect
         }
 
-        presentedEventId =
+        handledEvent =
             transition.id
 
-        /*
-         * Underlying history immediately becomes correct.
-         *
-         * No animateScrollToItem here:
-         * hidden cards must never parade across the screen.
-         */
-        if (
-            songs.isNotEmpty()
-        ) {
-            listState.scrollToItem(0)
-        }
+        val incoming =
+            songs.firstOrNull {
+                it.id ==
+                    transition.songId
+            } ?: songs.firstOrNull()
+            ?: return@LaunchedEffect
 
-        transitionVisible =
-            true
+        transitioning = true
+
+        transitionVisual =
+            RecentVisual.SongCard(
+                song = incoming,
+                eventId =
+                    transition.id
+            )
+
+        /*
+         * Real history becomes ready at front without
+         * scrolling intermediate songs past the screen.
+         */
+        listState.scrollToItem(0)
 
         delay(
-            RecentTransitionDuration
+            RecentSlideMillis.toLong()
         )
 
-        transitionVisible =
-            false
+        previousVisual =
+            RecentVisual.SongCard(
+                song = incoming,
+                eventId = 0L
+            )
+
+        transitionVisual = null
+        transitioning = false
     }
 
     BoxWithConstraints(
         modifier =
             Modifier.fillMaxWidth()
     ) {
-        val edge =
-            6.dp
+        val edge = 6.dp
 
         val itemWidth =
             maxWidth -
@@ -133,169 +202,149 @@ fun RecentCarousel(
                 Alignment.CenterHorizontally
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(
-                        122.dp
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(
+                            122.dp
+                        )
             ) {
                 if (
-                    songs.isEmpty()
+                    transitioning &&
+                    transitionVisual != null
                 ) {
-                    Box(
-                        modifier =
-                            Modifier.fillMaxSize(),
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        Text(
-                            text =
-                                "Nothing played yet",
-                            color =
-                                XvoxTheme.colors
-                                    .secondaryText,
-                            fontSize = 12.sp
-                        )
-                    }
-                } else {
-                    LazyRow(
-                        state =
-                            listState,
-                        flingBehavior =
-                            fling,
-                        modifier =
-                            Modifier.fillMaxSize(),
-                        contentPadding =
-                            PaddingValues(
-                                horizontal =
-                                    edge
-                            ),
-                        horizontalArrangement =
-                            Arrangement.spacedBy(
-                                itemGap
-                            )
-                    ) {
-                        items(
-                            items =
-                                songs,
-                            key = {
-                                it.id
-                            },
-                            contentType = {
-                                "recent_song"
-                            }
-                        ) { song ->
-                            RecentArtwork(
-                                song =
-                                    song,
-                                current =
-                                    song.id ==
-                                        currentSongId,
-                                playing =
-                                    song.id ==
-                                        currentSongId &&
-                                        isPlaying,
-                                onClick = {
-                                    onSongClick(
-                                        song
-                                    )
-                                },
-                                modifier =
-                                    Modifier
-                                        .width(
-                                            itemWidth
-                                        )
-                                        .height(
-                                            122.dp
-                                        )
-                            )
-                        }
-                    }
-                }
-
-                /*
-                 * ALL SONGS transition only.
-                 *
-                 * This presenter doesn't add click handlers,
-                 * and disappears after 260ms.
-                 */
-                if (
-                    transitionVisible
-                ) {
+                    /*
+                     * During an All Songs event only this
+                     * retained presentation is rendered.
+                     *
+                     * outgoing:
+                     * previous focused/empty -> RIGHT
+                     *
+                     * incoming:
+                     * selected song <- LEFT
+                     */
                     AnimatedContent(
                         targetState =
-                            RecentFrontPresentation(
-                                eventId =
-                                    transition.id,
-                                song =
-                                    songs.firstOrNull()
-                            ),
+                            transitionVisual!!,
                         contentKey = {
-                            it.eventId
+                            when (it) {
+                                RecentVisual.Empty ->
+                                    "empty"
+
+                                is RecentVisual.SongCard ->
+                                    "event_${it.eventId}_${it.song.id}"
+                            }
                         },
                         transitionSpec = {
                             (
                                 slideInHorizontally(
                                     animationSpec =
                                         tween(
-                                            RecentTransitionDuration
-                                                .toInt()
+                                            RecentSlideMillis
                                         ),
                                     initialOffsetX = {
                                         -it
                                     }
                                 ) +
                                     fadeIn(
-                                        tween(150)
+                                        tween(170)
                                     )
                                 )
                                 .togetherWith(
                                     slideOutHorizontally(
                                         animationSpec =
                                             tween(
-                                                RecentTransitionDuration
-                                                    .toInt()
+                                                RecentSlideMillis
                                             ),
                                         targetOffsetX = {
                                             it
                                         }
                                     ) +
                                         fadeOut(
-                                            tween(150)
+                                            tween(170)
                                         )
                                 )
                         },
                         modifier =
                             Modifier.fillMaxSize(),
                         label =
-                            "recentLibraryTransition"
-                    ) { front ->
-                        Box(
+                            "recentLibrarySlide"
+                    ) { visual ->
+                        RecentVisualContent(
+                            visual =
+                                visual,
+                            currentSongId =
+                                currentSongId,
+                            isPlaying =
+                                isPlaying,
+                            onSongClick = {},
+                            edge = edge
+                        )
+                    }
+                } else {
+                    if (
+                        songs.isEmpty()
+                    ) {
+                        RecentEmpty(
                             modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(
-                                        horizontal =
-                                            edge
-                                    )
+                                Modifier.fillMaxSize()
+                        )
+                    } else {
+                        LazyRow(
+                            state =
+                                listState,
+                            flingBehavior =
+                                fling,
+                            modifier =
+                                Modifier.fillMaxSize(),
+                            contentPadding =
+                                PaddingValues(
+                                    horizontal =
+                                        edge
+                                ),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    itemGap
+                                )
                         ) {
-                            front.song
-                                ?.let { song ->
-                                    RecentArtwork(
-                                        song =
-                                            song,
-                                        current =
-                                            song.id ==
-                                                currentSongId,
-                                        playing =
-                                            song.id ==
-                                                currentSongId &&
-                                                isPlaying,
-                                        onClick = {},
-                                        modifier =
-                                            Modifier.fillMaxSize()
-                                    )
+                            items(
+                                items = songs,
+                                key = {
+                                    it.id
+                                },
+                                contentType = {
+                                    "recent_song"
                                 }
+                            ) { song ->
+                                RecentArtwork(
+                                    song = song,
+                                    current =
+                                        song.id ==
+                                            currentSongId,
+                                    playing =
+                                        song.id ==
+                                            currentSongId &&
+                                            isPlaying,
+                                    onClick = {
+                                        /*
+                                         * NO Recent animation.
+                                         * ViewModel promotes it
+                                         * silently.
+                                         */
+                                        onSongClick(
+                                            song
+                                        )
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .width(
+                                                itemWidth
+                                            )
+                                            .height(
+                                                122.dp
+                                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -321,4 +370,125 @@ fun RecentCarousel(
             )
         }
     }
+}
+
+@Composable
+private fun RecentVisualContent(
+    visual: RecentVisual,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    onSongClick: () -> Unit,
+    edge: androidx.compose.ui.unit.Dp
+) {
+    when (visual) {
+        RecentVisual.Empty -> {
+            RecentEmpty(
+                modifier =
+                    Modifier.fillMaxSize()
+            )
+        }
+
+        is RecentVisual.SongCard -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(
+                            horizontal =
+                                edge
+                        )
+            ) {
+                RecentArtwork(
+                    song =
+                        visual.song,
+                    current =
+                        visual.song.id ==
+                            currentSongId,
+                    playing =
+                        visual.song.id ==
+                            currentSongId &&
+                            isPlaying,
+                    onClick =
+                        onSongClick,
+                    modifier =
+                        Modifier.fillMaxSize()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentEmpty(
+    modifier: Modifier =
+        Modifier
+) {
+    Box(
+        modifier =
+            modifier,
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Text(
+            text =
+                "Nothing played yet",
+            color =
+                XvoxTheme.colors
+                    .secondaryText,
+            fontSize = 12.sp
+        )
+    }
+}
+
+private fun focusedSong(
+    songs: List<Song>,
+    listState:
+        androidx.compose.foundation.lazy.LazyListState
+): Song? {
+    if (
+        songs.isEmpty()
+    ) {
+        return null
+    }
+
+    val layout =
+        listState.layoutInfo
+
+    val visible =
+        layout.visibleItemsInfo
+
+    if (
+        visible.isEmpty()
+    ) {
+        return songs.getOrNull(
+            listState
+                .firstVisibleItemIndex
+        )
+    }
+
+    val center =
+        (
+            layout.viewportStartOffset +
+                layout.viewportEndOffset
+            ) / 2
+
+    val index =
+        visible
+            .minByOrNull {
+                item ->
+
+                abs(
+                    (
+                        item.offset +
+                            item.size / 2
+                        ) -
+                        center
+                )
+            }
+            ?.index
+            ?: 0
+
+    return songs.getOrNull(
+        index
+    )
 }
