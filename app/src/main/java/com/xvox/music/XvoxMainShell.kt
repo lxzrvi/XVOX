@@ -40,15 +40,20 @@ fun XvoxMainShell() {
                 colors.background
             )
     ) {
-        when (destination) {
-            XvoxDestination.HOME ->
-                HomeScreen()
+        Box(
+            modifier =
+                Modifier.fillMaxSize()
+        ) {
+            when (destination) {
+                XvoxDestination.HOME ->
+                    HomeScreen()
 
-            XvoxDestination.SEARCH ->
-                SearchScreen()
+                XvoxDestination.SEARCH ->
+                    SearchScreen()
 
-            XvoxDestination.SETTINGS ->
-                SettingsScreen()
+                XvoxDestination.SETTINGS ->
+                    SettingsScreen()
+            }
         }
 
         XvoxBottomBar(
@@ -62,7 +67,8 @@ fun XvoxMainShell() {
                     Alignment.BottomCenter
                 )
                 .windowInsetsPadding(
-                    WindowInsets.navigationBars
+                    WindowInsets
+                        .navigationBars
                 )
                 .padding(
                     bottom = 18.dp
