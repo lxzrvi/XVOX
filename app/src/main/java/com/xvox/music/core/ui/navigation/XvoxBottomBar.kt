@@ -20,29 +20,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.XvoxGlassStyle
-import com.xvox.music.core.ui.effects.xvoxGlass
-import com.xvox.music.core.ui.effects.xvoxNavigationLens
 import kotlin.math.abs
 
 @Composable
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
-    sky: Sky,
     modifier: Modifier = Modifier
 ) {
+    val colors =
+        XvoxTheme.colors
 
-    val colors = XvoxTheme.colors
-
-    val density = LocalDensity.current
+    val density =
+        LocalDensity.current
 
     val destinations =
         XvoxDestination.entries
@@ -64,13 +58,7 @@ fun XvoxBottomBar(
         mutableFloatStateOf(0f)
     }
 
-    /*
-     * External selection change.
-     *
-     * No artificial delay.
-     */
     LaunchedEffect(selectedIndex) {
-
         if (!dragging) {
             position =
                 selectedIndex.toFloat()
@@ -83,26 +71,20 @@ fun XvoxBottomBar(
             dragging = dragging
         )
 
+    val parentShape =
+        RoundedCornerShape(
+            XvoxNavigationGeometry
+                .barRadius
+        )
+
     val parentBorder =
         colors.cardBorder.copy(
             alpha = 0.62f
         )
 
-    /*
-     * Very transparent fallback.
-     *
-     * This prevents a completely empty surface
-     * on devices where the shader is unavailable,
-     * but it does NOT create the grey blob effect.
-     */
-    val selectorFallback =
-        colors.cardElevated.copy(
-            alpha = 0.055f
-        )
-
     val selectorBorder =
         colors.cardBorder.copy(
-            alpha = 0.78f
+            alpha = 0.72f
         )
 
     val inactive =
@@ -116,15 +98,15 @@ fun XvoxBottomBar(
     Box(
         modifier = modifier
             .width(
-                XvoxNavigationGeometry.barWidth
+                XvoxNavigationGeometry
+                    .barWidth
             )
             .height(
-                XvoxNavigationGeometry.hostHeight
+                XvoxNavigationGeometry
+                    .hostHeight
             )
             .pointerInput(selectedIndex) {
-
                 awaitEachGesture {
-
                     val first =
                         awaitFirstDown()
 
@@ -142,23 +124,14 @@ fun XvoxBottomBar(
                             XvoxNavigationGeometry
                                 .DragResistance
 
-                    var lastX =
-                        startX
-
-                    var total =
-                        0f
-
-                    var change =
-                        first
+                    var lastX = startX
+                    var total = 0f
+                    var change = first
 
                     dragging = true
-
                     velocity = 0f
 
-                    while (
-                        change.pressed
-                    ) {
-
+                    while (change.pressed) {
                         val event =
                             awaitPointerEvent()
 
@@ -166,61 +139,40 @@ fun XvoxBottomBar(
                             event.changes.first()
 
                         if (change.pressed) {
-
                             val currentX =
                                 change.position.x
 
                             val dx =
-                                currentX -
-                                    lastX
+                                currentX - lastX
 
                             total =
-                                currentX -
-                                    startX
+                                currentX - startX
 
                             lastX =
                                 currentX
 
-                            /*
-                             * Fast velocity tracking.
-                             */
                             velocity =
                                 velocity * 0.68f +
                                     dx * 0.32f
 
-                            /*
-                             * IMPORTANT:
-                             *
-                             * position is now passed directly
-                             * through the motion system while
-                             * dragging.
-                             *
-                             * No spring delay.
-                             */
                             position =
                                 (
                                     startIndex +
-                                        total /
-                                            dragSlot
+                                        total / dragSlot
                                     )
                                     .coerceIn(
                                         0f,
                                         2f
                                     )
 
-                            if (
-                                abs(total) > 2f
-                            ) {
+                            if (abs(total) > 2f) {
                                 change.consume()
                             }
                         }
                     }
 
                     val target =
-                        if (
-                            abs(total) <= 7f
-                        ) {
-
+                        if (abs(total) <= 7f) {
                             (
                                 first.position.x /
                                     physicalSlot
@@ -230,9 +182,7 @@ fun XvoxBottomBar(
                                     0,
                                     2
                                 )
-
                         } else {
-
                             settleDestination(
                                 start =
                                     startIndex,
@@ -246,10 +196,7 @@ fun XvoxBottomBar(
                     position =
                         target.toFloat()
 
-                    if (
-                        target != selectedIndex
-                    ) {
-
+                    if (target != selectedIndex) {
                         onSelected(
                             destinations[target]
                         )
@@ -259,69 +206,49 @@ fun XvoxBottomBar(
                 }
             }
     ) {
-
-        /*
-         * ====================================================
-         * MAIN NAVBAR GLASS
-         * ====================================================
-         */
-
-        val parentShape =
-            RoundedCornerShape(
-                XvoxNavigationGeometry.barRadius
-            )
-
         Box(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopCenter
+            modifier = Modifier
+                .align(
+                    Alignment.TopCenter
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow
+                )
+                .size(
+                    XvoxNavigationGeometry
+                        .barWidth,
+                    XvoxNavigationGeometry
+                        .barHeight
+                )
+                .graphicsLayer {
+                    scaleX =
+                        motion.barScale
+
+                    scaleY =
+                        motion.barScale
+
+                    shape =
+                        parentShape
+
+                    clip = true
+                }
+                .background(
+                    colors.surface.copy(
+                        alpha = 0.88f
                     )
-                    .offset(
-                        y =
-                            XvoxNavigationGeometry
-                                .hostOverflow
-                    )
-                    .size(
-                        XvoxNavigationGeometry.barWidth,
-                        XvoxNavigationGeometry.barHeight
-                    )
-                    .graphicsLayer {
-
-                        scaleX =
-                            motion.barScale
-
-                        scaleY =
-                            motion.barScale
-
-                        shape =
-                            parentShape
-
-                        clip = true
-                    }
-                    .xvoxGlass(
-                        sky = sky,
-                        style =
-                            XvoxGlassStyle.NAVIGATION
-                    )
-                    .border(
-                        width =
-                            XvoxNavigationGeometry
-                                .barBorderWidth,
-
-                        color =
-                            parentBorder,
-
-                        shape =
-                            parentShape
-                    )
+                )
+                .border(
+                    width =
+                        XvoxNavigationGeometry
+                            .barBorderWidth,
+                    color =
+                        parentBorder,
+                    shape =
+                        parentShape
+                )
         )
-
-        /*
-         * ====================================================
-         * SELECTOR DIMENSIONS
-         * ====================================================
-         */
 
         val selectorWidth =
             XvoxNavigationGeometry
@@ -344,235 +271,121 @@ fun XvoxBottomBar(
                     .selectorGrowRadius *
                 motion.grow
 
-        val selectorWidthPx =
-            with(density) {
-                selectorWidth.toPx()
-            }
-
-        val selectorHeightPx =
-            with(density) {
-                selectorHeight.toPx()
-            }
-
-        val selectorRadiusPx =
-            with(density) {
-                selectorRadius.toPx()
-            }
-
-        /*
-         * ====================================================
-         * SUBTLE DRAG STRETCH
-         * ====================================================
-         *
-         * Much smaller than before.
-         *
-         * This prevents the lens from looking shaky.
-         */
+        val selectorShape =
+            RoundedCornerShape(
+                selectorRadius
+            )
 
         val stretch =
             if (dragging) {
-
                 (
                     abs(velocity) / 28f
-                )
+                    )
                     .coerceIn(
                         0f,
                         1f
                     )
-
             } else {
                 0f
             }
 
-        /*
-         * ====================================================
-         * SELECTED LIQUID GLASS PILL
-         * ====================================================
-         */
-
         Box(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopStart
-                    )
-                    .offset(
-                        y =
+            modifier = Modifier
+                .align(
+                    Alignment.TopStart
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow +
                             XvoxNavigationGeometry
-                                .hostOverflow +
+                                .barHeight / 2 -
+                            selectorHeight / 2
+                )
+                .graphicsLayer {
+                    translationX =
+                        (
+                            XvoxNavigationGeometry
+                                .selectorStart +
                                 XvoxNavigationGeometry
-                                    .barHeight /
-                                2 -
-                                selectorHeight /
-                                2
-                    )
-
-                    /*
-                     * Position follows motion.
-                     */
-                    .graphicsLayer {
-
-                        translationX =
-                            (
-                                XvoxNavigationGeometry
-                                    .selectorStart +
-
-                                    XvoxNavigationGeometry
-                                        .selectorTravel *
-                                    (
-                                        motion.position /
-                                            2f
+                                    .selectorTravel *
+                                (
+                                    motion.position /
+                                        2f
                                     ) -
-
-                                    XvoxNavigationGeometry
-                                        .selectorGrowShift *
-                                    motion.grow
+                                XvoxNavigationGeometry
+                                    .selectorGrowShift *
+                                motion.grow
                             )
                             .toPx()
 
-                        /*
-                         * Very subtle physical stretch.
-                         *
-                         * No aggressive rotation.
-                         */
-                        scaleX =
-                            1f +
-                                stretch *
-                                0.075f
+                    scaleX =
+                        1f +
+                            stretch * 0.075f
 
-                        scaleY =
-                            1f -
-                                stretch *
-                                0.035f
+                    scaleY =
+                        1f -
+                            stretch * 0.035f
 
-                        rotationZ =
-                            (
-                                velocity *
-                                    0.035f
+                    rotationZ =
+                        (
+                            velocity * 0.035f
                             )
-                                .coerceIn(
-                                    -0.65f,
-                                    0.65f
-                                )
-
-                        /*
-                         * Disable noticeable 3D tilt.
-                         *
-                         * This was one of the reasons
-                         * the old pill could feel shaky.
-                         */
-                        rotationY = 0f
-
-                        cameraDistance =
-                            32f *
-                                density.density
-                    }
-
-                    .size(
-                        selectorWidth,
-                        selectorHeight
-                    )
-
-                    /*
-                     * Clip ONLY the pill shape.
-                     */
-                    .graphicsLayer {
-
-                        shape =
-                            RoundedCornerShape(
-                                selectorRadius
+                            .coerceIn(
+                                -0.65f,
+                                0.65f
                             )
 
-                        clip = true
-                    }
+                    rotationY = 0f
 
-                    /*
-                     * Extremely subtle fallback.
-                     */
-                    .background(
-                        selectorFallback
+                    cameraDistance =
+                        32f *
+                            density.density
+                }
+                .size(
+                    selectorWidth,
+                    selectorHeight
+                )
+                .graphicsLayer {
+                    shape =
+                        selectorShape
+                    clip = true
+                }
+                .background(
+                    colors.cardElevated.copy(
+                        alpha = 0.42f
                     )
-
-                    /*
-                     * =================================================
-                     * CLOUDY BACKDROP BLUR
-                     * +
-                     * LIQUID GLASS LENS
-                     * =================================================
-                     *
-                     * This is the important part.
-                     */
-                    .xvoxNavigationLens(
-                        sky = sky,
-
-                        lensCenter =
-                            Offset(
-                                x =
-                                    selectorWidthPx /
-                                        2f,
-
-                                y =
-                                    selectorHeightPx /
-                                        2f
-                            ),
-
-                        lensSize =
-                            Size(
-                                width =
-                                    selectorWidthPx,
-
-                                height =
-                                    selectorHeightPx
-                            ),
-
-                        cornerRadius =
-                            selectorRadiusPx
-                    )
-
-                    /*
-                     * Very thin glass rim.
-                     */
-                    .border(
-                        width =
-                            XvoxNavigationGeometry
-                                .selectorBorderWidth,
-
-                        color =
-                            selectorBorder,
-
-                        shape =
-                            RoundedCornerShape(
-                                selectorRadius
-                            )
-                    )
+                )
+                .border(
+                    width =
+                        XvoxNavigationGeometry
+                            .selectorBorderWidth,
+                    color =
+                        selectorBorder,
+                    shape =
+                        selectorShape
+                )
         )
 
-        /*
-         * ====================================================
-         * NAVIGATION ICONS + TEXT
-         * ====================================================
-         */
-
         Row(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopCenter
-                    )
-                    .offset(
-                        y =
-                            XvoxNavigationGeometry
-                                .hostOverflow
-                    )
-                    .size(
-                        XvoxNavigationGeometry.barWidth,
-                        XvoxNavigationGeometry.barHeight
-                    ),
-
+            modifier = Modifier
+                .align(
+                    Alignment.TopCenter
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow
+                )
+                .size(
+                    XvoxNavigationGeometry
+                        .barWidth,
+                    XvoxNavigationGeometry
+                        .barHeight
+                ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-
             destinations.forEachIndexed {
                 index,
                 destination ->
@@ -581,7 +394,6 @@ fun XvoxBottomBar(
                     navigationProximity(
                         position =
                             motion.position,
-
                         index =
                             index
                     )
@@ -589,23 +401,16 @@ fun XvoxBottomBar(
                 XvoxNavigationItem(
                     destination =
                         destination,
-
                     proximity =
                         proximity,
-
                     dragging =
                         dragging,
-
                     inactiveColor =
                         inactive,
-
                     activeColor =
                         active,
-
                     modifier =
-                        Modifier.weight(
-                            1f
-                        )
+                        Modifier.weight(1f)
                 )
             }
         }
@@ -616,7 +421,6 @@ private fun settleDestination(
     start: Int,
     position: Float
 ): Int {
-
     val delta =
         position -
             start.toFloat()
@@ -652,8 +456,7 @@ private fun settleDestination(
 
     return (
         start +
-            direction *
-            steps
+            direction * steps
         )
         .coerceIn(
             0,
