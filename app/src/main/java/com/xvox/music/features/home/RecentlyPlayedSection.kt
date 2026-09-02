@@ -1,7 +1,6 @@
 package com.xvox.music.features.home
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,18 +27,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,8 +50,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
-private data class RecentFrontTarget(
-    val transitionKey: Long,
+private data class FrontPresentation(
+    val key: Long,
     val song: Song?
 )
 
@@ -80,8 +76,12 @@ fun RecentlyPlayedSection(
                 .padding(
                     start = 12.dp,
                     end = 12.dp,
-                    top = 12.dp,
-                    bottom = 12.dp
+                    top =
+                        HomeGeometry
+                            .sectionGap,
+                    bottom =
+                        HomeGeometry
+                            .sectionGap
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -138,43 +138,6 @@ private fun RecentCarousel(
             listState
         )
 
-    /*
-     * Only an explicit external/library event is
-     * allowed to visually pull Recent to its front.
-     *
-     * Silent history reorder from Recent taps does
-     * not trigger this effect.
-     */
-    var handledTransitionKey by remember {
-        mutableLongStateOf(
-            frontTransitionKey
-        )
-    }
-
-    val showFrontTransition =
-        frontTransitionKey >
-            handledTransitionKey
-
-    LaunchedEffect(
-        frontTransitionKey
-    ) {
-        if (
-            frontTransitionKey >
-            handledTransitionKey
-        ) {
-            /*
-             * Prepare the real row underneath at index 0.
-             * The AnimatedContent below visually covers this
-             * change, so intermediate history items don't
-             * animate through the viewport.
-             */
-            listState.scrollToItem(0)
-
-            handledTransitionKey =
-                frontTransitionKey
-        }
-    }
-
     BoxWithConstraints(
         modifier =
             Modifier.fillMaxWidth()
@@ -195,18 +158,25 @@ private fun RecentCarousel(
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
-            /*
-             * Normal history row.
-             *
-             * NO animateItem.
-             * NO list-wide reorder animation.
-             */
             if (songs.isEmpty()) {
-                EmptyRecent(
+                AnimatedContent(
+                    targetState =
+                        FrontPresentation(
+                            key =
+                                frontTransitionKey,
+                            song = null
+                        ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(122.dp)
-                )
+                        .height(122.dp),
+                    label =
+                        "emptyRecent"
+                ) {
+                    EmptyRecent(
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+                }
             } else {
                 LazyRow(
                     state =
@@ -225,37 +195,127 @@ private fun RecentCarousel(
                             itemGap
                         )
                 ) {
-                    items(
-                        items = songs,
+                    itemsIndexed(
+                        items =
+                            songs,
                         key = {
-                            it.id
+                            _,
+                            song ->
+                            song.id
                         },
                         contentType = {
+                            _,
+                            _ ->
                             "recent_song"
                         }
-                    ) { song ->
-                        RecentArtwork(
-                            song = song,
-                            current =
-                                song.id ==
-                                    currentSongId,
-                            playing =
-                                song.id ==
-                                    currentSongId &&
-                                    isPlaying,
-                            onClick = {
-                                onSongClick(
-                                    song
-                                )
-                            },
-                            modifier = Modifier
-                                .width(
-                                    itemWidth
-                                )
-                                .height(
-                                    122.dp
-                                )
-                        )
+                    ) {
+                        index,
+                        song ->
+
+                        if (index == 0) {
+                            AnimatedContent(
+                                targetState =
+                                    FrontPresentation(
+                                        key =
+                                            frontTransitionKey,
+                                        song =
+                                            song
+                                    ),
+                                contentKey = {
+                                    it.key
+                                },
+                                transitionSpec = {
+                                    (
+                                        slideInHorizontally(
+                                            animationSpec =
+                                                tween(
+                                                    250
+                                                ),
+                                            initialOffsetX = {
+                                                -it
+                                            }
+                                        ) +
+                                            fadeIn(
+                                                tween(
+                                                    150
+                                                )
+                                            )
+                                        )
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                animationSpec =
+                                                    tween(
+                                                        250
+                                                    ),
+                                                targetOffsetX = {
+                                                    it
+                                                }
+                                            ) +
+                                                fadeOut(
+                                                    tween(
+                                                        150
+                                                    )
+                                                )
+                                        )
+                                },
+                                modifier = Modifier
+                                    .width(
+                                        itemWidth
+                                    )
+                                    .height(
+                                        122.dp
+                                    ),
+                                label =
+                                    "recentFront"
+                            ) { front ->
+                                front.song
+                                    ?.let {
+                                        RecentArtwork(
+                                            song = it,
+                                            current =
+                                                it.id ==
+                                                    currentSongId,
+                                            playing =
+                                                it.id ==
+                                                    currentSongId &&
+                                                    isPlaying,
+                                            onClick = {
+                                                onSongClick(
+                                                    it
+                                                )
+                                            },
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxSize()
+                                        )
+                                    }
+                            }
+                        } else {
+                            RecentArtwork(
+                                song =
+                                    song,
+                                current =
+                                    song.id ==
+                                        currentSongId,
+                                playing =
+                                    song.id ==
+                                        currentSongId &&
+                                        isPlaying,
+                                onClick = {
+                                    onSongClick(
+                                        song
+                                    )
+                                },
+                                modifier =
+                                    Modifier
+                                        .width(
+                                            itemWidth
+                                        )
+                                        .height(
+                                            122.dp
+                                        )
+                            )
+                        }
                     }
                 }
             }
@@ -273,150 +333,19 @@ private fun RecentCarousel(
                     railWidth,
                 modifier =
                     Modifier.padding(
-                        top = 8.dp
+                        top =
+                            HomeGeometry
+                                .sectionGap
                     )
             )
-        }
-
-        /*
-         * Front transition presentation.
-         *
-         * AnimatedContent identifies every explicit external
-         * front event with its own key, so replaying the same
-         * song can still animate.
-         */
-        RecentFrontTransition(
-            target =
-                RecentFrontTarget(
-                    transitionKey =
-                        frontTransitionKey,
-                    song =
-                        songs.firstOrNull()
-                ),
-            currentSongId =
-                currentSongId,
-            isPlaying =
-                isPlaying,
-            onSongClick =
-                onSongClick,
-            edge =
-                edge,
-            modifier =
-                Modifier.fillMaxWidth()
-        )
-    }
-}
-
-@Composable
-private fun RecentFrontTransition(
-    target: RecentFrontTarget,
-    currentSongId: Long?,
-    isPlaying: Boolean,
-    onSongClick: (Song) -> Unit,
-    edge: Dp,
-    modifier: Modifier = Modifier
-) {
-    /*
-     * AnimatedContent itself retains the outgoing target
-     * long enough for:
-     *
-     * outgoing -> RIGHT
-     * incoming <- LEFT
-     *
-     * When there has never been an explicit front event,
-     * target key 0 acts as the resting state.
-     */
-    AnimatedContent(
-        targetState =
-            target,
-        contentKey = {
-            it.transitionKey
-        },
-        modifier =
-            modifier.height(
-                122.dp
-            ),
-        transitionSpec = {
-            (
-                slideInHorizontally(
-                    animationSpec =
-                        tween(260),
-                    initialOffsetX = {
-                        -it
-                    }
-                ) +
-                    fadeIn(
-                        animationSpec =
-                            tween(180)
-                    )
-                )
-                .togetherWith(
-                    slideOutHorizontally(
-                        animationSpec =
-                            tween(260),
-                        targetOffsetX = {
-                            it
-                        }
-                    ) +
-                        fadeOut(
-                            animationSpec =
-                                tween(180)
-                        )
-                )
-        },
-        label =
-            "recentFront"
-    ) { state ->
-
-        /*
-         * Key 0 is transparent so normal LazyRow remains
-         * interactive. Subsequent explicit front events draw
-         * the transition card over it.
-         */
-        if (
-            state.transitionKey > 0L
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal =
-                            edge
-                    )
-            ) {
-                val song =
-                    state.song
-
-                if (song == null) {
-                    EmptyRecent(
-                        modifier =
-                            Modifier.fillMaxSize()
-                    )
-                } else {
-                    RecentArtwork(
-                        song = song,
-                        current =
-                            song.id ==
-                                currentSongId,
-                        playing =
-                            song.id ==
-                                currentSongId &&
-                                isPlaying,
-                        onClick = {
-                            onSongClick(song)
-                        },
-                        modifier =
-                            Modifier.fillMaxSize()
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
 private fun EmptyRecent(
-    modifier: Modifier = Modifier
+    modifier: Modifier =
+        Modifier
 ) {
     Box(
         modifier =
@@ -463,7 +392,9 @@ private fun RecentArtwork(
 
     Box(
         modifier = modifier
-            .clip(shape)
+            .clip(
+                shape
+            )
             .background(
                 colors.cardElevated
             )
@@ -478,7 +409,8 @@ private fun RecentArtwork(
                 interactionSource =
                     interaction,
                 indication = null,
-                onClick = onClick
+                onClick =
+                    onClick
             )
     ) {
         SongArtwork(
@@ -548,7 +480,8 @@ private fun RecentArtwork(
                     interactionSource =
                         controlInteraction,
                     indication = null,
-                    onClick = onClick
+                    onClick =
+                        onClick
                 )
                 .padding(
                     horizontal =
@@ -574,9 +507,11 @@ private fun RecentArtwork(
                         current &&
                         playing
                     ) {
-                        PlaybackIconType.PAUSE
+                        PlaybackIconType
+                            .PAUSE
                     } else {
-                        PlaybackIconType.PLAY
+                        PlaybackIconType
+                            .PLAY
                     },
                 color =
                     Color.White,
@@ -591,7 +526,8 @@ private fun RecentArtwork(
                 playing
             ) {
                 Text(
-                    text = "Playing",
+                    text =
+                        "Playing",
                     color =
                         Color.White,
                     fontSize = 9.sp
@@ -608,7 +544,8 @@ private fun RecentPositionRail(
     itemWidth: Dp,
     itemGap: Dp,
     railWidth: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier =
+        Modifier
 ) {
     val colors =
         XvoxTheme.colors
@@ -621,9 +558,7 @@ private fun RecentPositionRail(
                 .width(
                     railWidth
                 )
-                .height(
-                    3.dp
-                )
+                .height(3.dp)
                 .background(
                     colors.progressTrack,
                     CircleShape
@@ -641,7 +576,8 @@ private fun RecentPositionRail(
             (
                 itemWidth +
                     itemGap
-                ).toPx()
+                )
+                .toPx()
         }
 
     val indicatorWidth =
