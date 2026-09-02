@@ -27,27 +27,18 @@ fun HomeGlassHeader(
     val colors =
         XvoxTheme.colors
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0f to colors.surface
-                            .copy(alpha = 0.82f),
-
-                        0.72f to colors.surface
-                            .copy(alpha = 0.68f),
-
-                        1f to colors.surface
-                            .copy(alpha = 0f)
-                    )
-                )
-            )
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(
+                    colors.surface.copy(
+                        alpha = 0.72f
+                    )
+                )
                 .windowInsetsPadding(
                     WindowInsets.statusBars
                 )
@@ -56,18 +47,31 @@ fun HomeGlassHeader(
                 profile = profile,
                 showPlaylists =
                     showPlaylists,
-                onRefresh = onRefresh,
+                onRefresh =
+                    onRefresh,
                 onHeartClick =
                     onHeartClick,
                 onLibraryModeClick =
                     onLibraryModeClick
             )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp)
-            )
         }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            colors.surface.copy(
+                                alpha = 0.72f
+                            ),
+                            colors.surface.copy(
+                                alpha = 0f
+                            )
+                        )
+                    )
+                )
+        )
     }
 }
