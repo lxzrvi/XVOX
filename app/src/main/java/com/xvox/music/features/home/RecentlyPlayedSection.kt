@@ -23,10 +23,7 @@ fun RecentlyPlayedSection(
     transition:
         RecentTransitionRequest,
     onSongClick:
-        (
-            Song,
-            RecentTransitionMode
-        ) -> Unit
+        (Song) -> Unit
 ) {
     val colors =
         XvoxTheme.colors
@@ -74,8 +71,7 @@ fun RecentlyPlayedSection(
         }
 
         RecentCarousel(
-            songs =
-                songs,
+            songs = songs,
             currentSongId =
                 currentSongId,
             isPlaying =
