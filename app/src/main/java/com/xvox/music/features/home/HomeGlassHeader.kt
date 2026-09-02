@@ -48,6 +48,7 @@ fun HomeGlassHeader(
                 )
         ) {
             HomeHeader(
+                sky = sky,
                 profile = profile,
                 showPlaylists =
                     showPlaylists,
