@@ -24,14 +24,16 @@ fun HomeFooter(
         XvoxTheme.colors
 
     Column(
-        modifier = modifier,
+        modifier =
+            modifier,
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
         Spacer(
-            Modifier.height(
-                90.dp
-            )
+            modifier =
+                Modifier.height(
+                    130.dp
+                )
         )
 
         Image(
@@ -42,14 +44,15 @@ fun HomeFooter(
             contentDescription = null,
             modifier =
                 Modifier.size(
-                    26.dp
+                    42.dp
                 )
         )
 
         Spacer(
-            Modifier.height(
-                8.dp
-            )
+            modifier =
+                Modifier.height(
+                    9.dp
+                )
         )
 
         Text(
@@ -58,7 +61,8 @@ fun HomeFooter(
                 colors.secondaryText,
             fontFamily =
                 XvoxLogoFont,
-            fontSize = 12.sp
+            fontSize = 13.sp,
+            lineHeight = 15.sp
         )
 
         Text(
