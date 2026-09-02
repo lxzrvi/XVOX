@@ -42,42 +42,41 @@ fun AllSongsSection(
     val colors =
         XvoxTheme.colors
 
-    val state =
+    val gridState =
         rememberLazyGridState()
 
     LaunchedEffect(
-        state,
+        gridState,
         songs.size
     ) {
         snapshotFlow {
-            state.layoutInfo
+            gridState.layoutInfo
                 .visibleItemsInfo
                 .maxOfOrNull {
                     it.index
-                }
-                ?: 0
+                } ?: 0
         }
             .distinctUntilChanged()
             .collect {
                 onPrefetch(
-                    it + SongsPerPage
+                    it +
+                        SongsPerPage
                 )
             }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                top = 8.dp
-            )
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = 7.dp
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = 7.dp,
+                    bottom = 11.dp
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -114,18 +113,15 @@ fun AllSongsSection(
                 (
                     maxWidth -
                         edge * 2 -
-                        gap *
-                        (Columns - 1)
-                    ) / Columns
+                        gap * 3
+                    ) / 4
 
             val cardHeight =
                 cardWidth + 34.dp
 
             val gridHeight =
-                cardHeight *
-                    Rows +
-                    gap *
-                    (Rows - 1)
+                cardHeight * Rows +
+                    gap * (Rows - 1)
 
             val slots =
                 remember(
@@ -153,7 +149,8 @@ fun AllSongsSection(
                     GridCells.Fixed(
                         Rows
                     ),
-                state = state,
+                state =
+                    gridState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(
@@ -192,10 +189,12 @@ fun AllSongsSection(
                             SongsPerPage
 
                     val row =
-                        local % Rows
+                        local %
+                            Rows
 
                     val column =
-                        local / Rows
+                        local /
+                            Rows
 
                     val sourceIndex =
                         page *
@@ -217,7 +216,9 @@ fun AllSongsSection(
                             .getOrNull(
                                 sourceIndex
                             )
-                            ?.let { song ->
+                            ?.let {
+                                song ->
+
                                 AllSongCard(
                                     song = song,
                                     current =
