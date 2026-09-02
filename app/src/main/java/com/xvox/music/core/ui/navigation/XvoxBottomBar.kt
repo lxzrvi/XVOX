@@ -1,5 +1,7 @@
 package com.xvox.music.core.ui.navigation
 
+import android.view.HapticFeedbackConstants
+import android.view.ViewConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -12,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -19,9 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlin.math.abs
-import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalView
 import com.xvox.music.core.design.theme.XvoxTheme
+import kotlin.math.abs
+import kotlin.math.floor
 
 @Composable
 fun XvoxBottomBar(
@@ -32,30 +36,35 @@ fun XvoxBottomBar(
     val colors =
         XvoxTheme.colors
 
+    val view =
+        LocalView.current
+
     val destinations =
         XvoxDestination.entries
 
     val selectedIndex =
-        destinations.indexOf(
-            selected
+        destinations
+            .indexOf(selected)
+
+    var position by remember {
+        mutableFloatStateOf(
+            selectedIndex.toFloat()
         )
+    }
 
-    var position by
-        remember {
-            mutableFloatStateOf(
-                selectedIndex.toFloat()
-            )
-        }
+    var dragging by remember {
+        mutableStateOf(false)
+    }
 
-    var dragging by
-        remember {
-            mutableStateOf(false)
-        }
+    var velocity by remember {
+        mutableFloatStateOf(0f)
+    }
 
-    var velocity by
-        remember {
-            mutableFloatStateOf(0f)
-        }
+    var lastHapticSlot by remember {
+        mutableIntStateOf(
+            selectedIndex
+        )
+    }
 
     LaunchedEffect(
         selectedIndex
@@ -63,6 +72,9 @@ fun XvoxBottomBar(
         if (!dragging) {
             position =
                 selectedIndex.toFloat()
+
+            lastHapticSlot =
+                selectedIndex
         }
     }
 
@@ -106,7 +118,7 @@ fun XvoxBottomBar(
                 XvoxNavigationGeometry
                     .barWidth,
                 XvoxNavigationGeometry
-                    .hostHeight
+                    .barHeight
             )
             .pointerInput(
                 selectedIndex
@@ -118,11 +130,23 @@ fun XvoxBottomBar(
                     val startX =
                         first.position.x
 
-                    val start =
+                    val startIndex =
                         selectedIndex
 
-                    val slot =
+                    val physicalSlot =
                         size.width / 3f
+
+                    val resistedSlot =
+                        physicalSlot *
+                            XvoxNavigationGeometry
+                                .DragResistance
+
+                    val touchSlop =
+                        ViewConfiguration
+                            .get(view.context)
+                            .scaledTouchSlop *
+                            XvoxNavigationGeometry
+                                .TouchSlopMultiplier
 
                     var lastX =
                         startX
@@ -130,10 +154,12 @@ fun XvoxBottomBar(
                     var total =
                         0f
 
+                    var gestureDragging =
+                        false
+
                     var change =
                         first
 
-                    dragging = true
                     velocity = 0f
 
                     while (
@@ -148,65 +174,112 @@ fun XvoxBottomBar(
                         if (
                             change.pressed
                         ) {
+                            val currentX =
+                                change.position.x
+
                             val dx =
-                                change.position.x -
+                                currentX -
                                     lastX
 
                             total =
-                                change.position.x -
+                                currentX -
                                     startX
 
                             lastX =
-                                change.position.x
-
-                            velocity =
-                                velocity *
-                                    0.62f +
-                                    dx *
-                                    0.38f
-
-                            position =
-                                (
-                                    start +
-                                        total /
-                                        slot
-                                    )
-                                    .coerceIn(
-                                        0f,
-                                        2f
-                                    )
+                                currentX
 
                             if (
-                                abs(total) > 2f
+                                !gestureDragging &&
+                                abs(total) >
+                                touchSlop
                             ) {
+                                gestureDragging =
+                                    true
+
+                                dragging = true
+
+                                view.performHapticFeedback(
+                                    HapticFeedbackConstants
+                                        .TEXT_HANDLE_MOVE
+                                )
+                            }
+
+                            if (
+                                gestureDragging
+                            ) {
+                                velocity =
+                                    velocity *
+                                        0.72f +
+                                        dx *
+                                        0.28f
+
+                                val rawPosition =
+                                    startIndex +
+                                        total /
+                                        resistedSlot
+
+                                position =
+                                    rawPosition
+                                        .coerceIn(
+                                            0f,
+                                            2f
+                                        )
+
+                                val nearestSlot =
+                                    (
+                                        position +
+                                            0.5f
+                                        )
+                                        .toInt()
+                                        .coerceIn(
+                                            0,
+                                            2
+                                        )
+
+                                if (
+                                    nearestSlot !=
+                                    lastHapticSlot
+                                ) {
+                                    lastHapticSlot =
+                                        nearestSlot
+
+                                    view.performHapticFeedback(
+                                        HapticFeedbackConstants
+                                            .CLOCK_TICK
+                                    )
+                                }
+
                                 change.consume()
                             }
                         }
                     }
 
                     val target =
-                        if (
-                            abs(total) <= 7f
-                        ) {
-                            (
+                        if (!gestureDragging) {
+                            /*
+                             * Tap chooses whichever
+                             * third was actually hit.
+                             */
+                            floor(
                                 first.position.x /
-                                    slot
-                                )
+                                    physicalSlot
+                            )
                                 .toInt()
                                 .coerceIn(
                                     0,
                                     2
                                 )
                         } else {
-                            position
-                                .roundToInt()
-                                .coerceIn(
-                                    0,
-                                    2
-                                )
+                            settleDestination(
+                                start =
+                                    startIndex,
+                                position =
+                                    position
+                            )
                         }
 
                     velocity = 0f
+                    dragging = false
                     position =
                         target.toFloat()
 
@@ -214,14 +287,17 @@ fun XvoxBottomBar(
                         target !=
                         selectedIndex
                     ) {
+                        view.performHapticFeedback(
+                            HapticFeedbackConstants
+                                .CONFIRM
+                        )
+
                         onSelected(
                             destinations[
                                 target
                             ]
                         )
                     }
-
-                    dragging = false
                 }
             }
     ) {
@@ -293,7 +369,7 @@ fun XvoxBottomBar(
             if (dragging) {
                 (
                     abs(velocity) /
-                        19f
+                        24f
                     )
                     .coerceIn(
                         0f,
@@ -328,31 +404,31 @@ fun XvoxBottomBar(
                     val skew =
                         (
                             velocity *
-                                0.32f
+                                0.24f
                             )
                             .coerceIn(
-                                -6f,
-                                6f
+                                -5f,
+                                5f
                             )
 
                     scaleX =
                         1f +
                             stretch *
-                                0.20f
+                                0.14f
 
                     scaleY =
                         1f -
                             stretch *
-                                0.09f
+                                0.06f
 
                     rotationZ =
                         (
                             velocity *
-                                0.09f
+                                0.07f
                             )
                             .coerceIn(
-                                -1.7f,
-                                1.7f
+                                -1.3f,
+                                1.3f
                             )
 
                     cameraDistance =
@@ -360,7 +436,8 @@ fun XvoxBottomBar(
                             density
 
                     rotationY =
-                        skew * 0.20f
+                        skew *
+                            0.16f
                 }
                 .size(
                     selectorWidth,
@@ -408,19 +485,16 @@ fun XvoxBottomBar(
                 index,
                 destination ->
 
-                val proximity =
-                    navigationProximity(
-                        position =
-                            motion.position,
-                        index =
-                            index
-                    )
-
                 XvoxNavigationItem(
                     destination =
                         destination,
                     proximity =
-                        proximity,
+                        navigationProximity(
+                            position =
+                                motion.position,
+                            index =
+                                index
+                        ),
                     dragging =
                         dragging,
                     inactiveColor =
@@ -433,4 +507,52 @@ fun XvoxBottomBar(
             }
         }
     }
+}
+
+private fun settleDestination(
+    start: Int,
+    position: Float
+): Int {
+    val delta =
+        position -
+            start.toFloat()
+
+    if (
+        abs(delta) <
+        XvoxNavigationGeometry
+            .SettleThreshold
+    ) {
+        return start
+    }
+
+    val direction =
+        if (delta > 0f) {
+            1
+        } else {
+            -1
+        }
+
+    val distance =
+        abs(delta)
+
+    val steps =
+        if (
+            distance >=
+            XvoxNavigationGeometry
+                .FarDestinationThreshold
+        ) {
+            2
+        } else {
+            1
+        }
+
+    return (
+        start +
+            direction *
+            steps
+        )
+        .coerceIn(
+            0,
+            2
+        )
 }
