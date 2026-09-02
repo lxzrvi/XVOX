@@ -55,16 +55,16 @@ fun AllSongCard(
         animateFloatAsState(
             targetValue =
                 if (pressed) {
-                    0.94f
+                    0.945f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
                     dampingRatio =
-                        0.82f,
+                        0.84f,
                     stiffness =
-                        1250f
+                        1500f
                 ),
             label =
                 "songCardPress"
@@ -86,9 +86,7 @@ fun AllSongCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(
-                cardShape
-            )
+            .clip(cardShape)
             .background(
                 colors.card
             )
@@ -103,7 +101,8 @@ fun AllSongCard(
                 interactionSource =
                     interaction,
                 indication = null,
-                onClick = onClick,
+                onClick =
+                    onClick,
                 onLongClick = {}
             )
             .padding(5.dp)
@@ -113,18 +112,20 @@ fun AllSongCard(
                 song.artworkUri,
             requestSize =
                 GridArtworkSize,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(
-                    artworkShape
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(
+                        artworkShape
+                    )
         )
 
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
             verticalArrangement =
                 Arrangement.Center
         ) {
