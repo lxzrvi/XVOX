@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
@@ -24,10 +25,12 @@ fun HomeGlassHeader(
     onLibraryModeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
-        modifier = modifier.fillMaxWidth()
+        modifier =
+            modifier.fillMaxWidth()
     ) {
         Box(
             modifier = Modifier
@@ -40,13 +43,19 @@ fun HomeGlassHeader(
                 .windowInsetsPadding(
                     WindowInsets.statusBars
                 )
+                .padding(
+                    bottom = 8.dp
+                )
         ) {
             HomeHeader(
                 profile = profile,
-                showPlaylists = showPlaylists,
+                showPlaylists =
+                    showPlaylists,
                 onRefresh = onRefresh,
-                onHeartClick = onHeartClick,
-                onLibraryModeClick = onLibraryModeClick
+                onHeartClick =
+                    onHeartClick,
+                onLibraryModeClick =
+                    onLibraryModeClick
             )
         }
 
@@ -58,7 +67,7 @@ fun HomeGlassHeader(
                     Brush.verticalGradient(
                         colors = listOf(
                             colors.surface.copy(
-                                alpha = 0.54f
+                                alpha = 0.48f
                             ),
                             colors.surface.copy(
                                 alpha = 0f
