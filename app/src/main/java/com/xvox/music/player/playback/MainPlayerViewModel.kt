@@ -14,7 +14,7 @@ class MainPlayerViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val playback =
+    private val controller =
         PlaybackController(application)
 
     private val _state =
@@ -28,28 +28,23 @@ class MainPlayerViewModel(
 
     init {
         viewModelScope.launch {
-            playback.state.collect {
-                playbackState ->
+            controller.state.collect {
+                playback ->
 
                 _state.update {
-                    current ->
-
-                    current.copy(
+                    it.copy(
+                        connected =
+                            playback.connected,
                         currentSongId =
-                            playbackState
-                                .currentSongId,
+                            playback.currentSongId,
                         currentIndex =
-                            playbackState
-                                .currentIndex,
+                            playback.currentIndex,
                         isPlaying =
-                            playbackState
-                                .isPlaying,
+                            playback.isPlaying,
                         position =
-                            playbackState
-                                .position,
+                            playback.position,
                         duration =
-                            playbackState
-                                .duration
+                            playback.duration
                     )
                 }
             }
@@ -59,7 +54,14 @@ class MainPlayerViewModel(
     fun setQueue(
         songs: List<Song>
     ) {
-        playback.setQueue(songs)
+        if (
+            _state.value.queue ===
+            songs
+        ) {
+            return
+        }
+
+        controller.setQueue(songs)
 
         _state.update {
             it.copy(
@@ -71,24 +73,25 @@ class MainPlayerViewModel(
     fun play(
         song: Song
     ) {
-        playback.play(song)
+        val firstSong =
+            _state.value.currentSongId ==
+                null
+
+        controller.play(song)
 
         _state.update {
             current ->
 
             current.copy(
                 miniPlayerVisible = true,
-                miniPlayerGeneration =
-                    if (
-                        current.currentSongId ==
-                        null
-                    ) {
+                miniPlayerRiseKey =
+                    if (firstSong) {
                         current
-                            .miniPlayerGeneration +
+                            .miniPlayerRiseKey +
                             1
                     } else {
                         current
-                            .miniPlayerGeneration
+                            .miniPlayerRiseKey
                     }
             )
         }
@@ -97,20 +100,14 @@ class MainPlayerViewModel(
     fun playQueueIndex(
         index: Int
     ) {
-        playback.playQueueIndex(
+        controller.playQueueIndex(
             index = index,
-            preservePlayingState = true
+            keepPlayingState = true
         )
-
-        _state.update {
-            it.copy(
-                miniPlayerVisible = true
-            )
-        }
     }
 
     fun togglePlay() {
-        playback.togglePlay()
+        controller.togglePlay()
     }
 
     fun hideMiniPlayer() {
@@ -121,21 +118,8 @@ class MainPlayerViewModel(
         }
     }
 
-    fun showMiniPlayer() {
-        if (
-            _state.value.currentSongId !=
-            null
-        ) {
-            _state.update {
-                it.copy(
-                    miniPlayerVisible = true
-                )
-            }
-        }
-    }
-
     override fun onCleared() {
-        playback.release()
+        controller.release()
         super.onCleared()
     }
 }
