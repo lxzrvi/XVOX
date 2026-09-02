@@ -1,6 +1,5 @@
 package com.xvox.music.core.ui.miniplayer
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -128,76 +127,50 @@ fun XvoxMiniPlayerCard(
                         )
                     )
             ) {
-                AnimatedContent(
-                    targetState = song,
+                SongArtwork(
+                    artwork =
+                        song.artworkUri,
+                    requestSize = 160,
                     modifier =
-                        Modifier.fillMaxSize(),
-                    transitionSpec = {
-                        XvoxMiniPlayerMotion
-                            .artworkChange()
-                    },
-                    label =
-                        "miniArtwork"
-                ) { current ->
-                    SongArtwork(
-                        artwork =
-                            current.artworkUri,
-                        requestSize = 160,
-                        modifier =
-                            Modifier.fillMaxSize()
-                    )
-                }
+                        Modifier.fillMaxSize()
+                )
             }
 
-            AnimatedContent(
-                targetState = song,
-                modifier =
-                    Modifier.weight(1f),
-                transitionSpec = {
-                    XvoxMiniPlayerMotion
-                        .metadataChange(
-                            direction
-                        )
-                },
-                label =
-                    "miniMetadata"
-            ) { current ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = 9.dp,
-                            end = 5.dp
-                        ),
-                    verticalArrangement =
-                        Arrangement.Center
-                ) {
-                    Text(
-                        text =
-                            current.title,
-                        color =
-                            colors.primaryText,
-                        fontSize = 12.sp,
-                        lineHeight = 14.sp,
-                        fontWeight =
-                            FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        start = 9.dp,
+                        end = 5.dp
+                    ),
+                verticalArrangement =
+                    Arrangement.Center
+            ) {
+                Text(
+                    text =
+                        song.title,
+                    color =
+                        colors.primaryText,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight =
+                        FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
 
-                    Text(
-                        text =
-                            current.artist,
-                        color =
-                            colors.secondaryText,
-                        fontSize = 9.sp,
-                        lineHeight = 11.sp,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text =
+                        song.artist,
+                    color =
+                        colors.secondaryText,
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
             }
         }
 
@@ -210,7 +183,9 @@ fun XvoxMiniPlayerCard(
                     end = 7.dp
                 )
                 .size(38.dp)
-                .clip(CircleShape)
+                .clip(
+                    CircleShape
+                )
                 .background(
                     colors.cardElevated.copy(
                         alpha = 0.68f
