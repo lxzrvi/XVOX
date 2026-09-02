@@ -1,6 +1,5 @@
 package com.xvox.music.features.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +17,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.XvoxGlassStyle
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.data.preferences.UserPreferences
 
 @Composable
 fun HomeHeader(
+    sky: Sky,
     profile: UserPreferences,
     showPlaylists: Boolean,
     onRefresh: () -> Unit,
@@ -49,7 +52,8 @@ fun HomeHeader(
         )
 
         Spacer(
-            Modifier.width(10.dp)
+            modifier =
+                Modifier.width(10.dp)
         )
 
         Column(
@@ -73,23 +77,27 @@ fun HomeHeader(
             HomeGreeting()
         }
 
+        val actionShape =
+            RoundedCornerShape(
+                21.dp
+            )
+
         Row(
             modifier = Modifier
                 .height(42.dp)
-                .clip(
-                    RoundedCornerShape(
-                        21.dp
-                    )
-                )
-                .background(
-                    colors.card
+                .clip(actionShape)
+                .xvoxGlass(
+                    sky = sky,
+                    style =
+                        XvoxGlassStyle
+                            .HEADER_ACTIONS
                 )
                 .border(
-                    1.dp,
-                    colors.cardBorder,
-                    RoundedCornerShape(
-                        21.dp
-                    )
+                    width = 0.65.dp,
+                    color =
+                        colors.cardBorder,
+                    shape =
+                        actionShape
                 )
                 .padding(
                     horizontal = 2.dp
@@ -113,7 +121,9 @@ fun HomeHeader(
 
             HomeHeaderIcon(
                 type =
-                    if (showPlaylists) {
+                    if (
+                        showPlaylists
+                    ) {
                         HomeHeaderIconType.SONGS
                     } else {
                         HomeHeaderIconType.PLAYLIST
