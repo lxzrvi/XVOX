@@ -6,7 +6,10 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +24,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Composable
 fun XvoxBottomBar(
@@ -40,22 +42,19 @@ fun XvoxBottomBar(
             selected
         )
 
-    var position by
-        remember {
-            mutableFloatStateOf(
-                selectedIndex.toFloat()
-            )
-        }
+    var position by remember {
+        mutableFloatStateOf(
+            selectedIndex.toFloat()
+        )
+    }
 
-    var dragging by
-        remember {
-            mutableStateOf(false)
-        }
+    var dragging by remember {
+        mutableStateOf(false)
+    }
 
-    var velocity by
-        remember {
-            mutableFloatStateOf(0f)
-        }
+    var velocity by remember {
+        mutableFloatStateOf(0f)
+    }
 
     LaunchedEffect(
         selectedIndex
@@ -104,11 +103,13 @@ fun XvoxBottomBar(
 
     Box(
         modifier = modifier
-            .size(
+            .width(
                 XvoxNavigationGeometry
-                    .barWidth,
+                    .barWidth
+            )
+            .height(
                 XvoxNavigationGeometry
-                    .barHeight
+                    .hostHeight
             )
             .pointerInput(
                 selectedIndex
@@ -140,11 +141,6 @@ fun XvoxBottomBar(
                     var change =
                         first
 
-                    /*
-                     * Down starts immediately.
-                     * Holding without moving still
-                     * grows selector and parent.
-                     */
                     dragging = true
                     velocity = 0f
 
@@ -204,10 +200,6 @@ fun XvoxBottomBar(
                             abs(total) <=
                             7f
                         ) {
-                            /*
-                             * Simple press/tap picks
-                             * the touched equal slot.
-                             */
                             (
                                 first.position.x /
                                     physicalSlot
@@ -246,10 +238,20 @@ fun XvoxBottomBar(
                 }
             }
     ) {
+        /*
+         * 64dp visual parent sits inside the
+         * 84dp host with 10dp overflow space
+         * on both top and bottom.
+         */
         Box(
             modifier = Modifier
                 .align(
-                    Alignment.Center
+                    Alignment.TopCenter
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow
                 )
                 .size(
                     XvoxNavigationGeometry
@@ -324,10 +326,31 @@ fun XvoxBottomBar(
                 0f
             }
 
+        /*
+         * Selector is centered against the same
+         * 64dp bar center:
+         *
+         * host top 10
+         * + bar center 32
+         * = host Y 42.
+         *
+         * Therefore 80dp selector reaches Y 2..82,
+         * fully inside the 84dp host.
+         */
         Box(
             modifier = Modifier
                 .align(
-                    Alignment.CenterStart
+                    Alignment.TopStart
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow +
+                            XvoxNavigationGeometry
+                                .barHeight /
+                            2 -
+                            selectorHeight /
+                            2
                 )
                 .graphicsLayer {
                     translationX =
@@ -412,10 +435,19 @@ fun XvoxBottomBar(
                 )
         )
 
+        /*
+         * Icons remain centered against the
+         * resting 64dp parent, not the 84dp host.
+         */
         Row(
             modifier = Modifier
                 .align(
-                    Alignment.Center
+                    Alignment.TopCenter
+                )
+                .offset(
+                    y =
+                        XvoxNavigationGeometry
+                            .hostOverflow
                 )
                 .size(
                     XvoxNavigationGeometry
