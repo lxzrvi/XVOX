@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.XvoxGlassStyle
@@ -40,6 +41,9 @@ fun XvoxBottomBar(
 ) {
     val colors =
         XvoxTheme.colors
+
+    val density =
+        LocalDensity.current
 
     val destinations =
         XvoxDestination.entries
@@ -190,7 +194,8 @@ fun XvoxBottomBar(
                                     )
 
                             if (
-                                abs(total) > 2f
+                                abs(total) >
+                                2f
                             ) {
                                 change.consume()
                             }
@@ -312,6 +317,21 @@ fun XvoxBottomBar(
                     .selectorGrowRadius *
                 motion.grow
 
+        val selectorWidthPx =
+            with(density) {
+                selectorWidth.toPx()
+            }
+
+        val selectorHeightPx =
+            with(density) {
+                selectorHeight.toPx()
+            }
+
+        val selectorRadiusPx =
+            with(density) {
+                selectorRadius.toPx()
+            }
+
         val stretch =
             if (dragging) {
                 (
@@ -390,7 +410,7 @@ fun XvoxBottomBar(
 
                     cameraDistance =
                         16f *
-                            density
+                            density.density
 
                     rotationY =
                         skew *
@@ -414,23 +434,22 @@ fun XvoxBottomBar(
                 .xvoxNavigationLens(
                     lensCenter =
                         Offset(
-                            selectorWidth
-                                .toPx() /
-                                2f,
-                            selectorHeight
-                                .toPx() /
-                                2f
+                            x =
+                                selectorWidthPx /
+                                    2f,
+                            y =
+                                selectorHeightPx /
+                                    2f
                         ),
                     lensSize =
                         Size(
-                            selectorWidth
-                                .toPx(),
-                            selectorHeight
-                                .toPx()
+                            width =
+                                selectorWidthPx,
+                            height =
+                                selectorHeightPx
                         ),
                     cornerRadius =
-                        selectorRadius
-                            .toPx()
+                        selectorRadiusPx
                 )
                 .border(
                     width =
