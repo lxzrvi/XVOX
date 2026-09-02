@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,13 +47,15 @@ fun XvoxMiniPlayerCard(
             15.dp
         )
 
-    val controlInteraction =
+    val interaction =
         remember {
             MutableInteractionSource()
         }
 
     val progress =
-        if (duration > 0L) {
+        if (
+            duration > 0L
+        ) {
             (
                 position.toFloat() /
                     duration.toFloat()
@@ -68,96 +69,82 @@ fun XvoxMiniPlayerCard(
         }
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(60.dp)
-            .clip(shape)
-            .background(
-                colors.surface.copy(
-                    alpha = 0.88f
-                )
-            )
-            .border(
-                width = 0.65.dp,
-                color =
-                    colors.cardBorder,
-                shape = shape
-            )
-    ) {
-
-        /*
-         * =====================================================
-         * PROGRESS
-         * =====================================================
-         *
-         * Kept INSIDE the card border.
-         *
-         * 1dp horizontal inset prevents the line from touching
-         * or visually escaping the rounded outer border.
-         *
-         * No progress animation here. Player position is already
-         * the source of truth, so new values appear immediately.
-         */
-        Box(
-            modifier = Modifier
-                .align(
-                    Alignment.TopCenter
-                )
-                .padding(
-                    start = 1.dp,
-                    end = 1.dp,
-                    top = 1.dp
-                )
+        modifier =
+            modifier
                 .fillMaxWidth()
-                .height(1.5.dp)
-                .clip(
-                    RoundedCornerShape(
-                        1.dp
+                .height(60.dp)
+                .clip(shape)
+                .background(
+                    colors.surface.copy(
+                        alpha = 0.88f
                     )
                 )
-                .background(
-                    colors.progressTrack
-                        .copy(
-                            alpha = 0.45f
-                        )
+                .border(
+                    width = 0.65.dp,
+                    color =
+                        colors.cardBorder,
+                    shape =
+                        shape
                 )
+    ) {
+        /*
+         * Top border progress.
+         *
+         * It overlays the same top edge rather than creating
+         * another progress rail below the border.
+         */
+        if (
+            progress > 0f
         ) {
-            if (
-                progress > 0f
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
+            Box(
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment.TopStart
+                        )
+                        .padding(
+                            start = 2.dp,
+                            end = 2.dp
+                        )
                         .fillMaxWidth(
                             progress
+                        )
+                        .height(
+                            1.dp
+                        )
+                        .clip(
+                            CircleShape
                         )
                         .background(
                             colors.progressActive
                         )
-                )
-            }
+            )
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    start = 4.dp,
-                    top = 4.dp,
-                    end = 50.dp,
-                    bottom = 4.dp
-                ),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        start = 4.dp,
+                        top = 4.dp,
+                        end = 50.dp,
+                        bottom = 4.dp
+                    ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            11.dp
+                modifier =
+                    Modifier
+                        .size(
+                            50.dp
                         )
-                    )
+                        .clip(
+                            RoundedCornerShape(
+                                11.dp
+                            )
+                        )
             ) {
                 SongArtwork(
                     artwork =
@@ -169,12 +156,13 @@ fun XvoxMiniPlayerCard(
             }
 
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        start = 9.dp,
-                        end = 5.dp
-                    ),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            start = 9.dp,
+                            end = 5.dp
+                        ),
                 verticalArrangement =
                     Arrangement.Center
             ) {
@@ -207,43 +195,48 @@ fun XvoxMiniPlayerCard(
         }
 
         Box(
-            modifier = Modifier
-                .align(
-                    Alignment.CenterEnd
-                )
-                .padding(
-                    end = 7.dp
-                )
-                .size(38.dp)
-                .clip(
-                    CircleShape
-                )
-                .background(
-                    colors.cardElevated
-                        .copy(
-                            alpha = 0.68f
-                        )
-                )
-                .border(
-                    width = 0.5.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.CenterEnd
+                    )
+                    .padding(
+                        end = 7.dp
+                    )
+                    .size(
+                        38.dp
+                    )
+                    .clip(
                         CircleShape
-                )
-                .clickable(
-                    interactionSource =
-                        controlInteraction,
-                    indication = null,
-                    onClick =
-                        togglePlay
-                ),
+                    )
+                    .background(
+                        colors.cardElevated
+                            .copy(
+                                alpha = 0.68f
+                            )
+                    )
+                    .border(
+                        width = 0.5.dp,
+                        color =
+                            colors.cardBorder,
+                        shape =
+                            CircleShape
+                    )
+                    .clickable(
+                        interactionSource =
+                            interaction,
+                        indication = null,
+                        onClick =
+                            togglePlay
+                    ),
             contentAlignment =
                 Alignment.Center
         ) {
             XvoxMiniPlayerIcon(
                 icon =
-                    if (isPlaying) {
+                    if (
+                        isPlaying
+                    ) {
                         XvoxMiniIcon.PAUSE
                     } else {
                         XvoxMiniIcon.PLAY
