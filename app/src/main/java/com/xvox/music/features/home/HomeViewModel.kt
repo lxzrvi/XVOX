@@ -57,11 +57,13 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository
                 .preferences
-                .collect { profile ->
+                .collect {
+                    profile ->
 
                     _state.update {
                         it.copy(
-                            profile = profile
+                            profile =
+                                profile
                         )
                     }
                 }
@@ -71,7 +73,8 @@ class HomeViewModel(
     private fun initialLoad() {
         viewModelScope.launch {
             val songs =
-                songRepository.loadSongs()
+                songRepository
+                    .loadSongs()
 
             artworkPreloader.warm(
                 songs = songs,
@@ -105,9 +108,11 @@ class HomeViewModel(
             }
 
             val songs =
-                songRepository.loadSongs()
+                songRepository
+                    .loadSongs()
 
-            lastPrefetchStart = -1
+            lastPrefetchStart =
+                -1
 
             _state.update {
                 it.copy(
@@ -143,7 +148,8 @@ class HomeViewModel(
             return
         }
 
-        lastPrefetchStart = start
+        lastPrefetchStart =
+            start
 
         prefetchJob?.cancel()
 
