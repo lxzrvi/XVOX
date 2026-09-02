@@ -1,6 +1,10 @@
 package com.xvox.music.features.home
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -137,7 +143,9 @@ private fun RecentCarousel(
         songs.firstOrNull()?.id
     ) {
         if (songs.isNotEmpty()) {
-            listState.scrollToItem(0)
+            listState.animateScrollToItem(
+                0
+            )
         }
     }
 
@@ -147,14 +155,17 @@ private fun RecentCarousel(
     ) {
         val edge = 6.dp
 
-        /*
-         * Card + 12dp total outer space = viewport.
-         * Adjacent card therefore does not intentionally peek
-         * while the current card is settled.
-         */
         val itemWidth =
-            maxWidth - edge * 2
+            maxWidth -
+                edge * 2
 
+        /*
+         * At rest:
+         *
+         * 6dp | CARD | 6dp
+         *
+         * Next card does not peek.
+         */
         val itemGap =
             edge * 2
 
@@ -201,16 +212,34 @@ private fun RecentCarousel(
                         modifier = Modifier
                             .width(itemWidth)
                             .height(122.dp)
+                            .animateItem(
+                                fadeInSpec =
+                                    spring(),
+                                placementSpec =
+                                    spring(
+                                        dampingRatio =
+                                            0.86f,
+                                        stiffness =
+                                            520f
+                                    ),
+                                fadeOutSpec =
+                                    spring()
+                            )
                     )
                 }
             }
 
             RecentPositionRail(
-                songCount = songs.size,
-                listState = listState,
-                itemWidth = itemWidth,
-                itemGap = itemGap,
-                railWidth = railWidth,
+                songCount =
+                    songs.size,
+                listState =
+                    listState,
+                itemWidth =
+                    itemWidth,
+                itemGap =
+                    itemGap,
+                railWidth =
+                    railWidth,
                 modifier =
                     Modifier.padding(
                         top = 8.dp
@@ -241,10 +270,22 @@ private fun RecentArtwork(
             MutableInteractionSource()
         }
 
+    val shape =
+        RoundedCornerShape(
+            3.dp
+        )
+
     Box(
         modifier = modifier
+            .clip(shape)
             .background(
                 colors.cardElevated
+            )
+            .border(
+                width = 0.7.dp,
+                color =
+                    colors.cardBorder,
+                shape = shape
             )
             .clickable(
                 interactionSource =
@@ -258,13 +299,15 @@ private fun RecentArtwork(
                 song.artworkUri,
             requestSize =
                 RecentArtworkSize,
-            modifier =
-                Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(shape)
         )
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .clip(shape)
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -279,8 +322,10 @@ private fun RecentArtwork(
         )
 
         Text(
-            text = song.title,
-            color = Color.White,
+            text =
+                song.title,
+            color =
+                Color.White,
             fontSize = 14.sp,
             fontWeight =
                 FontWeight.SemiBold,
@@ -291,7 +336,9 @@ private fun RecentArtwork(
                 .align(
                     Alignment.BottomStart
                 )
-                .fillMaxWidth(0.72f)
+                .fillMaxWidth(
+                    0.72f
+                )
                 .padding(
                     start = 12.dp,
                     end = 8.dp,
@@ -332,7 +379,9 @@ private fun RecentArtwork(
             verticalAlignment =
                 Alignment.CenterVertically,
             horizontalArrangement =
-                Arrangement.spacedBy(5.dp)
+                Arrangement.spacedBy(
+                    5.dp
+                )
         ) {
             PlaybackIcon(
                 type =
@@ -344,9 +393,12 @@ private fun RecentArtwork(
                     } else {
                         PlaybackIconType.PLAY
                     },
-                color = Color.White,
+                color =
+                    Color.White,
                 modifier =
-                    Modifier.size(14.dp)
+                    Modifier.size(
+                        14.dp
+                    )
             )
 
             if (
@@ -385,12 +437,15 @@ private fun RecentPositionRail(
 
     val itemStridePx =
         with(density) {
-            (itemWidth + itemGap)
-                .toPx()
+            (
+                itemWidth +
+                    itemGap
+                ).toPx()
         }
 
     val indicatorWidth =
-        railWidth / songCount
+        railWidth /
+            songCount
 
     val maxTravel =
         railWidth -
@@ -432,7 +487,9 @@ private fun RecentPositionRail(
 
     Box(
         modifier = modifier
-            .width(railWidth)
+            .width(
+                railWidth
+            )
             .height(3.dp)
             .background(
                 colors.progressTrack,
