@@ -24,8 +24,8 @@ fun rememberXvoxNavigationMotion(
             targetValue = position,
             animationSpec =
                 spring(
-                    dampingRatio = 0.72f,
-                    stiffness = 900f
+                    dampingRatio = 0.80f,
+                    stiffness = 760f
                 ),
             label = "navPosition"
         )
@@ -40,8 +40,8 @@ fun rememberXvoxNavigationMotion(
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 850f
+                    dampingRatio = 0.84f,
+                    stiffness = 720f
                 ),
             label = "navGrow"
         )
@@ -50,25 +50,22 @@ fun rememberXvoxNavigationMotion(
         animateFloatAsState(
             targetValue =
                 if (dragging) {
-                    1.04f
+                    1.025f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 900f
+                    dampingRatio = 0.84f,
+                    stiffness = 760f
                 ),
-            label = "navBar"
+            label = "navScale"
         )
 
     return XvoxNavigationMotion(
-        position =
-            animatedPosition,
-        grow =
-            grow,
-        barScale =
-            barScale
+        position = animatedPosition,
+        grow = grow,
+        barScale = barScale
     )
 }
 
@@ -94,7 +91,7 @@ fun navigationColor(
     active: Color,
     proximity: Float
 ): Color {
-    val amount =
+    val value =
         proximity.coerceIn(
             0f,
             1f
@@ -107,27 +104,27 @@ fun navigationColor(
                     active.red -
                         inactive.red
                     ) *
-                amount,
+                value,
         green =
             inactive.green +
                 (
                     active.green -
                         inactive.green
                     ) *
-                amount,
+                value,
         blue =
             inactive.blue +
                 (
                     active.blue -
                         inactive.blue
                     ) *
-                amount,
+                value,
         alpha =
             inactive.alpha +
                 (
                     active.alpha -
                         inactive.alpha
                     ) *
-                amount
+                value
     )
 }
