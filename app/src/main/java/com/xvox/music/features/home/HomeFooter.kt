@@ -1,14 +1,19 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,39 +25,43 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun HomeFooter(
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Column(
-        modifier =
-            modifier,
+        modifier = modifier,
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
         Spacer(
             modifier =
-                Modifier.height(
-                    130.dp
-                )
+                Modifier.weight(0.43f)
         )
 
-        Image(
-            painter =
-                painterResource(
-                    R.drawable.xvox
-                ),
-            contentDescription = null,
-            modifier =
-                Modifier.size(
-                    42.dp
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .background(
+                    Color.Black,
+                    CircleShape
                 )
-        )
+                .padding(4.dp),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            Image(
+                painter =
+                    painterResource(
+                        R.drawable.xvox
+                    ),
+                contentDescription = null,
+                modifier =
+                    Modifier.size(42.dp)
+            )
+        }
 
         Spacer(
             modifier =
-                Modifier.height(
-                    9.dp
-                )
+                Modifier.height(5.dp)
         )
 
         Text(
@@ -66,12 +75,15 @@ fun HomeFooter(
         )
 
         Text(
-            text =
-                "lxzrvi 2026",
-            color =
-                colors.mutedText,
+            text = "lxzrvi 2026",
+            color = colors.mutedText,
             fontSize = 8.sp,
             lineHeight = 9.sp
+        )
+
+        Spacer(
+            modifier =
+                Modifier.weight(0.57f)
         )
     }
 }
