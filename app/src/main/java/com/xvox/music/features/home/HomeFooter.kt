@@ -1,7 +1,6 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -27,10 +26,14 @@ fun HomeFooter(
     Column(
         modifier = modifier,
         horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+            Alignment.CenterHorizontally
     ) {
+        Spacer(
+            Modifier.height(
+                90.dp
+            )
+        )
+
         Image(
             painter =
                 painterResource(
@@ -38,11 +41,15 @@ fun HomeFooter(
                 ),
             contentDescription = null,
             modifier =
-                Modifier.size(16.dp)
+                Modifier.size(
+                    26.dp
+                )
         )
 
         Spacer(
-            Modifier.height(7.dp)
+            Modifier.height(
+                8.dp
+            )
         )
 
         Text(
@@ -55,10 +62,12 @@ fun HomeFooter(
         )
 
         Text(
-            text = "lxzrvi 2026",
+            text =
+                "lxzrvi 2026",
             color =
                 colors.mutedText,
-            fontSize = 8.sp
+            fontSize = 8.sp,
+            lineHeight = 9.sp
         )
     }
 }
