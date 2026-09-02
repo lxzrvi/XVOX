@@ -17,10 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -30,9 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @OptIn(
     ExperimentalFoundationApi::class
@@ -53,24 +47,9 @@ fun AllSongCard(
             MutableInteractionSource()
         }
 
-    val held by
+    val pressed by
         interaction
             .collectIsPressedAsState()
-
-    val scope =
-        rememberCoroutineScope()
-
-    var tapPulse by remember {
-        mutableStateOf(false)
-    }
-
-    var pulseJob by remember {
-        mutableStateOf<Job?>(null)
-    }
-
-    val pressed =
-        held ||
-            tapPulse
 
     val scale by
         animateFloatAsState(
@@ -82,8 +61,10 @@ fun AllSongCard(
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.82f,
-                    stiffness = 1050f
+                    dampingRatio =
+                        0.82f,
+                    stiffness =
+                        1250f
                 ),
             label =
                 "songCardPress"
@@ -98,17 +79,6 @@ fun AllSongCard(
         RoundedCornerShape(
             7.dp
         )
-
-    fun pulse() {
-        pulseJob?.cancel()
-
-        pulseJob =
-            scope.launch {
-                tapPulse = true
-                delay(95)
-                tapPulse = false
-            }
-    }
 
     Column(
         modifier = modifier
@@ -133,13 +103,8 @@ fun AllSongCard(
                 interactionSource =
                     interaction,
                 indication = null,
-                onClick = {
-                    pulse()
-                    onClick()
-                },
-                onLongClick = {
-                    pulse()
-                }
+                onClick = onClick,
+                onLongClick = {}
             )
             .padding(5.dp)
     ) {
