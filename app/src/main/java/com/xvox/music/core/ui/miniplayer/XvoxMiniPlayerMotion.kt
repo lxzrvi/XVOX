@@ -22,6 +22,7 @@ enum class XvoxMiniAxis {
 object XvoxMiniPlayerMotion {
 
     const val AxisThreshold = 9f
+
     const val HorizontalThreshold = 48f
 
     const val OpenThreshold = -46f
@@ -106,10 +107,13 @@ object XvoxMiniPlayerMotion {
     fun metadataChange(
         direction: Int
     ): ContentTransform {
-        val value =
-            direction.coerceIn(-1, 1)
+        val normalized =
+            direction.coerceIn(
+                -1,
+                1
+            )
 
-        if (value == 0) {
+        if (normalized == 0) {
             return fadeIn(
                 tween(120)
             ).togetherWith(
@@ -119,45 +123,50 @@ object XvoxMiniPlayerMotion {
             )
         }
 
+        val enter =
+            if (normalized > 0) {
+                { height: Int ->
+                    -height
+                }
+            } else {
+                { height: Int ->
+                    height
+                }
+            }
+
+        val exit =
+            if (normalized > 0) {
+                { height: Int ->
+                    height
+                }
+            } else {
+                { height: Int ->
+                    -height
+                }
+            }
+
         return (
             fadeIn(
                 tween(115)
             ) +
                 slideInVertically(
-                    initialOffsetY = {
-                        height ->
-
-                        if (value > 0) {
-                            -height
-                        } else {
-                            height
-                        }
-                    },
+                    initialOffsetY = enter,
                     animationSpec =
                         tween(
-                            155,
+                            durationMillis = 155,
                             easing =
                                 FastOutSlowInEasing
                         )
                 )
-            )
-            .togetherWith(
+            ).togetherWith(
                 fadeOut(
                     tween(95)
                 ) +
                     slideOutVertically(
-                        targetOffsetY = {
-                            height ->
-
-                            if (value > 0) {
-                                height
-                            } else {
-                                -height
-                            }
-                        },
+                        targetOffsetY = exit,
                         animationSpec =
                             tween(
-                                140,
+                                durationMillis = 140,
                                 easing =
                                     FastOutSlowInEasing
                             )
