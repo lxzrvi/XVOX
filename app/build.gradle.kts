@@ -43,8 +43,10 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.7")
 
-    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.media3:media3-session:1.8.0")
+
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
 
     implementation("androidx.core:core-splashscreen:1.0.1")
 }
