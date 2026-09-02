@@ -65,11 +65,12 @@ fun HomeScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                colors.background
-            )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    colors.background
+                )
     ) {
         LazyColumn(
             modifier =
@@ -101,7 +102,9 @@ fun HomeScreen(
                                     currentSongId
                             )
 
-                        onPlay(song)
+                        onPlay(
+                            song
+                        )
                     },
                     onPrefetch =
                         viewModel::
@@ -127,13 +130,17 @@ fun HomeScreen(
 
                         viewModel
                             .recordPlayedFromRecent(
-                                song = song,
+                                song =
+                                    song,
                                 currentSongId =
                                     currentSongId,
-                                mode = mode
+                                transitionMode =
+                                    mode
                             )
 
-                        onPlay(song)
+                        onPlay(
+                            song
+                        )
                     }
                 )
             }
