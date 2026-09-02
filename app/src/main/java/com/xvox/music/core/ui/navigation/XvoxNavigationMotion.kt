@@ -1,114 +1,98 @@
 package com.xvox.music.core.ui.navigation
 
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import kotlin.math.abs
 
-private val ContentEasing =
-    CubicBezierEasing(
-        0.22f,
-        1f,
-        0.36f,
-        1f
-    )
-
-private const val ContentDuration = 400
-
-data class XvoxNavigationItemMotion(
-    val progress: Float,
-    val easedProgress: Float,
-    val labelAlpha: Float,
-    val pressScale: Float
+data class XvoxNavigationMotion(
+    val position: Float,
+    val grow: Float,
+    val barScale: Float
 )
 
 @Composable
-fun rememberNavigationItemMotion(
-    active: Boolean,
-    pressed: Boolean
-): XvoxNavigationItemMotion {
+fun rememberXvoxNavigationMotion(
+    position: Float,
+    dragging: Boolean
+): XvoxNavigationMotion {
 
-    val progress by
+    val animatedPosition by
+        animateFloatAsState(
+            targetValue = position,
+            animationSpec =
+                spring(
+                    dampingRatio = 0.72f,
+                    stiffness = 900f
+                ),
+            label = "navPosition"
+        )
+
+    val grow by
         animateFloatAsState(
             targetValue =
-                if (active) {
+                if (dragging) {
                     1f
                 } else {
                     0f
                 },
             animationSpec =
-                tween(
-                    durationMillis =
-                        ContentDuration,
-                    easing =
-                        ContentEasing
+                spring(
+                    dampingRatio = 0.78f,
+                    stiffness = 850f
                 ),
-            label = "navContent"
+            label = "navGrow"
         )
 
-    val pressScale by
+    val barScale by
         animateFloatAsState(
             targetValue =
-                if (pressed) {
-                    0.94f
+                if (dragging) {
+                    1.04f
                 } else {
                     1f
                 },
             animationSpec =
-                tween(
-                    durationMillis =
-                        if (pressed) {
-                            70
-                        } else {
-                            180
-                        },
-                    easing =
-                        ContentEasing
+                spring(
+                    dampingRatio = 0.78f,
+                    stiffness = 900f
                 ),
-            label = "navPress"
+            label = "navBarScale"
         )
 
-    val easedProgress =
-        smoothStep(
-            progress.coerceIn(
-                0f,
-                1f
+    return XvoxNavigationMotion(
+        position = animatedPosition,
+        grow = grow,
+        barScale = barScale
+    )
+}
+
+fun navigationProximity(
+    position: Float,
+    index: Int
+): Float {
+    return (
+        1f -
+            abs(
+                position -
+                    index.toFloat()
             )
         )
-
-    val labelAlpha =
-        smoothStep(
-            (
-                (progress - 0.08f) /
-                    0.72f
-                )
-                .coerceIn(
-                    0f,
-                    1f
-                )
+        .coerceIn(
+            0f,
+            1f
         )
-
-    return XvoxNavigationItemMotion(
-        progress =
-            progress,
-        easedProgress =
-            easedProgress,
-        labelAlpha =
-            labelAlpha,
-        pressScale =
-            pressScale
-    )
 }
 
 fun navigationColor(
     inactive: Color,
     active: Color,
-    progress: Float
+    proximity: Float
 ): Color {
-    val amount =
-        progress.coerceIn(
+    val value =
+        proximity.coerceIn(
             0f,
             1f
         )
@@ -116,43 +100,19 @@ fun navigationColor(
     return Color(
         red =
             inactive.red +
-                (
-                    active.red -
-                        inactive.red
-                    ) *
-                amount,
+                (active.red - inactive.red) *
+                value,
         green =
             inactive.green +
-                (
-                    active.green -
-                        inactive.green
-                    ) *
-                amount,
+                (active.green - inactive.green) *
+                value,
         blue =
             inactive.blue +
-                (
-                    active.blue -
-                        inactive.blue
-                    ) *
-                amount,
+                (active.blue - inactive.blue) *
+                value,
         alpha =
             inactive.alpha +
-                (
-                    active.alpha -
-                        inactive.alpha
-                    ) *
-                amount
-    )
-}
-
-private fun smoothStep(
-    value: Float
-): Float {
-    return value *
-        value *
-        (
-            3f -
-                2f *
+                (active.alpha - inactive.alpha) *
                 value
-            )
+    )
 }
