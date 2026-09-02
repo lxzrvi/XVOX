@@ -36,8 +36,7 @@ fun XvoxMainShell(
         XvoxTheme.colors
 
     val player by
-        playerViewModel
-            .state
+        playerViewModel.state
             .collectAsState()
 
     var destination by remember {
@@ -45,6 +44,8 @@ fun XvoxMainShell(
             XvoxDestination.HOME
         )
     }
+
+    val navigationGap = 28.dp
 
     Box(
         modifier = Modifier
@@ -105,17 +106,15 @@ fun XvoxMainShell(
                 playQueueIndex =
                     playerViewModel::
                         playQueueIndex,
-                dismiss =
+                stopAndDismiss =
                     playerViewModel::
-                        hideMiniPlayer,
+                        stopPlayback,
                 openPlayer = {
                     playerViewModel
                         .hideMiniPlayer()
                 },
-                onLike = {
-                },
-                onAdd = {
-                },
+                onLike = {},
+                onAdd = {},
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -125,9 +124,9 @@ fun XvoxMainShell(
                             .navigationBars
                     )
                     .padding(
-                        start = 14.dp,
-                        end = 14.dp,
-                        bottom = 100.dp
+                        start = 6.dp,
+                        end = 6.dp,
+                        bottom = 120.dp
                     )
             )
         }
@@ -147,7 +146,8 @@ fun XvoxMainShell(
                         .navigationBars
                 )
                 .padding(
-                    bottom = 18.dp
+                    bottom =
+                        navigationGap
                 )
         )
     }
