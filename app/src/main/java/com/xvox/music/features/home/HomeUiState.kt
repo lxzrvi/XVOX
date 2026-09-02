@@ -13,6 +13,10 @@ data class HomeUiState(
     val profile: UserPreferences =
         UserPreferences(),
     val currentSongId: Long? = null,
+    val currentIndex: Int = -1,
     val isPlaying: Boolean = false,
+    val playbackPosition: Long = 0L,
+    val playbackDuration: Long = 0L,
+    val miniPlayerVisible: Boolean = true,
     val showPlaylists: Boolean = false
 )
