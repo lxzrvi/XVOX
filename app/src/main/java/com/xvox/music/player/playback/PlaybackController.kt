@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.xvox.music.core.model.Song
+import com.xvox.music.player.session.XvoxPlaybackService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.xvox.music.player.session.XvoxPlaybackService
 
 data class PlaybackState(
     val connected: Boolean = false,
@@ -128,6 +128,8 @@ class PlaybackController(
         songs: List<Song>
     ) {
         queue = songs
+
+        publishState()
     }
 
     fun play(
@@ -151,11 +153,8 @@ class PlaybackController(
                 it.id == song.id
             }
 
-        val item =
-            song.toMediaItem()
-
         mediaController.setMediaItem(
-            item
+            song.toMediaItem()
         )
 
         mediaController.prepare()
@@ -163,10 +162,13 @@ class PlaybackController(
 
         _state.value =
             _state.value.copy(
+                connected = true,
                 currentSongId =
                     song.id,
                 currentIndex =
-                    index
+                    index,
+                position = 0L,
+                duration = 0L
             )
     }
 
@@ -183,8 +185,7 @@ class PlaybackController(
 
         val shouldPlay =
             if (keepPlayingState) {
-                mediaController
-                    .isPlaying
+                mediaController.isPlaying
             } else {
                 true
             }
@@ -201,7 +202,18 @@ class PlaybackController(
             mediaController.pause()
         }
 
-        publishState()
+        _state.value =
+            _state.value.copy(
+                connected = true,
+                currentSongId =
+                    song.id,
+                currentIndex =
+                    index,
+                isPlaying =
+                    shouldPlay,
+                position = 0L,
+                duration = 0L
+            )
     }
 
     fun togglePlay() {
@@ -223,6 +235,19 @@ class PlaybackController(
         }
     }
 
+    fun stop() {
+        val mediaController =
+            controller ?: return
+
+        mediaController.stop()
+        mediaController.clearMediaItems()
+
+        _state.value =
+            PlaybackState(
+                connected = true
+            )
+    }
+
     private fun publishState() {
         val mediaController =
             controller
@@ -230,6 +255,7 @@ class PlaybackController(
         if (mediaController == null) {
             _state.value =
                 PlaybackState()
+
             return
         }
 
