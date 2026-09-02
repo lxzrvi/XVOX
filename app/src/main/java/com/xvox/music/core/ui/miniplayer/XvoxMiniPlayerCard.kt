@@ -38,7 +38,7 @@ fun XvoxMiniPlayerCard(
     isPlaying: Boolean,
     position: Long,
     duration: Long,
-    transitionDirection: Int,
+    direction: Int,
     togglePlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -53,10 +53,13 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(60.dp)
             .clip(shape)
-            .background(colors.surface)
+            .background(
+                colors.surface
+            )
             .border(
                 width = 0.65.dp,
-                color = colors.cardBorder,
+                color =
+                    colors.cardBorder,
                 shape = shape
             )
     ) {
@@ -64,8 +67,7 @@ fun XvoxMiniPlayerCard(
             if (duration > 0L) {
                 (
                     position.toFloat() /
-                        duration
-                            .toFloat()
+                        duration.toFloat()
                     )
                     .coerceIn(
                         0f,
@@ -127,12 +129,10 @@ fun XvoxMiniPlayerCard(
                     },
                     label =
                         "miniArtwork"
-                ) { visualSong ->
-
+                ) { current ->
                     SongArtwork(
                         artwork =
-                            visualSong
-                                .artworkUri,
+                            current.artworkUri,
                         requestSize = 160,
                         modifier =
                             Modifier.fillMaxSize()
@@ -147,11 +147,12 @@ fun XvoxMiniPlayerCard(
                 transitionSpec = {
                     XvoxMiniPlayerMotion
                         .metadataChange(
-                            transitionDirection
+                            direction
                         )
                 },
-                label = "miniMetadata"
-            ) { visualSong ->
+                label =
+                    "miniMetadata"
+            ) { current ->
 
                 Column(
                     modifier = Modifier
@@ -164,8 +165,7 @@ fun XvoxMiniPlayerCard(
                         Arrangement.Center
                 ) {
                     Text(
-                        text =
-                            visualSong.title,
+                        text = current.title,
                         color =
                             colors.primaryText,
                         fontSize = 12.sp,
@@ -179,7 +179,7 @@ fun XvoxMiniPlayerCard(
 
                     Text(
                         text =
-                            visualSong.artist,
+                            current.artist,
                         color =
                             colors.secondaryText,
                         fontSize = 9.sp,
@@ -199,9 +199,9 @@ fun XvoxMiniPlayerCard(
                 )
                 .padding(end = 7.dp)
                 .size(38.dp)
-                .clip(CircleShape)
                 .background(
-                    colors.cardElevated
+                    colors.cardElevated,
+                    CircleShape
                 )
                 .clickable(
                     interactionSource =
@@ -214,23 +214,17 @@ fun XvoxMiniPlayerCard(
             contentAlignment =
                 Alignment.Center
         ) {
-            XvoxMiniIcon(
-                type =
+            XvoxMiniPlayerIcon(
+                icon =
                     if (isPlaying) {
-                        XvoxMiniIconType.PAUSE
+                        XvoxMiniIcon.PAUSE
                     } else {
-                        XvoxMiniIconType.PLAY
+                        XvoxMiniIcon.PLAY
                     },
                 color =
                     colors.primaryText,
                 modifier =
-                    Modifier.size(
-                        if (isPlaying) {
-                            17.dp
-                        } else {
-                            18.dp
-                        }
-                    )
+                    Modifier.size(18.dp)
             )
         }
     }
