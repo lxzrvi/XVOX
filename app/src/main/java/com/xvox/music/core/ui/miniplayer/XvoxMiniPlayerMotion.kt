@@ -22,7 +22,6 @@ enum class XvoxMiniAxis {
 object XvoxMiniPlayerMotion {
 
     const val AxisThreshold = 9f
-
     const val HorizontalThreshold = 48f
 
     const val OpenThreshold = -46f
@@ -43,7 +42,7 @@ object XvoxMiniPlayerMotion {
         return (
             free +
                 (distance - free) *
-                0.07f
+                    0.07f
             ) *
             sign(value)
     }
@@ -67,7 +66,7 @@ object XvoxMiniPlayerMotion {
         return (
             free +
                 (distance - free) *
-                0.075f
+                    0.075f
             ) *
             sign(value)
     }
@@ -123,37 +122,25 @@ object XvoxMiniPlayerMotion {
             )
         }
 
-        val enter =
-            if (normalized > 0) {
-                { height: Int ->
-                    -height
-                }
-            } else {
-                { height: Int ->
-                    height
-                }
-            }
-
-        val exit =
-            if (normalized > 0) {
-                { height: Int ->
-                    height
-                }
-            } else {
-                { height: Int ->
-                    -height
-                }
-            }
-
         return (
             fadeIn(
                 tween(115)
             ) +
                 slideInVertically(
-                    initialOffsetY = enter,
+                    initialOffsetY = {
+                        height ->
+
+                        if (
+                            normalized > 0
+                        ) {
+                            -height
+                        } else {
+                            height
+                        }
+                    },
                     animationSpec =
                         tween(
-                            durationMillis = 155,
+                            155,
                             easing =
                                 FastOutSlowInEasing
                         )
@@ -163,10 +150,20 @@ object XvoxMiniPlayerMotion {
                     tween(95)
                 ) +
                     slideOutVertically(
-                        targetOffsetY = exit,
+                        targetOffsetY = {
+                            height ->
+
+                            if (
+                                normalized > 0
+                            ) {
+                                height
+                            } else {
+                                -height
+                            }
+                        },
                         animationSpec =
                             tween(
-                                durationMillis = 140,
+                                140,
                                 easing =
                                     FastOutSlowInEasing
                             )
