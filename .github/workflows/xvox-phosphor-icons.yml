@@ -1,0 +1,561 @@
+name: XVOX - Import Phosphor Icons
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-icons:
+    name: Import selected Phosphor icons
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout XVOX
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install conversion tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            librsvg2-bin \
+            libxml2-utils \
+            python3
+
+      - name: Checkout official Phosphor icons
+        uses: actions/checkout@v4
+        with:
+          repository: phosphor-icons/core
+          path: phosphor-core
+          fetch-depth: 1
+
+      - name: Prepare XVOX drawable directory
+        run: |
+          mkdir -p app/src/main/res/drawable
+
+      - name: Import selected icons
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          ROOT = Path("phosphor-core")
+          OUTPUT = Path("app/src/main/res/drawable")
+
+          # --------------------------------------------------
+          # XVOX ICON SELECTION
+          #
+          # Format:
+          # Android resource name:
+          #     (Phosphor icon name, Phosphor weight)
+          #
+          # Add future icons HERE and manually run workflow.
+          # --------------------------------------------------
+
+          ICONS = {
+              # Current Home
+              "ic_xvox_refresh": (
+                  "arrows-clockwise",
+                  "fill",
+              ),
+              "ic_xvox_heart": (
+                  "heart",
+                  "fill",
+              ),
+              "ic_xvox_music_note": (
+                  "music-note",
+                  "fill",
+              ),
+              "ic_xvox_playlist": (
+                  "playlist",
+                  "fill",
+              ),
+
+              # Playback
+              "ic_xvox_play": (
+                  "play",
+                  "fill",
+              ),
+              "ic_xvox_pause": (
+                  "pause",
+                  "fill",
+              ),
+              "ic_xvox_skip_previous": (
+                  "skip-back",
+                  "fill",
+              ),
+              "ic_xvox_skip_next": (
+                  "skip-forward",
+                  "fill",
+              ),
+              "ic_xvox_shuffle": (
+                  "shuffle",
+                  "fill",
+              ),
+              "ic_xvox_repeat": (
+                  "repeat",
+                  "fill",
+              ),
+
+              # MiniPlayer / common
+              "ic_xvox_add": (
+                  "plus",
+                  "fill",
+              ),
+              "ic_xvox_close": (
+                  "x",
+                  "bold",
+              ),
+
+              # Future
+              "ic_xvox_search_action": (
+                  "magnifying-glass",
+                  "bold",
+              ),
+              "ic_xvox_queue": (
+                  "list",
+                  "bold",
+              ),
+              "ic_xvox_more": (
+                  "dots-three",
+                  "bold",
+              ),
+              "ic_xvox_equalizer": (
+                  "sliders-horizontal",
+                  "fill",
+              ),
+              "ic_xvox_timer": (
+                  "timer",
+                  "fill",
+              ),
+              "ic_xvox_volume_high": (
+                  "speaker-high",
+                  "fill",
+              ),
+              "ic_xvox_share": (
+                  "share-network",
+                  "fill",
+              ),
+              "ic_xvox_delete": (
+                  "trash",
+                  "fill",
+              ),
+          }
+
+          # --------------------------------------------------
+          # Locate SVG robustly.
+          #
+          # This intentionally does not hardcode one exact
+          # Phosphor repository directory layout.
+          # --------------------------------------------------
+
+          def find_svg(icon_name, weight):
+              candidates = []
+
+              for path in ROOT.rglob("*.svg"):
+                  name = path.name.lower()
+                  full = str(path).lower()
+
+                  if icon_name.lower() not in name:
+                      continue
+
+                  score = 0
+
+                  if path.stem.lower() == icon_name.lower():
+                      score += 10
+
+                  if weight.lower() in full:
+                      score += 20
+
+                  if (
+                      path.stem.lower()
+                      == f"{icon_name}-{weight}".lower()
+                  ):
+                      score += 30
+
+                  candidates.append((score, path))
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  key=lambda item: (
+                      item[0],
+                      -len(str(item[1]))
+                  ),
+                  reverse=True,
+              )
+
+              return candidates[0][1]
+
+          # --------------------------------------------------
+          # SVG -> Android VectorDrawable
+          #
+          # Supports standard Phosphor:
+          # path / rect / circle / line / polyline / polygon.
+          #
+          # To guarantee exact complex SVG conversion, we use
+          # Android's vector path representation where possible.
+          # --------------------------------------------------
+
+          def num(value, default=0.0):
+              if value is None:
+                  return default
+
+              value = re.sub(
+                  r"[^0-9eE+.\-]",
+                  "",
+                  value,
+              )
+
+              try:
+                  return float(value)
+              except ValueError:
+                  return default
+
+          def fmt(value):
+              if int(value) == value:
+                  return str(int(value))
+              return f"{value:.4f}".rstrip("0").rstrip(".")
+
+          def svg_to_vector(svg_path, output_path):
+              tree = ET.parse(svg_path)
+              root = tree.getroot()
+
+              view_box = root.attrib.get(
+                  "viewBox",
+                  "0 0 256 256",
+              ).replace(",", " ").split()
+
+              if len(view_box) != 4:
+                  raise RuntimeError(
+                      f"Invalid viewBox: {svg_path}"
+                  )
+
+              min_x, min_y, width, height = map(
+                  float,
+                  view_box,
+              )
+
+              if min_x != 0 or min_y != 0:
+                  print(
+                      f"WARNING: non-zero viewBox origin "
+                      f"in {svg_path}: {view_box}"
+                  )
+
+              vector = ET.Element(
+                  "vector",
+                  {
+                      "xmlns:android":
+                          "http://schemas.android.com/apk/res/android",
+                      "android:width": "24dp",
+                      "android:height": "24dp",
+                      "android:viewportWidth":
+                          fmt(width),
+                      "android:viewportHeight":
+                          fmt(height),
+                  },
+              )
+
+              paths_added = 0
+
+              def add_path(
+                  path_data,
+                  fill=True,
+                  stroke=False,
+                  stroke_width=None,
+                  linecap=None,
+                  linejoin=None,
+              ):
+                  nonlocal paths_added
+
+                  attrs = {
+                      "android:pathData":
+                          path_data,
+                  }
+
+                  if fill:
+                      attrs["android:fillColor"] = "#FFFFFFFF"
+                  else:
+                      attrs["android:fillColor"] = "#00000000"
+
+                  if stroke:
+                      attrs["android:strokeColor"] = "#FFFFFFFF"
+                      attrs["android:strokeWidth"] = (
+                          fmt(stroke_width or 1.0)
+                      )
+
+                      if linecap in {
+                          "round",
+                          "square",
+                          "butt",
+                      }:
+                          attrs[
+                              "android:strokeLineCap"
+                          ] = linecap
+
+                      if linejoin in {
+                          "round",
+                          "bevel",
+                          "miter",
+                      }:
+                          attrs[
+                              "android:strokeLineJoin"
+                          ] = linejoin
+
+                  ET.SubElement(
+                      vector,
+                      "path",
+                      attrs,
+                  )
+
+                  paths_added += 1
+
+              def strip(tag):
+                  return tag.split("}")[-1]
+
+              def walk(element):
+                  tag = strip(element.tag)
+
+                  if tag == "path":
+                      d = element.attrib.get("d")
+
+                      if d:
+                          fill_value = element.attrib.get(
+                              "fill",
+                              "black",
+                          )
+
+                          stroke_value = element.attrib.get(
+                              "stroke",
+                              "none",
+                          )
+
+                          add_path(
+                              d,
+                              fill=fill_value != "none",
+                              stroke=stroke_value != "none",
+                              stroke_width=num(
+                                  element.attrib.get(
+                                      "stroke-width"
+                                  ),
+                                  1.0,
+                              ),
+                              linecap=element.attrib.get(
+                                  "stroke-linecap"
+                              ),
+                              linejoin=element.attrib.get(
+                                  "stroke-linejoin"
+                              ),
+                          )
+
+                  elif tag == "line":
+                      x1 = num(
+                          element.attrib.get("x1")
+                      )
+                      y1 = num(
+                          element.attrib.get("y1")
+                      )
+                      x2 = num(
+                          element.attrib.get("x2")
+                      )
+                      y2 = num(
+                          element.attrib.get("y2")
+                      )
+
+                      add_path(
+                          f"M {fmt(x1)},{fmt(y1)} "
+                          f"L {fmt(x2)},{fmt(y2)}",
+                          fill=False,
+                          stroke=True,
+                          stroke_width=num(
+                              element.attrib.get(
+                                  "stroke-width"
+                              ),
+                              1.0,
+                          ),
+                          linecap=element.attrib.get(
+                              "stroke-linecap"
+                          ),
+                          linejoin=element.attrib.get(
+                              "stroke-linejoin"
+                          ),
+                      )
+
+                  elif tag in {"polyline", "polygon"}:
+                      points = re.findall(
+                          r"-?[0-9.]+(?:e[-+]?[0-9]+)?",
+                          element.attrib.get(
+                              "points",
+                              "",
+                          ),
+                          flags=re.I,
+                      )
+
+                      if len(points) >= 4:
+                          pairs = list(
+                              zip(
+                                  points[0::2],
+                                  points[1::2],
+                              )
+                          )
+
+                          data = (
+                              f"M {pairs[0][0]},"
+                              f"{pairs[0][1]} "
+                          )
+
+                          for x, y in pairs[1:]:
+                              data += f"L {x},{y} "
+
+                          if tag == "polygon":
+                              data += "Z"
+
+                          fill_value = (
+                              element.attrib.get(
+                                  "fill",
+                                  "none",
+                              )
+                          )
+
+                          stroke_value = (
+                              element.attrib.get(
+                                  "stroke",
+                                  "black",
+                              )
+                          )
+
+                          add_path(
+                              data,
+                              fill=fill_value != "none",
+                              stroke=stroke_value != "none",
+                              stroke_width=num(
+                                  element.attrib.get(
+                                      "stroke-width"
+                                  ),
+                                  1.0,
+                              ),
+                              linecap=element.attrib.get(
+                                  "stroke-linecap"
+                              ),
+                              linejoin=element.attrib.get(
+                                  "stroke-linejoin"
+                              ),
+                          )
+
+                  # Phosphor files primarily use paths and
+                  # simple primitives. Child nodes still need
+                  # recursive processing.
+                  for child in element:
+                      walk(child)
+
+              walk(root)
+
+              if paths_added == 0:
+                  raise RuntimeError(
+                      f"No convertible paths found: {svg_path}"
+                  )
+
+              ET.indent(
+                  vector,
+                  space="    ",
+              )
+
+              xml = ET.tostring(
+                  vector,
+                  encoding="unicode",
+              )
+
+              output_path.write_text(
+                  '<?xml version="1.0" encoding="utf-8"?>\n'
+                  + xml
+                  + "\n",
+                  encoding="utf-8",
+              )
+
+          failures = []
+
+          for android_name, (
+              phosphor_name,
+              weight,
+          ) in ICONS.items():
+
+              source = find_svg(
+                  phosphor_name,
+                  weight,
+              )
+
+              if source is None:
+                  failures.append(
+                      f"{phosphor_name} ({weight})"
+                  )
+                  continue
+
+              destination = (
+                  OUTPUT /
+                  f"{android_name}.xml"
+              )
+
+              print(
+                  f"{phosphor_name} [{weight}] "
+                  f"-> {destination}"
+              )
+
+              try:
+                  svg_to_vector(
+                      source,
+                      destination,
+                  )
+              except Exception as exc:
+                  failures.append(
+                      f"{phosphor_name}: {exc}"
+                  )
+
+          if failures:
+              print(
+                  "\nFailed icons:",
+                  file=sys.stderr,
+              )
+
+              for failure in failures:
+                  print(
+                      f" - {failure}",
+                      file=sys.stderr,
+                  )
+
+              sys.exit(1)
+
+          print(
+              f"\nImported {len(ICONS)} icons."
+          )
+          PY
+
+      - name: Show generated icons
+        run: |
+          ls -lah app/src/main/res/drawable/ic_xvox_*.xml
+
+      - name: Commit generated icons
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- app/src/main/res/drawable; then
+            echo "No icon changes to commit."
+            exit 0
+          fi
+
+          git config user.name "xvox-actions"
+          git config user.email "actions@users.noreply.github.com"
+
+          git add app/src/main/res/drawable/ic_xvox_*.xml
+
+          git commit -m "Import XVOX Phosphor icons"
+          git push
