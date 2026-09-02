@@ -1,7 +1,11 @@
 package com.xvox.music.features.home
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,7 +49,7 @@ fun RecentArtwork(
     val colors =
         XvoxTheme.colors
 
-    val interaction =
+    val cardInteraction =
         remember {
             MutableInteractionSource()
         }
@@ -56,25 +60,25 @@ fun RecentArtwork(
         }
 
     val pressed by
-        interaction
+        cardInteraction
             .collectIsPressedAsState()
 
     val scale by
-        animateFloatAsState(
-            targetValue =
-                if (pressed) {
-                    0.985f
-                } else {
-                    1f
-                },
-            animationSpec =
-                spring(
-                    dampingRatio = 0.84f,
-                    stiffness = 1500f
-                ),
-            label =
-                "recentPress"
-        )
+        androidx.compose.animation.core
+            .animateFloatAsState(
+                targetValue =
+                    if (pressed) {
+                        0.985f
+                    } else {
+                        1f
+                    },
+                animationSpec =
+                    spring(
+                        dampingRatio = 0.86f,
+                        stiffness = 1400f
+                    ),
+                label = "recentPress"
+            )
 
     val shape =
         RoundedCornerShape(
@@ -95,12 +99,11 @@ fun RecentArtwork(
                 width = 0.7.dp,
                 color =
                     colors.cardBorder,
-                shape =
-                    shape
+                shape = shape
             )
             .clickable(
                 interactionSource =
-                    interaction,
+                    cardInteraction,
                 indication = null,
                 onClick = onClick
             )
@@ -160,11 +163,18 @@ fun RecentArtwork(
                 )
                 .padding(9.dp)
                 .height(30.dp)
+                .clip(CircleShape)
                 .background(
                     Color.Black.copy(
                         alpha = 0.58f
-                    ),
-                    CircleShape
+                    )
+                )
+                .animateContentSize(
+                    animationSpec =
+                        spring(
+                            dampingRatio = 0.88f,
+                            stiffness = 700f
+                        )
                 )
                 .clickable(
                     interactionSource =
@@ -173,15 +183,7 @@ fun RecentArtwork(
                     onClick = onClick
                 )
                 .padding(
-                    horizontal =
-                        if (
-                            current &&
-                            playing
-                        ) {
-                            9.dp
-                        } else {
-                            8.dp
-                        }
+                    horizontal = 8.dp
                 ),
             verticalAlignment =
                 Alignment.CenterVertically,
@@ -190,20 +192,33 @@ fun RecentArtwork(
                     5.dp
                 )
         ) {
-            PlaybackIcon(
-                type =
-                    if (
-                        current &&
-                        playing
-                    ) {
-                        PlaybackIconType.PAUSE
-                    } else {
-                        PlaybackIconType.PLAY
-                    },
-                color = Color.White,
-                modifier =
-                    Modifier.size(14.dp)
-            )
+            AnimatedContent(
+                targetState =
+                    current &&
+                        playing,
+                transitionSpec = {
+                    fadeIn() togetherWith
+                        fadeOut()
+                },
+                label =
+                    "recentPlayState"
+            ) { active ->
+                PlaybackIcon(
+                    type =
+                        if (active) {
+                            PlaybackIconType
+                                .PAUSE
+                        } else {
+                            PlaybackIconType
+                                .PLAY
+                        },
+                    color = Color.White,
+                    modifier =
+                        Modifier.size(
+                            14.dp
+                        )
+                )
+            }
 
             if (
                 current &&
