@@ -10,15 +10,15 @@ object XvoxNavigationGeometry {
     val selectorRestWidth = 78.dp
     val selectorRestHeight = 56.dp
 
-    val selectorGrowWidth = 24.dp
-    val selectorGrowHeight = 16.dp
+    val selectorGrowWidth = 32.dp
+    val selectorGrowHeight = 24.dp
 
     val selectorBaseRadius = 29.dp
-    val selectorGrowRadius = 9.dp
+    val selectorGrowRadius = 13.dp
 
     val selectorStart = 4.dp
     val selectorTravel = 160.dp
-    val selectorGrowShift = 12.dp
+    val selectorGrowShift = 16.dp
 
     val iconSize = 25.dp
 
@@ -27,27 +27,9 @@ object XvoxNavigationGeometry {
     val barBorderWidth = 0.65.dp
     val selectorBorderWidth = 0.65.dp
 
-    /*
-     * Finger must travel farther than one
-     * visual slot to move the selector by
-     * one complete destination.
-     */
-    const val DragResistance = 1.34f
+    const val DragResistance = 1.22f
 
-    /*
-     * Movement below this is treated as
-     * a tap/hold instead of drag.
-     */
-    const val TouchSlopMultiplier = 1.15f
+    const val SettleThreshold = 0.40f
 
-    /*
-     * Adjacent destination threshold.
-     */
-    const val SettleThreshold = 0.42f
-
-    /*
-     * Reaching two tabs in one gesture is
-     * deliberately harder.
-     */
-    const val FarDestinationThreshold = 1.58f
+    const val FarDestinationThreshold = 1.62f
 }
