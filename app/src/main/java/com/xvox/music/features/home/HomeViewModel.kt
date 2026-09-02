@@ -80,30 +80,29 @@ class HomeViewModel(
 
     private fun observePlayback() {
         viewModelScope.launch {
-            playback.state
-                .collect {
-                    playerState ->
+            playback.state.collect {
+                playbackState ->
 
-                    _state.update {
-                        it.copy(
-                            currentSongId =
-                                playerState
-                                    .currentSongId,
-                            currentIndex =
-                                playerState
-                                    .currentIndex,
-                            isPlaying =
-                                playerState
-                                    .isPlaying,
-                            playbackPosition =
-                                playerState
-                                    .position,
-                            playbackDuration =
-                                playerState
-                                    .duration
-                        )
-                    }
+                _state.update {
+                    it.copy(
+                        currentSongId =
+                            playbackState
+                                .currentSongId,
+                        currentIndex =
+                            playbackState
+                                .currentIndex,
+                        isPlaying =
+                            playbackState
+                                .isPlaying,
+                        playbackPosition =
+                            playbackState
+                                .position,
+                        playbackDuration =
+                            playbackState
+                                .duration
+                    )
                 }
+            }
         }
     }
 
@@ -129,40 +128,6 @@ class HomeViewModel(
 
             prefetchFrom(12)
         }
-    }
-
-    fun prefetchFrom(
-        sourceIndex: Int
-    ) {
-        val songs =
-            _state.value.songs
-
-        if (songs.isEmpty()) return
-
-        val pageStart =
-            (sourceIndex / 12) * 12
-
-        if (
-            pageStart ==
-            lastPrefetchStart
-        ) {
-            return
-        }
-
-        lastPrefetchStart =
-            pageStart
-
-        prefetchJob?.cancel()
-
-        prefetchJob =
-            viewModelScope.launch {
-                artworkPreloader.warm(
-                    songs = songs,
-                    fromIndex =
-                        pageStart,
-                    count = 36
-                )
-            }
     }
 
     fun refresh() {
@@ -197,7 +162,46 @@ class HomeViewModel(
         }
     }
 
-    fun play(song: Song) {
+    fun prefetchFrom(
+        sourceIndex: Int
+    ) {
+        val songs =
+            _state.value.songs
+
+        if (songs.isEmpty()) {
+            return
+        }
+
+        val start =
+            (
+                sourceIndex /
+                    12
+                ) * 12
+
+        if (
+            start ==
+            lastPrefetchStart
+        ) {
+            return
+        }
+
+        lastPrefetchStart = start
+
+        prefetchJob?.cancel()
+
+        prefetchJob =
+            viewModelScope.launch {
+                artworkPreloader.warm(
+                    songs = songs,
+                    fromIndex = start,
+                    count = 36
+                )
+            }
+    }
+
+    fun play(
+        song: Song
+    ) {
         val now =
             SystemClock
                 .elapsedRealtime()
@@ -216,24 +220,11 @@ class HomeViewModel(
 
         playback.play(song)
 
+        addRecent(song)
+
         _state.update {
-            current ->
-
-            current.copy(
-                miniPlayerVisible = true,
-                recentlyPlayed =
-                    buildList {
-                        add(song)
-
-                        addAll(
-                            current
-                                .recentlyPlayed
-                                .filterNot {
-                                    it.id ==
-                                        song.id
-                                }
-                        )
-                    }.take(20)
+            it.copy(
+                miniPlayerVisible = true
             )
         }
     }
@@ -241,21 +232,33 @@ class HomeViewModel(
     fun playQueueIndex(
         index: Int
     ) {
-        playback.playQueueIndex(index)
-
         val song =
             _state.value.songs
                 .getOrNull(index)
                 ?: return
 
+        playback.playQueueIndex(index)
+
+        addRecent(song)
+
+        _state.update {
+            it.copy(
+                miniPlayerVisible = true
+            )
+        }
+    }
+
+    private fun addRecent(
+        song: Song
+    ) {
         _state.update {
             current ->
 
             current.copy(
-                miniPlayerVisible = true,
                 recentlyPlayed =
                     buildList {
                         add(song)
+
                         addAll(
                             current
                                 .recentlyPlayed
@@ -278,19 +281,6 @@ class HomeViewModel(
             it.copy(
                 miniPlayerVisible = false
             )
-        }
-    }
-
-    fun showMiniPlayer() {
-        if (
-            _state.value.currentSongId !=
-            null
-        ) {
-            _state.update {
-                it.copy(
-                    miniPlayerVisible = true
-                )
-            }
         }
     }
 
