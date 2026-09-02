@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 private const val Columns = 4
 private const val Rows = 3
@@ -45,6 +46,10 @@ fun AllSongsSection(
     val gridState =
         rememberLazyGridState()
 
+    /*
+     * Prefetch once per conceptual page rather than every
+     * visible-item movement during a fast fling.
+     */
     LaunchedEffect(
         gridState,
         songs.size
@@ -56,10 +61,13 @@ fun AllSongsSection(
                     it.index
                 } ?: 0
         }
+            .map {
+                it / SongsPerPage
+            }
             .distinctUntilChanged()
-            .collect {
+            .collect { page ->
                 onPrefetch(
-                    it +
+                    (page + 1) *
                         SongsPerPage
                 )
             }
@@ -76,7 +84,7 @@ fun AllSongsSection(
                     start = 12.dp,
                     end = 12.dp,
                     top = 7.dp,
-                    bottom = 11.dp
+                    bottom = 14.dp
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -123,6 +131,12 @@ fun AllSongsSection(
                 cardHeight * Rows +
                     gap * (Rows - 1)
 
+            /*
+             * Keep complete conceptual 12-item pages.
+             *
+             * Empty tail slots preserve the current 4x3
+             * geometry without fake songs.
+             */
             val slots =
                 remember(
                     songs.size
@@ -158,8 +172,7 @@ fun AllSongsSection(
                     ),
                 contentPadding =
                     PaddingValues(
-                        horizontal =
-                            edge
+                        horizontal = edge
                     ),
                 horizontalArrangement =
                     Arrangement.spacedBy(
@@ -172,14 +185,49 @@ fun AllSongsSection(
             ) {
                 items(
                     count = slots,
-                    key = {
-                        "song_slot_$it"
+
+                    /*
+                     * Preserve custom page mapping while
+                     * giving real songs stable identities.
+                     */
+                    key = { slot ->
+                        val page =
+                            slot /
+                                SongsPerPage
+
+                        val local =
+                            slot %
+                                SongsPerPage
+
+                        val row =
+                            local %
+                                Rows
+
+                        val column =
+                            local /
+                                Rows
+
+                        val sourceIndex =
+                            page *
+                                SongsPerPage +
+                                row *
+                                Columns +
+                                column
+
+                        songs
+                            .getOrNull(
+                                sourceIndex
+                            )
+                            ?.let { song ->
+                                "song_${song.id}"
+                            }
+                            ?: "empty_$slot"
                     },
+
                     contentType = {
                         "song_slot"
                     }
                 ) { slot ->
-
                     val page =
                         slot /
                             SongsPerPage
@@ -216,18 +264,18 @@ fun AllSongsSection(
                             .getOrNull(
                                 sourceIndex
                             )
-                            ?.let {
-                                song ->
+                            ?.let { song ->
+                                val current =
+                                    currentSongId ==
+                                        song.id
 
                                 AllSongCard(
                                     song = song,
                                     current =
-                                        currentSongId ==
-                                            song.id,
+                                        current,
                                     playing =
-                                        isPlaying &&
-                                            currentSongId ==
-                                            song.id,
+                                        current &&
+                                            isPlaying,
                                     onClick = {
                                         onSongClick(
                                             song
