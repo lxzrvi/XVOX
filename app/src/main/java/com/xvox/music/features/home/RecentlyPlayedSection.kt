@@ -42,11 +42,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun RecentlyPlayedSection(
@@ -61,9 +63,7 @@ fun RecentlyPlayedSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                top = 18.dp
-            )
+            .padding(top = 18.dp)
     ) {
         Row(
             modifier = Modifier
@@ -78,10 +78,8 @@ fun RecentlyPlayedSection(
                 Alignment.CenterVertically
         ) {
             Text(
-                text =
-                    "Recently Played",
-                color =
-                    colors.primaryText,
+                text = "Recently Played",
+                color = colors.primaryText,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
@@ -91,8 +89,7 @@ fun RecentlyPlayedSection(
             Text(
                 text =
                     "${songs.size} played",
-                color =
-                    colors.mutedText,
+                color = colors.mutedText,
                 fontSize = 9.sp
             )
         }
@@ -146,9 +143,6 @@ private fun RecentCarousel(
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
-
     val listState =
         rememberLazyListState()
 
@@ -157,17 +151,17 @@ private fun RecentCarousel(
             listState
         )
 
-    var centeredIndex by remember {
-        mutableIntStateOf(0)
-    }
+    var centeredIndex by
+        remember {
+            mutableIntStateOf(0)
+        }
 
     LaunchedEffect(
         songs.firstOrNull()?.id
     ) {
         if (songs.isNotEmpty()) {
-            listState.animateScrollToItem(
-                0
-            )
+            listState
+                .animateScrollToItem(0)
         }
     }
 
@@ -189,17 +183,20 @@ private fun RecentCarousel(
                 .minByOrNull {
                     item ->
 
-                    abs(
+                    val itemCenter =
                         item.offset +
-                            item.size / 2 -
+                            item.size / 2
+
+                    abs(
+                        itemCenter -
                             center
                     )
                 }
                 ?.index
                 ?: 0
-        }.collect {
+        }.collect { index ->
             centeredIndex =
-                it.coerceIn(
+                index.coerceIn(
                     0,
                     songs.lastIndex
                 )
@@ -222,68 +219,75 @@ private fun RecentCarousel(
                 maxWidth -
                     edge * 2
 
-            LazyRow(
-                state = listState,
-                flingBehavior = fling,
-                modifier =
-                    Modifier.fillMaxWidth(),
-                contentPadding =
-                    PaddingValues(
-                        horizontal = edge
-                    ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        1.dp
-                    )
+            val railWidth =
+                itemWidth * 0.22f
+
+            Column(
+                horizontalAlignment =
+                    Alignment.CenterHorizontally
             ) {
-                items(
-                    items = songs,
-                    key = {
-                        it.id
-                    },
-                    contentType = {
-                        "recent_song"
-                    }
-                ) { song ->
-
-                    RecentArtwork(
-                        song = song,
-                        current =
-                            song.id ==
-                                currentSongId,
-                        playing =
-                            song.id ==
-                                currentSongId &&
-                                isPlaying,
-                        onClick = {
-                            onSongClick(
-                                song
-                            )
+                LazyRow(
+                    state = listState,
+                    flingBehavior = fling,
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = edge
+                        ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            1.dp
+                        )
+                ) {
+                    items(
+                        items = songs,
+                        key = {
+                            it.id
                         },
-                        modifier = Modifier
-                            .width(
-                                itemWidth
-                            )
-                            .height(
-                                122.dp
-                            )
-                    )
-                }
-            }
+                        contentType = {
+                            "recent_song"
+                        }
+                    ) { song ->
 
-            RecentPositionRail(
-                songCount =
-                    songs.size,
-                centeredIndex =
-                    centeredIndex,
-                modifier = Modifier
-                    .align(
-                        Alignment.BottomCenter
-                    )
-                    .padding(
-                        bottom = 0.dp
-                    )
-            )
+                        RecentArtwork(
+                            song = song,
+                            current =
+                                song.id ==
+                                    currentSongId,
+                            playing =
+                                song.id ==
+                                    currentSongId &&
+                                    isPlaying,
+                            onClick = {
+                                onSongClick(
+                                    song
+                                )
+                            },
+                            modifier = Modifier
+                                .width(
+                                    itemWidth
+                                )
+                                .height(
+                                    122.dp
+                                )
+                        )
+                    }
+                }
+
+                RecentPositionRail(
+                    songCount =
+                        songs.size,
+                    centeredIndex =
+                        centeredIndex,
+                    railWidth =
+                        railWidth,
+                    modifier =
+                        Modifier.padding(
+                            top = 8.dp
+                        )
+                )
+            }
         }
 
         Box(
@@ -332,7 +336,7 @@ private fun RecentArtwork(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(
+                        colors = listOf(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
@@ -344,10 +348,8 @@ private fun RecentArtwork(
         )
 
         Text(
-            text =
-                song.title,
-            color =
-                Color.White,
+            text = song.title,
+            color = Color.White,
             fontSize = 14.sp,
             fontWeight =
                 FontWeight.SemiBold,
@@ -418,8 +420,7 @@ private fun RecentArtwork(
                     } else {
                         PlaybackIconType.PLAY
                     },
-                color =
-                    Color.White,
+                color = Color.White,
                 modifier =
                     Modifier.size(
                         14.dp
@@ -432,8 +433,7 @@ private fun RecentArtwork(
             ) {
                 Text(
                     text = "Playing",
-                    color =
-                        Color.White,
+                    color = Color.White,
                     fontSize = 9.sp
                 )
             }
@@ -442,9 +442,10 @@ private fun RecentArtwork(
 }
 
 @Composable
-private fun BoxWithConstraintsScope.RecentPositionRail(
+private fun RecentPositionRail(
     songCount: Int,
     centeredIndex: Int,
+    railWidth: Dp,
     modifier: Modifier = Modifier
 ) {
     if (songCount <= 0) {
@@ -460,9 +461,6 @@ private fun BoxWithConstraintsScope.RecentPositionRail(
             7
         )
 
-    val railWidth =
-        maxWidth * 0.22f
-
     val indicatorWidth =
         railWidth /
             buckets
@@ -474,11 +472,12 @@ private fun BoxWithConstraintsScope.RecentPositionRail(
             0
         } else {
             (
-                centeredIndex.toFloat() /
+                centeredIndex
+                    .toFloat() /
                     (songCount - 1) *
                     (buckets - 1)
                 )
-                .toInt()
+                .roundToInt()
                 .coerceIn(
                     0,
                     buckets - 1
@@ -489,7 +488,7 @@ private fun BoxWithConstraintsScope.RecentPositionRail(
         indicatorWidth *
             bucketIndex
 
-    val x by
+    val animatedX by
         animateDpAsState(
             targetValue =
                 targetX,
@@ -499,7 +498,7 @@ private fun BoxWithConstraintsScope.RecentPositionRail(
                     stiffness = 500f
                 ),
             label =
-                "recentRail"
+                "recentRailPosition"
         )
 
     Box(
@@ -516,7 +515,7 @@ private fun BoxWithConstraintsScope.RecentPositionRail(
         Box(
             modifier = Modifier
                 .offset(
-                    x = x
+                    x = animatedX
                 )
                 .width(
                     indicatorWidth
