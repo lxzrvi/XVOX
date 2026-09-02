@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.SongArtwork
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 
 @Composable
 fun XvoxMiniPlayerCard(
@@ -72,6 +74,8 @@ fun XvoxMiniPlayerCard(
     Box(
         modifier =
             modifier
+                .fillMaxWidth()
+                .height(60.dp)
                 .clip(shape)
                 .background(
                     colors.surface.copy(
