@@ -1,0 +1,410 @@
+# ============================================================
+# XVOX ICON CATALOG
+# ============================================================
+#
+# Purpose:
+#   Permanent icon manifest for XVOX.
+#
+# Runtime:
+#   This YAML is NOT loaded by the Android app.
+#   Selected icons are stored as local Android VectorDrawables:
+#
+#   app/src/main/res/drawable/ic_xvox_*.xml
+#
+# Rules:
+#   - Prefer Phosphor Icons from one consistent family.
+#   - Prefer "fill" for primary music/player actions.
+#   - Do not add a full runtime icon-pack dependency.
+#   - Keep only icons actually used/planned by XVOX.
+#   - Android vectors are tinted using XVOX semantic colors.
+#   - Navbar's existing custom XVOX icons remain custom.
+#
+# ============================================================
+
+catalog:
+  name: "XVOX Icons"
+  version: 1
+
+source:
+  library: "Phosphor Icons"
+  website: "https://phosphoricons.com"
+  repository: "https://github.com/phosphor-icons/core"
+  license: "MIT"
+
+defaults:
+  style: "fill"
+  android_prefix: "ic_xvox_"
+  runtime_dependency: false
+  local_vector_drawables: true
+  theme_tint: true
+
+android:
+  directory: "app/src/main/res/drawable"
+  format: "VectorDrawable XML"
+
+# ============================================================
+# CURRENT HOME
+# ============================================================
+
+icons:
+
+  refresh:
+    phosphor: "arrows-clockwise"
+    style: "fill"
+    android: "ic_xvox_refresh"
+    usage:
+      - "Home header refresh"
+    status: "planned"
+
+  heart:
+    phosphor: "heart"
+    style: "fill"
+    android: "ic_xvox_heart"
+    usage:
+      - "Home header"
+      - "MiniPlayer actions"
+      - "Favorites"
+    status: "planned"
+
+  music_note:
+    phosphor: "music-note"
+    style: "fill"
+    android: "ic_xvox_music_note"
+    usage:
+      - "Home All Songs mode"
+      - "Music library"
+    status: "planned"
+
+  playlist:
+    phosphor: "playlist"
+    style: "fill"
+    android: "ic_xvox_playlist"
+    usage:
+      - "Home playlist mode"
+      - "Playlists"
+    status: "planned"
+
+# ============================================================
+# PLAYBACK
+# ============================================================
+
+  play:
+    phosphor: "play"
+    style: "fill"
+    android: "ic_xvox_play"
+    usage:
+      - "Recently Played"
+      - "MiniPlayer"
+      - "Now Playing"
+    status: "planned"
+
+  pause:
+    phosphor: "pause"
+    style: "fill"
+    android: "ic_xvox_pause"
+    usage:
+      - "Recently Played"
+      - "MiniPlayer"
+      - "Now Playing"
+    status: "planned"
+
+  skip_previous:
+    phosphor: "skip-back"
+    style: "fill"
+    android: "ic_xvox_skip_previous"
+    usage:
+      - "Now Playing"
+      - "Playback controls"
+    status: "future"
+
+  skip_next:
+    phosphor: "skip-forward"
+    style: "fill"
+    android: "ic_xvox_skip_next"
+    usage:
+      - "Now Playing"
+      - "Playback controls"
+    status: "future"
+
+  shuffle:
+    phosphor: "shuffle"
+    style: "fill"
+    android: "ic_xvox_shuffle"
+    usage:
+      - "Now Playing"
+      - "Queue"
+    status: "future"
+
+  repeat:
+    phosphor: "repeat"
+    style: "fill"
+    android: "ic_xvox_repeat"
+    usage:
+      - "Now Playing"
+    status: "future"
+
+  repeat_one:
+    phosphor: "repeat-once"
+    style: "fill"
+    android: "ic_xvox_repeat_one"
+    usage:
+      - "Now Playing"
+    status: "future"
+
+  stop:
+    phosphor: "stop"
+    style: "fill"
+    android: "ic_xvox_stop"
+    usage:
+      - "Playback"
+    status: "future"
+
+# ============================================================
+# MINIPLAYER / COMMON ACTIONS
+# ============================================================
+
+  add:
+    phosphor: "plus"
+    style: "fill"
+    android: "ic_xvox_add"
+    usage:
+      - "MiniPlayer actions"
+      - "Playlist"
+      - "Queue"
+    status: "planned"
+
+  close:
+    phosphor: "x"
+    style: "bold"
+    android: "ic_xvox_close"
+    usage:
+      - "MiniPlayer stop action"
+      - "Dialogs"
+      - "Sheets"
+    status: "planned"
+
+  check:
+    phosphor: "check"
+    style: "bold"
+    android: "ic_xvox_check"
+    usage:
+      - "Selections"
+      - "Playlist actions"
+    status: "future"
+
+  more:
+    phosphor: "dots-three"
+    style: "bold"
+    android: "ic_xvox_more"
+    usage:
+      - "Song menus"
+      - "Album menus"
+    status: "future"
+
+# ============================================================
+# SEARCH / LIBRARY
+# ============================================================
+
+  search:
+    phosphor: "magnifying-glass"
+    style: "bold"
+    android: "ic_xvox_search_action"
+    usage:
+      - "Search"
+    status: "future"
+
+  albums:
+    phosphor: "vinyl-record"
+    style: "fill"
+    android: "ic_xvox_album"
+    usage:
+      - "Albums"
+    status: "future"
+
+  artist:
+    phosphor: "microphone-stage"
+    style: "fill"
+    android: "ic_xvox_artist"
+    usage:
+      - "Artists"
+    status: "future"
+
+  songs:
+    phosphor: "music-notes"
+    style: "fill"
+    android: "ic_xvox_songs"
+    usage:
+      - "Library"
+    status: "future"
+
+  queue:
+    phosphor: "list"
+    style: "bold"
+    android: "ic_xvox_queue"
+    usage:
+      - "Queue"
+      - "Now Playing"
+    status: "future"
+
+  sort:
+    phosphor: "sort-ascending"
+    style: "bold"
+    android: "ic_xvox_sort"
+    usage:
+      - "Library sorting"
+    status: "future"
+
+# ============================================================
+# NOW PLAYING
+# ============================================================
+
+  collapse:
+    phosphor: "caret-down"
+    style: "bold"
+    android: "ic_xvox_collapse"
+    usage:
+      - "Now Playing"
+    status: "future"
+
+  expand:
+    phosphor: "caret-up"
+    style: "bold"
+    android: "ic_xvox_expand"
+    usage:
+      - "Player sheets"
+    status: "future"
+
+  lyrics:
+    phosphor: "quotes"
+    style: "fill"
+    android: "ic_xvox_lyrics"
+    usage:
+      - "Lyrics"
+    status: "future"
+
+  waveform:
+    phosphor: "waveform"
+    style: "fill"
+    android: "ic_xvox_waveform"
+    usage:
+      - "Audio"
+      - "Now Playing"
+    status: "future"
+
+  equalizer:
+    phosphor: "sliders-horizontal"
+    style: "fill"
+    android: "ic_xvox_equalizer"
+    usage:
+      - "EQ"
+      - "DSP"
+    status: "future"
+
+  timer:
+    phosphor: "timer"
+    style: "fill"
+    android: "ic_xvox_timer"
+    usage:
+      - "Sleep timer"
+    status: "future"
+
+# ============================================================
+# VOLUME
+# ============================================================
+
+  volume_high:
+    phosphor: "speaker-high"
+    style: "fill"
+    android: "ic_xvox_volume_high"
+    usage:
+      - "Volume"
+    status: "future"
+
+  volume_low:
+    phosphor: "speaker-low"
+    style: "fill"
+    android: "ic_xvox_volume_low"
+    usage:
+      - "Volume"
+    status: "future"
+
+  mute:
+    phosphor: "speaker-x"
+    style: "fill"
+    android: "ic_xvox_mute"
+    usage:
+      - "Volume"
+    status: "future"
+
+# ============================================================
+# FILE / PLAYLIST ACTIONS
+# ============================================================
+
+  share:
+    phosphor: "share-network"
+    style: "fill"
+    android: "ic_xvox_share"
+    usage:
+      - "Song sharing"
+    status: "future"
+
+  delete:
+    phosphor: "trash"
+    style: "fill"
+    android: "ic_xvox_delete"
+    usage:
+      - "Playlist/history management"
+    status: "future"
+
+  edit:
+    phosphor: "pencil-simple"
+    style: "fill"
+    android: "ic_xvox_edit"
+    usage:
+      - "Playlist editing"
+    status: "future"
+
+  download:
+    phosphor: "download-simple"
+    style: "fill"
+    android: "ic_xvox_download"
+    usage:
+      - "Future media actions"
+    status: "future"
+
+# ============================================================
+# NAVIGATION
+# ============================================================
+
+navigation:
+  source: "XVOX custom"
+  replace_with_phosphor: false
+
+  icons:
+    home:
+      android: "ic_xvox_home"
+      status: "keep"
+
+    search:
+      android: "ic_xvox_search"
+      status: "keep"
+
+    settings:
+      android: "ic_xvox_settings"
+      status: "keep"
+
+# ============================================================
+# DEVELOPMENT RULES
+# ============================================================
+
+rules:
+  - "Do not replace custom XVOX navigation icons with Phosphor."
+  - "Do not hardcode black or white inside runtime icon rendering."
+  - "Use XVOX semantic theme colors for tint."
+  - "Prefer local VectorDrawable assets over Canvas approximations."
+  - "Do not add the entire Phosphor runtime library."
+  - "Do not store raster PNG versions when a vector exists."
+  - "Keep visual weight consistent within the same control group."
+  - "Filled icons are preferred for playback and primary actions."
+  - "Bold/regular variants may be used when fill has poor optical balance."
+  - "Add future icons to this catalog before introducing random icon styles."
