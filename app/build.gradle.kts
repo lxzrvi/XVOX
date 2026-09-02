@@ -5,7 +5,6 @@ plugins {
 
 android {
     namespace = "com.xvox.music"
-
     compileSdk = 37
 
     defaultConfig {
