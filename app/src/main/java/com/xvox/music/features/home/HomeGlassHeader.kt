@@ -28,20 +28,29 @@ fun HomeGlassHeader(
     onLibraryModeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Column(
         modifier = modifier
             .fillMaxWidth()
     ) {
+
+        /*
+         * =====================================================
+         * HEADER GLASS
+         * =====================================================
+         *
+         * Light backdrop blur.
+         *
+         * Low radius + low tint = less visual latency
+         * and background remains clearly visible.
+         */
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .xvoxGlass(
                     sky = sky,
-                    style =
-                        XvoxGlassStyle.HEADER
+                    style = XvoxGlassStyle.HEADER
                 )
                 .windowInsetsPadding(
                     WindowInsets.statusBars
@@ -50,26 +59,31 @@ fun HomeGlassHeader(
             HomeHeader(
                 sky = sky,
                 profile = profile,
-                showPlaylists =
-                    showPlaylists,
-                onRefresh =
-                    onRefresh,
-                onHeartClick =
-                    onHeartClick,
-                onLibraryModeClick =
-                    onLibraryModeClick
+                showPlaylists = showPlaylists,
+                onRefresh = onRefresh,
+                onHeartClick = onHeartClick,
+                onLibraryModeClick = onLibraryModeClick
             )
         }
 
+        /*
+         * =====================================================
+         * SOFT BOTTOM FADE
+         * =====================================================
+         *
+         * Keep this very subtle.
+         * A strong gradient makes the header feel like a
+         * separate solid layer and reduces the glass effect.
+         */
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
+                .height(8.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
                             colors.surface.copy(
-                                alpha = 0.30f
+                                alpha = 0.14f
                             ),
                             colors.surface.copy(
                                 alpha = 0f
