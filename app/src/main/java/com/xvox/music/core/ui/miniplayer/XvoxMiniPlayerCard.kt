@@ -2,7 +2,6 @@ package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -28,8 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.XvoxGlassStyle
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.SongArtwork
 
 @Composable
@@ -40,21 +42,27 @@ fun XvoxMiniPlayerCard(
     duration: Long,
     direction: Int,
     togglePlay: () -> Unit,
+    sky: Sky,
     modifier: Modifier = Modifier
 ) {
     val colors =
         XvoxTheme.colors
 
     val shape =
-        RoundedCornerShape(15.dp)
+        RoundedCornerShape(
+            15.dp
+        )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
             .clip(shape)
-            .background(
-                colors.surface
+            .xvoxGlass(
+                sky = sky,
+                style =
+                    XvoxGlassStyle
+                        .MINI_PLAYER
             )
             .border(
                 width = 0.65.dp,
@@ -165,7 +173,8 @@ fun XvoxMiniPlayerCard(
                         Arrangement.Center
                 ) {
                     Text(
-                        text = current.title,
+                        text =
+                            current.title,
                         color =
                             colors.primaryText,
                         fontSize = 12.sp,
@@ -197,11 +206,23 @@ fun XvoxMiniPlayerCard(
                 .align(
                     Alignment.CenterEnd
                 )
-                .padding(end = 7.dp)
+                .padding(
+                    end = 7.dp
+                )
                 .size(38.dp)
-                .background(
-                    colors.cardElevated,
-                    CircleShape
+                .clip(CircleShape)
+                .xvoxGlass(
+                    sky = sky,
+                    style =
+                        XvoxGlassStyle
+                            .MINI_CONTROL
+                )
+                .border(
+                    width = 0.5.dp,
+                    color =
+                        colors.cardBorder,
+                    shape =
+                        CircleShape
                 )
                 .clickable(
                     interactionSource =
@@ -209,7 +230,8 @@ fun XvoxMiniPlayerCard(
                             MutableInteractionSource()
                         },
                     indication = null,
-                    onClick = togglePlay
+                    onClick =
+                        togglePlay
                 ),
             contentAlignment =
                 Alignment.Center
@@ -224,7 +246,9 @@ fun XvoxMiniPlayerCard(
                 color =
                     colors.primaryText,
                 modifier =
-                    Modifier.size(18.dp)
+                    Modifier.size(
+                        18.dp
+                    )
             )
         }
     }
