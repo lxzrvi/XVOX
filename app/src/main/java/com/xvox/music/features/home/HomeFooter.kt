@@ -25,16 +25,20 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun HomeFooter(
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
-        modifier = modifier,
+        modifier =
+            modifier,
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
         Spacer(
             modifier =
-                Modifier.weight(0.43f)
+                Modifier.weight(
+                    0.43f
+                )
         )
 
         Box(
@@ -44,7 +48,7 @@ fun HomeFooter(
                     Color.Black,
                     CircleShape
                 )
-                .padding(4.dp),
+                .padding(1.dp),
             contentAlignment =
                 Alignment.Center
         ) {
@@ -55,13 +59,17 @@ fun HomeFooter(
                     ),
                 contentDescription = null,
                 modifier =
-                    Modifier.size(42.dp)
+                    Modifier.size(
+                        48.dp
+                    )
             )
         }
 
         Spacer(
             modifier =
-                Modifier.height(5.dp)
+                Modifier.height(
+                    5.dp
+                )
         )
 
         Text(
@@ -75,15 +83,19 @@ fun HomeFooter(
         )
 
         Text(
-            text = "lxzrvi 2026",
-            color = colors.mutedText,
+            text =
+                "lxzrvi 2026",
+            color =
+                colors.mutedText,
             fontSize = 8.sp,
             lineHeight = 9.sp
         )
 
         Spacer(
             modifier =
-                Modifier.weight(0.57f)
+                Modifier.weight(
+                    0.57f
+                )
         )
     }
 }
