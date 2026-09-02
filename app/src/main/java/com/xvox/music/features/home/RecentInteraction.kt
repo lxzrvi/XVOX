@@ -2,8 +2,7 @@ package com.xvox.music.features.home
 
 enum class RecentTransitionMode {
     NONE,
-    ADJACENT_SWAP,
-    FRONT_REPLACE
+    LIBRARY
 }
 
 data class RecentTransitionRequest(
