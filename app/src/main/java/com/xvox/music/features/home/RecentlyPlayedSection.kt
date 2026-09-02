@@ -1,7 +1,10 @@
 package com.xvox.music.features.home
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -52,16 +55,18 @@ fun RecentlyPlayedSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 26.dp)
+            .padding(
+                top = 26.dp
+            )
     ) {
         Column(
-            modifier =
-                Modifier.padding(
-                    horizontal = 12.dp
-                )
+            modifier = Modifier.padding(
+                horizontal = 12.dp
+            )
         ) {
             Text(
-                text = "Recently Played",
+                text =
+                    "Recently Played",
                 color =
                     colors.primaryText,
                 fontSize = 20.sp,
@@ -75,7 +80,8 @@ fun RecentlyPlayedSection(
                     "${songs.size} played",
                 color =
                     colors.mutedText,
-                fontSize = 10.sp
+                fontSize = 10.sp,
+                lineHeight = 14.sp
             )
         }
 
@@ -121,12 +127,12 @@ private fun RecentCarousel(
     val colors =
         XvoxTheme.colors
 
-    val state =
+    val listState =
         rememberLazyListState()
 
-    val fling =
+    val flingBehavior =
         rememberSnapFlingBehavior(
-            state
+            listState
         )
 
     var centeredIndex by
@@ -134,18 +140,31 @@ private fun RecentCarousel(
             mutableIntStateOf(0)
         }
 
+    val newestSongId =
+        songs.firstOrNull()?.id
+
     LaunchedEffect(
-        songs.first().id
+        newestSongId
     ) {
-        state.animateScrollToItem(0)
+        if (
+            newestSongId != null
+        ) {
+            listState
+                .animateScrollToItem(
+                    0
+                )
+        }
     }
 
-    LaunchedEffect(state) {
+    LaunchedEffect(
+        listState,
+        songs.size
+    ) {
         snapshotFlow {
             val layout =
-                state.layoutInfo
+                listState.layoutInfo
 
-            val center =
+            val viewportCenter =
                 (
                     layout.viewportStartOffset +
                         layout.viewportEndOffset
@@ -153,19 +172,24 @@ private fun RecentCarousel(
 
             layout.visibleItemsInfo
                 .minByOrNull {
+                    item ->
+
+                    val itemCenter =
+                        item.offset +
+                            item.size / 2
+
                     abs(
-                        (
-                            it.offset +
-                                it.size / 2
-                            ) -
-                            center
+                        itemCenter -
+                            viewportCenter
                     )
                 }
                 ?.index
                 ?: 0
         }.collect {
+            index ->
+
             centeredIndex =
-                it.coerceIn(
+                index.coerceIn(
                     0,
                     songs.lastIndex
                 )
@@ -173,10 +197,9 @@ private fun RecentCarousel(
     }
 
     Column(
-        modifier =
-            Modifier.padding(
-                top = 10.dp
-            ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
@@ -184,15 +207,23 @@ private fun RecentCarousel(
             modifier =
                 Modifier.fillMaxWidth()
         ) {
+            val sideInset =
+                12.dp
+
             val itemWidth =
-                maxWidth - 24.dp
+                maxWidth -
+                    sideInset * 2
 
             LazyRow(
-                state = state,
-                flingBehavior = fling,
+                state = listState,
+                flingBehavior =
+                    flingBehavior,
+                modifier =
+                    Modifier.fillMaxWidth(),
                 contentPadding =
                     PaddingValues(
-                        horizontal = 12.dp
+                        horizontal =
+                            sideInset
                     ),
                 horizontalArrangement =
                     Arrangement.spacedBy(
@@ -201,97 +232,49 @@ private fun RecentCarousel(
             ) {
                 items(
                     items = songs,
-                    key = { it.id }
+                    key = {
+                        song ->
+                        song.id
+                    },
+                    contentType = {
+                        "recent_song"
+                    }
                 ) { song ->
 
                     RecentArtwork(
                         song = song,
                         current =
-                            song.id ==
-                                currentSongId,
+                            currentSongId ==
+                                song.id,
                         playing =
-                            song.id ==
-                                currentSongId &&
+                            currentSongId ==
+                                song.id &&
                                 isPlaying,
                         onClick = {
                             onSongClick(song)
                         },
-                        modifier =
-                            Modifier
-                                .width(
-                                    itemWidth
-                                )
-                                .height(
-                                    122.dp
-                                )
+                        modifier = Modifier
+                            .width(
+                                itemWidth
+                            )
+                            .height(
+                                122.dp
+                            )
                     )
                 }
             }
         }
 
-        val dots =
-            minOf(
-                7,
-                songs.size
-            )
-
-        val selectedDot =
-            if (
-                songs.size <= 1
-            ) {
-                0
-            } else {
-                (
-                    centeredIndex.toFloat() /
-                        songs.lastIndex *
-                        (dots - 1)
-                    )
-                    .roundToInt()
-                    .coerceIn(
-                        0,
-                        dots - 1
-                    )
-            }
-
-        Row(
-            modifier =
-                Modifier.padding(
-                    top = 9.dp
-                ),
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    6.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            repeat(dots) {
-                index ->
-
-                val active =
-                    index ==
-                        selectedDot
-
-                Box(
-                    modifier = Modifier
-                        .size(
-                            if (active) {
-                                7.dp
-                            } else {
-                                5.dp
-                            }
-                        )
-                        .background(
-                            if (active) {
-                                colors.progressActive
-                            } else {
-                                colors.progressTrack
-                            },
-                            CircleShape
-                        )
-                )
-            }
-        }
+        RecentDots(
+            songCount =
+                songs.size,
+            centeredIndex =
+                centeredIndex,
+            activeColor =
+                colors.progressActive,
+            inactiveColor =
+                colors.progressTrack
+        )
     }
 }
 
@@ -303,14 +286,22 @@ private fun RecentArtwork(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource =
+        remember {
+            MutableInteractionSource()
+        }
+
     Box(
         modifier = modifier
             .background(
                 XvoxTheme.colors
                     .cardElevated
             )
-            .xvoxRecentClick(
-                onClick
+            .clickable(
+                interactionSource =
+                    interactionSource,
+                indication = null,
+                onClick = onClick
             )
     ) {
         SongArtwork(
@@ -326,7 +317,7 @@ private fun RecentArtwork(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(
+                        colors = listOf(
                             Color.Transparent,
                             Color.Transparent,
                             Color.Black.copy(
@@ -338,9 +329,12 @@ private fun RecentArtwork(
         )
 
         Text(
-            text = song.title,
-            color = Color.White,
+            text =
+                song.title,
+            color =
+                Color.White,
             fontSize = 14.sp,
+            lineHeight = 17.sp,
             fontWeight =
                 FontWeight.SemiBold,
             maxLines = 1,
@@ -350,56 +344,186 @@ private fun RecentArtwork(
                 .align(
                     Alignment.BottomStart
                 )
-                .fillMaxWidth(0.72f)
-                .padding(12.dp)
+                .fillMaxWidth(
+                    0.72f
+                )
+                .padding(
+                    start = 12.dp,
+                    end = 8.dp,
+                    bottom = 10.dp
+                )
         )
 
-        Box(
+        RecentPlaybackControl(
+            active =
+                current &&
+                    playing,
+            onClick =
+                onClick,
             modifier = Modifier
                 .align(
                     Alignment.TopEnd
                 )
-                .padding(10.dp)
-                .size(30.dp)
-                .background(
-                    Color.Black.copy(
-                        alpha = 0.55f
-                    ),
-                    CircleShape
+                .padding(
+                    top = 9.dp,
+                    end = 9.dp
+                )
+        )
+    }
+}
+
+@Composable
+private fun RecentPlaybackControl(
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource =
+        remember {
+            MutableInteractionSource()
+        }
+
+    Row(
+        modifier = modifier
+            .height(30.dp)
+            .background(
+                Color.Black.copy(
+                    alpha = 0.58f
                 ),
-            contentAlignment =
-                Alignment.Center
-        ) {
-            PlaybackIcon(
-                type =
-                    if (
-                        current &&
-                        playing
-                    ) {
-                        PlaybackIconType.PAUSE
+                CircleShape
+            )
+            .animateContentSize()
+            .clickable(
+                interactionSource =
+                    interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(
+                horizontal =
+                    if (active) {
+                        9.dp
                     } else {
-                        PlaybackIconType.PLAY
-                    },
-                color = Color.White,
-                modifier =
-                    Modifier.size(14.dp)
+                        8.dp
+                    }
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically,
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                5.dp
+            )
+    ) {
+        PlaybackIcon(
+            type =
+                if (active) {
+                    PlaybackIconType.PAUSE
+                } else {
+                    PlaybackIconType.PLAY
+                },
+            color =
+                Color.White,
+            modifier =
+                Modifier.size(
+                    14.dp
+                )
+        )
+
+        if (active) {
+            Text(
+                text =
+                    "Playing",
+                color =
+                    Color.White,
+                fontSize = 9.sp,
+                lineHeight = 11.sp,
+                fontWeight =
+                    FontWeight.Medium
             )
         }
     }
 }
 
-private fun Modifier.xvoxRecentClick(
-    onClick: () -> Unit
-): Modifier {
-    return this.then(
-        Modifier
-            .clickable(
-                indication = null,
-                interactionSource =
-                    androidx.compose.foundation
-                        .interaction
-                        .MutableInteractionSource(),
-                onClick = onClick
+@Composable
+private fun RecentDots(
+    songCount: Int,
+    centeredIndex: Int,
+    activeColor: Color,
+    inactiveColor: Color
+) {
+    if (
+        songCount <= 0
+    ) {
+        return
+    }
+
+    val dotCount =
+        minOf(
+            7,
+            songCount
+        )
+
+    val activeDot =
+        if (
+            songCount <= 1
+        ) {
+            0
+        } else {
+            (
+                centeredIndex
+                    .toFloat() /
+                    (songCount - 1) *
+                    (dotCount - 1)
+                )
+                .roundToInt()
+                .coerceIn(
+                    0,
+                    dotCount - 1
+                )
+        }
+
+    Row(
+        modifier =
+            Modifier.padding(
+                top = 9.dp
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                6.dp
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        repeat(
+            dotCount
+        ) { index ->
+
+            val selected =
+                index ==
+                    activeDot
+
+            Box(
+                modifier = Modifier
+                    .size(
+                        if (selected) {
+                            7.dp
+                        } else {
+                            5.dp
+                        }
+                    )
+                    .background(
+                        color =
+                            if (
+                                selected
+                            ) {
+                                activeColor
+                            } else {
+                                inactiveColor
+                            },
+                        shape =
+                            CircleShape
+                    )
             )
-    )
+        }
+    }
 }
