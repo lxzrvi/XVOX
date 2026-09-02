@@ -28,6 +28,9 @@ class UserPreferencesRepository(
 
         val customPfpUri =
             stringPreferencesKey("custom_pfp_uri")
+
+        val recentSongIds =
+            stringPreferencesKey("recent_song_ids")
     }
 
     val preferences: Flow<UserPreferences> =
@@ -44,6 +47,18 @@ class UserPreferencesRepository(
             )
         }
 
+    val recentSongIds: Flow<List<Long>> =
+        context.xvoxDataStore.data.map { prefs ->
+            prefs[Keys.recentSongIds]
+                .orEmpty()
+                .split(",")
+                .mapNotNull {
+                    it.toLongOrNull()
+                }
+                .distinct()
+                .take(20)
+        }
+
     suspend fun completeSetup(
         username: String,
         selectedPfp: String,
@@ -57,10 +72,42 @@ class UserPreferencesRepository(
                 prefs[Keys.customPfpUri] =
                     customPfpUri
             } else {
-                prefs.remove(Keys.customPfpUri)
+                prefs.remove(
+                    Keys.customPfpUri
+                )
             }
 
             prefs[Keys.setupCompleted] = true
+        }
+    }
+
+    suspend fun recordRecentSong(
+        songId: Long
+    ) {
+        context.xvoxDataStore.edit { prefs ->
+            val current =
+                prefs[Keys.recentSongIds]
+                    .orEmpty()
+                    .split(",")
+                    .mapNotNull {
+                        it.toLongOrNull()
+                    }
+
+            val updated =
+                buildList {
+                    add(songId)
+
+                    addAll(
+                        current.filterNot {
+                            it == songId
+                        }
+                    )
+                }
+                    .take(20)
+                    .joinToString(",")
+
+            prefs[Keys.recentSongIds] =
+                updated
         }
     }
 }
