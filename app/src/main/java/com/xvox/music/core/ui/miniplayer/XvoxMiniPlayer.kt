@@ -53,9 +53,16 @@ fun XvoxMiniPlayer(
             190.dp.toPx()
         }
 
-    val previewStep =
+    /*
+     * Each complete horizontal segment previews exactly
+     * one song.
+     *
+     * Finger can remain down and continue into another
+     * segment to preview another song.
+     */
+    val previewThreshold =
         with(density) {
-            72.dp.toPx()
+            54.dp.toPx()
         }
 
     val y =
@@ -65,6 +72,14 @@ fun XvoxMiniPlayer(
             )
         }
 
+    /*
+     * Horizontal movement is plain state.
+     *
+     * No horizontal Animatable.
+     * No coroutine-per-pointer-event.
+     * Therefore old competing snapTo() jobs cannot leave
+     * the card stuck at the side.
+     */
     var dragX by remember {
         mutableFloatStateOf(0f)
     }
@@ -83,10 +98,6 @@ fun XvoxMiniPlayer(
             )
         }
 
-    var direction by remember {
-        mutableIntStateOf(0)
-    }
-
     var axis by remember {
         mutableStateOf(
             XvoxMiniAxis.NONE
@@ -101,7 +112,11 @@ fun XvoxMiniPlayer(
         mutableFloatStateOf(0f)
     }
 
-    var previewAnchorX by remember {
+    /*
+     * Horizontal distance already consumed by completed
+     * preview steps.
+     */
+    var consumedX by remember {
         mutableFloatStateOf(0f)
     }
 
@@ -117,13 +132,35 @@ fun XvoxMiniPlayer(
         mutableStateOf(false)
     }
 
-    LaunchedEffect(riseKey) {
+    LaunchedEffect(
+        riseKey
+    ) {
         y.animateTo(
             targetValue = 0f,
             animationSpec =
                 XvoxMiniPlayerMotion
                     .riseSpec
         )
+    }
+
+    /*
+     * Playback state changed externally.
+     *
+     * Do not fight an active gesture; pointerInput owns
+     * previewIndex while finger is down.
+     */
+    LaunchedEffect(
+        currentSongId,
+        currentIndex
+    ) {
+        if (
+            axis ==
+            XvoxMiniAxis.NONE &&
+            currentIndex in queue.indices
+        ) {
+            previewIndex =
+                currentIndex
+        }
     }
 
     fun exit(
@@ -169,13 +206,16 @@ fun XvoxMiniPlayer(
             Alignment.BottomCenter
     ) {
         XvoxMiniPlayerActions(
-            visible = actionsVisible,
+            visible =
+                actionsVisible,
             onLike = {
-                actionsVisible = false
+                actionsVisible =
+                    false
                 onLike()
             },
             onAdd = {
-                actionsVisible = false
+                actionsVisible =
+                    false
                 onAdd()
             },
             onClose = {
@@ -198,8 +238,8 @@ fun XvoxMiniPlayer(
                     Alignment.BottomCenter
                 )
                 .pointerInput(
-                    currentSongId,
                     queue,
+                    currentSongId,
                     exiting
                 ) {
                     if (exiting) {
@@ -208,16 +248,29 @@ fun XvoxMiniPlayer(
 
                     detectDragGestures(
                         onDragStart = {
-                            actionsVisible = false
+                            actionsVisible =
+                                false
 
                             axis =
                                 XvoxMiniAxis.NONE
 
                             rawX = 0f
                             rawY = 0f
-                            previewAnchorX = 0f
+                            consumedX = 0f
+
                             dragX = 0f
                             moved = false
+
+                            /*
+                             * Every new gesture starts its
+                             * preview from actual playback.
+                             */
+                            previewIndex =
+                                currentIndex
+                                    .coerceIn(
+                                        0,
+                                        queue.lastIndex
+                                    )
                         },
 
                         onDrag = {
@@ -226,8 +279,11 @@ fun XvoxMiniPlayer(
 
                             change.consume()
 
-                            rawX += amount.x
-                            rawY += amount.y
+                            rawX +=
+                                amount.x
+
+                            rawY +=
+                                amount.y
 
                             if (
                                 axis ==
@@ -258,46 +314,68 @@ fun XvoxMiniPlayer(
 
                             when (axis) {
                                 XvoxMiniAxis.HORIZONTAL -> {
-                                    val local =
+                                    val localX =
                                         rawX -
-                                            previewAnchorX
+                                            consumedX
 
-                                    when {
-                                        local <=
-                                            -previewStep &&
-                                            previewIndex <
-                                            queue.lastIndex -> {
+                                    /*
+                                     * LEFT = next.
+                                     *
+                                     * Consume exactly one segment
+                                     * at a time. A single huge event
+                                     * cannot accidentally jump several
+                                     * songs in one iteration.
+                                     */
+                                    if (
+                                        localX <=
+                                        -previewThreshold &&
+                                        previewIndex <
+                                        queue.lastIndex
+                                    ) {
+                                        previewIndex++
 
-                                            previewIndex++
-                                            direction = 1
-
-                                            previewAnchorX -=
-                                                previewStep
-                                        }
-
-                                        local >=
-                                            previewStep &&
-                                            previewIndex > 0 -> {
-
-                                            previewIndex--
-                                            direction = -1
-
-                                            previewAnchorX +=
-                                                previewStep
-                                        }
+                                        consumedX -=
+                                            previewThreshold
                                     }
+
+                                    /*
+                                     * RIGHT = previous.
+                                     */
+                                    else if (
+                                        localX >=
+                                        previewThreshold &&
+                                        previewIndex > 0
+                                    ) {
+                                        previewIndex--
+
+                                        consumedX +=
+                                            previewThreshold
+                                    }
+
+                                    val remainder =
+                                        rawX -
+                                            consumedX
 
                                     dragX =
                                         XvoxMiniPlayerMotion
                                             .horizontalResistance(
-                                                rawX -
-                                                    previewAnchorX
+                                                remainder
                                             )
                                 }
 
                                 XvoxMiniAxis.VERTICAL -> {
+                                    /*
+                                     * No horizontal residue when
+                                     * gesture resolves vertical.
+                                     */
                                     dragX = 0f
 
+                                    /*
+                                     * Vertical path still uses the
+                                     * existing y Animatable because
+                                     * rise/dismiss needs the same
+                                     * physical animation object.
+                                     */
                                     scope.launch {
                                         y.snapTo(
                                             XvoxMiniPlayerMotion
@@ -313,19 +391,36 @@ fun XvoxMiniPlayer(
                         },
 
                         onDragEnd = {
-                            val finalAxis = axis
-                            val finalY = rawY
+                            val finalAxis =
+                                axis
+
+                            val finalY =
+                                rawY
 
                             rawX = 0f
                             rawY = 0f
-                            previewAnchorX = 0f
+                            consumedX = 0f
+
                             axis =
                                 XvoxMiniAxis.NONE
 
                             when (finalAxis) {
                                 XvoxMiniAxis.HORIZONTAL -> {
+                                    /*
+                                     * Always restore card position
+                                     * before committing playback.
+                                     */
                                     dragX = 0f
 
+                                    /*
+                                     * IMPORTANT:
+                                     *
+                                     * Playback has NOT been touched
+                                     * during preview.
+                                     *
+                                     * Only now, when finger is released,
+                                     * commit the final preview.
+                                     */
                                     if (
                                         previewIndex in
                                         queue.indices &&
@@ -341,10 +436,13 @@ fun XvoxMiniPlayer(
                                 }
 
                                 XvoxMiniAxis.VERTICAL -> {
+                                    dragX = 0f
+
                                     when {
                                         finalY <=
                                             XvoxMiniPlayerMotion
                                                 .OpenThreshold -> {
+
                                             exit(
                                                 stopPlayback =
                                                     false
@@ -356,6 +454,7 @@ fun XvoxMiniPlayer(
                                         finalY >=
                                             XvoxMiniPlayerMotion
                                                 .CloseThreshold -> {
+
                                             exit(
                                                 stopPlayback =
                                                     true,
@@ -389,7 +488,8 @@ fun XvoxMiniPlayer(
                         onDragCancel = {
                             rawX = 0f
                             rawY = 0f
-                            previewAnchorX = 0f
+                            consumedX = 0f
+
                             dragX = 0f
 
                             axis =
@@ -397,9 +497,21 @@ fun XvoxMiniPlayer(
 
                             moved = false
 
+                            /*
+                             * Cancel means preview was never
+                             * committed.
+                             */
+                            previewIndex =
+                                currentIndex
+                                    .coerceIn(
+                                        0,
+                                        queue.lastIndex
+                                    )
+
                             scope.launch {
                                 y.animateTo(
-                                    targetValue = 0f,
+                                    targetValue =
+                                        0f,
                                     animationSpec =
                                         XvoxMiniPlayerMotion
                                             .verticalReturnSpec
@@ -445,9 +557,16 @@ fun XvoxMiniPlayer(
                 }
         ) {
             XvoxMiniPlayerCard(
-                song = visualSong,
+                song =
+                    visualSong,
                 isPlaying =
                     isPlaying,
+
+                /*
+                 * Preview song isn't playing yet.
+                 * Progress therefore remains only on the
+                 * actual current song.
+                 */
                 position =
                     if (
                         visualSong.id ==
@@ -457,6 +576,7 @@ fun XvoxMiniPlayer(
                     } else {
                         0L
                     },
+
                 duration =
                     if (
                         visualSong.id ==
@@ -466,10 +586,12 @@ fun XvoxMiniPlayer(
                     } else {
                         0L
                     },
-                direction =
-                    direction,
+
+                direction = 0,
+
                 togglePlay =
                     togglePlay,
+
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
