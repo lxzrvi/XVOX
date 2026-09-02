@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,27 +42,25 @@ fun AllSongsSection(
     val colors =
         XvoxTheme.colors
 
-    val gridState =
+    val state =
         rememberLazyGridState()
 
     LaunchedEffect(
-        gridState,
+        state,
         songs.size
     ) {
         snapshotFlow {
-            gridState
-                .layoutInfo
+            state.layoutInfo
                 .visibleItemsInfo
                 .maxOfOrNull {
                     it.index
-                } ?: 0
+                }
+                ?: 0
         }
             .distinctUntilChanged()
             .collect {
-                visibleSlot ->
-
                 onPrefetch(
-                    visibleSlot + 12
+                    it + SongsPerPage
                 )
             }
     }
@@ -68,19 +68,28 @@ fun AllSongsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = 12.dp
+            .padding(
+                top = 8.dp
             )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 7.dp
+                ),
+            horizontalArrangement =
+                Arrangement.SpaceBetween,
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
             Text(
                 text = "All Songs",
                 color =
                     colors.primaryText,
-                fontSize = 20.sp,
-                lineHeight = 23.sp,
+                fontSize = 16.sp,
+                lineHeight = 19.sp,
                 fontWeight =
                     FontWeight.SemiBold
             )
@@ -90,15 +99,13 @@ fun AllSongsSection(
                     "Total ${songs.size} songs",
                 color =
                     colors.mutedText,
-                fontSize = 10.sp,
-                lineHeight = 14.sp
+                fontSize = 9.sp
             )
         }
 
         BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp)
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
             val edge = 6.dp
             val gap = 6.dp
@@ -107,19 +114,26 @@ fun AllSongsSection(
                 (
                     maxWidth -
                         edge * 2 -
-                        gap * 3
-                    ) / 4
+                        gap *
+                        (Columns - 1)
+                    ) / Columns
 
             val cardHeight =
                 cardWidth + 34.dp
 
             val gridHeight =
-                cardHeight * Rows +
-                    gap * (Rows - 1)
+                cardHeight *
+                    Rows +
+                    gap *
+                    (Rows - 1)
 
             val slots =
-                remember(songs.size) {
-                    if (songs.isEmpty()) {
+                remember(
+                    songs.size
+                ) {
+                    if (
+                        songs.isEmpty()
+                    ) {
                         0
                     } else {
                         (
@@ -136,14 +150,19 @@ fun AllSongsSection(
 
             LazyHorizontalGrid(
                 rows =
-                    GridCells.Fixed(Rows),
-                state = gridState,
+                    GridCells.Fixed(
+                        Rows
+                    ),
+                state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(gridHeight),
+                    .height(
+                        gridHeight
+                    ),
                 contentPadding =
                     PaddingValues(
-                        horizontal = edge
+                        horizontal =
+                            edge
                     ),
                 horizontalArrangement =
                     Arrangement.spacedBy(
@@ -187,25 +206,27 @@ fun AllSongsSection(
 
                     Box(
                         modifier = Modifier
-                            .width(cardWidth)
-                            .height(cardHeight)
+                            .width(
+                                cardWidth
+                            )
+                            .height(
+                                cardHeight
+                            )
                     ) {
                         songs
                             .getOrNull(
                                 sourceIndex
                             )
-                            ?.let {
-                                song ->
-
+                            ?.let { song ->
                                 AllSongCard(
                                     song = song,
                                     current =
                                         currentSongId ==
                                             song.id,
                                     playing =
-                                        currentSongId ==
-                                            song.id &&
-                                            isPlaying,
+                                        isPlaying &&
+                                            currentSongId ==
+                                            song.id,
                                     onClick = {
                                         onSongClick(
                                             song
