@@ -28,10 +28,12 @@ import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
 fun XvoxMainShell(
-    playerViewModel: MainPlayerViewModel =
+    playerViewModel:
+        MainPlayerViewModel =
         viewModel()
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val player by
         playerViewModel.state
@@ -62,7 +64,8 @@ fun XvoxMainShell(
                         isPlaying =
                             player.isPlaying,
                         onQueueReady =
-                            playerViewModel::setQueue,
+                            playerViewModel::
+                                setQueue,
                         onPlay =
                             playerViewModel::play
                     )
@@ -102,11 +105,14 @@ fun XvoxMainShell(
                 riseKey =
                     player.miniPlayerRiseKey,
                 togglePlay =
-                    playerViewModel::togglePlay,
+                    playerViewModel::
+                        togglePlay,
                 playQueueIndex =
-                    playerViewModel::playQueueIndex,
+                    playerViewModel::
+                        playQueueIndex,
                 stopAndDismiss =
-                    playerViewModel::stopPlayback,
+                    playerViewModel::
+                        stopPlayback,
                 openPlayer = {
                     playerViewModel
                         .hideMiniPlayer()
@@ -152,7 +158,7 @@ fun XvoxMainShell(
                 .padding(
                     bottom =
                         XvoxMiniPlayerPlacement
-                            .navigationBottomGap
+                            .navigationHostBottom
                 )
         )
     }
