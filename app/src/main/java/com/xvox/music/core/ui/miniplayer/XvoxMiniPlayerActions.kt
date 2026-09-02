@@ -37,7 +37,7 @@ fun XvoxMiniPlayerActions(
         enter =
             fadeIn() +
                 scaleIn(
-                    initialScale = 0.72f,
+                    initialScale = 0.7f,
                     animationSpec =
                         spring(
                             dampingRatio = 0.72f,
@@ -45,7 +45,7 @@ fun XvoxMiniPlayerActions(
                         )
                 ) +
                 slideInVertically {
-                    28
+                    26
                 },
         exit =
             fadeOut() +
@@ -53,36 +53,44 @@ fun XvoxMiniPlayerActions(
                     targetScale = 0.82f
                 ) +
                 slideOutVertically {
-                    16
+                    14
                 }
     ) {
         Row(
             horizontalArrangement =
-                Arrangement.spacedBy(12.dp),
+                Arrangement.spacedBy(
+                    12.dp
+                ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            ActionCircle(
-                type = XvoxMiniIconType.HEART,
-                onClick = onLike
+            ActionButton(
+                icon =
+                    XvoxMiniIcon.HEART,
+                onClick =
+                    onLike
             )
 
-            ActionCircle(
-                type = XvoxMiniIconType.ADD,
-                onClick = onAdd
+            ActionButton(
+                icon =
+                    XvoxMiniIcon.ADD,
+                onClick =
+                    onAdd
             )
 
-            ActionCircle(
-                type = XvoxMiniIconType.CLOSE,
-                onClick = onClose
+            ActionButton(
+                icon =
+                    XvoxMiniIcon.CLOSE,
+                onClick =
+                    onClose
             )
         }
     }
 }
 
 @Composable
-private fun ActionCircle(
-    type: XvoxMiniIconType,
+private fun ActionButton(
+    icon: XvoxMiniIcon,
     onClick: () -> Unit
 ) {
     val colors =
@@ -106,9 +114,10 @@ private fun ActionCircle(
         contentAlignment =
             Alignment.Center
     ) {
-        XvoxMiniIcon(
-            type = type,
-            color = colors.primaryText,
+        XvoxMiniPlayerIcon(
+            icon = icon,
+            color =
+                colors.primaryText,
             modifier =
                 Modifier.size(19.dp)
         )
