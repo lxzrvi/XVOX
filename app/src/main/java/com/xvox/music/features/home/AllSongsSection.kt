@@ -46,10 +46,6 @@ fun AllSongsSection(
     val gridState =
         rememberLazyGridState()
 
-    /*
-     * Prefetch once per conceptual page rather than every
-     * visible-item movement during a fast fling.
-     */
     LaunchedEffect(
         gridState,
         songs.size
@@ -83,8 +79,9 @@ fun AllSongsSection(
                 .padding(
                     start = 12.dp,
                     end = 12.dp,
-                    top = 12.dp,
-                    bottom = 12.dp
+                    bottom =
+                        HomeGeometry
+                            .sectionGap
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
@@ -124,6 +121,9 @@ fun AllSongsSection(
                         gap * 3
                     ) / 4
 
+            /*
+             * +4dp from old geometry.
+             */
             val cardHeight =
                 cardWidth + 38.dp
 
@@ -131,12 +131,6 @@ fun AllSongsSection(
                 cardHeight * Rows +
                     gap * (Rows - 1)
 
-            /*
-             * Keep complete conceptual 12-item pages.
-             *
-             * Empty tail slots preserve the current 4x3
-             * geometry without fake songs.
-             */
             val slots =
                 remember(
                     songs.size
@@ -185,11 +179,6 @@ fun AllSongsSection(
             ) {
                 items(
                     count = slots,
-
-                    /*
-                     * Preserve custom page mapping while
-                     * giving real songs stable identities.
-                     */
                     key = { slot ->
                         val page =
                             slot /
@@ -218,12 +207,11 @@ fun AllSongsSection(
                             .getOrNull(
                                 sourceIndex
                             )
-                            ?.let { song ->
-                                "song_${song.id}"
+                            ?.let {
+                                "song_${it.id}"
                             }
                             ?: "empty_$slot"
                     },
-
                     contentType = {
                         "song_slot"
                     }
