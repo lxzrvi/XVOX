@@ -72,6 +72,7 @@ class HomeViewModel(
             preferencesRepository
                 .recentSongIds
                 .collect { ids ->
+
                     recentIds = ids
 
                     _state.update {
@@ -82,7 +83,8 @@ class HomeViewModel(
                                 resolveRecent(
                                     songs =
                                         current.songs,
-                                    ids = ids
+                                    ids =
+                                        ids
                                 )
                         )
                     }
@@ -150,15 +152,19 @@ class HomeViewModel(
         }
     }
 
+    /*
+     * ALL SONGS
+     *
+     * Current song:
+     * playback toggles only.
+     *
+     * Different song:
+     * promote + request one front transition.
+     */
     fun recordPlayedFromLibrary(
         song: Song,
         currentSongId: Long?
     ) {
-        /*
-         * Current song:
-         * HomeScreen still sends playback click,
-         * but Recent remains completely untouched.
-         */
         if (
             song.id ==
             currentSongId
@@ -166,78 +172,85 @@ class HomeViewModel(
             return
         }
 
-        promoteRecent(
-            song = song,
-            transitionMode =
-                RecentTransitionMode
-                    .FRONT_REPLACE
-        )
-    }
-
-    fun recordPlayedFromRecent(
-        song: Song,
-        currentSongId: Long?,
-        transitionMode:
-            RecentTransitionMode
-    ) {
-        /*
-         * Current playback song:
-         * toggle only.
-         *
-         * No reorder.
-         * No Recent transition.
-         */
-        if (
-            song.id ==
-            currentSongId
-        ) {
-            return
-        }
-
-        promoteRecent(
-            song = song,
-            transitionMode =
-                transitionMode
-        )
-    }
-
-    private fun promoteRecent(
-        song: Song,
-        transitionMode:
-            RecentTransitionMode
-    ) {
         transitionId++
 
+        promote(
+            song = song,
+            transition =
+                RecentTransitionRequest(
+                    id =
+                        transitionId,
+                    songId =
+                        song.id,
+                    mode =
+                        RecentTransitionMode
+                            .LIBRARY
+                )
+        )
+    }
+
+    /*
+     * RECENT
+     *
+     * Current song:
+     * playback toggle only.
+     *
+     * Different song:
+     * promote silently.
+     *
+     * Never request a Recent slide animation.
+     */
+    fun recordPlayedFromRecent(
+        song: Song,
+        currentSongId: Long?
+    ) {
+        if (
+            song.id ==
+            currentSongId
+        ) {
+            return
+        }
+
+        promote(
+            song = song,
+            transition =
+                RecentTransitionRequest(
+                    id =
+                        _state.value
+                            .recentTransition.id,
+                    songId = null,
+                    mode =
+                        RecentTransitionMode.NONE
+                )
+        )
+    }
+
+    private fun promote(
+        song: Song,
+        transition:
+            RecentTransitionRequest
+    ) {
         _state.update {
             current ->
 
-            val reordered =
-                buildList {
-                    add(song)
-
-                    addAll(
-                        current
-                            .recentlyPlayed
-                            .filterNot {
-                                it.id ==
-                                    song.id
-                            }
-                    )
-                }
-                    .take(20)
-
             current.copy(
                 recentlyPlayed =
-                    reordered,
+                    buildList {
+                        add(song)
+
+                        addAll(
+                            current
+                                .recentlyPlayed
+                                .filterNot {
+                                    it.id ==
+                                        song.id
+                                }
+                        )
+                    }
+                        .take(20),
+
                 recentTransition =
-                    RecentTransitionRequest(
-                        id =
-                            transitionId,
-                        songId =
-                            song.id,
-                        mode =
-                            transitionMode
-                    )
+                    transition
             )
         }
 
@@ -281,7 +294,8 @@ class HomeViewModel(
             viewModelScope.launch {
                 artworkPreloader.warm(
                     songs = songs,
-                    fromIndex = start,
+                    fromIndex =
+                        start,
                     count = 36
                 )
             }
