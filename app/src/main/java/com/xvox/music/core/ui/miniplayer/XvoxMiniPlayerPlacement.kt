@@ -4,15 +4,16 @@ import androidx.compose.ui.unit.dp
 
 object XvoxMiniPlayerPlacement {
 
-    val horizontalEdge = 6.dp
+    val horizontalEdge =
+        6.dp
 
     /*
-     * Navbar host placement remains unchanged.
+     * Navbar host remains in its corrected position.
      *
-     * With 10dp host overflow this produces:
-     *
-     * visible navbar bottom = 18dp
-     * visible navbar top    = 82dp
+     * Visible Navbar:
+     * bottom = 18dp
+     * height = 64dp
+     * top    = 82dp
      */
     val navigationHostBottom =
         8.dp
@@ -21,15 +22,14 @@ object XvoxMiniPlayerPlacement {
         64.dp
 
     /*
-     * Visible MiniPlayer now sits only 6dp above
-     * the visible navbar.
+     * Shared Home rhythm is 12dp.
      *
-     * Navbar top:
+     * Navbar visible top:
      * 18 + 64 = 82dp
      *
      * MiniPlayer bottom:
-     * 82 + 6 = 88dp
+     * 82 + 12 = 94dp
      */
     val miniPlayerBottom =
-        88.dp
+        94.dp
 }
