@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,17 +16,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
+import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
-fun XvoxMainShell() {
+fun XvoxMainShell(
+    playerViewModel:
+        MainPlayerViewModel =
+        viewModel()
+) {
     val colors =
         XvoxTheme.colors
+
+    val player by
+        playerViewModel
+            .state
+            .collectAsState()
 
     var destination by remember {
         mutableStateOf(
@@ -41,20 +53,84 @@ fun XvoxMainShell() {
                 colors.background
             )
     ) {
-        Box(
-            modifier =
-                Modifier.fillMaxSize()
-        ) {
-            when (destination) {
-                XvoxDestination.HOME ->
-                    HomeScreen()
-
-                XvoxDestination.SEARCH ->
-                    SearchScreen()
-
-                XvoxDestination.SETTINGS ->
-                    SettingsScreen()
+        when (destination) {
+            XvoxDestination.HOME -> {
+                HomeScreen(
+                    currentSongId =
+                        player.currentSongId,
+                    isPlaying =
+                        player.isPlaying,
+                    onQueueReady =
+                        playerViewModel::setQueue,
+                    onPlay =
+                        playerViewModel::play
+                )
             }
+
+            XvoxDestination.SEARCH ->
+                SearchScreen()
+
+            XvoxDestination.SETTINGS ->
+                SettingsScreen()
+        }
+
+        val currentId =
+            player.currentSongId
+
+        if (
+            player.miniPlayerVisible &&
+            currentId != null &&
+            player.queue.isNotEmpty()
+        ) {
+            XvoxMiniPlayer(
+                queue =
+                    player.queue,
+                currentSongId =
+                    currentId,
+                currentIndex =
+                    player.currentIndex,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
+                riseKey =
+                    player.miniPlayerRiseKey,
+                togglePlay =
+                    playerViewModel::
+                        togglePlay,
+                playQueueIndex =
+                    playerViewModel::
+                        playQueueIndex,
+                dismiss =
+                    playerViewModel::
+                        hideMiniPlayer,
+                openPlayer = {
+                    /*
+                     * Now Playing destination
+                     * will connect here.
+                     */
+                    playerViewModel
+                        .hideMiniPlayer()
+                },
+                onLike = {
+                },
+                onAdd = {
+                },
+                modifier = Modifier
+                    .align(
+                        Alignment.BottomCenter
+                    )
+                    .windowInsetsPadding(
+                        WindowInsets
+                            .navigationBars
+                    )
+                    .padding(
+                        horizontal = 14.dp,
+                        bottom = 100.dp
+                    )
+            )
         }
 
         XvoxBottomBar(
@@ -73,9 +149,6 @@ fun XvoxMainShell() {
                 )
                 .padding(
                     bottom = 18.dp
-                )
-                .offset(
-                    y = 20.dp
                 )
         )
     }
