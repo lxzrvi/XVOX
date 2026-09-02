@@ -20,11 +20,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
 @Composable
 fun HomeScreen(
+    sky: Sky,
     currentSongId: Long?,
     isPlaying: Boolean,
     onQueueReady: (List<Song>) -> Unit,
@@ -91,7 +93,8 @@ fun HomeScreen(
                         PaddingValues(
                             top =
                                 headerSpace,
-                            bottom = 260.dp
+                            bottom =
+                                260.dp
                         )
                 ) {
                     item(
@@ -160,6 +163,7 @@ fun HomeScreen(
         }
 
         HomeGlassHeader(
+            sky = sky,
             profile =
                 state.profile,
             showPlaylists =
