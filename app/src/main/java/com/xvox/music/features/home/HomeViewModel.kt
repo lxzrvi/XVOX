@@ -19,62 +19,76 @@ class HomeViewModel(
 ) : AndroidViewModel(application) {
 
     private val songRepository =
-        MediaStoreSongRepository(
-            application
-        )
+        MediaStoreSongRepository(application)
 
     private val preferencesRepository =
-        UserPreferencesRepository(
-            application
-        )
+        UserPreferencesRepository(application)
 
     private val artworkPreloader =
-        ArtworkPreloader(
-            application
-        )
+        ArtworkPreloader(application)
 
     private val _state =
         MutableStateFlow(
             HomeUiState()
         )
 
-    val state:
-        StateFlow<HomeUiState> =
+    val state: StateFlow<HomeUiState> =
         _state.asStateFlow()
 
-    private var prefetchJob: Job? =
-        null
+    private var recentIds:
+        List<Long> = emptyList()
 
-    private var lastPrefetchStart =
-        -1
+    private var prefetchJob: Job? = null
+
+    private var lastPrefetchStart = -1
 
     init {
         observeProfile()
-        initialLoad()
+        observeRecent()
+        loadLibrary()
     }
 
     private fun observeProfile() {
         viewModelScope.launch {
             preferencesRepository
                 .preferences
-                .collect {
-                    profile ->
-
+                .collect { profile ->
                     _state.update {
                         it.copy(
-                            profile =
-                                profile
+                            profile = profile
                         )
                     }
                 }
         }
     }
 
-    private fun initialLoad() {
+    private fun observeRecent() {
+        viewModelScope.launch {
+            preferencesRepository
+                .recentSongIds
+                .collect { ids ->
+                    recentIds = ids
+
+                    _state.update {
+                        current ->
+
+                        current.copy(
+                            recentlyPlayed =
+                                resolveRecent(
+                                    songs =
+                                        current.songs,
+                                    ids = ids
+                                )
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun loadLibrary() {
         viewModelScope.launch {
             val songs =
-                songRepository
-                    .loadSongs()
+                songRepository.loadSongs()
 
             artworkPreloader.warm(
                 songs = songs,
@@ -85,6 +99,11 @@ class HomeViewModel(
             _state.update {
                 it.copy(
                     songs = songs,
+                    recentlyPlayed =
+                        resolveRecent(
+                            songs,
+                            recentIds
+                        ),
                     loading = false
                 )
             }
@@ -94,9 +113,7 @@ class HomeViewModel(
     }
 
     fun refresh() {
-        if (
-            _state.value.refreshing
-        ) {
+        if (_state.value.refreshing) {
             return
         }
 
@@ -108,59 +125,24 @@ class HomeViewModel(
             }
 
             val songs =
-                songRepository
-                    .loadSongs()
+                songRepository.loadSongs()
 
-            lastPrefetchStart =
-                -1
+            lastPrefetchStart = -1
 
             _state.update {
                 it.copy(
                     songs = songs,
+                    recentlyPlayed =
+                        resolveRecent(
+                            songs,
+                            recentIds
+                        ),
                     refreshing = false
                 )
             }
 
             prefetchFrom(0)
         }
-    }
-
-    fun prefetchFrom(
-        sourceIndex: Int
-    ) {
-        val songs =
-            _state.value.songs
-
-        if (songs.isEmpty()) {
-            return
-        }
-
-        val start =
-            (
-                sourceIndex /
-                    12
-                ) * 12
-
-        if (
-            start ==
-            lastPrefetchStart
-        ) {
-            return
-        }
-
-        lastPrefetchStart =
-            start
-
-        prefetchJob?.cancel()
-
-        prefetchJob =
-            viewModelScope.launch {
-                artworkPreloader.warm(
-                    songs = songs,
-                    fromIndex = start,
-                    count = 36
-                )
-            }
     }
 
     fun recordPlayed(
@@ -178,13 +160,54 @@ class HomeViewModel(
                             current
                                 .recentlyPlayed
                                 .filterNot {
-                                    it.id ==
-                                        song.id
+                                    it.id == song.id
                                 }
                         )
                     }.take(20)
             )
         }
+
+        viewModelScope.launch {
+            preferencesRepository
+                .recordRecentSong(
+                    song.id
+                )
+        }
+    }
+
+    fun prefetchFrom(
+        sourceIndex: Int
+    ) {
+        val songs =
+            _state.value.songs
+
+        if (songs.isEmpty()) {
+            return
+        }
+
+        val start =
+            (
+                sourceIndex / 12
+                ) * 12
+
+        if (
+            start == lastPrefetchStart
+        ) {
+            return
+        }
+
+        lastPrefetchStart = start
+
+        prefetchJob?.cancel()
+
+        prefetchJob =
+            viewModelScope.launch {
+                artworkPreloader.warm(
+                    songs = songs,
+                    fromIndex = start,
+                    count = 36
+                )
+            }
     }
 
     fun toggleLibraryMode() {
@@ -193,6 +216,27 @@ class HomeViewModel(
                 showPlaylists =
                     !it.showPlaylists
             )
+        }
+    }
+
+    private fun resolveRecent(
+        songs: List<Song>,
+        ids: List<Long>
+    ): List<Song> {
+        if (
+            songs.isEmpty() ||
+            ids.isEmpty()
+        ) {
+            return emptyList()
+        }
+
+        val byId =
+            songs.associateBy {
+                it.id
+            }
+
+        return ids.mapNotNull {
+            byId[it]
         }
     }
 
