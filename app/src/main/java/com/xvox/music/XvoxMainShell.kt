@@ -15,10 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.features.home.HomeScreen
@@ -44,17 +44,6 @@ fun XvoxMainShell(
             XvoxDestination.HOME
         )
     }
-
-    val navigationGap =
-        18.dp
-
-    val navigationHeight =
-        64.dp
-
-    val miniPlayerBottom =
-        navigationGap +
-            navigationHeight +
-            navigationGap
 
     Box(
         modifier = Modifier
@@ -122,10 +111,8 @@ fun XvoxMainShell(
                     playerViewModel
                         .hideMiniPlayer()
                 },
-                onLike = {
-                },
-                onAdd = {
-                },
+                onLike = {},
+                onAdd = {},
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -135,10 +122,15 @@ fun XvoxMainShell(
                             .navigationBars
                     )
                     .padding(
-                        start = 6.dp,
-                        end = 6.dp,
+                        start =
+                            XvoxMiniPlayerPlacement
+                                .horizontalEdge,
+                        end =
+                            XvoxMiniPlayerPlacement
+                                .horizontalEdge,
                         bottom =
-                            miniPlayerBottom
+                            XvoxMiniPlayerPlacement
+                                .miniPlayerBottom
                     )
             )
         }
@@ -159,7 +151,8 @@ fun XvoxMainShell(
                 )
                 .padding(
                     bottom =
-                        navigationGap
+                        XvoxMiniPlayerPlacement
+                            .navigationBottomGap
                 )
         )
     }
