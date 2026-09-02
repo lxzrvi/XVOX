@@ -17,21 +17,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout Phosphor Core
+      - name: Checkout official Phosphor Core
         uses: actions/checkout@v4
         with:
           repository: phosphor-icons/core
           path: phosphor-core
           fetch-depth: 1
 
-      - name: Prepare drawable directory
-        run: |
-          mkdir -p app/src/main/res/drawable
-
-      - name: Convert selected Phosphor icons
+      - name: Generate Android VectorDrawables
         shell: bash
         run: |
           set -euo pipefail
+
+          mkdir -p app/src/main/res/drawable
 
           python3 <<'PY'
           from pathlib import Path
@@ -39,165 +37,101 @@ jobs:
           import sys
           import xml.etree.ElementTree as ET
 
-
-          # ============================================================
-          # PATHS
-          # ============================================================
-
-          PHOSPHOR_ROOT = Path("phosphor-core")
-
-          OUTPUT_ROOT = Path(
-              "app/src/main/res/drawable"
-          )
-
-          OUTPUT_ROOT.mkdir(
-              parents=True,
-              exist_ok=True,
-          )
-
-
-          # ============================================================
-          # XVOX ICON CATALOG
-          # ============================================================
-          #
-          # Future icon:
-          #
-          # "ic_xvox_name": ("phosphor-name", "fill"),
-          #
-          # Then manually run this workflow again.
-          #
-          # Existing custom navbar icons are intentionally NOT here.
-          # ============================================================
+          SOURCE = Path("phosphor-core")
+          OUTPUT = Path("app/src/main/res/drawable")
 
           ICONS = {
-              # --------------------------------------------------------
-              # HOME
-              # --------------------------------------------------------
-
+              # Home
               "ic_xvox_refresh": (
                   "arrows-clockwise",
                   "fill",
               ),
-
               "ic_xvox_heart": (
                   "heart",
                   "fill",
               ),
-
               "ic_xvox_music_note": (
                   "music-note",
                   "fill",
               ),
-
               "ic_xvox_playlist": (
                   "playlist",
                   "fill",
               ),
 
-
-              # --------------------------------------------------------
-              # PLAYBACK
-              # --------------------------------------------------------
-
+              # Playback
               "ic_xvox_play": (
                   "play",
                   "fill",
               ),
-
               "ic_xvox_pause": (
                   "pause",
                   "fill",
               ),
-
               "ic_xvox_skip_previous": (
                   "skip-back",
                   "fill",
               ),
-
               "ic_xvox_skip_next": (
                   "skip-forward",
                   "fill",
               ),
-
               "ic_xvox_shuffle": (
                   "shuffle",
                   "fill",
               ),
-
               "ic_xvox_repeat": (
                   "repeat",
                   "fill",
               ),
 
-
-              # --------------------------------------------------------
-              # MINIPLAYER / COMMON
-              # --------------------------------------------------------
-
+              # MiniPlayer/common
               "ic_xvox_add": (
                   "plus",
                   "fill",
               ),
-
               "ic_xvox_close": (
                   "x",
                   "bold",
               ),
-
               "ic_xvox_more": (
                   "dots-three",
                   "bold",
               ),
 
-
-              # --------------------------------------------------------
-              # FUTURE
-              # --------------------------------------------------------
-
+              # Future
               "ic_xvox_search_action": (
                   "magnifying-glass",
                   "bold",
               ),
-
               "ic_xvox_queue": (
                   "list",
                   "bold",
               ),
-
               "ic_xvox_equalizer": (
                   "sliders-horizontal",
                   "fill",
               ),
-
               "ic_xvox_timer": (
                   "timer",
                   "fill",
               ),
-
               "ic_xvox_volume_high": (
                   "speaker-high",
                   "fill",
               ),
-
               "ic_xvox_share": (
                   "share-network",
                   "fill",
               ),
-
               "ic_xvox_delete": (
                   "trash",
                   "fill",
               ),
           }
 
-
-          # ============================================================
-          # HELPERS
-          # ============================================================
-
-          def local_name(tag):
+          def tag_name(tag):
               return tag.split("}")[-1]
-
 
           def number(value, default=0.0):
               if value is None:
@@ -217,7 +151,6 @@ jobs:
               except ValueError:
                   return default
 
-
           def fmt(value):
               value = float(value)
 
@@ -230,251 +163,96 @@ jobs:
                   .rstrip(".")
               )
 
-
-          def find_svg(icon_name, weight):
+          def find_svg(icon, weight):
               preferred = [
-                  PHOSPHOR_ROOT
-                  / "assets"
-                  / weight
-                  / f"{icon_name}.svg",
+                  SOURCE /
+                  "raw" /
+                  weight /
+                  f"{icon}-{weight}.svg",
 
-                  PHOSPHOR_ROOT
-                  / "raw"
-                  / weight
-                  / f"{icon_name}-{weight}.svg",
+                  SOURCE /
+                  "raw" /
+                  weight /
+                  f"{icon}.svg",
 
-                  PHOSPHOR_ROOT
-                  / "raw"
-                  / weight
-                  / f"{icon_name}.svg",
+                  SOURCE /
+                  "assets" /
+                  weight /
+                  f"{icon}.svg",
               ]
 
               for path in preferred:
                   if path.exists():
                       return path
 
-              matches = []
+              possibilities = []
 
-              expected_names = {
-                  f"{icon_name}.svg",
-                  f"{icon_name}-{weight}.svg",
-              }
+              for path in SOURCE.rglob("*.svg"):
+                  filename = path.name.lower()
 
-              for path in PHOSPHOR_ROOT.rglob("*.svg"):
-                  lower_name = path.name.lower()
-
-                  if lower_name not in {
-                      name.lower()
-                      for name in expected_names
+                  if filename not in {
+                      f"{icon}.svg".lower(),
+                      f"{icon}-{weight}.svg".lower(),
                   }:
                       continue
 
-                  full = str(path).lower()
-
                   score = 0
+                  full = str(path).lower()
 
                   if weight.lower() in full:
                       score += 100
 
-                  if (
-                      lower_name ==
-                      f"{icon_name}-{weight}.svg".lower()
-                  ):
+                  if filename == (
+                      f"{icon}-{weight}.svg"
+                  ).lower():
                       score += 50
 
-                  if (
-                      lower_name ==
-                      f"{icon_name}.svg".lower()
-                  ):
-                      score += 25
-
-                  matches.append(
+                  possibilities.append(
                       (score, path)
                   )
 
-              if not matches:
+              if not possibilities:
                   return None
 
-              matches.sort(
-                  key=lambda entry: (
-                      entry[0],
-                      -len(str(entry[1])),
-                  ),
+              possibilities.sort(
+                  key=lambda pair: pair[0],
                   reverse=True,
               )
 
-              return matches[0][1]
-
-
-          # ============================================================
-          # SVG STYLE
-          # ============================================================
-
-          def is_none(value):
-              return (
-                  str(value)
-                  .strip()
-                  .lower()
-                  == "none"
-              )
-
-
-          def inherited_attr(
-              element,
-              inherited,
-              name,
-              default=None,
-          ):
-              if name in element.attrib:
-                  return element.attrib[name]
-
-              return inherited.get(
-                  name,
-                  default,
-              )
-
-
-          # ============================================================
-          # VECTOR BUILDER
-          # ============================================================
-
-          class VectorBuilder:
-
-              def __init__(
-                  self,
-                  viewport_width,
-                  viewport_height,
-              ):
-                  self.root = ET.Element(
-                      "vector",
-                      {
-                          "xmlns:android":
-                              "http://schemas.android.com/apk/res/android",
-
-                          "android:width":
-                              "24dp",
-
-                          "android:height":
-                              "24dp",
-
-                          "android:viewportWidth":
-                              fmt(viewport_width),
-
-                          "android:viewportHeight":
-                              fmt(viewport_height),
-                      },
-                  )
-
-                  self.count = 0
-
-
-              def add_path(
-                  self,
-                  path_data,
-                  fill,
-                  stroke,
-                  stroke_width,
-                  line_cap,
-                  line_join,
-              ):
-                  attributes = {
-                      "android:pathData":
-                          path_data,
-                  }
-
-                  if fill:
-                      attributes[
-                          "android:fillColor"
-                      ] = "#FFFFFFFF"
-
-                  else:
-                      attributes[
-                          "android:fillColor"
-                      ] = "#00000000"
-
-                  if stroke:
-                      attributes[
-                          "android:strokeColor"
-                      ] = "#FFFFFFFF"
-
-                      attributes[
-                          "android:strokeWidth"
-                      ] = fmt(
-                          stroke_width
-                      )
-
-                      if line_cap in {
-                          "butt",
-                          "round",
-                          "square",
-                      }:
-                          attributes[
-                              "android:strokeLineCap"
-                          ] = line_cap
-
-                      if line_join in {
-                          "miter",
-                          "round",
-                          "bevel",
-                      }:
-                          attributes[
-                              "android:strokeLineJoin"
-                          ] = line_join
-
-                  ET.SubElement(
-                      self.root,
-                      "path",
-                      attributes,
-                  )
-
-                  self.count += 1
-
-
-          # ============================================================
-          # PRIMITIVE -> PATH
-          # ============================================================
+              return possibilities[0][1]
 
           def circle_path(element):
               cx = number(
                   element.attrib.get("cx")
               )
-
               cy = number(
                   element.attrib.get("cy")
               )
-
-              radius = number(
+              r = number(
                   element.attrib.get("r")
               )
 
-              if radius <= 0:
+              if r <= 0:
                   return None
 
               return (
-                  f"M {fmt(cx - radius)},{fmt(cy)} "
-                  f"A {fmt(radius)},{fmt(radius)} "
-                  f"0 1,0 "
-                  f"{fmt(cx + radius)},{fmt(cy)} "
-                  f"A {fmt(radius)},{fmt(radius)} "
-                  f"0 1,0 "
-                  f"{fmt(cx - radius)},{fmt(cy)} "
-                  f"Z"
+                  f"M {fmt(cx-r)},{fmt(cy)} "
+                  f"A {fmt(r)},{fmt(r)} 0 1,0 "
+                  f"{fmt(cx+r)},{fmt(cy)} "
+                  f"A {fmt(r)},{fmt(r)} 0 1,0 "
+                  f"{fmt(cx-r)},{fmt(cy)} Z"
               )
-
 
           def ellipse_path(element):
               cx = number(
                   element.attrib.get("cx")
               )
-
               cy = number(
                   element.attrib.get("cy")
               )
-
               rx = number(
                   element.attrib.get("rx")
               )
-
               ry = number(
                   element.attrib.get("ry")
               )
@@ -483,64 +261,33 @@ jobs:
                   return None
 
               return (
-                  f"M {fmt(cx - rx)},{fmt(cy)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 1,0 "
-                  f"{fmt(cx + rx)},{fmt(cy)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 1,0 "
-                  f"{fmt(cx - rx)},{fmt(cy)} "
-                  f"Z"
+                  f"M {fmt(cx-rx)},{fmt(cy)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 1,0 "
+                  f"{fmt(cx+rx)},{fmt(cy)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 1,0 "
+                  f"{fmt(cx-rx)},{fmt(cy)} Z"
               )
-
-
-          def line_path(element):
-              x1 = number(
-                  element.attrib.get("x1")
-              )
-
-              y1 = number(
-                  element.attrib.get("y1")
-              )
-
-              x2 = number(
-                  element.attrib.get("x2")
-              )
-
-              y2 = number(
-                  element.attrib.get("y2")
-              )
-
-              return (
-                  f"M {fmt(x1)},{fmt(y1)} "
-                  f"L {fmt(x2)},{fmt(y2)}"
-              )
-
 
           def rect_path(element):
               x = number(
                   element.attrib.get("x")
               )
-
               y = number(
                   element.attrib.get("y")
               )
-
-              width = number(
+              w = number(
                   element.attrib.get("width")
               )
-
-              height = number(
+              h = number(
                   element.attrib.get("height")
               )
 
-              if width <= 0 or height <= 0:
+              if w <= 0 or h <= 0:
                   return None
 
               rx = number(
                   element.attrib.get("rx")
               )
-
               ry = number(
                   element.attrib.get("ry")
               )
@@ -551,64 +298,60 @@ jobs:
               if ry <= 0 and rx > 0:
                   ry = rx
 
-              rx = min(
-                  rx,
-                  width / 2,
-              )
-
-              ry = min(
-                  ry,
-                  height / 2,
-              )
-
               if rx <= 0 or ry <= 0:
                   return (
                       f"M {fmt(x)},{fmt(y)} "
-                      f"H {fmt(x + width)} "
-                      f"V {fmt(y + height)} "
-                      f"H {fmt(x)} "
-                      f"Z"
+                      f"H {fmt(x+w)} "
+                      f"V {fmt(y+h)} "
+                      f"H {fmt(x)} Z"
                   )
 
+              rx = min(rx, w / 2)
+              ry = min(ry, h / 2)
+
               return (
-                  f"M {fmt(x + rx)},{fmt(y)} "
-                  f"H {fmt(x + width - rx)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 0,1 "
-                  f"{fmt(x + width)},"
-                  f"{fmt(y + ry)} "
-
-                  f"V {fmt(y + height - ry)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 0,1 "
-                  f"{fmt(x + width - rx)},"
-                  f"{fmt(y + height)} "
-
-                  f"H {fmt(x + rx)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 0,1 "
-                  f"{fmt(x)},"
-                  f"{fmt(y + height - ry)} "
-
-                  f"V {fmt(y + ry)} "
-                  f"A {fmt(rx)},{fmt(ry)} "
-                  f"0 0,1 "
-                  f"{fmt(x + rx)},"
-                  f"{fmt(y)} "
-                  f"Z"
+                  f"M {fmt(x+rx)},{fmt(y)} "
+                  f"H {fmt(x+w-rx)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
+                  f"{fmt(x+w)},{fmt(y+ry)} "
+                  f"V {fmt(y+h-ry)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
+                  f"{fmt(x+w-rx)},{fmt(y+h)} "
+                  f"H {fmt(x+rx)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
+                  f"{fmt(x)},{fmt(y+h-ry)} "
+                  f"V {fmt(y+ry)} "
+                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
+                  f"{fmt(x+rx)},{fmt(y)} Z"
               )
 
+          def line_path(element):
+              x1 = number(
+                  element.attrib.get("x1")
+              )
+              y1 = number(
+                  element.attrib.get("y1")
+              )
+              x2 = number(
+                  element.attrib.get("x2")
+              )
+              y2 = number(
+                  element.attrib.get("y2")
+              )
+
+              return (
+                  f"M {fmt(x1)},{fmt(y1)} "
+                  f"L {fmt(x2)},{fmt(y2)}"
+              )
 
           def points_path(element, close):
-              raw = element.attrib.get(
-                  "points",
-                  "",
-              )
-
               values = re.findall(
                   r"-?(?:\d+(?:\.\d*)?|\.\d+)"
                   r"(?:[eE][+-]?\d+)?",
-                  raw,
+                  element.attrib.get(
+                      "points",
+                      "",
+                  ),
               )
 
               if len(values) < 4:
@@ -617,38 +360,34 @@ jobs:
               if len(values) % 2 != 0:
                   values = values[:-1]
 
-              points = []
+              pairs = []
 
               for index in range(
                   0,
                   len(values),
                   2,
               ):
-                  points.append(
+                  pairs.append(
                       (
-                          number(values[index]),
                           number(
-                              values[
-                                  index + 1
-                              ]
+                              values[index]
+                          ),
+                          number(
+                              values[index + 1]
                           ),
                       )
                   )
 
-              if not points:
-                  return None
-
               data = (
                   f"M "
-                  f"{fmt(points[0][0])},"
-                  f"{fmt(points[0][1])}"
+                  f"{fmt(pairs[0][0])},"
+                  f"{fmt(pairs[0][1])}"
               )
 
-              for x, y in points[1:]:
+              for x, y in pairs[1:]:
                   data += (
                       f" L "
-                      f"{fmt(x)},"
-                      f"{fmt(y)}"
+                      f"{fmt(x)},{fmt(y)}"
                   )
 
               if close:
@@ -656,290 +395,241 @@ jobs:
 
               return data
 
-
-          # ============================================================
-          # TREE WALK
-          # ============================================================
-
-          DRAWABLE_TAGS = {
-              "path",
-              "circle",
-              "ellipse",
-              "rect",
-              "line",
-              "polyline",
-              "polygon",
-          }
-
-
-          def walk(
-              element,
-              builder,
-              inherited=None,
-          ):
-              if inherited is None:
-                  inherited = {}
-
-              current = dict(
-                  inherited
-              )
-
-              for attribute in [
-                  "fill",
-                  "stroke",
-                  "stroke-width",
-                  "stroke-linecap",
-                  "stroke-linejoin",
-              ]:
-                  if attribute in element.attrib:
-                      current[attribute] = (
-                          element.attrib[
-                              attribute
-                          ]
-                      )
-
-              tag = local_name(
-                  element.tag
-              )
-
-              path_data = None
-
-              if tag == "path":
-                  path_data = (
-                      element.attrib.get(
-                          "d"
-                      )
-                  )
-
-              elif tag == "circle":
-                  path_data = circle_path(
-                      element
-                  )
-
-              elif tag == "ellipse":
-                  path_data = ellipse_path(
-                      element
-                  )
-
-              elif tag == "rect":
-                  path_data = rect_path(
-                      element
-                  )
-
-              elif tag == "line":
-                  path_data = line_path(
-                      element
-                  )
-
-              elif tag == "polyline":
-                  path_data = points_path(
-                      element,
-                      close=False,
-                  )
-
-              elif tag == "polygon":
-                  path_data = points_path(
-                      element,
-                      close=True,
-                  )
-
-              if (
-                  tag in DRAWABLE_TAGS
-                  and path_data
-              ):
-                  fill_value = inherited_attr(
-                      element,
-                      current,
-                      "fill",
-                      "black",
-                  )
-
-                  stroke_value = inherited_attr(
-                      element,
-                      current,
-                      "stroke",
-                      "none",
-                  )
-
-                  fill_enabled = not is_none(
-                      fill_value
-                  )
-
-                  stroke_enabled = not is_none(
-                      stroke_value
-                  )
-
-                  # Lines/polyline normally rely on stroke.
-                  if tag == "line":
-                      fill_enabled = False
-
-                      if "stroke" not in current:
-                          stroke_enabled = True
-
-                  builder.add_path(
-                      path_data =
-                          path_data,
-
-                      fill =
-                          fill_enabled,
-
-                      stroke =
-                          stroke_enabled,
-
-                      stroke_width =
-                          number(
-                              current.get(
-                                  "stroke-width"
-                              ),
-                              1.0,
-                          ),
-
-                      line_cap =
-                          current.get(
-                              "stroke-linecap"
-                          ),
-
-                      line_join =
-                          current.get(
-                              "stroke-linejoin"
-                          ),
-                  )
-
-              for child in element:
-                  walk(
-                      child,
-                      builder,
-                      current,
-                  )
-
-
-          # ============================================================
-          # SVG -> VECTOR
-          # ============================================================
-
-          def convert_svg(
+          def convert(
               source,
               destination,
           ):
-              tree = ET.parse(
+              root = ET.parse(
                   source
-              )
+              ).getroot()
 
-              root = tree.getroot()
-
-              view_box = (
+              raw_viewbox = (
                   root.attrib
                   .get(
                       "viewBox",
                       "0 0 256 256",
                   )
-                  .replace(
-                      ",",
-                      " ",
-                  )
+                  .replace(",", " ")
                   .split()
               )
 
-              if len(view_box) != 4:
+              if len(raw_viewbox) != 4:
                   raise RuntimeError(
-                      "Invalid SVG viewBox"
+                      "invalid viewBox"
                   )
 
-              min_x = number(
-                  view_box[0]
-              )
-
-              min_y = number(
-                  view_box[1]
-              )
-
               viewport_width = number(
-                  view_box[2],
-                  256.0,
+                  raw_viewbox[2],
+                  256,
               )
 
               viewport_height = number(
-                  view_box[3],
-                  256.0,
+                  raw_viewbox[3],
+                  256,
               )
 
-              if (
-                  viewport_width <= 0
-                  or viewport_height <= 0
+              vector = ET.Element(
+                  "vector",
+                  {
+                      "xmlns:android":
+                          "http://schemas.android.com/apk/res/android",
+
+                      "android:width":
+                          "24dp",
+
+                      "android:height":
+                          "24dp",
+
+                      "android:viewportWidth":
+                          fmt(viewport_width),
+
+                      "android:viewportHeight":
+                          fmt(viewport_height),
+                  },
+              )
+
+              path_count = 0
+
+              def walk(
+                  element,
+                  inherited=None,
               ):
+                  nonlocal path_count
+
+                  if inherited is None:
+                      inherited = {}
+
+                  style = dict(inherited)
+
+                  for key in (
+                      "fill",
+                      "stroke",
+                      "stroke-width",
+                      "stroke-linecap",
+                      "stroke-linejoin",
+                  ):
+                      if key in element.attrib:
+                          style[key] = (
+                              element.attrib[key]
+                          )
+
+                  tag = tag_name(
+                      element.tag
+                  )
+
+                  data = None
+
+                  if tag == "path":
+                      data = element.attrib.get(
+                          "d"
+                      )
+
+                  elif tag == "circle":
+                      data = circle_path(
+                          element
+                      )
+
+                  elif tag == "ellipse":
+                      data = ellipse_path(
+                          element
+                      )
+
+                  elif tag == "rect":
+                      data = rect_path(
+                          element
+                      )
+
+                  elif tag == "line":
+                      data = line_path(
+                          element
+                      )
+
+                  elif tag == "polyline":
+                      data = points_path(
+                          element,
+                          False,
+                      )
+
+                  elif tag == "polygon":
+                      data = points_path(
+                          element,
+                          True,
+                      )
+
+                  if data:
+                      fill = style.get(
+                          "fill",
+                          "black",
+                      )
+
+                      stroke = style.get(
+                          "stroke",
+                          "none",
+                      )
+
+                      if tag == "line":
+                          fill = "none"
+
+                          if "stroke" not in style:
+                              stroke = "black"
+
+                      attributes = {
+                          "android:pathData":
+                              data,
+
+                          "android:fillColor":
+                              (
+                                  "#00000000"
+                                  if fill == "none"
+                                  else "#FFFFFFFF"
+                              ),
+                      }
+
+                      if stroke != "none":
+                          attributes[
+                              "android:strokeColor"
+                          ] = "#FFFFFFFF"
+
+                          attributes[
+                              "android:strokeWidth"
+                          ] = fmt(
+                              number(
+                                  style.get(
+                                      "stroke-width"
+                                  ),
+                                  1,
+                              )
+                          )
+
+                          cap = style.get(
+                              "stroke-linecap"
+                          )
+
+                          join = style.get(
+                              "stroke-linejoin"
+                          )
+
+                          if cap in {
+                              "butt",
+                              "round",
+                              "square",
+                          }:
+                              attributes[
+                                  "android:strokeLineCap"
+                              ] = cap
+
+                          if join in {
+                              "miter",
+                              "round",
+                              "bevel",
+                          }:
+                              attributes[
+                                  "android:strokeLineJoin"
+                              ] = join
+
+                      ET.SubElement(
+                          vector,
+                          "path",
+                          attributes,
+                      )
+
+                      path_count += 1
+
+                  for child in element:
+                      walk(
+                          child,
+                          style,
+                      )
+
+              walk(root)
+
+              if path_count == 0:
                   raise RuntimeError(
-                      "Invalid viewport size"
+                      "no drawable geometry"
                   )
 
-              if (
-                  min_x != 0
-                  or min_y != 0
-              ):
-                  print(
-                      "WARNING: "
-                      f"{source} has non-zero "
-                      f"viewBox origin "
-                      f"({min_x}, {min_y})"
-                  )
-
-              builder = VectorBuilder(
-                  viewport_width,
-                  viewport_height,
-              )
-
-              walk(
-                  root,
-                  builder,
-              )
-
-              if builder.count == 0:
-                  raise RuntimeError(
-                      "No convertible paths found"
-                  )
-
-              try:
-                  ET.indent(
-                      builder.root,
-                      space="    ",
-                  )
-              except AttributeError:
-                  pass
-
-              xml = ET.tostring(
-                  builder.root,
-                  encoding="unicode",
+              ET.indent(
+                  vector,
+                  space="    ",
               )
 
               destination.write_text(
                   '<?xml version="1.0" '
                   'encoding="utf-8"?>\n'
-                  + xml
-                  + "\n",
+                  +
+                  ET.tostring(
+                      vector,
+                      encoding="unicode",
+                  )
+                  +
+                  "\n",
                   encoding="utf-8",
               )
 
-              return builder.count
-
-
-          # ============================================================
-          # IMPORT
-          # ============================================================
+              return path_count
 
           failures = []
           generated = []
-
-          print(
-              "\n"
-              "============================================"
-          )
-
-          print(
-              "XVOX PHOSPHOR IMPORT"
-          )
-
-          print(
-              "============================================"
-          )
 
           for android_name, (
               phosphor_name,
@@ -953,21 +643,19 @@ jobs:
 
               if source is None:
                   failures.append(
-                      f"{android_name}: "
-                      f"could not locate "
                       f"{phosphor_name} "
-                      f"({weight})"
+                      f"({weight}): "
+                      f"source SVG not found"
                   )
-
                   continue
 
               destination = (
-                  OUTPUT_ROOT /
+                  OUTPUT /
                   f"{android_name}.xml"
               )
 
               try:
-                  path_count = convert_svg(
+                  count = convert(
                       source,
                       destination,
                   )
@@ -977,62 +665,56 @@ jobs:
                   )
 
                   print(
-                      f"OK  "
-                      f"{phosphor_name} "
-                      f"[{weight}] "
-                      f"-> "
-                      f"{destination} "
-                      f"({path_count} paths)"
+                      "GENERATED:",
+                      destination,
+                      "<-",
+                      source,
+                      f"({count} paths)",
                   )
 
               except Exception as error:
                   failures.append(
-                      f"{android_name}: "
-                      f"{source}: "
+                      f"{phosphor_name}: "
                       f"{error}"
                   )
 
+          print()
           print(
-              "\n"
-              "============================================"
-          )
-
-          print(
-              f"Generated: "
-              f"{len(generated)}"
-          )
-
-          print(
-              f"Failures: "
-              f"{len(failures)}"
-          )
-
-          print(
-              "============================================"
+              f"Generated "
+              f"{len(generated)} "
+              f"icons."
           )
 
           if failures:
               print(
-                  "\nFailed icons:",
+                  "Failures:",
                   file=sys.stderr,
               )
 
               for failure in failures:
                   print(
-                      f" - {failure}",
+                      " -",
+                      failure,
                       file=sys.stderr,
                   )
 
               sys.exit(1)
 
+          if not generated:
+              print(
+                  "ERROR: no icons generated",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
           PY
 
-      - name: Validate generated VectorDrawables
+      - name: Verify generated files exist
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Generated XVOX icon files:"
+          echo "Generated files:"
           echo
 
           find \
@@ -1043,28 +725,49 @@ jobs:
             -print \
             | sort
 
-      - name: Commit icons to XVOX
+          echo
+          echo "Git status BEFORE staging:"
+          git status --short
+
+      - name: Stage generated icons
         shell: bash
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- app/src/main/res/drawable; then
-            echo "Icons are already up to date."
+          git add \
+            app/src/main/res/drawable/ic_xvox_*.xml
+
+          echo "Git status AFTER staging:"
+          git status --short
+
+      - name: Commit and push generated icons
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --cached --quiet; then
+            echo "No generated icon changes."
             exit 0
           fi
 
           git config \
             user.name \
-            "xvox-actions"
+            "github-actions[bot]"
 
           git config \
             user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add \
-            app/src/main/res/drawable/ic_xvox_*.xml
-
           git commit \
             -m "Import XVOX Phosphor icons"
 
-          git push
+          echo
+          echo "Current workflow branch:"
+          echo "${GITHUB_REF_NAME}"
+
+          git push \
+            origin \
+            "HEAD:${GITHUB_REF_NAME}"
+
+          echo
+          echo "Icons pushed successfully."
