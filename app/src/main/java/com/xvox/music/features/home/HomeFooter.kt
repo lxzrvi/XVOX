@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,19 +31,24 @@ fun HomeFooter(
         XvoxTheme.colors
 
     Column(
-        modifier = modifier,
+        modifier =
+            modifier,
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
         Spacer(
             modifier =
-                Modifier.weight(0.43f)
+                Modifier.weight(
+                    0.43f
+                )
         )
 
         Box(
             modifier = Modifier
                 .size(50.dp)
-                .clip(CircleShape)
+                .clip(
+                    CircleShape
+                )
                 .background(
                     Color.Black
                 ),
@@ -53,15 +60,24 @@ fun HomeFooter(
                     painterResource(
                         R.drawable.xvox
                     ),
-                contentDescription = null,
-                modifier =
-                    Modifier.size(50.dp)
+                contentDescription =
+                    null,
+                contentScale =
+                    ContentScale.Fit,
+                modifier = Modifier
+                    .size(50.dp)
+                    .graphicsLayer {
+                        scaleX = 1.28f
+                        scaleY = 1.28f
+                    }
             )
         }
 
         Spacer(
             modifier =
-                Modifier.height(5.dp)
+                Modifier.height(
+                    5.dp
+                )
         )
 
         Text(
@@ -85,7 +101,9 @@ fun HomeFooter(
 
         Spacer(
             modifier =
-                Modifier.weight(0.57f)
+                Modifier.weight(
+                    0.57f
+                )
         )
     }
 }
