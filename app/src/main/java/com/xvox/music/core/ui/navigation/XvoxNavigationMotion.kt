@@ -19,19 +19,46 @@ fun rememberXvoxNavigationMotion(
     dragging: Boolean
 ): XvoxNavigationMotion {
 
+    /*
+     * DURING DRAG:
+     *
+     * Do NOT animate position.
+     *
+     * The pill follows the finger immediately.
+     *
+     * This removes the "behind my finger" feeling.
+     *
+     * AFTER DRAG:
+     *
+     * Keep a tiny spring only for settling.
+     */
     val animatedPosition by
         animateFloatAsState(
-            targetValue =
-                position,
+            targetValue = position,
             animationSpec =
                 spring(
-                    dampingRatio = 0.72f,
-                    stiffness = 900f
+                    dampingRatio = 0.90f,
+                    stiffness = 1400f
                 ),
-            label =
-                "navPosition"
+            label = "navPosition"
         )
 
+    /*
+     * Direct while dragging.
+     * Slightly animated when releasing.
+     */
+    val finalPosition =
+        if (dragging) {
+            position
+        } else {
+            animatedPosition
+        }
+
+    /*
+     * Grow animation.
+     *
+     * Fast enough that it doesn't feel delayed.
+     */
     val grow by
         animateFloatAsState(
             targetValue =
@@ -42,37 +69,38 @@ fun rememberXvoxNavigationMotion(
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 850f
+                    dampingRatio = 0.88f,
+                    stiffness = 1500f
                 ),
-            label =
-                "navGrow"
+            label = "navGrow"
         )
 
+    /*
+     * Keep navbar scale extremely subtle.
+     *
+     * Your previous 1.04f made the whole bar
+     * feel like it was bouncing.
+     */
     val barScale by
         animateFloatAsState(
             targetValue =
                 if (dragging) {
-                    1.04f
+                    1.018f
                 } else {
                     1f
                 },
             animationSpec =
                 spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 900f
+                    dampingRatio = 0.88f,
+                    stiffness = 1500f
                 ),
-            label =
-                "navBarScale"
+            label = "navBarScale"
         )
 
     return XvoxNavigationMotion(
-        position =
-            animatedPosition,
-        grow =
-            grow,
-        barScale =
-            barScale
+        position = finalPosition,
+        grow = grow,
+        barScale = barScale
     )
 }
 
@@ -98,6 +126,7 @@ fun navigationColor(
     active: Color,
     proximity: Float
 ): Color {
+
     val value =
         proximity.coerceIn(
             0f,
@@ -112,6 +141,7 @@ fun navigationColor(
                         inactive.red
                     ) *
                 value,
+
         green =
             inactive.green +
                 (
@@ -119,6 +149,7 @@ fun navigationColor(
                         inactive.green
                     ) *
                 value,
+
         blue =
             inactive.blue +
                 (
@@ -126,6 +157,7 @@ fun navigationColor(
                         inactive.blue
                     ) *
                 value,
+
         alpha =
             inactive.alpha +
                 (
