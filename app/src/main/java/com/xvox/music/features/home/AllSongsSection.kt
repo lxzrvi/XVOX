@@ -83,8 +83,8 @@ fun AllSongsSection(
                 .padding(
                     start = 12.dp,
                     end = 12.dp,
-                    top = 7.dp,
-                    bottom = 14.dp
+                    top = 12.dp,
+                    bottom = 12.dp
                 ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
