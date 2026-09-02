@@ -1,9 +1,9 @@
 package com.xvox.music.core.ui.navigation
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,8 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.Image
-import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 
 @Composable
@@ -35,7 +33,7 @@ fun XvoxNavigationItem(
                 proximity
         )
 
-    val scale =
+    val iconScale =
         1f +
             if (dragging) {
                 0.10f *
@@ -64,24 +62,16 @@ fun XvoxNavigationItem(
                     tint
                 ),
             modifier = Modifier
-                .offset(
-                    x =
-                        if (
-                            destination ==
-                            XvoxDestination.SETTINGS
-                        ) {
-                            2.dp
-                        } else {
-                            0.dp
-                        }
-                )
                 .size(
                     XvoxNavigationGeometry
                         .iconSize
                 )
                 .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
+                    scaleX =
+                        iconScale
+
+                    scaleY =
+                        iconScale
 
                     alpha =
                         0.88f +
