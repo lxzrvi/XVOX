@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,10 +48,12 @@ fun RecentlyPlayedSection(
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -68,7 +71,8 @@ fun RecentlyPlayedSection(
         ) {
             Text(
                 text = "Recently Played",
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
@@ -76,8 +80,10 @@ fun RecentlyPlayedSection(
             )
 
             Text(
-                text = "${songs.size} played",
-                color = colors.mutedText,
+                text =
+                    "${songs.size} played",
+                color =
+                    colors.mutedText,
                 fontSize = 9.sp
             )
         }
@@ -91,7 +97,8 @@ fun RecentlyPlayedSection(
                     Alignment.Center
             ) {
                 Text(
-                    text = "Nothing played yet",
+                    text =
+                        "Nothing played yet",
                     color =
                         colors.secondaryText,
                     fontSize = 12.sp
@@ -135,13 +142,21 @@ private fun RecentCarousel(
     }
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth()
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
         val edge = 6.dp
-        val gap = 1.dp
 
+        /*
+         * Card + 12dp total outer space = viewport.
+         * Adjacent card therefore does not intentionally peek
+         * while the current card is settled.
+         */
         val itemWidth =
             maxWidth - edge * 2
+
+        val itemGap =
+            edge * 2
 
         val railWidth =
             itemWidth * 0.22f
@@ -160,7 +175,9 @@ private fun RecentCarousel(
                         horizontal = edge
                     ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(gap)
+                    Arrangement.spacedBy(
+                        itemGap
+                    )
             ) {
                 items(
                     items = songs,
@@ -192,7 +209,7 @@ private fun RecentCarousel(
                 songCount = songs.size,
                 listState = listState,
                 itemWidth = itemWidth,
-                itemGap = gap,
+                itemGap = itemGap,
                 railWidth = railWidth,
                 modifier =
                     Modifier.padding(
@@ -211,7 +228,8 @@ private fun RecentArtwork(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val interaction =
         remember {
@@ -236,7 +254,8 @@ private fun RecentArtwork(
             )
     ) {
         SongArtwork(
-            artwork = song.artworkUri,
+            artwork =
+                song.artworkUri,
             requestSize =
                 RecentArtworkSize,
             modifier =
@@ -301,7 +320,10 @@ private fun RecentArtwork(
                 )
                 .padding(
                     horizontal =
-                        if (current && playing) {
+                        if (
+                            current &&
+                            playing
+                        ) {
                             9.dp
                         } else {
                             8.dp
@@ -314,7 +336,10 @@ private fun RecentArtwork(
         ) {
             PlaybackIcon(
                 type =
-                    if (current && playing) {
+                    if (
+                        current &&
+                        playing
+                    ) {
                         PlaybackIconType.PAUSE
                     } else {
                         PlaybackIconType.PLAY
@@ -324,10 +349,14 @@ private fun RecentArtwork(
                     Modifier.size(14.dp)
             )
 
-            if (current && playing) {
+            if (
+                current &&
+                playing
+            ) {
                 Text(
                     text = "Playing",
-                    color = Color.White,
+                    color =
+                        Color.White,
                     fontSize = 9.sp
                 )
             }
@@ -338,8 +367,7 @@ private fun RecentArtwork(
 @Composable
 private fun RecentPositionRail(
     songCount: Int,
-    listState:
-        androidx.compose.foundation.lazy.LazyListState,
+    listState: LazyListState,
     itemWidth: Dp,
     itemGap: Dp,
     railWidth: Dp,
@@ -349,19 +377,24 @@ private fun RecentPositionRail(
         return
     }
 
-    val colors = XvoxTheme.colors
-    val density = LocalDensity.current
+    val colors =
+        XvoxTheme.colors
+
+    val density =
+        LocalDensity.current
 
     val itemStridePx =
         with(density) {
-            (itemWidth + itemGap).toPx()
+            (itemWidth + itemGap)
+                .toPx()
         }
 
     val indicatorWidth =
         railWidth / songCount
 
     val maxTravel =
-        railWidth - indicatorWidth
+        railWidth -
+            indicatorWidth
 
     val progress by remember(
         listState,
@@ -376,7 +409,8 @@ private fun RecentPositionRail(
                 0f
             } else {
                 val continuousIndex =
-                    listState.firstVisibleItemIndex +
+                    listState
+                        .firstVisibleItemIndex +
                         (
                             listState
                                 .firstVisibleItemScrollOffset /
@@ -385,9 +419,13 @@ private fun RecentPositionRail(
 
                 (
                     continuousIndex /
-                        (songCount - 1).toFloat()
+                        (songCount - 1)
+                            .toFloat()
                     )
-                    .coerceIn(0f, 1f)
+                    .coerceIn(
+                        0f,
+                        1f
+                    )
             }
         }
     }
@@ -404,9 +442,13 @@ private fun RecentPositionRail(
         Box(
             modifier = Modifier
                 .offset(
-                    x = maxTravel * progress
+                    x =
+                        maxTravel *
+                            progress
                 )
-                .width(indicatorWidth)
+                .width(
+                    indicatorWidth
+                )
                 .height(3.dp)
                 .background(
                     colors.progressActive,
