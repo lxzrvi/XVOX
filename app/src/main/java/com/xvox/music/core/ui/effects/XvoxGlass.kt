@@ -45,10 +45,11 @@ fun rememberXvoxSky(): Sky {
     return rememberSky()
 }
 
+@Composable
 fun Modifier.xvoxGlassSource(
     sky: Sky
 ): Modifier {
-    return sky(sky)
+    return this.sky(sky)
 }
 
 @Composable
