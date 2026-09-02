@@ -3,6 +3,7 @@ package com.xvox.music.player.playback
 import com.xvox.music.core.model.Song
 
 data class MainPlayerUiState(
+    val connected: Boolean = false,
     val queue: List<Song> = emptyList(),
     val currentSongId: Long? = null,
     val currentIndex: Int = -1,
@@ -10,5 +11,5 @@ data class MainPlayerUiState(
     val position: Long = 0L,
     val duration: Long = 0L,
     val miniPlayerVisible: Boolean = false,
-    val miniPlayerGeneration: Int = 0
+    val miniPlayerRiseKey: Int = 0
 )
