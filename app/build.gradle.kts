@@ -51,4 +51,18 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
 
     implementation("com.github.skydoves:cloudy:0.7.1")
+
+    constraints {
+        implementation("androidx.core:core:1.17.0") {
+            because(
+                "XVOX currently compiles with SDK 36 and AGP 8.13.2"
+            )
+        }
+
+        implementation("androidx.core:core-ktx:1.17.0") {
+            because(
+                "XVOX currently compiles with SDK 36 and AGP 8.13.2"
+            )
+        }
+    }
 }
