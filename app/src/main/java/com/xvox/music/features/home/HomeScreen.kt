@@ -45,7 +45,7 @@ fun HomeScreen(
 
     val headerSpace =
         statusHeight +
-            76.dp
+            72.dp
 
     LaunchedEffect(
         state.songs
@@ -91,7 +91,7 @@ fun HomeScreen(
                         PaddingValues(
                             top =
                                 headerSpace,
-                            bottom = 220.dp
+                            bottom = 260.dp
                         )
                 ) {
                     item(
@@ -150,7 +150,9 @@ fun HomeScreen(
                         HomeFooter(
                             modifier = Modifier
                                 .fillParentMaxWidth()
-                                .height(260.dp)
+                                .height(
+                                    390.dp
+                                )
                         )
                     }
                 }
