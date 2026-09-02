@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +25,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import com.xvox.music.core.design.theme.XvoxTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+
+private const val HoldDelayMillis = 260L
+private const val HoldSlopPx = 10f
 
 @Composable
 fun XvoxBottomBar(
@@ -38,11 +45,16 @@ fun XvoxBottomBar(
     val density =
         LocalDensity.current
 
+    val scope =
+        rememberCoroutineScope()
+
     val destinations =
         XvoxDestination.entries
 
     val selectedIndex =
-        destinations.indexOf(selected)
+        destinations.indexOf(
+            selected
+        )
 
     var position by remember {
         mutableFloatStateOf(
@@ -54,11 +66,13 @@ fun XvoxBottomBar(
         mutableStateOf(false)
     }
 
-    var velocity by remember {
-        mutableFloatStateOf(0f)
+    var holding by remember {
+        mutableStateOf(false)
     }
 
-    LaunchedEffect(selectedIndex) {
+    LaunchedEffect(
+        selectedIndex
+    ) {
         if (!dragging) {
             position =
                 selectedIndex.toFloat()
@@ -68,7 +82,8 @@ fun XvoxBottomBar(
     val motion =
         rememberXvoxNavigationMotion(
             position = position,
-            dragging = dragging
+            dragging = dragging,
+            holding = holding
         )
 
     val parentShape =
@@ -105,7 +120,9 @@ fun XvoxBottomBar(
                 XvoxNavigationGeometry
                     .hostHeight
             )
-            .pointerInput(selectedIndex) {
+            .pointerInput(
+                selectedIndex
+            ) {
                 awaitEachGesture {
                     val first =
                         awaitFirstDown()
@@ -117,64 +134,108 @@ fun XvoxBottomBar(
                         selectedIndex
 
                     val physicalSlot =
-                        size.width / 3f
+                        size.width /
+                            3f
 
                     val dragSlot =
                         physicalSlot *
                             XvoxNavigationGeometry
                                 .DragResistance
 
-                    var lastX = startX
-                    var total = 0f
-                    var change = first
+                    var total =
+                        0f
 
-                    dragging = true
-                    velocity = 0f
+                    var moved =
+                        false
 
-                    while (change.pressed) {
+                    var change =
+                        first
+
+                    /*
+                     * Do not call this "dragging"
+                     * until the pointer actually moves.
+                     */
+                    dragging = false
+                    holding = false
+
+                    var holdJob: Job? =
+                        scope.launch {
+                            delay(
+                                HoldDelayMillis
+                            )
+
+                            if (!moved) {
+                                holding = true
+                            }
+                        }
+
+                    while (
+                        change.pressed
+                    ) {
                         val event =
                             awaitPointerEvent()
 
                         change =
-                            event.changes.first()
+                            event
+                                .changes
+                                .first()
 
-                        if (change.pressed) {
-                            val currentX =
-                                change.position.x
-
-                            val dx =
-                                currentX - lastX
-
+                        if (
+                            change.pressed
+                        ) {
                             total =
-                                currentX - startX
+                                change
+                                    .position
+                                    .x -
+                                    startX
 
-                            lastX =
-                                currentX
+                            if (
+                                !moved &&
+                                abs(total) >
+                                HoldSlopPx
+                            ) {
+                                moved = true
+                                dragging = true
 
-                            velocity =
-                                velocity * 0.68f +
-                                    dx * 0.32f
+                                /*
+                                 * A normal drag must NOT
+                                 * trigger hold grow.
+                                 */
+                                holdJob?.cancel()
+                                holdJob = null
+                                holding = false
+                            }
 
-                            position =
-                                (
-                                    startIndex +
-                                        total / dragSlot
-                                    )
-                                    .coerceIn(
-                                        0f,
-                                        2f
-                                    )
+                            if (moved) {
+                                position =
+                                    (
+                                        startIndex +
+                                            total /
+                                                dragSlot
+                                        )
+                                        .coerceIn(
+                                            0f,
+                                            2f
+                                        )
 
-                            if (abs(total) > 2f) {
                                 change.consume()
                             }
                         }
                     }
 
+                    holdJob?.cancel()
+                    holding = false
+
                     val target =
-                        if (abs(total) <= 7f) {
+                        if (!moved) {
+                            /*
+                             * Tap or stationary hold release:
+                             * use touched destination.
+                             */
                             (
-                                first.position.x /
+                                first
+                                    .position
+                                    .x /
                                     physicalSlot
                                 )
                                 .toInt()
@@ -191,18 +252,25 @@ fun XvoxBottomBar(
                             )
                         }
 
-                    velocity = 0f
+                    /*
+                     * Release always returns selector
+                     * to normal dimensions.
+                     */
+                    dragging = false
 
                     position =
                         target.toFloat()
 
-                    if (target != selectedIndex) {
+                    if (
+                        target !=
+                        selectedIndex
+                    ) {
                         onSelected(
-                            destinations[target]
+                            destinations[
+                                target
+                            ]
                         )
                     }
-
-                    dragging = false
                 }
             }
     ) {
@@ -276,19 +344,6 @@ fun XvoxBottomBar(
                 selectorRadius
             )
 
-        val stretch =
-            if (dragging) {
-                (
-                    abs(velocity) / 28f
-                    )
-                    .coerceIn(
-                        0f,
-                        1f
-                    )
-            } else {
-                0f
-            }
-
         Box(
             modifier = Modifier
                 .align(
@@ -299,8 +354,10 @@ fun XvoxBottomBar(
                         XvoxNavigationGeometry
                             .hostOverflow +
                             XvoxNavigationGeometry
-                                .barHeight / 2 -
-                            selectorHeight / 2
+                                .barHeight /
+                            2 -
+                            selectorHeight /
+                            2
                 )
                 .graphicsLayer {
                     translationX =
@@ -318,29 +375,6 @@ fun XvoxBottomBar(
                                 motion.grow
                             )
                             .toPx()
-
-                    scaleX =
-                        1f +
-                            stretch * 0.075f
-
-                    scaleY =
-                        1f -
-                            stretch * 0.035f
-
-                    rotationZ =
-                        (
-                            velocity * 0.035f
-                            )
-                            .coerceIn(
-                                -0.65f,
-                                0.65f
-                            )
-
-                    rotationY = 0f
-
-                    cameraDistance =
-                        32f *
-                            density.density
                 }
                 .size(
                     selectorWidth,
@@ -349,12 +383,14 @@ fun XvoxBottomBar(
                 .graphicsLayer {
                     shape =
                         selectorShape
+
                     clip = true
                 }
                 .background(
-                    colors.cardElevated.copy(
-                        alpha = 0.42f
-                    )
+                    colors.cardElevated
+                        .copy(
+                            alpha = 0.42f
+                        )
                 )
                 .border(
                     width =
@@ -386,33 +422,37 @@ fun XvoxBottomBar(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            destinations.forEachIndexed {
-                index,
-                destination ->
+            destinations
+                .forEachIndexed {
+                    index,
+                    destination ->
 
-                val proximity =
-                    navigationProximity(
-                        position =
-                            motion.position,
-                        index =
-                            index
+                    val proximity =
+                        navigationProximity(
+                            position =
+                                motion.position,
+                            index =
+                                index
+                        )
+
+                    XvoxNavigationItem(
+                        destination =
+                            destination,
+                        proximity =
+                            proximity,
+                        dragging =
+                            dragging ||
+                                holding,
+                        inactiveColor =
+                            inactive,
+                        activeColor =
+                            active,
+                        modifier =
+                            Modifier.weight(
+                                1f
+                            )
                     )
-
-                XvoxNavigationItem(
-                    destination =
-                        destination,
-                    proximity =
-                        proximity,
-                    dragging =
-                        dragging,
-                    inactiveColor =
-                        inactive,
-                    activeColor =
-                        active,
-                    modifier =
-                        Modifier.weight(1f)
-                )
-            }
+                }
         }
     }
 }
@@ -437,7 +477,9 @@ private fun settleDestination(
     }
 
     val direction =
-        if (delta > 0f) {
+        if (
+            delta > 0f
+        ) {
             1
         } else {
             -1
@@ -456,7 +498,8 @@ private fun settleDestination(
 
     return (
         start +
-            direction * steps
+            direction *
+            steps
         )
         .coerceIn(
             0,
