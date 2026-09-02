@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,119 +18,89 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.skydoves.cloudy.Sky
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.XvoxGlassStyle
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.data.preferences.UserPreferences
 
 @Composable
 fun HomeHeader(
-    sky: Sky,
     profile: UserPreferences,
     showPlaylists: Boolean,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
     onLibraryModeClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Row(
         modifier = Modifier
-            .padding(
-                horizontal = 18.dp
-            )
+            .padding(horizontal = 18.dp)
             .height(54.dp),
-        verticalAlignment =
-            Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         HomeProfileAvatar(
             profile = profile,
-            modifier =
-                Modifier.size(42.dp)
+            modifier = Modifier.size(42.dp)
         )
 
         Spacer(
-            modifier =
-                Modifier.width(10.dp)
+            modifier = Modifier.width(10.dp)
         )
 
         Column(
-            modifier =
-                Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         ) {
             Text(
-                text =
-                    profile.username,
-                color =
-                    colors.primaryText,
-                fontFamily =
-                    XvoxPersonalFont,
+                text = profile.username,
+                color = colors.primaryText,
+                fontFamily = XvoxPersonalFont,
                 fontSize = 18.sp,
                 lineHeight = 19.sp,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
 
             HomeGreeting()
         }
 
         val actionShape =
-            RoundedCornerShape(
-                21.dp
-            )
+            RoundedCornerShape(21.dp)
 
         Row(
             modifier = Modifier
                 .height(42.dp)
                 .clip(actionShape)
-                .xvoxGlass(
-                    sky = sky,
-                    style =
-                        XvoxGlassStyle
-                            .HEADER_ACTIONS
+                .background(
+                    colors.card.copy(
+                        alpha = 0.72f
+                    )
                 )
                 .border(
                     width = 0.65.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        actionShape
+                    color = colors.cardBorder,
+                    shape = actionShape
                 )
-                .padding(
-                    horizontal = 2.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             HomeHeaderIcon(
-                type =
-                    HomeHeaderIconType.SCAN,
-                onClick =
-                    onRefresh
+                type = HomeHeaderIconType.SCAN,
+                onClick = onRefresh
+            )
+
+            HomeHeaderIcon(
+                type = HomeHeaderIconType.HEART,
+                onClick = onHeartClick
             )
 
             HomeHeaderIcon(
                 type =
-                    HomeHeaderIconType.HEART,
-                onClick =
-                    onHeartClick
-            )
-
-            HomeHeaderIcon(
-                type =
-                    if (
-                        showPlaylists
-                    ) {
+                    if (showPlaylists) {
                         HomeHeaderIconType.SONGS
                     } else {
                         HomeHeaderIconType.PLAYLIST
                     },
-                onClick =
-                    onLibraryModeClick
+                onClick = onLibraryModeClick
             )
         }
     }
