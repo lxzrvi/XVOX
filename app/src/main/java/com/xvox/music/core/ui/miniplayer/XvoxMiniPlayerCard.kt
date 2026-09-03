@@ -1,5 +1,12 @@
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,20 +52,23 @@ fun XvoxMiniPlayerCard(
     val colors =
         XvoxTheme.colors
 
-    val shape =
+    val cardShape =
         RoundedCornerShape(
             15.dp
         )
 
-    val interaction =
+    val artworkShape =
+        RoundedCornerShape(
+            11.dp
+        )
+
+    val controlInteraction =
         remember {
             MutableInteractionSource()
         }
 
     val progress =
-        if (
-            duration > 0L
-        ) {
+        if (duration > 0L) {
             (
                 position.toFloat() /
                     duration.toFloat()
@@ -75,7 +85,7 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            .clip(shape)
+            .clip(cardShape)
             .background(
                 colors.surface.copy(
                     alpha = 0.88f
@@ -85,46 +95,55 @@ fun XvoxMiniPlayerCard(
                 width = 0.65.dp,
                 color =
                     colors.cardBorder,
-                shape = shape
+                shape =
+                    cardShape
             )
     ) {
+        /*
+         * Progress starts at the horizontal center of
+         * the 50dp artwork:
+         *
+         * artwork left = 4dp
+         * artwork half = 25dp
+         * start/end inset = 29dp
+         *
+         * This keeps progress completely away from the
+         * rounded card sides.
+         */
         Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.5.dp)
-                    .align(
-                        Alignment.TopStart
-                    )
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .align(
+                    Alignment.TopStart
+                )
         ) {
-            val inset =
-                2.dp.toPx()
+            val sideInset =
+                29.dp.toPx()
 
-            val available =
+            val availableWidth =
                 (
                     size.width -
-                        inset * 2f
+                        sideInset * 2f
                     )
-                    .coerceAtLeast(
-                        0f
-                    )
+                    .coerceAtLeast(0f)
 
             if (
                 progress > 0f &&
-                available > 0f
+                availableWidth > 0f
             ) {
                 drawRect(
                     color =
                         colors.progressActive,
                     topLeft =
                         Offset(
-                            x = inset,
+                            x = sideInset,
                             y = 0f
                         ),
                     size =
                         Size(
                             width =
-                                available *
+                                availableWidth *
                                     progress,
                             height =
                                 size.height
@@ -145,59 +164,204 @@ fun XvoxMiniPlayerCard(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
+            /*
+             * ARTWORK:
+             *
+             * Song changes use only a clean fade.
+             */
             Box(
                 modifier = Modifier
                     .size(50.dp)
                     .clip(
+                        artworkShape
+                    )
+            ) {
+                AnimatedContent(
+                    targetState =
+                        song,
+                    contentKey = {
+                        it.id
+                    },
+                    transitionSpec = {
+                        fadeIn(
+                            animationSpec =
+                                tween(180)
+                        ).togetherWith(
+                            fadeOut(
+                                animationSpec =
+                                    tween(140)
+                            )
+                        )
+                    },
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    label =
+                        "miniArtworkFade"
+                ) { visualSong ->
+                    SongArtwork(
+                        artwork =
+                            visualSong
+                                .artworkUri,
+                        requestSize = 160,
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            /*
+             * METADATA VIEWPORT:
+             *
+             * It is clipped so title/artist can never be
+             * visible outside their allocated MiniPlayer area.
+             */
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .clip(
                         RoundedCornerShape(
-                            11.dp
+                            1.dp
                         )
                     )
             ) {
-                SongArtwork(
-                    artwork =
-                        song.artworkUri,
-                    requestSize = 160,
+                AnimatedContent(
+                    targetState =
+                        song,
+                    contentKey = {
+                        it.id
+                    },
+                    transitionSpec = {
+                        when {
+                            /*
+                             * NEXT:
+                             *
+                             * old center -> UP
+                             * new BOTTOM -> center
+                             */
+                            direction > 0 -> {
+                                (
+                                    fadeIn(
+                                        animationSpec =
+                                            tween(150)
+                                    ) +
+                                        slideInVertically(
+                                            animationSpec =
+                                                tween(200),
+                                            initialOffsetY = {
+                                                height ->
+                                                height
+                                            }
+                                        )
+                                    )
+                                    .togetherWith(
+                                        fadeOut(
+                                            animationSpec =
+                                                tween(120)
+                                        ) +
+                                            slideOutVertically(
+                                                animationSpec =
+                                                    tween(180),
+                                                targetOffsetY = {
+                                                    height ->
+                                                    -height
+                                                }
+                                            )
+                                    )
+                            }
+
+                            /*
+                             * PREVIOUS:
+                             *
+                             * old center -> BOTTOM
+                             * previous TOP -> center
+                             */
+                            direction < 0 -> {
+                                (
+                                    fadeIn(
+                                        animationSpec =
+                                            tween(150)
+                                    ) +
+                                        slideInVertically(
+                                            animationSpec =
+                                                tween(200),
+                                            initialOffsetY = {
+                                                height ->
+                                                -height
+                                            }
+                                        )
+                                    )
+                                    .togetherWith(
+                                        fadeOut(
+                                            animationSpec =
+                                                tween(120)
+                                        ) +
+                                            slideOutVertically(
+                                                animationSpec =
+                                                    tween(180),
+                                                targetOffsetY = {
+                                                    height ->
+                                                    height
+                                                }
+                                            )
+                                    )
+                            }
+
+                            else -> {
+                                fadeIn(
+                                    animationSpec =
+                                        tween(140)
+                                ).togetherWith(
+                                    fadeOut(
+                                        animationSpec =
+                                            tween(100)
+                                    )
+                                )
+                            }
+                        }
+                    },
                     modifier =
-                        Modifier.fillMaxSize()
-                )
-            }
+                        Modifier.fillMaxSize(),
+                    label =
+                        "miniMetadataSlide"
+                ) { visualSong ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                start = 9.dp,
+                                end = 5.dp
+                            ),
+                        verticalArrangement =
+                            Arrangement.Center
+                    ) {
+                        Text(
+                            text =
+                                visualSong.title,
+                            color =
+                                colors.primaryText,
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight =
+                                FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow =
+                                TextOverflow.Ellipsis
+                        )
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        start = 9.dp,
-                        end = 5.dp
-                    ),
-                verticalArrangement =
-                    Arrangement.Center
-            ) {
-                Text(
-                    text =
-                        song.title,
-                    color =
-                        colors.primaryText,
-                    fontSize = 12.sp,
-                    lineHeight = 14.sp,
-                    fontWeight =
-                        FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text =
-                        song.artist,
-                    color =
-                        colors.secondaryText,
-                    fontSize = 9.sp,
-                    lineHeight = 11.sp,
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis
-                )
+                        Text(
+                            text =
+                                visualSong.artist,
+                            color =
+                                colors.secondaryText,
+                            fontSize = 9.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 1,
+                            overflow =
+                                TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
 
@@ -210,7 +374,9 @@ fun XvoxMiniPlayerCard(
                     end = 7.dp
                 )
                 .size(38.dp)
-                .clip(CircleShape)
+                .clip(
+                    CircleShape
+                )
                 .background(
                     colors.cardElevated.copy(
                         alpha = 0.68f
@@ -225,7 +391,7 @@ fun XvoxMiniPlayerCard(
                 )
                 .clickable(
                     interactionSource =
-                        interaction,
+                        controlInteraction,
                     indication = null,
                     onClick =
                         togglePlay
@@ -235,9 +401,7 @@ fun XvoxMiniPlayerCard(
         ) {
             XvoxMiniPlayerIcon(
                 icon =
-                    if (
-                        isPlaying
-                    ) {
+                    if (isPlaying) {
                         XvoxMiniIcon.PAUSE
                     } else {
                         XvoxMiniIcon.PLAY
