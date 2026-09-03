@@ -9,6 +9,7 @@ import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
 import java.io.File
+import java.nio.charset.StandardCharsets
 
 class XvoxMetadataReader(
     context: Context
@@ -24,15 +25,18 @@ class XvoxMetadataReader(
         uri: Uri
     ): SongMetadata =
         withContext(Dispatchers.IO) {
-            val android =
+            val androidMetadata =
                 readAndroidMetadata(uri)
 
-            val deep =
+            val deepMetadata =
                 runCatching {
                     readDeepMetadata(uri)
                 }.getOrNull()
 
-            merge(android, deep)
+            merge(
+                androidMetadata,
+                deepMetadata
+            )
         }
 
     private fun readAndroidMetadata(
@@ -127,30 +131,67 @@ class XvoxMetadataReader(
             val tag = audioFile.tag
             val header = audioFile.audioHeader
 
+            val tagLyrics =
+                tag?.readLyrics()
+
+            val mp4Lyrics =
+                if (
+                    temp.extension.equals(
+                        "m4a",
+                        true
+                    ) ||
+                    temp.extension.equals(
+                        "mp4",
+                        true
+                    )
+                ) {
+                    readMp4LyricsAtom(temp)
+                } else {
+                    null
+                }
+
             SongMetadata(
                 uri = uri,
                 title =
-                    tag?.field(FieldKey.TITLE),
+                    tag?.field(
+                        FieldKey.TITLE
+                    ),
                 artist =
-                    tag?.field(FieldKey.ARTIST),
+                    tag?.field(
+                        FieldKey.ARTIST
+                    ),
                 album =
-                    tag?.field(FieldKey.ALBUM),
+                    tag?.field(
+                        FieldKey.ALBUM
+                    ),
                 albumArtist =
-                    tag?.field(FieldKey.ALBUM_ARTIST),
+                    tag?.field(
+                        FieldKey.ALBUM_ARTIST
+                    ),
                 composer =
-                    tag?.field(FieldKey.COMPOSER),
+                    tag?.field(
+                        FieldKey.COMPOSER
+                    ),
                 genre =
-                    tag?.field(FieldKey.GENRE),
+                    tag?.field(
+                        FieldKey.GENRE
+                    ),
                 year =
-                    tag?.field(FieldKey.YEAR)
+                    tag?.field(
+                        FieldKey.YEAR
+                    )
                         ?.take(4)
                         ?.toIntOrNull(),
                 trackNumber =
-                    tag?.field(FieldKey.TRACK)
+                    tag?.field(
+                        FieldKey.TRACK
+                    )
                         ?.substringBefore("/")
                         ?.toIntOrNull(),
                 discNumber =
-                    tag?.field(FieldKey.DISC_NO)
+                    tag?.field(
+                        FieldKey.DISC_NO
+                    )
                         ?.substringBefore("/")
                         ?.toIntOrNull(),
                 duration =
@@ -164,21 +205,26 @@ class XvoxMetadataReader(
                     header?.sampleRateAsNumber
                         ?.toInt(),
                 lyrics =
-                    tag?.readLyrics(),
+                    tagLyrics
+                        ?: mp4Lyrics,
                 comment =
-                    tag?.field(FieldKey.COMMENT)
+                    tag?.field(
+                        FieldKey.COMMENT
+                    )
             )
         } finally {
             temp.delete()
         }
     }
 
-    private fun Tag.readLyrics(): String? {
-        field(FieldKey.LYRICS)?.let {
-            return normalizeLyrics(it)
-        }
+    private fun Tag.readLyrics():
+        String? {
+        field(FieldKey.LYRICS)
+            ?.let {
+                return normalizeLyrics(it)
+            }
 
-        val ids =
+        val explicitIds =
             listOf(
                 "LYRICS",
                 "UNSYNCEDLYRICS",
@@ -190,7 +236,7 @@ class XvoxMetadataReader(
                 "\u00A9lyr"
             )
 
-        for (id in ids) {
+        for (id in explicitIds) {
             val value =
                 runCatching {
                     getFirst(id)
@@ -202,35 +248,241 @@ class XvoxMetadataReader(
                     }
 
             if (value != null) {
-                return normalizeLyrics(value)
+                return normalizeLyrics(
+                    value
+                )
             }
         }
 
-        val native =
+        return runCatching {
+            fields.asSequence()
+                .firstNotNullOfOrNull {
+                    field ->
+
+                    val id =
+                        field.id
+                            .uppercase()
+
+                    if (
+                        id.contains("LYRIC") ||
+                        id.contains("USLT") ||
+                        id.contains("SYLT")
+                    ) {
+                        extractNativeLyrics(
+                            field.toString()
+                        )
+                    } else {
+                        null
+                    }
+                }
+        }
+            .getOrNull()
+            ?.let {
+                normalizeLyrics(it)
+            }
+    }
+
+    private fun readMp4LyricsAtom(
+        file: File
+    ): String? {
+        val bytes =
             runCatching {
-                fields.asSequence()
-                    .firstNotNullOfOrNull { field ->
-                        val id =
-                            field.id
-                                .uppercase()
+                file.readBytes()
+            }.getOrNull()
+                ?: return null
+
+        val marker =
+            byteArrayOf(
+                0xA9.toByte(),
+                'l'.code.toByte(),
+                'y'.code.toByte(),
+                'r'.code.toByte()
+            )
+
+        var markerIndex =
+            indexOf(
+                bytes,
+                marker,
+                0
+            )
+
+        while (markerIndex >= 4) {
+            val atomStart =
+                markerIndex - 4
+
+            val atomSize =
+                readUInt32(
+                    bytes,
+                    atomStart
+                )
+
+            if (
+                atomSize >= 12 &&
+                atomStart + atomSize <=
+                bytes.size
+            ) {
+                val atomEnd =
+                    atomStart + atomSize
+
+                val dataMarker =
+                    byteArrayOf(
+                        'd'.code.toByte(),
+                        'a'.code.toByte(),
+                        't'.code.toByte(),
+                        'a'.code.toByte()
+                    )
+
+                val dataTypeIndex =
+                    indexOf(
+                        bytes,
+                        dataMarker,
+                        markerIndex + 4
+                    )
+
+                if (
+                    dataTypeIndex >= 4 &&
+                    dataTypeIndex <
+                    atomEnd
+                ) {
+                    val dataStart =
+                        dataTypeIndex - 4
+
+                    val dataSize =
+                        readUInt32(
+                            bytes,
+                            dataStart
+                        )
+
+                    val payloadStart =
+                        dataStart + 16
+
+                    val payloadEnd =
+                        (dataStart + dataSize)
+                            .coerceAtMost(
+                                atomEnd
+                            )
+
+                    if (
+                        dataSize >= 16 &&
+                        payloadStart <
+                        payloadEnd &&
+                        payloadEnd <=
+                        bytes.size
+                    ) {
+                        val text =
+                            String(
+                                bytes,
+                                payloadStart,
+                                payloadEnd -
+                                    payloadStart,
+                                StandardCharsets.UTF_8
+                            )
+                                .trim('\u0000')
+                                .trim()
 
                         if (
-                            id.contains("LYRIC") ||
-                            id.contains("USLT") ||
-                            id.contains("SYLT")
+                            text.isNotBlank()
                         ) {
-                            extractNativeLyrics(
-                                field.toString()
+                            return normalizeLyrics(
+                                text
                             )
-                        } else {
-                            null
                         }
                     }
-            }.getOrNull()
+                }
+            }
 
-        return native?.let {
-            normalizeLyrics(it)
+            markerIndex =
+                indexOf(
+                    bytes,
+                    marker,
+                    markerIndex + 4
+                )
         }
+
+        return null
+    }
+
+    private fun indexOf(
+        source: ByteArray,
+        target: ByteArray,
+        fromIndex: Int
+    ): Int {
+        if (
+            target.isEmpty() ||
+            source.size <
+            target.size
+        ) {
+            return -1
+        }
+
+        var index =
+            fromIndex.coerceAtLeast(0)
+
+        val last =
+            source.size -
+                target.size
+
+        while (index <= last) {
+            var match = true
+
+            for (offset in target.indices) {
+                if (
+                    source[index + offset] !=
+                    target[offset]
+                ) {
+                    match = false
+                    break
+                }
+            }
+
+            if (match) {
+                return index
+            }
+
+            index++
+        }
+
+        return -1
+    }
+
+    private fun readUInt32(
+        bytes: ByteArray,
+        offset: Int
+    ): Int {
+        if (
+            offset < 0 ||
+            offset + 4 >
+            bytes.size
+        ) {
+            return -1
+        }
+
+        val value =
+            (
+                (bytes[offset]
+                    .toLong() and 0xFF) shl 24
+                ) or
+                (
+                    (bytes[offset + 1]
+                        .toLong() and 0xFF) shl 16
+                    ) or
+                (
+                    (bytes[offset + 2]
+                        .toLong() and 0xFF) shl 8
+                    ) or
+                (
+                    bytes[offset + 3]
+                        .toLong() and 0xFF
+                    )
+
+        if (
+            value >
+            Int.MAX_VALUE
+        ) {
+            return -1
+        }
+
+        return value.toInt()
     }
 
     private fun extractNativeLyrics(
@@ -238,7 +490,9 @@ class XvoxMetadataReader(
     ): String? {
         var text = raw.trim()
 
-        if (text.isBlank()) return null
+        if (text.isBlank()) {
+            return null
+        }
 
         val markers =
             listOf(
@@ -260,10 +514,13 @@ class XvoxMetadataReader(
             if (index >= 0) {
                 val candidate =
                     text.substring(
-                        index + marker.length
+                        index +
+                            marker.length
                     ).trim()
 
-                if (candidate.isNotEmpty()) {
+                if (
+                    candidate.isNotEmpty()
+                ) {
                     text = candidate
                     break
                 }
@@ -277,15 +534,29 @@ class XvoxMetadataReader(
 
     private fun normalizeLyrics(
         raw: String
-    ): String {
-        return raw
-            .replace("\\r\\n", "\n")
-            .replace("\\n", "\n")
-            .replace("\\r", "\n")
-            .replace("\r\n", "\n")
-            .replace('\r', '\n')
+    ): String =
+        raw
+            .replace(
+                "\\r\\n",
+                "\n"
+            )
+            .replace(
+                "\\n",
+                "\n"
+            )
+            .replace(
+                "\\r",
+                "\n"
+            )
+            .replace(
+                "\r\n",
+                "\n"
+            )
+            .replace(
+                '\r',
+                '\n'
+            )
             .trim()
-    }
 
     private fun createTemporaryAudioFile(
         uri: Uri
@@ -297,27 +568,41 @@ class XvoxMetadataReader(
 
         val extension =
             when {
-                mime == "audio/mpeg" ->
+                mime ==
+                    "audio/mpeg" ->
                     ".mp3"
 
-                mime.contains("flac") ->
+                mime.contains(
+                    "flac"
+                ) ->
                     ".flac"
 
-                mime.contains("m4a") ||
-                    mime == "audio/mp4" ->
+                mime.contains(
+                    "m4a"
+                ) ||
+                    mime ==
+                    "audio/mp4" ->
                     ".m4a"
 
-                mime.contains("opus") ->
+                mime.contains(
+                    "opus"
+                ) ->
                     ".opus"
 
-                mime.contains("ogg") ->
+                mime.contains(
+                    "ogg"
+                ) ->
                     ".ogg"
 
-                mime.contains("wav") ->
+                mime.contains(
+                    "wav"
+                ) ->
                     ".wav"
 
                 else ->
-                    extensionFromUri(uri)
+                    extensionFromUri(
+                        uri
+                    )
             }
 
         val temp =
@@ -328,11 +613,16 @@ class XvoxMetadataReader(
             )
 
         return try {
-            resolver.openInputStream(uri)
-                ?.use { input ->
+            resolver
+                .openInputStream(uri)
+                ?.use {
+                    input ->
+
                     temp.outputStream()
                         .buffered()
-                        .use { output ->
+                        .use {
+                            output ->
+
                             input.copyTo(
                                 output,
                                 64 * 1024
@@ -370,9 +660,11 @@ class XvoxMetadataReader(
             "mp4",
             "ogg",
             "opus",
-            "wav" -> ".$extension"
+            "wav" ->
+                ".$extension"
 
-            else -> ".audio"
+            else ->
+                ".audio"
         }
     }
 
@@ -392,15 +684,21 @@ class XvoxMetadataReader(
         primary: SongMetadata,
         deep: SongMetadata?
     ): SongMetadata {
-        if (deep == null) return primary
+        if (deep == null) {
+            return primary
+        }
 
         return SongMetadata(
             uri = primary.uri,
-            title = deep.title ?: primary.title,
+            title =
+                deep.title
+                    ?: primary.title,
             artist =
-                deep.artist ?: primary.artist,
+                deep.artist
+                    ?: primary.artist,
             album =
-                deep.album ?: primary.album,
+                deep.album
+                    ?: primary.album,
             albumArtist =
                 deep.albumArtist
                     ?: primary.albumArtist,
@@ -408,19 +706,29 @@ class XvoxMetadataReader(
                 deep.composer
                     ?: primary.composer,
             genre =
-                deep.genre ?: primary.genre,
+                deep.genre
+                    ?: primary.genre,
             year =
-                deep.year ?: primary.year,
-            trackNumber = deep.trackNumber,
-            discNumber = deep.discNumber,
+                deep.year
+                    ?: primary.year,
+            trackNumber =
+                deep.trackNumber,
+            discNumber =
+                deep.discNumber,
             duration =
-                primary.duration ?: deep.duration,
+                primary.duration
+                    ?: deep.duration,
             bitrate =
-                primary.bitrate ?: deep.bitrate,
-            sampleRate = deep.sampleRate,
-            lyrics = deep.lyrics,
-            comment = deep.comment,
-            artworkCacheKey = null
+                primary.bitrate
+                    ?: deep.bitrate,
+            sampleRate =
+                deep.sampleRate,
+            lyrics =
+                deep.lyrics,
+            comment =
+                deep.comment,
+            artworkCacheKey =
+                null
         )
     }
 }
