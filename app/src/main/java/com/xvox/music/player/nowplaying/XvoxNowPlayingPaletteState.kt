@@ -8,23 +8,49 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.model.Song
 
-class XvoxNowPlayingPaletteState internal constructor(
+class XvoxNowPlayingPaletteState
+internal constructor(
     initial: Color
 ) {
     var current by
-        mutableStateOf(initial)
+        mutableStateOf(
+            initial
+        )
 
     var adjacent by
-        mutableStateOf(initial)
+        mutableStateOf(
+            initial
+        )
 
     var fraction by
-        mutableFloatStateOf(0f)
+        mutableFloatStateOf(
+            0f
+        )
 
-    internal var adjacentSong:
-        Song? = null
+    internal var adjacentSong by
+        mutableStateOf<Song?>(
+            null
+        )
+
+    internal var currentSongId:
+        Long = -1L
+
+    fun renderedColor():
+        Color {
+        return lerp(
+            current,
+            adjacent,
+            fraction
+                .coerceIn(
+                    0f,
+                    1f
+                )
+        )
+    }
 }
 
 @Composable
@@ -44,7 +70,7 @@ fun rememberXvoxNowPlayingPalette(
     val state =
         remember {
             XvoxNowPlayingPaletteState(
-                Color(0xFF9A756C)
+                Color(0xFF8C7772)
             )
         }
 
@@ -52,16 +78,43 @@ fun rememberXvoxNowPlayingPalette(
         song.id,
         song.artworkUri
     ) {
-        state.current =
+        /*
+         * Preserve whatever color was actually on screen
+         * during the previous swipe.
+         */
+        val retained =
+            state.renderedColor()
+
+        if (
+            state.currentSongId !=
+            -1L
+        ) {
+            state.current =
+                retained
+
+            state.adjacent =
+                retained
+
+            state.fraction =
+                0f
+        }
+
+        val loaded =
             loader.load(
                 song.artworkUri
             )
 
+        state.current =
+            loaded
+
         state.adjacent =
-            state.current
+            loaded
 
         state.fraction =
             0f
+
+        state.currentSongId =
+            song.id
 
         state.adjacentSong =
             null
