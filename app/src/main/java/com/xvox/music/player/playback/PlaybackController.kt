@@ -34,7 +34,6 @@ data class PlaybackState(
 class PlaybackController(
     context: Context
 ) {
-
     private val appContext =
         context.applicationContext
 
@@ -63,7 +62,6 @@ class PlaybackController(
 
     private val listener =
         object : Player.Listener {
-
             override fun onEvents(
                 player: Player,
                 events: Player.Events
@@ -128,7 +126,6 @@ class PlaybackController(
         songs: List<Song>
     ) {
         queue = songs
-
         publishState()
     }
 
@@ -167,6 +164,7 @@ class PlaybackController(
                     song.id,
                 currentIndex =
                     index,
+                isPlaying = true,
                 position = 0L,
                 duration = 0L
             )
@@ -216,6 +214,79 @@ class PlaybackController(
             )
     }
 
+    fun playPrevious() {
+        val index =
+            _state.value
+                .currentIndex
+
+        if (index <= 0) {
+            return
+        }
+
+        playQueueIndex(
+            index = index - 1,
+            keepPlayingState = true
+        )
+    }
+
+    fun playNext() {
+        val index =
+            _state.value
+                .currentIndex
+
+        if (
+            index < 0 ||
+            index >=
+            queue.lastIndex
+        ) {
+            return
+        }
+
+        playQueueIndex(
+            index = index + 1,
+            keepPlayingState = true
+        )
+    }
+
+    fun seekTo(
+        positionMs: Long
+    ) {
+        val mediaController =
+            controller ?: return
+
+        if (
+            mediaController
+                .currentMediaItem ==
+            null
+        ) {
+            return
+        }
+
+        val duration =
+            mediaController
+                .duration
+                .takeIf {
+                    it > 0L
+                }
+
+        val target =
+            if (duration != null) {
+                positionMs.coerceIn(
+                    0L,
+                    duration
+                )
+            } else {
+                positionMs
+                    .coerceAtLeast(0L)
+            }
+
+        mediaController.seekTo(
+            target
+        )
+
+        publishState()
+    }
+
     fun togglePlay() {
         val mediaController =
             controller ?: return
@@ -228,7 +299,9 @@ class PlaybackController(
             return
         }
 
-        if (mediaController.isPlaying) {
+        if (
+            mediaController.isPlaying
+        ) {
             mediaController.pause()
         } else {
             mediaController.play()
@@ -252,7 +325,9 @@ class PlaybackController(
         val mediaController =
             controller
 
-        if (mediaController == null) {
+        if (
+            mediaController == null
+        ) {
             _state.value =
                 PlaybackState()
 
@@ -293,9 +368,10 @@ class PlaybackController(
     fun release() {
         progressJob?.cancel()
 
-        controller?.removeListener(
-            listener
-        )
+        controller
+            ?.removeListener(
+                listener
+            )
 
         controller?.release()
         controller = null
