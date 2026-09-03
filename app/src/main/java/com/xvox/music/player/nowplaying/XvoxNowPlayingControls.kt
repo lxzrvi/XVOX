@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -47,10 +49,8 @@ fun XvoxNowPlayingControls(
             )
 
             PlayControl(
-                isPlaying =
-                    isPlaying,
-                onClick =
-                    onTogglePlay
+                isPlaying = isPlaying,
+                onClick = onTogglePlay
             )
 
             BareControl(
@@ -65,10 +65,7 @@ fun XvoxNowPlayingControls(
                 onRepeat
             )
         }
-    ) {
-        measurables,
-        constraints ->
-
+    ) { measurables, constraints ->
         val placeables =
             measurables.map {
                 it.measure(
@@ -92,31 +89,20 @@ fun XvoxNowPlayingControls(
             constraints.maxWidth,
             constraints.maxHeight
         ) {
-            placeables
-                .forEachIndexed {
-                    index,
-                    placeable ->
+            placeables.forEachIndexed { index, placeable ->
+                val x =
+                    (
+                        constraints.maxWidth *
+                            centers[index] -
+                            placeable.width / 2f
+                        ).toInt()
 
-                    val x =
-                        (
-                            constraints.maxWidth *
-                                centers[index] -
-                                placeable.width /
-                                2f
-                            )
-                            .toInt()
+                val y =
+                    (constraints.maxHeight -
+                        placeable.height) / 2
 
-                    val y =
-                        (
-                            constraints.maxHeight -
-                                placeable.height
-                            ) / 2
-
-                    placeable.placeRelative(
-                        x,
-                        y
-                    )
-                }
+                placeable.placeRelative(x, y)
+            }
         }
     }
 }
@@ -127,8 +113,7 @@ private fun BareControl(
     iconSize: Int,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -141,22 +126,13 @@ private fun BareControl(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    resource
-                ),
-            contentDescription =
-                null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(
-                    iconSize.dp
-                )
+            painter = painterResource(resource),
+            contentDescription = null,
+            tint = colors.primaryText,
+            modifier = Modifier.size(iconSize.dp)
         )
     }
 }
@@ -166,16 +142,23 @@ private fun PlayControl(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+
+    val darkMode =
+        colors.background.luminance() < 0.5f
+
+    val circle =
+        if (darkMode) {
+            Color.White.copy(alpha = 0.15f)
+        } else {
+            Color.Black.copy(alpha = 0.10f)
+        }
 
     Box(
         modifier = Modifier
             .size(56.dp)
             .background(
-                colors.card.copy(
-                    alpha = 0.58f
-                ),
+                circle,
                 CircleShape
             )
             .clickable(
@@ -186,28 +169,19 @@ private fun PlayControl(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    if (isPlaying) {
-                        R.drawable
-                            .ic_xvox_pause
-                    } else {
-                        R.drawable
-                            .ic_xvox_play
-                    }
-                ),
-            contentDescription =
-                null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(
-                    25.dp
-                )
+            painter = painterResource(
+                if (isPlaying) {
+                    R.drawable.ic_xvox_pause
+                } else {
+                    R.drawable.ic_xvox_play
+                }
+            ),
+            contentDescription = null,
+            tint = colors.primaryText,
+            modifier = Modifier.size(25.dp)
         )
     }
 }
