@@ -124,10 +124,8 @@ fun XvoxMiniPlayer(
         riseKey
     ) {
         y.animateTo(
-            targetValue = 0f,
-            animationSpec =
-                XvoxMiniPlayerMotion
-                    .riseSpec
+            0f,
+            XvoxMiniPlayerMotion.riseSpec
         )
     }
 
@@ -144,8 +142,7 @@ fun XvoxMiniPlayer(
             previewIndex =
                 currentIndex
 
-            transitionDirection =
-                0
+            transitionDirection = 0
         }
     }
 
@@ -181,10 +178,8 @@ fun XvoxMiniPlayer(
             }
     }
 
-    fun exitFromCurrentPosition(
-        stopPlayback: Boolean,
-        currentDragY: Float,
-        after: () -> Unit
+    fun stopAndExit(
+        currentDragY: Float
     ) {
         if (exiting) {
             return
@@ -194,15 +189,11 @@ fun XvoxMiniPlayer(
         cancelPendingCommit()
 
         scope.launch {
-            actionsVisible = false
+            actionsVisible =
+                false
+
             dragX = 0f
 
-            /*
-             * Transfer the current physical drag position
-             * directly into the exit Animatable.
-             *
-             * No return to rest position.
-             */
             y.snapTo(
                 currentDragY
             )
@@ -210,33 +201,13 @@ fun XvoxMiniPlayer(
             dragY = 0f
 
             y.animateTo(
-                targetValue =
-                    exitDistance,
-                animationSpec =
-                    XvoxMiniPlayerMotion
-                        .exitSpec
+                exitDistance,
+                XvoxMiniPlayerMotion
+                    .exitSpec
             )
 
-            if (stopPlayback) {
-                stopAndDismiss()
-            }
-
-            after()
+            stopAndDismiss()
         }
-    }
-
-    fun normalExit(
-        stopPlayback: Boolean,
-        after: () -> Unit
-    ) {
-        exitFromCurrentPosition(
-            stopPlayback =
-                stopPlayback,
-            currentDragY =
-                y.value,
-            after =
-                after
-        )
     }
 
     val visualSong =
@@ -255,22 +226,16 @@ fun XvoxMiniPlayer(
             visible =
                 actionsVisible,
             onLike = {
-                actionsVisible =
-                    false
-
+                actionsVisible = false
                 onLike()
             },
             onAdd = {
-                actionsVisible =
-                    false
-
+                actionsVisible = false
                 onAdd()
             },
             onClose = {
-                normalExit(
-                    stopPlayback =
-                        true,
-                    after = {}
+                stopAndExit(
+                    y.value + dragY
                 )
             },
             modifier =
@@ -364,10 +329,6 @@ fun XvoxMiniPlayer(
                                 XvoxMiniAxis.VERTICAL -> {
                                     dragX = 0f
 
-                                    /*
-                                     * Direct state update.
-                                     * No coroutine races.
-                                     */
                                     dragY =
                                         XvoxMiniPlayerMotion
                                             .verticalResistance(
@@ -411,21 +372,27 @@ fun XvoxMiniPlayer(
                                             previewIndex <
                                             queue.lastIndex -> {
 
-                                            transitionDirection = 1
+                                            transitionDirection =
+                                                1
+
                                             previewIndex++
                                         }
 
                                         finalX >=
                                             XvoxMiniPlayerMotion
                                                 .HorizontalThreshold &&
-                                            previewIndex > 0 -> {
+                                            previewIndex >
+                                            0 -> {
 
-                                            transitionDirection = -1
+                                            transitionDirection =
+                                                -1
+
                                             previewIndex--
                                         }
 
                                         else -> {
-                                            transitionDirection = 0
+                                            transitionDirection =
+                                                0
                                         }
                                     }
 
@@ -438,43 +405,44 @@ fun XvoxMiniPlayer(
                                     dragX = 0f
 
                                     when {
+                                        /*
+                                         * UP:
+                                         *
+                                         * Open immediately.
+                                         * No MiniPlayer-exit wait.
+                                         */
                                         finalY <=
                                             XvoxMiniPlayerMotion
                                                 .OpenThreshold -> {
 
-                                            exitFromCurrentPosition(
-                                                stopPlayback =
-                                                    false,
-                                                currentDragY =
-                                                    finalDragY
-                                            ) {
-                                                openPlayer()
-                                            }
+                                            cancelPendingCommit()
+
+                                            dragY = 0f
+                                            moved = false
+
+                                            openPlayer()
                                         }
 
+                                        /*
+                                         * DOWN:
+                                         * stop completely.
+                                         */
                                         finalY >=
                                             XvoxMiniPlayerMotion
                                                 .CloseThreshold -> {
 
-                                            exitFromCurrentPosition(
-                                                stopPlayback =
-                                                    true,
-                                                currentDragY =
-                                                    finalDragY,
-                                                after = {}
+                                            stopAndExit(
+                                                finalDragY
                                             )
+
+                                            moved = false
                                         }
 
                                         else -> {
-                                            /*
-                                             * Only a cancelled/short
-                                             * vertical drag returns home.
-                                             */
                                             dragY = 0f
+                                            moved = false
                                         }
                                     }
-
-                                    moved = false
                                 }
 
                                 XvoxMiniAxis.NONE -> {
@@ -488,7 +456,6 @@ fun XvoxMiniPlayer(
                         onDragCancel = {
                             rawX = 0f
                             rawY = 0f
-
                             dragX = 0f
                             dragY = 0f
 
@@ -521,18 +488,14 @@ fun XvoxMiniPlayer(
                             if (!moved) {
                                 cancelPendingCommit()
 
-                                if (
-                                    actionsVisible
-                                ) {
+                                if (actionsVisible) {
                                     actionsVisible =
                                         false
                                 } else {
-                                    normalExit(
-                                        stopPlayback =
-                                            false
-                                    ) {
-                                        openPlayer()
-                                    }
+                                    /*
+                                     * Immediate Now Playing start.
+                                     */
+                                    openPlayer()
                                 }
                             }
                         }
