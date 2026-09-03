@@ -19,7 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,8 +34,7 @@ fun XvoxNowPlayingProgress(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     var dragging by remember {
         mutableStateOf(false)
@@ -45,102 +46,63 @@ fun XvoxNowPlayingProgress(
 
     val realFraction =
         if (duration > 0L) {
-            (
-                position.toFloat() /
-                    duration.toFloat()
-                )
-                .coerceIn(
-                    0f,
-                    1f
-                )
+            (position.toFloat() / duration.toFloat())
+                .coerceIn(0f, 1f)
         } else {
             0f
         }
 
     val visibleFraction =
-        if (dragging) {
-            dragFraction
-        } else {
-            realFraction
-        }
+        if (dragging) dragFraction else realFraction
 
     val visiblePosition =
-        if (
-            dragging &&
-            duration > 0L
-        ) {
-            (
-                duration *
-                    visibleFraction
-                )
-                .toLong()
+        if (dragging && duration > 0L) {
+            (duration * visibleFraction).toLong()
         } else {
             position
         }
 
+    val darkMode =
+        colors.background.luminance() < 0.5f
+
+    val activeColor =
+        if (darkMode) Color.White else Color.Black
+
     Column(
-        modifier =
-            modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(18.dp)
-                .pointerInput(
-                    duration
-                ) {
-                    fun update(
-                        x: Float
-                    ) {
+                .pointerInput(duration) {
+                    fun update(x: Float) {
                         if (
                             duration <= 0L ||
                             size.width <= 0
-                        ) {
-                            return
-                        }
+                        ) return
 
                         dragFraction =
-                            (
-                                x /
-                                    size.width
-                                )
-                                .coerceIn(
-                                    0f,
-                                    1f
-                                )
+                            (x / size.width)
+                                .coerceIn(0f, 1f)
                     }
 
                     detectHorizontalDragGestures(
-                        onDragStart = {
-                            offset ->
-
+                        onDragStart = { offset ->
                             dragging = true
-                            update(
-                                offset.x
-                            )
+                            update(offset.x)
                         },
-                        onHorizontalDrag = {
-                            change,
-                            _ ->
-
+                        onHorizontalDrag = { change, _ ->
                             change.consume()
-                            update(
-                                change.position.x
-                            )
+                            update(change.position.x)
                         },
                         onDragEnd = {
-                            if (
-                                duration > 0L
-                            ) {
+                            if (duration > 0L) {
                                 onSeek(
-                                    (
-                                        duration *
-                                            dragFraction
-                                        )
+                                    (duration * dragFraction)
                                         .toLong()
                                 )
                             }
-
                             dragging = false
                         },
                         onDragCancel = {
@@ -148,132 +110,73 @@ fun XvoxNowPlayingProgress(
                         }
                     )
                 }
-                .pointerInput(
-                    duration
-                ) {
-                    detectTapGestures {
-                        point ->
-
+                .pointerInput(duration) {
+                    detectTapGestures { point ->
                         if (
                             duration > 0L &&
                             size.width > 0
                         ) {
                             val fraction =
-                                (
-                                    point.x /
-                                        size.width
-                                    )
-                                    .coerceIn(
-                                        0f,
-                                        1f
-                                    )
+                                (point.x / size.width)
+                                    .coerceIn(0f, 1f)
 
                             onSeek(
-                                (
-                                    duration *
-                                        fraction
-                                    )
+                                (duration * fraction)
                                     .toLong()
                             )
                         }
                     }
                 },
-            contentAlignment =
-                Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)
             ) {
-                val y =
-                    size.height / 2f
+                val y = size.height / 2f
 
                 drawLine(
-                    color =
-                        colors.progressTrack
-                            .copy(
-                                alpha = 0.54f
-                            ),
-                    start =
-                        Offset(
-                            0f,
-                            y
-                        ),
-                    end =
-                        Offset(
-                            size.width,
-                            y
-                        ),
-                    strokeWidth =
-                        1.5.dp.toPx(),
-                    cap =
-                        StrokeCap.Round
+                    color = activeColor.copy(alpha = 0.28f),
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 1.5.dp.toPx(),
+                    cap = StrokeCap.Round
                 )
 
-                if (
-                    visibleFraction >
-                    0f
-                ) {
+                if (visibleFraction > 0f) {
                     drawLine(
-                        color =
-                            colors.progressActive
-                                .copy(
-                                    alpha = 0.82f
-                                ),
-                        start =
-                            Offset(
-                                0f,
-                                y
-                            ),
-                        end =
-                            Offset(
-                                size.width *
-                                    visibleFraction,
-                                y
-                            ),
-                        strokeWidth =
-                            1.5.dp.toPx(),
-                        cap =
-                            StrokeCap.Round
+                        color = activeColor,
+                        start = Offset(0f, y),
+                        end = Offset(
+                            size.width * visibleFraction,
+                            y
+                        ),
+                        strokeWidth = 1.5.dp.toPx(),
+                        cap = StrokeCap.Round
                     )
                 }
             }
         }
 
         Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text =
-                    formatPlayerTime(
-                        visiblePosition
-                    ),
-                color =
-                    colors.secondaryText,
-                fontSize =
-                    10.sp
+                text = formatPlayerTime(visiblePosition),
+                color = colors.secondaryText,
+                fontSize = 10.sp
             )
 
             Spacer(
-                modifier =
-                    Modifier.weight(
-                        1f
-                    )
+                modifier = Modifier.weight(1f)
             )
 
             Text(
-                text =
-                    formatPlayerTime(
-                        duration
-                    ),
-                color =
-                    colors.secondaryText,
-                fontSize =
-                    10.sp
+                text = formatPlayerTime(duration),
+                color = colors.secondaryText,
+                fontSize = 10.sp
             )
         }
     }
@@ -283,29 +186,15 @@ fun formatPlayerTime(
     millis: Long
 ): String {
     val total =
-        millis
-            .coerceAtLeast(
-                0L
-            ) /
-            1000L
+        millis.coerceAtLeast(0L) / 1000L
 
     return buildString {
-        append(
-            total / 60L
-        )
-
+        append(total / 60L)
         append(':')
-
         append(
-            (
-                total %
-                    60L
-                )
+            (total % 60L)
                 .toString()
-                .padStart(
-                    2,
-                    '0'
-                )
+                .padStart(2, '0')
         )
     }
 }
