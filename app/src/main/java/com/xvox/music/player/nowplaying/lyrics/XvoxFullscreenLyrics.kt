@@ -141,6 +141,20 @@ fun XvoxFullscreenLyrics(
                     )
                 }
 
+                if (custom) {
+                    FullscreenCircle(
+                        resource =
+                            R.drawable.ic_xvox_delete,
+                        description =
+                            "Remove custom lyrics",
+                        onClick = onDelete
+                    )
+
+                    Spacer(
+                        Modifier.size(6.dp)
+                    )
+                }
+
                 LyricsTransport(
                     isPlaying = isPlaying,
                     onPrevious = onPrevious,
@@ -149,29 +163,13 @@ fun XvoxFullscreenLyrics(
                     onNext = onNext
                 )
 
-                if (custom) {
-                    Spacer(
-                        Modifier.size(6.dp)
-                    )
-
-                    FullscreenCircle(
-                        resource =
-                            R.drawable
-                                .ic_xvox_delete,
-                        description =
-                            "Remove custom lyrics",
-                        onClick = onDelete
-                    )
-                }
-
                 Spacer(
                     Modifier.size(6.dp)
                 )
 
                 FullscreenCircle(
                     resource =
-                        R.drawable
-                            .ic_xvox_close,
+                        R.drawable.ic_xvox_close,
                     description =
                         "Close fullscreen lyrics",
                     onClick = onClose
@@ -303,14 +301,13 @@ private fun LyricsTransport(
     Row(
         modifier = Modifier
             .clip(
-                RoundedCornerShape(21.dp)
+                RoundedCornerShape(20.dp)
             )
             .background(
                 colors.card.copy(
                     alpha = 0.38f
                 )
-            )
-            .padding(horizontal = 3.dp),
+            ),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
@@ -344,7 +341,7 @@ private fun TransportButton(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(39.dp)
             .clickable(
                 interactionSource =
                     remember {
@@ -376,7 +373,7 @@ private fun FullscreenCircle(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(39.dp)
             .background(
                 colors.card.copy(
                     alpha = 0.32f
