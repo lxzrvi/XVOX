@@ -1,38 +1,42 @@
 package com.xvox.music.player.nowplaying
 
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Easing
 
 object XvoxNowPlayingMotion {
     const val DismissThreshold = 110f
+    const val FullDuration = 345
+    const val MinimumExitDuration = 120
 
-    private const val TransitionDuration = 390
-
-    private val fluidEasing =
+    val easing: Easing =
         CubicBezierEasing(
-            0.16f,
-            0.78f,
-            0.20f,
+            0.25f,
+            0.10f,
+            0.25f,
             1f
         )
 
-    val enter: AnimationSpec<Float>
-        get() = tween(
-            durationMillis = TransitionDuration,
-            easing = fluidEasing
-        )
+    fun exitDuration(
+        currentOffset: Float,
+        screenHeight: Float
+    ): Int {
+        if (screenHeight <= 0f) {
+            return FullDuration
+        }
 
-    val exit: AnimationSpec<Float>
-        get() = tween(
-            durationMillis = TransitionDuration,
-            easing = fluidEasing
-        )
+        val remaining =
+            (
+                (screenHeight - currentOffset) /
+                    screenHeight
+                )
+                .coerceIn(0f, 1f)
 
-    val returnToRest: AnimationSpec<Float>
-        get() = spring(
-            dampingRatio = 0.90f,
-            stiffness = 460f
-        )
+        return (
+            FullDuration * remaining
+            )
+            .toInt()
+            .coerceAtLeast(
+                MinimumExitDuration
+            )
+    }
 }
