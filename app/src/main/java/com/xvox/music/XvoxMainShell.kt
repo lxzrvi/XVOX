@@ -46,14 +46,28 @@ fun XvoxMainShell(
         )
     }
 
+    /*
+     * Resolve the actual Song object from the queue.
+     *
+     * currentIndex is preferred because it is O(1).
+     * ID fallback handles temporary index synchronization.
+     */
     val currentSong =
         player.queue.getOrNull(
             player.currentIndex
-        ) ?: player.queue
-            .firstOrNull {
-                it.id ==
-                    player.currentSongId
-            }
+        )
+            ?: player.currentSongId
+                ?.let {
+                    currentId ->
+
+                    player.queue
+                        .firstOrNull {
+                            song ->
+
+                            song.id ==
+                                currentId
+                        }
+                }
 
     Box(
         modifier = Modifier
@@ -62,6 +76,12 @@ fun XvoxMainShell(
                 colors.background
             )
     ) {
+        /*
+         * ====================================================
+         * MAIN DESTINATION CONTENT
+         * ====================================================
+         */
+
         Box(
             modifier =
                 Modifier.fillMaxSize()
@@ -91,6 +111,15 @@ fun XvoxMainShell(
             }
         }
 
+        /*
+         * ====================================================
+         * NORMAL SHELL OVERLAYS
+         * ====================================================
+         *
+         * MiniPlayer + Navbar are hidden while Now Playing
+         * occupies the screen.
+         */
+
         if (
             !player.nowPlayingVisible
         ) {
@@ -105,32 +134,51 @@ fun XvoxMainShell(
                 XvoxMiniPlayer(
                     queue =
                         player.queue,
+
                     currentSongId =
                         currentSongId,
+
                     currentIndex =
                         player.currentIndex,
+
                     isPlaying =
                         player.isPlaying,
+
                     position =
                         player.position,
+
                     duration =
                         player.duration,
+
                     riseKey =
                         player.miniPlayerRiseKey,
+
                     togglePlay =
                         playerViewModel::
                             togglePlay,
+
                     playQueueIndex =
                         playerViewModel::
                             playQueueIndex,
+
                     stopAndDismiss =
                         playerViewModel::
                             stopPlayback,
+
+                    /*
+                     * MiniPlayer TAP / swipe UP:
+                     *
+                     * MiniPlayer exits first through its own
+                     * motion and then opens Now Playing.
+                     */
                     openPlayer =
                         playerViewModel::
                             openNowPlaying,
+
                     onLike = {},
+
                     onAdd = {},
+
                     modifier = Modifier
                         .align(
                             Alignment.BottomCenter
@@ -143,9 +191,11 @@ fun XvoxMainShell(
                             start =
                                 XvoxMiniPlayerPlacement
                                     .horizontalEdge,
+
                             end =
                                 XvoxMiniPlayerPlacement
                                     .horizontalEdge,
+
                             bottom =
                                 XvoxMiniPlayerPlacement
                                     .miniPlayerBottom
@@ -153,12 +203,21 @@ fun XvoxMainShell(
                 )
             }
 
+            /*
+             * Navbar remains shell-level and independent
+             * from Home/library state.
+             */
             XvoxBottomBar(
                 selected =
                     destination,
+
                 onSelected = {
-                    destination = it
+                    selected ->
+
+                    destination =
+                        selected
                 },
+
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -175,6 +234,16 @@ fun XvoxMainShell(
             )
         }
 
+        /*
+         * ====================================================
+         * NOW PLAYING
+         * ====================================================
+         *
+         * Uses the SAME player state/controller.
+         *
+         * No duplicate ExoPlayer.
+         */
+
         if (
             player.nowPlayingVisible &&
             currentSong != null
@@ -182,27 +251,51 @@ fun XvoxMainShell(
             XvoxNowPlaying(
                 song =
                     currentSong,
+
+                currentIndex =
+                    player.currentIndex,
+
+                queueSize =
+                    player.queue.size,
+
                 isPlaying =
                     player.isPlaying,
+
                 position =
                     player.position,
+
                 duration =
                     player.duration,
+
+                /*
+                 * Arrow-down / successful downward gesture:
+                 *
+                 * Now Playing exits.
+                 * Playback continues.
+                 * MiniPlayer returns.
+                 */
                 onClose =
                     playerViewModel::
                         closeNowPlaying,
+
                 onTogglePlay =
                     playerViewModel::
                         togglePlay,
+
                 onPrevious =
                     playerViewModel::
                         playPrevious,
+
                 onNext =
                     playerViewModel::
                         playNext,
+
                 onSeek =
                     playerViewModel::
-                        seekTo
+                        seekTo,
+
+                modifier =
+                    Modifier.fillMaxSize()
             )
         }
     }
