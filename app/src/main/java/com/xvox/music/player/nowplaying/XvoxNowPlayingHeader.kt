@@ -1,10 +1,10 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,25 +46,52 @@ fun XvoxNowPlayingHeader(
             )
             .padding(
                 start = 14.dp,
-                end = 14.dp,
-                top = 10.dp
+                top = 10.dp,
+                end = 14.dp
             )
             .height(48.dp)
     ) {
-        NowPlayingHeaderButton(
-            resource =
-                R.drawable.ic_xvox_collapse,
-            onClick =
-                onClose,
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.CenterStart
+        Box(
+            modifier = Modifier
+                .align(
+                    Alignment.CenterStart
+                )
+                .size(42.dp)
+                .background(
+                    colors.card.copy(
+                        alpha = 0.34f
+                    ),
+                    CircleShape
+                )
+                .clickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClose
+                ),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            Icon(
+                painter =
+                    painterResource(
+                        R.drawable
+                            .ic_xvox_collapse
+                    ),
+                contentDescription =
+                    "Close player",
+                tint =
+                    colors.primaryText,
+                modifier =
+                    Modifier.size(
+                        21.dp
                     )
-                    .size(42.dp)
-        )
+            )
+        }
 
-        androidx.compose.foundation.layout.Column(
+        Column(
             modifier =
                 Modifier.align(
                     Alignment.Center
@@ -77,9 +103,7 @@ fun XvoxNowPlayingHeader(
                 text =
                     "PLAYING FROM",
                 color =
-                    Color.White.copy(
-                        alpha = 0.68f
-                    ),
+                    colors.secondaryText,
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
                 fontWeight =
@@ -87,8 +111,10 @@ fun XvoxNowPlayingHeader(
             )
 
             Text(
-                text = "All Songs",
-                color = Color.White,
+                text =
+                    "All Songs",
+                color =
+                    colors.primaryText,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,
                 fontWeight =
@@ -104,16 +130,7 @@ fun XvoxNowPlayingHeader(
                 .height(42.dp)
                 .background(
                     colors.card.copy(
-                        alpha = 0.48f
-                    ),
-                    RoundedCornerShape(
-                        22.dp
-                    )
-                )
-                .border(
-                    0.65.dp,
-                    Color.White.copy(
-                        alpha = 0.14f
+                        alpha = 0.34f
                     ),
                     RoundedCornerShape(
                         22.dp
@@ -126,60 +143,21 @@ fun XvoxNowPlayingHeader(
                 Alignment.CenterVertically
         ) {
             HeaderAction(
-                R.drawable.ic_xvox_share,
-                onShare
+                resource =
+                    R.drawable
+                        .ic_xvox_share,
+                onClick =
+                    onShare
             )
 
             HeaderAction(
-                R.drawable.ic_xvox_more,
-                onMore
+                resource =
+                    R.drawable
+                        .ic_xvox_more,
+                onClick =
+                    onMore
             )
         }
-    }
-}
-
-@Composable
-private fun NowPlayingHeaderButton(
-    resource: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .background(
-                Color.Black.copy(
-                    alpha = 0.24f
-                ),
-                CircleShape
-            )
-            .border(
-                0.65.dp,
-                Color.White.copy(
-                    alpha = 0.14f
-                ),
-                CircleShape
-            )
-            .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        Icon(
-            painter =
-                painterResource(
-                    resource
-                ),
-            contentDescription = null,
-            tint = Color.White,
-            modifier =
-                Modifier.size(21.dp)
-        )
     }
 }
 
@@ -188,6 +166,9 @@ private fun HeaderAction(
     resource: Int,
     onClick: () -> Unit
 ) {
+    val colors =
+        XvoxTheme.colors
+
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -207,10 +188,14 @@ private fun HeaderAction(
                 painterResource(
                     resource
                 ),
-            contentDescription = null,
-            tint = Color.White,
+            contentDescription =
+                null,
+            tint =
+                colors.primaryText,
             modifier =
-                Modifier.size(18.dp)
+                Modifier.size(
+                    18.dp
+                )
         )
     }
 }
