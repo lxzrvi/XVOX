@@ -10,16 +10,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,13 +40,14 @@ fun XvoxArtworkLyrics(
 
     val launcher =
         rememberLauncherForActivityResult(
-            contract =
-                ActivityResultContracts
-                    .OpenDocument()
-        ) { uri ->
-            if (uri != null) {
-                onAttach(uri)
-            }
+            ActivityResultContracts
+                .OpenDocument()
+        ) {
+            uri ->
+
+            uri?.let(
+                onAttach
+            )
         }
 
     Box(
@@ -54,26 +55,32 @@ fun XvoxArtworkLyrics(
             .fillMaxSize()
             .background(
                 colors.background.copy(
-                    alpha = 0.50f
+                    alpha = 0.42f
                 )
             )
     ) {
-        /*
-         * Top-right controls:
-         *
-         * Fullscreen
-         * X / return to artwork
-         */
         Row(
             modifier = Modifier
                 .align(
                     Alignment.TopEnd
                 )
-                .padding(9.dp),
+                .padding(9.dp)
+                .height(42.dp)
+                .background(
+                    colors.card.copy(
+                        alpha = 0.42f
+                    ),
+                    RoundedCornerShape(
+                        22.dp
+                    )
+                )
+                .padding(
+                    horizontal = 3.dp
+                ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            LyricsTopButton(
+            LyricsAction(
                 resource =
                     R.drawable
                         .ic_xvox_fullscreen,
@@ -81,7 +88,7 @@ fun XvoxArtworkLyrics(
                     onFullscreen
             )
 
-            LyricsTopButton(
+            LyricsAction(
                 resource =
                     R.drawable
                         .ic_xvox_close,
@@ -114,19 +121,13 @@ fun XvoxArtworkLyrics(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(
-                            top = 46.dp,
-                            bottom = 20.dp
+                            top = 48.dp,
+                            bottom = 18.dp
                         )
                 )
             }
 
             else -> {
-                /*
-                 * No embedded or previously selected lyrics.
-                 *
-                 * Whole center area opens Android's document
-                 * picker for LRC / TXT style text content.
-                 */
                 Column(
                     modifier = Modifier
                         .align(
@@ -147,9 +148,7 @@ fun XvoxArtworkLyrics(
                                 )
                             )
                         }
-                        .padding(
-                            18.dp
-                        ),
+                        .padding(20.dp),
                     horizontalAlignment =
                         Alignment.CenterHorizontally
                 ) {
@@ -158,9 +157,11 @@ fun XvoxArtworkLyrics(
                             .size(46.dp)
                             .background(
                                 colors.card.copy(
-                                    alpha = 0.48f
+                                    alpha = 0.44f
                                 ),
-                                CircleShape
+                                RoundedCornerShape(
+                                    23.dp
+                                )
                             ),
                         contentAlignment =
                             Alignment.Center
@@ -183,8 +184,7 @@ fun XvoxArtworkLyrics(
                     }
 
                     Text(
-                        text =
-                            "No lyrics",
+                        text = "No lyrics",
                         color =
                             colors.primaryText,
                         fontSize = 13.sp,
@@ -212,19 +212,16 @@ fun XvoxArtworkLyrics(
 }
 
 @Composable
-private fun LyricsTopButton(
+private fun LyricsAction(
     resource: Int,
     onClick: () -> Unit
 ) {
+    val colors =
+        XvoxTheme.colors
+
     Box(
         modifier = Modifier
-            .size(38.dp)
-            .background(
-                Color.Black.copy(
-                    alpha = 0.28f
-                ),
-                CircleShape
-            )
+            .size(36.dp)
             .clickable(
                 interactionSource =
                     remember {
@@ -244,7 +241,7 @@ private fun LyricsTopButton(
             contentDescription =
                 null,
             tint =
-                Color.White,
+                colors.primaryText,
             modifier =
                 Modifier.size(
                     18.dp
