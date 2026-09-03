@@ -1,4 +1,4 @@
-name: XVOX - Import Phosphor Icons
+name: XVOX - Import Delete Icon
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ permissions:
   contents: write
 
 jobs:
-  import-icons:
-    name: Import XVOX Phosphor Icons
+  import-delete-icon:
+    name: Import XVOX Delete Icon
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
           path: phosphor-core
           fetch-depth: 1
 
-      - name: Generate Android VectorDrawables
+      - name: Generate Delete VectorDrawable
         shell: bash
         run: |
           set -euo pipefail
@@ -38,178 +38,12 @@ jobs:
           import xml.etree.ElementTree as ET
 
           SOURCE = Path("phosphor-core")
-          OUTPUT = Path("app/src/main/res/drawable")
+          OUTPUT = Path(
+              "app/src/main/res/drawable/ic_xvox_delete.xml"
+          )
 
-          # ==================================================
-          # XVOX PHOSPHOR ICONS
-          #
-          # To add an icon later:
-          #
-          # "android_resource_name": (
-          #     "phosphor-name",
-          #     "weight",
-          # ),
-          #
-          # Then manually run this workflow.
-          # ==================================================
-
-          ICONS = {
-              # HOME
-              "ic_xvox_refresh": (
-                  "arrows-clockwise",
-                  "fill",
-              ),
-              "ic_xvox_heart": (
-                  "heart",
-                  "fill",
-              ),
-              "ic_xvox_music_note": (
-                  "music-note",
-                  "fill",
-              ),
-              "ic_xvox_playlist": (
-                  "playlist",
-                  "fill",
-              ),
-
-              # PLAYBACK
-              "ic_xvox_play": (
-                  "play",
-                  "fill",
-              ),
-              "ic_xvox_pause": (
-                  "pause",
-                  "fill",
-              ),
-              "ic_xvox_skip_previous": (
-                  "skip-back",
-                  "fill",
-              ),
-              "ic_xvox_skip_next": (
-                  "skip-forward",
-                  "fill",
-              ),
-              "ic_xvox_shuffle": (
-                  "shuffle",
-                  "bold",
-              ),
-              "ic_xvox_repeat": (
-                  "repeat",
-                  "bold",
-              ),
-              "ic_xvox_repeat_one": (
-                  "repeat-once",
-                  "bold",
-              ),
-
-              # NOW PLAYING HEADER
-              "ic_xvox_collapse": (
-                  "caret-down",
-                  "bold",
-              ),
-              "ic_xvox_share": (
-                  "share-network",
-                  "fill",
-              ),
-              "ic_xvox_more": (
-                  "dots-three",
-                  "bold",
-              ),
-
-              # NOW PLAYING ACTIONS
-              "ic_xvox_timer": (
-                  "timer",
-                  "fill",
-              ),
-              "ic_xvox_queue": (
-                  "list",
-                  "bold",
-              ),
-              "ic_xvox_info": (
-                  "info",
-                  "fill",
-              ),
-              "ic_xvox_star": (
-                  "star",
-                  "fill",
-              ),
-              "ic_xvox_heart_outline": (
-                  "heart",
-                  "regular",
-              ),
-
-              # LYRICS
-              "ic_xvox_lyrics": (
-                  "quotes",
-                  "fill",
-              ),
-              "ic_xvox_lyrics_add": (
-                  "plus",
-                  "bold",
-              ),
-              "ic_xvox_lyrics_file": (
-                  "file-text",
-                  "fill",
-              ),
-              "ic_xvox_fullscreen": (
-                  "corners-out",
-                  "bold",
-              ),
-              "ic_xvox_fullscreen_exit": (
-                  "corners-in",
-                  "bold",
-              ),
-              "ic_xvox_close": (
-                  "x",
-                  "bold",
-              ),
-
-              # COMMON / FUTURE
-              "ic_xvox_add": (
-                  "plus",
-                  "fill",
-              ),
-              "ic_xvox_check": (
-                  "check",
-                  "bold",
-              ),
-              "ic_xvox_search_action": (
-                  "magnifying-glass",
-                  "bold",
-              ),
-              "ic_xvox_equalizer": (
-                  "sliders-horizontal",
-                  "fill",
-              ),
-              "ic_xvox_waveform": (
-                  "waveform",
-                  "fill",
-              ),
-              "ic_xvox_volume_high": (
-                  "speaker-high",
-                  "fill",
-              ),
-              "ic_xvox_volume_low": (
-                  "speaker-low",
-                  "fill",
-              ),
-              "ic_xvox_mute": (
-                  "speaker-x",
-                  "fill",
-              ),
-              "ic_xvox_download": (
-                  "download-simple",
-                  "fill",
-              ),
-              "ic_xvox_delete": (
-                  "trash",
-                  "fill",
-              ),
-              "ic_xvox_edit": (
-                  "pencil-simple",
-                  "fill",
-              ),
-          }
+          ICON = "trash"
+          WEIGHT = "fill"
 
           def local_name(tag):
               return tag.split("}")[-1]
@@ -244,22 +78,22 @@ jobs:
                   .rstrip(".")
               )
 
-          def find_svg(icon, weight):
+          def find_svg():
               preferred = [
                   SOURCE
                   / "raw"
-                  / weight
-                  / f"{icon}-{weight}.svg",
+                  / WEIGHT
+                  / f"{ICON}-{WEIGHT}.svg",
 
                   SOURCE
                   / "raw"
-                  / weight
-                  / f"{icon}.svg",
+                  / WEIGHT
+                  / f"{ICON}.svg",
 
                   SOURCE
                   / "assets"
-                  / weight
-                  / f"{icon}.svg",
+                  / WEIGHT
+                  / f"{ICON}.svg",
               ]
 
               for path in preferred:
@@ -267,8 +101,8 @@ jobs:
                       return path
 
               names = {
-                  f"{icon}.svg".lower(),
-                  f"{icon}-{weight}.svg".lower(),
+                  f"{ICON}.svg".lower(),
+                  f"{ICON}-{WEIGHT}.svg".lower(),
               }
 
               matches = []
@@ -280,13 +114,13 @@ jobs:
                   score = 0
                   full = str(path).lower()
 
-                  if weight.lower() in full:
+                  if WEIGHT in full:
                       score += 100
 
                   if (
                       path.name.lower()
                       ==
-                      f"{icon}-{weight}.svg".lower()
+                      f"{ICON}-{WEIGHT}.svg"
                   ):
                       score += 50
 
@@ -305,15 +139,9 @@ jobs:
               return matches[0][1]
 
           def circle_path(element):
-              cx = number(
-                  element.attrib.get("cx")
-              )
-              cy = number(
-                  element.attrib.get("cy")
-              )
-              r = number(
-                  element.attrib.get("r")
-              )
+              cx = number(element.attrib.get("cx"))
+              cy = number(element.attrib.get("cy"))
+              r = number(element.attrib.get("r"))
 
               if r <= 0:
                   return None
@@ -327,18 +155,10 @@ jobs:
               )
 
           def ellipse_path(element):
-              cx = number(
-                  element.attrib.get("cx")
-              )
-              cy = number(
-                  element.attrib.get("cy")
-              )
-              rx = number(
-                  element.attrib.get("rx")
-              )
-              ry = number(
-                  element.attrib.get("ry")
-              )
+              cx = number(element.attrib.get("cx"))
+              cy = number(element.attrib.get("cy"))
+              rx = number(element.attrib.get("rx"))
+              ry = number(element.attrib.get("ry"))
 
               if rx <= 0 or ry <= 0:
                   return None
@@ -352,18 +172,10 @@ jobs:
               )
 
           def line_path(element):
-              x1 = number(
-                  element.attrib.get("x1")
-              )
-              y1 = number(
-                  element.attrib.get("y1")
-              )
-              x2 = number(
-                  element.attrib.get("x2")
-              )
-              y2 = number(
-                  element.attrib.get("y2")
-              )
+              x1 = number(element.attrib.get("x1"))
+              y1 = number(element.attrib.get("y1"))
+              x2 = number(element.attrib.get("x2"))
+              y2 = number(element.attrib.get("y2"))
 
               return (
                   f"M {fmt(x1)},{fmt(y1)} "
@@ -371,18 +183,10 @@ jobs:
               )
 
           def rect_path(element):
-              x = number(
-                  element.attrib.get("x")
-              )
-              y = number(
-                  element.attrib.get("y")
-              )
-              w = number(
-                  element.attrib.get("width")
-              )
-              h = number(
-                  element.attrib.get("height")
-              )
+              x = number(element.attrib.get("x"))
+              y = number(element.attrib.get("y"))
+              w = number(element.attrib.get("width"))
+              h = number(element.attrib.get("height"))
 
               if w <= 0 or h <= 0:
                   return None
@@ -439,10 +243,8 @@ jobs:
 
               return data
 
-          def convert(source, destination):
-              root = ET.parse(
-                  source
-              ).getroot()
+          def convert(source):
+              root = ET.parse(source).getroot()
 
               viewbox = (
                   root.attrib
@@ -656,7 +458,7 @@ jobs:
                   space="    ",
               )
 
-              destination.write_text(
+              OUTPUT.write_text(
                   '<?xml version="1.0" '
                   'encoding="utf-8"?>\n'
                   +
@@ -671,84 +473,43 @@ jobs:
 
               return path_count
 
-          failures = []
+          source = find_svg()
 
-          for android_name, (
-              phosphor_name,
-              weight,
-          ) in ICONS.items():
-
-              source = find_svg(
-                  phosphor_name,
-                  weight,
-              )
-
-              if source is None:
-                  failures.append(
-                      f"{phosphor_name} "
-                      f"({weight}) not found"
-                  )
-                  continue
-
-              destination = (
-                  OUTPUT /
-                  f"{android_name}.xml"
-              )
-
-              try:
-                  count = convert(
-                      source,
-                      destination,
-                  )
-
-                  print(
-                      "GENERATED:",
-                      destination,
-                      "<-",
-                      source,
-                      f"({count} paths)",
-                  )
-
-              except Exception as error:
-                  failures.append(
-                      f"{phosphor_name}: "
-                      f"{error}"
-                  )
-
-          if failures:
+          if source is None:
               print(
-                  "\nFailed icons:",
+                  "trash (fill) not found",
                   file=sys.stderr,
               )
-
-              for failure in failures:
-                  print(
-                      " -",
-                      failure,
-                      file=sys.stderr,
-                  )
-
               sys.exit(1)
 
+          count = convert(source)
+
+          print(
+              "GENERATED:",
+              OUTPUT,
+              "<-",
+              source,
+              f"({count} paths)",
+          )
           PY
 
-      - name: Stage generated icons
+      - name: Stage delete icon
         shell: bash
         run: |
           set -euo pipefail
 
           git add \
-            app/src/main/res/drawable/ic_xvox_*.xml
+            app/src/main/res/drawable/ic_xvox_delete.xml
 
           git status --short
 
-      - name: Commit and push generated icons
+      - name: Commit and push delete icon
         shell: bash
         run: |
           set -euo pipefail
 
           if git diff --cached --quiet; then
-            echo "Icons already up to date."
+            echo "Delete icon already up to date."
             exit 0
           fi
 
@@ -761,7 +522,7 @@ jobs:
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git commit \
-            -m "Update XVOX Phosphor icons"
+            -m "Add XVOX delete icon"
 
           git push \
             origin \
