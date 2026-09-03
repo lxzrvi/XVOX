@@ -1,141 +1,91 @@
 package com.xvox.music.player.nowplaying
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.VectorConverter
 import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.model.Song
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-class XvoxNowPlayingPaletteState
-internal constructor(
+@Stable
+class XvoxNowPlayingPaletteState internal constructor(
+    private val loader: XvoxArtworkPaletteLoader,
     initial: Color
 ) {
-    var current by
-        mutableStateOf(
-            initial
+    val color =
+        Animatable(
+            initialValue = initial,
+            typeConverter = Color.VectorConverter
         )
 
-    var adjacent by
-        mutableStateOf(
-            initial
-        )
+    private val mutex = Mutex()
+    private var visualSongId = -1L
 
-    var fraction by
-        mutableFloatStateOf(
-            0f
-        )
+    suspend fun show(
+        song: Song,
+        immediate: Boolean = false
+    ) {
+        if (visualSongId == song.id) return
 
-    internal var adjacentSong by
-        mutableStateOf<Song?>(
-            null
-        )
+        visualSongId = song.id
+        val target = loader.load(song.artworkUri)
 
-    internal var currentSongId:
-        Long = -1L
+        mutex.withLock {
+            if (visualSongId != song.id) return
 
-    fun renderedColor():
-        Color {
-        return lerp(
-            current,
-            adjacent,
-            fraction
-                .coerceIn(
-                    0f,
-                    1f
+            if (immediate) {
+                color.snapTo(target)
+            } else {
+                color.animateTo(
+                    target,
+                    tween(230)
                 )
-        )
+            }
+        }
+    }
+
+    suspend fun preload(song: Song?) {
+        song ?: return
+        loader.load(song.artworkUri)
     }
 }
 
 @Composable
 fun rememberXvoxNowPlayingPalette(
-    song: Song
+    song: Song,
+    queue: List<Song>,
+    currentIndex: Int
 ): XvoxNowPlayingPaletteState {
-    val context =
-        LocalContext.current
+    val context = LocalContext.current
 
-    val loader =
-        remember {
-            XvoxArtworkPaletteLoader(
-                context
-            )
-        }
-
-    val state =
-        remember {
-            XvoxNowPlayingPaletteState(
-                Color(0xFF8C7772)
-            )
-        }
-
-    LaunchedEffect(
-        song.id,
-        song.artworkUri
-    ) {
-        /*
-         * Preserve whatever color was actually on screen
-         * during the previous swipe.
-         */
-        val retained =
-            state.renderedColor()
-
-        if (
-            state.currentSongId !=
-            -1L
-        ) {
-            state.current =
-                retained
-
-            state.adjacent =
-                retained
-
-            state.fraction =
-                0f
-        }
-
-        val loaded =
-            loader.load(
-                song.artworkUri
-            )
-
-        state.current =
-            loaded
-
-        state.adjacent =
-            loaded
-
-        state.fraction =
-            0f
-
-        state.currentSongId =
-            song.id
-
-        state.adjacentSong =
-            null
+    val loader = remember {
+        XvoxArtworkPaletteLoader(context)
     }
 
-    LaunchedEffect(
-        state.adjacentSong?.id
-    ) {
-        val adjacent =
-            state.adjacentSong
+    val state = remember {
+        XvoxNowPlayingPaletteState(
+            loader = loader,
+            initial = Color(0xFF8C7772)
+        )
+    }
 
-        state.adjacent =
-            if (
-                adjacent == null
-            ) {
-                state.current
-            } else {
-                loader.load(
-                    adjacent.artworkUri
-                )
-            }
+    LaunchedEffect(song.id, song.artworkUri) {
+        state.show(song)
+    }
+
+    LaunchedEffect(queue, currentIndex) {
+        state.preload(
+            queue.getOrNull(currentIndex - 1)
+        )
+        state.preload(
+            queue.getOrNull(currentIndex + 1)
+        )
     }
 
     return state
