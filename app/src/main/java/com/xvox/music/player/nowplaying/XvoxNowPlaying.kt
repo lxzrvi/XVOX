@@ -199,7 +199,7 @@ fun XvoxNowPlaying(
             position = position,
             duration = duration,
             isPlaying = isPlaying,
-            backgroundColor = paletteState.color.value,
+            backgroundColor = paletteState.color,
             onPrevious = ::requestPrevious,
             onTogglePlay = onTogglePlay,
             onNext = ::requestNext,
@@ -223,7 +223,7 @@ fun XvoxNowPlaying(
             }
     ) {
         XvoxNowPlayingBackdrop(
-            dominant = paletteState.color.value,
+            dominant = paletteState.color,
             modifier = Modifier.fillMaxSize()
         )
 
