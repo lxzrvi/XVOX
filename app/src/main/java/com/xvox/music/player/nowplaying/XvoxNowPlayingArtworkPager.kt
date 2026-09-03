@@ -6,11 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -28,6 +29,7 @@ import kotlin.math.abs
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
     currentIndex: Int,
+    navigationRequest: Int,
     onSwipeProgress:
         (
             Song?,
@@ -77,12 +79,94 @@ fun XvoxNowPlayingArtworkPager(
         remember(
             current.id
         ) {
-            Animatable(0f)
+            Animatable(
+                0f
+            )
         }
 
     val translation =
         dragX +
             settle.value
+
+    /*
+     * Positive request = Next.
+     * Negative request = Previous.
+     *
+     * 0 means no button navigation request.
+     */
+    LaunchedEffect(
+        navigationRequest
+    ) {
+        when {
+            navigationRequest >
+                0 &&
+                next != null -> {
+
+                onSwipeProgress(
+                    next,
+                    0f
+                )
+
+                settle.snapTo(
+                    0f
+                )
+
+                settle.animateTo(
+                    -screenWidth,
+                    XvoxNowPlayingMotion
+                        .returnToRest
+                ) {
+                    onSwipeProgress(
+                        next,
+                        (
+                            abs(value) /
+                                screenWidth
+                            )
+                            .coerceIn(
+                                0f,
+                                1f
+                            )
+                    )
+                }
+
+                onNext()
+            }
+
+            navigationRequest <
+                0 &&
+                previous != null -> {
+
+                onSwipeProgress(
+                    previous,
+                    0f
+                )
+
+                settle.snapTo(
+                    0f
+                )
+
+                settle.animateTo(
+                    screenWidth,
+                    XvoxNowPlayingMotion
+                        .returnToRest
+                ) {
+                    onSwipeProgress(
+                        previous,
+                        (
+                            abs(value) /
+                                screenWidth
+                            )
+                            .coerceIn(
+                                0f,
+                                1f
+                            )
+                    )
+                }
+
+                onPrevious()
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -93,13 +177,8 @@ fun XvoxNowPlayingArtworkPager(
             ) {
                 detectHorizontalDragGestures(
                     onDragStart = {
-                        scope.launch {
-                            settle.snapTo(
-                                0f
-                            )
-                        }
-
-                        dragX = 0f
+                        dragX =
+                            0f
 
                         onSwipeProgress(
                             null,
@@ -119,7 +198,8 @@ fun XvoxNowPlayingArtworkPager(
 
                         dragX =
                             when {
-                                candidate > 0f &&
+                                candidate >
+                                    0f &&
                                     previous ==
                                     null -> {
 
@@ -127,7 +207,8 @@ fun XvoxNowPlayingArtworkPager(
                                         0.18f
                                 }
 
-                                candidate < 0f &&
+                                candidate <
+                                    0f &&
                                     next ==
                                     null -> {
 
@@ -141,7 +222,8 @@ fun XvoxNowPlayingArtworkPager(
 
                         val adjacent =
                             if (
-                                dragX < 0f
+                                dragX <
+                                0f
                             ) {
                                 next
                             } else {
@@ -151,7 +233,9 @@ fun XvoxNowPlayingArtworkPager(
                         onSwipeProgress(
                             adjacent,
                             (
-                                abs(dragX) /
+                                abs(
+                                    dragX
+                                ) /
                                     screenWidth
                                 )
                                 .coerceIn(
@@ -165,13 +249,14 @@ fun XvoxNowPlayingArtworkPager(
                         val final =
                             dragX
 
+                        dragX =
+                            0f
+
                         when {
                             final <=
                                 -XvoxNowPlayingMotion
                                     .ArtworkSwipeThreshold &&
                                 next != null -> {
-
-                                dragX = 0f
 
                                 scope.launch {
                                     settle.snapTo(
@@ -182,27 +267,31 @@ fun XvoxNowPlayingArtworkPager(
                                         -screenWidth,
                                         XvoxNowPlayingMotion
                                             .returnToRest
-                                    )
+                                    ) {
+                                        onSwipeProgress(
+                                            next,
+                                            (
+                                                abs(
+                                                    value
+                                                ) /
+                                                    screenWidth
+                                                )
+                                                .coerceIn(
+                                                    0f,
+                                                    1f
+                                                )
+                                        )
+                                    }
 
                                     onNext()
-
-                                    settle.snapTo(
-                                        0f
-                                    )
-
-                                    onSwipeProgress(
-                                        null,
-                                        0f
-                                    )
                                 }
                             }
 
                             final >=
                                 XvoxNowPlayingMotion
                                     .ArtworkSwipeThreshold &&
-                                previous != null -> {
-
-                                dragX = 0f
+                                previous !=
+                                null -> {
 
                                 scope.launch {
                                     settle.snapTo(
@@ -213,24 +302,27 @@ fun XvoxNowPlayingArtworkPager(
                                         screenWidth,
                                         XvoxNowPlayingMotion
                                             .returnToRest
-                                    )
+                                    ) {
+                                        onSwipeProgress(
+                                            previous,
+                                            (
+                                                abs(
+                                                    value
+                                                ) /
+                                                    screenWidth
+                                                )
+                                                .coerceIn(
+                                                    0f,
+                                                    1f
+                                                )
+                                        )
+                                    }
 
                                     onPrevious()
-
-                                    settle.snapTo(
-                                        0f
-                                    )
-
-                                    onSwipeProgress(
-                                        null,
-                                        0f
-                                    )
                                 }
                             }
 
                             else -> {
-                                dragX = 0f
-
                                 scope.launch {
                                     settle.snapTo(
                                         final
@@ -240,7 +332,31 @@ fun XvoxNowPlayingArtworkPager(
                                         0f,
                                         XvoxNowPlayingMotion
                                             .returnToRest
-                                    )
+                                    ) {
+                                        val adjacent =
+                                            if (
+                                                value <
+                                                0f
+                                            ) {
+                                                next
+                                            } else {
+                                                previous
+                                            }
+
+                                        onSwipeProgress(
+                                            adjacent,
+                                            (
+                                                abs(
+                                                    value
+                                                ) /
+                                                    screenWidth
+                                                )
+                                                .coerceIn(
+                                                    0f,
+                                                    1f
+                                                )
+                                        )
+                                    }
 
                                     onSwipeProgress(
                                         null,
@@ -255,7 +371,8 @@ fun XvoxNowPlayingArtworkPager(
                         val final =
                             dragX
 
-                        dragX = 0f
+                        dragX =
+                            0f
 
                         scope.launch {
                             settle.snapTo(
@@ -281,14 +398,16 @@ fun XvoxNowPlayingArtworkPager(
             song ->
 
             ArtworkPage(
-                song = song,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationX =
-                            translation -
-                                screenWidth
-                    }
+                song =
+                    song,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX =
+                                translation -
+                                    screenWidth
+                        }
             )
         }
 
@@ -296,25 +415,29 @@ fun XvoxNowPlayingArtworkPager(
             song ->
 
             ArtworkPage(
-                song = song,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationX =
-                            translation +
-                                screenWidth
-                    }
+                song =
+                    song,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX =
+                                translation +
+                                    screenWidth
+                        }
             )
         }
 
         ArtworkPage(
-            song = current,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    translationX =
-                        translation
-                }
+            song =
+                current,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationX =
+                            translation
+                    }
         )
     }
 }
@@ -322,7 +445,8 @@ fun XvoxNowPlayingArtworkPager(
 @Composable
 private fun ArtworkPage(
     song: Song,
-    modifier: Modifier = Modifier
+    modifier: Modifier =
+        Modifier
 ) {
     Box(
         modifier =
