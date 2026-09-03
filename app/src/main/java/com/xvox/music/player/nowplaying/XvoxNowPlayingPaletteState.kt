@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -11,15 +12,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.model.Song
-import java.util.concurrent.ConcurrentHashMap
 
 @Stable
 class XvoxNowPlayingPaletteState internal constructor(
     private val loader: XvoxArtworkPaletteLoader,
     initial: Color
 ) {
-    private val colors =
-        ConcurrentHashMap<Long, Color>()
+    private val cache =
+        mutableStateMapOf<Long, Color>()
 
     var color by mutableStateOf(initial)
         private set
@@ -28,12 +28,9 @@ class XvoxNowPlayingPaletteState internal constructor(
         song: Song?
     ) {
         song ?: return
+        if (cache.containsKey(song.id)) return
 
-        if (colors.containsKey(song.id)) {
-            return
-        }
-
-        colors[song.id] =
+        cache[song.id] =
             loader.load(song.artworkUri)
     }
 
@@ -41,8 +38,10 @@ class XvoxNowPlayingPaletteState internal constructor(
         song: Song
     ) {
         preload(song)
-        color =
-            colors[song.id] ?: color
+
+        cache[song.id]?.let {
+            color = it
+        }
     }
 
     suspend fun blend(
@@ -54,17 +53,17 @@ class XvoxNowPlayingPaletteState internal constructor(
         preload(adjacent)
 
         val from =
-            colors[base.id] ?: color
+            cache[base.id] ?: color
 
         val to =
             adjacent?.let {
-                colors[it.id]
+                cache[it.id]
             } ?: from
 
         color =
             lerp(
                 from,
-                to ?: from,
+                to,
                 fraction.coerceIn(0f, 1f)
             )
     }
@@ -86,8 +85,8 @@ fun rememberXvoxNowPlayingPalette(
     val state =
         remember {
             XvoxNowPlayingPaletteState(
-                loader = loader,
-                initial = Color(0xFF8C7772)
+                loader,
+                Color(0xFF8C7772)
             )
         }
 
@@ -102,21 +101,13 @@ fun rememberXvoxNowPlayingPalette(
         queue,
         currentIndex
     ) {
-        state.preload(
-            queue.getOrNull(currentIndex)
-        )
-        state.preload(
-            queue.getOrNull(currentIndex - 1)
-        )
-        state.preload(
-            queue.getOrNull(currentIndex + 1)
-        )
-        state.preload(
-            queue.getOrNull(currentIndex - 2)
-        )
-        state.preload(
-            queue.getOrNull(currentIndex + 2)
-        )
+        for (offset in -2..2) {
+            state.preload(
+                queue.getOrNull(
+                    currentIndex + offset
+                )
+            )
+        }
     }
 
     return state
