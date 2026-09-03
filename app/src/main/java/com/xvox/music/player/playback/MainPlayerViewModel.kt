@@ -18,92 +18,59 @@ class MainPlayerViewModel(
         PlaybackController(application)
 
     private val _state =
-        MutableStateFlow(
-            MainPlayerUiState()
-        )
+        MutableStateFlow(MainPlayerUiState())
 
-    val state:
-        StateFlow<MainPlayerUiState> =
+    val state: StateFlow<MainPlayerUiState> =
         _state.asStateFlow()
 
     init {
         viewModelScope.launch {
-            controller.state.collect {
-                playback ->
-
+            controller.state.collect { playback ->
                 _state.update {
                     it.copy(
-                        connected =
-                            playback.connected,
-                        currentSongId =
-                            playback.currentSongId,
-                        currentIndex =
-                            playback.currentIndex,
-                        isPlaying =
-                            playback.isPlaying,
-                        position =
-                            playback.position,
-                        duration =
-                            playback.duration
+                        connected = playback.connected,
+                        currentSongId = playback.currentSongId,
+                        currentIndex = playback.currentIndex,
+                        isPlaying = playback.isPlaying,
+                        position = playback.position,
+                        duration = playback.duration
                     )
                 }
             }
         }
     }
 
-    fun setQueue(
-        songs: List<Song>
-    ) {
-        if (
-            _state.value.queue ===
-            songs
-        ) {
-            return
-        }
+    fun setQueue(songs: List<Song>) {
+        if (_state.value.queue === songs) return
 
-        controller.setQueue(
-            songs
-        )
+        controller.setQueue(songs)
 
         _state.update {
-            it.copy(
-                queue = songs
-            )
+            it.copy(queue = songs)
         }
     }
 
-    fun play(
-        song: Song
-    ) {
+    fun play(song: Song) {
         val needsEntrance =
-            !_state.value
-                .miniPlayerVisible
+            !_state.value.miniPlayerVisible &&
+                !_state.value.nowPlayingVisible
 
-        controller.play(
-            song
-        )
+        controller.play(song)
 
-        _state.update {
-            current ->
-
+        _state.update { current ->
             current.copy(
                 miniPlayerVisible = true,
                 miniPlayerRiseKey =
                     if (needsEntrance) {
-                        current
-                            .miniPlayerRiseKey +
-                            1
+                        current.miniPlayerRiseKey + 1
                     } else {
-                        current
-                            .miniPlayerRiseKey
+                        current.miniPlayerRiseKey
                     }
             )
         }
     }
 
-    fun playQueueIndex(
-        index: Int
-    ) {
+    fun playQueueIndex(index: Int) {
         controller.playQueueIndex(
             index = index,
             keepPlayingState = true
@@ -118,56 +85,46 @@ class MainPlayerViewModel(
         controller.playNext()
     }
 
-    fun seekTo(
-        positionMs: Long
-    ) {
-        controller.seekTo(
-            positionMs
-        )
+    fun seekTo(positionMs: Long) {
+        controller.seekTo(positionMs)
     }
 
     fun togglePlay() {
         controller.togglePlay()
     }
 
-    /*
-     * MiniPlayer stays logically present.
-     *
-     * Now Playing simply covers it.
-     * Therefore closing Now Playing doesn't need to
-     * reconstruct/re-enter MiniPlayer after a delay.
-     */
     fun openNowPlaying() {
-        if (
-            _state.value
-                .currentSongId == null
-        ) {
-            return
-        }
+        if (_state.value.currentSongId == null) return
 
         _state.update {
             it.copy(
                 nowPlayingVisible = true,
-                miniPlayerVisible = true
+                miniPlayerVisible = false
             )
         }
     }
 
     fun closeNowPlaying() {
-        _state.update {
-            it.copy(
-                nowPlayingVisible = false,
-                miniPlayerVisible =
-                    it.currentSongId != null
-            )
+        _state.update { current ->
+            if (current.currentSongId == null) {
+                current.copy(
+                    nowPlayingVisible = false,
+                    miniPlayerVisible = false
+                )
+            } else {
+                current.copy(
+                    nowPlayingVisible = false,
+                    miniPlayerVisible = true,
+                    miniPlayerRiseKey =
+                        current.miniPlayerRiseKey + 1
+                )
+            }
         }
     }
 
     fun hideMiniPlayer() {
         _state.update {
-            it.copy(
-                miniPlayerVisible = false
-            )
+            it.copy(miniPlayerVisible = false)
         }
     }
 
