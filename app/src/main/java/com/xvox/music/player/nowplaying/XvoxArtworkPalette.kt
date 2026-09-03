@@ -9,7 +9,9 @@ import androidx.compose.ui.graphics.luminance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 class XvoxArtworkPaletteLoader(
     context: Context
@@ -39,53 +41,23 @@ class XvoxArtworkPaletteLoader(
                 Dispatchers.IO
             ) {
                 runCatching {
-                    val source =
-                        ImageDecoder
-                            .createSource(
-                                appContext
-                                    .contentResolver,
-                                uri
-                            )
-
-                    val bitmap =
-                        ImageDecoder
-                            .decodeBitmap(
-                                source
-                            ) {
-                                decoder,
-                                info,
-                                _ ->
-
-                                val sample =
-                                    max(
-                                        1,
-                                        max(
-                                            info.size.width,
-                                            info.size.height
-                                        ) / 48
-                                    )
-
-                                decoder
-                                    .setTargetSampleSize(
-                                        sample
-                                    )
-
-                                decoder.allocator =
-                                    ImageDecoder
-                                        .ALLOCATOR_SOFTWARE
-                            }
-
-                    try {
-                        dominant(
-                            bitmap
-                        )
-                    } finally {
-                        bitmap.recycle()
-                    }
-                }
-                    .getOrDefault(
-                        fallback()
+                    decode(
+                        uri
                     )
+                }
+                    .getOrNull()
+                    ?.let {
+                        bitmap ->
+
+                        try {
+                            extract(
+                                bitmap
+                            )
+                        } finally {
+                            bitmap.recycle()
+                        }
+                    }
+                    ?: fallback()
             }
 
         cache[key] =
@@ -94,35 +66,77 @@ class XvoxArtworkPaletteLoader(
         return result
     }
 
-    private fun dominant(
+    private fun decode(
+        uri: Uri
+    ): Bitmap {
+        val source =
+            ImageDecoder.createSource(
+                appContext
+                    .contentResolver,
+                uri
+            )
+
+        return ImageDecoder.decodeBitmap(
+            source
+        ) {
+            decoder,
+            info,
+            _ ->
+
+            val maxSide =
+                max(
+                    info.size.width,
+                    info.size.height
+                )
+
+            decoder.setTargetSampleSize(
+                max(
+                    1,
+                    maxSide / 56
+                )
+            )
+
+            decoder.allocator =
+                ImageDecoder
+                    .ALLOCATOR_SOFTWARE
+        }
+    }
+
+    private fun extract(
         bitmap: Bitmap
     ): Color {
+        data class Bucket(
+            var count: Int = 0,
+            var red: Long = 0L,
+            var green: Long = 0L,
+            var blue: Long = 0L,
+            var saturation: Float = 0f
+        )
+
         val buckets =
-            HashMap<Int, Int>()
+            HashMap<Int, Bucket>()
 
         val stepX =
             max(
                 1,
-                bitmap.width / 24
+                bitmap.width / 28
             )
 
         val stepY =
             max(
                 1,
-                bitmap.height / 24
+                bitmap.height / 28
             )
 
         var y = 0
 
         while (
-            y <
-            bitmap.height
+            y < bitmap.height
         ) {
             var x = 0
 
             while (
-                x <
-                bitmap.width
+                x < bitmap.width
             ) {
                 val pixel =
                     bitmap.getPixel(
@@ -142,40 +156,80 @@ class XvoxArtworkPaletteLoader(
                     android.graphics.Color
                         .blue(pixel)
 
+                val maxChannel =
+                    max(
+                        r,
+                        max(
+                            g,
+                            b
+                        )
+                    )
+
+                val minChannel =
+                    min(
+                        r,
+                        min(
+                            g,
+                            b
+                        )
+                    )
+
                 val brightness =
                     (
                         r +
                             g +
                             b
-                        ) / 3
+                        ) / 3f
 
+                val saturation =
+                    if (
+                        maxChannel == 0
+                    ) {
+                        0f
+                    } else {
+                        (
+                            maxChannel -
+                                minChannel
+                            ) /
+                            maxChannel.toFloat()
+                    }
+
+                /*
+                 * Ignore nearly-black, nearly-white and
+                 * almost-gray samples.
+                 */
                 if (
                     brightness in
-                    20..245
+                    28f..232f &&
+                    saturation >
+                    0.12f
                 ) {
-                    val qr =
-                        r / 32
-
-                    val qg =
-                        g / 32
-
-                    val qb =
-                        b / 32
-
                     val key =
                         (
-                            qr shl 8
+                            (r / 32) shl 8
                             ) or
                             (
-                                qg shl 4
+                                (g / 32) shl 4
                                 ) or
-                            qb
+                            (b / 32)
 
-                    buckets[key] =
-                        (
-                            buckets[key]
-                                ?: 0
-                            ) + 1
+                    val bucket =
+                        buckets
+                            .getOrPut(
+                                key
+                            ) {
+                                Bucket()
+                            }
+
+                    bucket.count++
+                    bucket.red +=
+                        r.toLong()
+                    bucket.green +=
+                        g.toLong()
+                    bucket.blue +=
+                        b.toLong()
+                    bucket.saturation +=
+                        saturation
                 }
 
                 x += stepX
@@ -184,103 +238,184 @@ class XvoxArtworkPaletteLoader(
             y += stepY
         }
 
-        val key =
-            buckets
+        val best =
+            buckets.values
                 .maxByOrNull {
-                    it.value
+                    bucket ->
+
+                    val averageSaturation =
+                        bucket.saturation /
+                            bucket.count
+                                .coerceAtLeast(
+                                    1
+                                )
+
+                    bucket.count *
+                        (
+                            0.65f +
+                                averageSaturation *
+                                    1.25f
+                            )
                 }
-                ?.key
                 ?: return fallback()
 
-        val r =
-            (
-                (
-                    key shr 8
-                    ) and 0xF
-                ) * 32 + 16
+        val count =
+            best.count
+                .coerceAtLeast(
+                    1
+                )
 
-        val g =
-            (
-                (
-                    key shr 4
-                    ) and 0xF
-                ) * 32 + 16
-
-        val b =
-            (
-                key and 0xF
-                ) * 32 + 16
-
-        return lift(
+        val source =
             Color(
-                red = r / 255f,
-                green = g / 255f,
-                blue = b / 255f
+                red =
+                    (
+                        best.red /
+                            count
+                        )
+                        .coerceIn(
+                            0L,
+                            255L
+                        ) /
+                        255f,
+
+                green =
+                    (
+                        best.green /
+                            count
+                        )
+                        .coerceIn(
+                            0L,
+                            255L
+                        ) /
+                        255f,
+
+                blue =
+                    (
+                        best.blue /
+                            count
+                        )
+                        .coerceIn(
+                            0L,
+                            255L
+                        ) /
+                        255f
             )
+
+        return normalize(
+            source
         )
     }
 
-    /*
-     * Lift dark artwork colors toward a rich mid-tone.
-     *
-     * This keeps the Now Playing environment colorful
-     * instead of muddy/black.
-     */
-    private fun lift(
+    private fun normalize(
         source: Color
     ): Color {
-        val target =
-            Color.White
-
         val luminance =
             source.luminance()
 
-        val amount =
+        /*
+         * Desired natural mid-tone.
+         *
+         * Dark artwork is lifted,
+         * very bright artwork is gently reduced,
+         * but hue remains intact.
+         */
+        val target =
             when {
-                luminance < 0.10f ->
-                    0.42f
-
-                luminance < 0.20f ->
+                luminance <
+                    0.18f ->
                     0.30f
 
-                luminance < 0.32f ->
-                    0.18f
+                luminance >
+                    0.62f ->
+                    0.50f
 
                 else ->
-                    0.08f
+                    luminance
             }
 
-        return Color(
-            red =
-                source.red +
-                    (
-                        target.red -
-                            source.red
-                        ) *
-                    amount,
+        if (
+            abs(
+                target -
+                    luminance
+            ) <
+            0.015f
+        ) {
+            return source
+        }
 
-            green =
-                source.green +
+        return if (
+            target >
+            luminance
+        ) {
+            val amount =
+                (
+                    target -
+                        luminance
+                    ) /
                     (
-                        target.green -
-                            source.green
-                        ) *
-                    amount,
+                        1f -
+                            luminance
+                        )
+                            .coerceAtLeast(
+                                0.01f
+                            )
 
-            blue =
-                source.blue +
-                    (
-                        target.blue -
-                            source.blue
-                        ) *
-                    amount
-        )
+            Color(
+                red =
+                    source.red +
+                        (
+                            1f -
+                                source.red
+                            ) *
+                        amount,
+
+                green =
+                    source.green +
+                        (
+                            1f -
+                                source.green
+                            ) *
+                        amount,
+
+                blue =
+                    source.blue +
+                        (
+                            1f -
+                                source.blue
+                            ) *
+                        amount
+            )
+        } else {
+            val scale =
+                (
+                    target /
+                        luminance
+                    )
+                    .coerceIn(
+                        0f,
+                        1f
+                    )
+
+            Color(
+                red =
+                    source.red *
+                        scale,
+
+                green =
+                    source.green *
+                        scale,
+
+                blue =
+                    source.blue *
+                        scale
+            )
+        }
     }
 
     private fun fallback():
         Color {
         return Color(
-            0xFF9A756C
+            0xFF8C7772
         )
     }
 }
