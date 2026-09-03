@@ -1,0 +1,139 @@
+package com.xvox.music.player.nowplaying.lyrics
+
+import android.app.Application
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.xvox.music.core.model.Song
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+class XvoxLyricsViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository =
+        XvoxLyricsRepository(
+            application
+        )
+
+    private val _state =
+        MutableStateFlow(
+            XvoxLyricsUiState()
+        )
+
+    val state:
+        StateFlow<XvoxLyricsUiState> =
+        _state.asStateFlow()
+
+    private var song:
+        Song? = null
+
+    private var loadJob:
+        Job? = null
+
+    fun load(
+        newSong: Song
+    ) {
+        if (
+            song?.id ==
+            newSong.id
+        ) {
+            return
+        }
+
+        song =
+            newSong
+
+        loadJob?.cancel()
+
+        _state.value =
+            XvoxLyricsUiState(
+                loading = true
+            )
+
+        loadJob =
+            viewModelScope.launch {
+                val lyrics =
+                    repository.load(
+                        newSong
+                    )
+
+                if (
+                    song?.id ==
+                    newSong.id
+                ) {
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            lyrics = lyrics
+                        )
+                    }
+                }
+            }
+    }
+
+    fun attach(
+        uri: Uri
+    ) {
+        val target =
+            song ?: return
+
+        loadJob?.cancel()
+
+        _state.update {
+            it.copy(
+                loading = true
+            )
+        }
+
+        loadJob =
+            viewModelScope.launch {
+                val lyrics =
+                    repository.attach(
+                        songId =
+                            target.id,
+                        uri =
+                            uri
+                    )
+
+                if (
+                    song?.id ==
+                    target.id
+                ) {
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            lyrics =
+                                lyrics
+                        )
+                    }
+                }
+            }
+    }
+
+    fun openFullscreen() {
+        if (
+            _state.value
+                .lyrics != null
+        ) {
+            _state.update {
+                it.copy(
+                    fullscreen = true
+                )
+            }
+        }
+    }
+
+    fun closeFullscreen() {
+        _state.update {
+            it.copy(
+                fullscreen = false
+            )
+        }
+    }
+}
