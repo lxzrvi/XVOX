@@ -1,7 +1,6 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredWidth
@@ -21,6 +20,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.RecentArtworkSize
 import com.xvox.music.features.home.SongArtwork
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -28,15 +28,22 @@ fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
     currentIndex: Int,
     navigationRequest: Int,
-    onVisualSong: (Song) -> Unit,
+    enabled: Boolean,
+    onSwipePalette: (
+        Song,
+        Song?,
+        Float
+    ) -> Unit,
     onSettledPage: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (queue.isEmpty()) return
 
     val safeIndex =
-        currentIndex
-            .coerceIn(0, queue.lastIndex)
+        currentIndex.coerceIn(
+            0,
+            queue.lastIndex
+        )
 
     val configuration =
         LocalConfiguration.current
@@ -45,27 +52,39 @@ fun XvoxNowPlayingArtworkPager(
         configuration.screenWidthDp.dp
 
     val artworkWidth =
-        (configuration.screenWidthDp.dp - 24.dp)
+        (screenWidth - 24.dp)
             .coerceAtLeast(1.dp)
 
     val pagerState =
         rememberPagerState(
             initialPage = safeIndex,
-            pageCount = { queue.size }
+            pageCount = {
+                queue.size
+            }
         )
 
-    LaunchedEffect(currentIndex, queue.size) {
+    LaunchedEffect(
+        currentIndex,
+        queue.size
+    ) {
         if (
             !pagerState.isScrollInProgress &&
             currentIndex in queue.indices &&
             pagerState.settledPage != currentIndex
         ) {
-            pagerState.scrollToPage(currentIndex)
+            pagerState.scrollToPage(
+                currentIndex
+            )
         }
     }
 
-    LaunchedEffect(navigationRequest) {
-        if (navigationRequest == 0) return@LaunchedEffect
+    LaunchedEffect(
+        navigationRequest
+    ) {
+        if (
+            navigationRequest == 0 ||
+            !enabled
+        ) return@LaunchedEffect
 
         val target =
             if (navigationRequest > 0) {
@@ -77,22 +96,52 @@ fun XvoxNowPlayingArtworkPager(
             }
 
         if (target != pagerState.settledPage) {
-            pagerState.animateScrollToPage(target)
+            pagerState.animateScrollToPage(
+                target
+            )
         }
     }
 
-    LaunchedEffect(pagerState, queue) {
+    LaunchedEffect(
+        pagerState,
+        queue
+    ) {
         snapshotFlow {
-            pagerState.currentPage
+            val current = pagerState.currentPage
+            val fraction =
+                pagerState.currentPageOffsetFraction
+
+            current to fraction
         }
-            .distinctUntilChanged()
-            .collect { page ->
-                queue.getOrNull(page)
-                    ?.let(onVisualSong)
+            .collect { (page, fraction) ->
+                val base =
+                    queue.getOrNull(page)
+                        ?: return@collect
+
+                val adjacent =
+                    when {
+                        fraction > 0f ->
+                            queue.getOrNull(page + 1)
+
+                        fraction < 0f ->
+                            queue.getOrNull(page - 1)
+
+                        else -> null
+                    }
+
+                onSwipePalette(
+                    base,
+                    adjacent,
+                    abs(fraction)
+                        .coerceIn(0f, 1f)
+                )
             }
     }
 
-    LaunchedEffect(pagerState, queue) {
+    LaunchedEffect(
+        pagerState,
+        queue
+    ) {
         snapshotFlow {
             pagerState.isScrollInProgress to
                 pagerState.settledPage
@@ -101,13 +150,10 @@ fun XvoxNowPlayingArtworkPager(
             .collect { (scrolling, page) ->
                 if (
                     !scrolling &&
-                    page in queue.indices
+                    page in queue.indices &&
+                    page != currentIndex
                 ) {
-                    onVisualSong(queue[page])
-
-                    if (page != currentIndex) {
-                        onSettledPage(page)
-                    }
+                    onSettledPage(page)
                 }
             }
     }
@@ -118,18 +164,21 @@ fun XvoxNowPlayingArtworkPager(
     ) {
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = enabled,
             modifier = Modifier
                 .requiredWidth(screenWidth)
                 .fillMaxSize(),
-            pageSize = PageSize.Fixed(artworkWidth),
+            pageSize =
+                PageSize.Fixed(artworkWidth),
             pageSpacing = 24.dp,
-            snapPosition = SnapPosition.Center,
             beyondViewportPageCount = 1,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment =
+                Alignment.CenterVertically
         ) { page ->
             ArtworkPage(
                 song = queue[page],
-                modifier = Modifier.fillMaxSize()
+                modifier =
+                    Modifier.fillMaxSize()
             )
         }
     }
@@ -141,9 +190,10 @@ private fun ArtworkPage(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier.clip(
-            RoundedCornerShape(20.dp)
-        )
+        modifier =
+            modifier.clip(
+                RoundedCornerShape(20.dp)
+            )
     ) {
         SongArtwork(
             artwork = song.artworkUri,
