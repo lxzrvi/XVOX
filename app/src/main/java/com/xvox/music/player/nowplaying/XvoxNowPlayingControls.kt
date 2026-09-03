@@ -41,20 +41,24 @@ fun XvoxNowPlayingControls(
                 20,
                 onShuffle
             )
+
             BareControl(
                 R.drawable.ic_xvox_skip_previous,
                 25,
                 onPrevious
             )
+
             PlayControl(
-                isPlaying,
-                onTogglePlay
+                isPlaying = isPlaying,
+                onClick = onTogglePlay
             )
+
             BareControl(
                 R.drawable.ic_xvox_skip_next,
                 25,
                 onNext
             )
+
             BareControl(
                 R.drawable.ic_xvox_repeat,
                 20,
@@ -130,7 +134,8 @@ private fun BareControl(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
             painter =
@@ -153,18 +158,22 @@ private fun PlayControl(
     val darkMode =
         colors.background.luminance() < 0.5f
 
-    val circle =
+    val circleColor =
         if (darkMode) {
-            Color.Black.copy(alpha = 0.22f)
+            Color.Black.copy(
+                alpha = 0.22f
+            )
         } else {
-            Color.White.copy(alpha = 0.70f)
+            colors.card.copy(
+                alpha = 0.25f
+            )
         }
 
     Box(
         modifier = Modifier
             .size(56.dp)
             .background(
-                circle,
+                circleColor,
                 CircleShape
             )
             .clickable(
@@ -175,20 +184,24 @@ private fun PlayControl(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
             painter =
                 painterResource(
                     if (isPlaying) {
-                        R.drawable.ic_xvox_pause
+                        R.drawable
+                            .ic_xvox_pause
                     } else {
-                        R.drawable.ic_xvox_play
+                        R.drawable
+                            .ic_xvox_play
                     }
                 ),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier = Modifier.size(25.dp)
+            modifier =
+                Modifier.size(25.dp)
         )
     }
 }
