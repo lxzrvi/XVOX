@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.RecentArtworkSize
 import com.xvox.music.features.home.SongArtwork
