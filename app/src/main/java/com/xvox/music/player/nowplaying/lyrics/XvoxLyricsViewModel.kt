@@ -28,17 +28,17 @@ class XvoxLyricsViewModel(
         StateFlow<XvoxLyricsUiState> =
         _state.asStateFlow()
 
-    private var song: Song? = null
+    private var currentSong: Song? = null
     private var loadJob: Job? = null
 
     fun load(
-        newSong: Song
+        song: Song
     ) {
-        if (song?.id == newSong.id) {
+        if (currentSong?.id == song.id) {
             return
         }
 
-        song = newSong
+        currentSong = song
         loadJob?.cancel()
 
         val fullscreen =
@@ -53,13 +53,11 @@ class XvoxLyricsViewModel(
         loadJob =
             viewModelScope.launch {
                 val lyrics =
-                    repository.load(
-                        newSong
-                    )
+                    repository.load(song)
 
                 if (
-                    song?.id ==
-                    newSong.id
+                    currentSong?.id ==
+                    song.id
                 ) {
                     _state.update {
                         it.copy(
@@ -74,28 +72,26 @@ class XvoxLyricsViewModel(
     fun attach(
         uri: Uri
     ) {
-        val target =
-            song ?: return
+        val song =
+            currentSong ?: return
 
         loadJob?.cancel()
 
         _state.update {
-            it.copy(
-                loading = true
-            )
+            it.copy(loading = true)
         }
 
         loadJob =
             viewModelScope.launch {
                 val lyrics =
                     repository.attach(
-                        songId = target.id,
-                        uri = uri
+                        song.id,
+                        uri
                     )
 
                 if (
-                    song?.id ==
-                    target.id
+                    currentSong?.id ==
+                    song.id
                 ) {
                     _state.update {
                         it.copy(
@@ -107,19 +103,56 @@ class XvoxLyricsViewModel(
             }
     }
 
+    fun removeCustom() {
+        val song =
+            currentSong ?: return
+
+        val source =
+            _state.value
+                .lyrics
+                ?.source
+
+        if (
+            source != XvoxLyricsSource.USER_LRC &&
+            source != XvoxLyricsSource.USER_TEXT
+        ) {
+            return
+        }
+
+        loadJob?.cancel()
+
+        _state.update {
+            it.copy(loading = true)
+        }
+
+        loadJob =
+            viewModelScope.launch {
+                val fallback =
+                    repository.removeCustom(song)
+
+                if (
+                    currentSong?.id ==
+                    song.id
+                ) {
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            lyrics = fallback
+                        )
+                    }
+                }
+            }
+    }
+
     fun openFullscreen() {
         _state.update {
-            it.copy(
-                fullscreen = true
-            )
+            it.copy(fullscreen = true)
         }
     }
 
     fun closeFullscreen() {
         _state.update {
-            it.copy(
-                fullscreen = false
-            )
+            it.copy(fullscreen = false)
         }
     }
 }
