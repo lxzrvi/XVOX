@@ -139,7 +139,8 @@ fun XvoxNowPlaying(
                 animation.animateTo(
                     target,
                     tween(
-                        durationMillis = durationMs,
+                        durationMillis =
+                            durationMs,
                         easing =
                             XvoxNowPlayingMotion.easing
                     )
@@ -155,16 +156,16 @@ fun XvoxNowPlaying(
 
     fun dismiss() {
         if (dismissing) return
-
         dismissing = true
 
         animateScreen(
             target = screenHeight,
             durationMs =
-                XvoxNowPlayingMotion.exitDuration(
-                    screenY,
-                    screenHeight
-                ),
+                XvoxNowPlayingMotion
+                    .exitDuration(
+                        screenY,
+                        screenHeight
+                    ),
             finished = onClose
         )
     }
@@ -179,14 +180,13 @@ fun XvoxNowPlaying(
             }
 
         animateScreen(
-            target = 0f,
-            durationMs =
-                (
-                    XvoxNowPlayingMotion.FullDuration *
-                        fraction
-                    )
-                    .toInt()
-                    .coerceAtLeast(120)
+            0f,
+            (
+                XvoxNowPlayingMotion.FullDuration *
+                    fraction
+                )
+                .toInt()
+                .coerceAtLeast(120)
         )
     }
 
@@ -231,9 +231,8 @@ fun XvoxNowPlaying(
 
     LaunchedEffect(Unit) {
         animateScreen(
-            target = 0f,
-            durationMs =
-                XvoxNowPlayingMotion.FullDuration
+            0f,
+            XvoxNowPlayingMotion.FullDuration
         )
     }
 
@@ -269,9 +268,9 @@ fun XvoxNowPlaying(
             onSeek = onSeek,
             onClose =
                 lyricsViewModel::closeFullscreen,
-            modifier = Modifier.fillMaxSize()
+            modifier =
+                Modifier.fillMaxSize()
         )
-
         return
     }
 
@@ -489,8 +488,7 @@ fun XvoxNowPlaying(
                 XvoxNowPlayingControls(
                     isPlaying = isPlaying,
                     onShuffle = {},
-                    onPrevious =
-                        ::requestPrevious,
+                    onPrevious = ::requestPrevious,
                     onTogglePlay = onTogglePlay,
                     onNext = ::requestNext,
                     onRepeat = {},
@@ -499,7 +497,7 @@ fun XvoxNowPlaying(
                 )
 
                 Spacer(
-                    Modifier.size(44.dp)
+                    Modifier.size(29.dp)
                 )
 
                 Text(
@@ -508,8 +506,7 @@ fun XvoxNowPlaying(
                         colors.primaryText.copy(
                             alpha = 0.62f
                         ),
-                    fontFamily =
-                        XvoxLogoFont,
+                    fontFamily = XvoxLogoFont,
                     fontSize = 11.sp,
                     lineHeight = 13.sp,
                     letterSpacing = 1.4.sp,
@@ -543,9 +540,13 @@ private fun NowPlayingActions() {
                     colors.card.copy(
                         alpha = 0.20f
                     ),
-                    RoundedCornerShape(22.dp)
+                    RoundedCornerShape(
+                        22.dp
+                    )
                 )
-                .padding(horizontal = 3.dp),
+                .padding(
+                    horizontal = 3.dp
+                ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -573,7 +574,7 @@ private fun NowPlayingActions() {
         )
 
         NowPlayingCircleAction(
-            R.drawable.ic_xvox_heart_outline
+            R.drawable.ic_xvox_heart
         )
     }
 }
@@ -585,15 +586,18 @@ private fun NowPlayingActionIcon(
     val colors = XvoxTheme.colors
 
     Box(
-        modifier = Modifier.size(42.dp),
+        modifier =
+            Modifier.size(42.dp),
         contentAlignment =
             Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier = Modifier.size(19.dp)
+            modifier =
+                Modifier.size(19.dp)
         )
     }
 }
@@ -617,10 +621,12 @@ private fun NowPlayingCircleAction(
             Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier = Modifier.size(19.dp)
+            modifier =
+                Modifier.size(19.dp)
         )
     }
 }
