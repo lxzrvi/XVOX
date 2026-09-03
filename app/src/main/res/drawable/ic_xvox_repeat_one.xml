@@ -5,4 +5,5 @@
     <path android:pathData="M32,128A64,64,0,0,1,96,64H224" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="24" android:strokeLineCap="round" android:strokeLineJoin="round" />
     <path android:pathData="M 56,168 L 32,192 L 56,216" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="24" android:strokeLineCap="round" android:strokeLineJoin="round" />
     <path android:pathData="M224,128a64,64,0,0,1-64,64H32" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="24" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M 120,111.99 L 136,104 L 136,152" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="24" android:strokeLineCap="round" android:strokeLineJoin="round" />
 </vector>
