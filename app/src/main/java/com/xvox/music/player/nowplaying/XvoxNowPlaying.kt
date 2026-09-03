@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -353,7 +354,8 @@ fun XvoxNowPlaying(
                         start = 12.dp,
                         end = 12.dp,
                         bottom = 31.dp
-                    ),
+                    )
+                    .offset(y = (-15).dp),
                 contentAlignment =
                     Alignment.BottomCenter
             ) {
@@ -497,7 +499,7 @@ fun XvoxNowPlaying(
                 )
 
                 Spacer(
-                    Modifier.size(29.dp)
+                    Modifier.size(24.dp)
                 )
 
                 Text(
@@ -540,13 +542,9 @@ private fun NowPlayingActions() {
                     colors.card.copy(
                         alpha = 0.20f
                     ),
-                    RoundedCornerShape(
-                        22.dp
-                    )
+                    RoundedCornerShape(22.dp)
                 )
-                .padding(
-                    horizontal = 3.dp
-                ),
+                .padding(horizontal = 3.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
