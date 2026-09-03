@@ -47,21 +47,15 @@ fun XvoxNowPlayingArtworkPager(
         )
 
     val latestCurrentIndex =
-        rememberUpdatedState(
-            currentIndex
-        )
+        rememberUpdatedState(currentIndex)
 
     val latestOnSettledPage =
-        rememberUpdatedState(
-            onSettledPage
-        )
+        rememberUpdatedState(onSettledPage)
 
     val pagerState =
         rememberPagerState(
             initialPage = safeIndex,
-            pageCount = {
-                queue.size
-            }
+            pageCount = { queue.size }
         )
 
     LaunchedEffect(
@@ -71,8 +65,7 @@ fun XvoxNowPlayingArtworkPager(
         if (
             !pagerState.isScrollInProgress &&
             currentIndex in queue.indices &&
-            pagerState.settledPage !=
-            currentIndex
+            pagerState.settledPage != currentIndex
         ) {
             pagerState.scrollToPage(
                 currentIndex
@@ -80,37 +73,22 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    LaunchedEffect(
-        navigationRequest
-    ) {
+    LaunchedEffect(navigationRequest) {
         if (navigationRequest == 0) {
             return@LaunchedEffect
         }
 
         val target =
             if (navigationRequest > 0) {
-                (
-                    pagerState.settledPage +
-                        1
-                    )
-                    .coerceAtMost(
-                        queue.lastIndex
-                    )
+                (pagerState.settledPage + 1)
+                    .coerceAtMost(queue.lastIndex)
             } else {
-                (
-                    pagerState.settledPage -
-                        1
-                    )
+                (pagerState.settledPage - 1)
                     .coerceAtLeast(0)
             }
 
-        if (
-            target !=
-            pagerState.settledPage
-        ) {
-            pagerState.animateScrollToPage(
-                target
-            )
+        if (target != pagerState.settledPage) {
+            pagerState.animateScrollToPage(target)
         }
     }
 
@@ -120,42 +98,30 @@ fun XvoxNowPlayingArtworkPager(
     ) {
         snapshotFlow {
             pagerState.currentPage to
-                pagerState
-                    .currentPageOffsetFraction
+                pagerState.currentPageOffsetFraction
+        }.collect { (page, fraction) ->
+            val base =
+                queue.getOrNull(page)
+                    ?: return@collect
+
+            val adjacent =
+                when {
+                    fraction > 0f ->
+                        queue.getOrNull(page + 1)
+
+                    fraction < 0f ->
+                        queue.getOrNull(page - 1)
+
+                    else -> null
+                }
+
+            onSwipePalette(
+                base,
+                adjacent,
+                abs(fraction)
+                    .coerceIn(0f, 1f)
+            )
         }
-            .collect {
-                (page, fraction) ->
-
-                val base =
-                    queue.getOrNull(page)
-                        ?: return@collect
-
-                val adjacent =
-                    when {
-                        fraction > 0f ->
-                            queue.getOrNull(
-                                page + 1
-                            )
-
-                        fraction < 0f ->
-                            queue.getOrNull(
-                                page - 1
-                            )
-
-                        else ->
-                            null
-                    }
-
-                onSwipePalette(
-                    base,
-                    adjacent,
-                    abs(fraction)
-                        .coerceIn(
-                            0f,
-                            1f
-                        )
-                )
-            }
     }
 
     LaunchedEffect(
@@ -164,11 +130,8 @@ fun XvoxNowPlayingArtworkPager(
     ) {
         snapshotFlow {
             if (
-                pagerState
-                    .isScrollInProgress ||
-                pagerState
-                    .currentPageOffsetFraction !=
-                0f
+                pagerState.isScrollInProgress ||
+                pagerState.currentPageOffsetFraction != 0f
             ) {
                 null
             } else {
@@ -176,45 +139,35 @@ fun XvoxNowPlayingArtworkPager(
             }
         }
             .distinctUntilChanged()
-            .collect {
-                page ->
-
+            .collect { page ->
                 if (
                     page != null &&
                     page in queue.indices &&
-                    page !=
-                    latestCurrentIndex.value
+                    page != latestCurrentIndex.value
                 ) {
-                    latestOnSettledPage
-                        .value(page)
+                    latestOnSettledPage.value(page)
                 }
             }
     }
 
     HorizontalPager(
         state = pagerState,
-        modifier =
-            modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         pageSize = PageSize.Fill,
+        pageSpacing = 14.dp,
         beyondViewportPageCount = 1,
         verticalAlignment =
             Alignment.CenterVertically
-    ) {
-        page ->
-
+    ) { page ->
         Box(
-            modifier =
-                Modifier.fillMaxSize(),
-            contentAlignment =
-                Alignment.Center
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(
-                        RoundedCornerShape(
-                            20.dp
-                        )
+                        RoundedCornerShape(20.dp)
                     )
                     .pointerInput(
                         queue[page].id
@@ -233,8 +186,7 @@ fun XvoxNowPlayingArtworkPager(
             ) {
                 SongArtwork(
                     artwork =
-                        queue[page]
-                            .artworkUri,
+                        queue[page].artworkUri,
                     requestSize =
                         RecentArtworkSize,
                     modifier =
