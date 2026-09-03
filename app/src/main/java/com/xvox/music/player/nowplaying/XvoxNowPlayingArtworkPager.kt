@@ -1,468 +1,154 @@
 package com.xvox.music.player.nowplaying
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.RecentArtworkSize
 import com.xvox.music.features.home.SongArtwork
-import kotlinx.coroutines.launch
-import kotlin.math.abs
+import kotlinx.coroutines.flow.distinctUntilChanged
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
     currentIndex: Int,
     navigationRequest: Int,
-    onSwipeProgress:
-        (
-            Song?,
-            Float
-        ) -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
+    onVisualSong: (Song) -> Unit,
+    onSettledPage: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val current =
-        queue.getOrNull(
-            currentIndex
-        ) ?: return
+    if (queue.isEmpty()) return
 
-    val previous =
-        queue.getOrNull(
-            currentIndex - 1
-        )
+    val safeIndex =
+        currentIndex
+            .coerceIn(0, queue.lastIndex)
 
-    val next =
-        queue.getOrNull(
-            currentIndex + 1
-        )
-
-    val density =
-        LocalDensity.current
-
-    val scope =
-        rememberCoroutineScope()
+    val configuration =
+        LocalConfiguration.current
 
     val screenWidth =
-        with(density) {
-            LocalConfiguration.current
-                .screenWidthDp.dp
-                .toPx()
-        }
+        configuration.screenWidthDp.dp
 
-    var dragX by remember(
-        current.id
-    ) {
-        mutableFloatStateOf(
-            0f
+    val artworkWidth =
+        (configuration.screenWidthDp.dp - 24.dp)
+            .coerceAtLeast(1.dp)
+
+    val pagerState =
+        rememberPagerState(
+            initialPage = safeIndex,
+            pageCount = { queue.size }
         )
+
+    LaunchedEffect(currentIndex, queue.size) {
+        if (
+            !pagerState.isScrollInProgress &&
+            currentIndex in queue.indices &&
+            pagerState.settledPage != currentIndex
+        ) {
+            pagerState.scrollToPage(currentIndex)
+        }
     }
 
-    val settle =
-        remember(
-            current.id
-        ) {
-            Animatable(
-                0f
-            )
-        }
+    LaunchedEffect(navigationRequest) {
+        if (navigationRequest == 0) return@LaunchedEffect
 
-    val translation =
-        dragX +
-            settle.value
-
-    /*
-     * Positive request = Next.
-     * Negative request = Previous.
-     *
-     * 0 means no button navigation request.
-     */
-    LaunchedEffect(
-        navigationRequest
-    ) {
-        when {
-            navigationRequest >
-                0 &&
-                next != null -> {
-
-                onSwipeProgress(
-                    next,
-                    0f
-                )
-
-                settle.snapTo(
-                    0f
-                )
-
-                settle.animateTo(
-                    -screenWidth,
-                    XvoxNowPlayingMotion
-                        .returnToRest
-                ) {
-                    onSwipeProgress(
-                        next,
-                        (
-                            abs(value) /
-                                screenWidth
-                            )
-                            .coerceIn(
-                                0f,
-                                1f
-                            )
-                    )
-                }
-
-                onNext()
+        val target =
+            if (navigationRequest > 0) {
+                (pagerState.settledPage + 1)
+                    .coerceAtMost(queue.lastIndex)
+            } else {
+                (pagerState.settledPage - 1)
+                    .coerceAtLeast(0)
             }
 
-            navigationRequest <
-                0 &&
-                previous != null -> {
-
-                onSwipeProgress(
-                    previous,
-                    0f
-                )
-
-                settle.snapTo(
-                    0f
-                )
-
-                settle.animateTo(
-                    screenWidth,
-                    XvoxNowPlayingMotion
-                        .returnToRest
-                ) {
-                    onSwipeProgress(
-                        previous,
-                        (
-                            abs(value) /
-                                screenWidth
-                            )
-                            .coerceIn(
-                                0f,
-                                1f
-                            )
-                    )
-                }
-
-                onPrevious()
-            }
+        if (target != pagerState.settledPage) {
+            pagerState.animateScrollToPage(target)
         }
+    }
+
+    LaunchedEffect(pagerState, queue) {
+        snapshotFlow {
+            pagerState.currentPage
+        }
+            .distinctUntilChanged()
+            .collect { page ->
+                queue.getOrNull(page)
+                    ?.let(onVisualSong)
+            }
+    }
+
+    LaunchedEffect(pagerState, queue) {
+        snapshotFlow {
+            pagerState.isScrollInProgress to
+                pagerState.settledPage
+        }
+            .distinctUntilChanged()
+            .collect { (scrolling, page) ->
+                if (
+                    !scrolling &&
+                    page in queue.indices
+                ) {
+                    onVisualSong(queue[page])
+
+                    if (page != currentIndex) {
+                        onSettledPage(page)
+                    }
+                }
+            }
     }
 
     Box(
-        modifier = modifier
-            .pointerInput(
-                current.id,
-                previous?.id,
-                next?.id
-            ) {
-                detectHorizontalDragGestures(
-                    onDragStart = {
-                        dragX =
-                            0f
-
-                        onSwipeProgress(
-                            null,
-                            0f
-                        )
-                    },
-
-                    onHorizontalDrag = {
-                        change,
-                        amount ->
-
-                        change.consume()
-
-                        val candidate =
-                            dragX +
-                                amount
-
-                        dragX =
-                            when {
-                                candidate >
-                                    0f &&
-                                    previous ==
-                                    null -> {
-
-                                    candidate *
-                                        0.18f
-                                }
-
-                                candidate <
-                                    0f &&
-                                    next ==
-                                    null -> {
-
-                                    candidate *
-                                        0.18f
-                                }
-
-                                else ->
-                                    candidate
-                            }
-
-                        val adjacent =
-                            if (
-                                dragX <
-                                0f
-                            ) {
-                                next
-                            } else {
-                                previous
-                            }
-
-                        onSwipeProgress(
-                            adjacent,
-                            (
-                                abs(
-                                    dragX
-                                ) /
-                                    screenWidth
-                                )
-                                .coerceIn(
-                                    0f,
-                                    1f
-                                )
-                        )
-                    },
-
-                    onDragEnd = {
-                        val final =
-                            dragX
-
-                        dragX =
-                            0f
-
-                        when {
-                            final <=
-                                -XvoxNowPlayingMotion
-                                    .ArtworkSwipeThreshold &&
-                                next != null -> {
-
-                                scope.launch {
-                                    settle.snapTo(
-                                        final
-                                    )
-
-                                    settle.animateTo(
-                                        -screenWidth,
-                                        XvoxNowPlayingMotion
-                                            .returnToRest
-                                    ) {
-                                        onSwipeProgress(
-                                            next,
-                                            (
-                                                abs(
-                                                    value
-                                                ) /
-                                                    screenWidth
-                                                )
-                                                .coerceIn(
-                                                    0f,
-                                                    1f
-                                                )
-                                        )
-                                    }
-
-                                    onNext()
-                                }
-                            }
-
-                            final >=
-                                XvoxNowPlayingMotion
-                                    .ArtworkSwipeThreshold &&
-                                previous !=
-                                null -> {
-
-                                scope.launch {
-                                    settle.snapTo(
-                                        final
-                                    )
-
-                                    settle.animateTo(
-                                        screenWidth,
-                                        XvoxNowPlayingMotion
-                                            .returnToRest
-                                    ) {
-                                        onSwipeProgress(
-                                            previous,
-                                            (
-                                                abs(
-                                                    value
-                                                ) /
-                                                    screenWidth
-                                                )
-                                                .coerceIn(
-                                                    0f,
-                                                    1f
-                                                )
-                                        )
-                                    }
-
-                                    onPrevious()
-                                }
-                            }
-
-                            else -> {
-                                scope.launch {
-                                    settle.snapTo(
-                                        final
-                                    )
-
-                                    settle.animateTo(
-                                        0f,
-                                        XvoxNowPlayingMotion
-                                            .returnToRest
-                                    ) {
-                                        val adjacent =
-                                            if (
-                                                value <
-                                                0f
-                                            ) {
-                                                next
-                                            } else {
-                                                previous
-                                            }
-
-                                        onSwipeProgress(
-                                            adjacent,
-                                            (
-                                                abs(
-                                                    value
-                                                ) /
-                                                    screenWidth
-                                                )
-                                                .coerceIn(
-                                                    0f,
-                                                    1f
-                                                )
-                                        )
-                                    }
-
-                                    onSwipeProgress(
-                                        null,
-                                        0f
-                                    )
-                                }
-                            }
-                        }
-                    },
-
-                    onDragCancel = {
-                        val final =
-                            dragX
-
-                        dragX =
-                            0f
-
-                        scope.launch {
-                            settle.snapTo(
-                                final
-                            )
-
-                            settle.animateTo(
-                                0f,
-                                XvoxNowPlayingMotion
-                                    .returnToRest
-                            )
-
-                            onSwipeProgress(
-                                null,
-                                0f
-                            )
-                        }
-                    }
-                )
-            }
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        previous?.let {
-            song ->
-
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .requiredWidth(screenWidth)
+                .fillMaxSize(),
+            pageSize = PageSize.Fixed(artworkWidth),
+            pageSpacing = 24.dp,
+            snapPosition = SnapPosition.Center,
+            beyondViewportPageCount = 1,
+            verticalAlignment = Alignment.CenterVertically
+        ) { page ->
             ArtworkPage(
-                song =
-                    song,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            translationX =
-                                translation -
-                                    screenWidth
-                        }
+                song = queue[page],
+                modifier = Modifier.fillMaxSize()
             )
         }
-
-        next?.let {
-            song ->
-
-            ArtworkPage(
-                song =
-                    song,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            translationX =
-                                translation +
-                                    screenWidth
-                        }
-            )
-        }
-
-        ArtworkPage(
-            song =
-                current,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationX =
-                            translation
-                    }
-        )
     }
 }
 
 @Composable
 private fun ArtworkPage(
     song: Song,
-    modifier: Modifier =
-        Modifier
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier =
-            modifier.clip(
-                RoundedCornerShape(
-                    20.dp
-                )
-            )
+        modifier = modifier.clip(
+            RoundedCornerShape(20.dp)
+        )
     ) {
         SongArtwork(
-            artwork =
-                song.artworkUri,
-            requestSize =
-                RecentArtworkSize,
-            modifier =
-                Modifier.fillMaxSize()
+            artwork = song.artworkUri,
+            requestSize = RecentArtworkSize,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
