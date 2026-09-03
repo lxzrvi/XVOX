@@ -3,10 +3,11 @@ package com.xvox.music.player.nowplaying
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +30,7 @@ fun XvoxNowPlayingProgress(
             (
                 position.toFloat() /
                     duration.toFloat()
-                )
+            )
                 .coerceIn(
                     0f,
                     1f
@@ -38,7 +39,7 @@ fun XvoxNowPlayingProgress(
             0f
         }
 
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier =
             modifier.fillMaxWidth()
     ) {
@@ -46,12 +47,8 @@ fun XvoxNowPlayingProgress(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(18.dp)
-                .pointerInput(
-                    duration
-                ) {
-                    detectTapGestures {
-                        point ->
-
+                .pointerInput(duration) {
+                    detectTapGestures { point ->
                         if (
                             duration > 0L &&
                             size.width > 0
@@ -59,7 +56,7 @@ fun XvoxNowPlayingProgress(
                             val fraction =
                                 (
                                     point.x /
-                                        size.width
+                                        size.width.toFloat()
                                 )
                                     .coerceIn(
                                         0f,
@@ -68,13 +65,14 @@ fun XvoxNowPlayingProgress(
 
                             onSeek(
                                 (
-                                    duration *
-                                        fraction
-                                    )
+                                    duration.toDouble() *
+                                        fraction.toDouble()
+                                )
                                     .toLong()
                             )
                         }
-                    },
+                    }
+                },
             contentAlignment =
                 Alignment.CenterStart
         ) {
@@ -83,24 +81,33 @@ fun XvoxNowPlayingProgress(
                     .fillMaxWidth()
                     .height(3.dp)
                     .background(
-                        Color.White.copy(
-                            alpha = 0.15f
-                        ),
-                        CircleShape
+                        color =
+                            Color.White.copy(
+                                alpha = 0.15f
+                            ),
+                        shape =
+                            CircleShape
                     )
             )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(
-                        progress
-                    )
-                    .height(3.dp)
-                    .background(
-                        Color(0xFF1ED760),
-                        CircleShape
-                    )
-            )
+            if (progress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(
+                            fraction =
+                                progress
+                        )
+                        .height(3.dp)
+                        .background(
+                            color =
+                                Color(
+                                    0xFF1ED760
+                                ),
+                            shape =
+                                CircleShape
+                        )
+                )
+            }
         }
 
         Row(
@@ -118,10 +125,11 @@ fun XvoxNowPlayingProgress(
                     Color.White.copy(
                         alpha = 0.65f
                     ),
-                fontSize = 11.sp
+                fontSize =
+                    11.sp
             )
 
-            androidx.compose.foundation.layout.Spacer(
+            Spacer(
                 modifier =
                     Modifier.weight(1f)
             )
@@ -135,7 +143,8 @@ fun XvoxNowPlayingProgress(
                     Color.White.copy(
                         alpha = 0.65f
                     ),
-                fontSize = 11.sp
+                fontSize =
+                    11.sp
             )
         }
     }
@@ -150,18 +159,21 @@ private fun formatTime(
             1000L
 
     val minutes =
-        totalSeconds /
-            60L
+        totalSeconds / 60L
 
     val seconds =
-        totalSeconds %
-            60L
+        totalSeconds % 60L
 
-    return "$minutes:${
-        seconds.toString()
-            .padStart(
-                2,
-                '0'
-            )
-    }"
+    return buildString {
+        append(minutes)
+        append(':')
+        append(
+            seconds
+                .toString()
+                .padStart(
+                    length = 2,
+                    padChar = '0'
+                )
+        )
+    }
 }
