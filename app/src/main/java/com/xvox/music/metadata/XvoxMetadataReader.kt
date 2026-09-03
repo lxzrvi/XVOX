@@ -24,18 +24,15 @@ class XvoxMetadataReader(
         uri: Uri
     ): SongMetadata =
         withContext(Dispatchers.IO) {
-            val androidMetadata =
+            val android =
                 readAndroidMetadata(uri)
 
-            val deepMetadata =
+            val deep =
                 runCatching {
                     readDeepMetadata(uri)
                 }.getOrNull()
 
-            merge(
-                androidMetadata,
-                deepMetadata
-            )
+            merge(android, deep)
         }
 
     private fun readAndroidMetadata(
@@ -112,9 +109,7 @@ class XvoxMetadataReader(
     ): String? =
         extractMetadata(key)
             ?.trim()
-            ?.takeIf {
-                it.isNotEmpty()
-            }
+            ?.takeIf { it.isNotEmpty() }
 
     private fun readDeepMetadata(
         uri: Uri
@@ -132,18 +127,14 @@ class XvoxMetadataReader(
 
             SongMetadata(
                 uri = uri,
-                title =
-                    tag?.field(FieldKey.TITLE),
-                artist =
-                    tag?.field(FieldKey.ARTIST),
-                album =
-                    tag?.field(FieldKey.ALBUM),
+                title = tag?.field(FieldKey.TITLE),
+                artist = tag?.field(FieldKey.ARTIST),
+                album = tag?.field(FieldKey.ALBUM),
                 albumArtist =
                     tag?.field(FieldKey.ALBUM_ARTIST),
                 composer =
                     tag?.field(FieldKey.COMPOSER),
-                genre =
-                    tag?.field(FieldKey.GENRE),
+                genre = tag?.field(FieldKey.GENRE),
                 year =
                     tag?.field(FieldKey.YEAR)
                         ?.take(4)
@@ -166,8 +157,7 @@ class XvoxMetadataReader(
                 sampleRate =
                     header?.sampleRateAsNumber
                         ?.toInt(),
-                lyrics =
-                    tag?.readLyrics(),
+                lyrics = tag?.readLyrics(),
                 comment =
                     tag?.field(FieldKey.COMMENT)
             )
@@ -181,77 +171,107 @@ class XvoxMetadataReader(
             return it
         }
 
-        val candidates =
+        val matches =
+            listOf(
+                "USLT",
+                "SYLT",
+                "LYRICS",
+                "UNSYNCEDLYRICS",
+                "UNSYNCED LYRICS",
+                "©LYR",
+                "\u00A9LYR",
+                "LYRIC",
+                "UNSYNCED_LYRICS"
+            )
+
+        val fields =
             runCatching {
-                fields.asSequence()
-                    .mapNotNull { field ->
-                        val id =
-                            runCatching {
-                                field.id
-                            }.getOrNull()
-                                ?.uppercase()
-                                .orEmpty()
+                fields.asSequence().toList()
+            }.getOrDefault(emptyList())
 
-                        val relevant =
-                            id.contains("LYRIC") ||
-                                id.contains("USLT") ||
-                                id.contains("SYLT") ||
-                                id.contains("UNSYNC") ||
-                                id == "©LYR"
+        for (field in fields) {
+            val id =
+                runCatching {
+                    field.id
+                }
+                    .getOrNull()
+                    ?.uppercase()
+                    .orEmpty()
 
-                        if (!relevant) {
-                            null
-                        } else {
-                            cleanNativeField(
-                                field.toString()
-                            )
-                        }
-                    }
-                    .firstOrNull {
-                        !it.isNullOrBlank()
-                    }
-            }.getOrNull()
+            val relevant =
+                matches.any {
+                    candidate ->
+                    id == candidate ||
+                        id.contains(candidate)
+                } ||
+                    id.contains("LYRIC") ||
+                    id.contains("USLT") ||
+                    id.contains("SYLT")
 
-        return candidates
-            ?.trim()
-            ?.takeIf {
-                it.isNotEmpty()
+            if (!relevant) continue
+
+            val text =
+                extractNativeLyrics(
+                    field.toString()
+                )
+
+            if (!text.isNullOrBlank()) {
+                return text
             }
+        }
+
+        return null
     }
 
-    private fun cleanNativeField(
+    private fun extractNativeLyrics(
         raw: String
-    ): String {
-        val value =
-            raw.trim()
+    ): String? {
+        var text = raw.trim()
+
+        if (text.isBlank()) return null
 
         val markers =
             listOf(
-                "Description:",
+                "Text=",
+                "Text:",
+                "Lyrics=",
                 "Lyrics:",
-                "Text:"
+                "Content=",
+                "Content:"
             )
 
         for (marker in markers) {
             val index =
-                value.indexOf(
+                text.indexOf(
                     marker,
                     ignoreCase = true
                 )
 
             if (index >= 0) {
-                val extracted =
-                    value.substring(
+                val candidate =
+                    text.substring(
                         index + marker.length
                     ).trim()
 
-                if (extracted.isNotEmpty()) {
-                    return extracted
+                if (candidate.isNotBlank()) {
+                    text = candidate
+                    break
                 }
             }
         }
 
-        return value
+        text =
+            text.replace(
+                "\\n",
+                "\n"
+            ).replace(
+                "\\r",
+                "\n"
+            ).trim()
+
+        return text.takeIf {
+            it.isNotBlank()
+        }
     }
 
     private fun createTemporaryAudioFile(
@@ -260,7 +280,8 @@ class XvoxMetadataReader(
         val extension =
             when (resolver.getType(uri)) {
                 "audio/mpeg" -> ".mp3"
-                "audio/flac" -> ".flac"
+                "audio/flac",
+                "audio/x-flac" -> ".flac"
 
                 "audio/mp4",
                 "audio/m4a",
@@ -269,12 +290,13 @@ class XvoxMetadataReader(
                 "audio/ogg",
                 "application/ogg" -> ".ogg"
 
-                "audio/opus" -> ".opus"
+                "audio/opus",
+                "audio/ogg; codecs=opus" -> ".opus"
 
                 "audio/wav",
                 "audio/x-wav" -> ".wav"
 
-                else -> ".audio"
+                else -> extensionFromUri(uri)
             }
 
         val temp =
@@ -308,6 +330,33 @@ class XvoxMetadataReader(
         }
     }
 
+    private fun extensionFromUri(
+        uri: Uri
+    ): String {
+        val path =
+            uri.lastPathSegment
+                .orEmpty()
+
+        val extension =
+            path.substringAfterLast(
+                '.',
+                ""
+            )
+                .lowercase()
+
+        return when (extension) {
+            "mp3",
+            "flac",
+            "m4a",
+            "mp4",
+            "ogg",
+            "opus",
+            "wav" -> ".$extension"
+
+            else -> ".mp3"
+        }
+    }
+
     private fun Tag.field(
         key: FieldKey
     ): String? =
@@ -316,9 +365,7 @@ class XvoxMetadataReader(
         }
             .getOrNull()
             ?.trim()
-            ?.takeIf {
-                it.isNotEmpty()
-            }
+            ?.takeIf { it.isNotEmpty() }
 
     private fun merge(
         primary: SongMetadata,
@@ -331,26 +378,20 @@ class XvoxMetadataReader(
             title = deep.title ?: primary.title,
             artist =
                 deep.artist ?: primary.artist,
-            album =
-                deep.album ?: primary.album,
+            album = deep.album ?: primary.album,
             albumArtist =
                 deep.albumArtist
                     ?: primary.albumArtist,
             composer =
-                deep.composer
-                    ?: primary.composer,
-            genre =
-                deep.genre ?: primary.genre,
-            year =
-                deep.year ?: primary.year,
+                deep.composer ?: primary.composer,
+            genre = deep.genre ?: primary.genre,
+            year = deep.year ?: primary.year,
             trackNumber = deep.trackNumber,
             discNumber = deep.discNumber,
             duration =
-                primary.duration
-                    ?: deep.duration,
+                primary.duration ?: deep.duration,
             bitrate =
-                primary.bitrate
-                    ?: deep.bitrate,
+                primary.bitrate ?: deep.bitrate,
             sampleRate = deep.sampleRate,
             lyrics = deep.lyrics,
             comment = deep.comment,
