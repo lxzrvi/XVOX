@@ -8,12 +8,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -32,20 +31,25 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun XvoxArtworkLyrics(
     state: XvoxLyricsUiState,
     position: Long,
+    onSeek: (Long) -> Unit,
     onAttach: (Uri) -> Unit,
+    onDelete: () -> Unit,
     onClose: () -> Unit,
     onFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
+    val custom =
+        state.lyrics?.source ==
+            XvoxLyricsSource.USER_LRC ||
+            state.lyrics?.source ==
+            XvoxLyricsSource.USER_TEXT
+
     val launcher =
         rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .OpenDocument()
-        ) {
-            uri ->
-
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
             uri?.let(onAttach)
         }
 
@@ -62,53 +66,16 @@ fun XvoxArtworkLyrics(
                     onDrag = {
                             change,
                             _ ->
-
                         change.consume()
                     }
                 )
             }
     ) {
-        Row(
-            modifier = Modifier
-                .align(
-                    Alignment.TopEnd
-                )
-                .padding(9.dp)
-                .height(42.dp)
-                .background(
-                    colors.card.copy(
-                        alpha = 0.20f
-                    ),
-                    RoundedCornerShape(
-                        22.dp
-                    )
-                )
-                .padding(
-                    horizontal = 3.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            LyricsAction(
-                R.drawable
-                    .ic_xvox_fullscreen,
-                onFullscreen
-            )
-
-            LyricsAction(
-                R.drawable
-                    .ic_xvox_close,
-                onClose
-            )
-        }
-
         when {
             state.loading -> {
                 Text(
-                    text =
-                        "Loading lyrics…",
-                    color =
-                        colors.secondaryText,
+                    text = "Loading lyrics…",
+                    color = colors.secondaryText,
                     fontSize = 12.sp,
                     modifier =
                         Modifier.align(
@@ -119,24 +86,24 @@ fun XvoxArtworkLyrics(
 
             state.lyrics != null -> {
                 XvoxSyncedLyrics(
-                    lyrics =
-                        state.lyrics,
-                    position =
-                        position,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            top = 50.dp,
-                            bottom = 18.dp
-                        )
+                    lyrics = state.lyrics,
+                    position = position,
+                    onSeek = onSeek,
+                    modifier =
+                        Modifier.fillMaxSize()
                 )
             }
 
             else -> {
-                Column(
+                Box(
                     modifier = Modifier
-                        .align(
-                            Alignment.Center
+                        .align(Alignment.Center)
+                        .size(54.dp)
+                        .background(
+                            colors.card.copy(
+                                alpha = 0.25f
+                            ),
+                            CircleShape
                         )
                         .clickable(
                             interactionSource =
@@ -148,67 +115,115 @@ fun XvoxArtworkLyrics(
                             launcher.launch(
                                 arrayOf("*/*")
                             )
-                        }
-                        .padding(20.dp),
-                    horizontalAlignment =
-                        Alignment.CenterHorizontally
+                        },
+                    contentAlignment =
+                        Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .background(
-                                colors.card.copy(
-                                    alpha = 0.20f
-                                ),
-                                RoundedCornerShape(
-                                    23.dp
-                                )
+                    Icon(
+                        painter =
+                            painterResource(
+                                R.drawable
+                                    .ic_xvox_lyrics_add
                             ),
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        Icon(
-                            painter =
-                                painterResource(
-                                    R.drawable
-                                        .ic_xvox_lyrics_add
-                                ),
-                            contentDescription =
-                                "Add lyrics",
-                            tint =
-                                colors.primaryText,
-                            modifier =
-                                Modifier.size(
-                                    22.dp
-                                )
-                        )
-                    }
-
-                    Text(
-                        text = "No lyrics",
-                        color =
-                            colors.primaryText,
-                        fontSize = 13.sp,
+                        contentDescription =
+                            "Add lyrics",
+                        tint = colors.primaryText,
                         modifier =
-                            Modifier.padding(
-                                top = 10.dp
-                            )
-                    )
-
-                    Text(
-                        text =
-                            "Add LRC or text",
-                        color =
-                            colors.secondaryText,
-                        fontSize = 10.sp,
-                        modifier =
-                            Modifier.padding(
-                                top = 3.dp
-                            )
+                            Modifier.size(23.dp)
                     )
                 }
             }
         }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(9.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            if (custom) {
+                LyricsCircle(
+                    resource =
+                        R.drawable.ic_xvox_close,
+                    description =
+                        "Remove custom lyrics",
+                    onClick = onDelete
+                )
+
+                androidx.compose.foundation.layout.Spacer(
+                    Modifier.size(7.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .background(
+                        colors.card.copy(
+                            alpha = 0.20f
+                        ),
+                        RoundedCornerShape(
+                            22.dp
+                        )
+                    )
+                    .padding(
+                        horizontal = 3.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                LyricsAction(
+                    R.drawable
+                        .ic_xvox_fullscreen,
+                    onFullscreen
+                )
+
+                LyricsAction(
+                    R.drawable
+                        .ic_xvox_close,
+                    onClose
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsCircle(
+    resource: Int,
+    description: String,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .background(
+                colors.card.copy(
+                    alpha = 0.20f
+                ),
+                CircleShape
+            )
+            .clickable(
+                interactionSource =
+                    remember {
+                        MutableInteractionSource()
+                    },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Icon(
+            painter =
+                painterResource(resource),
+            contentDescription =
+                description,
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
@@ -237,10 +252,8 @@ private fun LyricsAction(
             painter =
                 painterResource(resource),
             contentDescription = null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(18.dp)
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
