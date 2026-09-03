@@ -1,13 +1,11 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -15,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -32,44 +29,37 @@ fun XvoxNowPlayingControls(
     onRepeat: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
-
     Layout(
         modifier = modifier
             .fillMaxWidth()
             .height(62.dp),
         content = {
-            ControlButton(
+            BareControl(
                 R.drawable.ic_xvox_shuffle,
                 20,
                 onShuffle
             )
 
-            ControlButton(
+            BareControl(
                 R.drawable.ic_xvox_skip_previous,
-                24,
+                25,
                 onPrevious
             )
 
-            ControlButton(
-                if (isPlaying) {
-                    R.drawable.ic_xvox_pause
-                } else {
-                    R.drawable.ic_xvox_play
-                },
-                25,
-                onTogglePlay,
-                prominent = true
+            PlayControl(
+                isPlaying =
+                    isPlaying,
+                onClick =
+                    onTogglePlay
             )
 
-            ControlButton(
+            BareControl(
                 R.drawable.ic_xvox_skip_next,
-                24,
+                25,
                 onNext
             )
 
-            ControlButton(
+            BareControl(
                 R.drawable.ic_xvox_repeat,
                 20,
                 onRepeat
@@ -89,12 +79,6 @@ fun XvoxNowPlayingControls(
                 )
             }
 
-        val width =
-            constraints.maxWidth
-
-        val height =
-            constraints.maxHeight
-
         val centers =
             floatArrayOf(
                 0.15f,
@@ -105,30 +89,32 @@ fun XvoxNowPlayingControls(
             )
 
         layout(
-            width,
-            height
+            constraints.maxWidth,
+            constraints.maxHeight
         ) {
             placeables
                 .forEachIndexed {
                     index,
                     placeable ->
 
-                    val centerX =
-                        width *
-                            centers[index]
+                    val x =
+                        (
+                            constraints.maxWidth *
+                                centers[index] -
+                                placeable.width /
+                                2f
+                            )
+                            .toInt()
+
+                    val y =
+                        (
+                            constraints.maxHeight -
+                                placeable.height
+                            ) / 2
 
                     placeable.placeRelative(
-                        x =
-                            (
-                                centerX -
-                                    placeable.width /
-                                    2f
-                                ).toInt(),
-                        y =
-                            (
-                                height -
-                                    placeable.height
-                                ) / 2
+                        x,
+                        y
                     )
                 }
         }
@@ -136,40 +122,59 @@ fun XvoxNowPlayingControls(
 }
 
 @Composable
-private fun ControlButton(
+private fun BareControl(
     resource: Int,
     iconSize: Int,
-    onClick: () -> Unit,
-    prominent: Boolean = false
+    onClick: () -> Unit
 ) {
     val colors =
         XvoxTheme.colors
 
-    val buttonSize =
-        if (prominent) {
-            56.dp
-        } else {
-            42.dp
-        }
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clickable(
+                interactionSource =
+                    remember {
+                        MutableInteractionSource()
+                    },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Icon(
+            painter =
+                painterResource(
+                    resource
+                ),
+            contentDescription =
+                null,
+            tint =
+                colors.primaryText,
+            modifier =
+                Modifier.size(
+                    iconSize.dp
+                )
+        )
+    }
+}
+
+@Composable
+private fun PlayControl(
+    isPlaying: Boolean,
+    onClick: () -> Unit
+) {
+    val colors =
+        XvoxTheme.colors
 
     Box(
         modifier = Modifier
-            .size(buttonSize)
+            .size(56.dp)
             .background(
                 colors.card.copy(
-                    alpha =
-                        if (prominent) {
-                            0.58f
-                        } else {
-                            0.26f
-                        }
-                ),
-                CircleShape
-            )
-            .border(
-                0.65.dp,
-                Color.White.copy(
-                    alpha = 0.14f
+                    alpha = 0.58f
                 ),
                 CircleShape
             )
@@ -187,13 +192,21 @@ private fun ControlButton(
         Icon(
             painter =
                 painterResource(
-                    resource
+                    if (isPlaying) {
+                        R.drawable
+                            .ic_xvox_pause
+                    } else {
+                        R.drawable
+                            .ic_xvox_play
+                    }
                 ),
-            contentDescription = null,
-            tint = Color.White,
+            contentDescription =
+                null,
+            tint =
+                colors.primaryText,
             modifier =
                 Modifier.size(
-                    iconSize.dp
+                    25.dp
                 )
         )
     }
