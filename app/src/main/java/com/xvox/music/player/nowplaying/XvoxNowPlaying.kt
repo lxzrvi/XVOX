@@ -1,12 +1,7 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -73,16 +68,18 @@ fun XvoxNowPlaying(
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    lyricsViewModel: XvoxLyricsViewModel = viewModel()
+    lyricsViewModel:
+        XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val lyricsState by lyricsViewModel.state.collectAsState()
+    val lyricsState by
+        lyricsViewModel.state.collectAsState()
 
     val paletteState =
         rememberXvoxNowPlayingPalette(
-            song = song,
-            queue = queue,
-            currentIndex = currentIndex
+            song,
+            queue,
+            currentIndex
         )
 
     val density = LocalDensity.current
@@ -95,9 +92,10 @@ fun XvoxNowPlaying(
                 .toPx()
         }
 
-    val offset = remember {
-        Animatable(screenHeight)
-    }
+    val offset =
+        remember {
+            Animatable(screenHeight)
+        }
 
     var dragY by remember {
         mutableFloatStateOf(0f)
@@ -117,7 +115,10 @@ fun XvoxNowPlaying(
 
     val totalOffset =
         (offset.value + dragY)
-            .coerceAtLeast(0f)
+            .coerceIn(
+                0f,
+                screenHeight
+            )
 
     val dismissProgress =
         if (screenHeight > 0f) {
@@ -147,8 +148,10 @@ fun XvoxNowPlaying(
         dismissing = true
 
         scope.launch {
-            offset.snapTo(totalOffset)
+            val start = totalOffset
+
             dragY = 0f
+            offset.snapTo(start)
 
             offset.animateTo(
                 screenHeight,
@@ -159,10 +162,28 @@ fun XvoxNowPlaying(
         }
     }
 
+    fun returnToRest() {
+        scope.launch {
+            val start = totalOffset
+
+            dragY = 0f
+            offset.snapTo(start)
+
+            offset.animateTo(
+                0f,
+                XvoxNowPlayingMotion.returnToRest
+            )
+        }
+    }
+
     fun requestPrevious() {
         if (currentIndex > 0) {
             navigationRequest =
-                -(kotlin.math.abs(navigationRequest) + 1)
+                -(
+                    kotlin.math.abs(
+                        navigationRequest
+                    ) + 1
+                    )
         }
     }
 
@@ -172,7 +193,9 @@ fun XvoxNowPlaying(
             currentIndex < queue.lastIndex
         ) {
             navigationRequest =
-                kotlin.math.abs(navigationRequest) + 1
+                kotlin.math.abs(
+                    navigationRequest
+                ) + 1
         }
     }
 
@@ -189,27 +212,29 @@ fun XvoxNowPlaying(
         }
     }
 
-    if (
-        lyricsState.fullscreen &&
-        lyricsState.lyrics != null
-    ) {
-        XvoxFullscreenLyrics(
-            song = song,
-            lyrics = lyricsState.lyrics!!,
-            position = position,
-            duration = duration,
-            isPlaying = isPlaying,
-            backgroundColor = paletteState.color,
-            onPrevious = ::requestPrevious,
-            onTogglePlay = onTogglePlay,
-            onNext = ::requestNext,
-            onSeek = onSeek,
-            onClose =
-                lyricsViewModel::closeFullscreen,
-            modifier = Modifier.fillMaxSize()
-        )
+    if (lyricsState.fullscreen) {
+        val lyrics = lyricsState.lyrics
 
-        return
+        if (lyrics != null) {
+            XvoxFullscreenLyrics(
+                song = song,
+                lyrics = lyrics,
+                position = position,
+                duration = duration,
+                isPlaying = isPlaying,
+                backgroundColor =
+                    paletteState.color,
+                onPrevious = ::requestPrevious,
+                onTogglePlay = onTogglePlay,
+                onNext = ::requestNext,
+                onSeek = onSeek,
+                onClose =
+                    lyricsViewModel::closeFullscreen,
+                modifier =
+                    Modifier.fillMaxSize()
+            )
+            return
+        }
     }
 
     Box(
@@ -218,8 +243,11 @@ fun XvoxNowPlaying(
             .graphicsLayer {
                 translationY = totalOffset
                 shape =
-                    RoundedCornerShape(screenCorner)
-                clip = dismissProgress > 0f
+                    RoundedCornerShape(
+                        screenCorner
+                    )
+                clip =
+                    dismissProgress > 0f
             }
     ) {
         XvoxNowPlayingBackdrop(
@@ -242,9 +270,10 @@ fun XvoxNowPlaying(
                             onDragStart = {
                                 dragY = 0f
                             },
-                            onVerticalDrag = { change, amount ->
+                            onVerticalDrag = {
+                                    change,
+                                    amount ->
                                 change.consume()
-
                                 dragY =
                                     (dragY + amount)
                                         .coerceAtLeast(0f)
@@ -257,27 +286,11 @@ fun XvoxNowPlaying(
                                 ) {
                                     dismiss()
                                 } else {
-                                    scope.launch {
-                                        offset.snapTo(totalOffset)
-                                        dragY = 0f
-                                        offset.animateTo(
-                                            0f,
-                                            XvoxNowPlayingMotion
-                                                .returnToRest
-                                        )
-                                    }
+                                    returnToRest()
                                 }
                             },
                             onDragCancel = {
-                                scope.launch {
-                                    offset.snapTo(totalOffset)
-                                    dragY = 0f
-                                    offset.animateTo(
-                                        0f,
-                                        XvoxNowPlayingMotion
-                                            .returnToRest
-                                    )
-                                }
+                                returnToRest()
                             }
                         )
                     }
@@ -299,72 +312,69 @@ fun XvoxNowPlaying(
                         end = 12.dp,
                         bottom = 50.dp
                     ),
-                contentAlignment = Alignment.BottomCenter
+                contentAlignment =
+                    Alignment.BottomCenter
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
                 ) {
-                    AnimatedContent(
-                        targetState = showLyrics,
-                        transitionSpec = {
-                            fadeIn(tween(180))
-                                .togetherWith(
-                                    fadeOut(tween(150))
-                                )
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        label = "artworkLyrics"
-                    ) { lyricsVisible ->
-                        if (lyricsVisible) {
-                            XvoxArtworkLyrics(
-                                state = lyricsState,
-                                position = position,
-                                onAttach =
-                                    lyricsViewModel::attach,
-                                onClose = {
-                                    showLyrics = false
-                                },
-                                onFullscreen =
-                                    lyricsViewModel::openFullscreen,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(
-                                        RoundedCornerShape(20.dp)
-                                    )
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .pointerInput(song.id) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                showLyrics = true
-                                            }
-                                        )
-                                    }
-                            ) {
-                                XvoxNowPlayingArtworkPager(
-                                    queue = queue,
-                                    currentIndex = currentIndex,
-                                    navigationRequest =
-                                        navigationRequest,
-                                    onVisualSong = { visualSong ->
-                                        scope.launch {
-                                            paletteState.show(
-                                                visualSong
-                                            )
-                                        }
-                                    },
-                                    onSettledPage =
-                                        onPlayQueueIndex,
-                                    modifier =
-                                        Modifier.fillMaxSize()
+                    XvoxNowPlayingArtworkPager(
+                        queue = queue,
+                        currentIndex = currentIndex,
+                        navigationRequest =
+                            navigationRequest,
+                        enabled = !showLyrics,
+                        onSwipePalette = {
+                                base,
+                                adjacent,
+                                fraction ->
+                            scope.launch {
+                                paletteState.blend(
+                                    base,
+                                    adjacent,
+                                    fraction
                                 )
                             }
-                        }
+                        },
+                        onSettledPage =
+                            onPlayQueueIndex,
+                        modifier =
+                            Modifier.fillMaxSize()
+                    )
+
+                    if (showLyrics) {
+                        XvoxArtworkLyrics(
+                            state = lyricsState,
+                            position = position,
+                            onAttach =
+                                lyricsViewModel::attach,
+                            onClose = {
+                                showLyrics = false
+                            },
+                            onFullscreen =
+                                lyricsViewModel::openFullscreen,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(
+                                    RoundedCornerShape(
+                                        20.dp
+                                    )
+                                )
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(song.id) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            showLyrics = true
+                                        }
+                                    )
+                                }
+                        )
                     }
                 }
             }
@@ -390,13 +400,13 @@ fun XvoxNowPlaying(
                         start = 12.dp,
                         top = 12.dp,
                         end = 12.dp,
-                        bottom = 16.dp
+                        bottom = 6.dp
                     )
             ) {
                 NowPlayingActions()
 
                 Spacer(
-                    Modifier.size(18.dp)
+                    Modifier.size(22.dp)
                 )
 
                 Text(
@@ -404,9 +414,11 @@ fun XvoxNowPlaying(
                     color = colors.primaryText,
                     fontSize = 21.sp,
                     lineHeight = 25.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight =
+                        FontWeight.ExtraBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow =
+                        TextOverflow.Ellipsis
                 )
 
                 Text(
@@ -414,13 +426,15 @@ fun XvoxNowPlaying(
                     color = colors.secondaryText,
                     fontSize = 13.sp,
                     lineHeight = 17.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight =
+                        FontWeight.Medium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow =
+                        TextOverflow.Ellipsis
                 )
 
                 Spacer(
-                    Modifier.size(12.dp)
+                    Modifier.size(16.dp)
                 )
 
                 XvoxNowPlayingProgress(
@@ -430,7 +444,7 @@ fun XvoxNowPlaying(
                 )
 
                 Spacer(
-                    Modifier.size(8.dp)
+                    Modifier.size(12.dp)
                 )
 
                 XvoxNowPlayingControls(
@@ -440,11 +454,12 @@ fun XvoxNowPlaying(
                     onTogglePlay = onTogglePlay,
                     onNext = ::requestNext,
                     onRepeat = {},
-                    modifier = Modifier.fillMaxWidth()
+                    modifier =
+                        Modifier.fillMaxWidth()
                 )
 
                 Spacer(
-                    Modifier.size(10.dp)
+                    Modifier.size(20.dp)
                 )
 
                 Text(
@@ -457,13 +472,14 @@ fun XvoxNowPlaying(
                     fontSize = 11.sp,
                     lineHeight = 13.sp,
                     letterSpacing = 1.4.sp,
-                    modifier = Modifier.align(
-                        Alignment.CenterHorizontally
-                    )
+                    modifier =
+                        Modifier.align(
+                            Alignment.CenterHorizontally
+                        )
                 )
 
                 Spacer(
-                    Modifier.size(10.dp)
+                    Modifier.size(3.dp)
                 )
             }
         }
@@ -494,11 +510,9 @@ private fun NowPlayingActions() {
             NowPlayingActionIcon(
                 R.drawable.ic_xvox_timer
             )
-
             NowPlayingActionIcon(
                 R.drawable.ic_xvox_queue
             )
-
             NowPlayingActionIcon(
                 R.drawable.ic_xvox_info
             )
@@ -530,10 +544,12 @@ private fun NowPlayingActionIcon(
 
     Box(
         modifier = Modifier.size(42.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(19.dp)
@@ -551,13 +567,17 @@ private fun NowPlayingCircleAction(
         modifier = Modifier
             .size(42.dp)
             .background(
-                colors.card.copy(alpha = 0.20f),
+                colors.card.copy(
+                    alpha = 0.20f
+                ),
                 CircleShape
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(19.dp)
