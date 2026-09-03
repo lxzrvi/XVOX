@@ -1,6 +1,7 @@
 package com.xvox.music.player.nowplaying.lyrics
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -242,25 +243,25 @@ fun XvoxSyncedLyrics(
                     lyrics.synchronized &&
                         index == activeIndex
 
-                val targetColor =
-                    if (active) {
-                        Color.White
-                    } else {
-                        Color.White.copy(
-                            alpha =
-                                if (strongEdgeFade) {
-                                    0.58f
-                                } else {
-                                    0.68f
-                                }
-                        )
-                    }
-
                 val lineColor by
                     animateColorAsState(
-                        targetValue = targetColor,
+                        targetValue =
+                            if (active) {
+                                Color.White
+                            } else {
+                                Color.White.copy(
+                                    alpha =
+                                        if (
+                                            strongEdgeFade
+                                        ) {
+                                            0.58f
+                                        } else {
+                                            0.68f
+                                        }
+                                )
+                            },
                         animationSpec =
-                            tween(240),
+                            tween(110),
                         label =
                             "xvoxLyric$index"
                     )
@@ -326,7 +327,9 @@ fun XvoxSyncedLyrics(
                         }
                         .padding(
                             horizontal =
-                                if (strongEdgeFade) {
+                                if (
+                                    strongEdgeFade
+                                ) {
                                     30.dp
                                 } else {
                                     20.dp
@@ -359,7 +362,8 @@ private suspend fun centerLyricExactly(
     lazyIndex: Int
 ) {
     var target =
-        state.layoutInfo.visibleItemsInfo
+        state.layoutInfo
+            .visibleItemsInfo
             .firstOrNull {
                 it.index == lazyIndex
             }
@@ -369,7 +373,8 @@ private suspend fun centerLyricExactly(
         withFrameNanos { }
 
         target =
-            state.layoutInfo.visibleItemsInfo
+            state.layoutInfo
+                .visibleItemsInfo
                 .firstOrNull {
                     it.index == lazyIndex
                 }
@@ -408,7 +413,11 @@ private suspend fun centerLyricExactly(
         state.animateScrollBy(
             value = first,
             animationSpec =
-                tween(390)
+                tween(
+                    durationMillis = 190,
+                    easing =
+                        FastOutSlowInEasing
+                )
         )
     }
 
