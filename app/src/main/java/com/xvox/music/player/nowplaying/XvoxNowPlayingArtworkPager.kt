@@ -4,6 +4,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,7 +17,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.RecentArtworkSize
@@ -40,22 +42,33 @@ fun XvoxNowPlayingArtworkPager(
 ) {
     if (queue.isEmpty()) return
 
-    val safeIndex =
-        currentIndex.coerceIn(
-            0,
-            queue.lastIndex
+    val screenWidth =
+        LocalConfiguration.current
+            .screenWidthDp.dp
+
+    val pageWidth =
+        screenWidth - 24.dp
+
+    val latestIndex =
+        rememberUpdatedState(
+            currentIndex
         )
 
-    val latestCurrentIndex =
-        rememberUpdatedState(currentIndex)
-
-    val latestOnSettledPage =
-        rememberUpdatedState(onSettledPage)
+    val latestCommit =
+        rememberUpdatedState(
+            onSettledPage
+        )
 
     val pagerState =
         rememberPagerState(
-            initialPage = safeIndex,
-            pageCount = { queue.size }
+            initialPage =
+                currentIndex.coerceIn(
+                    0,
+                    queue.lastIndex
+                ),
+            pageCount = {
+                queue.size
+            }
         )
 
     LaunchedEffect(
@@ -81,14 +94,18 @@ fun XvoxNowPlayingArtworkPager(
         val target =
             if (navigationRequest > 0) {
                 (pagerState.settledPage + 1)
-                    .coerceAtMost(queue.lastIndex)
+                    .coerceAtMost(
+                        queue.lastIndex
+                    )
             } else {
                 (pagerState.settledPage - 1)
                     .coerceAtLeast(0)
             }
 
         if (target != pagerState.settledPage) {
-            pagerState.animateScrollToPage(target)
+            pagerState.animateScrollToPage(
+                target
+            )
         }
     }
 
@@ -99,7 +116,9 @@ fun XvoxNowPlayingArtworkPager(
         snapshotFlow {
             pagerState.currentPage to
                 pagerState.currentPageOffsetFraction
-        }.collect { (page, fraction) ->
+        }.collect {
+            (page, fraction) ->
+
             val base =
                 queue.getOrNull(page)
                     ?: return@collect
@@ -107,10 +126,14 @@ fun XvoxNowPlayingArtworkPager(
             val adjacent =
                 when {
                     fraction > 0f ->
-                        queue.getOrNull(page + 1)
+                        queue.getOrNull(
+                            page + 1
+                        )
 
                     fraction < 0f ->
-                        queue.getOrNull(page - 1)
+                        queue.getOrNull(
+                            page - 1
+                        )
 
                     else -> null
                 }
@@ -143,46 +166,42 @@ fun XvoxNowPlayingArtworkPager(
                 if (
                     page != null &&
                     page in queue.indices &&
-                    page != latestCurrentIndex.value
+                    page != latestIndex.value
                 ) {
-                    latestOnSettledPage.value(page)
+                    latestCommit.value(page)
                 }
             }
     }
 
-    HorizontalPager(
-        state = pagerState,
+    Box(
         modifier = modifier.fillMaxSize(),
-        pageSize = PageSize.Fill,
-        pageSpacing = 14.dp,
-        beyondViewportPageCount = 1,
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) { page ->
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        contentAlignment = Alignment.Center
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .requiredWidth(screenWidth)
+                .fillMaxSize(),
+            pageSize =
+                PageSize.Fixed(pageWidth),
+            pageSpacing = 14.dp,
+            beyondViewportPageCount = 1,
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) { page ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(
-                        RoundedCornerShape(20.dp)
+                    .padding(
+                        horizontal = 0.dp
                     )
-                    .pointerInput(
-                        queue[page].id
-                    ) {
-                        detectTapGestures(
-                            onTap = {
-                                if (
-                                    !pagerState
-                                        .isScrollInProgress
-                                ) {
-                                    onArtworkTap()
-                                }
-                            }
+                    .clip(
+                        RoundedCornerShape(
+                            20.dp
                         )
-                    }
+                    ),
+                contentAlignment =
+                    Alignment.Center
             ) {
                 SongArtwork(
                     artwork =
@@ -191,6 +210,25 @@ fun XvoxNowPlayingArtworkPager(
                         RecentArtworkSize,
                     modifier =
                         Modifier.fillMaxSize()
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(
+                            queue[page].id
+                        ) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (
+                                        !pagerState
+                                            .isScrollInProgress
+                                    ) {
+                                        onArtworkTap()
+                                    }
+                                }
+                            )
+                        }
                 )
             }
         }
