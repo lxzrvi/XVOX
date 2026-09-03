@@ -15,7 +15,9 @@ class MainPlayerViewModel(
 ) : AndroidViewModel(application) {
 
     private val controller =
-        PlaybackController(application)
+        PlaybackController(
+            application
+        )
 
     private val _state =
         MutableStateFlow(
@@ -28,26 +30,27 @@ class MainPlayerViewModel(
 
     init {
         viewModelScope.launch {
-            controller.state.collect {
-                playback ->
+            controller.state
+                .collect {
+                    playback ->
 
-                _state.update {
-                    it.copy(
-                        connected =
-                            playback.connected,
-                        currentSongId =
-                            playback.currentSongId,
-                        currentIndex =
-                            playback.currentIndex,
-                        isPlaying =
-                            playback.isPlaying,
-                        position =
-                            playback.position,
-                        duration =
-                            playback.duration
-                    )
+                    _state.update {
+                        it.copy(
+                            connected =
+                                playback.connected,
+                            currentSongId =
+                                playback.currentSongId,
+                            currentIndex =
+                                playback.currentIndex,
+                            isPlaying =
+                                playback.isPlaying,
+                            position =
+                                playback.position,
+                            duration =
+                                playback.duration
+                        )
+                    }
                 }
-            }
         }
     }
 
@@ -61,7 +64,9 @@ class MainPlayerViewModel(
             return
         }
 
-        controller.setQueue(songs)
+        controller.setQueue(
+            songs
+        )
 
         _state.update {
             it.copy(
@@ -77,17 +82,23 @@ class MainPlayerViewModel(
             !_state.value
                 .miniPlayerVisible
 
-        controller.play(song)
+        controller.play(
+            song
+        )
 
         _state.update {
             current ->
 
             current.copy(
                 miniPlayerVisible =
-                    true,
+                    !current
+                        .nowPlayingVisible,
+
                 miniPlayerRiseKey =
                     if (
-                        needsEntrance
+                        needsEntrance &&
+                        !current
+                            .nowPlayingVisible
                     ) {
                         current
                             .miniPlayerRiseKey +
@@ -109,15 +120,72 @@ class MainPlayerViewModel(
         )
     }
 
+    fun playPrevious() {
+        controller.playPrevious()
+    }
+
+    fun playNext() {
+        controller.playNext()
+    }
+
+    fun seekTo(
+        positionMs: Long
+    ) {
+        controller.seekTo(
+            positionMs
+        )
+    }
+
     fun togglePlay() {
         controller.togglePlay()
+    }
+
+    fun openNowPlaying() {
+        if (
+            _state.value
+                .currentSongId ==
+            null
+        ) {
+            return
+        }
+
+        _state.update {
+            it.copy(
+                nowPlayingVisible = true,
+                miniPlayerVisible = false
+            )
+        }
+    }
+
+    fun closeNowPlaying() {
+        val hasSong =
+            _state.value
+                .currentSongId != null
+
+        _state.update {
+            current ->
+
+            current.copy(
+                nowPlayingVisible = false,
+                miniPlayerVisible =
+                    hasSong,
+                miniPlayerRiseKey =
+                    if (hasSong) {
+                        current
+                            .miniPlayerRiseKey +
+                            1
+                    } else {
+                        current
+                            .miniPlayerRiseKey
+                    }
+            )
+        }
     }
 
     fun hideMiniPlayer() {
         _state.update {
             it.copy(
-                miniPlayerVisible =
-                    false
+                miniPlayerVisible = false
             )
         }
     }
@@ -127,8 +195,8 @@ class MainPlayerViewModel(
 
         _state.update {
             it.copy(
-                miniPlayerVisible =
-                    false
+                miniPlayerVisible = false,
+                nowPlayingVisible = false
             )
         }
     }
