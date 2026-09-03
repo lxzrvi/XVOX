@@ -85,73 +85,20 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
+            /*
+             * Clip BEFORE drawing background, border and
+             * progress children.
+             *
+             * Children physically cannot paint outside the
+             * rounded card bounds.
+             */
             .clip(cardShape)
             .background(
                 colors.surface.copy(
                     alpha = 0.88f
                 )
             )
-            .border(
-                width = 0.65.dp,
-                color =
-                    colors.cardBorder,
-                shape =
-                    cardShape
-            )
     ) {
-        /*
-         * Progress starts at the horizontal center of
-         * the 50dp artwork:
-         *
-         * artwork left = 4dp
-         * artwork half = 25dp
-         * start/end inset = 29dp
-         *
-         * This keeps progress completely away from the
-         * rounded card sides.
-         */
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.5.dp)
-                .align(
-                    Alignment.TopStart
-                )
-        ) {
-            val sideInset =
-                29.dp.toPx()
-
-            val availableWidth =
-                (
-                    size.width -
-                        sideInset * 2f
-                    )
-                    .coerceAtLeast(0f)
-
-            if (
-                progress > 0f &&
-                availableWidth > 0f
-            ) {
-                drawRect(
-                    color =
-                        colors.progressActive,
-                    topLeft =
-                        Offset(
-                            x = sideInset,
-                            y = 0f
-                        ),
-                    size =
-                        Size(
-                            width =
-                                availableWidth *
-                                    progress,
-                            height =
-                                size.height
-                        )
-                )
-            }
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -164,11 +111,6 @@ fun XvoxMiniPlayerCard(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            /*
-             * ARTWORK:
-             *
-             * Song changes use only a clean fade.
-             */
             Box(
                 modifier = Modifier
                     .size(50.dp)
@@ -184,12 +126,10 @@ fun XvoxMiniPlayerCard(
                     },
                     transitionSpec = {
                         fadeIn(
-                            animationSpec =
-                                tween(180)
+                            tween(180)
                         ).togetherWith(
                             fadeOut(
-                                animationSpec =
-                                    tween(140)
+                                tween(140)
                             )
                         )
                     },
@@ -209,21 +149,10 @@ fun XvoxMiniPlayerCard(
                 }
             }
 
-            /*
-             * METADATA VIEWPORT:
-             *
-             * It is clipped so title/artist can never be
-             * visible outside their allocated MiniPlayer area.
-             */
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            1.dp
-                        )
-                    )
             ) {
                 AnimatedContent(
                     targetState =
@@ -233,75 +162,55 @@ fun XvoxMiniPlayerCard(
                     },
                     transitionSpec = {
                         when {
-                            /*
-                             * NEXT:
-                             *
-                             * old center -> UP
-                             * new BOTTOM -> center
-                             */
                             direction > 0 -> {
                                 (
                                     fadeIn(
-                                        animationSpec =
-                                            tween(150)
+                                        tween(150)
                                     ) +
                                         slideInVertically(
                                             animationSpec =
                                                 tween(200),
                                             initialOffsetY = {
-                                                height ->
-                                                height
+                                                it
                                             }
                                         )
                                     )
                                     .togetherWith(
                                         fadeOut(
-                                            animationSpec =
-                                                tween(120)
+                                            tween(120)
                                         ) +
                                             slideOutVertically(
                                                 animationSpec =
                                                     tween(180),
                                                 targetOffsetY = {
-                                                    height ->
-                                                    -height
+                                                    -it
                                                 }
                                             )
                                     )
                             }
 
-                            /*
-                             * PREVIOUS:
-                             *
-                             * old center -> BOTTOM
-                             * previous TOP -> center
-                             */
                             direction < 0 -> {
                                 (
                                     fadeIn(
-                                        animationSpec =
-                                            tween(150)
+                                        tween(150)
                                     ) +
                                         slideInVertically(
                                             animationSpec =
                                                 tween(200),
                                             initialOffsetY = {
-                                                height ->
-                                                -height
+                                                -it
                                             }
                                         )
                                     )
                                     .togetherWith(
                                         fadeOut(
-                                            animationSpec =
-                                                tween(120)
+                                            tween(120)
                                         ) +
                                             slideOutVertically(
                                                 animationSpec =
                                                     tween(180),
                                                 targetOffsetY = {
-                                                    height ->
-                                                    height
+                                                    it
                                                 }
                                             )
                                     )
@@ -309,12 +218,10 @@ fun XvoxMiniPlayerCard(
 
                             else -> {
                                 fadeIn(
-                                    animationSpec =
-                                        tween(140)
+                                    tween(140)
                                 ).togetherWith(
                                     fadeOut(
-                                        animationSpec =
-                                            tween(100)
+                                        tween(100)
                                     )
                                 )
                             }
@@ -409,10 +316,80 @@ fun XvoxMiniPlayerCard(
                 color =
                     colors.primaryText,
                 modifier =
-                    Modifier.size(
-                        18.dp
-                    )
+                    Modifier.size(18.dp)
             )
         }
+
+        /*
+         * ====================================================
+         * INNER TOP PROGRESS
+         * ====================================================
+         *
+         * Full-width character is restored.
+         *
+         * 2dp left/right = safely inside rounded side edge.
+         * 1dp top = inside the border rather than over it.
+         */
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.5.dp)
+                .align(
+                    Alignment.TopStart
+                )
+        ) {
+            if (progress > 0f) {
+                val horizontalInset =
+                    2.dp.toPx()
+
+                val topInset =
+                    1.dp.toPx()
+
+                val availableWidth =
+                    (
+                        size.width -
+                            horizontalInset * 2f
+                        )
+                        .coerceAtLeast(0f)
+
+                drawRect(
+                    color =
+                        colors.progressActive,
+                    topLeft =
+                        Offset(
+                            x =
+                                horizontalInset,
+                            y =
+                                topInset
+                        ),
+                    size =
+                        Size(
+                            width =
+                                availableWidth *
+                                    progress,
+                            height =
+                                1.25.dp.toPx()
+                        )
+                )
+            }
+        }
+
+        /*
+         * Border is drawn LAST.
+         *
+         * So even at the top edge the border visually owns
+         * the outside perimeter and progress stays inside it.
+         */
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    width = 0.65.dp,
+                    color =
+                        colors.cardBorder,
+                    shape =
+                        cardShape
+                )
+        )
     }
 }
