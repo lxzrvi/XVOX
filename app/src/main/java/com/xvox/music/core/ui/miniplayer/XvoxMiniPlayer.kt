@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
@@ -47,29 +46,53 @@ fun XvoxMiniPlayer(
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
 
-    val exitDistance = with(density) {
-        (configuration.screenHeightDp.dp + 32.dp).toPx()
+    val exitDistance =
+        with(density) {
+            230.dp.toPx()
+        }
+
+    val y =
+        remember(riseKey) {
+            Animatable(exitDistance)
+        }
+
+    var dragX by remember {
+        mutableFloatStateOf(0f)
+    }
+    var dragY by remember {
+        mutableFloatStateOf(0f)
+    }
+    var rawX by remember {
+        mutableFloatStateOf(0f)
+    }
+    var rawY by remember {
+        mutableFloatStateOf(0f)
+    }
+    var axis by remember {
+        mutableStateOf(XvoxMiniAxis.NONE)
+    }
+    var moved by remember {
+        mutableStateOf(false)
+    }
+    var actionsVisible by remember {
+        mutableStateOf(false)
+    }
+    var exiting by remember {
+        mutableStateOf(false)
+    }
+    var commitJob by remember {
+        mutableStateOf<Job?>(null)
     }
 
-    val y = remember(riseKey) {
-        Animatable(exitDistance)
-    }
-
-    var dragX by remember { mutableFloatStateOf(0f) }
-    var dragY by remember { mutableFloatStateOf(0f) }
-    var rawX by remember { mutableFloatStateOf(0f) }
-    var rawY by remember { mutableFloatStateOf(0f) }
-    var axis by remember { mutableStateOf(XvoxMiniAxis.NONE) }
-    var moved by remember { mutableStateOf(false) }
-    var actionsVisible by remember { mutableStateOf(false) }
-    var exiting by remember { mutableStateOf(false) }
-    var commitJob by remember { mutableStateOf<Job?>(null) }
-
-    var previewIndex by remember(currentSongId, queue) {
+    var previewIndex by remember(
+        currentSongId,
+        queue
+    ) {
         mutableIntStateOf(
-            currentIndex.takeIf { it in queue.indices } ?: 0
+            currentIndex.takeIf {
+                it in queue.indices
+            } ?: 0
         )
     }
 
@@ -84,7 +107,10 @@ fun XvoxMiniPlayer(
         )
     }
 
-    LaunchedEffect(currentSongId, currentIndex) {
+    LaunchedEffect(
+        currentSongId,
+        currentIndex
+    ) {
         if (
             commitJob == null &&
             axis == XvoxMiniAxis.NONE &&
@@ -109,11 +135,14 @@ fun XvoxMiniPlayer(
             target == currentIndex
         ) return
 
-        commitJob = scope.launch {
-            delay(XvoxMiniPlayerMotion.PreviewDelay)
-            playQueueIndex(target)
-            commitJob = null
-        }
+        commitJob =
+            scope.launch {
+                delay(
+                    XvoxMiniPlayerMotion.PreviewDelay
+                )
+                playQueueIndex(target)
+                commitJob = null
+            }
     }
 
     fun exit(
@@ -128,7 +157,6 @@ fun XvoxMiniPlayer(
         scope.launch {
             actionsVisible = false
             dragX = 0f
-
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
 
@@ -145,13 +173,16 @@ fun XvoxMiniPlayer(
         }
     }
 
-    val visualSong = queue.getOrNull(previewIndex) ?: return
+    val visualSong =
+        queue.getOrNull(previewIndex)
+            ?: return
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(118.dp),
-        contentAlignment = Alignment.BottomCenter
+        contentAlignment =
+            Alignment.BottomCenter
     ) {
         XvoxMiniPlayerActions(
             visible = actionsVisible,
@@ -165,11 +196,14 @@ fun XvoxMiniPlayer(
             },
             onClose = {
                 exit(
-                    currentY = y.value + dragY,
-                    stop = true
+                    y.value + dragY,
+                    true
                 )
             },
-            modifier = Modifier.align(Alignment.TopCenter)
+            modifier =
+                Modifier.align(
+                    Alignment.TopCenter
+                )
         )
 
         Box(
@@ -177,8 +211,14 @@ fun XvoxMiniPlayer(
                 .fillMaxWidth()
                 .height(78.dp)
                 .align(Alignment.BottomCenter)
-                .pointerInput(queue, currentSongId, exiting) {
-                    if (exiting) return@pointerInput
+                .pointerInput(
+                    queue,
+                    currentSongId,
+                    exiting
+                ) {
+                    if (exiting) {
+                        return@pointerInput
+                    }
 
                     detectDragGestures(
                         onDragStart = {
@@ -197,18 +237,25 @@ fun XvoxMiniPlayer(
                             rawY += amount.y
 
                             if (
-                                axis == XvoxMiniAxis.NONE &&
+                                axis ==
+                                XvoxMiniAxis.NONE &&
                                 (
-                                    abs(rawX) > XvoxMiniPlayerMotion.AxisThreshold ||
-                                        abs(rawY) > XvoxMiniPlayerMotion.AxisThreshold
+                                    abs(rawX) >
+                                        XvoxMiniPlayerMotion.AxisThreshold ||
+                                    abs(rawY) >
+                                        XvoxMiniPlayerMotion.AxisThreshold
                                     )
                             ) {
                                 moved = true
-                                axis = if (abs(rawX) > abs(rawY)) {
-                                    XvoxMiniAxis.HORIZONTAL
-                                } else {
-                                    XvoxMiniAxis.VERTICAL
-                                }
+                                axis =
+                                    if (
+                                        abs(rawX) >
+                                        abs(rawY)
+                                    ) {
+                                        XvoxMiniAxis.HORIZONTAL
+                                    } else {
+                                        XvoxMiniAxis.VERTICAL
+                                    }
                             }
 
                             when (axis) {
@@ -246,20 +293,25 @@ fun XvoxMiniPlayer(
 
                                     when {
                                         finalX <=
-                                            -XvoxMiniPlayerMotion.HorizontalThreshold &&
-                                            previewIndex < queue.lastIndex -> {
+                                            -XvoxMiniPlayerMotion
+                                                .HorizontalThreshold &&
+                                            previewIndex <
+                                            queue.lastIndex -> {
                                             transitionDirection = 1
                                             previewIndex++
                                         }
 
                                         finalX >=
-                                            XvoxMiniPlayerMotion.HorizontalThreshold &&
+                                            XvoxMiniPlayerMotion
+                                                .HorizontalThreshold &&
                                             previewIndex > 0 -> {
                                             transitionDirection = -1
                                             previewIndex--
                                         }
 
-                                        else -> transitionDirection = 0
+                                        else -> {
+                                            transitionDirection = 0
+                                        }
                                     }
 
                                     scheduleCommit()
@@ -270,22 +322,24 @@ fun XvoxMiniPlayer(
 
                                     when {
                                         finalY <=
-                                            XvoxMiniPlayerMotion.OpenThreshold -> {
+                                            XvoxMiniPlayerMotion
+                                                .OpenThreshold -> {
                                             moved = false
                                             exit(
-                                                currentY =
-                                                    y.value + finalDragY,
-                                                stop = false
+                                                y.value +
+                                                    finalDragY,
+                                                false
                                             )
                                         }
 
                                         finalY >=
-                                            XvoxMiniPlayerMotion.CloseThreshold -> {
+                                            XvoxMiniPlayerMotion
+                                                .CloseThreshold -> {
                                             moved = false
                                             exit(
-                                                currentY =
-                                                    y.value + finalDragY,
-                                                stop = true
+                                                y.value +
+                                                    finalDragY,
+                                                true
                                             )
                                         }
 
@@ -313,14 +367,20 @@ fun XvoxMiniPlayer(
                         }
                     )
                 }
-                .pointerInput(currentSongId, exiting) {
-                    if (exiting) return@pointerInput
+                .pointerInput(
+                    currentSongId,
+                    exiting
+                ) {
+                    if (exiting) {
+                        return@pointerInput
+                    }
 
                     detectTapGestures(
                         onLongPress = {
                             if (!moved) {
                                 cancelCommit()
-                                actionsVisible = !actionsVisible
+                                actionsVisible =
+                                    !actionsVisible
                             }
                         },
                         onTap = {
@@ -331,8 +391,8 @@ fun XvoxMiniPlayer(
                                     actionsVisible = false
                                 } else {
                                     exit(
-                                        currentY = y.value,
-                                        stop = false
+                                        y.value,
+                                        false
                                     )
                                 }
                             }
@@ -344,16 +404,34 @@ fun XvoxMiniPlayer(
                 song = visualSong,
                 isPlaying = isPlaying,
                 position =
-                    if (visualSong.id == currentSongId) position else 0L,
+                    if (
+                        visualSong.id ==
+                        currentSongId
+                    ) {
+                        position
+                    } else {
+                        0L
+                    },
                 duration =
-                    if (visualSong.id == currentSongId) duration else 0L,
-                direction = transitionDirection,
+                    if (
+                        visualSong.id ==
+                        currentSongId
+                    ) {
+                        duration
+                    } else {
+                        visualSong.duration
+                    },
+                direction =
+                    transitionDirection,
                 togglePlay = togglePlay,
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(
+                        Alignment.BottomCenter
+                    )
                     .graphicsLayer {
                         translationX = dragX
-                        translationY = y.value + dragY
+                        translationY =
+                            y.value + dragY
                     }
             )
         }
