@@ -24,7 +24,8 @@ class XvoxLyricsViewModel(
             XvoxLyricsUiState()
         )
 
-    val state: StateFlow<XvoxLyricsUiState> =
+    val state:
+        StateFlow<XvoxLyricsUiState> =
         _state.asStateFlow()
 
     private var song: Song? = null
@@ -52,9 +53,14 @@ class XvoxLyricsViewModel(
         loadJob =
             viewModelScope.launch {
                 val lyrics =
-                    repository.load(newSong)
+                    repository.load(
+                        newSong
+                    )
 
-                if (song?.id == newSong.id) {
+                if (
+                    song?.id ==
+                    newSong.id
+                ) {
                     _state.update {
                         it.copy(
                             loading = false,
@@ -68,23 +74,29 @@ class XvoxLyricsViewModel(
     fun attach(
         uri: Uri
     ) {
-        val target = song ?: return
+        val target =
+            song ?: return
 
         loadJob?.cancel()
 
         _state.update {
-            it.copy(loading = true)
+            it.copy(
+                loading = true
+            )
         }
 
         loadJob =
             viewModelScope.launch {
                 val lyrics =
                     repository.attach(
-                        target.id,
-                        uri
+                        songId = target.id,
+                        uri = uri
                     )
 
-                if (song?.id == target.id) {
+                if (
+                    song?.id ==
+                    target.id
+                ) {
                     _state.update {
                         it.copy(
                             loading = false,
