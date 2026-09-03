@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   import-icons:
-    name: Import Phosphor Icons
+    name: Import XVOX Phosphor Icons
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout official Phosphor Core
+      - name: Checkout Phosphor Core
         uses: actions/checkout@v4
         with:
           repository: phosphor-icons/core
@@ -40,8 +40,21 @@ jobs:
           SOURCE = Path("phosphor-core")
           OUTPUT = Path("app/src/main/res/drawable")
 
+          # ==================================================
+          # XVOX PHOSPHOR ICONS
+          #
+          # To add an icon later:
+          #
+          # "android_resource_name": (
+          #     "phosphor-name",
+          #     "weight",
+          # ),
+          #
+          # Then manually run this workflow.
+          # ==================================================
+
           ICONS = {
-              # Home
+              # HOME
               "ic_xvox_refresh": (
                   "arrows-clockwise",
                   "fill",
@@ -59,7 +72,7 @@ jobs:
                   "fill",
               ),
 
-              # Playback
+              # PLAYBACK
               "ic_xvox_play": (
                   "play",
                   "fill",
@@ -78,59 +91,127 @@ jobs:
               ),
               "ic_xvox_shuffle": (
                   "shuffle",
-                  "fill",
+                  "bold",
               ),
               "ic_xvox_repeat": (
                   "repeat",
-                  "fill",
+                  "bold",
+              ),
+              "ic_xvox_repeat_one": (
+                  "repeat-once",
+                  "bold",
               ),
 
-              # MiniPlayer/common
-              "ic_xvox_add": (
-                  "plus",
-                  "fill",
-              ),
-              "ic_xvox_close": (
-                  "x",
+              # NOW PLAYING HEADER
+              "ic_xvox_collapse": (
+                  "caret-down",
                   "bold",
+              ),
+              "ic_xvox_share": (
+                  "share-network",
+                  "fill",
               ),
               "ic_xvox_more": (
                   "dots-three",
                   "bold",
               ),
 
-              # Future
-              "ic_xvox_search_action": (
-                  "magnifying-glass",
-                  "bold",
+              # NOW PLAYING ACTIONS
+              "ic_xvox_timer": (
+                  "timer",
+                  "fill",
               ),
               "ic_xvox_queue": (
                   "list",
+                  "bold",
+              ),
+              "ic_xvox_info": (
+                  "info",
+                  "fill",
+              ),
+              "ic_xvox_star": (
+                  "star",
+                  "fill",
+              ),
+              "ic_xvox_heart_outline": (
+                  "heart",
+                  "regular",
+              ),
+
+              # LYRICS
+              "ic_xvox_lyrics": (
+                  "quotes",
+                  "fill",
+              ),
+              "ic_xvox_lyrics_add": (
+                  "plus",
+                  "bold",
+              ),
+              "ic_xvox_lyrics_file": (
+                  "file-text",
+                  "fill",
+              ),
+              "ic_xvox_fullscreen": (
+                  "corners-out",
+                  "bold",
+              ),
+              "ic_xvox_fullscreen_exit": (
+                  "corners-in",
+                  "bold",
+              ),
+              "ic_xvox_close": (
+                  "x",
+                  "bold",
+              ),
+
+              # COMMON / FUTURE
+              "ic_xvox_add": (
+                  "plus",
+                  "fill",
+              ),
+              "ic_xvox_check": (
+                  "check",
+                  "bold",
+              ),
+              "ic_xvox_search_action": (
+                  "magnifying-glass",
                   "bold",
               ),
               "ic_xvox_equalizer": (
                   "sliders-horizontal",
                   "fill",
               ),
-              "ic_xvox_timer": (
-                  "timer",
+              "ic_xvox_waveform": (
+                  "waveform",
                   "fill",
               ),
               "ic_xvox_volume_high": (
                   "speaker-high",
                   "fill",
               ),
-              "ic_xvox_share": (
-                  "share-network",
+              "ic_xvox_volume_low": (
+                  "speaker-low",
+                  "fill",
+              ),
+              "ic_xvox_mute": (
+                  "speaker-x",
+                  "fill",
+              ),
+              "ic_xvox_download": (
+                  "download-simple",
                   "fill",
               ),
               "ic_xvox_delete": (
                   "trash",
                   "fill",
               ),
+              "ic_xvox_edit": (
+                  "pencil-simple",
+                  "fill",
+              ),
           }
 
-          def tag_name(tag):
+          def local_name(tag):
               return tag.split("}")[-1]
 
           def number(value, default=0.0):
@@ -165,35 +246,35 @@ jobs:
 
           def find_svg(icon, weight):
               preferred = [
-                  SOURCE /
-                  "raw" /
-                  weight /
-                  f"{icon}-{weight}.svg",
+                  SOURCE
+                  / "raw"
+                  / weight
+                  / f"{icon}-{weight}.svg",
 
-                  SOURCE /
-                  "raw" /
-                  weight /
-                  f"{icon}.svg",
+                  SOURCE
+                  / "raw"
+                  / weight
+                  / f"{icon}.svg",
 
-                  SOURCE /
-                  "assets" /
-                  weight /
-                  f"{icon}.svg",
+                  SOURCE
+                  / "assets"
+                  / weight
+                  / f"{icon}.svg",
               ]
 
               for path in preferred:
                   if path.exists():
                       return path
 
-              possibilities = []
+              names = {
+                  f"{icon}.svg".lower(),
+                  f"{icon}-{weight}.svg".lower(),
+              }
+
+              matches = []
 
               for path in SOURCE.rglob("*.svg"):
-                  filename = path.name.lower()
-
-                  if filename not in {
-                      f"{icon}.svg".lower(),
-                      f"{icon}-{weight}.svg".lower(),
-                  }:
+                  if path.name.lower() not in names:
                       continue
 
                   score = 0
@@ -202,24 +283,26 @@ jobs:
                   if weight.lower() in full:
                       score += 100
 
-                  if filename == (
-                      f"{icon}-{weight}.svg"
-                  ).lower():
+                  if (
+                      path.name.lower()
+                      ==
+                      f"{icon}-{weight}.svg".lower()
+                  ):
                       score += 50
 
-                  possibilities.append(
+                  matches.append(
                       (score, path)
                   )
 
-              if not possibilities:
+              if not matches:
                   return None
 
-              possibilities.sort(
-                  key=lambda pair: pair[0],
+              matches.sort(
+                  key=lambda item: item[0],
                   reverse=True,
               )
 
-              return possibilities[0][1]
+              return matches[0][1]
 
           def circle_path(element):
               cx = number(
@@ -268,63 +351,6 @@ jobs:
                   f"{fmt(cx-rx)},{fmt(cy)} Z"
               )
 
-          def rect_path(element):
-              x = number(
-                  element.attrib.get("x")
-              )
-              y = number(
-                  element.attrib.get("y")
-              )
-              w = number(
-                  element.attrib.get("width")
-              )
-              h = number(
-                  element.attrib.get("height")
-              )
-
-              if w <= 0 or h <= 0:
-                  return None
-
-              rx = number(
-                  element.attrib.get("rx")
-              )
-              ry = number(
-                  element.attrib.get("ry")
-              )
-
-              if rx <= 0 and ry > 0:
-                  rx = ry
-
-              if ry <= 0 and rx > 0:
-                  ry = rx
-
-              if rx <= 0 or ry <= 0:
-                  return (
-                      f"M {fmt(x)},{fmt(y)} "
-                      f"H {fmt(x+w)} "
-                      f"V {fmt(y+h)} "
-                      f"H {fmt(x)} Z"
-                  )
-
-              rx = min(rx, w / 2)
-              ry = min(ry, h / 2)
-
-              return (
-                  f"M {fmt(x+rx)},{fmt(y)} "
-                  f"H {fmt(x+w-rx)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
-                  f"{fmt(x+w)},{fmt(y+ry)} "
-                  f"V {fmt(y+h-ry)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
-                  f"{fmt(x+w-rx)},{fmt(y+h)} "
-                  f"H {fmt(x+rx)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
-                  f"{fmt(x)},{fmt(y+h-ry)} "
-                  f"V {fmt(y+ry)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 0,1 "
-                  f"{fmt(x+rx)},{fmt(y)} Z"
-              )
-
           def line_path(element):
               x1 = number(
                   element.attrib.get("x1")
@@ -344,6 +370,30 @@ jobs:
                   f"L {fmt(x2)},{fmt(y2)}"
               )
 
+          def rect_path(element):
+              x = number(
+                  element.attrib.get("x")
+              )
+              y = number(
+                  element.attrib.get("y")
+              )
+              w = number(
+                  element.attrib.get("width")
+              )
+              h = number(
+                  element.attrib.get("height")
+              )
+
+              if w <= 0 or h <= 0:
+                  return None
+
+              return (
+                  f"M {fmt(x)},{fmt(y)} "
+                  f"H {fmt(x+w)} "
+                  f"V {fmt(y+h)} "
+                  f"H {fmt(x)} Z"
+              )
+
           def points_path(element, close):
               values = re.findall(
                   r"-?(?:\d+(?:\.\d*)?|\.\d+)"
@@ -357,7 +407,7 @@ jobs:
               if len(values) < 4:
                   return None
 
-              if len(values) % 2 != 0:
+              if len(values) % 2:
                   values = values[:-1]
 
               pairs = []
@@ -369,25 +419,19 @@ jobs:
               ):
                   pairs.append(
                       (
-                          number(
-                              values[index]
-                          ),
-                          number(
-                              values[index + 1]
-                          ),
+                          number(values[index]),
+                          number(values[index + 1]),
                       )
                   )
 
               data = (
-                  f"M "
-                  f"{fmt(pairs[0][0])},"
+                  f"M {fmt(pairs[0][0])},"
                   f"{fmt(pairs[0][1])}"
               )
 
               for x, y in pairs[1:]:
                   data += (
-                      f" L "
-                      f"{fmt(x)},{fmt(y)}"
+                      f" L {fmt(x)},{fmt(y)}"
                   )
 
               if close:
@@ -395,15 +439,12 @@ jobs:
 
               return data
 
-          def convert(
-              source,
-              destination,
-          ):
+          def convert(source, destination):
               root = ET.parse(
                   source
               ).getroot()
 
-              raw_viewbox = (
+              viewbox = (
                   root.attrib
                   .get(
                       "viewBox",
@@ -413,18 +454,18 @@ jobs:
                   .split()
               )
 
-              if len(raw_viewbox) != 4:
+              if len(viewbox) != 4:
                   raise RuntimeError(
-                      "invalid viewBox"
+                      "Invalid viewBox"
                   )
 
               viewport_width = number(
-                  raw_viewbox[2],
+                  viewbox[2],
                   256,
               )
 
               viewport_height = number(
-                  raw_viewbox[3],
+                  viewbox[3],
                   256,
               )
 
@@ -461,19 +502,21 @@ jobs:
 
                   style = dict(inherited)
 
-                  for key in (
+                  for attribute in (
                       "fill",
                       "stroke",
                       "stroke-width",
                       "stroke-linecap",
                       "stroke-linejoin",
                   ):
-                      if key in element.attrib:
-                          style[key] = (
-                              element.attrib[key]
+                      if attribute in element.attrib:
+                          style[attribute] = (
+                              element.attrib[
+                                  attribute
+                              ]
                           )
 
-                  tag = tag_name(
+                  tag = local_name(
                       element.tag
                   )
 
@@ -494,13 +537,13 @@ jobs:
                           element
                       )
 
-                  elif tag == "rect":
-                      data = rect_path(
+                  elif tag == "line":
+                      data = line_path(
                           element
                       )
 
-                  elif tag == "line":
-                      data = line_path(
+                  elif tag == "rect":
+                      data = rect_path(
                           element
                       )
 
@@ -533,7 +576,7 @@ jobs:
                           if "stroke" not in style:
                               stroke = "black"
 
-                      attributes = {
+                      attrs = {
                           "android:pathData":
                               data,
 
@@ -546,11 +589,11 @@ jobs:
                       }
 
                       if stroke != "none":
-                          attributes[
+                          attrs[
                               "android:strokeColor"
                           ] = "#FFFFFFFF"
 
-                          attributes[
+                          attrs[
                               "android:strokeWidth"
                           ] = fmt(
                               number(
@@ -574,7 +617,7 @@ jobs:
                               "round",
                               "square",
                           }:
-                              attributes[
+                              attrs[
                                   "android:strokeLineCap"
                               ] = cap
 
@@ -583,14 +626,14 @@ jobs:
                               "round",
                               "bevel",
                           }:
-                              attributes[
+                              attrs[
                                   "android:strokeLineJoin"
                               ] = join
 
                       ET.SubElement(
                           vector,
                           "path",
-                          attributes,
+                          attrs,
                       )
 
                       path_count += 1
@@ -605,7 +648,7 @@ jobs:
 
               if path_count == 0:
                   raise RuntimeError(
-                      "no drawable geometry"
+                      "No convertible geometry"
                   )
 
               ET.indent(
@@ -629,7 +672,6 @@ jobs:
               return path_count
 
           failures = []
-          generated = []
 
           for android_name, (
               phosphor_name,
@@ -644,8 +686,7 @@ jobs:
               if source is None:
                   failures.append(
                       f"{phosphor_name} "
-                      f"({weight}): "
-                      f"source SVG not found"
+                      f"({weight}) not found"
                   )
                   continue
 
@@ -658,10 +699,6 @@ jobs:
                   count = convert(
                       source,
                       destination,
-                  )
-
-                  generated.append(
-                      destination
                   )
 
                   print(
@@ -678,16 +715,9 @@ jobs:
                       f"{error}"
                   )
 
-          print()
-          print(
-              f"Generated "
-              f"{len(generated)} "
-              f"icons."
-          )
-
           if failures:
               print(
-                  "Failures:",
+                  "\nFailed icons:",
                   file=sys.stderr,
               )
 
@@ -700,34 +730,7 @@ jobs:
 
               sys.exit(1)
 
-          if not generated:
-              print(
-                  "ERROR: no icons generated",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
           PY
-
-      - name: Verify generated files exist
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Generated files:"
-          echo
-
-          find \
-            app/src/main/res/drawable \
-            -maxdepth 1 \
-            -type f \
-            -name 'ic_xvox_*.xml' \
-            -print \
-            | sort
-
-          echo
-          echo "Git status BEFORE staging:"
-          git status --short
 
       - name: Stage generated icons
         shell: bash
@@ -737,7 +740,6 @@ jobs:
           git add \
             app/src/main/res/drawable/ic_xvox_*.xml
 
-          echo "Git status AFTER staging:"
           git status --short
 
       - name: Commit and push generated icons
@@ -746,7 +748,7 @@ jobs:
           set -euo pipefail
 
           if git diff --cached --quiet; then
-            echo "No generated icon changes."
+            echo "Icons already up to date."
             exit 0
           fi
 
@@ -759,15 +761,8 @@ jobs:
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git commit \
-            -m "Import XVOX Phosphor icons"
-
-          echo
-          echo "Current workflow branch:"
-          echo "${GITHUB_REF_NAME}"
+            -m "Update XVOX Phosphor icons"
 
           git push \
             origin \
             "HEAD:${GITHUB_REF_NAME}"
-
-          echo
-          echo "Icons pushed successfully."
