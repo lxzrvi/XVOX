@@ -157,7 +157,9 @@ fun XvoxArtworkLyrics(
                         colors.card.copy(
                             alpha = 0.20f
                         ),
-                        RoundedCornerShape(21.dp)
+                        RoundedCornerShape(
+                            18.dp
+                        )
                     )
                     .padding(horizontal = 3.dp),
                 verticalAlignment =
@@ -189,7 +191,7 @@ private fun LyricsDeleteButton(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(36.dp)
             .background(
                 colors.card.copy(
                     alpha = 0.20f
@@ -215,7 +217,7 @@ private fun LyricsDeleteButton(
             contentDescription =
                 "Remove custom lyrics",
             tint = colors.primaryText,
-            modifier = Modifier.size(19.dp)
+            modifier = Modifier.size(17.dp)
         )
     }
 }
