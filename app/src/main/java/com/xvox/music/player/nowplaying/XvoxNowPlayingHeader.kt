@@ -1,12 +1,11 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun XvoxNowPlayingHeader(
@@ -36,55 +36,40 @@ fun XvoxNowPlayingHeader(
     onMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    val colors =
+        XvoxTheme.colors
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(
                 WindowInsets.statusBars
             )
             .padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp
+                start = 14.dp,
+                end = 14.dp,
+                top = 10.dp
             )
-            .height(44.dp),
-        verticalAlignment =
-            Alignment.CenterVertically
+            .height(48.dp)
     ) {
-        val closeInteraction =
-            remember {
-                MutableInteractionSource()
-            }
-
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(
-                    Color.White.copy(
-                        alpha = 0.12f
-                    ),
-                    CircleShape
-                )
-                .clickable(
-                    interactionSource =
-                        closeInteraction,
-                    indication = null,
-                    onClick = onClose
-                ),
-            contentAlignment =
-                Alignment.Center
-        ) {
-            Text(
-                text = "⌄",
-                color = Color.White,
-                fontSize = 23.sp,
-                lineHeight = 23.sp
-            )
-        }
-
-        Column(
+        NowPlayingHeaderButton(
+            resource =
+                R.drawable.ic_xvox_collapse,
+            onClick =
+                onClose,
             modifier =
-                Modifier.weight(1f),
+                Modifier
+                    .align(
+                        Alignment.CenterStart
+                    )
+                    .size(42.dp)
+        )
+
+        androidx.compose.foundation.layout.Column(
+            modifier =
+                Modifier.align(
+                    Alignment.Center
+                ),
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
@@ -93,20 +78,19 @@ fun XvoxNowPlayingHeader(
                     "PLAYING FROM",
                 color =
                     Color.White.copy(
-                        alpha = 0.65f
+                        alpha = 0.68f
                     ),
                 fontSize = 10.sp,
-                letterSpacing =
-                    1.2.sp,
+                letterSpacing = 1.2.sp,
                 fontWeight =
                     FontWeight.SemiBold
             )
 
             Text(
-                text =
-                    "All Songs",
+                text = "All Songs",
                 color = Color.White,
                 fontSize = 15.sp,
+                lineHeight = 17.sp,
                 fontWeight =
                     FontWeight.Bold
             )
@@ -114,59 +98,74 @@ fun XvoxNowPlayingHeader(
 
         Row(
             modifier = Modifier
-                .height(36.dp)
+                .align(
+                    Alignment.CenterEnd
+                )
+                .height(42.dp)
                 .background(
-                    Color.White.copy(
-                        alpha = 0.12f
+                    colors.card.copy(
+                        alpha = 0.48f
                     ),
                     RoundedCornerShape(
-                        20.dp
+                        22.dp
+                    )
+                )
+                .border(
+                    0.65.dp,
+                    Color.White.copy(
+                        alpha = 0.14f
+                    ),
+                    RoundedCornerShape(
+                        22.dp
                     )
                 )
                 .padding(
-                    horizontal = 4.dp
+                    horizontal = 3.dp
                 ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            HeaderIcon(
-                resource =
-                    R.drawable
-                        .ic_xvox_share,
-                onClick =
-                    onShare
+            HeaderAction(
+                R.drawable.ic_xvox_share,
+                onShare
             )
 
-            HeaderIcon(
-                resource =
-                    R.drawable
-                        .ic_xvox_more,
-                onClick =
-                    onMore
+            HeaderAction(
+                R.drawable.ic_xvox_more,
+                onMore
             )
         }
     }
 }
 
 @Composable
-private fun HeaderIcon(
+private fun NowPlayingHeaderButton(
     resource: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val interaction =
-        remember {
-            MutableInteractionSource()
-        }
-
     Box(
-        modifier = Modifier
-            .size(32.dp)
+        modifier = modifier
+            .background(
+                Color.Black.copy(
+                    alpha = 0.24f
+                ),
+                CircleShape
+            )
+            .border(
+                0.65.dp,
+                Color.White.copy(
+                    alpha = 0.14f
+                ),
+                CircleShape
+            )
             .clickable(
                 interactionSource =
-                    interaction,
+                    remember {
+                        MutableInteractionSource()
+                    },
                 indication = null,
-                onClick =
-                    onClick
+                onClick = onClick
             ),
         contentAlignment =
             Alignment.Center
@@ -176,13 +175,42 @@ private fun HeaderIcon(
                 painterResource(
                     resource
                 ),
-            contentDescription =
-                null,
+            contentDescription = null,
             tint = Color.White,
             modifier =
-                Modifier.size(
-                    16.dp
-                )
+                Modifier.size(21.dp)
+        )
+    }
+}
+
+@Composable
+private fun HeaderAction(
+    resource: Int,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clickable(
+                interactionSource =
+                    remember {
+                        MutableInteractionSource()
+                    },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Icon(
+            painter =
+                painterResource(
+                    resource
+                ),
+            contentDescription = null,
+            tint = Color.White,
+            modifier =
+                Modifier.size(18.dp)
         )
     }
 }
