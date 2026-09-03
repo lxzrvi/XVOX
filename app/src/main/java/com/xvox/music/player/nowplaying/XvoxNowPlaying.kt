@@ -1,11 +1,13 @@
 package com.xvox.music.player.nowplaying
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,8 +61,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun XvoxNowPlaying(
     song: Song,
+    queue: List<Song>,
     currentIndex: Int,
-    queueSize: Int,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -108,6 +111,10 @@ fun XvoxNowPlaying(
         mutableStateOf(false)
     }
 
+    var dismissing by remember {
+        mutableStateOf(false)
+    }
+
     val totalOffset =
         (
             offset.value +
@@ -132,15 +139,9 @@ fun XvoxNowPlaying(
         }
 
     val cornerRadius =
-        30.dp *
+        32.dp *
             dismissProgress
 
-    /*
-     * Lyrics are resolved whenever song changes.
-     *
-     * User-added source has priority.
-     * Embedded metadata is fallback.
-     */
     LaunchedEffect(
         song.id
     ) {
@@ -152,9 +153,6 @@ fun XvoxNowPlaying(
             false
     }
 
-    /*
-     * Full Now Playing enters from screen bottom.
-     */
     LaunchedEffect(Unit) {
         offset.animateTo(
             targetValue = 0f,
@@ -164,7 +162,16 @@ fun XvoxNowPlaying(
     }
 
     fun dismiss() {
+        if (dismissing) {
+            return
+        }
+
+        dismissing = true
+
         scope.launch {
+            /*
+             * Continue from exact dragged position.
+             */
             offset.snapTo(
                 totalOffset
             )
@@ -182,14 +189,22 @@ fun XvoxNowPlaying(
         }
     }
 
-    /*
-     * Fullscreen lyrics is above the normal player,
-     * but uses the same playback state.
-     */
+    BackHandler(
+        enabled =
+            !lyricsState.fullscreen
+    ) {
+        dismiss()
+    }
+
     if (
         lyricsState.fullscreen &&
         lyricsState.lyrics != null
     ) {
+        BackHandler {
+            lyricsViewModel
+                .closeFullscreen()
+        }
+
         XvoxFullscreenLyrics(
             song =
                 song,
@@ -213,7 +228,7 @@ fun XvoxNowPlaying(
                 lyricsViewModel::
                     closeFullscreen,
             modifier =
-                modifier.fillMaxSize()
+                Modifier.fillMaxSize()
         )
 
         return
@@ -237,26 +252,27 @@ fun XvoxNowPlaying(
             }
     ) {
         XvoxNowPlayingBackdrop(
-            song =
-                song
+            song = song
         )
 
         Column(
             modifier =
                 Modifier.fillMaxSize()
         ) {
-            /*
-             * Header is the drag-down dismissal zone.
-             */
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(Unit) {
+                    .pointerInput(
+                        dismissing
+                    ) {
+                        if (dismissing) {
+                            return@pointerInput
+                        }
+
                         detectVerticalDragGestures(
                             onDragStart = {
                                 dragY = 0f
                             },
-
                             onVerticalDrag = {
                                 change,
                                 amount ->
@@ -272,7 +288,6 @@ fun XvoxNowPlaying(
                                             0f
                                         )
                             },
-
                             onDragEnd = {
                                 if (
                                     dragY >=
@@ -286,8 +301,7 @@ fun XvoxNowPlaying(
                                             totalOffset
                                         )
 
-                                        dragY =
-                                            0f
+                                        dragY = 0f
 
                                         offset.animateTo(
                                             targetValue =
@@ -299,15 +313,13 @@ fun XvoxNowPlaying(
                                     }
                                 }
                             },
-
                             onDragCancel = {
                                 scope.launch {
                                     offset.snapTo(
                                         totalOffset
                                     )
 
-                                    dragY =
-                                        0f
+                                    dragY = 0f
 
                                     offset.animateTo(
                                         targetValue =
@@ -331,11 +343,10 @@ fun XvoxNowPlaying(
             }
 
             /*
-             * =================================================
-             * ARTWORK / LYRICS AREA
-             * =================================================
+             * Artwork is intentionally lower.
              *
-             * Same exact square is used by both states.
+             * The larger bottom padding creates the requested
+             * separation from the compact panel.
              */
             Box(
                 modifier = Modifier
@@ -343,9 +354,9 @@ fun XvoxNowPlaying(
                     .fillMaxWidth()
                     .padding(
                         start = 12.dp,
-                        top = 30.dp,
+                        top = 34.dp,
                         end = 12.dp,
-                        bottom = 36.dp
+                        bottom = 50.dp
                     ),
                 contentAlignment =
                     Alignment.BottomCenter
@@ -382,9 +393,7 @@ fun XvoxNowPlaying(
                     ) {
                         lyricsVisible ->
 
-                        if (
-                            lyricsVisible
-                        ) {
+                        if (lyricsVisible) {
                             XvoxArtworkLyrics(
                                 state =
                                     lyricsState,
@@ -419,15 +428,10 @@ fun XvoxNowPlaying(
                                     }
                             ) {
                                 XvoxNowPlayingArtworkPager(
-                                    song =
-                                        song,
-                                    canPrevious =
-                                        currentIndex > 0,
-                                    canNext =
-                                        currentIndex >=
-                                            0 &&
-                                            currentIndex <
-                                            queueSize - 1,
+                                    queue =
+                                        queue,
+                                    currentIndex =
+                                        currentIndex,
                                     onPrevious =
                                         onPrevious,
                                     onNext =
@@ -441,17 +445,6 @@ fun XvoxNowPlaying(
                 }
             }
 
-            /*
-             * =================================================
-             * BOTTOM PANEL
-             * =================================================
-             *
-             * Lyrics no longer consume panel height.
-             *
-             * More transparent than previous version.
-             *
-             * Side/bottom outline intentionally absent.
-             */
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -464,7 +457,7 @@ fun XvoxNowPlaying(
                     .background(
                         colors.background
                             .copy(
-                                alpha = 0.56f
+                                alpha = 0.43f
                             )
                     )
                     .windowInsetsPadding(
@@ -473,18 +466,46 @@ fun XvoxNowPlaying(
                     )
                     .padding(
                         start = 20.dp,
-                        top = 17.dp,
+                        top = 16.dp,
                         end = 20.dp,
-                        bottom = 8.dp
+                        bottom = 7.dp
                     )
             ) {
+                /*
+                 * Only top boundary.
+                 *
+                 * No side/bottom border exists.
+                 */
+                Canvas(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    drawLine(
+                        color =
+                            colors.cardBorder,
+                        start =
+                            Offset(
+                                10.dp.toPx(),
+                                0f
+                            ),
+                        end =
+                            Offset(
+                                size.width -
+                                    10.dp.toPx(),
+                                0f
+                            ),
+                        strokeWidth =
+                            0.65.dp
+                                .toPx()
+                    )
+                }
+
                 NowPlayingActions()
 
                 androidx.compose.foundation.layout.Spacer(
-                    modifier =
-                        Modifier.size(
-                            14.dp
-                        )
+                    Modifier.size(
+                        13.dp
+                    )
                 )
 
                 Text(
@@ -516,10 +537,9 @@ fun XvoxNowPlaying(
                 )
 
                 androidx.compose.foundation.layout.Spacer(
-                    modifier =
-                        Modifier.size(
-                            9.dp
-                        )
+                    Modifier.size(
+                        8.dp
+                    )
                 )
 
                 XvoxNowPlayingProgress(
@@ -532,10 +552,9 @@ fun XvoxNowPlaying(
                 )
 
                 androidx.compose.foundation.layout.Spacer(
-                    modifier =
-                        Modifier.size(
-                            6.dp
-                        )
+                    Modifier.size(
+                        5.dp
+                    )
                 )
 
                 XvoxNowPlayingControls(
@@ -554,7 +573,8 @@ fun XvoxNowPlaying(
                 )
 
                 Text(
-                    text = "XVOX",
+                    text =
+                        "XVOX",
                     color =
                         colors.secondaryText
                             .copy(
@@ -587,15 +607,11 @@ private fun NowPlayingActions() {
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-        /*
-         * Same 42dp height family as header-right capsule.
-         * No border.
-         */
         Row(
             modifier = Modifier
                 .background(
                     colors.card.copy(
-                        alpha = 0.31f
+                        alpha = 0.27f
                     ),
                     RoundedCornerShape(
                         22.dp
@@ -608,46 +624,33 @@ private fun NowPlayingActions() {
                 Alignment.CenterVertically
         ) {
             NowPlayingActionIcon(
-                resource =
-                    R.drawable
-                        .ic_xvox_timer
+                R.drawable.ic_xvox_timer
             )
 
             NowPlayingActionIcon(
-                resource =
-                    R.drawable
-                        .ic_xvox_queue
+                R.drawable.ic_xvox_queue
             )
 
             NowPlayingActionIcon(
-                resource =
-                    R.drawable
-                        .ic_xvox_info
+                R.drawable.ic_xvox_info
             )
         }
 
         androidx.compose.foundation.layout.Spacer(
-            modifier =
-                Modifier.weight(1f)
+            Modifier.weight(1f)
         )
 
         NowPlayingCircleAction(
-            resource =
-                R.drawable
-                    .ic_xvox_star
+            R.drawable.ic_xvox_star
         )
 
         androidx.compose.foundation.layout.Spacer(
-            modifier =
-                Modifier.size(
-                    10.dp
-                )
+            Modifier.size(10.dp)
         )
 
         NowPlayingCircleAction(
-            resource =
-                R.drawable
-                    .ic_xvox_heart_outline
+            R.drawable
+                .ic_xvox_heart_outline
         )
     }
 }
@@ -658,9 +661,7 @@ private fun NowPlayingActionIcon(
 ) {
     Box(
         modifier =
-            Modifier.size(
-                42.dp
-            ),
+            Modifier.size(42.dp),
         contentAlignment =
             Alignment.Center
     ) {
@@ -675,9 +676,7 @@ private fun NowPlayingActionIcon(
                 XvoxTheme.colors
                     .primaryText,
             modifier =
-                Modifier.size(
-                    19.dp
-                )
+                Modifier.size(19.dp)
         )
     }
 }
@@ -694,7 +693,7 @@ private fun NowPlayingCircleAction(
             .size(42.dp)
             .background(
                 colors.card.copy(
-                    alpha = 0.31f
+                    alpha = 0.27f
                 ),
                 CircleShape
             ),
@@ -711,9 +710,7 @@ private fun NowPlayingCircleAction(
             tint =
                 colors.primaryText,
             modifier =
-                Modifier.size(
-                    19.dp
-                )
+                Modifier.size(19.dp)
         )
     }
 }
