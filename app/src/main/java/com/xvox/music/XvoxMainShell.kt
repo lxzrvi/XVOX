@@ -1,6 +1,7 @@
 package com.xvox.music
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
@@ -67,103 +69,73 @@ fun XvoxMainShell(
                 colors.background
             )
     ) {
-        Box(
-            modifier =
-                Modifier.fillMaxSize()
-        ) {
-            when (destination) {
-                XvoxDestination.HOME -> {
-                    HomeScreen(
-                        currentSongId =
-                            player.currentSongId,
-                        isPlaying =
-                            player.isPlaying,
-                        onQueueReady =
-                            playerViewModel::
-                                setQueue,
-                        onPlay =
-                            playerViewModel::play
-                    )
-                }
-
-                XvoxDestination.SEARCH -> {
-                    SearchScreen()
-                }
-
-                XvoxDestination.SETTINGS -> {
-                    SettingsScreen()
-                }
-            }
-        }
-
-        if (
-            !player.nowPlayingVisible
-        ) {
-            val currentSongId =
-                player.currentSongId
-
-            if (
-                player.miniPlayerVisible &&
-                currentSongId != null &&
-                player.queue.isNotEmpty()
-            ) {
-                XvoxMiniPlayer(
-                    queue =
-                        player.queue,
+        when (destination) {
+            XvoxDestination.HOME -> {
+                HomeScreen(
                     currentSongId =
-                        currentSongId,
-                    currentIndex =
-                        player.currentIndex,
+                        player.currentSongId,
                     isPlaying =
                         player.isPlaying,
-                    position =
-                        player.position,
-                    duration =
-                        player.duration,
-                    riseKey =
-                        player.miniPlayerRiseKey,
-                    togglePlay =
+                    onQueueReady =
                         playerViewModel::
-                            togglePlay,
-                    playQueueIndex =
-                        playerViewModel::
-                            playQueueIndex,
-                    stopAndDismiss =
-                        playerViewModel::
-                            stopPlayback,
-                    openPlayer =
-                        playerViewModel::
-                            openNowPlaying,
-                    onLike = {},
-                    onAdd = {},
-                    modifier = Modifier
-                        .align(
-                            Alignment.BottomCenter
-                        )
-                        .windowInsetsPadding(
-                            WindowInsets
-                                .navigationBars
-                        )
-                        .padding(
-                            start =
-                                XvoxMiniPlayerPlacement
-                                    .horizontalEdge,
-                            end =
-                                XvoxMiniPlayerPlacement
-                                    .horizontalEdge,
-                            bottom =
-                                XvoxMiniPlayerPlacement
-                                    .miniPlayerBottom
-                        )
+                            setQueue,
+                    onPlay =
+                        playerViewModel::play
                 )
             }
 
-            XvoxBottomBar(
-                selected =
-                    destination,
-                onSelected = {
-                    destination = it
-                },
+            XvoxDestination.SEARCH -> {
+                SearchScreen()
+            }
+
+            XvoxDestination.SETTINGS -> {
+                SettingsScreen()
+            }
+        }
+
+        /*
+         * MiniPlayer stays composed underneath Now Playing.
+         *
+         * Therefore it is already there when Now Playing
+         * slides down.
+         */
+        val currentSongId =
+            player.currentSongId
+
+        if (
+            player.miniPlayerVisible &&
+            currentSongId != null &&
+            player.queue.isNotEmpty()
+        ) {
+            XvoxMiniPlayer(
+                queue =
+                    player.queue,
+                currentSongId =
+                    currentSongId,
+                currentIndex =
+                    player.currentIndex,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
+                riseKey =
+                    player.miniPlayerRiseKey,
+                togglePlay =
+                    playerViewModel::
+                        togglePlay,
+                playQueueIndex =
+                    playerViewModel::
+                        playQueueIndex,
+                stopAndDismiss =
+                    playerViewModel::
+                        stopPlayback,
+                openPlayer =
+                    playerViewModel::
+                        openNowPlaying,
+                onLike = {},
+                onAdd = {},
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -173,17 +145,63 @@ fun XvoxMainShell(
                             .navigationBars
                     )
                     .padding(
+                        start =
+                            XvoxMiniPlayerPlacement
+                                .horizontalEdge,
+                        end =
+                            XvoxMiniPlayerPlacement
+                                .horizontalEdge,
                         bottom =
                             XvoxMiniPlayerPlacement
-                                .navigationHostBottom
+                                .miniPlayerBottom
                     )
             )
         }
+
+        /*
+         * Navbar is never removed by Now Playing.
+         */
+        XvoxBottomBar(
+            selected =
+                destination,
+            onSelected = {
+                destination = it
+            },
+            modifier = Modifier
+                .align(
+                    Alignment.BottomCenter
+                )
+                .windowInsetsPadding(
+                    WindowInsets
+                        .navigationBars
+                )
+                .padding(
+                    bottom =
+                        XvoxMiniPlayerPlacement
+                            .navigationHostBottom
+                )
+        )
 
         if (
             player.nowPlayingVisible &&
             currentSong != null
         ) {
+            /*
+             * Modal pointer barrier.
+             *
+             * Even transparent/translated Now Playing areas
+             * don't allow Home controls to click through.
+             */
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {}
+                        )
+                    }
+            )
+
             XvoxNowPlaying(
                 song =
                     currentSong,
