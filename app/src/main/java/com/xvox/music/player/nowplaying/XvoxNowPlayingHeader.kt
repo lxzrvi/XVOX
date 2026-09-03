@@ -35,8 +35,7 @@ fun XvoxNowPlayingHeader(
     onMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = modifier
@@ -53,9 +52,7 @@ fun XvoxNowPlayingHeader(
     ) {
         Box(
             modifier = Modifier
-                .align(
-                    Alignment.CenterStart
-                )
+                .align(Alignment.CenterStart)
                 .size(42.dp)
                 .background(
                     colors.card.copy(
@@ -77,33 +74,24 @@ fun XvoxNowPlayingHeader(
             Icon(
                 painter =
                     painterResource(
-                        R.drawable
-                            .ic_xvox_collapse
+                        R.drawable.ic_xvox_collapse
                     ),
                 contentDescription =
                     "Close player",
-                tint =
-                    colors.primaryText,
-                modifier =
-                    Modifier.size(
-                        21.dp
-                    )
+                tint = colors.primaryText,
+                modifier = Modifier.size(21.dp)
             )
         }
 
         Column(
             modifier =
-                Modifier.align(
-                    Alignment.Center
-                ),
+                Modifier.align(Alignment.Center),
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
             Text(
-                text =
-                    "PLAYING FROM",
-                color =
-                    colors.secondaryText,
+                text = "PLAYING FROM",
+                color = colors.primaryText,
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
                 fontWeight =
@@ -111,51 +99,35 @@ fun XvoxNowPlayingHeader(
             )
 
             Text(
-                text =
-                    "All Songs",
-                color =
-                    colors.primaryText,
+                text = "All Songs",
+                color = colors.primaryText,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,
-                fontWeight =
-                    FontWeight.Bold
+                fontWeight = FontWeight.Bold
             )
         }
 
         Row(
             modifier = Modifier
-                .align(
-                    Alignment.CenterEnd
-                )
+                .align(Alignment.CenterEnd)
                 .height(42.dp)
                 .background(
                     colors.card.copy(
                         alpha = 0.34f
                     ),
-                    RoundedCornerShape(
-                        22.dp
-                    )
+                    RoundedCornerShape(22.dp)
                 )
-                .padding(
-                    horizontal = 3.dp
-                ),
+                .padding(horizontal = 3.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
             HeaderAction(
-                resource =
-                    R.drawable
-                        .ic_xvox_share,
-                onClick =
-                    onShare
+                R.drawable.ic_xvox_share,
+                onShare
             )
-
             HeaderAction(
-                resource =
-                    R.drawable
-                        .ic_xvox_more,
-                onClick =
-                    onMore
+                R.drawable.ic_xvox_more,
+                onMore
             )
         }
     }
@@ -166,8 +138,7 @@ private fun HeaderAction(
     resource: Int,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -185,17 +156,10 @@ private fun HeaderAction(
     ) {
         Icon(
             painter =
-                painterResource(
-                    resource
-                ),
-            contentDescription =
-                null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(
-                    18.dp
-                )
+                painterResource(resource),
+            contentDescription = null,
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
