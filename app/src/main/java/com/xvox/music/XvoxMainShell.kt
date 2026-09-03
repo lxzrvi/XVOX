@@ -24,6 +24,7 @@ import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
+import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
@@ -44,6 +45,15 @@ fun XvoxMainShell(
             XvoxDestination.HOME
         )
     }
+
+    val currentSong =
+        player.queue.getOrNull(
+            player.currentIndex
+        ) ?: player.queue
+            .firstOrNull {
+                it.id ==
+                    player.currentSongId
+            }
 
     Box(
         modifier = Modifier
@@ -81,44 +91,74 @@ fun XvoxMainShell(
             }
         }
 
-        val currentSongId =
-            player.currentSongId
-
         if (
-            player.miniPlayerVisible &&
-            currentSongId != null &&
-            player.queue.isNotEmpty()
+            !player.nowPlayingVisible
         ) {
-            XvoxMiniPlayer(
-                queue =
-                    player.queue,
-                currentSongId =
-                    currentSongId,
-                currentIndex =
-                    player.currentIndex,
-                isPlaying =
-                    player.isPlaying,
-                position =
-                    player.position,
-                duration =
-                    player.duration,
-                riseKey =
-                    player.miniPlayerRiseKey,
-                togglePlay =
-                    playerViewModel::
-                        togglePlay,
-                playQueueIndex =
-                    playerViewModel::
-                        playQueueIndex,
-                stopAndDismiss =
-                    playerViewModel::
-                        stopPlayback,
-                openPlayer = {
-                    playerViewModel
-                        .hideMiniPlayer()
+            val currentSongId =
+                player.currentSongId
+
+            if (
+                player.miniPlayerVisible &&
+                currentSongId != null &&
+                player.queue.isNotEmpty()
+            ) {
+                XvoxMiniPlayer(
+                    queue =
+                        player.queue,
+                    currentSongId =
+                        currentSongId,
+                    currentIndex =
+                        player.currentIndex,
+                    isPlaying =
+                        player.isPlaying,
+                    position =
+                        player.position,
+                    duration =
+                        player.duration,
+                    riseKey =
+                        player.miniPlayerRiseKey,
+                    togglePlay =
+                        playerViewModel::
+                            togglePlay,
+                    playQueueIndex =
+                        playerViewModel::
+                            playQueueIndex,
+                    stopAndDismiss =
+                        playerViewModel::
+                            stopPlayback,
+                    openPlayer =
+                        playerViewModel::
+                            openNowPlaying,
+                    onLike = {},
+                    onAdd = {},
+                    modifier = Modifier
+                        .align(
+                            Alignment.BottomCenter
+                        )
+                        .windowInsetsPadding(
+                            WindowInsets
+                                .navigationBars
+                        )
+                        .padding(
+                            start =
+                                XvoxMiniPlayerPlacement
+                                    .horizontalEdge,
+                            end =
+                                XvoxMiniPlayerPlacement
+                                    .horizontalEdge,
+                            bottom =
+                                XvoxMiniPlayerPlacement
+                                    .miniPlayerBottom
+                        )
+                )
+            }
+
+            XvoxBottomBar(
+                selected =
+                    destination,
+                onSelected = {
+                    destination = it
                 },
-                onLike = {},
-                onAdd = {},
                 modifier = Modifier
                     .align(
                         Alignment.BottomCenter
@@ -128,38 +168,42 @@ fun XvoxMainShell(
                             .navigationBars
                     )
                     .padding(
-                        start =
-                            XvoxMiniPlayerPlacement
-                                .horizontalEdge,
-                        end =
-                            XvoxMiniPlayerPlacement
-                                .horizontalEdge,
                         bottom =
                             XvoxMiniPlayerPlacement
-                                .miniPlayerBottom
+                                .navigationHostBottom
                     )
             )
         }
 
-        XvoxBottomBar(
-            selected =
-                destination,
-            onSelected = {
-                destination = it
-            },
-            modifier = Modifier
-                .align(
-                    Alignment.BottomCenter
-                )
-                .windowInsetsPadding(
-                    WindowInsets
-                        .navigationBars
-                )
-                .padding(
-                    bottom =
-                        XvoxMiniPlayerPlacement
-                            .navigationHostBottom
-                )
-        )
+        if (
+            player.nowPlayingVisible &&
+            currentSong != null
+        ) {
+            XvoxNowPlaying(
+                song =
+                    currentSong,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
+                onClose =
+                    playerViewModel::
+                        closeNowPlaying,
+                onTogglePlay =
+                    playerViewModel::
+                        togglePlay,
+                onPrevious =
+                    playerViewModel::
+                        playPrevious,
+                onNext =
+                    playerViewModel::
+                        playNext,
+                onSeek =
+                    playerViewModel::
+                        seekTo
+            )
+        }
     }
 }
