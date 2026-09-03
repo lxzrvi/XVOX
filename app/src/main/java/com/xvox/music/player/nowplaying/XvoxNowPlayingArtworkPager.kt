@@ -2,7 +2,9 @@ package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -107,8 +109,10 @@ fun XvoxNowPlayingArtworkPager(
             onSwipePalette(
                 base,
                 adjacent,
-                abs(fraction)
-                    .coerceIn(0f, 1f)
+                abs(fraction).coerceIn(
+                    0f,
+                    1f
+                )
             )
         }
     }
@@ -139,17 +143,19 @@ fun XvoxNowPlayingArtworkPager(
         pageSize = PageSize.Fill,
         beyondViewportPageCount = 1,
         verticalAlignment =
-            Alignment.CenterVertically
+            Alignment.Top
     ) { page ->
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment =
+                Alignment.TopCenter
         ) {
             ArtworkPage(
                 song = queue[page],
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(horizontal = 12.dp)
+                    .aspectRatio(1f)
             )
         }
     }
@@ -161,10 +167,9 @@ private fun ArtworkPage(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier =
-            modifier.clip(
-                RoundedCornerShape(20.dp)
-            )
+        modifier = modifier.clip(
+            RoundedCornerShape(20.dp)
+        )
     ) {
         SongArtwork(
             artwork = song.artworkUri,
