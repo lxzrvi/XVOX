@@ -77,4 +77,8 @@ dependencies {
     implementation(
         "com.github.skydoves:cloudy:0.7.1"
     )
+
+    implementation(
+    "net.jthink:jaudiotagger:3.0.1"
+    )
 }
