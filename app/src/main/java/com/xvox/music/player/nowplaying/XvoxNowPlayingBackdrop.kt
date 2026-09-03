@@ -5,15 +5,20 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.model.Song
 
 @Composable
@@ -21,84 +26,159 @@ fun XvoxNowPlayingBackdrop(
     song: Song,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Color(0xFF080808)
-            )
-    ) {
-        AnimatedContent(
-            targetState = song,
-            contentKey = {
-                it.id
-            },
-            transitionSpec = {
-                fadeIn(
-                    tween(700)
-                ).togetherWith(
-                    fadeOut(
-                        tween(700)
-                    )
-                )
-            },
-            modifier =
-                Modifier.fillMaxSize(),
-            label =
-                "nowPlayingBackdrop"
-        ) { visualSong ->
-            AsyncImage(
-                model =
-                    visualSong.artworkUri,
-                contentDescription = null,
-                contentScale =
-                    ContentScale.Crop,
-                alpha = 0.36f,
-                modifier =
-                    Modifier.fillMaxSize()
+    val context =
+        LocalContext.current
+
+    val loader =
+        remember {
+            XvoxArtworkPaletteLoader(
+                context
             )
         }
 
-        /*
-         * Broad translucent color atmosphere.
-         * No runtime blur.
-         */
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(
-                                alpha = 0.20f
-                            ),
-                            Color.Black.copy(
-                                alpha = 0.34f
-                            ),
-                            Color.Black.copy(
-                                alpha = 0.63f
-                            )
-                        )
-                    )
-                )
+    var palette by remember {
+        mutableStateOf(
+            XvoxArtworkPalette(
+                primary =
+                    Color(0xFF31201C),
+                secondary =
+                    Color(0xFF120D0C)
+            )
         )
+    }
 
-        Box(
-            modifier = Modifier
+    var paletteSongId by remember {
+        mutableStateOf(
+            -1L
+        )
+    }
+
+    LaunchedEffect(
+        song.id,
+        song.artworkUri
+    ) {
+        palette =
+            loader.load(
+                song.artworkUri
+            )
+
+        paletteSongId =
+            song.id
+    }
+
+    AnimatedContent(
+        targetState =
+            paletteSongId to
+                palette,
+        contentKey = {
+            it.first
+        },
+        transitionSpec = {
+            fadeIn(
+                tween(850)
+            ).togetherWith(
+                fadeOut(
+                    tween(850)
+                )
+            )
+        },
+        modifier =
+            modifier
                 .fillMaxSize()
                 .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(
-                                alpha = 0.075f
+                    Color.Black
+                ),
+        label =
+            "nowPlayingPalette"
+    ) {
+        state ->
+
+        val colors =
+            state.second
+
+        Canvas(
+            modifier =
+                Modifier.fillMaxSize()
+        ) {
+            drawRect(
+                brush =
+                    Brush.linearGradient(
+                        colors =
+                            listOf(
+                                colors.primary,
+                                colors.secondary
                             ),
-                            Color.Transparent,
-                            Color.Black.copy(
-                                alpha = 0.20f
+                        start =
+                            Offset.Zero,
+                        end =
+                            Offset(
+                                size.width,
+                                size.height
                             )
-                        )
                     )
-                )
-        )
+            )
+
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors =
+                            listOf(
+                                colors.primary.copy(
+                                    alpha = 0.78f
+                                ),
+                                Color.Transparent
+                            ),
+                        center =
+                            Offset(
+                                size.width *
+                                    0.22f,
+                                size.height *
+                                    0.22f
+                            ),
+                        radius =
+                            size.maxDimension *
+                                0.72f
+                    )
+            )
+
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors =
+                            listOf(
+                                colors.secondary.copy(
+                                    alpha = 0.92f
+                                ),
+                                Color.Transparent
+                            ),
+                        center =
+                            Offset(
+                                size.width *
+                                    0.82f,
+                                size.height *
+                                    0.72f
+                            ),
+                        radius =
+                            size.maxDimension *
+                                0.74f
+                    )
+            )
+
+            drawRect(
+                brush =
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color.Black.copy(
+                                    alpha = 0.08f
+                                ),
+                                Color.Transparent,
+                                Color.Black.copy(
+                                    alpha = 0.26f
+                                )
+                            )
+                    )
+            )
+        }
     }
 }
