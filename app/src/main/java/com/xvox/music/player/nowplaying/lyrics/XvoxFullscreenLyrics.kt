@@ -1,6 +1,7 @@
 package com.xvox.music.player.nowplaying.lyrics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -226,9 +227,9 @@ private fun IconButton(
         modifier =
             Modifier
                 .size(36.dp)
-                .androidx.compose.foundation.clickable {
-                    onClick()
-                },
+                .clickable(
+                    onClick = onClick
+                ),
         contentAlignment =
             Alignment.Center
     ) {
