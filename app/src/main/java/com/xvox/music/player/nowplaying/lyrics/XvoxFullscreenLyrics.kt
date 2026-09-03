@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +31,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.SongArtwork
+import com.xvox.music.player.nowplaying.XvoxNowPlayingBackdrop
 import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 
 @Composable
@@ -39,6 +41,7 @@ fun XvoxFullscreenLyrics(
     position: Long,
     duration: Long,
     isPlaying: Boolean,
+    backgroundColor: Color,
     onPrevious: () -> Unit,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
@@ -46,120 +49,103 @@ fun XvoxFullscreenLyrics(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                colors.background
-            )
-            .windowInsetsPadding(
-                WindowInsets.statusBars
-            )
-            .padding(
-                start = 14.dp,
-                top = 10.dp,
-                end = 14.dp,
-                bottom = 12.dp
-            )
+    Box(
+        modifier = modifier.fillMaxSize()
     ) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            SongArtwork(
-                artwork =
-                    song.artworkUri,
-                requestSize = 128,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            10.dp
-                        )
-                    )
-            )
+        XvoxNowPlayingBackdrop(
+            dominant = backgroundColor,
+            modifier = Modifier.fillMaxSize()
+        )
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        start = 10.dp,
-                        end = 8.dp
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(
+                    WindowInsets.statusBars
+                )
+                .padding(
+                    start = 14.dp,
+                    top = 10.dp,
+                    end = 14.dp,
+                    bottom = 12.dp
+                )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                Text(
-                    text =
-                        song.title,
-                    color =
-                        colors.primaryText,
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
-                    fontWeight =
-                        FontWeight.Bold,
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis
+                SongArtwork(
+                    artwork = song.artworkUri,
+                    requestSize = 128,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(
+                            RoundedCornerShape(10.dp)
+                        )
                 )
 
-                Text(
-                    text =
-                        song.artist,
-                    color =
-                        colors.secondaryText,
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(
+                            start = 10.dp,
+                            end = 8.dp
+                        )
+                ) {
+                    Text(
+                        text = song.title,
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text = song.artist,
+                        color = colors.secondaryText,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                LyricsTransport(
+                    isPlaying = isPlaying,
+                    onPrevious = onPrevious,
+                    onTogglePlay = onTogglePlay,
+                    onNext = onNext
+                )
+
+                LyricsIconButton(
+                    resource =
+                        R.drawable.ic_xvox_close,
+                    onClick = onClose
                 )
             }
 
-            LyricsTransport(
-                isPlaying =
-                    isPlaying,
-                onPrevious =
-                    onPrevious,
-                onTogglePlay =
-                    onTogglePlay,
-                onNext =
-                    onNext
-            )
-
-            LyricsIconButton(
-                resource =
-                    R.drawable.ic_xvox_close,
-                onClick =
-                    onClose
-            )
-        }
-
-        XvoxNowPlayingProgress(
-            position =
-                position,
-            duration =
-                duration,
-            onSeek =
-                onSeek,
-            modifier =
-                Modifier.padding(
+            XvoxNowPlayingProgress(
+                position = position,
+                duration = duration,
+                onSeek = onSeek,
+                modifier = Modifier.padding(
                     top = 9.dp
                 )
-        )
+            )
 
-        XvoxSyncedLyrics(
-            lyrics =
-                lyrics,
-            position =
-                position,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
+            XvoxSyncedLyrics(
+                lyrics = lyrics,
+                position = position,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -170,54 +156,40 @@ private fun LyricsTransport(
     onTogglePlay: () -> Unit,
     onNext: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Row(
         modifier = Modifier
             .clip(
-                RoundedCornerShape(
-                    24.dp
-                )
+                RoundedCornerShape(24.dp)
             )
             .background(
-                colors.card.copy(
-                    alpha = 0.55f
-                )
+                colors.card.copy(alpha = 0.38f)
             )
-            .padding(
-                horizontal = 3.dp
-            ),
+            .padding(horizontal = 3.dp),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
         LyricsIconButton(
             resource =
-                R.drawable
-                    .ic_xvox_skip_previous,
-            onClick =
-                onPrevious
+                R.drawable.ic_xvox_skip_previous,
+            onClick = onPrevious
         )
 
         LyricsIconButton(
             resource =
                 if (isPlaying) {
-                    R.drawable
-                        .ic_xvox_pause
+                    R.drawable.ic_xvox_pause
                 } else {
-                    R.drawable
-                        .ic_xvox_play
+                    R.drawable.ic_xvox_play
                 },
-            onClick =
-                onTogglePlay
+            onClick = onTogglePlay
         )
 
         LyricsIconButton(
             resource =
-                R.drawable
-                    .ic_xvox_skip_next,
-            onClick =
-                onNext
+                R.drawable.ic_xvox_skip_next,
+            onClick = onNext
         )
     }
 }
@@ -227,8 +199,7 @@ private fun LyricsIconButton(
     resource: Int,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -241,22 +212,13 @@ private fun LyricsIconButton(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    resource
-                ),
-            contentDescription =
-                null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(
-                    18.dp
-                )
+            painter = painterResource(resource),
+            contentDescription = null,
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
