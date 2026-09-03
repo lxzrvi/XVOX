@@ -75,8 +75,7 @@ fun XvoxNowPlaying(
     val colors = XvoxTheme.colors
 
     val lyricsState by
-        lyricsViewModel.state
-            .collectAsState()
+        lyricsViewModel.state.collectAsState()
 
     val paletteState =
         rememberXvoxNowPlayingPalette(
@@ -91,8 +90,7 @@ fun XvoxNowPlaying(
     val screenHeight =
         with(density) {
             LocalConfiguration.current
-                .screenHeightDp.dp
-                .toPx()
+                .screenHeightDp.dp.toPx()
         }
 
     var screenY by remember {
@@ -146,8 +144,7 @@ fun XvoxNowPlaying(
                         durationMillis =
                             durationMs,
                         easing =
-                            XvoxNowPlayingMotion
-                                .easing
+                            XvoxNowPlayingMotion.easing
                     )
                 ) {
                     screenY = value
@@ -189,8 +186,7 @@ fun XvoxNowPlaying(
             target = 0f,
             durationMs =
                 (
-                    XvoxNowPlayingMotion
-                        .FullDuration *
+                    XvoxNowPlayingMotion.FullDuration *
                         fraction
                     )
                     .toInt()
@@ -241,16 +237,14 @@ fun XvoxNowPlaying(
         animateScreen(
             target = 0f,
             durationMs =
-                XvoxNowPlayingMotion
-                    .FullDuration
+                XvoxNowPlayingMotion.FullDuration
         )
     }
 
     BackHandler {
         when {
             lyricsState.fullscreen ->
-                lyricsViewModel
-                    .closeFullscreen()
+                lyricsViewModel.closeFullscreen()
 
             showLyrics ->
                 showLyrics = false
@@ -271,18 +265,13 @@ fun XvoxNowPlaying(
                 paletteState.color,
             onAttach =
                 lyricsViewModel::attach,
-            onPrevious =
-                ::requestPrevious,
-            onTogglePlay =
-                onTogglePlay,
-            onNext =
-                ::requestNext,
+            onPrevious = ::requestPrevious,
+            onTogglePlay = onTogglePlay,
+            onNext = ::requestNext,
             onSeek = onSeek,
             onClose =
-                lyricsViewModel::
-                    closeFullscreen,
-            modifier =
-                Modifier.fillMaxSize()
+                lyricsViewModel::closeFullscreen,
+            modifier = Modifier.fillMaxSize()
         )
 
         return
@@ -302,13 +291,14 @@ fun XvoxNowPlaying(
             }
     ) {
         XvoxNowPlayingBackdrop(
-            dominant = paletteState.color,
-            modifier = Modifier.fillMaxSize()
+            dominant =
+                paletteState.color,
+            modifier =
+                Modifier.fillMaxSize()
         )
 
         Column(
-            modifier =
-                Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
             Box(
                 modifier = Modifier
@@ -366,7 +356,7 @@ fun XvoxNowPlaying(
                     .fillMaxWidth()
                     .padding(
                         start = 12.dp,
-                        top = 19.dp,
+                        top = 9.dp,
                         end = 12.dp,
                         bottom = 50.dp
                     ),
@@ -388,8 +378,7 @@ fun XvoxNowPlaying(
                                 showLyrics = false
                             },
                             onFullscreen =
-                                lyricsViewModel::
-                                    openFullscreen,
+                                lyricsViewModel::openFullscreen,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(
@@ -457,13 +446,12 @@ fun XvoxNowPlaying(
                 NowPlayingActions()
 
                 Spacer(
-                    Modifier.size(18.dp)
+                    Modifier.size(28.dp)
                 )
 
                 Text(
                     text = song.title,
-                    color =
-                        colors.primaryText,
+                    color = colors.primaryText,
                     fontSize = 21.sp,
                     lineHeight = 25.sp,
                     fontWeight =
@@ -507,8 +495,7 @@ fun XvoxNowPlaying(
                         ::requestPrevious,
                     onTogglePlay =
                         onTogglePlay,
-                    onNext =
-                        ::requestNext,
+                    onNext = ::requestNext,
                     onRepeat = {},
                     modifier =
                         Modifier.fillMaxWidth()
@@ -521,10 +508,9 @@ fun XvoxNowPlaying(
                 Text(
                     text = "XVOX",
                     color =
-                        colors.primaryText
-                            .copy(
-                                alpha = 0.62f
-                            ),
+                        colors.primaryText.copy(
+                            alpha = 0.62f
+                        ),
                     fontFamily =
                         XvoxLogoFont,
                     fontSize = 11.sp,
@@ -590,8 +576,7 @@ private fun NowPlayingActions() {
         )
 
         NowPlayingCircleAction(
-            R.drawable
-                .ic_xvox_heart_outline
+            R.drawable.ic_xvox_heart_outline
         )
     }
 }
@@ -603,8 +588,7 @@ private fun NowPlayingActionIcon(
     val colors = XvoxTheme.colors
 
     Box(
-        modifier =
-            Modifier.size(42.dp),
+        modifier = Modifier.size(42.dp),
         contentAlignment =
             Alignment.Center
     ) {
@@ -613,8 +597,7 @@ private fun NowPlayingActionIcon(
                 painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(19.dp)
+            modifier = Modifier.size(19.dp)
         )
     }
 }
@@ -642,8 +625,7 @@ private fun NowPlayingCircleAction(
                 painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(19.dp)
+            modifier = Modifier.size(19.dp)
         )
     }
 }
