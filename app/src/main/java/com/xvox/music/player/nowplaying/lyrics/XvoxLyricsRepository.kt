@@ -17,215 +17,147 @@ class XvoxLyricsRepository(
         context.applicationContext
 
     private val preferences =
-        UserPreferencesRepository(
-            appContext
-        )
+        UserPreferencesRepository(appContext)
 
     private val metadataReader =
-        XvoxMetadataReader(
-            appContext
-        )
+        XvoxMetadataReader(appContext)
 
     suspend fun load(
         song: Song
-    ): XvoxLyrics? {
-        return withContext(
-            Dispatchers.IO
-        ) {
-            loadInternal(
-                song
-            )
+    ): XvoxLyrics? =
+        withContext(Dispatchers.IO) {
+            loadInternal(song, true)
         }
-    }
 
     private suspend fun loadInternal(
-        song: Song
+        song: Song,
+        includeCustom: Boolean
     ): XvoxLyrics? {
-        /*
-         * ====================================================
-         * 1. USER-SELECTED LRC / TXT
-         * ====================================================
-         *
-         * User-selected lyrics always have priority over
-         * embedded lyrics.
-         */
-        val selectedUriString =
-            preferences
-                .lyricsUri(
-                    song.id
-                )
-                .first()
+        if (includeCustom) {
+            val selected =
+                preferences.lyricsUri(song.id)
+                    .first()
 
-        if (
-            !selectedUriString
-                .isNullOrBlank()
-        ) {
-            val selectedUri =
-                runCatching {
-                    Uri.parse(
-                        selectedUriString
-                    )
-                }
-                    .getOrNull()
+            if (!selected.isNullOrBlank()) {
+                val uri =
+                    runCatching {
+                        Uri.parse(selected)
+                    }.getOrNull()
 
-            if (
-                selectedUri != null
-            ) {
-                val userLyrics =
-                    readUserLyrics(
-                        selectedUri
-                    )
-
-                if (
-                    userLyrics != null
-                ) {
-                    return userLyrics
+                if (uri != null) {
+                    readUserLyrics(uri)?.let {
+                        return it
+                    }
                 }
             }
         }
 
-        /*
-         * ====================================================
-         * 2. EMBEDDED METADATA
-         * ====================================================
-         *
-         * XvoxMetadataReader:
-         *
-         * content://
-         *     ↓
-         * Android metadata
-         *     ↓
-         * private temporary copy when deep parsing is needed
-         *     ↓
-         * Jaudiotagger
-         *
-         * Never File(uri.path!!).
-         */
         val metadata =
             runCatching {
                 metadataReader.read(
                     song.contentUri
                 )
-            }
-                .getOrNull()
+            }.getOrNull()
 
-        val embeddedLyrics =
-            metadata
-                ?.lyrics
+        val raw =
+            metadata?.lyrics
                 ?.trim()
                 ?.takeIf {
                     it.isNotEmpty()
                 }
+                ?: return null
 
-        if (
-            embeddedLyrics != null
-        ) {
-            return XvoxLyricsParser.parse(
-                raw =
-                    embeddedLyrics,
-                source =
-                    XvoxLyricsSource
-                        .EMBEDDED
-            )
-        }
-
-        return null
+        return XvoxLyricsParser.parse(
+            raw = raw,
+            source =
+                XvoxLyricsSource.EMBEDDED
+        )
     }
 
     suspend fun attach(
         songId: Long,
         uri: Uri
-    ): XvoxLyrics? {
-        return withContext(
-            Dispatchers.IO
-        ) {
-            /*
-             * OpenDocument normally allows a persistable grant.
-             *
-             * Some document providers don't support it, so failure
-             * here must not prevent immediate lyrics loading.
-             */
+    ): XvoxLyrics? =
+        withContext(Dispatchers.IO) {
             runCatching {
-                appContext
-                    .contentResolver
+                appContext.contentResolver
                     .takePersistableUriPermission(
                         uri,
-                        Intent
-                            .FLAG_GRANT_READ_URI_PERMISSION
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
             }
 
             val lyrics =
-                readUserLyrics(
-                    uri
-                )
+                readUserLyrics(uri)
+                    ?: return@withContext null
 
-            if (
-                lyrics == null
-            ) {
-                null
-            } else {
-                preferences
-                    .setLyricsUri(
-                        songId =
-                            songId,
-                        uri =
-                            uri.toString()
-                    )
+            preferences.setLyricsUri(
+                songId,
+                uri.toString()
+            )
 
-                lyrics
-            }
+            lyrics
         }
-    }
+
+    suspend fun removeCustom(
+        song: Song
+    ): XvoxLyrics? =
+        withContext(Dispatchers.IO) {
+            val old =
+                preferences.lyricsUri(
+                    song.id
+                ).first()
+
+            preferences.setLyricsUri(
+                song.id,
+                null
+            )
+
+            old?.let { value ->
+                runCatching {
+                    appContext.contentResolver
+                        .releasePersistableUriPermission(
+                            Uri.parse(value),
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                }
+            }
+
+            loadInternal(
+                song,
+                includeCustom = false
+            )
+        }
 
     private fun readUserLyrics(
         uri: Uri
     ): XvoxLyrics? {
         val raw =
             runCatching {
-                appContext
-                    .contentResolver
-                    .openInputStream(
-                        uri
-                    )
+                appContext.contentResolver
+                    .openInputStream(uri)
                     ?.bufferedReader()
                     ?.use {
-                        reader ->
-
-                        reader.readText()
+                        it.readText()
                     }
-            }
-                .getOrNull()
+            }.getOrNull()
                 ?: return null
 
-        if (
-            raw.isBlank()
-        ) {
-            return null
-        }
+        if (raw.isBlank()) return null
 
-        val hasTimestamp =
+        val synced =
             Regex(
                 """\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?]"""
-            )
-                .containsMatchIn(
-                    raw
-                )
-
-        val source =
-            if (hasTimestamp) {
-                XvoxLyricsSource
-                    .USER_LRC
-            } else {
-                XvoxLyricsSource
-                    .USER_TEXT
-            }
+            ).containsMatchIn(raw)
 
         return XvoxLyricsParser.parse(
-            raw =
-                raw,
+            raw = raw,
             source =
-                source
+                if (synced) {
+                    XvoxLyricsSource.USER_LRC
+                } else {
+                    XvoxLyricsSource.USER_TEXT
+                }
         )
     }
 }
