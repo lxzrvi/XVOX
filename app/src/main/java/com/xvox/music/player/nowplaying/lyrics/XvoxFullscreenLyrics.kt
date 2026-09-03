@@ -149,29 +149,31 @@ fun XvoxFullscreenLyrics(
                     onNext = onNext
                 )
 
-                Spacer(
-                    Modifier.size(6.dp)
-                )
-
                 if (custom) {
+                    Spacer(
+                        Modifier.size(6.dp)
+                    )
+
                     FullscreenCircle(
                         resource =
-                            R.drawable.ic_xvox_close,
+                            R.drawable
+                                .ic_xvox_delete,
                         description =
                             "Remove custom lyrics",
                         onClick = onDelete
                     )
-
-                    Spacer(
-                        Modifier.size(6.dp)
-                    )
                 }
+
+                Spacer(
+                    Modifier.size(6.dp)
+                )
 
                 FullscreenCircle(
                     resource =
-                        R.drawable.ic_xvox_close,
+                        R.drawable
+                            .ic_xvox_close,
                     description =
-                        "Close lyrics",
+                        "Close fullscreen lyrics",
                     onClick = onClose
                 )
             }
@@ -199,7 +201,8 @@ fun XvoxFullscreenLyrics(
                             text =
                                 "Loading lyrics…",
                             color =
-                                colors.secondaryText
+                                colors.secondaryText,
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -300,7 +303,7 @@ private fun LyricsTransport(
     Row(
         modifier = Modifier
             .clip(
-                RoundedCornerShape(24.dp)
+                RoundedCornerShape(21.dp)
             )
             .background(
                 colors.card.copy(
@@ -341,7 +344,7 @@ private fun TransportButton(
 
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(42.dp)
             .clickable(
                 interactionSource =
                     remember {
