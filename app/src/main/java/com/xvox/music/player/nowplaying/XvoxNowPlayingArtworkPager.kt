@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -46,18 +47,11 @@ fun XvoxNowPlayingArtworkPager(
         LocalConfiguration.current
             .screenWidthDp.dp
 
-    val pageWidth =
-        screenWidth - 24.dp
-
     val latestIndex =
-        rememberUpdatedState(
-            currentIndex
-        )
+        rememberUpdatedState(currentIndex)
 
     val latestCommit =
-        rememberUpdatedState(
-            onSettledPage
-        )
+        rememberUpdatedState(onSettledPage)
 
     val pagerState =
         rememberPagerState(
@@ -86,9 +80,7 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    LaunchedEffect(
-        navigationRequest
-    ) {
+    LaunchedEffect(navigationRequest) {
         if (navigationRequest == 0) {
             return@LaunchedEffect
         }
@@ -96,18 +88,13 @@ fun XvoxNowPlayingArtworkPager(
         val target =
             if (navigationRequest > 0) {
                 (pagerState.settledPage + 1)
-                    .coerceAtMost(
-                        queue.lastIndex
-                    )
+                    .coerceAtMost(queue.lastIndex)
             } else {
                 (pagerState.settledPage - 1)
                     .coerceAtLeast(0)
             }
 
-        if (
-            target !=
-            pagerState.settledPage
-        ) {
+        if (target != pagerState.settledPage) {
             pagerState.animateScrollToPage(
                 target
             )
@@ -120,42 +107,31 @@ fun XvoxNowPlayingArtworkPager(
     ) {
         snapshotFlow {
             pagerState.currentPage to
-                pagerState
-                    .currentPageOffsetFraction
+                pagerState.currentPageOffsetFraction
+        }.collect { (page, fraction) ->
+            val base =
+                queue.getOrNull(page)
+                    ?: return@collect
+
+            val adjacent =
+                when {
+                    fraction > 0f ->
+                        queue.getOrNull(page + 1)
+
+                    fraction < 0f ->
+                        queue.getOrNull(page - 1)
+
+                    else ->
+                        null
+                }
+
+            onSwipePalette(
+                base,
+                adjacent,
+                abs(fraction)
+                    .coerceIn(0f, 1f)
+            )
         }
-            .collect {
-                (page, fraction) ->
-
-                val base =
-                    queue.getOrNull(page)
-                        ?: return@collect
-
-                val adjacent =
-                    when {
-                        fraction > 0f ->
-                            queue.getOrNull(
-                                page + 1
-                            )
-
-                        fraction < 0f ->
-                            queue.getOrNull(
-                                page - 1
-                            )
-
-                        else ->
-                            null
-                    }
-
-                onSwipePalette(
-                    base,
-                    adjacent,
-                    abs(fraction)
-                        .coerceIn(
-                            0f,
-                            1f
-                        )
-                )
-            }
     }
 
     LaunchedEffect(
@@ -165,9 +141,7 @@ fun XvoxNowPlayingArtworkPager(
         snapshotFlow {
             if (
                 pagerState.isScrollInProgress ||
-                pagerState
-                    .currentPageOffsetFraction !=
-                0f
+                pagerState.currentPageOffsetFraction != 0f
             ) {
                 null
             } else {
@@ -175,48 +149,38 @@ fun XvoxNowPlayingArtworkPager(
             }
         }
             .distinctUntilChanged()
-            .collect {
-                page ->
-
+            .collect { page ->
                 if (
                     page != null &&
                     page in queue.indices &&
                     page != latestIndex.value
                 ) {
-                    latestCommit.value(
-                        page
-                    )
+                    latestCommit.value(page)
                 }
             }
     }
 
     Box(
-        modifier =
-            modifier.fillMaxSize(),
-        contentAlignment =
-            Alignment.Center
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
-                .requiredWidth(
-                    screenWidth
-                )
+                .requiredWidth(screenWidth)
                 .fillMaxSize(),
-            pageSize =
-                PageSize.Fixed(
-                    pageWidth
-                ),
+            pageSize = PageSize.Fill,
             pageSpacing = 14.dp,
             beyondViewportPageCount = 1,
             verticalAlignment =
                 Alignment.CenterVertically
-        ) {
-            page ->
-
+        ) { page ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(
+                        horizontal = 12.dp
+                    )
                     .clip(
                         RoundedCornerShape(
                             20.dp
@@ -227,8 +191,7 @@ fun XvoxNowPlayingArtworkPager(
             ) {
                 SongArtwork(
                     artwork =
-                        queue[page]
-                            .artworkUri,
+                        queue[page].artworkUri,
                     requestSize =
                         RecentArtworkSize,
                     modifier =
