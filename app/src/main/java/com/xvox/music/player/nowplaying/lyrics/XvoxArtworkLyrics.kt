@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,19 +37,13 @@ fun XvoxArtworkLyrics(
     onFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     val launcher =
         rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .OpenDocument()
-        ) {
-            uri ->
-
-            uri?.let(
-                onAttach
-            )
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            uri?.let(onAttach)
         }
 
     Box(
@@ -55,55 +51,53 @@ fun XvoxArtworkLyrics(
             .fillMaxSize()
             .background(
                 colors.background.copy(
-                    alpha = 0.42f
+                    alpha = 0.27f
                 )
             )
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    if (
+                        state.lyrics == null &&
+                        !state.loading
+                    ) {
+                        onClose()
+                    }
+                }
+            }
     ) {
         Row(
             modifier = Modifier
-                .align(
-                    Alignment.TopEnd
-                )
+                .align(Alignment.TopEnd)
                 .padding(9.dp)
                 .height(42.dp)
                 .background(
                     colors.card.copy(
-                        alpha = 0.42f
+                        alpha = 0.28f
                     ),
-                    RoundedCornerShape(
-                        22.dp
-                    )
+                    RoundedCornerShape(22.dp)
                 )
-                .padding(
-                    horizontal = 3.dp
-                ),
+                .padding(horizontal = 3.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
             LyricsAction(
                 resource =
-                    R.drawable
-                        .ic_xvox_fullscreen,
-                onClick =
-                    onFullscreen
+                    R.drawable.ic_xvox_fullscreen,
+                onClick = onFullscreen
             )
 
             LyricsAction(
                 resource =
-                    R.drawable
-                        .ic_xvox_close,
-                onClick =
-                    onClose
+                    R.drawable.ic_xvox_close,
+                onClick = onClose
             )
         }
 
         when {
             state.loading -> {
                 Text(
-                    text =
-                        "Loading lyrics…",
-                    color =
-                        colors.secondaryText,
+                    text = "Loading lyrics…",
+                    color = colors.secondaryText,
                     fontSize = 12.sp,
                     modifier =
                         Modifier.align(
@@ -114,10 +108,8 @@ fun XvoxArtworkLyrics(
 
             state.lyrics != null -> {
                 XvoxSyncedLyrics(
-                    lyrics =
-                        state.lyrics,
-                    position =
-                        position,
+                    lyrics = state.lyrics,
+                    position = position,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(
@@ -130,9 +122,7 @@ fun XvoxArtworkLyrics(
             else -> {
                 Column(
                     modifier = Modifier
-                        .align(
-                            Alignment.Center
-                        )
+                        .align(Alignment.Center)
                         .clickable(
                             interactionSource =
                                 remember {
@@ -141,11 +131,7 @@ fun XvoxArtworkLyrics(
                             indication = null
                         ) {
                             launcher.launch(
-                                arrayOf(
-                                    "text/plain",
-                                    "text/*",
-                                    "application/octet-stream"
-                                )
+                                arrayOf("*/*")
                             )
                         }
                         .padding(20.dp),
@@ -157,11 +143,9 @@ fun XvoxArtworkLyrics(
                             .size(46.dp)
                             .background(
                                 colors.card.copy(
-                                    alpha = 0.44f
+                                    alpha = 0.32f
                                 ),
-                                RoundedCornerShape(
-                                    23.dp
-                                )
+                                RoundedCornerShape(23.dp)
                             ),
                         contentAlignment =
                             Alignment.Center
@@ -174,19 +158,15 @@ fun XvoxArtworkLyrics(
                                 ),
                             contentDescription =
                                 "Add lyrics",
-                            tint =
-                                colors.primaryText,
+                            tint = colors.primaryText,
                             modifier =
-                                Modifier.size(
-                                    22.dp
-                                )
+                                Modifier.size(22.dp)
                         )
                     }
 
                     Text(
                         text = "No lyrics",
-                        color =
-                            colors.primaryText,
+                        color = colors.primaryText,
                         fontSize = 13.sp,
                         modifier =
                             Modifier.padding(
@@ -195,10 +175,8 @@ fun XvoxArtworkLyrics(
                     )
 
                     Text(
-                        text =
-                            "Add from files",
-                        color =
-                            colors.secondaryText,
+                        text = "Add LRC or text",
+                        color = colors.secondaryText,
                         fontSize = 10.sp,
                         modifier =
                             Modifier.padding(
@@ -216,8 +194,7 @@ private fun LyricsAction(
     resource: Int,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -235,17 +212,10 @@ private fun LyricsAction(
     ) {
         Icon(
             painter =
-                painterResource(
-                    resource
-                ),
-            contentDescription =
-                null,
-            tint =
-                colors.primaryText,
-            modifier =
-                Modifier.size(
-                    18.dp
-                )
+                painterResource(resource),
+            contentDescription = null,
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
