@@ -1,9 +1,14 @@
 package com.xvox.music.player.nowplaying.lyrics
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,14 +21,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -39,108 +49,220 @@ fun XvoxSyncedLyrics(
 ) {
     if (lyrics.lines.isEmpty()) return
 
-    val listState =
-        rememberLazyListState()
-
     val activeIndex =
         if (lyrics.synchronized) {
-            lyrics.lines.indexOfLast {
-                (it.timeMs ?: Long.MAX_VALUE) <=
-                    position
-            }.coerceAtLeast(0)
+            lyrics.lines
+                .indexOfLast {
+                    (it.timeMs ?: Long.MAX_VALUE) <=
+                        position
+                }
+                .coerceAtLeast(0)
         } else {
             -1
         }
 
-    var lastInteraction by remember {
+    val listState =
+        rememberLazyListState()
+
+    var userBrowsing by remember {
+        mutableStateOf(false)
+    }
+
+    var autoFollowing by remember {
+        mutableStateOf(false)
+    }
+
+    var interactionToken by remember {
         mutableLongStateOf(0L)
     }
 
     LaunchedEffect(
-        listState.isScrollInProgress
+        listState.isScrollInProgress,
+        autoFollowing
     ) {
-        if (listState.isScrollInProgress) {
-            lastInteraction =
-                System.currentTimeMillis()
-        } else if (
-            lyrics.synchronized &&
-            activeIndex >= 0 &&
-            lastInteraction > 0L
+        if (
+            listState.isScrollInProgress &&
+            !autoFollowing
         ) {
-            delay(3000L)
+            userBrowsing = true
+            interactionToken++
+        } else if (
+            !listState.isScrollInProgress &&
+            userBrowsing &&
+            !autoFollowing
+        ) {
+            val token =
+                ++interactionToken
+
+            delay(4_000L)
 
             if (
-                !listState.isScrollInProgress &&
-                System.currentTimeMillis() -
-                    lastInteraction >= 2900L
+                token == interactionToken &&
+                !listState.isScrollInProgress
             ) {
-                listState.centerLine(
-                    activeIndex
-                )
-                lastInteraction = 0L
+                userBrowsing = false
             }
         }
     }
 
     LaunchedEffect(
         activeIndex,
+        userBrowsing,
         lyrics
     ) {
         if (
-            lyrics.synchronized &&
-            activeIndex >= 0 &&
-            !listState.isScrollInProgress &&
-            lastInteraction == 0L
+            !lyrics.synchronized ||
+            activeIndex < 0 ||
+            userBrowsing
         ) {
-            listState.centerLine(
-                activeIndex
+            return@LaunchedEffect
+        }
+
+        autoFollowing = true
+
+        try {
+            withFrameNanos { }
+
+            centerLyricExactly(
+                state = listState,
+                lazyIndex = activeIndex + 1
             )
+        } finally {
+            autoFollowing = false
         }
     }
 
     BoxWithConstraints(
-        modifier = modifier
+        modifier = modifier.fillMaxSize()
     ) {
-        val verticalSpace =
+        val boundarySpace =
             maxHeight / 2
 
         LazyColumn(
             state = listState,
-            modifier =
-                Modifier.matchParentSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    compositingStrategy =
+                        CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+
+                    val stops =
+                        if (strongEdgeFade) {
+                            arrayOf(
+                                0.00f to Color.Transparent,
+                                0.07f to Color.White.copy(
+                                    alpha = 0.04f
+                                ),
+                                0.15f to Color.White.copy(
+                                    alpha = 0.14f
+                                ),
+                                0.25f to Color.White.copy(
+                                    alpha = 0.38f
+                                ),
+                                0.37f to Color.White.copy(
+                                    alpha = 0.78f
+                                ),
+                                0.45f to Color.White,
+                                0.55f to Color.White,
+                                0.63f to Color.White.copy(
+                                    alpha = 0.78f
+                                ),
+                                0.75f to Color.White.copy(
+                                    alpha = 0.38f
+                                ),
+                                0.85f to Color.White.copy(
+                                    alpha = 0.14f
+                                ),
+                                0.93f to Color.White.copy(
+                                    alpha = 0.04f
+                                ),
+                                1.00f to Color.Transparent
+                            )
+                        } else {
+                            arrayOf(
+                                0.00f to Color.White.copy(
+                                    alpha = 0.03f
+                                ),
+                                0.09f to Color.White.copy(
+                                    alpha = 0.12f
+                                ),
+                                0.20f to Color.White.copy(
+                                    alpha = 0.34f
+                                ),
+                                0.33f to Color.White.copy(
+                                    alpha = 0.70f
+                                ),
+                                0.43f to Color.White,
+                                0.57f to Color.White,
+                                0.67f to Color.White.copy(
+                                    alpha = 0.70f
+                                ),
+                                0.80f to Color.White.copy(
+                                    alpha = 0.34f
+                                ),
+                                0.91f to Color.White.copy(
+                                    alpha = 0.12f
+                                ),
+                                1.00f to Color.White.copy(
+                                    alpha = 0.03f
+                                )
+                            )
+                        }
+
+                    drawRect(
+                        brush =
+                            Brush.verticalGradient(
+                                colorStops = stops
+                            ),
+                        blendMode =
+                            BlendMode.DstIn
+                    )
+                }
         ) {
-            item {
+            item(
+                key = "lyrics-top"
+            ) {
                 Spacer(
                     Modifier.height(
-                        verticalSpace
+                        boundarySpace
                     )
                 )
             }
 
             itemsIndexed(
-                lyrics.lines,
-                key = {
-                    index,
-                    line ->
-
-                    "$index-${line.timeMs}"
+                items = lyrics.lines,
+                key = { index, line ->
+                    "$index-${line.timeMs}-${line.text}"
                 }
-            ) {
-                index,
-                line ->
-
+            ) { index, line ->
                 val active =
-                    index == activeIndex
+                    lyrics.synchronized &&
+                        index == activeIndex
 
-                val alpha =
-                    lineAlpha(
-                        index = index,
-                        activeIndex =
-                            activeIndex,
-                        listState =
-                            listState,
-                        strong =
-                            strongEdgeFade
+                val targetColor =
+                    if (active) {
+                        Color.White
+                    } else {
+                        Color.White.copy(
+                            alpha =
+                                if (strongEdgeFade) {
+                                    0.58f
+                                } else {
+                                    0.68f
+                                }
+                        )
+                    }
+
+                val lineColor by
+                    animateColorAsState(
+                        targetValue = targetColor,
+                        animationSpec =
+                            tween(240),
+                        label =
+                            "xvoxLyric$index"
                     )
 
                 Text(
@@ -148,21 +270,36 @@ fun XvoxSyncedLyrics(
                         line.text.ifBlank {
                             "♪"
                         },
-                    color =
-                        Color.White.copy(
-                            alpha = alpha
-                        ),
+                    color = lineColor,
                     fontSize =
-                        if (active) {
-                            22.sp
-                        } else {
-                            17.sp
+                        when {
+                            strongEdgeFade &&
+                                active ->
+                                25.sp
+
+                            strongEdgeFade ->
+                                18.sp
+
+                            active ->
+                                22.sp
+
+                            else ->
+                                17.sp
                         },
                     lineHeight =
-                        if (active) {
-                            29.sp
-                        } else {
-                            24.sp
+                        when {
+                            strongEdgeFade &&
+                                active ->
+                                33.sp
+
+                            strongEdgeFade ->
+                                26.sp
+
+                            active ->
+                                30.sp
+
+                            else ->
+                                24.sp
                         },
                     fontWeight =
                         if (active) {
@@ -174,9 +311,6 @@ fun XvoxSyncedLyrics(
                         TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            this.alpha = alpha
-                        }
                         .clickable(
                             enabled =
                                 line.timeMs != null,
@@ -191,16 +325,28 @@ fun XvoxSyncedLyrics(
                             )
                         }
                         .padding(
-                            horizontal = 18.dp,
-                            vertical = 10.dp
+                            horizontal =
+                                if (strongEdgeFade) {
+                                    30.dp
+                                } else {
+                                    20.dp
+                                },
+                            vertical =
+                                if (active) {
+                                    10.dp
+                                } else {
+                                    7.dp
+                                }
                         )
                 )
             }
 
-            item {
+            item(
+                key = "lyrics-bottom"
+            ) {
                 Spacer(
                     Modifier.height(
-                        verticalSpace
+                        boundarySpace
                     )
                 )
             }
@@ -208,78 +354,70 @@ fun XvoxSyncedLyrics(
     }
 }
 
-private suspend fun LazyListState.centerLine(
-    lyricIndex: Int
+private suspend fun centerLyricExactly(
+    state: LazyListState,
+    lazyIndex: Int
 ) {
-    animateScrollToItem(
-        index = lyricIndex + 1,
-        scrollOffset =
-            -layoutInfo.viewportSize.height /
-                2
-    )
-}
+    var target =
+        state.layoutInfo.visibleItemsInfo
+            .firstOrNull {
+                it.index == lazyIndex
+            }
 
-private fun lineAlpha(
-    index: Int,
-    activeIndex: Int,
-    listState: LazyListState,
-    strong: Boolean
-): Float {
-    if (activeIndex < 0) {
-        val visible =
-            listState.layoutInfo
-                .visibleItemsInfo
+    if (target == null) {
+        state.scrollToItem(lazyIndex)
+        withFrameNanos { }
+
+        target =
+            state.layoutInfo.visibleItemsInfo
                 .firstOrNull {
-                    it.index == index + 1
+                    it.index == lazyIndex
                 }
-                ?: return 0.18f
-
-        val viewport =
-            listState.layoutInfo
-                .viewportSize.height
-                .coerceAtLeast(1)
-
-        val center =
-            visible.offset +
-                visible.size / 2f
-
-        val distance =
-            abs(
-                center -
-                    viewport / 2f
-            ) / (viewport / 2f)
-
-        return (
-            1f -
-                distance *
-                if (strong) 0.92f else 0.78f
-            )
-            .coerceIn(
-                if (strong) 0.06f else 0.16f,
-                0.90f
-            )
+                ?: return
     }
 
-    val distance =
-        abs(index - activeIndex)
+    fun correction(): Float? {
+        val layout =
+            state.layoutInfo
 
-    return if (strong) {
-        when (distance) {
-            0 -> 1f
-            1 -> 0.70f
-            2 -> 0.45f
-            3 -> 0.27f
-            4 -> 0.14f
-            else -> 0.07f
-        }
-    } else {
-        when (distance) {
-            0 -> 1f
-            1 -> 0.78f
-            2 -> 0.57f
-            3 -> 0.39f
-            4 -> 0.26f
-            else -> 0.14f
-        }
+        val item =
+            layout.visibleItemsInfo
+                .firstOrNull {
+                    it.index == lazyIndex
+                }
+                ?: return null
+
+        val viewportCenter =
+            (
+                layout.viewportStartOffset +
+                    layout.viewportEndOffset
+                ) / 2f
+
+        val itemCenter =
+            item.offset +
+                item.size / 2f
+
+        return itemCenter -
+            viewportCenter
+    }
+
+    val first =
+        correction() ?: return
+
+    if (abs(first) > 0.5f) {
+        state.animateScrollBy(
+            value = first,
+            animationSpec =
+                tween(390)
+        )
+    }
+
+    withFrameNanos { }
+
+    val final =
+        correction() ?: return
+
+    if (abs(final) > 0.75f) {
+        state.scrollBy(final)
     }
 }
