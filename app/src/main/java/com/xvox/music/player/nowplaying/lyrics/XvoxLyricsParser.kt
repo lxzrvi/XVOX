@@ -15,31 +15,16 @@ object XvoxLyricsParser {
 
     fun parse(
         raw: String,
-        source:
-            XvoxLyricsSource
+        source: XvoxLyricsSource
     ): XvoxLyrics {
         val normalized =
-            raw
-                .replace(
-                    "\r\n",
-                    "\n"
-                )
-                .replace(
-                    '\r',
-                    '\n'
-                )
-                .trim()
+            normalize(raw)
 
-        if (
-            normalized.isEmpty()
-        ) {
+        if (normalized.isEmpty()) {
             return XvoxLyrics(
-                lines =
-                    emptyList(),
-                synchronized =
-                    false,
-                source =
-                    source
+                lines = emptyList(),
+                synchronized = false,
+                source = source
             )
         }
 
@@ -48,16 +33,13 @@ object XvoxLyricsParser {
 
         normalized
             .lineSequence()
-            .forEach {
-                original ->
-
+            .forEach { original ->
                 val line =
                     original.trim()
 
                 if (
                     line.isEmpty() ||
-                    metadataTag
-                        .matches(line)
+                    metadataTag.matches(line)
                 ) {
                     return@forEach
                 }
@@ -67,23 +49,17 @@ object XvoxLyricsParser {
                         .findAll(line)
                         .toList()
 
-                if (
-                    matches.isEmpty()
-                ) {
+                if (matches.isEmpty()) {
                     return@forEach
                 }
 
                 val lyricText =
-                    timestamp
-                        .replace(
-                            line,
-                            ""
-                        )
-                        .trim()
+                    timestamp.replace(
+                        line,
+                        ""
+                    ).trim()
 
-                matches.forEach {
-                    match ->
-
+                matches.forEach { match ->
                     val minutes =
                         match.groupValues[1]
                             .toLongOrNull()
@@ -98,9 +74,7 @@ object XvoxLyricsParser {
                         match.groupValues[3]
 
                     val fractionMs =
-                        when (
-                            fraction.length
-                        ) {
+                        when (fraction.length) {
                             1 ->
                                 fraction
                                     .toLongOrNull()
@@ -118,27 +92,21 @@ object XvoxLyricsParser {
                                     .toLongOrNull()
                                     ?: 0L
 
-                            else ->
-                                0L
+                            else -> 0L
                         }
 
                     timed +=
                         XvoxLyricLine(
                             timeMs =
-                                minutes *
-                                    60_000L +
-                                    seconds *
-                                        1_000L +
+                                minutes * 60_000L +
+                                    seconds * 1_000L +
                                     fractionMs,
-                            text =
-                                lyricText
+                            text = lyricText
                         )
                 }
             }
 
-        if (
-            timed.isNotEmpty()
-        ) {
+        if (timed.isNotEmpty()) {
             return XvoxLyrics(
                 lines =
                     timed.sortedBy {
@@ -152,11 +120,10 @@ object XvoxLyricsParser {
         val plainLines =
             normalized
                 .lineSequence()
-                .map {
-                    it.trim()
-                }
+                .map { it.trim() }
                 .filter {
-                    it.isNotEmpty()
+                    it.isNotEmpty() &&
+                        !metadataTag.matches(it)
                 }
                 .map {
                     XvoxLyricLine(
@@ -167,12 +134,39 @@ object XvoxLyricsParser {
                 .toList()
 
         return XvoxLyrics(
-            lines =
-                plainLines,
-            synchronized =
-                false,
-            source =
-                source
+            lines = plainLines,
+            synchronized = false,
+            source = source
         )
+    }
+
+    private fun normalize(
+        raw: String
+    ): String {
+        var text =
+            raw
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\r", "\n")
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .trim()
+
+        if (
+            !text.contains('\n') &&
+            text.count {
+                it == '['
+            } > 2
+        ) {
+            text =
+                text.replace(
+                    Regex(
+                        """\s+/\s+(?=\[)"""
+                    ),
+                    "\n"
+                )
+        }
+
+        return text
     }
 }
