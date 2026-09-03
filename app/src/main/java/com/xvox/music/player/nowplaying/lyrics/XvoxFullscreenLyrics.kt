@@ -73,7 +73,8 @@ fun XvoxFullscreenLyrics(
                 )
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier.fillMaxWidth(),
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
@@ -83,7 +84,9 @@ fun XvoxFullscreenLyrics(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(
-                            RoundedCornerShape(10.dp)
+                            RoundedCornerShape(
+                                10.dp
+                            )
                         )
                 )
 
@@ -100,25 +103,30 @@ fun XvoxFullscreenLyrics(
                         color = colors.primaryText,
                         fontSize = 13.sp,
                         lineHeight = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight =
+                            FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow =
+                            TextOverflow.Ellipsis
                     )
 
                     Text(
                         text = song.artist,
-                        color = colors.secondaryText,
+                        color =
+                            colors.secondaryText,
                         fontSize = 10.sp,
                         lineHeight = 13.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow =
+                            TextOverflow.Ellipsis
                     )
                 }
 
                 LyricsTransport(
                     isPlaying = isPlaying,
                     onPrevious = onPrevious,
-                    onTogglePlay = onTogglePlay,
+                    onTogglePlay =
+                        onTogglePlay,
                     onNext = onNext
                 )
 
@@ -133,9 +141,10 @@ fun XvoxFullscreenLyrics(
                 position = position,
                 duration = duration,
                 onSeek = onSeek,
-                modifier = Modifier.padding(
-                    top = 9.dp
-                )
+                modifier =
+                    Modifier.padding(
+                        top = 9.dp
+                    )
             )
 
             XvoxSyncedLyrics(
@@ -164,32 +173,31 @@ private fun LyricsTransport(
                 RoundedCornerShape(24.dp)
             )
             .background(
-                colors.card.copy(alpha = 0.38f)
+                colors.card.copy(
+                    alpha = 0.38f
+                )
             )
             .padding(horizontal = 3.dp),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
         LyricsIconButton(
-            resource =
-                R.drawable.ic_xvox_skip_previous,
-            onClick = onPrevious
+            R.drawable.ic_xvox_skip_previous,
+            onPrevious
         )
 
         LyricsIconButton(
-            resource =
-                if (isPlaying) {
-                    R.drawable.ic_xvox_pause
-                } else {
-                    R.drawable.ic_xvox_play
-                },
-            onClick = onTogglePlay
+            if (isPlaying) {
+                R.drawable.ic_xvox_pause
+            } else {
+                R.drawable.ic_xvox_play
+            },
+            onTogglePlay
         )
 
         LyricsIconButton(
-            resource =
-                R.drawable.ic_xvox_skip_next,
-            onClick = onNext
+            R.drawable.ic_xvox_skip_next,
+            onNext
         )
     }
 }
@@ -212,10 +220,12 @@ private fun LyricsIconButton(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(18.dp)
