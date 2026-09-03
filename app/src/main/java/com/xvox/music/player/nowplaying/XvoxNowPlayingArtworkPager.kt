@@ -1,177 +1,280 @@
 package com.xvox.music.player.nowplaying
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.RecentArtworkSize
 import com.xvox.music.features.home.SongArtwork
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
 fun XvoxNowPlayingArtworkPager(
-    song: Song,
-    canPrevious: Boolean,
-    canNext: Boolean,
+    queue: List<Song>,
+    currentIndex: Int,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var drag by remember {
-        mutableFloatStateOf(0f)
-    }
+    val current =
+        queue.getOrNull(
+            currentIndex
+        ) ?: return
 
-    var direction by remember {
-        mutableIntStateOf(0)
-    }
+    val previous =
+        queue.getOrNull(
+            currentIndex - 1
+        )
+
+    val next =
+        queue.getOrNull(
+            currentIndex + 1
+        )
+
+    val scope =
+        rememberCoroutineScope()
+
+    val density =
+        LocalDensity.current
+
+    val screenWidthPx =
+        with(density) {
+            LocalConfiguration.current
+                .screenWidthDp.dp
+                .toPx()
+        }
+
+    val drag =
+        remember(
+            current.id
+        ) {
+            Animatable(0f)
+        }
+
+    val shape =
+        RoundedCornerShape(
+            20.dp
+        )
 
     Box(
         modifier = modifier
-            .clip(
-                RoundedCornerShape(
-                    20.dp
-                )
-            )
-            .pointerInput(
-                song.id,
-                canPrevious,
-                canNext
-            ) {
-                detectHorizontalDragGestures(
-                    onDragStart = {
-                        drag = 0f
-                    },
-                    onHorizontalDrag = {
-                        change,
-                        amount ->
+            /*
+             * Do not clip the pager root.
+             *
+             * Incoming artwork can travel from the physical
+             * screen edge.
+             */
+            .detectArtworkSwipe(
+                dragValue = {
+                    drag.value
+                },
+                onDrag = {
+                    amount ->
 
-                        change.consume()
-                        drag += amount
-                    },
-                    onDragEnd = {
-                        if (
-                            abs(drag) >=
-                            XvoxNowPlayingMotion
-                                .ArtworkSwipeThreshold
-                        ) {
-                            if (
-                                drag < 0f &&
-                                canNext
-                            ) {
-                                direction = 1
+                    scope.launch {
+                        drag.snapTo(
+                            constrainedDrag(
+                                current =
+                                    drag.value +
+                                        amount,
+                                hasPrevious =
+                                    previous != null,
+                                hasNext =
+                                    next != null
+                            )
+                        )
+                    }
+                },
+                onEnd = {
+                    val value =
+                        drag.value
+
+                    when {
+                        value <=
+                            -XvoxNowPlayingMotion
+                                .ArtworkSwipeThreshold &&
+                            next != null -> {
+
+                            scope.launch {
+                                drag.animateTo(
+                                    -screenWidthPx,
+                                    XvoxNowPlayingMotion
+                                        .returnToRest
+                                )
+
                                 onNext()
-                            } else if (
-                                drag > 0f &&
-                                canPrevious
-                            ) {
-                                direction = -1
+                            }
+                        }
+
+                        value >=
+                            XvoxNowPlayingMotion
+                                .ArtworkSwipeThreshold &&
+                            previous != null -> {
+
+                            scope.launch {
+                                drag.animateTo(
+                                    screenWidthPx,
+                                    XvoxNowPlayingMotion
+                                        .returnToRest
+                                )
+
                                 onPrevious()
                             }
                         }
 
-                        drag = 0f
-                    },
-                    onDragCancel = {
-                        drag = 0f
-                    }
-                )
-            }
-    ) {
-        AnimatedContent(
-            targetState = song,
-            contentKey = {
-                it.id
-            },
-            transitionSpec = {
-                when {
-                    direction > 0 -> {
-                        (
-                            slideInHorizontally(
-                                tween(270)
-                            ) {
-                                it
-                            } +
-                                fadeIn(
-                                    tween(210)
+                        else -> {
+                            scope.launch {
+                                drag.animateTo(
+                                    0f,
+                                    XvoxNowPlayingMotion
+                                        .returnToRest
                                 )
-                            )
-                            .togetherWith(
-                                slideOutHorizontally(
-                                    tween(270)
-                                ) {
-                                    -it
-                                } +
-                                    fadeOut(
-                                        tween(190)
-                                    )
-                            )
+                            }
+                        }
                     }
-
-                    direction < 0 -> {
-                        (
-                            slideInHorizontally(
-                                tween(270)
-                            ) {
-                                -it
-                            } +
-                                fadeIn(
-                                    tween(210)
-                                )
-                            )
-                            .togetherWith(
-                                slideOutHorizontally(
-                                    tween(270)
-                                ) {
-                                    it
-                                } +
-                                    fadeOut(
-                                        tween(190)
-                                    )
-                            )
-                    }
-
-                    else -> {
-                        fadeIn(
-                            tween(200)
-                        ).togetherWith(
-                            fadeOut(
-                                tween(180)
-                            )
+                },
+                onCancel = {
+                    scope.launch {
+                        drag.animateTo(
+                            0f,
+                            XvoxNowPlayingMotion
+                                .returnToRest
                         )
                     }
                 }
-            },
-            modifier =
-                Modifier.fillMaxSize(),
-            label =
-                "nowPlayingArtwork"
-        ) { visualSong ->
-            SongArtwork(
-                artwork =
-                    visualSong.artworkUri,
-                requestSize =
-                    RecentArtworkSize,
-                modifier =
-                    Modifier.fillMaxSize()
+            )
+    ) {
+        /*
+         * PREVIOUS enters from LEFT screen edge.
+         */
+        previous?.let {
+            song ->
+
+            ArtworkPage(
+                song = song,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationX =
+                            drag.value -
+                                screenWidthPx
+                    }
             )
         }
+
+        /*
+         * NEXT enters from RIGHT screen edge.
+         */
+        next?.let {
+            song ->
+
+            ArtworkPage(
+                song = song,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationX =
+                            drag.value +
+                                screenWidthPx
+                    }
+            )
+        }
+
+        /*
+         * Current artwork physically follows finger.
+         */
+        ArtworkPage(
+            song = current,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationX =
+                        drag.value
+                }
+        )
+    }
+}
+
+private fun Modifier.detectArtworkSwipe(
+    dragValue: () -> Float,
+    onDrag: (Float) -> Unit,
+    onEnd: () -> Unit,
+    onCancel: () -> Unit
+): Modifier {
+    return pointerInput(
+        Unit
+    ) {
+        detectHorizontalDragGestures(
+            onHorizontalDrag = {
+                change,
+                amount ->
+
+                change.consume()
+                onDrag(amount)
+            },
+            onDragEnd =
+                onEnd,
+            onDragCancel =
+                onCancel
+        )
+    }
+}
+
+private fun constrainedDrag(
+    current: Float,
+    hasPrevious: Boolean,
+    hasNext: Boolean
+): Float {
+    return when {
+        current > 0f &&
+            !hasPrevious ->
+            current * 0.18f
+
+        current < 0f &&
+            !hasNext ->
+            current * 0.18f
+
+        else ->
+            current
+    }
+}
+
+@Composable
+private fun ArtworkPage(
+    song: Song,
+    modifier: Modifier = Modifier
+) {
+    val shape =
+        RoundedCornerShape(
+            20.dp
+        )
+
+    Box(
+        modifier =
+            modifier.clip(
+                shape
+            )
+    ) {
+        SongArtwork(
+            artwork =
+                song.artworkUri,
+            requestSize =
+                RecentArtworkSize,
+            modifier =
+                Modifier.fillMaxSize()
+        )
     }
 }
