@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -26,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,7 +72,6 @@ fun XvoxNowPlaying(
         XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-
     val lyricsState by
         lyricsViewModel.state.collectAsState()
 
@@ -98,6 +97,10 @@ fun XvoxNowPlaying(
             Animatable(screenHeight)
         }
 
+    var dragY by remember {
+        mutableFloatStateOf(0f)
+    }
+
     var showLyrics by remember {
         mutableStateOf(false)
     }
@@ -110,9 +113,16 @@ fun XvoxNowPlaying(
         mutableIntStateOf(0)
     }
 
+    val totalOffset =
+        (offset.value + dragY)
+            .coerceIn(
+                0f,
+                screenHeight
+            )
+
     val dismissProgress =
         if (screenHeight > 0f) {
-            (offset.value / screenHeight)
+            (totalOffset / screenHeight)
                 .coerceIn(0f, 1f)
         } else {
             0f
@@ -138,6 +148,11 @@ fun XvoxNowPlaying(
         dismissing = true
 
         scope.launch {
+            val start = totalOffset
+
+            offset.snapTo(start)
+            dragY = 0f
+
             offset.animateTo(
                 screenHeight,
                 XvoxNowPlayingMotion.exit
@@ -149,6 +164,11 @@ fun XvoxNowPlaying(
 
     fun returnToRest() {
         scope.launch {
+            val start = totalOffset
+
+            offset.snapTo(start)
+            dragY = 0f
+
             offset.animateTo(
                 0f,
                 XvoxNowPlayingMotion.returnToRest
@@ -232,7 +252,7 @@ fun XvoxNowPlaying(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                translationY = offset.value
+                translationY = totalOffset
                 shape =
                     RoundedCornerShape(
                         screenCorner
@@ -261,6 +281,7 @@ fun XvoxNowPlaying(
                                 scope.launch {
                                     offset.stop()
                                 }
+                                dragY = 0f
                             },
                             onVerticalDrag = {
                                     change,
@@ -268,21 +289,15 @@ fun XvoxNowPlaying(
 
                                 change.consume()
 
-                                scope.launch {
-                                    offset.snapTo(
-                                        (
-                                            offset.value +
-                                                amount
-                                            ).coerceIn(
-                                            0f,
-                                            screenHeight
+                                dragY =
+                                    (dragY + amount)
+                                        .coerceAtLeast(
+                                            -offset.value
                                         )
-                                    )
-                                }
                             },
                             onDragEnd = {
                                 if (
-                                    offset.value >=
+                                    totalOffset >=
                                     XvoxNowPlayingMotion
                                         .DismissThreshold
                                 ) {
@@ -313,7 +328,7 @@ fun XvoxNowPlaying(
                         bottom = 60.dp
                     ),
                 contentAlignment =
-                    Alignment.BottomCenter
+                    Alignment.TopCenter
             ) {
                 Box(
                     modifier = Modifier
@@ -343,53 +358,45 @@ fun XvoxNowPlaying(
                                 )
                         )
                     } else {
-                        Box(
-                            modifier =
-                                Modifier.fillMaxSize()
-                        ) {
-                            XvoxNowPlayingArtworkPager(
-                                queue = queue,
-                                currentIndex =
-                                    currentIndex,
-                                navigationRequest =
-                                    navigationRequest,
-                                onSwipePalette = {
+                        XvoxNowPlayingArtworkPager(
+                            queue = queue,
+                            currentIndex =
+                                currentIndex,
+                            navigationRequest =
+                                navigationRequest,
+                            onSwipePalette = {
+                                    base,
+                                    adjacent,
+                                    fraction ->
+
+                                scope.launch {
+                                    paletteState.blend(
                                         base,
                                         adjacent,
-                                        fraction ->
-
-                                    scope.launch {
-                                        paletteState.blend(
-                                            base,
-                                            adjacent,
-                                            fraction
-                                        )
-                                    }
-                                },
-                                onSettledPage =
-                                    onPlayQueueIndex,
-                                modifier =
-                                    Modifier.fillMaxSize()
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(
-                                        horizontal = 12.dp
+                                        fraction
                                     )
-                                    .pointerInput(
-                                        song.id
-                                    ) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                showLyrics =
-                                                    true
-                                            }
-                                        )
-                                    }
-                            )
-                        }
+                                }
+                            },
+                            onSettledPage =
+                                onPlayQueueIndex,
+                            modifier =
+                                Modifier.fillMaxSize()
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(
+                                    horizontal = 12.dp
+                                )
+                                .pointerInput(song.id) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            showLyrics = true
+                                        }
+                                    )
+                                }
+                        )
                     }
                 }
             }
@@ -418,63 +425,44 @@ fun XvoxNowPlaying(
                         bottom = 6.dp
                     )
             ) {
-                Box(
-                    modifier =
-                        Modifier.offset(
-                            y = (-10).dp
-                        )
-                ) {
-                    NowPlayingActions()
-                }
+                NowPlayingActions()
+
+                Spacer(
+                    Modifier.size(18.dp)
+                )
+
+                Text(
+                    text = song.title,
+                    color = colors.primaryText,
+                    fontSize = 21.sp,
+                    lineHeight = 25.sp,
+                    fontWeight =
+                        FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = song.artist,
+                    color = colors.secondaryText,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    fontWeight =
+                        FontWeight.Medium,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
 
                 Spacer(
                     Modifier.size(12.dp)
                 )
 
-                Column(
-                    modifier =
-                        Modifier.offset(
-                            y = (-6).dp
-                        )
-                ) {
-                    Text(
-                        text = song.title,
-                        color = colors.primaryText,
-                        fontSize = 21.sp,
-                        lineHeight = 25.sp,
-                        fontWeight =
-                            FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = song.artist,
-                        color =
-                            colors.secondaryText,
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                        fontWeight =
-                            FontWeight.Medium,
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(
-                    Modifier.size(10.dp)
-                )
-
                 XvoxNowPlayingProgress(
                     position = position,
                     duration = duration,
-                    onSeek = onSeek,
-                    modifier =
-                        Modifier.offset(
-                            y = (-3).dp
-                        )
+                    onSeek = onSeek
                 )
 
                 Spacer(
@@ -489,15 +477,12 @@ fun XvoxNowPlaying(
                         onTogglePlay,
                     onNext = ::requestNext,
                     onRepeat = {},
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(
-                            y = (-5).dp
-                        )
+                    modifier =
+                        Modifier.fillMaxWidth()
                 )
 
                 Spacer(
-                    Modifier.size(30.dp)
+                    Modifier.size(25.dp)
                 )
 
                 Text(
@@ -586,7 +571,8 @@ private fun NowPlayingActionIcon(
             Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(19.dp)
@@ -613,7 +599,8 @@ private fun NowPlayingCircleAction(
             Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(19.dp)
