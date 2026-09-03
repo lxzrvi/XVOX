@@ -1,11 +1,15 @@
 package com.xvox.music.player.nowplaying.lyrics
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,11 +41,12 @@ import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 @Composable
 fun XvoxFullscreenLyrics(
     song: Song,
-    lyrics: XvoxLyrics,
+    state: XvoxLyricsUiState,
     position: Long,
     duration: Long,
     isPlaying: Boolean,
     backgroundColor: Color,
+    onAttach: (Uri) -> Unit,
     onPrevious: () -> Unit,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
@@ -50,6 +55,13 @@ fun XvoxFullscreenLyrics(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+
+    val launcher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            uri?.let(onAttach)
+        }
 
     Box(
         modifier = modifier.fillMaxSize()
@@ -147,13 +159,117 @@ fun XvoxFullscreenLyrics(
                     )
             )
 
-            XvoxSyncedLyrics(
-                lyrics = lyrics,
-                position = position,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            )
+            when {
+                state.loading -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                "Loading lyrics…",
+                            color =
+                                colors.secondaryText,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                state.lyrics != null -> {
+                    XvoxSyncedLyrics(
+                        lyrics = state.lyrics,
+                        position = position,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment =
+                                Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .background(
+                                        colors.card.copy(
+                                            alpha = 0.30f
+                                        ),
+                                        RoundedCornerShape(
+                                            25.dp
+                                        )
+                                    )
+                                    .clickable(
+                                        interactionSource =
+                                            remember {
+                                                MutableInteractionSource()
+                                            },
+                                        indication = null
+                                    ) {
+                                        launcher.launch(
+                                            arrayOf("*/*")
+                                        )
+                                    },
+                                contentAlignment =
+                                    Alignment.Center
+                            ) {
+                                Icon(
+                                    painter =
+                                        painterResource(
+                                            R.drawable
+                                                .ic_xvox_lyrics_add
+                                        ),
+                                    contentDescription =
+                                        "Add lyrics",
+                                    tint =
+                                        colors.primaryText,
+                                    modifier =
+                                        Modifier.size(
+                                            22.dp
+                                        )
+                                )
+                            }
+
+                            Spacer(
+                                Modifier.size(10.dp)
+                            )
+
+                            Text(
+                                text = "No lyrics",
+                                color =
+                                    colors.primaryText,
+                                fontSize = 15.sp,
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+
+                            Text(
+                                text =
+                                    "Add LRC or text",
+                                color =
+                                    colors.secondaryText,
+                                fontSize = 11.sp,
+                                modifier =
+                                    Modifier.padding(
+                                        top = 4.dp
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
