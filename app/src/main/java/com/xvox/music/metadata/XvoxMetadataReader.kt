@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
+import org.jaudiotagger.tag.Tag
 import java.io.File
 
 class XvoxMetadataReader(
@@ -22,27 +23,14 @@ class XvoxMetadataReader(
     override suspend fun read(
         uri: Uri
     ): SongMetadata =
-        withContext(
-            Dispatchers.IO
-        ) {
+        withContext(Dispatchers.IO) {
             val androidMetadata =
-                readAndroidMetadata(
-                    uri
-                )
+                readAndroidMetadata(uri)
 
-            /*
-             * Deep tags are attempted separately.
-             *
-             * Failure never invalidates the useful Android
-             * metadata result.
-             */
             val deepMetadata =
                 runCatching {
-                    readDeepMetadata(
-                        uri
-                    )
-                }
-                    .getOrNull()
+                    readDeepMetadata(uri)
+                }.getOrNull()
 
             merge(
                 androidMetadata,
@@ -64,68 +52,45 @@ class XvoxMetadataReader(
 
             SongMetadata(
                 uri = uri,
-
-                title =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_TITLE
-                    ),
-
-                artist =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_ARTIST
-                    ),
-
-                album =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_ALBUM
-                    ),
-
-                albumArtist =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_ALBUMARTIST
-                    ),
-
-                composer =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_COMPOSER
-                    ),
-
-                genre =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_GENRE
-                    ),
-
-                year =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_YEAR
-                    )
-                        ?.toIntOrNull(),
-
-                duration =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_DURATION
-                    )
-                        ?.toLongOrNull(),
-
-                bitrate =
-                    retriever.value(
-                        MediaMetadataRetriever
-                            .METADATA_KEY_BITRATE
-                    )
-                        ?.toIntOrNull()
+                title = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_TITLE
+                ),
+                artist = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_ARTIST
+                ),
+                album = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_ALBUM
+                ),
+                albumArtist = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_ALBUMARTIST
+                ),
+                composer = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_COMPOSER
+                ),
+                genre = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_GENRE
+                ),
+                year = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_YEAR
+                )?.toIntOrNull(),
+                duration = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_DURATION
+                )?.toLongOrNull(),
+                bitrate = retriever.value(
+                    MediaMetadataRetriever
+                        .METADATA_KEY_BITRATE
+                )?.toIntOrNull()
             )
         } catch (_: Exception) {
-            SongMetadata.empty(
-                uri
-            )
+            SongMetadata.empty(uri)
         } finally {
             runCatching {
                 retriever.release()
@@ -135,175 +100,148 @@ class XvoxMetadataReader(
 
     private fun MediaMetadataRetriever.value(
         key: Int
-    ): String? {
-        return extractMetadata(key)
+    ): String? =
+        extractMetadata(key)
             ?.trim()
             ?.takeIf {
                 it.isNotEmpty()
             }
-    }
 
     private fun readDeepMetadata(
         uri: Uri
     ): SongMetadata? {
         val temp =
-            createTemporaryAudioFile(
-                uri
-            ) ?: return null
+            createTemporaryAudioFile(uri)
+                ?: return null
 
         return try {
             val audioFile =
-                AudioFileIO.read(
-                    temp
-                )
+                AudioFileIO.read(temp)
 
-            val tag =
-                audioFile.tag
-
-            val header =
-                audioFile.audioHeader
+            val tag = audioFile.tag
+            val header = audioFile.audioHeader
 
             SongMetadata(
                 uri = uri,
-
                 title =
-                    tag
-                        ?.field(
-                            FieldKey.TITLE
-                        ),
-
+                    tag?.field(FieldKey.TITLE),
                 artist =
-                    tag
-                        ?.field(
-                            FieldKey.ARTIST
-                        ),
-
+                    tag?.field(FieldKey.ARTIST),
                 album =
-                    tag
-                        ?.field(
-                            FieldKey.ALBUM
-                        ),
-
+                    tag?.field(FieldKey.ALBUM),
                 albumArtist =
-                    tag
-                        ?.field(
-                            FieldKey.ALBUM_ARTIST
-                        ),
-
+                    tag?.field(FieldKey.ALBUM_ARTIST),
                 composer =
-                    tag
-                        ?.field(
-                            FieldKey.COMPOSER
-                        ),
-
+                    tag?.field(FieldKey.COMPOSER),
                 genre =
-                    tag
-                        ?.field(
-                            FieldKey.GENRE
-                        ),
-
+                    tag?.field(FieldKey.GENRE),
                 year =
-                    tag
-                        ?.field(
-                            FieldKey.YEAR
-                        )
+                    tag?.field(FieldKey.YEAR)
                         ?.take(4)
                         ?.toIntOrNull(),
-
                 trackNumber =
-                    tag
-                        ?.field(
-                            FieldKey.TRACK
-                        )
-                        ?.substringBefore(
-                            "/"
-                        )
+                    tag?.field(FieldKey.TRACK)
+                        ?.substringBefore("/")
                         ?.toIntOrNull(),
-
                 discNumber =
-                    tag
-                        ?.field(
-                            FieldKey.DISC_NO
-                        )
-                        ?.substringBefore(
-                            "/"
-                        )
+                    tag?.field(FieldKey.DISC_NO)
+                        ?.substringBefore("/")
                         ?.toIntOrNull(),
-
                 duration =
-                    header
-                        ?.trackLength
+                    header?.trackLength
                         ?.toLong()
-                        ?.times(
-                            1000L
-                        ),
-
+                        ?.times(1000L),
                 bitrate =
-                    header
-                        ?.bitRateAsNumber
+                    header?.bitRateAsNumber
                         ?.toInt(),
-
                 sampleRate =
-                    header
-                        ?.sampleRateAsNumber
+                    header?.sampleRateAsNumber
                         ?.toInt(),
-
                 lyrics =
-                    tag
-                        ?.field(
-                            FieldKey.LYRICS
-                        ),
-
+                    tag?.readLyrics(),
                 comment =
-                    tag
-                        ?.field(
-                            FieldKey.COMMENT
-                        )
+                    tag?.field(FieldKey.COMMENT)
             )
         } finally {
             temp.delete()
         }
     }
 
+    private fun Tag.readLyrics(): String? {
+        field(FieldKey.LYRICS)
+            ?.let {
+                return it
+            }
+
+        val names =
+            listOf(
+                "LYRICS",
+                "UNSYNCEDLYRICS",
+                "UNSYNCED LYRICS",
+                "USLT",
+                "SYLT",
+                "©lyr"
+            )
+
+        for (name in names) {
+            val value =
+                runCatching {
+                    getFirst(name)
+                }
+                    .getOrNull()
+                    ?.trim()
+                    ?.takeIf {
+                        it.isNotEmpty()
+                    }
+
+            if (value != null) {
+                return value
+            }
+        }
+
+        val candidate =
+            runCatching {
+                fields.asSequence()
+                    .firstOrNull { field ->
+                        val id =
+                            field.id.uppercase()
+
+                        id.contains("LYRIC") ||
+                            id == "USLT" ||
+                            id == "SYLT"
+                    }
+                    ?.toString()
+                    ?.trim()
+            }
+                .getOrNull()
+                ?.takeIf {
+                    it.isNotEmpty()
+                }
+
+        return candidate
+    }
+
     private fun createTemporaryAudioFile(
         uri: Uri
     ): File? {
-        /*
-         * Preserve a usable extension where ContentResolver
-         * can expose MIME type.
-         *
-         * Some tag parsers use extension as a format hint.
-         */
         val extension =
-            when (
-                resolver.getType(
-                    uri
-                )
-            ) {
-                "audio/mpeg" ->
-                    ".mp3"
-
-                "audio/flac" ->
-                    ".flac"
+            when (resolver.getType(uri)) {
+                "audio/mpeg" -> ".mp3"
+                "audio/flac" -> ".flac"
 
                 "audio/mp4",
                 "audio/m4a",
-                "audio/x-m4a" ->
-                    ".m4a"
+                "audio/x-m4a" -> ".m4a"
 
                 "audio/ogg",
-                "application/ogg" ->
-                    ".ogg"
+                "application/ogg" -> ".ogg"
 
-                "audio/opus" ->
-                    ".opus"
+                "audio/opus" -> ".opus"
 
                 "audio/wav",
-                "audio/x-wav" ->
-                    ".wav"
+                "audio/x-wav" -> ".wav"
 
-                else ->
-                    ".audio"
+                else -> ".audio"
             }
 
         val temp =
@@ -315,22 +253,14 @@ class XvoxMetadataReader(
 
         return try {
             resolver
-                .openInputStream(
-                    uri
-                )
-                ?.use {
-                    input ->
-
-                    temp
-                        .outputStream()
+                .openInputStream(uri)
+                ?.use { input ->
+                    temp.outputStream()
                         .buffered()
-                        .use {
-                            output ->
-
+                        .use { output ->
                             input.copyTo(
                                 output,
-                                bufferSize =
-                                    64 * 1024
+                                bufferSize = 64 * 1024
                             )
                         }
                 }
@@ -346,10 +276,10 @@ class XvoxMetadataReader(
         }
     }
 
-    private fun org.jaudiotagger.tag.Tag.field(
+    private fun Tag.field(
         key: FieldKey
-    ): String? {
-        return runCatching {
+    ): String? =
+        runCatching {
             getFirst(key)
         }
             .getOrNull()
@@ -357,73 +287,34 @@ class XvoxMetadataReader(
             ?.takeIf {
                 it.isNotEmpty()
             }
-    }
 
     private fun merge(
         primary: SongMetadata,
         deep: SongMetadata?
     ): SongMetadata {
-        if (deep == null) {
-            return primary
-        }
+        if (deep == null) return primary
 
         return SongMetadata(
-            uri =
-                primary.uri,
-
-            title =
-                deep.title
-                    ?: primary.title,
-
-            artist =
-                deep.artist
-                    ?: primary.artist,
-
-            album =
-                deep.album
-                    ?: primary.album,
-
+            uri = primary.uri,
+            title = deep.title ?: primary.title,
+            artist = deep.artist ?: primary.artist,
+            album = deep.album ?: primary.album,
             albumArtist =
-                deep.albumArtist
-                    ?: primary.albumArtist,
-
+                deep.albumArtist ?: primary.albumArtist,
             composer =
-                deep.composer
-                    ?: primary.composer,
-
-            genre =
-                deep.genre
-                    ?: primary.genre,
-
-            year =
-                deep.year
-                    ?: primary.year,
-
-            trackNumber =
-                deep.trackNumber,
-
-            discNumber =
-                deep.discNumber,
-
+                deep.composer ?: primary.composer,
+            genre = deep.genre ?: primary.genre,
+            year = deep.year ?: primary.year,
+            trackNumber = deep.trackNumber,
+            discNumber = deep.discNumber,
             duration =
-                primary.duration
-                    ?: deep.duration,
-
+                primary.duration ?: deep.duration,
             bitrate =
-                primary.bitrate
-                    ?: deep.bitrate,
-
-            sampleRate =
-                deep.sampleRate,
-
-            lyrics =
-                deep.lyrics,
-
-            comment =
-                deep.comment,
-
-            artworkCacheKey =
-                null
+                primary.bitrate ?: deep.bitrate,
+            sampleRate = deep.sampleRate,
+            lyrics = deep.lyrics,
+            comment = deep.comment,
+            artworkCacheKey = null
         )
     }
 }
