@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -63,9 +64,7 @@ fun XvoxArtworkLyrics(
             )
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDrag = {
-                            change,
-                            _ ->
+                    onDrag = { change, _ ->
                         change.consume()
                     }
                 )
@@ -143,15 +142,11 @@ fun XvoxArtworkLyrics(
                 Alignment.CenterVertically
         ) {
             if (custom) {
-                LyricsCircle(
-                    resource =
-                        R.drawable.ic_xvox_close,
-                    description =
-                        "Remove custom lyrics",
+                LyricsDeleteButton(
                     onClick = onDelete
                 )
 
-                androidx.compose.foundation.layout.Spacer(
+                Spacer(
                     Modifier.size(7.dp)
                 )
             }
@@ -162,26 +157,24 @@ fun XvoxArtworkLyrics(
                         colors.card.copy(
                             alpha = 0.20f
                         ),
-                        RoundedCornerShape(
-                            22.dp
-                        )
+                        RoundedCornerShape(21.dp)
                     )
-                    .padding(
-                        horizontal = 3.dp
-                    ),
+                    .padding(horizontal = 3.dp),
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
                 LyricsAction(
-                    R.drawable
-                        .ic_xvox_fullscreen,
-                    onFullscreen
+                    resource =
+                        R.drawable
+                            .ic_xvox_fullscreen,
+                    onClick = onFullscreen
                 )
 
                 LyricsAction(
-                    R.drawable
-                        .ic_xvox_close,
-                    onClose
+                    resource =
+                        R.drawable
+                            .ic_xvox_close,
+                    onClick = onClose
                 )
             }
         }
@@ -189,9 +182,7 @@ fun XvoxArtworkLyrics(
 }
 
 @Composable
-private fun LyricsCircle(
-    resource: Int,
-    description: String,
+private fun LyricsDeleteButton(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -218,11 +209,13 @@ private fun LyricsCircle(
     ) {
         Icon(
             painter =
-                painterResource(resource),
+                painterResource(
+                    R.drawable.ic_xvox_delete
+                ),
             contentDescription =
-                description,
+                "Remove custom lyrics",
             tint = colors.primaryText,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(19.dp)
         )
     }
 }
