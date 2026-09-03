@@ -355,7 +355,7 @@ fun XvoxNowPlaying(
                         end = 12.dp,
                         bottom = 31.dp
                     )
-                    .offset(y = (-15).dp),
+                    .offset(y = (-20).dp),
                 contentAlignment =
                     Alignment.BottomCenter
             ) {
@@ -490,7 +490,8 @@ fun XvoxNowPlaying(
                 XvoxNowPlayingControls(
                     isPlaying = isPlaying,
                     onShuffle = {},
-                    onPrevious = ::requestPrevious,
+                    onPrevious =
+                        ::requestPrevious,
                     onTogglePlay = onTogglePlay,
                     onNext = ::requestNext,
                     onRepeat = {},
@@ -584,18 +585,15 @@ private fun NowPlayingActionIcon(
     val colors = XvoxTheme.colors
 
     Box(
-        modifier =
-            Modifier.size(42.dp),
+        modifier = Modifier.size(42.dp),
         contentAlignment =
             Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(19.dp)
+            modifier = Modifier.size(19.dp)
         )
     }
 }
@@ -619,12 +617,10 @@ private fun NowPlayingCircleAction(
             Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(19.dp)
+            modifier = Modifier.size(19.dp)
         )
     }
 }
