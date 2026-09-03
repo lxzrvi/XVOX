@@ -20,164 +20,78 @@ enum class XvoxMiniAxis {
 }
 
 object XvoxMiniPlayerMotion {
-
     const val AxisThreshold = 9f
     const val HorizontalThreshold = 48f
-
     const val OpenThreshold = -46f
     const val CloseThreshold = 44f
-
     const val PreviewDelay = 320L
 
-    fun horizontalResistance(
-        value: Float
-    ): Float {
+    fun horizontalResistance(value: Float): Float {
         val free = 76f
         val distance = abs(value)
-
-        if (distance <= free) {
-            return value
-        }
-
-        return (
-            free +
-                (distance - free) *
-                    0.07f
-            ) *
-            sign(value)
+        if (distance <= free) return value
+        return (free + (distance - free) * 0.07f) * sign(value)
     }
 
-    fun verticalResistance(
-        value: Float
-    ): Float {
-        val free =
-            if (value < 0f) {
-                66f
-            } else {
-                44f
-            }
-
+    fun verticalResistance(value: Float): Float {
+        val free = if (value < 0f) 66f else 44f
         val distance = abs(value)
-
-        if (distance <= free) {
-            return value
-        }
-
-        return (
-            free +
-                (distance - free) *
-                    0.075f
-            ) *
-            sign(value)
+        if (distance <= free) return value
+        return (free + (distance - free) * 0.075f) * sign(value)
     }
 
-    val riseSpec:
-        AnimationSpec<Float>
-        get() =
-            spring(
-                dampingRatio = 0.86f,
-                stiffness = 320f
-            )
+    val riseSpec: AnimationSpec<Float>
+        get() = XvoxPlayerTransitionMotion.spec
 
-    val exitSpec:
-        AnimationSpec<Float>
-        get() =
-            spring(
-                dampingRatio = 0.86f,
-                stiffness = 320f
-            )
+    val exitSpec: AnimationSpec<Float>
+        get() = XvoxPlayerTransitionMotion.spec
 
-    val horizontalReturnSpec:
-        AnimationSpec<Float>
-        get() =
-            spring(
-                dampingRatio = 0.80f,
-                stiffness = 470f
-            )
+    val horizontalReturnSpec: AnimationSpec<Float>
+        get() = spring(
+            dampingRatio = 0.80f,
+            stiffness = 470f
+        )
 
-    val verticalReturnSpec:
-        AnimationSpec<Float>
-        get() =
-            spring(
-                dampingRatio = 0.84f,
-                stiffness = 440f
-            )
+    val verticalReturnSpec: AnimationSpec<Float>
+        get() = spring(
+            dampingRatio = 0.84f,
+            stiffness = 440f
+        )
 
-    fun metadataChange(
-        direction: Int
-    ): ContentTransform {
-        val normalized =
-            direction.coerceIn(
-                -1,
-                1
-            )
+    fun metadataChange(direction: Int): ContentTransform {
+        val normalized = direction.coerceIn(-1, 1)
 
         if (normalized == 0) {
-            return fadeIn(
-                tween(120)
-            ).togetherWith(
-                fadeOut(
-                    tween(100)
-                )
-            )
+            return fadeIn(tween(120))
+                .togetherWith(fadeOut(tween(100)))
         }
 
         return (
-            fadeIn(
-                tween(115)
-            ) +
+            fadeIn(tween(115)) +
                 slideInVertically(
-                    initialOffsetY = {
-                        height ->
-
-                        if (
-                            normalized > 0
-                        ) {
-                            -height
-                        } else {
-                            height
-                        }
+                    initialOffsetY = { height ->
+                        if (normalized > 0) -height else height
                     },
-                    animationSpec =
-                        tween(
-                            155,
-                            easing =
-                                FastOutSlowInEasing
-                        )
+                    animationSpec = tween(
+                        155,
+                        easing = FastOutSlowInEasing
+                    )
                 )
             ).togetherWith(
-                fadeOut(
-                    tween(95)
-                ) +
-                    slideOutVertically(
-                        targetOffsetY = {
-                            height ->
-
-                            if (
-                                normalized > 0
-                            ) {
-                                height
-                            } else {
-                                -height
-                            }
-                        },
-                        animationSpec =
-                            tween(
-                                140,
-                                easing =
-                                    FastOutSlowInEasing
-                            )
+            fadeOut(tween(95)) +
+                slideOutVertically(
+                    targetOffsetY = { height ->
+                        if (normalized > 0) height else -height
+                    },
+                    animationSpec = tween(
+                        140,
+                        easing = FastOutSlowInEasing
                     )
-            )
+                )
+        )
     }
 
-    fun artworkChange():
-        ContentTransform =
-        fadeIn(
-            tween(135)
-        ).togetherWith(
-            fadeOut(
-                tween(110)
-            )
-        )
+    fun artworkChange(): ContentTransform =
+        fadeIn(tween(135))
+            .togetherWith(fadeOut(tween(110)))
 }
