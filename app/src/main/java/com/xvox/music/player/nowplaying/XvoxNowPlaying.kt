@@ -73,7 +73,6 @@ fun XvoxNowPlaying(
         XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-
     val lyricsState by
         lyricsViewModel.state.collectAsState()
 
@@ -130,7 +129,6 @@ fun XvoxNowPlaying(
         finished: (() -> Unit)? = null
     ) {
         motionJob?.cancel()
-
         val start = screenY
 
         motionJob =
@@ -158,18 +156,16 @@ fun XvoxNowPlaying(
 
     fun dismiss() {
         if (dismissing) return
-
         dismissing = true
 
         animateScreen(
-            target = screenHeight,
-            durationMs =
-                XvoxNowPlayingMotion
-                    .exitDuration(
-                        screenY,
-                        screenHeight
-                    ),
-            finished = onClose
+            screenHeight,
+            XvoxNowPlayingMotion
+                .exitDuration(
+                    screenY,
+                    screenHeight
+                ),
+            onClose
         )
     }
 
@@ -183,14 +179,13 @@ fun XvoxNowPlaying(
             }
 
         animateScreen(
-            target = 0f,
-            durationMs =
-                (
-                    XvoxNowPlayingMotion.FullDuration *
-                        fraction
-                    )
-                    .toInt()
-                    .coerceAtLeast(120)
+            0f,
+            (
+                XvoxNowPlayingMotion.FullDuration *
+                    fraction
+                )
+                .toInt()
+                .coerceAtLeast(120)
         )
     }
 
@@ -235,9 +230,8 @@ fun XvoxNowPlaying(
 
     LaunchedEffect(Unit) {
         animateScreen(
-            target = 0f,
-            durationMs =
-                XvoxNowPlayingMotion.FullDuration
+            0f,
+            XvoxNowPlayingMotion.FullDuration
         )
     }
 
@@ -265,15 +259,17 @@ fun XvoxNowPlaying(
                 paletteState.color,
             onAttach =
                 lyricsViewModel::attach,
+            onDelete =
+                lyricsViewModel::removeCustom,
             onPrevious = ::requestPrevious,
             onTogglePlay = onTogglePlay,
             onNext = ::requestNext,
             onSeek = onSeek,
             onClose =
                 lyricsViewModel::closeFullscreen,
-            modifier = Modifier.fillMaxSize()
+            modifier =
+                Modifier.fillMaxSize()
         )
-
         return
     }
 
@@ -291,10 +287,8 @@ fun XvoxNowPlaying(
             }
     ) {
         XvoxNowPlayingBackdrop(
-            dominant =
-                paletteState.color,
-            modifier =
-                Modifier.fillMaxSize()
+            dominant = paletteState.color,
+            modifier = Modifier.fillMaxSize()
         )
 
         Column(
@@ -356,7 +350,7 @@ fun XvoxNowPlaying(
                     .fillMaxWidth()
                     .padding(
                         start = 12.dp,
-                        top = 9.dp,
+                        top = 0.dp,
                         end = 12.dp,
                         bottom = 50.dp
                     ),
@@ -372,8 +366,11 @@ fun XvoxNowPlaying(
                         XvoxArtworkLyrics(
                             state = lyricsState,
                             position = position,
+                            onSeek = onSeek,
                             onAttach =
                                 lyricsViewModel::attach,
+                            onDelete =
+                                lyricsViewModel::removeCustom,
                             onClose = {
                                 showLyrics = false
                             },
@@ -446,7 +443,7 @@ fun XvoxNowPlaying(
                 NowPlayingActions()
 
                 Spacer(
-                    Modifier.size(28.dp)
+                    Modifier.size(38.dp)
                 )
 
                 Text(
@@ -475,7 +472,7 @@ fun XvoxNowPlaying(
                 )
 
                 Spacer(
-                    Modifier.size(12.dp)
+                    Modifier.size(38.dp)
                 )
 
                 XvoxNowPlayingProgress(
@@ -491,10 +488,8 @@ fun XvoxNowPlaying(
                 XvoxNowPlayingControls(
                     isPlaying = isPlaying,
                     onShuffle = {},
-                    onPrevious =
-                        ::requestPrevious,
-                    onTogglePlay =
-                        onTogglePlay,
+                    onPrevious = ::requestPrevious,
+                    onTogglePlay = onTogglePlay,
                     onNext = ::requestNext,
                     onRepeat = {},
                     modifier =
