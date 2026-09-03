@@ -13,10 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun XvoxNowPlayingProgress(
@@ -25,12 +25,15 @@ fun XvoxNowPlayingProgress(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors =
+        XvoxTheme.colors
+
     val progress =
         if (duration > 0L) {
             (
                 position.toFloat() /
                     duration.toFloat()
-            )
+                )
                 .coerceIn(
                     0f,
                     1f
@@ -48,7 +51,9 @@ fun XvoxNowPlayingProgress(
                 .fillMaxWidth()
                 .height(18.dp)
                 .pointerInput(duration) {
-                    detectTapGestures { point ->
+                    detectTapGestures {
+                        point ->
+
                         if (
                             duration > 0L &&
                             size.width > 0
@@ -56,8 +61,8 @@ fun XvoxNowPlayingProgress(
                             val fraction =
                                 (
                                     point.x /
-                                        size.width.toFloat()
-                                )
+                                        size.width
+                                    )
                                     .coerceIn(
                                         0f,
                                         1f
@@ -65,9 +70,9 @@ fun XvoxNowPlayingProgress(
 
                             onSeek(
                                 (
-                                    duration.toDouble() *
-                                        fraction.toDouble()
-                                )
+                                    duration *
+                                        fraction
+                                    )
                                     .toLong()
                             )
                         }
@@ -81,12 +86,8 @@ fun XvoxNowPlayingProgress(
                     .fillMaxWidth()
                     .height(3.dp)
                     .background(
-                        color =
-                            Color.White.copy(
-                                alpha = 0.15f
-                            ),
-                        shape =
-                            CircleShape
+                        colors.progressTrack,
+                        CircleShape
                     )
             )
 
@@ -94,17 +95,12 @@ fun XvoxNowPlayingProgress(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(
-                            fraction =
-                                progress
+                            progress
                         )
                         .height(3.dp)
                         .background(
-                            color =
-                                Color(
-                                    0xFF1ED760
-                                ),
-                            shape =
-                                CircleShape
+                            colors.progressActive,
+                            CircleShape
                         )
                 )
             }
@@ -118,15 +114,12 @@ fun XvoxNowPlayingProgress(
         ) {
             Text(
                 text =
-                    formatTime(
+                    formatPlayerTime(
                         position
                     ),
                 color =
-                    Color.White.copy(
-                        alpha = 0.65f
-                    ),
-                fontSize =
-                    11.sp
+                    colors.secondaryText,
+                fontSize = 11.sp
             )
 
             Spacer(
@@ -136,43 +129,33 @@ fun XvoxNowPlayingProgress(
 
             Text(
                 text =
-                    formatTime(
+                    formatPlayerTime(
                         duration
                     ),
                 color =
-                    Color.White.copy(
-                        alpha = 0.65f
-                    ),
-                fontSize =
-                    11.sp
+                    colors.secondaryText,
+                fontSize = 11.sp
             )
         }
     }
 }
 
-private fun formatTime(
+fun formatPlayerTime(
     millis: Long
 ): String {
-    val totalSeconds =
-        millis
-            .coerceAtLeast(0L) /
+    val total =
+        millis.coerceAtLeast(0L) /
             1000L
 
-    val minutes =
-        totalSeconds / 60L
-
-    val seconds =
-        totalSeconds % 60L
-
     return buildString {
-        append(minutes)
+        append(total / 60L)
         append(':')
         append(
-            seconds
+            (total % 60L)
                 .toString()
                 .padStart(
-                    length = 2,
-                    padChar = '0'
+                    2,
+                    '0'
                 )
         )
     }
