@@ -7,11 +7,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.File
 
 internal val Context.xvoxDataStore by
     preferencesDataStore(
@@ -61,9 +61,7 @@ class UserPreferencesRepository(
     val preferences:
         Flow<UserPreferences> =
         context.xvoxDataStore.data
-            .map {
-                prefs ->
-
+            .map { prefs ->
                 UserPreferences(
                     setupCompleted =
                         prefs[
@@ -87,27 +85,18 @@ class UserPreferencesRepository(
     val recentSongIds:
         Flow<List<Long>> =
         context.xvoxDataStore.data
-            .map {
-                prefs ->
-
-                prefs[
-                    Keys.recentSongIds
-                ]
-                    .orEmpty()
-                    .split(",")
-                    .mapNotNull {
-                        it.toLongOrNull()
-                    }
-                    .distinct()
-                    .take(20)
+            .map { prefs ->
+                decodeRecentIds(
+                    prefs[
+                        Keys.recentSongIds
+                    ].orEmpty()
+                )
             }
 
     val lastPlayedSongId:
         Flow<Long?> =
         context.xvoxDataStore.data
-            .map {
-                prefs ->
-
+            .map { prefs ->
                 prefs[
                     Keys.lastPlayedSongId
                 ]
@@ -145,7 +134,7 @@ class UserPreferencesRepository(
             prefs ->
 
             prefs[Keys.username] =
-                username
+                username.trim()
 
             prefs[Keys.selectedPfp] =
                 selectedPfp
@@ -219,14 +208,11 @@ class UserPreferencesRepository(
             prefs ->
 
             val current =
-                prefs[
-                    Keys.recentSongIds
-                ]
-                    .orEmpty()
-                    .split(",")
-                    .mapNotNull {
-                        it.toLongOrNull()
-                    }
+                decodeRecentIds(
+                    prefs[
+                        Keys.recentSongIds
+                    ].orEmpty()
+                )
 
             prefs[
                 Keys.recentSongIds
@@ -245,13 +231,42 @@ class UserPreferencesRepository(
         }
     }
 
+    suspend fun removeRecentSong(
+        songId: Long
+    ) {
+        context.xvoxDataStore.edit {
+            prefs ->
+
+            val updated =
+                decodeRecentIds(
+                    prefs[
+                        Keys.recentSongIds
+                    ].orEmpty()
+                )
+                    .filterNot {
+                        it == songId
+                    }
+
+            if (updated.isEmpty()) {
+                prefs.remove(
+                    Keys.recentSongIds
+                )
+            } else {
+                prefs[
+                    Keys.recentSongIds
+                ] =
+                    updated.joinToString(
+                        ","
+                    )
+            }
+        }
+    }
+
     fun lyricsUri(
         songId: Long
     ): Flow<String?> =
         context.xvoxDataStore.data
-            .map {
-                prefs ->
-
+            .map { prefs ->
                 decodeLyricsUris(
                     prefs[
                         Keys.lyricsUris
@@ -277,8 +292,7 @@ class UserPreferencesRepository(
             if (uri == null) {
                 map.remove(songId)
             } else {
-                map[songId] =
-                    uri
+                map[songId] = uri
             }
 
             prefs[
@@ -290,6 +304,16 @@ class UserPreferencesRepository(
                     }
         }
     }
+
+    private fun decodeRecentIds(
+        raw: String
+    ): List<Long> =
+        raw.split(",")
+            .mapNotNull {
+                it.toLongOrNull()
+            }
+            .distinct()
+            .take(20)
 
     private suspend fun persistProfileImage(
         value: String?
@@ -307,7 +331,13 @@ class UserPreferencesRepository(
                 }.getOrNull()
                     ?: return@withContext value
 
-            val existingFile =
+            val profileDirectory =
+                File(
+                    context.filesDir,
+                    "profile"
+                )
+
+            val existing =
                 if (
                     uri.scheme == "file"
                 ) {
@@ -316,19 +346,15 @@ class UserPreferencesRepository(
                     null
                 }
 
-            val profileDirectory =
-                File(
-                    context.filesDir,
-                    "profile"
-                )
-
             if (
-                existingFile != null &&
-                existingFile.exists() &&
-                existingFile.parentFile
-                    ?.canonicalPath ==
-                profileDirectory
-                    .canonicalPath
+                existing != null &&
+                existing.exists() &&
+                runCatching {
+                    existing.parentFile
+                        ?.canonicalPath ==
+                        profileDirectory
+                            .canonicalPath
+                }.getOrDefault(false)
             ) {
                 return@withContext value
             }
@@ -342,24 +368,27 @@ class UserPreferencesRepository(
                         "pfp_${System.nanoTime()}.img"
                     )
 
-                context.contentResolver
-                    .openInputStream(uri)
-                    ?.use {
-                        input ->
+                val copied =
+                    context.contentResolver
+                        .openInputStream(uri)
+                        ?.use { input ->
+                            target.outputStream()
+                                .use { output ->
+                                    input.copyTo(
+                                        output
+                                    )
+                                }
 
-                        target.outputStream()
-                            .use {
-                                output ->
+                            true
+                        } ?: false
 
-                                input.copyTo(
-                                    output
-                                )
-                            }
-                    }
-                    ?: return@runCatching value
-
-                Uri.fromFile(target)
-                    .toString()
+                if (!copied) {
+                    target.delete()
+                    value
+                } else {
+                    Uri.fromFile(target)
+                        .toString()
+                }
             }.getOrDefault(value)
         }
     }
@@ -370,25 +399,31 @@ class UserPreferencesRepository(
         withContext(
             Dispatchers.IO
         ) {
-            val retainedPath =
+            val retained =
                 retainedUri
-                    ?.let(Uri::parse)
-                    ?.takeIf {
-                        it.scheme == "file"
+                    ?.let {
+                        runCatching {
+                            Uri.parse(it)
+                        }.getOrNull()
                     }
-                    ?.path
 
-            val directory =
-                File(
-                    context.filesDir,
-                    "profile"
-                )
+            if (
+                retained?.scheme !=
+                "file"
+            ) {
+                return@withContext
+            }
 
-            directory
+            val retainedPath =
+                retained.path
+                    ?: return@withContext
+
+            File(
+                context.filesDir,
+                "profile"
+            )
                 .listFiles()
-                ?.forEach {
-                    file ->
-
+                ?.forEach { file ->
                     if (
                         file.path !=
                         retainedPath
@@ -408,9 +443,7 @@ class UserPreferencesRepository(
 
         return buildMap {
             raw.lineSequence()
-                .forEach {
-                    line ->
-
+                .forEach { line ->
                     val separator =
                         line.indexOf('\t')
 
@@ -436,10 +469,7 @@ class UserPreferencesRepository(
                         )
 
                     if (uri.isNotBlank()) {
-                        put(
-                            id,
-                            uri
-                        )
+                        put(id, uri)
                     }
                 }
         }
