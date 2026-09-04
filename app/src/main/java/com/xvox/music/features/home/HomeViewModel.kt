@@ -8,6 +8,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxLibraryPreferences
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.home.library.HomeLibraryMode
 import com.xvox.music.media.MediaStoreSongRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,12 +37,9 @@ class HomeViewModel(
         SongInfoReader(application)
 
     private val _state =
-        MutableStateFlow(
-            HomeUiState()
-        )
+        MutableStateFlow(HomeUiState())
 
-    val state:
-        StateFlow<HomeUiState> =
+    val state: StateFlow<HomeUiState> =
         _state.asStateFlow()
 
     private var allSongs:
@@ -120,8 +118,7 @@ class HomeViewModel(
                 .collect { playlists ->
                     _state.update {
                         it.copy(
-                            playlists =
-                                playlists
+                            playlists = playlists
                         )
                     }
                 }
@@ -197,6 +194,52 @@ class HomeViewModel(
         }
     }
 
+    fun toggleLikedMode() {
+        _state.update {
+            current ->
+
+            current.copy(
+                libraryMode =
+                    if (
+                        current.libraryMode ==
+                        HomeLibraryMode.LIKED
+                    ) {
+                        HomeLibraryMode.ALL_SONGS
+                    } else {
+                        HomeLibraryMode.LIKED
+                    }
+            )
+        }
+    }
+
+    fun togglePlaylistMode() {
+        _state.update {
+            current ->
+
+            current.copy(
+                libraryMode =
+                    if (
+                        current.libraryMode ==
+                        HomeLibraryMode.PLAYLISTS
+                    ) {
+                        HomeLibraryMode.ALL_SONGS
+                    } else {
+                        HomeLibraryMode.PLAYLISTS
+                    }
+            )
+        }
+    }
+
+    fun setLibraryMode(
+        mode: HomeLibraryMode
+    ) {
+        _state.update {
+            it.copy(
+                libraryMode = mode
+            )
+        }
+    }
+
     fun toggleLiked(
         song: Song
     ) {
@@ -228,14 +271,13 @@ class HomeViewModel(
         onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
-            val result =
+            onDone(
                 libraryPreferences
                     .createPlaylist(
                         name,
                         songIds
                     )
-
-            onDone(result)
+            )
         }
     }
 
@@ -245,15 +287,85 @@ class HomeViewModel(
         onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
-            val result =
+            onDone(
                 libraryPreferences
                     .addSongToPlaylist(
                         playlistId,
                         song.id
                     )
-
-            onDone(result)
+            )
         }
+    }
+
+    fun removeFromPlaylist(
+        playlistId: String,
+        song: Song,
+        onDone: (XvoxPlaylist?) -> Unit
+    ) {
+        viewModelScope.launch {
+            onDone(
+                libraryPreferences
+                    .removeSongFromPlaylist(
+                        playlistId,
+                        song.id
+                    )
+            )
+        }
+    }
+
+    fun renamePlaylist(
+        playlistId: String,
+        name: String,
+        onDone: (XvoxPlaylist?) -> Unit
+    ) {
+        viewModelScope.launch {
+            onDone(
+                libraryPreferences
+                    .renamePlaylist(
+                        playlistId,
+                        name
+                    )
+            )
+        }
+    }
+
+    fun deletePlaylist(
+        playlistId: String,
+        onDone: () -> Unit
+    ) {
+        viewModelScope.launch {
+            libraryPreferences
+                .deletePlaylist(
+                    playlistId
+                )
+            onDone()
+        }
+    }
+
+    fun playlistSongs(
+        playlist: XvoxPlaylist
+    ): List<Song> {
+        val byId =
+            _state.value.songs
+                .associateBy {
+                    it.id
+                }
+
+        return playlist.songIds
+            .mapNotNull {
+                byId[it]
+            }
+    }
+
+    fun likedSongs():
+        List<Song> {
+        val liked =
+            _state.value.likedSongIds
+
+        return _state.value.songs
+            .filter {
+                it.id in liked
+            }
     }
 
     fun loadInfo(
@@ -324,6 +436,7 @@ class HomeViewModel(
                 recentlyPlayed =
                     buildList {
                         add(song)
+
                         addAll(
                             current
                                 .recentlyPlayed
@@ -373,15 +486,6 @@ class HomeViewModel(
                     count = 48
                 )
             }
-    }
-
-    fun toggleLibraryMode() {
-        _state.update {
-            it.copy(
-                showPlaylists =
-                    !it.showPlaylists
-            )
-        }
     }
 
     private fun resolveRecent(
