@@ -2,12 +2,12 @@ package com.xvox.music.features.home
 
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferences
+import com.xvox.music.data.preferences.XvoxPlaylist
 
 data class HomeUiState(
     val loading: Boolean = true,
     val refreshing: Boolean = false,
-    val songs: List<Song> =
-        emptyList(),
+    val songs: List<Song> = emptyList(),
     val recentlyPlayed: List<Song> =
         emptyList(),
     val profile: UserPreferences =
@@ -15,5 +15,11 @@ data class HomeUiState(
     val showPlaylists: Boolean = false,
     val recentTransition:
         RecentTransitionRequest =
-        RecentTransitionRequest()
+        RecentTransitionRequest(),
+    val likedSongIds: Set<Long> =
+        emptySet(),
+    val hiddenSongIds: Set<Long> =
+        emptySet(),
+    val playlists: List<XvoxPlaylist> =
+        emptyList()
 )
