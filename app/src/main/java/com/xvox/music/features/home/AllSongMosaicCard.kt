@@ -38,7 +38,8 @@ fun AllSongMosaicCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val interaction =
         remember {
@@ -46,7 +47,8 @@ fun AllSongMosaicCard(
         }
 
     val pressed by
-        interaction.collectIsPressedAsState()
+        interaction
+            .collectIsPressedAsState()
 
     val scale by
         animateFloatAsState(
@@ -61,20 +63,24 @@ fun AllSongMosaicCard(
                     dampingRatio = 0.84f,
                     stiffness = 1400f
                 ),
-            label = "mosaicPress"
+            label =
+                "mosaicPress"
         )
 
     val shape =
-        RoundedCornerShape(11.dp)
+        RoundedCornerShape(
+            11.dp
+        )
 
     val requestSize =
         when {
             widthUnits >= 4f ||
                 heightUnits >= 2f ->
-                512
+                384
 
-            widthUnits >= 2f ->
-                320
+            widthUnits >= 2f ||
+                heightUnits > 1f ->
+                256
 
             else ->
                 GridArtworkSize
@@ -88,10 +94,13 @@ fun AllSongMosaicCard(
                 scaleY = scale
             }
             .clip(shape)
-            .background(colors.card)
+            .background(
+                colors.card
+            )
             .border(
                 width = 0.7.dp,
-                color = colors.cardBorder,
+                color =
+                    colors.cardBorder,
                 shape = shape
             )
             .combinedClickable(
@@ -105,8 +114,10 @@ fun AllSongMosaicCard(
             .padding(5.dp)
     ) {
         SongArtwork(
-            artwork = song.artworkUri,
-            requestSize = requestSize,
+            artwork =
+                song.artworkUri,
+            requestSize =
+                requestSize,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
@@ -119,15 +130,20 @@ fun AllSongMosaicCard(
 
         Text(
             text = song.title,
-            color = colors.primaryText,
+            color =
+                colors.primaryText,
             fontSize =
-                if (widthUnits >= 2f) {
+                if (
+                    widthUnits >= 2f
+                ) {
                     12.sp
                 } else {
                     10.sp
                 },
             lineHeight =
-                if (widthUnits >= 2f) {
+                if (
+                    widthUnits >= 2f
+                ) {
                     14.sp
                 } else {
                     11.sp
@@ -145,9 +161,12 @@ fun AllSongMosaicCard(
 
         Text(
             text = song.artist,
-            color = colors.secondaryText,
+            color =
+                colors.secondaryText,
             fontSize =
-                if (widthUnits >= 2f) {
+                if (
+                    widthUnits >= 2f
+                ) {
                     9.sp
                 } else {
                     8.sp
