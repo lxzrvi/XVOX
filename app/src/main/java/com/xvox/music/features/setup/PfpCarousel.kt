@@ -53,8 +53,9 @@ fun PfpCarousel(
         XvoxTheme.colors
 
     val selectedIndex =
-        items.indexOf(selected)
-            .coerceAtLeast(0)
+        items.indexOf(
+            selected
+        ).coerceAtLeast(0)
 
     val state =
         rememberLazyListState(
@@ -74,7 +75,7 @@ fun PfpCarousel(
                 ) {
                     selectedIndex
                 } else {
-                    val viewportCenter =
+                    val center =
                         (
                             layout.viewportStartOffset +
                                 layout.viewportEndOffset
@@ -86,8 +87,9 @@ fun PfpCarousel(
 
                             abs(
                                 item.offset +
-                                    item.size / 2f -
-                                    viewportCenter
+                                    item.size /
+                                        2f -
+                                    center
                             )
                         }
                         ?.index
@@ -107,25 +109,18 @@ fun PfpCarousel(
             PfpType.DEFAULT
         }
 
-    /*
-     * External selection changes include:
-     * - opening editor with saved PFP
-     * - choosing a new custom image
-     *
-     * customPfpUri itself is deliberately NOT used as
-     * the navigation key. An already saved custom URI
-     * therefore cannot force the carousel to Add/CUSTOM
-     * when another PFP is currently selected.
-     */
     LaunchedEffect(
         selected
     ) {
         val target =
-            items.indexOf(selected)
+            items.indexOf(
+                selected
+            )
 
         if (
             target >= 0 &&
-            target != centeredIndex &&
+            target !=
+                centeredIndex &&
             !state.isScrollInProgress
         ) {
             state.animateScrollToItem(
@@ -134,10 +129,6 @@ fun PfpCarousel(
         }
     }
 
-    /*
-     * Manual carousel interaction owns selection only
-     * after scrolling has completely settled.
-     */
     LaunchedEffect(state) {
         snapshotFlow {
             state.isScrollInProgress
@@ -224,12 +215,12 @@ fun PfpCarousel(
                     index,
                     type ->
 
-                    val isCentered =
+                    val centered =
                         index ==
                             centeredIndex
 
                     val pfpSize =
-                        if (isCentered) {
+                        if (centered) {
                             centerPfpSize
                         } else {
                             sidePfpSize
@@ -238,7 +229,7 @@ fun PfpCarousel(
                     val customClickable =
                         type ==
                             PfpType.CUSTOM &&
-                            isCentered &&
+                            centered &&
                             !state
                                 .isScrollInProgress
 
@@ -251,48 +242,39 @@ fun PfpCarousel(
                             Alignment.Center
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(
-                                    pfpSize
-                                )
-                                .clip(
-                                    CircleShape
-                                )
-                                .background(
-                                    colors.cardElevated
-                                )
-                                .border(
-                                    width =
-                                        if (
-                                            isCentered
-                                        ) {
-                                            1.4.dp
-                                        } else {
-                                            0.8.dp
-                                        },
-                                    color =
-                                        if (
-                                            isCentered
-                                        ) {
-                                            colors.primaryAccent
-                                        } else {
-                                            colors.cardBorder
-                                        },
-                                    shape =
+                            modifier =
+                                Modifier
+                                    .size(
+                                        pfpSize
+                                    )
+                                    .clip(
                                         CircleShape
-                                )
-                                .then(
-                                    if (
-                                        customClickable
-                                    ) {
-                                        Modifier
-                                            .clickable {
-                                                onAddClick()
-                                            }
-                                    } else {
-                                        Modifier
-                                    }
-                                ),
+                                    )
+                                    .background(
+                                        colors
+                                            .cardElevated
+                                    )
+                                    .border(
+                                        width =
+                                            0.7.dp,
+                                        color =
+                                            colors
+                                                .cardBorder,
+                                        shape =
+                                            CircleShape
+                                    )
+                                    .then(
+                                        if (
+                                            customClickable
+                                        ) {
+                                            Modifier
+                                                .clickable {
+                                                    onAddClick()
+                                                }
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
                             contentAlignment =
                                 Alignment.Center
                         ) {
@@ -308,12 +290,13 @@ fun PfpCarousel(
                                                 ?.uppercase()
                                                 ?: "X",
                                         color =
-                                            colors.primaryText,
+                                            colors
+                                                .primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
                                         fontSize =
                                             if (
-                                                isCentered
+                                                centered
                                             ) {
                                                 45.sp
                                             } else {
@@ -334,6 +317,8 @@ fun PfpCarousel(
                                             customPfpUri,
                                         contentDescription =
                                             "Custom profile picture",
+                                        contentScale =
+                                            ContentScale.Crop,
                                         modifier =
                                             Modifier
                                                 .size(
@@ -341,27 +326,28 @@ fun PfpCarousel(
                                                 )
                                                 .clip(
                                                     CircleShape
-                                                ),
-                                        contentScale =
-                                            ContentScale.Crop
+                                                )
                                     )
                                 }
 
                                 else -> {
                                     PfpIcon(
-                                        type = type,
+                                        type =
+                                            type,
                                         color =
-                                            colors.primaryText,
+                                            colors
+                                                .primaryText,
                                         modifier =
-                                            Modifier.size(
-                                                if (
-                                                    isCentered
-                                                ) {
-                                                    48.dp
-                                                } else {
-                                                    42.dp
-                                                }
-                                            )
+                                            Modifier
+                                                .size(
+                                                    if (
+                                                        centered
+                                                    ) {
+                                                        48.dp
+                                                    } else {
+                                                        42.dp
+                                                    }
+                                                )
                                     )
                                 }
                             }
@@ -379,7 +365,8 @@ fun PfpCarousel(
                         .border(
                             width = 2.dp,
                             color =
-                                colors.primaryAccent,
+                                colors
+                                    .primaryAccent,
                             shape =
                                 CircleShape
                         )
