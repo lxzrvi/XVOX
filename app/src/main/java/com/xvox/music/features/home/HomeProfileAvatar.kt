@@ -3,12 +3,15 @@ package com.xvox.music.features.home
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,9 +28,11 @@ import com.xvox.music.features.setup.PfpType
 @Composable
 fun HomeProfileAvatar(
     profile: UserPreferences,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val type =
         runCatching {
@@ -41,51 +46,87 @@ fun HomeProfileAvatar(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(colors.cardElevated)
+            .background(
+                colors.cardElevated
+            )
             .border(
                 width = 1.dp,
-                color = colors.cardBorder,
-                shape = CircleShape
+                color =
+                    colors.cardBorder,
+                shape =
+                    CircleShape
+            )
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication = null,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier
+                }
             ),
         contentAlignment =
             Alignment.Center
     ) {
         when {
-            type == PfpType.CUSTOM &&
-                profile.customPfpUri != null -> {
+            type ==
+                PfpType.CUSTOM &&
+                profile.customPfpUri !=
+                null -> {
 
                 AsyncImage(
-                    model = Uri.parse(
-                        profile.customPfpUri
-                    ),
+                    model =
+                        Uri.parse(
+                            profile
+                                .customPfpUri
+                        ),
                     contentDescription =
                         "Profile picture",
                     contentScale =
                         ContentScale.Crop,
                     modifier =
-                        Modifier.fillMaxSize()
+                        Modifier
+                            .fillMaxSize()
+                            .clip(
+                                CircleShape
+                            )
                 )
             }
 
-            type == PfpType.DEFAULT -> {
+            type ==
+                PfpType.DEFAULT -> {
+
                 Text(
-                    text = profile.username
-                        .firstOrNull()
-                        ?.uppercase()
-                        ?: "X",
-                    color = colors.primaryText,
-                    fontFamily = XvoxPersonalFont,
-                    fontSize = 18.sp
+                    text =
+                        profile.username
+                            .firstOrNull()
+                            ?.uppercase()
+                            ?: "X",
+                    color =
+                        colors.primaryText,
+                    fontFamily =
+                        XvoxPersonalFont,
+                    fontSize =
+                        18.sp
                 )
             }
 
             else -> {
                 PfpIcon(
                     type = type,
-                    color = colors.primaryText,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
+                    color =
+                        colors.primaryText,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(
+                                8.dp
+                            )
                 )
             }
         }
