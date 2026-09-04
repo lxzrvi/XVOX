@@ -40,18 +40,21 @@ fun XvoxMainShell(
         XvoxTheme.colors
 
     val player by
-        playerViewModel.state
+        playerViewModel
+            .state
             .collectAsState()
 
-    var destination by remember {
-        mutableStateOf(
-            XvoxDestination.HOME
-        )
-    }
+    var destination by
+        remember {
+            mutableStateOf(
+                XvoxDestination.HOME
+            )
+        }
 
-    var homeResetKey by remember {
-        mutableLongStateOf(0L)
-    }
+    var homeResetKey by
+        remember {
+            mutableLongStateOf(0L)
+        }
 
     val currentSong =
         player.queue
@@ -69,11 +72,12 @@ fun XvoxMainShell(
                 }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                colors.background
-            )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    colors.background
+                )
     ) {
         when (destination) {
             XvoxDestination.HOME -> {
@@ -129,11 +133,14 @@ fun XvoxMainShell(
                 togglePlay =
                     playerViewModel::togglePlay,
                 playQueueIndex =
-                    playerViewModel::playQueueIndex,
+                    playerViewModel::
+                        playQueueIndex,
                 stopAndDismiss =
-                    playerViewModel::stopPlayback,
+                    playerViewModel::
+                        stopPlayback,
                 openPlayer =
-                    playerViewModel::openNowPlaying,
+                    playerViewModel::
+                        openNowPlaying,
                 onLike = {},
                 onAdd = {},
                 modifier =
@@ -178,20 +185,21 @@ fun XvoxMainShell(
                         selected
                 }
             },
-            modifier = Modifier
-                .align(
-                    Alignment
-                        .BottomCenter
-                )
-                .windowInsetsPadding(
-                    WindowInsets
-                        .navigationBars
-                )
-                .padding(
-                    bottom =
-                        XvoxMiniPlayerPlacement
-                            .navigationHostBottom
-                )
+            modifier =
+                Modifier
+                    .align(
+                        Alignment
+                            .BottomCenter
+                    )
+                    .windowInsetsPadding(
+                        WindowInsets
+                            .navigationBars
+                    )
+                    .padding(
+                        bottom =
+                            XvoxMiniPlayerPlacement
+                                .navigationHostBottom
+                    )
         )
 
         if (
@@ -199,13 +207,16 @@ fun XvoxMainShell(
             currentSong != null
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {}
-                        )
-                    }
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(
+                            Unit
+                        ) {
+                            detectTapGestures(
+                                onTap = {}
+                            )
+                        }
             )
 
             XvoxNowPlaying(
@@ -222,19 +233,26 @@ fun XvoxMainShell(
                 duration =
                     player.duration,
                 onClose =
-                    playerViewModel::closeNowPlaying,
+                    playerViewModel::
+                        closeNowPlaying,
                 onTogglePlay =
-                    playerViewModel::togglePlay,
+                    playerViewModel::
+                        togglePlay,
                 onPrevious =
-                    playerViewModel::playPrevious,
+                    playerViewModel::
+                        playPrevious,
                 onNext =
-                    playerViewModel::playNext,
+                    playerViewModel::
+                        playNext,
                 onPlayQueueIndex =
-                    playerViewModel::playQueueIndex,
+                    playerViewModel::
+                        playQueueIndex,
                 onSeek =
-                    playerViewModel::seekTo,
+                    playerViewModel::
+                        seekTo,
                 modifier =
-                    Modifier.fillMaxSize()
+                    Modifier
+                        .fillMaxSize()
             )
         }
     }
