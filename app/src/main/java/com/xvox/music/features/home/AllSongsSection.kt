@@ -4,15 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,17 +19,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-
-private const val Columns = 4
-private const val Rows = 3
-private const val SongsPerPage = 12
 
 @Composable
 fun AllSongsSection(
@@ -38,33 +32,33 @@ fun AllSongsSection(
     currentSongId: Long?,
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit,
+    onSongLongClick: (Song) -> Unit,
     onPrefetch: (Int) -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
-    val gridState =
-        rememberLazyGridState()
+    val pages =
+        remember(songs) {
+            buildMosaicPages(songs)
+        }
+
+    val state =
+        androidx.compose.foundation.lazy
+            .rememberLazyListState()
 
     LaunchedEffect(
-        gridState,
-        songs.size
+        state,
+        pages.size
     ) {
         snapshotFlow {
-            gridState.layoutInfo
-                .visibleItemsInfo
-                .maxOfOrNull {
-                    it.index
-                } ?: 0
+            state.firstVisibleItemIndex
         }
-            .map {
-                it / SongsPerPage
-            }
             .distinctUntilChanged()
-            .collect { page ->
+            .collect {
+                page ->
+
                 onPrefetch(
-                    (page + 1) *
-                        SongsPerPage
+                    (page + 1) * 12
                 )
             }
     }
@@ -90,8 +84,7 @@ fun AllSongsSection(
         ) {
             Text(
                 text = "All Songs",
-                color =
-                    colors.primaryText,
+                color = colors.primaryText,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
@@ -101,8 +94,7 @@ fun AllSongsSection(
             Text(
                 text =
                     "Total ${songs.size} songs",
-                color =
-                    colors.mutedText,
+                color = colors.mutedText,
                 fontSize = 9.sp
             )
         }
@@ -114,171 +106,145 @@ fun AllSongsSection(
             val edge = 6.dp
             val gap = 6.dp
 
-            val cardWidth =
+            val unitWidth =
                 (
                     maxWidth -
                         edge * 2 -
                         gap * 3
                     ) / 4
 
-            /*
-             * +4dp from old geometry.
-             */
-            val cardHeight =
-                cardWidth + 38.dp
+            val unitHeight =
+                unitWidth + 38.dp
 
-            val gridHeight =
-                cardHeight * Rows +
-                    gap * (Rows - 1)
+            val pageHeight =
+                unitHeight * 3 +
+                    gap * 2
 
-            val slots =
-                remember(
-                    songs.size
-                ) {
-                    if (
-                        songs.isEmpty()
-                    ) {
-                        0
-                    } else {
-                        (
-                            (
-                                songs.size +
-                                    SongsPerPage -
-                                    1
-                                ) /
-                                SongsPerPage
-                            ) *
-                            SongsPerPage
-                    }
-                }
-
-            LazyHorizontalGrid(
-                rows =
-                    GridCells.Fixed(
-                        Rows
-                    ),
-                state =
-                    gridState,
+            LazyRow(
+                state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(
-                        gridHeight
-                    ),
-                contentPadding =
-                    PaddingValues(
-                        horizontal = edge
-                    ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        gap
-                    ),
-                verticalArrangement =
-                    Arrangement.spacedBy(
-                        gap
-                    )
+                    .height(pageHeight)
             ) {
-                items(
-                    count = slots,
-                    key = { slot ->
-                        val page =
-                            slot /
-                                SongsPerPage
+                itemsIndexed(
+                    pages,
+                    key = {
+                        index,
+                        page ->
 
-                        val local =
-                            slot %
-                                SongsPerPage
-
-                        val row =
-                            local %
-                                Rows
-
-                        val column =
-                            local /
-                                Rows
-
-                        val sourceIndex =
-                            page *
-                                SongsPerPage +
-                                row *
-                                Columns +
-                                column
-
-                        songs
-                            .getOrNull(
-                                sourceIndex
-                            )
-                            ?.let {
-                                "song_${it.id}"
-                            }
-                            ?: "empty_$slot"
-                    },
-                    contentType = {
-                        "song_slot"
+                        "page_${index}_" +
+                            page.tiles
+                                .joinToString(
+                                    "_"
+                                ) {
+                                    it.song.id
+                                        .toString()
+                                }
                     }
-                ) { slot ->
-                    val page =
-                        slot /
-                            SongsPerPage
-
-                    val local =
-                        slot %
-                            SongsPerPage
-
-                    val row =
-                        local %
-                            Rows
-
-                    val column =
-                        local /
-                            Rows
-
-                    val sourceIndex =
-                        page *
-                            SongsPerPage +
-                            row *
-                            Columns +
-                            column
+                ) {
+                    _,
+                    page ->
 
                     Box(
                         modifier = Modifier
-                            .width(
-                                cardWidth
-                            )
-                            .height(
-                                cardHeight
+                            .size(
+                                width =
+                                    maxWidth,
+                                height =
+                                    pageHeight
                             )
                     ) {
-                        songs
-                            .getOrNull(
-                                sourceIndex
-                            )
-                            ?.let { song ->
-                                val current =
-                                    currentSongId ==
-                                        song.id
+                        page.tiles.forEach {
+                            tile ->
 
+                            val tileWidth =
+                                unitWidth *
+                                    tile.width +
+                                    gap *
+                                    (tile.width - 1f)
+
+                            val tileHeight =
+                                unitHeight *
+                                    tile.height +
+                                    gap *
+                                    (tile.height - 1f)
+
+                            val x =
+                                edge +
+                                    (
+                                        unitWidth +
+                                            gap
+                                        ) * tile.x
+
+                            val y =
+                                (
+                                    unitHeight +
+                                        gap
+                                    ) * tile.y
+
+                            val modifier =
+                                Modifier
+                                    .offset(
+                                        x = x,
+                                        y = y
+                                    )
+                                    .size(
+                                        width =
+                                            tileWidth,
+                                        height =
+                                            tileHeight
+                                    )
+
+                            if (
+                                tile.width == 1f &&
+                                tile.height == 1f
+                            ) {
                                 AllSongCard(
-                                    song = song,
+                                    song =
+                                        tile.song,
                                     current =
-                                        current,
+                                        currentSongId ==
+                                            tile.song.id,
                                     playing =
-                                        current &&
+                                        currentSongId ==
+                                            tile.song.id &&
                                             isPlaying,
                                     onClick = {
                                         onSongClick(
-                                            song
+                                            tile.song
+                                        )
+                                    },
+                                    onLongClick = {
+                                        onSongLongClick(
+                                            tile.song
                                         )
                                     },
                                     modifier =
-                                        Modifier
-                                            .width(
-                                                cardWidth
-                                            )
-                                            .height(
-                                                cardHeight
-                                            )
+                                        modifier
+                                )
+                            } else {
+                                AllSongMosaicCard(
+                                    song =
+                                        tile.song,
+                                    widthUnits =
+                                        tile.width,
+                                    heightUnits =
+                                        tile.height,
+                                    onClick = {
+                                        onSongClick(
+                                            tile.song
+                                        )
+                                    },
+                                    onLongClick = {
+                                        onSongLongClick(
+                                            tile.song
+                                        )
+                                    },
+                                    modifier =
+                                        modifier
                                 )
                             }
+                        }
                     }
                 }
             }
