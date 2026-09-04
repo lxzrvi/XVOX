@@ -46,53 +46,59 @@ fun PfpCarousel(
     onSelected: (PfpType) -> Unit,
     onAddClick: () -> Unit
 ) {
-    val items = PfpType.entries
-    val colors = XvoxTheme.colors
+    val items =
+        PfpType.entries
 
-    val initialIndex = remember {
+    val colors =
+        XvoxTheme.colors
+
+    val selectedIndex =
         items.indexOf(selected)
             .coerceAtLeast(0)
-    }
 
-    val state = rememberLazyListState(
-        initialFirstVisibleItemIndex =
-            initialIndex
-    )
+    val state =
+        rememberLazyListState(
+            initialFirstVisibleItemIndex =
+                selectedIndex
+        )
 
-    val centeredIndex by remember {
-        derivedStateOf {
-            val layout =
-                state.layoutInfo
+    val centeredIndex by
+        remember {
+            derivedStateOf {
+                val layout =
+                    state.layoutInfo
 
-            if (
-                layout.visibleItemsInfo
-                    .isEmpty()
-            ) {
-                initialIndex
-            } else {
-                val viewportCenter =
-                    (
-                        layout.viewportStartOffset +
-                            layout.viewportEndOffset
-                        ) / 2f
+                if (
+                    layout.visibleItemsInfo
+                        .isEmpty()
+                ) {
+                    selectedIndex
+                } else {
+                    val viewportCenter =
+                        (
+                            layout.viewportStartOffset +
+                                layout.viewportEndOffset
+                            ) / 2f
 
-                layout.visibleItemsInfo
-                    .minByOrNull { item ->
-                        abs(
-                            item.offset +
-                                item.size / 2f -
-                                viewportCenter
+                    layout.visibleItemsInfo
+                        .minByOrNull {
+                            item ->
+
+                            abs(
+                                item.offset +
+                                    item.size / 2f -
+                                    viewportCenter
+                            )
+                        }
+                        ?.index
+                        ?.coerceIn(
+                            0,
+                            items.lastIndex
                         )
-                    }
-                    ?.index
-                    ?.coerceIn(
-                        0,
-                        items.lastIndex
-                    )
-                    ?: initialIndex
+                        ?: selectedIndex
+                }
             }
         }
-    }
 
     val centeredType =
         items.getOrElse(
@@ -101,12 +107,45 @@ fun PfpCarousel(
             PfpType.DEFAULT
         }
 
+    /*
+     * External selection changes include:
+     * - opening editor with saved PFP
+     * - choosing a new custom image
+     *
+     * customPfpUri itself is deliberately NOT used as
+     * the navigation key. An already saved custom URI
+     * therefore cannot force the carousel to Add/CUSTOM
+     * when another PFP is currently selected.
+     */
+    LaunchedEffect(
+        selected
+    ) {
+        val target =
+            items.indexOf(selected)
+
+        if (
+            target >= 0 &&
+            target != centeredIndex &&
+            !state.isScrollInProgress
+        ) {
+            state.animateScrollToItem(
+                target
+            )
+        }
+    }
+
+    /*
+     * Manual carousel interaction owns selection only
+     * after scrolling has completely settled.
+     */
     LaunchedEffect(state) {
         snapshotFlow {
             state.isScrollInProgress
         }
             .distinctUntilChanged()
-            .filter { !it }
+            .filter {
+                !it
+            }
             .collect {
                 val type =
                     items.getOrNull(
@@ -122,32 +161,6 @@ fun PfpCarousel(
             }
     }
 
-    LaunchedEffect(
-        customPfpUri
-    ) {
-        if (
-            customPfpUri != null
-        ) {
-            val customIndex =
-                items.indexOf(
-                    PfpType.CUSTOM
-                )
-
-            if (
-                customIndex >= 0
-            ) {
-                state
-                    .animateScrollToItem(
-                        customIndex
-                    )
-
-                onSelected(
-                    PfpType.CUSTOM
-                )
-            }
-        }
-    }
-
     BoxWithConstraints(
         modifier =
             Modifier.fillMaxWidth()
@@ -161,7 +174,7 @@ fun PfpCarousel(
         val centerPfpSize =
             102.dp
 
-        val ringSize =
+        val centerRingSize =
             116.dp
 
         val edgePadding =
@@ -170,9 +183,10 @@ fun PfpCarousel(
                     maxWidth -
                         slotWidth
                     ) / 2
-                ).coerceAtLeast(
-                0.dp
-            )
+                )
+                .coerceAtLeast(
+                    0.dp
+                )
 
         Box(
             modifier =
@@ -190,10 +204,9 @@ fun PfpCarousel(
                             edgePadding
                     ),
                 horizontalArrangement =
-                    Arrangement
-                        .spacedBy(
-                            4.dp
-                        ),
+                    Arrangement.spacedBy(
+                        4.dp
+                    ),
                 flingBehavior =
                     rememberSnapFlingBehavior(
                         state
@@ -201,19 +214,22 @@ fun PfpCarousel(
             ) {
                 itemsIndexed(
                     items = items,
-                    key = { _, type ->
+                    key = {
+                            _,
+                            type ->
+
                         type.name
                     }
-                ) { index, type ->
+                ) {
+                    index,
+                    type ->
 
                     val isCentered =
                         index ==
                             centeredIndex
 
                     val pfpSize =
-                        if (
-                            isCentered
-                        ) {
+                        if (isCentered) {
                             centerPfpSize
                         } else {
                             sidePfpSize
@@ -235,36 +251,55 @@ fun PfpCarousel(
                             Alignment.Center
                     ) {
                         Box(
-                            modifier =
-                                Modifier
-                                    .size(
-                                        pfpSize
-                                    )
-                                    .clip(
-                                        CircleShape
-                                    )
-                                    .background(
-                                        colors
-                                            .cardElevated
-                                    )
-                                    .then(
+                            modifier = Modifier
+                                .size(
+                                    pfpSize
+                                )
+                                .clip(
+                                    CircleShape
+                                )
+                                .background(
+                                    colors.cardElevated
+                                )
+                                .border(
+                                    width =
                                         if (
-                                            customClickable
+                                            isCentered
                                         ) {
-                                            Modifier
-                                                .clickable {
-                                                    onAddClick()
-                                                }
+                                            1.4.dp
                                         } else {
-                                            Modifier
-                                        }
-                                    ),
+                                            0.8.dp
+                                        },
+                                    color =
+                                        if (
+                                            isCentered
+                                        ) {
+                                            colors.primaryAccent
+                                        } else {
+                                            colors.cardBorder
+                                        },
+                                    shape =
+                                        CircleShape
+                                )
+                                .then(
+                                    if (
+                                        customClickable
+                                    ) {
+                                        Modifier
+                                            .clickable {
+                                                onAddClick()
+                                            }
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
                             contentAlignment =
                                 Alignment.Center
                         ) {
                             when {
                                 type ==
                                     PfpType.DEFAULT -> {
+
                                     Text(
                                         text =
                                             username
@@ -273,8 +308,7 @@ fun PfpCarousel(
                                                 ?.uppercase()
                                                 ?: "X",
                                         color =
-                                            colors
-                                                .primaryText,
+                                            colors.primaryText,
                                         fontFamily =
                                             XvoxPersonalFont,
                                         fontSize =
@@ -294,6 +328,7 @@ fun PfpCarousel(
                                     PfpType.CUSTOM &&
                                     customPfpUri !=
                                     null -> {
+
                                     AsyncImage(
                                         model =
                                             customPfpUri,
@@ -316,8 +351,7 @@ fun PfpCarousel(
                                     PfpIcon(
                                         type = type,
                                         color =
-                                            colors
-                                                .primaryText,
+                                            colors.primaryText,
                                         modifier =
                                             Modifier.size(
                                                 if (
@@ -340,13 +374,12 @@ fun PfpCarousel(
                 modifier =
                     Modifier
                         .size(
-                            ringSize
+                            centerRingSize
                         )
                         .border(
                             width = 2.dp,
                             color =
-                                colors
-                                    .primaryAccent,
+                                colors.primaryAccent,
                             shape =
                                 CircleShape
                         )
@@ -368,8 +401,7 @@ fun PfpCarousel(
             Modifier.fillMaxWidth(),
         color =
             colors.secondaryText,
-        fontSize =
-            12.sp,
+        fontSize = 12.sp,
         textAlign =
             TextAlign.Center
     )
