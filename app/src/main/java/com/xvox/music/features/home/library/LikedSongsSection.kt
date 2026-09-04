@@ -1,16 +1,13 @@
 package com.xvox.music.features.home.library
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +31,8 @@ fun LikedSongsSection(
             modifier.fillMaxWidth()
     ) {
         Text(
-            text = "Liked Songs",
+            text =
+                "Liked Songs",
             color =
                 colors.primaryText,
             fontSize = 16.sp,
@@ -58,48 +56,43 @@ fun LikedSongsSection(
                 fontSize = 12.sp,
                 modifier =
                     Modifier.padding(
-                        horizontal =
-                            12.dp,
-                        vertical =
-                            24.dp
+                        horizontal = 12.dp,
+                        vertical = 24.dp
                     )
             )
         } else {
-            songs.forEach {
-                song ->
+            Column(
+                modifier =
+                    Modifier.padding(
+                        horizontal = 12.dp
+                    )
+            ) {
+                songs.forEach {
+                    song ->
 
-                LibrarySongRow(
-                    song = song,
-                    current =
-                        currentSongId ==
-                            song.id,
-                    playing =
-                        currentSongId ==
-                            song.id &&
-                            isPlaying,
-                    onClick = {
-                        onPlay(song)
-                    },
-                    onOptions = {
-                        onOptions(song)
-                    },
-                    modifier =
-                        Modifier
-                            .padding(
-                                horizontal =
-                                    12.dp,
-                                vertical =
-                                    3.dp
-                            )
-                            .clip(
-                                RoundedCornerShape(
-                                    14.dp
-                                )
-                            )
-                            .background(
-                                colors.card
-                            )
-                )
+                    LibrarySongRow(
+                        song = song,
+                        current =
+                            currentSongId ==
+                                song.id,
+                        playing =
+                            currentSongId ==
+                                song.id &&
+                                isPlaying,
+                        onClick = {
+                            onPlay(song)
+                        },
+                        onOptions = {
+                            onOptions(song)
+                        }
+                    )
+
+                    Spacer(
+                        Modifier.height(
+                            6.dp
+                        )
+                    )
+                }
             }
         }
 
