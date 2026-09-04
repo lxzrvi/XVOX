@@ -6,9 +6,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.xvox.music.core.model.Song
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 
 class ArtworkPreloader(
     context: Context
@@ -31,13 +28,12 @@ class ArtworkPreloader(
                 songs.size
             )
 
-        val effectiveCount =
-            count.coerceAtMost(24)
-
         val end =
             (
                 start +
-                    effectiveCount
+                    count.coerceAtMost(
+                        12
+                    )
                 )
                 .coerceAtMost(
                     songs.size
@@ -47,63 +43,51 @@ class ArtworkPreloader(
             return
         }
 
-        val uris =
-            songs.subList(
-                start,
-                end
-            )
-                .asSequence()
-                .mapNotNull {
-                    it.artworkUri
-                }
-                .distinct()
-                .toList()
-
         val loader =
             SingletonImageLoader.get(
                 appContext
             )
 
-        uris.chunked(2)
+        songs.subList(
+            start,
+            end
+        )
+            .asSequence()
+            .mapNotNull {
+                it.artworkUri
+            }
+            .distinct()
             .forEach {
-                batch ->
+                uri ->
 
-                coroutineScope {
-                    batch.map {
-                        uri ->
+                val request =
+                    ImageRequest
+                        .Builder(
+                            appContext
+                        )
+                        .data(uri)
+                        .size(
+                            160,
+                            160
+                        )
+                        .precision(
+                            Precision.INEXACT
+                        )
+                        .memoryCachePolicy(
+                            CachePolicy.ENABLED
+                        )
+                        .diskCachePolicy(
+                            CachePolicy.ENABLED
+                        )
+                        .networkCachePolicy(
+                            CachePolicy.DISABLED
+                        )
+                        .build()
 
-                        async {
-                            val request =
-                                ImageRequest
-                                    .Builder(
-                                        appContext
-                                    )
-                                    .data(uri)
-                                    .size(
-                                        160,
-                                        160
-                                    )
-                                    .precision(
-                                        Precision.INEXACT
-                                    )
-                                    .memoryCachePolicy(
-                                        CachePolicy.ENABLED
-                                    )
-                                    .diskCachePolicy(
-                                        CachePolicy.ENABLED
-                                    )
-                                    .networkCachePolicy(
-                                        CachePolicy.DISABLED
-                                    )
-                                    .build()
-
-                            runCatching {
-                                loader.execute(
-                                    request
-                                )
-                            }
-                        }
-                    }.awaitAll()
+                runCatching {
+                    loader.execute(
+                        request
+                    )
                 }
             }
     }
