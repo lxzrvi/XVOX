@@ -18,20 +18,23 @@ import com.xvox.music.features.home.library.HomeLibraryMode
 fun HomeGlassHeader(
     profile: UserPreferences,
     libraryMode: HomeLibraryMode,
+    onProfileClick: () -> Unit,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
     onLibraryModeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                colors.background.copy(
-                    alpha = 0.78f
-                )
+                colors.background
+                    .copy(
+                        alpha = 0.78f
+                    )
             )
             .windowInsetsPadding(
                 WindowInsets.statusBars
@@ -42,8 +45,12 @@ fun HomeGlassHeader(
     ) {
         HomeHeader(
             profile = profile,
-            libraryMode = libraryMode,
-            onRefresh = onRefresh,
+            libraryMode =
+                libraryMode,
+            onProfileClick =
+                onProfileClick,
+            onRefresh =
+                onRefresh,
             onHeartClick =
                 onHeartClick,
             onLibraryModeClick =
