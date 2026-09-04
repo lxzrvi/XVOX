@@ -61,14 +61,17 @@ fun PlaylistPickerBox(
                 Alignment.CenterVertically
         ) {
             Text(
-                text = "Playlists",
+                text =
+                    "Playlists",
                 color =
                     colors.primaryText,
                 fontSize = 18.sp,
                 fontWeight =
                     FontWeight.Bold,
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.weight(
+                        1f
+                    )
             )
 
             Box(
@@ -117,7 +120,9 @@ fun PlaylistPickerBox(
             )
         )
 
-        if (playlists.isEmpty()) {
+        if (
+            playlists.isEmpty()
+        ) {
             Column(
                 modifier =
                     Modifier
@@ -132,10 +137,12 @@ fun PlaylistPickerBox(
                                 onCreate
                         )
                         .padding(
-                            vertical = 10.dp
+                            vertical =
+                                10.dp
                         ),
                 horizontalAlignment =
-                    Alignment.CenterHorizontally
+                    Alignment
+                        .CenterHorizontally
             ) {
                 Box(
                     modifier =
@@ -216,7 +223,9 @@ fun PlaylistPickerBox(
                                     indication =
                                         null
                                 ) {
-                                    if (contains) {
+                                    if (
+                                        contains
+                                    ) {
                                         onRemove(
                                             playlist
                                         )
@@ -227,13 +236,19 @@ fun PlaylistPickerBox(
                                     }
                                 },
                         verticalAlignment =
-                            Alignment.CenterVertically
+                            Alignment
+                                .CenterVertically
                     ) {
                         Column(
                             modifier =
-                                Modifier.weight(
-                                    1f
-                                )
+                                Modifier
+                                    .weight(
+                                        1f
+                                    )
+                                    .padding(
+                                        end =
+                                            8.dp
+                                    )
                         ) {
                             Text(
                                 text =
@@ -242,24 +257,32 @@ fun PlaylistPickerBox(
                                     colors.primaryText,
                                 fontSize = 14.sp,
                                 fontWeight =
-                                    FontWeight.SemiBold,
+                                    FontWeight
+                                        .SemiBold,
                                 maxLines = 1,
                                 overflow =
-                                    TextOverflow.Ellipsis
+                                    TextOverflow
+                                        .Ellipsis
                             )
 
                             Text(
                                 text =
-                                    if (contains) {
+                                    if (
+                                        contains
+                                    ) {
                                         "Remove from this playlist"
                                     } else {
                                         "${playlist.songIds.size} songs"
                                     },
                                 color =
-                                    if (contains) {
-                                        colors.primaryAccent
+                                    if (
+                                        contains
+                                    ) {
+                                        colors
+                                            .primaryAccent
                                     } else {
-                                        colors.secondaryText
+                                        colors
+                                            .secondaryText
                                     },
                                 fontSize = 10.sp,
                                 maxLines = 1
@@ -276,10 +299,11 @@ fun PlaylistPickerBox(
                                 contentDescription =
                                     null,
                                 tint =
-                                    colors.primaryAccent,
+                                    colors
+                                        .primaryAccent,
                                 modifier =
                                     Modifier.size(
-                                        17.dp
+                                        16.dp
                                     )
                             )
                         }
@@ -415,8 +439,7 @@ fun CreatePlaylistBox(
                 )
         ) {
             items(
-                items =
-                    songs,
+                items = songs,
                 key = {
                     it.id
                 }
@@ -432,7 +455,7 @@ fun CreatePlaylistBox(
                         Modifier
                             .fillMaxWidth()
                             .height(
-                                46.dp
+                                44.dp
                             )
                             .clickable(
                                 interactionSource =
@@ -463,35 +486,35 @@ fun CreatePlaylistBox(
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow =
-                            TextOverflow.Ellipsis,
+                            TextOverflow
+                                .Ellipsis,
                         modifier =
-                            Modifier.weight(
-                                1f
-                            )
+                            Modifier
+                                .weight(
+                                    1f
+                                )
+                                .padding(
+                                    end =
+                                        10.dp
+                                )
                     )
 
                     Box(
                         modifier =
                             Modifier
                                 .size(
-                                    16.dp
+                                    15.dp
                                 )
                                 .background(
-                                    if (checked) {
-                                        colors.primaryText
+                                    if (
+                                        checked
+                                    ) {
+                                        colors
+                                            .primaryAccent
                                     } else {
                                         colors.card
                                     },
                                     CircleShape
-                                )
-                                .then(
-                                    if (checked) {
-                                        Modifier.padding(
-                                            3.dp
-                                        )
-                                    } else {
-                                        Modifier
-                                    }
                                 )
                     )
                 }
