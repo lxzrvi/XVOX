@@ -34,9 +34,7 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.library.HomeLibraryMode
 import com.xvox.music.features.home.library.LikedSongsSection
-import com.xvox.music.features.home.library.PlaylistActionsBox
 import com.xvox.music.features.home.library.PlaylistDetail
-import com.xvox.music.features.home.library.PlaylistInfoBox
 import com.xvox.music.features.home.library.PlaylistsSection
 import com.xvox.music.player.playback.MainPlayerViewModel
 
@@ -84,7 +82,9 @@ fun HomeScreen(
 
     val selectedPlaylist =
         selectedPlaylistId
-            ?.let { id ->
+            ?.let {
+                id ->
+
                 state.playlists
                     .firstOrNull {
                         it.id == id
@@ -95,7 +95,9 @@ fun HomeScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts
                 .StartIntentSenderForResult()
-        ) { result ->
+        ) {
+            result ->
+
             val song =
                 pendingDelete
 
@@ -131,7 +133,8 @@ fun HomeScreen(
             HomeGeometry.sectionGap
 
     val screenHeight =
-        LocalConfiguration.current
+        LocalConfiguration
+            .current
             .screenHeightDp.dp
 
     LaunchedEffect(
@@ -189,7 +192,9 @@ fun HomeScreen(
                         .createPlaylist(
                             name,
                             ids
-                        ) { playlist ->
+                        ) {
+                            playlist ->
+
                             overlays.hideB()
 
                             if (
@@ -224,7 +229,9 @@ fun HomeScreen(
                         .addToPlaylist(
                             playlist.id,
                             song
-                        ) { updated ->
+                        ) {
+                            updated ->
+
                             overlays.hideB()
 
                             if (
@@ -376,7 +383,9 @@ fun HomeScreen(
                 },
                 onRemovePlaylist =
                     playlist
-                        ?.let { target ->
+                        ?.let {
+                            target ->
+
                             {
                                 viewModel
                                     .removeFromPlaylist(
@@ -413,9 +422,10 @@ fun HomeScreen(
                         song.id in
                             state.likedSongIds
 
-                    viewModel.toggleLiked(
-                        song
-                    )
+                    viewModel
+                        .toggleLiked(
+                            song
+                        )
 
                     overlays.hideL()
 
@@ -437,7 +447,9 @@ fun HomeScreen(
                     viewModel
                         .loadInfo(
                             song
-                        ) { info ->
+                        ) {
+                            info ->
+
                             overlays.showB {
                                 SongInfoBox(
                                     info
@@ -492,75 +504,6 @@ fun HomeScreen(
         }
     }
 
-    fun showPlaylistOptions(
-        playlist: XvoxPlaylist
-    ) {
-        overlays.showB {
-            PlaylistActionsBox(
-                playlist =
-                    playlist,
-                songs =
-                    viewModel
-                        .playlistSongs(
-                            playlist
-                        ),
-                onRename = {
-                    name ->
-
-                    viewModel
-                        .renamePlaylist(
-                            playlist.id,
-                            name
-                        ) { updated ->
-                            if (
-                                updated != null
-                            ) {
-                                overlays.hideB()
-
-                                overlays.showP(
-                                    "Playlist renamed"
-                                )
-                            }
-                        }
-                },
-                onDelete = {
-                    viewModel
-                        .deletePlaylist(
-                            playlist.id
-                        ) {
-                            if (
-                                selectedPlaylistId ==
-                                playlist.id
-                            ) {
-                                selectedPlaylistId =
-                                    null
-                            }
-
-                            overlays.hideB()
-
-                            overlays.showP(
-                                "Playlist deleted"
-                            )
-                        }
-                },
-                onInfo = {
-                    overlays.showB {
-                        PlaylistInfoBox(
-                            playlist =
-                                playlist,
-                            songCount =
-                                viewModel
-                                    .playlistSongs(
-                                        playlist
-                                    )
-                                    .size
-                        )
-                    }
-                }
-            )
-        }
-    }
-
     fun showProfileEditor() {
         overlays.showB {
             ProfileEditorBox(
@@ -594,18 +537,20 @@ fun HomeScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                colors.background
-            )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    colors.background
+                )
     ) {
         LazyColumn(
             modifier =
                 Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
-                    top = headerSpace
+                    top =
+                        headerSpace
                 )
         ) {
             item(
@@ -646,6 +591,16 @@ fun HomeScreen(
                                 selectedPlaylist
                             )
                         },
+                        onAddSongs = {
+                            showAddPlaylistSongs(
+                                overlays =
+                                    overlays,
+                                viewModel =
+                                    viewModel,
+                                playlist =
+                                    selectedPlaylist
+                            )
+                        },
                         onClosed = {
                             selectedPlaylistId =
                                 null
@@ -655,7 +610,9 @@ fun HomeScreen(
                     when (
                         state.libraryMode
                     ) {
-                        HomeLibraryMode.ALL_SONGS -> {
+                        HomeLibraryMode
+                            .ALL_SONGS -> {
+
                             AllSongsSection(
                                 songs =
                                     state.songs,
@@ -682,11 +639,14 @@ fun HomeScreen(
                                     )
                                 },
                                 onPrefetch =
-                                    viewModel::prefetchFrom
+                                    viewModel::
+                                        prefetchFrom
                             )
                         }
 
-                        HomeLibraryMode.LIKED -> {
+                        HomeLibraryMode
+                            .LIKED -> {
+
                             LikedSongsSection(
                                 songs =
                                     viewModel
@@ -716,12 +676,15 @@ fun HomeScreen(
                             )
                         }
 
-                        HomeLibraryMode.PLAYLISTS -> {
+                        HomeLibraryMode
+                            .PLAYLISTS -> {
+
                             PlaylistsSection(
                                 playlists =
                                     state.playlists,
                                 songsFor =
-                                    viewModel::playlistSongs,
+                                    viewModel::
+                                        playlistSongs,
                                 onCreate = {
                                     showCreatePlaylist()
                                 },
@@ -731,8 +694,27 @@ fun HomeScreen(
                                     selectedPlaylistId =
                                         playlist.id
                                 },
-                                onOptions =
-                                    ::showPlaylistOptions
+                                onOptions = {
+                                    playlist ->
+
+                                    showPlaylistActions(
+                                        overlays =
+                                            overlays,
+                                        viewModel =
+                                            viewModel,
+                                        playlist =
+                                            playlist,
+                                        onDeleted = {
+                                            if (
+                                                selectedPlaylistId ==
+                                                playlist.id
+                                            ) {
+                                                selectedPlaylistId =
+                                                    null
+                                            }
+                                        }
+                                    )
+                                }
                             )
                         }
                     }
@@ -783,12 +765,13 @@ fun HomeScreen(
                 key = "footer"
             ) {
                 HomeFooter(
-                    modifier = Modifier
-                        .fillParentMaxWidth()
-                        .heightIn(
-                            min =
-                                screenHeight
-                        )
+                    modifier =
+                        Modifier
+                            .fillParentMaxWidth()
+                            .heightIn(
+                                min =
+                                    screenHeight
+                            )
                 )
             }
         }
@@ -800,8 +783,14 @@ fun HomeScreen(
                 state.libraryMode,
             onProfileClick =
                 ::showProfileEditor,
-            onRefresh =
-                viewModel::refresh,
+            onRefresh = {
+                showLibraryRefresh(
+                    overlays =
+                        overlays,
+                    viewModel =
+                        viewModel
+                )
+            },
             onHeartClick = {
                 selectedPlaylistId =
                     null
