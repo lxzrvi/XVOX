@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -46,33 +47,38 @@ fun PlaylistActionsBox(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     onRename: (String) -> Unit,
+    onEditCover: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit
 ) {
     val colors =
         XvoxTheme.colors
 
-    var editing by remember(
-        playlist.id
-    ) {
-        mutableStateOf(false)
-    }
+    var editing by
+        remember(
+            playlist.id
+        ) {
+            mutableStateOf(false)
+        }
 
-    var name by remember(
-        playlist.id,
-        playlist.name
-    ) {
-        mutableStateOf(
+    var name by
+        remember(
+            playlist.id,
             playlist.name
-        )
-    }
+        ) {
+            mutableStateOf(
+                playlist.name
+            )
+        }
 
     val focusRequester =
         remember {
             FocusRequester()
         }
 
-    LaunchedEffect(editing) {
+    LaunchedEffect(
+        editing
+    ) {
         if (editing) {
             focusRequester
                 .requestFocus()
@@ -84,29 +90,93 @@ fun PlaylistActionsBox(
             Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    end = 44.dp
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        end = 42.dp
+                    ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            PlaylistCover(
-                songs = songs,
-                requestSize = 128,
-                modifier = Modifier
-                    .size(58.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            12.dp
+            Box(
+                modifier =
+                    Modifier.size(
+                        64.dp
+                    ),
+                contentAlignment =
+                    Alignment.Center
+            ) {
+                PlaylistCover(
+                    songs = songs,
+                    coverSongIds =
+                        playlist
+                            .coverSongIds,
+                    customCoverUri =
+                        playlist
+                            .customCoverUri,
+                    requestSize = 128,
+                    modifier =
+                        Modifier
+                            .size(
+                                58.dp
+                            )
+                            .clip(
+                                RoundedCornerShape(
+                                    12.dp
+                                )
+                            )
+                )
+
+                if (editing) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(
+                                    34.dp
+                                )
+                                .background(
+                                    Color.Black.copy(
+                                        alpha =
+                                            0.62f
+                                    ),
+                                    CircleShape
+                                )
+                                .clickable(
+                                    interactionSource =
+                                        remember {
+                                            MutableInteractionSource()
+                                        },
+                                    indication =
+                                        null,
+                                    onClick =
+                                        onEditCover
+                                ),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Icon(
+                            painter =
+                                painterResource(
+                                    R.drawable
+                                        .ic_xvox_edit
+                                ),
+                            contentDescription =
+                                "Edit cover",
+                            tint =
+                                Color.White,
+                            modifier =
+                                Modifier.size(
+                                    17.dp
+                                )
                         )
-                    )
-            )
+                    }
+                }
+            }
 
             Spacer(
                 Modifier.size(
-                    12.dp
+                    10.dp
                 )
             )
 
@@ -159,31 +229,42 @@ fun PlaylistActionsBox(
             )
 
             Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(
-                        colors.card,
-                        CircleShape
-                    )
-                    .clickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
-                        indication = null
-                    ) {
-                        if (editing) {
-                            if (
-                                name.isNotBlank()
-                            ) {
-                                onRename(
+                modifier =
+                    Modifier
+                        .size(
+                            36.dp
+                        )
+                        .background(
+                            colors.card,
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource =
+                                remember {
+                                    MutableInteractionSource()
+                                },
+                            indication =
+                                null
+                        ) {
+                            if (editing) {
+                                val clean =
                                     name.trim()
-                                )
+
+                                if (
+                                    clean.isNotEmpty()
+                                ) {
+                                    onRename(
+                                        clean
+                                    )
+
+                                    editing =
+                                        false
+                                }
+                            } else {
+                                editing =
+                                    true
                             }
-                        } else {
-                            editing = true
-                        }
-                    },
+                        },
                 contentAlignment =
                     Alignment.Center
             ) {
@@ -200,9 +281,9 @@ fun PlaylistActionsBox(
                         ),
                     contentDescription =
                         if (editing) {
-                            "Save playlist name"
+                            "Save name"
                         } else {
-                            "Rename playlist"
+                            "Rename"
                         },
                     tint =
                         if (
@@ -223,7 +304,7 @@ fun PlaylistActionsBox(
 
         Spacer(
             Modifier.height(
-                16.dp
+                14.dp
             )
         )
 
@@ -296,7 +377,8 @@ fun PlaylistInfoBox(
         )
 
         Text(
-            text = playlist.name,
+            text =
+                playlist.name,
             color =
                 colors.primaryText,
             fontSize = 14.sp
@@ -345,18 +427,19 @@ private fun PlaylistAction(
         color =
             colors.primaryText,
         fontSize = 14.sp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                onClick = onClick
-            )
-            .padding(
-                vertical = 13.dp
-            )
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClick
+                )
+                .padding(
+                    vertical = 13.dp
+                )
     )
 }
