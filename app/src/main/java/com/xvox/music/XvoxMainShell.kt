@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,7 +36,8 @@ fun XvoxMainShell(
         MainPlayerViewModel =
         viewModel()
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val player by
         playerViewModel.state
@@ -47,12 +49,19 @@ fun XvoxMainShell(
         )
     }
 
+    var homeResetKey by remember {
+        mutableLongStateOf(0L)
+    }
+
     val currentSong =
-        player.queue.getOrNull(
-            player.currentIndex
-        )
+        player.queue
+            .getOrNull(
+                player.currentIndex
+            )
             ?: player.currentSongId
-                ?.let { id ->
+                ?.let {
+                    id ->
+
                     player.queue
                         .firstOrNull {
                             it.id == id
@@ -73,6 +82,8 @@ fun XvoxMainShell(
                         player.currentSongId,
                     isPlaying =
                         player.isPlaying,
+                    homeResetKey =
+                        homeResetKey,
                     onQueueReady =
                         playerViewModel::setQueue,
                     onPlay =
@@ -101,7 +112,8 @@ fun XvoxMainShell(
             player.queue.isNotEmpty()
         ) {
             XvoxMiniPlayer(
-                queue = player.queue,
+                queue =
+                    player.queue,
                 currentSongId =
                     currentSongId,
                 currentIndex =
@@ -124,38 +136,56 @@ fun XvoxMainShell(
                     playerViewModel::openNowPlaying,
                 onLike = {},
                 onAdd = {},
-                modifier = Modifier
-                    .align(
-                        Alignment.BottomCenter
-                    )
-                    .windowInsetsPadding(
-                        WindowInsets.navigationBars
-                    )
-                    .padding(
-                        start =
-                            XvoxMiniPlayerPlacement
-                                .horizontalEdge,
-                        end =
-                            XvoxMiniPlayerPlacement
-                                .horizontalEdge,
-                        bottom =
-                            XvoxMiniPlayerPlacement
-                                .miniPlayerBottom
-                    )
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment
+                                .BottomCenter
+                        )
+                        .windowInsetsPadding(
+                            WindowInsets
+                                .navigationBars
+                        )
+                        .padding(
+                            start =
+                                XvoxMiniPlayerPlacement
+                                    .horizontalEdge,
+                            end =
+                                XvoxMiniPlayerPlacement
+                                    .horizontalEdge,
+                            bottom =
+                                XvoxMiniPlayerPlacement
+                                    .miniPlayerBottom
+                        )
             )
         }
 
         XvoxBottomBar(
-            selected = destination,
+            selected =
+                destination,
             onSelected = {
-                destination = it
+                selected ->
+
+                if (
+                    selected ==
+                    XvoxDestination.HOME &&
+                    destination ==
+                    XvoxDestination.HOME
+                ) {
+                    homeResetKey++
+                } else {
+                    destination =
+                        selected
+                }
             },
             modifier = Modifier
                 .align(
-                    Alignment.BottomCenter
+                    Alignment
+                        .BottomCenter
                 )
                 .windowInsetsPadding(
-                    WindowInsets.navigationBars
+                    WindowInsets
+                        .navigationBars
                 )
                 .padding(
                     bottom =
@@ -179,8 +209,10 @@ fun XvoxMainShell(
             )
 
             XvoxNowPlaying(
-                song = currentSong,
-                queue = player.queue,
+                song =
+                    currentSong,
+                queue =
+                    player.queue,
                 currentIndex =
                     player.currentIndex,
                 isPlaying =
