@@ -36,11 +36,30 @@ fun AllSongsSection(
     onSongLongClick: (Song) -> Unit,
     onPrefetch: (Int) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val pages =
         remember(songs) {
-            buildMosaicPages(songs)
+            buildMosaicPages(
+                songs
+            )
+        }
+
+    val pageStarts =
+        remember(pages) {
+            buildList {
+                var sourceIndex = 0
+
+                pages.forEach {
+                    page ->
+
+                    add(sourceIndex)
+
+                    sourceIndex +=
+                        page.tiles.size
+                }
+            }
         }
 
     val state =
@@ -48,16 +67,30 @@ fun AllSongsSection(
 
     LaunchedEffect(
         state,
-        pages.size
+        pageStarts
     ) {
         snapshotFlow {
             state.firstVisibleItemIndex
         }
             .distinctUntilChanged()
-            .collect { page ->
-                onPrefetch(
-                    (page + 1) * 12
-                )
+            .collect { pageIndex ->
+                val nextPage =
+                    (
+                        pageIndex + 1
+                    )
+                        .coerceAtMost(
+                            pageStarts.lastIndex
+                        )
+
+                if (
+                    nextPage >= 0
+                ) {
+                    onPrefetch(
+                        pageStarts[
+                            nextPage
+                        ]
+                    )
+                }
             }
     }
 
@@ -76,9 +109,11 @@ fun AllSongsSection(
                             .sectionGap
                 ),
             horizontalArrangement =
-                Arrangement.SpaceBetween,
+                Arrangement
+                    .SpaceBetween,
             verticalAlignment =
-                Alignment.CenterVertically
+                Alignment
+                    .CenterVertically
         ) {
             Text(
                 text = "All Songs",
@@ -87,7 +122,8 @@ fun AllSongsSection(
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
-                    FontWeight.SemiBold
+                    FontWeight
+                        .SemiBold
             )
 
             Text(
@@ -114,7 +150,8 @@ fun AllSongsSection(
                     ) / 4
 
             val unitHeight =
-                unitWidth + 38.dp
+                unitWidth +
+                    38.dp
 
             val pageHeight =
                 unitHeight * 3 +
@@ -124,133 +161,139 @@ fun AllSongsSection(
                 state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(pageHeight)
+                    .height(
+                        pageHeight
+                    )
             ) {
                 itemsIndexed(
-                    pages,
+                    items = pages,
                     key = {
-                        index,
-                        page ->
+                            index,
+                            _ ->
 
-                        "mosaic_${index}_" +
-                            page.tiles
-                                .joinToString(
-                                    "_"
-                                ) {
-                                    it.song.id
-                                        .toString()
-                                }
+                        index
+                    },
+                    contentType = {
+                            _,
+                            _ ->
+
+                        "mosaic_page"
                     }
                 ) {
                     _,
                     page ->
 
                     Box(
-                        modifier = Modifier
-                            .size(
+                        modifier =
+                            Modifier.size(
                                 width =
                                     maxWidth,
                                 height =
                                     pageHeight
                             )
                     ) {
-                        page.tiles.forEach {
-                            tile ->
+                        page.tiles
+                            .forEach {
+                                tile ->
 
-                            val tileWidth =
-                                unitWidth *
-                                    tile.width +
-                                    gap *
-                                    (
-                                        tile.width -
-                                            1f
-                                        )
+                                val tileWidth =
+                                    unitWidth *
+                                        tile.width +
+                                        gap *
+                                        (
+                                            tile.width -
+                                                1f
+                                            )
 
-                            val tileHeight =
-                                unitHeight *
-                                    tile.height +
-                                    gap *
-                                    (
-                                        tile.height -
-                                            1f
-                                        )
+                                val tileHeight =
+                                    unitHeight *
+                                        tile.height +
+                                        gap *
+                                        (
+                                            tile.height -
+                                                1f
+                                            )
 
-                            val x =
-                                edge +
+                                val x =
+                                    edge +
+                                        (
+                                            unitWidth +
+                                                gap
+                                            ) *
+                                        tile.x
+
+                                val y =
                                     (
-                                        unitWidth +
+                                        unitHeight +
                                             gap
-                                        ) * tile.x
+                                        ) *
+                                        tile.y
 
-                            val y =
-                                (
-                                    unitHeight +
-                                        gap
-                                    ) * tile.y
+                                val tileModifier =
+                                    Modifier
+                                        .offset(
+                                            x = x,
+                                            y = y
+                                        )
+                                        .size(
+                                            width =
+                                                tileWidth,
+                                            height =
+                                                tileHeight
+                                        )
 
-                            val tileModifier =
-                                Modifier
-                                    .offset(
-                                        x = x,
-                                        y = y
+                                if (
+                                    tile.width ==
+                                    1f &&
+                                    tile.height ==
+                                    1f
+                                ) {
+                                    AllSongCard(
+                                        song =
+                                            tile.song,
+                                        current =
+                                            currentSongId ==
+                                                tile.song.id,
+                                        playing =
+                                            currentSongId ==
+                                                tile.song.id &&
+                                                isPlaying,
+                                        onClick = {
+                                            onSongClick(
+                                                tile.song
+                                            )
+                                        },
+                                        onLongClick = {
+                                            onSongLongClick(
+                                                tile.song
+                                            )
+                                        },
+                                        modifier =
+                                            tileModifier
                                     )
-                                    .size(
-                                        width =
-                                            tileWidth,
-                                        height =
-                                            tileHeight
+                                } else {
+                                    AllSongMosaicCard(
+                                        song =
+                                            tile.song,
+                                        widthUnits =
+                                            tile.width,
+                                        heightUnits =
+                                            tile.height,
+                                        onClick = {
+                                            onSongClick(
+                                                tile.song
+                                            )
+                                        },
+                                        onLongClick = {
+                                            onSongLongClick(
+                                                tile.song
+                                            )
+                                        },
+                                        modifier =
+                                            tileModifier
                                     )
-
-                            if (
-                                tile.width == 1f &&
-                                tile.height == 1f
-                            ) {
-                                AllSongCard(
-                                    song =
-                                        tile.song,
-                                    current =
-                                        currentSongId ==
-                                            tile.song.id,
-                                    playing =
-                                        currentSongId ==
-                                            tile.song.id &&
-                                            isPlaying,
-                                    onClick = {
-                                        onSongClick(
-                                            tile.song
-                                        )
-                                    },
-                                    onLongClick = {
-                                        onSongLongClick(
-                                            tile.song
-                                        )
-                                    },
-                                    modifier =
-                                        tileModifier
-                                )
-                            } else {
-                                AllSongMosaicCard(
-                                    song =
-                                        tile.song,
-                                    widthUnits =
-                                        tile.width,
-                                    heightUnits =
-                                        tile.height,
-                                    onClick = {
-                                        onSongClick(
-                                            tile.song
-                                        )
-                                    },
-                                    onLongClick = {
-                                        onSongLongClick(
-                                            tile.song
-                                        )
-                                    },
-                                    modifier =
-                                        tileModifier
-                                )
+                                }
                             }
-                        }
                     }
                 }
             }
