@@ -5,13 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +34,7 @@ fun PlaylistsSection(
 ) {
     val colors = XvoxTheme.colors
 
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier =
             modifier.fillMaxWidth()
     ) {
@@ -52,8 +50,7 @@ fun PlaylistsSection(
         ) {
             Text(
                 text = "Playlists",
-                color =
-                    colors.primaryText,
+                color = colors.primaryText,
                 fontSize = 16.sp,
                 fontWeight =
                     FontWeight.SemiBold,
@@ -102,50 +99,71 @@ fun PlaylistsSection(
                     )
             )
         } else {
-            LazyVerticalGrid(
-                columns =
-                    GridCells.Fixed(2),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
                         horizontal = 12.dp,
                         vertical = 12.dp
                     ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        10.dp
-                    ),
                 verticalArrangement =
                     Arrangement.spacedBy(
                         10.dp
-                    ),
-                userScrollEnabled = false
-            ) {
-                items(
-                    items = playlists,
-                    key = {
-                        it.id
-                    }
-                ) {
-                    playlist ->
-
-                    PlaylistCard(
-                        playlist =
-                            playlist,
-                        songs =
-                            songsFor(
-                                playlist
-                            ),
-                        onClick = {
-                            onOpen(playlist)
-                        },
-                        onLongClick = {
-                            onOptions(
-                                playlist
-                            )
-                        }
                     )
-                }
+            ) {
+                playlists
+                    .chunked(2)
+                    .forEach {
+                        rowPlaylists ->
+
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    10.dp
+                                )
+                        ) {
+                            rowPlaylists.forEach {
+                                playlist ->
+
+                                PlaylistCard(
+                                    playlist =
+                                        playlist,
+                                    songs =
+                                        songsFor(
+                                            playlist
+                                        ),
+                                    onClick = {
+                                        onOpen(
+                                            playlist
+                                        )
+                                    },
+                                    onLongClick = {
+                                        onOptions(
+                                            playlist
+                                        )
+                                    },
+                                    modifier =
+                                        Modifier.weight(
+                                            1f
+                                        )
+                                )
+                            }
+
+                            if (
+                                rowPlaylists.size ==
+                                1
+                            ) {
+                                Box(
+                                    modifier =
+                                        Modifier.weight(
+                                            1f
+                                        )
+                                )
+                            }
+                        }
+                    }
             }
         }
     }
