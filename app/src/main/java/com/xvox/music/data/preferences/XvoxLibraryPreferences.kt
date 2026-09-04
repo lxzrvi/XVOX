@@ -12,7 +12,11 @@ data class XvoxPlaylist(
     val id: String,
     val name: String,
     val songIds: List<Long>,
-    val createdAt: Long
+    val createdAt: Long,
+    val coverSongIds: List<Long> =
+        emptyList(),
+    val customCoverUri: String? =
+        null
 )
 
 class XvoxLibraryPreferences(
@@ -35,7 +39,8 @@ class XvoxLibraryPreferences(
             )
     }
 
-    val likedSongIds: Flow<Set<Long>> =
+    val likedSongIds:
+        Flow<Set<Long>> =
         context.xvoxDataStore.data
             .map {
                 decodeIds(
@@ -44,7 +49,8 @@ class XvoxLibraryPreferences(
                 )
             }
 
-    val hiddenSongIds: Flow<Set<Long>> =
+    val hiddenSongIds:
+        Flow<Set<Long>> =
         context.xvoxDataStore.data
             .map {
                 decodeIds(
@@ -53,7 +59,8 @@ class XvoxLibraryPreferences(
                 )
             }
 
-    val playlists: Flow<List<XvoxPlaylist>> =
+    val playlists:
+        Flow<List<XvoxPlaylist>> =
         context.xvoxDataStore.data
             .map {
                 decodePlaylists(
@@ -111,7 +118,8 @@ class XvoxLibraryPreferences(
         name: String,
         songIds: Collection<Long>
     ): XvoxPlaylist? {
-        val clean = name.trim()
+        val clean =
+            name.trim()
 
         if (clean.isEmpty()) {
             return null
@@ -120,13 +128,18 @@ class XvoxLibraryPreferences(
         val now =
             System.currentTimeMillis()
 
+        val cleanSongIds =
+            songIds.distinct()
+
         val playlist =
             XvoxPlaylist(
                 id = now.toString(),
                 name = clean,
                 songIds =
-                    songIds.distinct(),
-                createdAt = now
+                    cleanSongIds,
+                createdAt = now,
+                coverSongIds =
+                    cleanSongIds.take(4)
             )
 
         context.xvoxDataStore.edit {
@@ -139,9 +152,12 @@ class XvoxLibraryPreferences(
                     ].orEmpty()
                 )
 
-            prefs[Keys.playlists] =
+            prefs[
+                Keys.playlists
+            ] =
                 encodePlaylists(
-                    current + playlist
+                    current +
+                        playlist
                 )
         }
 
@@ -155,12 +171,36 @@ class XvoxLibraryPreferences(
         updatePlaylist(
             playlistId
         ) {
-            it.copy(
-                songIds =
-                    (
-                        it.songIds +
-                            songId
-                        ).distinct()
+            playlist ->
+
+            val songs =
+                (
+                    playlist.songIds +
+                        songId
+                    ).distinct()
+
+            playlist.copy(
+                songIds = songs,
+                coverSongIds =
+                    if (
+                        playlist
+                            .customCoverUri ==
+                        null &&
+                        playlist
+                            .coverSongIds
+                            .size < 4
+                    ) {
+                        (
+                            playlist
+                                .coverSongIds +
+                                songId
+                            )
+                            .distinct()
+                            .take(4)
+                    } else {
+                        playlist
+                            .coverSongIds
+                    }
             )
         }
 
@@ -171,12 +211,34 @@ class XvoxLibraryPreferences(
         updatePlaylist(
             playlistId
         ) {
-            it.copy(
-                songIds =
-                    it.songIds.filterNot {
-                        id ->
-                        id == songId
+            playlist ->
+
+            val songs =
+                playlist.songIds
+                    .filterNot {
+                        it == songId
                     }
+
+            val retainedCover =
+                playlist
+                    .coverSongIds
+                    .filter {
+                        it != songId &&
+                            it in songs
+                    }
+
+            playlist.copy(
+                songIds = songs,
+                coverSongIds =
+                    (
+                        retainedCover +
+                            songs.filterNot {
+                                it in
+                                    retainedCover
+                            }
+                        )
+                        .distinct()
+                        .take(4)
             )
         }
 
@@ -184,7 +246,8 @@ class XvoxLibraryPreferences(
         playlistId: String,
         name: String
     ): XvoxPlaylist? {
-        val clean = name.trim()
+        val clean =
+            name.trim()
 
         if (clean.isEmpty()) {
             return null
@@ -199,6 +262,33 @@ class XvoxLibraryPreferences(
         }
     }
 
+    suspend fun setPlaylistCover(
+        playlistId: String,
+        coverSongIds: List<Long>,
+        customCoverUri: String?
+    ): XvoxPlaylist? =
+        updatePlaylist(
+            playlistId
+        ) {
+            playlist ->
+
+            val validCover =
+                coverSongIds
+                    .filter {
+                        it in
+                            playlist.songIds
+                    }
+                    .distinct()
+                    .take(4)
+
+            playlist.copy(
+                coverSongIds =
+                    validCover,
+                customCoverUri =
+                    customCoverUri
+            )
+        }
+
     suspend fun deletePlaylist(
         playlistId: String
     ) {
@@ -212,10 +302,13 @@ class XvoxLibraryPreferences(
                     ].orEmpty()
                 )
 
-            prefs[Keys.playlists] =
+            prefs[
+                Keys.playlists
+            ] =
                 encodePlaylists(
                     current.filterNot {
-                        it.id == playlistId
+                        it.id ==
+                            playlistId
                     }
                 )
         }
@@ -223,12 +316,12 @@ class XvoxLibraryPreferences(
 
     private suspend fun updatePlaylist(
         playlistId: String,
-        transform: (
-            XvoxPlaylist
-        ) -> XvoxPlaylist
+        transform:
+            (XvoxPlaylist) ->
+                XvoxPlaylist
     ): XvoxPlaylist? {
-        var result: XvoxPlaylist? =
-            null
+        var result:
+            XvoxPlaylist? = null
 
         context.xvoxDataStore.edit {
             prefs ->
@@ -258,8 +351,12 @@ class XvoxLibraryPreferences(
                     }
                 }
 
-            prefs[Keys.playlists] =
-                encodePlaylists(updated)
+            prefs[
+                Keys.playlists
+            ] =
+                encodePlaylists(
+                    updated
+                )
         }
 
         return result
@@ -275,20 +372,32 @@ class XvoxLibraryPreferences(
             .toSet()
 
     private fun encodePlaylists(
-        playlists: List<XvoxPlaylist>
+        playlists:
+            List<XvoxPlaylist>
     ): String {
-        val array = JSONArray()
+        val array =
+            JSONArray()
 
         playlists.forEach {
             playlist ->
 
-            val songs = JSONArray()
+            val songs =
+                JSONArray()
 
-            playlist.songIds.forEach {
-                songs.put(it)
-            }
+            playlist.songIds
+                .forEach {
+                    songs.put(it)
+                }
 
-            array.put(
+            val coverSongs =
+                JSONArray()
+
+            playlist.coverSongIds
+                .forEach {
+                    coverSongs.put(it)
+                }
+
+            val value =
                 JSONObject()
                     .put(
                         "id",
@@ -306,7 +415,20 @@ class XvoxLibraryPreferences(
                         "songs",
                         songs
                     )
-            )
+                    .put(
+                        "coverSongs",
+                        coverSongs
+                    )
+
+            playlist.customCoverUri
+                ?.let {
+                    value.put(
+                        "customCoverUri",
+                        it
+                    )
+                }
+
+            array.put(value)
         }
 
         return array.toString()
@@ -326,37 +448,61 @@ class XvoxLibraryPreferences(
             buildList {
                 for (
                     index in
-                    0 until array.length()
+                    0 until
+                        array.length()
                 ) {
                     val value =
-                        array.getJSONObject(
-                            index
-                        )
+                        array
+                            .getJSONObject(
+                                index
+                            )
 
                     val id =
-                        value.getString("id")
-
-                    val songs =
-                        value.optJSONArray(
-                            "songs"
+                        value.getString(
+                            "id"
                         )
 
                     val songIds =
-                        buildList {
-                            if (songs != null) {
-                                for (
-                                    songIndex in
-                                    0 until
-                                        songs.length()
-                                ) {
-                                    add(
-                                        songs.getLong(
-                                            songIndex
-                                        )
-                                    )
+                        decodeLongArray(
+                            value
+                                .optJSONArray(
+                                    "songs"
+                                )
+                        )
+
+                    val storedCover =
+                        decodeLongArray(
+                            value
+                                .optJSONArray(
+                                    "coverSongs"
+                                )
+                        )
+
+                    val coverSongs =
+                        if (
+                            storedCover
+                                .isEmpty()
+                        ) {
+                            songIds.take(4)
+                        } else {
+                            storedCover
+                                .filter {
+                                    it in
+                                        songIds
                                 }
-                            }
+                                .distinct()
+                                .take(4)
                         }
+
+                    val customCover =
+                        value
+                            .optString(
+                                "customCoverUri",
+                                ""
+                            )
+                            .takeIf {
+                                it.isNotBlank()
+                            }
 
                     val fallbackCreated =
                         id.toLongOrNull()
@@ -366,16 +512,21 @@ class XvoxLibraryPreferences(
                         XvoxPlaylist(
                             id = id,
                             name =
-                                value.getString(
-                                    "name"
-                                ),
+                                value
+                                    .getString(
+                                        "name"
+                                    ),
                             songIds =
                                 songIds,
                             createdAt =
                                 value.optLong(
                                     "createdAt",
                                     fallbackCreated
-                                )
+                                ),
+                            coverSongIds =
+                                coverSongs,
+                            customCoverUri =
+                                customCover
                         )
                     )
                 }
@@ -383,5 +534,27 @@ class XvoxLibraryPreferences(
         }.getOrDefault(
             emptyList()
         )
+    }
+
+    private fun decodeLongArray(
+        array: JSONArray?
+    ): List<Long> {
+        if (array == null) {
+            return emptyList()
+        }
+
+        return buildList {
+            for (
+                index in
+                0 until
+                    array.length()
+            ) {
+                add(
+                    array.getLong(
+                        index
+                    )
+                )
+            }
+        }
     }
 }
