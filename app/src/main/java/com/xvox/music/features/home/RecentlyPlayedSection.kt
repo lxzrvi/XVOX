@@ -32,7 +32,11 @@ fun RecentlyPlayedSection(
 
     Column(
         modifier =
-            Modifier.fillMaxWidth()
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = 40.dp
+                )
     ) {
         Text(
             text =
@@ -45,8 +49,8 @@ fun RecentlyPlayedSection(
                 FontWeight.SemiBold,
             modifier =
                 Modifier.padding(
-                    start = 12.dp,
-                    end = 12.dp
+                    horizontal =
+                        12.dp
                 )
         )
 
