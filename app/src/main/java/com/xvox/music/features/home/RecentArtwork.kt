@@ -2,9 +2,7 @@ package com.xvox.music.features.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -26,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,7 +49,7 @@ fun RecentArtwork(
     playing: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
-    animateEntrance: Boolean = true,
+    animateEntrance: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val colors =
@@ -72,7 +69,7 @@ fun RecentArtwork(
         cardInteraction
             .collectIsPressedAsState()
 
-    val pressScale by
+    val scale by
         androidx.compose.animation.core
             .animateFloatAsState(
                 targetValue =
@@ -86,34 +83,9 @@ fun RecentArtwork(
                         dampingRatio = 0.86f,
                         stiffness = 1400f
                     ),
-                label = "recentPress"
+                label =
+                    "recentPress"
             )
-
-    val entrance =
-        remember(song.id) {
-            Animatable(
-                if (animateEntrance) {
-                    0f
-                } else {
-                    1f
-                }
-            )
-        }
-
-    LaunchedEffect(
-        song.id,
-        animateEntrance
-    ) {
-        if (animateEntrance) {
-            entrance.animateTo(
-                1f,
-                animationSpec =
-                    tween(260)
-            )
-        } else {
-            entrance.snapTo(1f)
-        }
-    }
 
     val shape =
         RoundedCornerShape(
@@ -121,47 +93,30 @@ fun RecentArtwork(
         )
 
     Box(
-        modifier = modifier
-            .graphicsLayer {
-                val entranceScale =
-                    0.975f +
-                        0.025f *
-                        entrance.value
-
-                scaleX =
-                    pressScale *
-                        entranceScale
-
-                scaleY =
-                    pressScale *
-                        entranceScale
-
-                alpha =
-                    entrance.value
-
-                translationY =
-                    (1f - entrance.value) *
-                        22f
-            }
-            .clip(shape)
-            .background(
-                colors.cardElevated
-            )
-            .border(
-                width = 0.7.dp,
-                color =
-                    colors.cardBorder,
-                shape = shape
-            )
-            .combinedClickable(
-                interactionSource =
-                    cardInteraction,
-                indication = null,
-                onClick =
-                    onClick,
-                onLongClick =
-                    onLongClick
-            )
+        modifier =
+            modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(shape)
+                .background(
+                    colors.cardElevated
+                )
+                .border(
+                    width = 0.7.dp,
+                    color =
+                        colors.cardBorder,
+                    shape = shape
+                )
+                .combinedClickable(
+                    interactionSource =
+                        cardInteraction,
+                    indication = null,
+                    onClick = onClick,
+                    onLongClick =
+                        onLongClick
+                )
     ) {
         SongArtwork(
             artwork =
@@ -173,19 +128,21 @@ fun RecentArtwork(
         )
 
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.Transparent,
-                            Color.Black.copy(
-                                alpha = 0.78f
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush
+                            .verticalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Black.copy(
+                                        alpha = 0.78f
+                                    )
+                                )
                             )
-                        )
                     )
-                )
         )
 
         Text(
@@ -197,51 +154,58 @@ fun RecentArtwork(
             maxLines = 1,
             overflow =
                 TextOverflow.Ellipsis,
-            modifier = Modifier
-                .align(
-                    Alignment.BottomStart
-                )
-                .fillMaxWidth(
-                    0.72f
-                )
-                .padding(
-                    start = 12.dp,
-                    end = 8.dp,
-                    bottom = 10.dp
-                )
+            modifier =
+                Modifier
+                    .align(
+                        Alignment
+                            .BottomStart
+                    )
+                    .fillMaxWidth(
+                        0.72f
+                    )
+                    .padding(
+                        start = 12.dp,
+                        end = 8.dp,
+                        bottom = 10.dp
+                    )
         )
 
         Row(
-            modifier = Modifier
-                .align(
-                    Alignment.TopEnd
-                )
-                .padding(9.dp)
-                .height(30.dp)
-                .clip(CircleShape)
-                .background(
-                    Color.Black.copy(
-                        alpha = 0.58f
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopEnd
                     )
-                )
-                .animateContentSize(
-                    animationSpec =
-                        spring(
-                            dampingRatio = 0.88f,
-                            stiffness = 700f
+                    .padding(9.dp)
+                    .height(30.dp)
+                    .clip(
+                        CircleShape
+                    )
+                    .background(
+                        Color.Black.copy(
+                            alpha = 0.58f
                         )
-                )
-                .combinedClickable(
-                    interactionSource =
-                        controlInteraction,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick =
-                        onLongClick
-                )
-                .padding(
-                    horizontal = 8.dp
-                ),
+                    )
+                    .animateContentSize(
+                        animationSpec =
+                            spring(
+                                dampingRatio =
+                                    0.88f,
+                                stiffness =
+                                    700f
+                            )
+                    )
+                    .combinedClickable(
+                        interactionSource =
+                            controlInteraction,
+                        indication = null,
+                        onClick = onClick,
+                        onLongClick =
+                            onLongClick
+                    )
+                    .padding(
+                        horizontal = 8.dp
+                    ),
             verticalAlignment =
                 Alignment.CenterVertically,
             horizontalArrangement =
@@ -259,15 +223,20 @@ fun RecentArtwork(
                 },
                 label =
                     "recentPlayState"
-            ) { active ->
+            ) {
+                active ->
+
                 PlaybackIcon(
                     type =
                         if (active) {
-                            PlaybackIconType.PAUSE
+                            PlaybackIconType
+                                .PAUSE
                         } else {
-                            PlaybackIconType.PLAY
+                            PlaybackIconType
+                                .PLAY
                         },
-                    color = Color.White,
+                    color =
+                        Color.White,
                     modifier =
                         Modifier.size(
                             14.dp
@@ -280,8 +249,10 @@ fun RecentArtwork(
                 playing
             ) {
                 Text(
-                    text = "Playing",
-                    color = Color.White,
+                    text =
+                        "Playing",
+                    color =
+                        Color.White,
                     fontSize = 9.sp
                 )
             }
