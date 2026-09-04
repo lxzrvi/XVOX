@@ -15,19 +15,6 @@ data class MosaicPage(
     val tiles: List<MosaicTile>
 )
 
-private sealed interface MosaicSlot {
-    data class Cell(
-        val x: Int,
-        val y: Int
-    ) : MosaicSlot
-
-    data class Wide(
-        val x: Int,
-        val y: Int,
-        val width: Int
-    ) : MosaicSlot
-}
-
 private val processSeed =
     System.nanoTime()
 
@@ -38,183 +25,266 @@ fun buildMosaicPages(
         return emptyList()
     }
 
-    val random =
-        Random(
-            processSeed xor
-                songs.fold(0L) {
-                    seed,
-                    song ->
-                    seed * 31L + song.id
-                }
-        )
+    val seed =
+        songs.fold(processSeed) {
+                value,
+                song ->
+            value * 31L + song.id
+        }
 
-    val fullCount =
-        songs.size / 12
-
-    val remainder =
-        songs.size % 12
-
+    val random = Random(seed)
     val pages =
         mutableListOf<MosaicPage>()
 
-    repeat(fullCount) { pageIndex ->
+    var index = 0
+
+    while (index < songs.size) {
+        val remaining =
+            songs.size - index
+
+        if (remaining <= 12) {
+            pages +=
+                finalPage(
+                    songs.subList(
+                        index,
+                        songs.size
+                    )
+                )
+
+            break
+        }
+
+        val candidates =
+            listOf(9, 10, 11, 12)
+                .filter { count ->
+                    val after =
+                        remaining - count
+
+                    after == 0 ||
+                        after >= 1
+                }
+
+        val count =
+            if (
+                remaining <= 16
+            ) {
+                when (remaining) {
+                    13 -> 12
+                    14 -> 12
+                    15 -> 12
+                    16 -> 12
+                    else -> 12
+                }
+            } else {
+                candidates.random(random)
+            }
+
         val pageSongs =
             songs.subList(
-                pageIndex * 12,
-                pageIndex * 12 + 12
+                index,
+                index + count
             )
 
         pages +=
-            if (
-                random.nextFloat() <
-                0.58f
-            ) {
-                randomIntegerPage(
-                    pageSongs,
-                    random
-                )
-            } else {
-                regularPage(
-                    pageSongs
-                )
-            }
-    }
-
-    if (remainder > 0) {
-        pages +=
-            remainderPage(
-                songs.takeLast(
-                    remainder
-                )
+            integerPage(
+                pageSongs,
+                random
             )
+
+        index += count
     }
 
     return pages
 }
 
-private fun randomIntegerPage(
+private fun integerPage(
     songs: List<Song>,
     random: Random
 ): MosaicPage {
-    val layouts =
-        listOf(
-            listOf(
-                MosaicSlot.Wide(0, 0, 2),
-                MosaicSlot.Cell(2, 0),
-                MosaicSlot.Cell(3, 0),
-                MosaicSlot.Cell(0, 1),
-                MosaicSlot.Cell(1, 1),
-                MosaicSlot.Cell(2, 1),
-                MosaicSlot.Cell(3, 1),
-                MosaicSlot.Cell(0, 2),
-                MosaicSlot.Cell(1, 2),
-                MosaicSlot.Cell(2, 2),
-                MosaicSlot.Cell(3, 2)
-            ),
-            listOf(
-                MosaicSlot.Cell(0, 0),
-                MosaicSlot.Cell(1, 0),
-                MosaicSlot.Wide(2, 0, 2),
-                MosaicSlot.Cell(0, 1),
-                MosaicSlot.Cell(1, 1),
-                MosaicSlot.Cell(2, 1),
-                MosaicSlot.Cell(3, 1),
-                MosaicSlot.Cell(0, 2),
-                MosaicSlot.Cell(1, 2),
-                MosaicSlot.Cell(2, 2),
-                MosaicSlot.Cell(3, 2)
-            ),
-            listOf(
-                MosaicSlot.Cell(0, 0),
-                MosaicSlot.Cell(1, 0),
-                MosaicSlot.Cell(2, 0),
-                MosaicSlot.Cell(3, 0),
-                MosaicSlot.Wide(0, 1, 2),
-                MosaicSlot.Wide(2, 1, 2),
-                MosaicSlot.Cell(0, 2),
-                MosaicSlot.Cell(1, 2),
-                MosaicSlot.Cell(2, 2),
-                MosaicSlot.Cell(3, 2)
-            ),
-            listOf(
-                MosaicSlot.Cell(0, 0),
-                MosaicSlot.Cell(1, 0),
-                MosaicSlot.Cell(2, 0),
-                MosaicSlot.Cell(3, 0),
-                MosaicSlot.Cell(0, 1),
-                MosaicSlot.Cell(1, 1),
-                MosaicSlot.Cell(2, 1),
-                MosaicSlot.Cell(3, 1),
-                MosaicSlot.Wide(0, 2, 2),
-                MosaicSlot.Wide(2, 2, 2)
+    return when (songs.size) {
+        9 ->
+            ninePage(
+                songs,
+                random.nextBoolean()
             )
-        )
 
-    val slots =
-        layouts.random(random)
+        10 ->
+            tenPage(
+                songs,
+                random.nextBoolean()
+            )
 
-    val required =
-        slots.sumOf {
-            when (it) {
-                is MosaicSlot.Cell ->
-                    1
+        11 ->
+            elevenPage(
+                songs,
+                random.nextInt(4)
+            )
 
-                is MosaicSlot.Wide ->
-                    it.width
-            }
+        12 ->
+            regularPage(
+                songs.shuffled(random)
+            )
+
+        else ->
+            finalPage(songs)
+    }
+}
+
+private fun ninePage(
+    songs: List<Song>,
+    flip: Boolean
+): MosaicPage {
+    val layout =
+        if (!flip) {
+            listOf(
+                Spec(0f, 0f, 2f, 1f),
+                Spec(2f, 0f, 2f, 1f),
+                Spec(0f, 1f, 1f, 1f),
+                Spec(1f, 1f, 1f, 1f),
+                Spec(2f, 1f, 1f, 1f),
+                Spec(3f, 1f, 1f, 1f),
+                Spec(0f, 2f, 1f, 1f),
+                Spec(1f, 2f, 1f, 1f),
+                Spec(2f, 2f, 2f, 1f)
+            )
+        } else {
+            listOf(
+                Spec(0f, 0f, 1f, 1f),
+                Spec(1f, 0f, 1f, 1f),
+                Spec(2f, 0f, 2f, 1f),
+                Spec(0f, 1f, 2f, 1f),
+                Spec(2f, 1f, 1f, 1f),
+                Spec(3f, 1f, 1f, 1f),
+                Spec(0f, 2f, 2f, 1f),
+                Spec(2f, 2f, 2f, 1f)
+            ) +
+                Spec(
+                    0f,
+                    0f,
+                    0f,
+                    0f
+                )
         }
 
-    if (
-        required != 12 ||
-        songs.size != 12
-    ) {
-        return regularPage(songs)
+    return if (!flip) {
+        fromSpecs(
+            songs,
+            layout
+        )
+    } else {
+        fromSpecs(
+            songs,
+            listOf(
+                Spec(0f, 0f, 1f, 1f),
+                Spec(1f, 0f, 1f, 1f),
+                Spec(2f, 0f, 2f, 1f),
+                Spec(0f, 1f, 2f, 1f),
+                Spec(2f, 1f, 1f, 1f),
+                Spec(3f, 1f, 1f, 1f),
+                Spec(0f, 2f, 1f, 1f),
+                Spec(1f, 2f, 1f, 1f),
+                Spec(2f, 2f, 2f, 1f)
+            )
+        )
     }
+}
 
-    var songIndex = 0
+private fun tenPage(
+    songs: List<Song>,
+    flip: Boolean
+): MosaicPage {
+    val specs =
+        if (!flip) {
+            listOf(
+                Spec(0f, 0f, 2f, 1f),
+                Spec(2f, 0f, 1f, 1f),
+                Spec(3f, 0f, 1f, 1f),
+                Spec(0f, 1f, 1f, 1f),
+                Spec(1f, 1f, 1f, 1f),
+                Spec(2f, 1f, 1f, 1f),
+                Spec(3f, 1f, 1f, 1f),
+                Spec(0f, 2f, 1f, 1f),
+                Spec(1f, 2f, 1f, 1f),
+                Spec(2f, 2f, 2f, 1f)
+            )
+        } else {
+            listOf(
+                Spec(0f, 0f, 1f, 1f),
+                Spec(1f, 0f, 1f, 1f),
+                Spec(2f, 0f, 2f, 1f),
+                Spec(0f, 1f, 1f, 1f),
+                Spec(1f, 1f, 1f, 1f),
+                Spec(2f, 1f, 1f, 1f),
+                Spec(3f, 1f, 1f, 1f),
+                Spec(0f, 2f, 2f, 1f),
+                Spec(2f, 2f, 1f, 1f),
+                Spec(3f, 2f, 1f, 1f)
+            )
+        }
 
-    val tiles =
-        mutableListOf<MosaicTile>()
+    return fromSpecs(
+        songs,
+        specs
+    )
+}
 
-    slots.forEach { slot ->
-        when (slot) {
-            is MosaicSlot.Cell -> {
-                tiles +=
-                    tile(
-                        songs[songIndex++],
-                        slot.x.toFloat(),
-                        slot.y.toFloat(),
+private fun elevenPage(
+    songs: List<Song>,
+    variant: Int
+): MosaicPage {
+    val wideX =
+        when (variant) {
+            0 -> 0
+            1 -> 2
+            2 -> 0
+            else -> 2
+        }
+
+    val wideY =
+        if (variant < 2) {
+            0
+        } else {
+            2
+        }
+
+    val specs =
+        mutableListOf<Spec>()
+
+    for (row in 0..2) {
+        var column = 0
+
+        while (column < 4) {
+            if (
+                row == wideY &&
+                column == wideX
+            ) {
+                specs +=
+                    Spec(
+                        column.toFloat(),
+                        row.toFloat(),
+                        2f,
+                        1f
+                    )
+
+                column += 2
+            } else {
+                specs +=
+                    Spec(
+                        column.toFloat(),
+                        row.toFloat(),
                         1f,
                         1f
                     )
-            }
 
-            is MosaicSlot.Wide -> {
-                tiles +=
-                    tile(
-                        songs[songIndex++],
-                        slot.x.toFloat(),
-                        slot.y.toFloat(),
-                        slot.width.toFloat(),
-                        1f
-                    )
-
-                repeat(
-                    slot.width - 1
-                ) {
-                    songIndex++
-                }
+                column++
             }
         }
     }
 
-    return if (
-        songIndex <= songs.size
-    ) {
-        MosaicPage(tiles)
-    } else {
-        regularPage(songs)
-    }
+    return fromSpecs(
+        songs,
+        specs
+    )
 }
 
 private fun regularPage(
@@ -226,26 +296,46 @@ private fun regularPage(
                 song ->
 
             tile(
-                song = song,
-                x =
-                    (index % 4).toFloat(),
-                y =
-                    (index / 4).toFloat(),
-                width = 1f,
-                height = 1f
+                song,
+                (index % 4).toFloat(),
+                (index / 4).toFloat(),
+                1f,
+                1f
             )
         }
     )
 
-private fun remainderPage(
+private fun finalPage(
     songs: List<Song>
 ): MosaicPage {
-    val tiles =
+    if (songs.size in 9..12) {
+        return when (songs.size) {
+            9 -> ninePage(
+                songs,
+                false
+            )
+
+            10 -> tenPage(
+                songs,
+                false
+            )
+
+            11 -> elevenPage(
+                songs,
+                0
+            )
+
+            else -> regularPage(
+                songs
+            )
+        }
+    }
+
+    val specs =
         when (songs.size) {
             1 ->
                 listOf(
-                    tile(
-                        songs[0],
+                    Spec(
                         0f,
                         0f,
                         4f,
@@ -255,15 +345,13 @@ private fun remainderPage(
 
             2 ->
                 listOf(
-                    tile(
-                        songs[0],
+                    Spec(
                         0f,
                         0f,
                         4f,
                         1.5f
                     ),
-                    tile(
-                        songs[1],
+                    Spec(
                         0f,
                         1.5f,
                         4f,
@@ -273,22 +361,19 @@ private fun remainderPage(
 
             3 ->
                 listOf(
-                    tile(
-                        songs[0],
+                    Spec(
                         0f,
                         0f,
                         2f,
                         1.5f
                     ),
-                    tile(
-                        songs[1],
+                    Spec(
                         2f,
                         0f,
                         2f,
                         1.5f
                     ),
-                    tile(
-                        songs[2],
+                    Spec(
                         0f,
                         1.5f,
                         4f,
@@ -298,29 +383,25 @@ private fun remainderPage(
 
             4 ->
                 listOf(
-                    tile(
-                        songs[0],
+                    Spec(
                         0f,
                         0f,
                         2f,
                         1.5f
                     ),
-                    tile(
-                        songs[1],
+                    Spec(
                         2f,
                         0f,
                         2f,
                         1.5f
                     ),
-                    tile(
-                        songs[2],
+                    Spec(
                         0f,
                         1.5f,
                         2f,
                         1.5f
                     ),
-                    tile(
-                        songs[3],
+                    Spec(
                         2f,
                         1.5f,
                         2f,
@@ -330,97 +411,85 @@ private fun remainderPage(
 
             5 ->
                 listOf(
-                    tile(songs[0], 0f, 0f, 2f, 1f),
-                    tile(songs[1], 2f, 0f, 2f, 1f),
-                    tile(songs[2], 0f, 1f, 4f, 1f),
-                    tile(songs[3], 0f, 2f, 2f, 1f),
-                    tile(songs[4], 2f, 2f, 2f, 1f)
+                    Spec(0f, 0f, 2f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 4f, 1f),
+                    Spec(0f, 2f, 2f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
                 )
 
             6 ->
-                songs.mapIndexed {
-                        index,
-                        song ->
-
-                    tile(
-                        song,
-                        (index % 2) * 2f,
-                        (index / 2).toFloat(),
-                        2f,
-                        1f
-                    )
-                }
+                listOf(
+                    Spec(0f, 0f, 2f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 2f, 1f),
+                    Spec(2f, 1f, 2f, 1f),
+                    Spec(0f, 2f, 2f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
+                )
 
             7 ->
                 listOf(
-                    tile(songs[0], 0f, 0f, 1f, 1f),
-                    tile(songs[1], 1f, 0f, 1f, 1f),
-                    tile(songs[2], 2f, 0f, 1f, 1f),
-                    tile(songs[3], 3f, 0f, 1f, 1f),
-                    tile(songs[4], 0f, 1f, 2f, 1f),
-                    tile(songs[5], 2f, 1f, 2f, 1f),
-                    tile(songs[6], 0f, 2f, 4f, 1f)
+                    Spec(0f, 0f, 1f, 1f),
+                    Spec(1f, 0f, 1f, 1f),
+                    Spec(2f, 0f, 1f, 1f),
+                    Spec(3f, 0f, 1f, 1f),
+                    Spec(0f, 1f, 2f, 1f),
+                    Spec(2f, 1f, 2f, 1f),
+                    Spec(0f, 2f, 4f, 1f)
                 )
 
             8 ->
                 listOf(
-                    tile(songs[0], 0f, 0f, 1f, 1f),
-                    tile(songs[1], 1f, 0f, 1f, 1f),
-                    tile(songs[2], 2f, 0f, 1f, 1f),
-                    tile(songs[3], 3f, 0f, 1f, 1f),
-                    tile(songs[4], 0f, 1f, 1f, 2f),
-                    tile(songs[5], 1f, 1f, 1f, 2f),
-                    tile(songs[6], 2f, 1f, 1f, 2f),
-                    tile(songs[7], 3f, 1f, 1f, 2f)
-                )
-
-            9 ->
-                listOf(
-                    tile(songs[0], 0f, 0f, 2f, 1f),
-                    tile(songs[1], 2f, 0f, 2f, 1f),
-                    tile(songs[2], 0f, 1f, 1f, 1f),
-                    tile(songs[3], 1f, 1f, 1f, 1f),
-                    tile(songs[4], 2f, 1f, 1f, 1f),
-                    tile(songs[5], 3f, 1f, 1f, 1f),
-                    tile(songs[6], 0f, 2f, 1f, 1f),
-                    tile(songs[7], 1f, 2f, 1f, 1f),
-                    tile(songs[8], 2f, 2f, 2f, 1f)
-                )
-
-            10 ->
-                listOf(
-                    tile(songs[0], 0f, 0f, 2f, 1f),
-                    tile(songs[1], 2f, 0f, 1f, 1f),
-                    tile(songs[2], 3f, 0f, 1f, 1f),
-                    tile(songs[3], 0f, 1f, 1f, 1f),
-                    tile(songs[4], 1f, 1f, 1f, 1f),
-                    tile(songs[5], 2f, 1f, 1f, 1f),
-                    tile(songs[6], 3f, 1f, 1f, 1f),
-                    tile(songs[7], 0f, 2f, 1f, 1f),
-                    tile(songs[8], 1f, 2f, 1f, 1f),
-                    tile(songs[9], 2f, 2f, 2f, 1f)
-                )
-
-            11 ->
-                listOf(
-                    tile(songs[0], 0f, 0f, 2f, 1f),
-                    tile(songs[1], 2f, 0f, 1f, 1f),
-                    tile(songs[2], 3f, 0f, 1f, 1f),
-                    tile(songs[3], 0f, 1f, 1f, 1f),
-                    tile(songs[4], 1f, 1f, 1f, 1f),
-                    tile(songs[5], 2f, 1f, 1f, 1f),
-                    tile(songs[6], 3f, 1f, 1f, 1f),
-                    tile(songs[7], 0f, 2f, 1f, 1f),
-                    tile(songs[8], 1f, 2f, 1f, 1f),
-                    tile(songs[9], 2f, 2f, 1f, 1f),
-                    tile(songs[10], 3f, 2f, 1f, 1f)
+                    Spec(0f, 0f, 1f, 1.5f),
+                    Spec(1f, 0f, 1f, 1.5f),
+                    Spec(2f, 0f, 1f, 1.5f),
+                    Spec(3f, 0f, 1f, 1.5f),
+                    Spec(0f, 1.5f, 1f, 1.5f),
+                    Spec(1f, 1.5f, 1f, 1.5f),
+                    Spec(2f, 1.5f, 1f, 1.5f),
+                    Spec(3f, 1.5f, 1f, 1.5f)
                 )
 
             else ->
-                regularPage(songs).tiles
+                emptyList()
         }
 
-    return MosaicPage(tiles)
+    return fromSpecs(
+        songs,
+        specs
+    )
+}
+
+private data class Spec(
+    val x: Float,
+    val y: Float,
+    val width: Float,
+    val height: Float
+)
+
+private fun fromSpecs(
+    songs: List<Song>,
+    specs: List<Spec>
+): MosaicPage {
+    require(
+        songs.size == specs.size
+    )
+
+    return MosaicPage(
+        songs.zip(specs)
+            .map {
+                (song, spec) ->
+
+                tile(
+                    song,
+                    spec.x,
+                    spec.y,
+                    spec.width,
+                    spec.height
+                )
+            }
+    )
 }
 
 private fun tile(
