@@ -1,7 +1,7 @@
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +27,14 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 
+private val XvoxPEasing =
+    CubicBezierEasing(
+        0.20f,
+        0.75f,
+        0.22f,
+        1f
+    )
+
 @Composable
 fun XvoxP(
     message: XvoxPopupMessage,
@@ -45,7 +53,7 @@ fun XvoxP(
         visible = true
         delay(3000L)
         visible = false
-        delay(180L)
+        delay(190L)
         onFinished()
     }
 
@@ -55,20 +63,20 @@ fun XvoxP(
             .windowInsetsPadding(
                 WindowInsets.statusBars
             )
-            .padding(top = 10.dp),
+            .padding(top = 7.dp),
         enter =
             fadeIn(
-                tween(180)
+                tween(150)
             ) +
                 slideInVertically(
                     initialOffsetY = {
-                        -it / 2
+                        -it
                     },
                     animationSpec =
                         tween(
-                            220,
+                            210,
                             easing =
-                                FastOutSlowInEasing
+                                XvoxPEasing
                         )
                 ),
         exit =
@@ -77,31 +85,34 @@ fun XvoxP(
             ) +
                 slideOutVertically(
                     targetOffsetY = {
-                        -it / 2
+                        -it
                     },
                     animationSpec =
-                        tween(180)
+                        tween(
+                            190,
+                            easing =
+                                XvoxPEasing
+                        )
                 )
     ) {
         Box(
             modifier = Modifier
                 .background(
-                    colors.cardElevated.copy(
-                        alpha = 0.96f
-                    ),
+                    colors.cardElevated,
                     RoundedCornerShape(
-                        24.dp
+                        20.dp
                     )
                 )
                 .padding(
-                    horizontal = 18.dp,
-                    vertical = 11.dp
+                    horizontal = 15.dp,
+                    vertical = 8.dp
                 )
         ) {
             Text(
                 text = message.text,
                 color = colors.primaryText,
-                fontSize = 12.sp
+                fontSize = 11.sp,
+                lineHeight = 13.sp
             )
         }
     }
