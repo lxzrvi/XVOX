@@ -38,6 +38,7 @@ fun PlaylistCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+
     val shape =
         RoundedCornerShape(16.dp)
 
@@ -67,16 +68,12 @@ fun PlaylistCard(
                     )
                 )
         ) {
-            repeat(2) {
-                row ->
-
+            repeat(2) { row ->
                 Row(
                     modifier =
                         Modifier.weight(1f)
                 ) {
-                    repeat(2) {
-                        column ->
-
+                    repeat(2) { column ->
                         val index =
                             row * 2 + column
 
@@ -102,7 +99,8 @@ fun PlaylistCard(
 
         Text(
             text = playlist.name,
-            color = colors.primaryText,
+            color =
+                colors.primaryText,
             fontSize = 13.sp,
             lineHeight = 16.sp,
             fontWeight =
@@ -121,7 +119,8 @@ fun PlaylistCard(
                 "${songs.size} songs",
             color =
                 colors.secondaryText,
-            fontSize = 10.sp
+            fontSize = 10.sp,
+            lineHeight = 12.sp
         )
     }
 }
