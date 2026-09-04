@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -46,19 +47,21 @@ fun XvoxL(
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val scope = rememberCoroutineScope()
+    val scope =
+        rememberCoroutineScope()
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(
-                colors.background.copy(
-                    alpha = 0.97f
+                Color.Black.copy(
+                    alpha = 0.28f
                 )
             )
     ) {
         val hidden =
-            constraints.maxHeight.toFloat()
+            constraints.maxHeight
+                .toFloat()
 
         val offset =
             remember(hidden) {
@@ -71,7 +74,8 @@ fun XvoxL(
                     hidden,
                     tween(
                         250,
-                        easing = XvoxLEasing
+                        easing =
+                            XvoxLEasing
                     )
                 )
 
@@ -86,7 +90,8 @@ fun XvoxL(
                 0f,
                 tween(
                     290,
-                    easing = XvoxLEasing
+                    easing =
+                        XvoxLEasing
                 )
             )
         }
@@ -112,7 +117,8 @@ fun XvoxL(
                 )
                 .fillMaxWidth()
                 .heightIn(
-                    max = maxHeight * 0.5f
+                    max =
+                        maxHeight * 0.5f
                 )
                 .graphicsLayer {
                     translationY =
@@ -126,7 +132,8 @@ fun XvoxL(
                     )
                 )
                 .windowInsetsPadding(
-                    WindowInsets.navigationBars
+                    WindowInsets
+                        .navigationBars
                 )
                 .pointerInput(hidden) {
                     detectVerticalDragGestures(
@@ -188,9 +195,10 @@ fun XvoxL(
                         height = 4.dp
                     )
                     .background(
-                        colors.mutedText.copy(
-                            alpha = 0.48f
-                        ),
+                        colors.mutedText
+                            .copy(
+                                alpha = 0.48f
+                            ),
                         RoundedCornerShape(
                             2.dp
                         )
