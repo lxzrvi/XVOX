@@ -6,7 +6,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.GridArtworkSize
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -14,7 +13,6 @@ import kotlinx.coroutines.coroutineScope
 class ArtworkPreloader(
     context: Context
 ) {
-
     private val appContext =
         context.applicationContext
 
@@ -39,9 +37,11 @@ class ArtworkPreloader(
 
         if (start >= end) return
 
-        val artworkUris =
-            songs
-                .subList(start, end)
+        val uris =
+            songs.subList(
+                start,
+                end
+            )
                 .asSequence()
                 .mapNotNull {
                     it.artworkUri
@@ -54,11 +54,14 @@ class ArtworkPreloader(
                 appContext
             )
 
-        artworkUris
-            .chunked(3)
-            .forEach { batch ->
+        uris.chunked(4)
+            .forEach {
+                batch ->
+
                 coroutineScope {
-                    batch.map { uri ->
+                    batch.map {
+                        uri ->
+
                         async {
                             val request =
                                 ImageRequest
@@ -67,8 +70,8 @@ class ArtworkPreloader(
                                     )
                                     .data(uri)
                                     .size(
-                                        GridArtworkSize,
-                                        GridArtworkSize
+                                        320,
+                                        320
                                     )
                                     .precision(
                                         Precision.INEXACT
