@@ -1,4 +1,4 @@
-name: XVOX - Import Delete Icon
+name: XVOX - Import Missing Phosphor Icons
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ permissions:
   contents: write
 
 jobs:
-  import-delete-icon:
-    name: Import XVOX Delete Icon
+  import-icons:
+    name: Import Missing XVOX Icons
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
           path: phosphor-core
           fetch-depth: 1
 
-      - name: Generate Delete VectorDrawable
+      - name: Generate missing VectorDrawables
         shell: bash
         run: |
           set -euo pipefail
@@ -38,12 +38,13 @@ jobs:
           import xml.etree.ElementTree as ET
 
           SOURCE = Path("phosphor-core")
-          OUTPUT = Path(
-              "app/src/main/res/drawable/ic_xvox_delete.xml"
-          )
+          OUTPUT_DIR = Path("app/src/main/res/drawable")
 
-          ICON = "trash"
-          WEIGHT = "fill"
+          # Only genuinely missing icons belong here.
+          # Existing XVOX resources are never overwritten.
+          ICONS = [
+              ("plus", "regular", "ic_xvox_plus.xml"),
+          ]
 
           def local_name(tag):
               return tag.split("}")[-1]
@@ -78,22 +79,11 @@ jobs:
                   .rstrip(".")
               )
 
-          def find_svg():
+          def find_svg(icon, weight):
               preferred = [
-                  SOURCE
-                  / "raw"
-                  / WEIGHT
-                  / f"{ICON}-{WEIGHT}.svg",
-
-                  SOURCE
-                  / "raw"
-                  / WEIGHT
-                  / f"{ICON}.svg",
-
-                  SOURCE
-                  / "assets"
-                  / WEIGHT
-                  / f"{ICON}.svg",
+                  SOURCE / "raw" / weight / f"{icon}-{weight}.svg",
+                  SOURCE / "raw" / weight / f"{icon}.svg",
+                  SOURCE / "assets" / weight / f"{icon}.svg",
               ]
 
               for path in preferred:
@@ -101,8 +91,8 @@ jobs:
                       return path
 
               names = {
-                  f"{ICON}.svg".lower(),
-                  f"{ICON}-{WEIGHT}.svg".lower(),
+                  f"{icon}.svg".lower(),
+                  f"{icon}-{weight}.svg".lower(),
               }
 
               matches = []
@@ -114,13 +104,12 @@ jobs:
                   score = 0
                   full = str(path).lower()
 
-                  if WEIGHT in full:
+                  if weight in full:
                       score += 100
 
                   if (
                       path.name.lower()
-                      ==
-                      f"{ICON}-{WEIGHT}.svg"
+                      == f"{icon}-{weight}.svg"
                   ):
                       score += 50
 
@@ -185,16 +174,16 @@ jobs:
           def rect_path(element):
               x = number(element.attrib.get("x"))
               y = number(element.attrib.get("y"))
-              w = number(element.attrib.get("width"))
-              h = number(element.attrib.get("height"))
+              width = number(element.attrib.get("width"))
+              height = number(element.attrib.get("height"))
 
-              if w <= 0 or h <= 0:
+              if width <= 0 or height <= 0:
                   return None
 
               return (
                   f"M {fmt(x)},{fmt(y)} "
-                  f"H {fmt(x+w)} "
-                  f"V {fmt(y+h)} "
+                  f"H {fmt(x+width)} "
+                  f"V {fmt(y+height)} "
                   f"H {fmt(x)} Z"
               )
 
@@ -202,10 +191,7 @@ jobs:
               values = re.findall(
                   r"-?(?:\d+(?:\.\d*)?|\.\d+)"
                   r"(?:[eE][+-]?\d+)?",
-                  element.attrib.get(
-                      "points",
-                      "",
-                  ),
+                  element.attrib.get("points", ""),
               )
 
               if len(values) < 4:
@@ -216,11 +202,7 @@ jobs:
 
               pairs = []
 
-              for index in range(
-                  0,
-                  len(values),
-                  2,
-              ):
+              for index in range(0, len(values), 2):
                   pairs.append(
                       (
                           number(values[index]),
@@ -234,58 +216,38 @@ jobs:
               )
 
               for x, y in pairs[1:]:
-                  data += (
-                      f" L {fmt(x)},{fmt(y)}"
-                  )
+                  data += f" L {fmt(x)},{fmt(y)}"
 
               if close:
                   data += " Z"
 
               return data
 
-          def convert(source):
+          def convert(source, output):
               root = ET.parse(source).getroot()
 
               viewbox = (
                   root.attrib
-                  .get(
-                      "viewBox",
-                      "0 0 256 256",
-                  )
+                  .get("viewBox", "0 0 256 256")
                   .replace(",", " ")
                   .split()
               )
 
               if len(viewbox) != 4:
-                  raise RuntimeError(
-                      "Invalid viewBox"
-                  )
+                  raise RuntimeError("Invalid viewBox")
 
-              viewport_width = number(
-                  viewbox[2],
-                  256,
-              )
-
-              viewport_height = number(
-                  viewbox[3],
-                  256,
-              )
+              viewport_width = number(viewbox[2], 256)
+              viewport_height = number(viewbox[3], 256)
 
               vector = ET.Element(
                   "vector",
                   {
                       "xmlns:android":
                           "http://schemas.android.com/apk/res/android",
-
-                      "android:width":
-                          "24dp",
-
-                      "android:height":
-                          "24dp",
-
+                      "android:width": "24dp",
+                      "android:height": "24dp",
                       "android:viewportWidth":
                           fmt(viewport_width),
-
                       "android:viewportHeight":
                           fmt(viewport_height),
                   },
@@ -293,10 +255,7 @@ jobs:
 
               path_count = 0
 
-              def walk(
-                  element,
-                  inherited=None,
-              ):
+              def walk(element, inherited=None):
                   nonlocal path_count
 
                   if inherited is None:
@@ -313,64 +272,30 @@ jobs:
                   ):
                       if attribute in element.attrib:
                           style[attribute] = (
-                              element.attrib[
-                                  attribute
-                              ]
+                              element.attrib[attribute]
                           )
 
-                  tag = local_name(
-                      element.tag
-                  )
-
+                  tag = local_name(element.tag)
                   data = None
 
                   if tag == "path":
-                      data = element.attrib.get(
-                          "d"
-                      )
-
+                      data = element.attrib.get("d")
                   elif tag == "circle":
-                      data = circle_path(
-                          element
-                      )
-
+                      data = circle_path(element)
                   elif tag == "ellipse":
-                      data = ellipse_path(
-                          element
-                      )
-
+                      data = ellipse_path(element)
                   elif tag == "line":
-                      data = line_path(
-                          element
-                      )
-
+                      data = line_path(element)
                   elif tag == "rect":
-                      data = rect_path(
-                          element
-                      )
-
+                      data = rect_path(element)
                   elif tag == "polyline":
-                      data = points_path(
-                          element,
-                          False,
-                      )
-
+                      data = points_path(element, False)
                   elif tag == "polygon":
-                      data = points_path(
-                          element,
-                          True,
-                      )
+                      data = points_path(element, True)
 
                   if data:
-                      fill = style.get(
-                          "fill",
-                          "black",
-                      )
-
-                      stroke = style.get(
-                          "stroke",
-                          "none",
-                      )
+                      fill = style.get("fill", "black")
+                      stroke = style.get("stroke", "none")
 
                       if tag == "line":
                           fill = "none"
@@ -379,9 +304,7 @@ jobs:
                               stroke = "black"
 
                       attrs = {
-                          "android:pathData":
-                              data,
-
+                          "android:pathData": data,
                           "android:fillColor":
                               (
                                   "#00000000"
@@ -391,28 +314,16 @@ jobs:
                       }
 
                       if stroke != "none":
-                          attrs[
-                              "android:strokeColor"
-                          ] = "#FFFFFFFF"
-
-                          attrs[
-                              "android:strokeWidth"
-                          ] = fmt(
+                          attrs["android:strokeColor"] = "#FFFFFFFF"
+                          attrs["android:strokeWidth"] = fmt(
                               number(
-                                  style.get(
-                                      "stroke-width"
-                                  ),
+                                  style.get("stroke-width"),
                                   1,
                               )
                           )
 
-                          cap = style.get(
-                              "stroke-linecap"
-                          )
-
-                          join = style.get(
-                              "stroke-linejoin"
-                          )
+                          cap = style.get("stroke-linecap")
+                          join = style.get("stroke-linejoin")
 
                           if cap in {
                               "butt",
@@ -441,16 +352,13 @@ jobs:
                       path_count += 1
 
                   for child in element:
-                      walk(
-                          child,
-                          style,
-                      )
+                      walk(child, style)
 
               walk(root)
 
               if path_count == 0:
                   raise RuntimeError(
-                      "No convertible geometry"
+                      f"No convertible geometry in {source}"
                   )
 
               ET.indent(
@@ -458,58 +366,80 @@ jobs:
                   space="    ",
               )
 
-              OUTPUT.write_text(
-                  '<?xml version="1.0" '
-                  'encoding="utf-8"?>\n'
-                  +
-                  ET.tostring(
+              output.write_text(
+                  '<?xml version="1.0" encoding="utf-8"?>\n'
+                  + ET.tostring(
                       vector,
                       encoding="unicode",
                   )
-                  +
-                  "\n",
+                  + "\n",
                   encoding="utf-8",
               )
 
               return path_count
 
-          source = find_svg()
+          generated = []
 
-          if source is None:
-              print(
-                  "trash (fill) not found",
-                  file=sys.stderr,
+          for icon, weight, filename in ICONS:
+              output = OUTPUT_DIR / filename
+
+              if output.exists():
+                  print(
+                      "SKIP existing:",
+                      output,
+                  )
+                  continue
+
+              source = find_svg(
+                  icon,
+                  weight,
               )
-              sys.exit(1)
 
-          count = convert(source)
+              if source is None:
+                  print(
+                      f"{icon} ({weight}) not found",
+                      file=sys.stderr,
+                  )
+                  sys.exit(1)
 
-          print(
-              "GENERATED:",
-              OUTPUT,
-              "<-",
-              source,
-              f"({count} paths)",
-          )
+              count = convert(
+                  source,
+                  output,
+              )
+
+              generated.append(output)
+
+              print(
+                  "GENERATED:",
+                  output,
+                  "<-",
+                  source,
+                  f"({count} paths)",
+              )
+
+          if not generated:
+              print(
+                  "All required icons already exist."
+              )
           PY
 
-      - name: Stage delete icon
+      - name: Stage generated icons
         shell: bash
         run: |
           set -euo pipefail
 
           git add \
-            app/src/main/res/drawable/ic_xvox_delete.xml
+            app/src/main/res/drawable/ic_xvox_plus.xml
 
           git status --short
 
-      - name: Commit and push delete icon
+      - name: Commit and push icons
         shell: bash
         run: |
           set -euo pipefail
 
           if git diff --cached --quiet; then
-            echo "Delete icon already up to date."
+            echo "No missing icons to commit."
             exit 0
           fi
 
@@ -522,7 +452,7 @@ jobs:
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git commit \
-            -m "Add XVOX delete icon"
+            -m "Add missing XVOX Phosphor icons"
 
           git push \
             origin \
