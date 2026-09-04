@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
@@ -39,27 +40,11 @@ fun AllSongsSection(
     val colors =
         XvoxTheme.colors
 
-    val pages =
+    val plans =
         remember(songs) {
-            buildMosaicPages(
+            buildMosaicPagePlans(
                 songs
             )
-        }
-
-    val pageStarts =
-        remember(pages) {
-            buildList {
-                var sourceIndex = 0
-
-                pages.forEach {
-                    page ->
-
-                    add(sourceIndex)
-
-                    sourceIndex +=
-                        page.tiles.size
-                }
-            }
         }
 
     val state =
@@ -67,30 +52,26 @@ fun AllSongsSection(
 
     LaunchedEffect(
         state,
-        pageStarts
+        plans
     ) {
+        delay(300L)
+
         snapshotFlow {
             state.firstVisibleItemIndex
         }
             .distinctUntilChanged()
-            .collect { pageIndex ->
-                val nextPage =
-                    (
+            .collect {
+                pageIndex ->
+
+                val target =
+                    plans.getOrNull(
                         pageIndex + 1
                     )
-                        .coerceAtMost(
-                            pageStarts.lastIndex
-                        )
+                        ?: return@collect
 
-                if (
-                    nextPage >= 0
-                ) {
-                    onPrefetch(
-                        pageStarts[
-                            nextPage
-                        ]
-                    )
-                }
+                onPrefetch(
+                    target.startIndex
+                )
             }
     }
 
@@ -99,21 +80,20 @@ fun AllSongsSection(
             Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    bottom =
-                        HomeGeometry
-                            .sectionGap
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 12.dp,
+                        end = 12.dp,
+                        bottom =
+                            HomeGeometry
+                                .sectionGap
+                    ),
             horizontalArrangement =
-                Arrangement
-                    .SpaceBetween,
+                Arrangement.SpaceBetween,
             verticalAlignment =
-                Alignment
-                    .CenterVertically
+                Alignment.CenterVertically
         ) {
             Text(
                 text = "All Songs",
@@ -122,8 +102,7 @@ fun AllSongsSection(
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
-                    FontWeight
-                        .SemiBold
+                    FontWeight.SemiBold
             )
 
             Text(
@@ -139,8 +118,11 @@ fun AllSongsSection(
             modifier =
                 Modifier.fillMaxWidth()
         ) {
-            val edge = 6.dp
-            val gap = 6.dp
+            val edge =
+                6.dp
+
+            val gap =
+                6.dp
 
             val unitWidth =
                 (
@@ -159,19 +141,20 @@ fun AllSongsSection(
 
             LazyRow(
                 state = state,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(
-                        pageHeight
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(
+                            pageHeight
+                        )
             ) {
                 itemsIndexed(
-                    items = pages,
+                    items = plans,
                     key = {
-                            index,
-                            _ ->
+                            _,
+                            plan ->
 
-                        index
+                        plan.startIndex
                     },
                     contentType = {
                             _,
@@ -181,7 +164,18 @@ fun AllSongsSection(
                     }
                 ) {
                     _,
-                    page ->
+                    plan ->
+
+                    val page =
+                        remember(
+                            songs,
+                            plan
+                        ) {
+                            buildMosaicPage(
+                                songs,
+                                plan
+                            )
+                        }
 
                     Box(
                         modifier =
