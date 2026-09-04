@@ -21,11 +21,12 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferences
+import com.xvox.music.features.home.library.HomeLibraryMode
 
 @Composable
 fun HomeHeader(
     profile: UserPreferences,
-    showPlaylists: Boolean,
+    libraryMode: HomeLibraryMode,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
     onLibraryModeClick: () -> Unit
@@ -34,30 +35,38 @@ fun HomeHeader(
 
     Row(
         modifier = Modifier
-            .padding(horizontal = 18.dp)
+            .padding(
+                horizontal = 18.dp
+            )
             .height(54.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
         HomeProfileAvatar(
             profile = profile,
-            modifier = Modifier.size(42.dp)
+            modifier =
+                Modifier.size(42.dp)
         )
 
         Spacer(
-            modifier = Modifier.width(10.dp)
+            modifier =
+                Modifier.width(10.dp)
         )
 
         Column(
-            modifier = Modifier.weight(1f)
+            modifier =
+                Modifier.weight(1f)
         ) {
             Text(
                 text = profile.username,
                 color = colors.primaryText,
-                fontFamily = XvoxPersonalFont,
+                fontFamily =
+                    XvoxPersonalFont,
                 fontSize = 18.sp,
                 lineHeight = 19.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow =
+                    TextOverflow.Ellipsis
             )
 
             HomeGreeting()
@@ -77,30 +86,43 @@ fun HomeHeader(
                 )
                 .border(
                     width = 0.65.dp,
-                    color = colors.cardBorder,
+                    color =
+                        colors.cardBorder,
                     shape = actionShape
                 )
-                .padding(horizontal = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(
+                    horizontal = 2.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
             HomeHeaderIcon(
-                type = HomeHeaderIconType.SCAN,
+                type =
+                    HomeHeaderIconType.SCAN,
                 onClick = onRefresh
             )
 
             HomeHeaderIcon(
-                type = HomeHeaderIconType.HEART,
+                type =
+                    HomeHeaderIconType.HEART,
                 onClick = onHeartClick
             )
 
             HomeHeaderIcon(
                 type =
-                    if (showPlaylists) {
-                        HomeHeaderIconType.SONGS
+                    if (
+                        libraryMode ==
+                        HomeLibraryMode
+                            .PLAYLISTS
+                    ) {
+                        HomeHeaderIconType
+                            .SONGS
                     } else {
-                        HomeHeaderIconType.PLAYLIST
+                        HomeHeaderIconType
+                            .PLAYLIST
                     },
-                onClick = onLibraryModeClick
+                onClick =
+                    onLibraryModeClick
             )
         }
     }
