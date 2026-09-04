@@ -21,7 +21,9 @@ class ArtworkPreloader(
         fromIndex: Int,
         count: Int
     ) {
-        if (songs.isEmpty()) return
+        if (songs.isEmpty()) {
+            return
+        }
 
         val start =
             fromIndex.coerceIn(
@@ -29,13 +31,21 @@ class ArtworkPreloader(
                 songs.size
             )
 
+        val effectiveCount =
+            count.coerceAtMost(24)
+
         val end =
-            (start + count)
+            (
+                start +
+                    effectiveCount
+                )
                 .coerceAtMost(
                     songs.size
                 )
 
-        if (start >= end) return
+        if (start >= end) {
+            return
+        }
 
         val uris =
             songs.subList(
@@ -54,7 +64,7 @@ class ArtworkPreloader(
                 appContext
             )
 
-        uris.chunked(4)
+        uris.chunked(2)
             .forEach {
                 batch ->
 
@@ -70,8 +80,8 @@ class ArtworkPreloader(
                                     )
                                     .data(uri)
                                     .size(
-                                        320,
-                                        320
+                                        160,
+                                        160
                                     )
                                     .precision(
                                         Precision.INEXACT
