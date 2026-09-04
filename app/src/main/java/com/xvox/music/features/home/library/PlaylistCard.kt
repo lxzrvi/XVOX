@@ -2,6 +2,7 @@ package com.xvox.music.features.home.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,12 @@ fun PlaylistCard(
             .background(
                 colors.card
             )
+            .border(
+                width = 0.7.dp,
+                color =
+                    colors.cardBorder,
+                shape = shape
+            )
             .combinedClickable(
                 interactionSource =
                     remember {
@@ -61,6 +68,13 @@ fun PlaylistCard(
     ) {
         PlaylistCover(
             songs = songs,
+            coverSongIds =
+                playlist
+                    .coverSongIds,
+            customCoverUri =
+                playlist
+                    .customCoverUri,
+            requestSize = 192,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
@@ -72,7 +86,8 @@ fun PlaylistCard(
         )
 
         Text(
-            text = playlist.name,
+            text =
+                playlist.name,
             color =
                 colors.primaryText,
             fontSize = 13.sp,
