@@ -25,8 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,9 +63,13 @@ fun PlaylistPickerBox(
                     Modifier.weight(1f)
             )
 
+            Spacer(
+                Modifier.size(44.dp)
+            )
+
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(36.dp)
                     .background(
                         colors.card,
                         CircleShape
@@ -84,7 +88,7 @@ fun PlaylistPickerBox(
                 Text(
                     text = "+",
                     color = colors.primaryText,
-                    fontSize = 22.sp
+                    fontSize = 21.sp
                 )
             }
         }
@@ -150,9 +154,7 @@ fun PlaylistPickerBox(
                     key = {
                         it.id
                     }
-                ) {
-                    playlist ->
-
+                ) { playlist ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -176,8 +178,7 @@ fun PlaylistPickerBox(
                                 Modifier.weight(1f)
                         ) {
                             Text(
-                                text =
-                                    playlist.name,
+                                text = playlist.name,
                                 color =
                                     colors.primaryText,
                                 fontSize = 14.sp,
@@ -219,8 +220,7 @@ fun CreatePlaylistBox(
         remember(initialSong?.id) {
             mutableStateListOf<Long>()
                 .also {
-                    initialSong?.let {
-                        song ->
+                    initialSong?.let { song ->
                         it.add(song.id)
                     }
                 }
@@ -234,7 +234,8 @@ fun CreatePlaylistBox(
             text = "Create playlist",
             color = colors.primaryText,
             fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight =
+                FontWeight.Bold
         )
 
         Spacer(
@@ -248,12 +249,11 @@ fun CreatePlaylistBox(
             },
             singleLine = true,
             textStyle =
-                androidx.compose.ui.text
-                    .TextStyle(
-                        color =
-                            colors.primaryText,
-                        fontSize = 14.sp
-                    ),
+                TextStyle(
+                    color =
+                        colors.primaryText,
+                    fontSize = 14.sp
+                ),
             cursorBrush =
                 SolidColor(
                     colors.primaryText
@@ -267,9 +267,7 @@ fun CreatePlaylistBox(
                     )
                 )
                 .height(48.dp),
-            decorationBox = {
-                field ->
-
+            decorationBox = { field ->
                 Box(
                     modifier =
                         Modifier.fillMaxWidth(),
@@ -278,8 +276,7 @@ fun CreatePlaylistBox(
                 ) {
                     if (name.isBlank()) {
                         Text(
-                            text =
-                                "Enter name",
+                            text = "Enter name",
                             color =
                                 colors.secondaryText,
                             fontSize = 13.sp
@@ -306,9 +303,7 @@ fun CreatePlaylistBox(
                 key = {
                     it.id
                 }
-            ) {
-                song ->
-
+            ) { song ->
                 val checked =
                     song.id in selected
 
@@ -351,13 +346,13 @@ fun CreatePlaylistBox(
                     Box(
                         modifier = Modifier
                             .size(20.dp)
-                            .clip(CircleShape)
                             .background(
                                 if (checked) {
                                     colors.primaryText
                                 } else {
                                     colors.card
-                                }
+                                },
+                                CircleShape
                             )
                     )
                 }
