@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,9 +41,11 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 
 @Composable
 fun PlaylistPickerBox(
+    song: Song,
     playlists: List<XvoxPlaylist>,
     onCreate: () -> Unit,
-    onChoose: (XvoxPlaylist) -> Unit
+    onAdd: (XvoxPlaylist) -> Unit,
+    onRemove: (XvoxPlaylist) -> Unit
 ) {
     val colors =
         XvoxTheme.colors
@@ -68,25 +71,25 @@ fun PlaylistPickerBox(
                     Modifier.weight(1f)
             )
 
-            Spacer(
-                Modifier.size(44.dp)
-            )
-
             Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(
-                        colors.card,
-                        CircleShape
-                    )
-                    .clickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
-                        indication = null,
-                        onClick = onCreate
-                    ),
+                modifier =
+                    Modifier
+                        .size(
+                            36.dp
+                        )
+                        .background(
+                            colors.card,
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource =
+                                remember {
+                                    MutableInteractionSource()
+                                },
+                            indication = null,
+                            onClick =
+                                onCreate
+                        ),
                 contentAlignment =
                     Alignment.Center
             ) {
@@ -109,31 +112,41 @@ fun PlaylistPickerBox(
         }
 
         Spacer(
-            Modifier.height(14.dp)
+            Modifier.height(
+                14.dp
+            )
         )
 
         if (playlists.isEmpty()) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
-                        indication = null,
-                        onClick = onCreate
-                    ),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource =
+                                remember {
+                                    MutableInteractionSource()
+                                },
+                            indication = null,
+                            onClick =
+                                onCreate
+                        )
+                        .padding(
+                            vertical = 10.dp
+                        ),
                 horizontalAlignment =
                     Alignment.CenterHorizontally
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            colors.card,
-                            CircleShape
-                        ),
+                    modifier =
+                        Modifier
+                            .size(
+                                46.dp
+                            )
+                            .background(
+                                colors.card,
+                                CircleShape
+                            ),
                     contentAlignment =
                         Alignment.Center
                 ) {
@@ -149,13 +162,15 @@ fun PlaylistPickerBox(
                             colors.primaryText,
                         modifier =
                             Modifier.size(
-                                22.dp
+                                21.dp
                             )
                     )
                 }
 
                 Spacer(
-                    Modifier.height(8.dp)
+                    Modifier.height(
+                        8.dp
+                    )
                 )
 
                 Text(
@@ -174,32 +189,51 @@ fun PlaylistPickerBox(
                     )
             ) {
                 items(
-                    playlists,
+                    items =
+                        playlists,
                     key = {
                         it.id
                     }
-                ) { playlist ->
+                ) {
+                    playlist ->
+
+                    val contains =
+                        song.id in
+                            playlist.songIds
+
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .clickable(
-                                interactionSource =
-                                    remember {
-                                        MutableInteractionSource()
-                                    },
-                                indication = null
-                            ) {
-                                onChoose(
-                                    playlist
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(
+                                    58.dp
                                 )
-                            },
+                                .clickable(
+                                    interactionSource =
+                                        remember {
+                                            MutableInteractionSource()
+                                        },
+                                    indication =
+                                        null
+                                ) {
+                                    if (contains) {
+                                        onRemove(
+                                            playlist
+                                        )
+                                    } else {
+                                        onAdd(
+                                            playlist
+                                        )
+                                    }
+                                },
                         verticalAlignment =
                             Alignment.CenterVertically
                     ) {
                         Column(
                             modifier =
-                                Modifier.weight(1f)
+                                Modifier.weight(
+                                    1f
+                                )
                         ) {
                             Text(
                                 text =
@@ -208,15 +242,45 @@ fun PlaylistPickerBox(
                                     colors.primaryText,
                                 fontSize = 14.sp,
                                 fontWeight =
-                                    FontWeight.SemiBold
+                                    FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow =
+                                    TextOverflow.Ellipsis
                             )
 
                             Text(
                                 text =
-                                    "${playlist.songIds.size} songs",
+                                    if (contains) {
+                                        "Remove from this playlist"
+                                    } else {
+                                        "${playlist.songIds.size} songs"
+                                    },
                                 color =
-                                    colors.secondaryText,
-                                fontSize = 10.sp
+                                    if (contains) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.secondaryText
+                                    },
+                                fontSize = 10.sp,
+                                maxLines = 1
+                            )
+                        }
+
+                        if (contains) {
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        R.drawable
+                                            .ic_xvox_check
+                                    ),
+                                contentDescription =
+                                    null,
+                                tint =
+                                    colors.primaryAccent,
+                                modifier =
+                                    Modifier.size(
+                                        17.dp
+                                    )
                             )
                         }
                     }
@@ -238,21 +302,20 @@ fun CreatePlaylistBox(
     val colors =
         XvoxTheme.colors
 
-    var name by remember {
-        mutableStateOf("")
-    }
+    var name by
+        remember {
+            mutableStateOf("")
+        }
 
     val selected =
         remember(
             initialSong?.id
         ) {
             mutableStateListOf<Long>()
-                .also {
+                .apply {
                     initialSong
-                        ?.let { song ->
-                            it.add(
-                                song.id
-                            )
+                        ?.let {
+                            add(it.id)
                         }
                 }
         }
@@ -272,7 +335,9 @@ fun CreatePlaylistBox(
         )
 
         Spacer(
-            Modifier.height(12.dp)
+            Modifier.height(
+                14.dp
+            )
         )
 
         BasicTextField(
@@ -291,26 +356,37 @@ fun CreatePlaylistBox(
                 SolidColor(
                     colors.primaryText
                 ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    colors.card,
-                    RoundedCornerShape(
-                        14.dp
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(
+                        48.dp
                     )
-                )
-                .height(48.dp),
+                    .background(
+                        colors.card,
+                        RoundedCornerShape(
+                            14.dp
+                        )
+                    ),
             decorationBox = {
                 field ->
 
                 Box(
                     modifier =
-                        Modifier.fillMaxWidth(),
+                        Modifier
+                            .fillMaxWidth()
+                            .height(
+                                48.dp
+                            )
+                            .padding(
+                                horizontal =
+                                    14.dp
+                            ),
                     contentAlignment =
                         Alignment.CenterStart
                 ) {
                     if (
-                        name.isBlank()
+                        name.isEmpty()
                     ) {
                         Text(
                             text =
@@ -327,7 +403,9 @@ fun CreatePlaylistBox(
         )
 
         Spacer(
-            Modifier.height(12.dp)
+            Modifier.height(
+                12.dp
+            )
         )
 
         LazyColumn(
@@ -337,40 +415,49 @@ fun CreatePlaylistBox(
                 )
         ) {
             items(
-                songs,
+                items =
+                    songs,
                 key = {
                     it.id
                 }
-            ) { song ->
+            ) {
+                song ->
+
                 val checked =
-                    song.id in selected
+                    song.id in
+                        selected
 
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null
-                        ) {
-                            if (checked) {
-                                selected.remove(
-                                    song.id
-                                )
-                            } else {
-                                selected.add(
-                                    song.id
-                                )
-                            }
-                        },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(
+                                46.dp
+                            )
+                            .clickable(
+                                interactionSource =
+                                    remember {
+                                        MutableInteractionSource()
+                                    },
+                                indication =
+                                    null
+                            ) {
+                                if (checked) {
+                                    selected.remove(
+                                        song.id
+                                    )
+                                } else {
+                                    selected.add(
+                                        song.id
+                                    )
+                                }
+                            },
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
                     Text(
-                        text = song.title,
+                        text =
+                            song.title,
                         color =
                             colors.primaryText,
                         fontSize = 12.sp,
@@ -378,53 +465,72 @@ fun CreatePlaylistBox(
                         overflow =
                             TextOverflow.Ellipsis,
                         modifier =
-                            Modifier.weight(1f)
+                            Modifier.weight(
+                                1f
+                            )
                     )
 
                     Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .background(
-                                if (checked) {
-                                    colors.primaryText
-                                } else {
-                                    colors.card
-                                },
-                                CircleShape
-                            )
+                        modifier =
+                            Modifier
+                                .size(
+                                    16.dp
+                                )
+                                .background(
+                                    if (checked) {
+                                        colors.primaryText
+                                    } else {
+                                        colors.card
+                                    },
+                                    CircleShape
+                                )
+                                .then(
+                                    if (checked) {
+                                        Modifier.padding(
+                                            3.dp
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                     )
                 }
             }
         }
 
         Spacer(
-            Modifier.height(12.dp)
+            Modifier.height(
+                12.dp
+            )
         )
 
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-                .background(
-                    colors.card,
-                    RoundedCornerShape(
-                        14.dp
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(
+                        46.dp
                     )
-                )
-                .clickable(
-                    enabled =
-                        name.isNotBlank(),
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
-                    indication = null
-                ) {
-                    onCreate(
-                        name,
-                        selected.toSet()
+                    .background(
+                        colors.card,
+                        RoundedCornerShape(
+                            14.dp
+                        )
                     )
-                },
+                    .clickable(
+                        enabled =
+                            name.isNotBlank(),
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication = null
+                    ) {
+                        onCreate(
+                            name.trim(),
+                            selected.toSet()
+                        )
+                    },
             contentAlignment =
                 Alignment.Center
         ) {
