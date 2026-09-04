@@ -1,5 +1,6 @@
 package com.xvox.music.features.home.library
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,19 +48,82 @@ fun PlaylistActionsBox(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     onRename: (String) -> Unit,
-    onEditCover: () -> Unit,
+    onSaveCover: (
+        List<Long>,
+        Uri?,
+        () -> Unit
+    ) -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
-
     var editing by
         remember(
             playlist.id
         ) {
             mutableStateOf(false)
         }
+
+    var editingCover by
+        remember(
+            playlist.id
+        ) {
+            mutableStateOf(false)
+        }
+
+    if (editingCover) {
+        PlaylistCoverEditor(
+            playlist = playlist,
+            songs = songs,
+            onCancel = {
+                editingCover = false
+            },
+            onApply = {
+                    ids,
+                    uri ->
+
+                onSaveCover(
+                    ids,
+                    uri
+                ) {
+                    editingCover =
+                        false
+                }
+            }
+        )
+
+        return
+    }
+
+    PlaylistActionsContent(
+        playlist = playlist,
+        songs = songs,
+        editing = editing,
+        onEditingChange = {
+            editing = it
+        },
+        onRename = onRename,
+        onEditCover = {
+            editingCover = true
+        },
+        onDelete = onDelete,
+        onInfo = onInfo
+    )
+}
+
+@Composable
+private fun PlaylistActionsContent(
+    playlist: XvoxPlaylist,
+    songs: List<Song>,
+    editing: Boolean,
+    onEditingChange:
+        (Boolean) -> Unit,
+    onRename: (String) -> Unit,
+    onEditCover: () -> Unit,
+    onDelete: () -> Unit,
+    onInfo: () -> Unit
+) {
+    val colors =
+        XvoxTheme.colors
 
     var name by
         remember(
@@ -102,7 +166,7 @@ fun PlaylistActionsBox(
             Box(
                 modifier =
                     Modifier.size(
-                        64.dp
+                        62.dp
                     ),
                 contentAlignment =
                     Alignment.Center
@@ -136,10 +200,11 @@ fun PlaylistActionsBox(
                                     34.dp
                                 )
                                 .background(
-                                    Color.Black.copy(
-                                        alpha =
-                                            0.62f
-                                    ),
+                                    Color.Black
+                                        .copy(
+                                            alpha =
+                                                0.64f
+                                        ),
                                     CircleShape
                                 )
                                 .clickable(
@@ -239,6 +304,9 @@ fun PlaylistActionsBox(
                             CircleShape
                         )
                         .clickable(
+                            enabled =
+                                !editing ||
+                                    name.isNotBlank(),
                             interactionSource =
                                 remember {
                                     MutableInteractionSource()
@@ -247,22 +315,17 @@ fun PlaylistActionsBox(
                                 null
                         ) {
                             if (editing) {
-                                val clean =
+                                onRename(
                                     name.trim()
+                                )
 
-                                if (
-                                    clean.isNotEmpty()
-                                ) {
-                                    onRename(
-                                        clean
-                                    )
-
-                                    editing =
-                                        false
-                                }
+                                onEditingChange(
+                                    false
+                                )
                             } else {
-                                editing =
+                                onEditingChange(
                                     true
+                                )
                             }
                         },
                 contentAlignment =
@@ -435,11 +498,14 @@ private fun PlaylistAction(
                         remember {
                             MutableInteractionSource()
                         },
-                    indication = null,
-                    onClick = onClick
+                    indication =
+                        null,
+                    onClick =
+                        onClick
                 )
                 .padding(
-                    vertical = 13.dp
+                    vertical =
+                        13.dp
                 )
     )
 }
