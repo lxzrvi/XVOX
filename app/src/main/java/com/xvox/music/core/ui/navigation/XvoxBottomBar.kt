@@ -41,23 +41,25 @@ fun XvoxBottomBar(
             selected
         )
 
-    var position by remember {
-        mutableFloatStateOf(
-            selectedIndex.toFloat()
-        )
-    }
+    var position by
+        remember {
+            mutableFloatStateOf(
+                selectedIndex
+                    .toFloat()
+            )
+        }
 
     LaunchedEffect(
         selectedIndex
     ) {
         position =
-            selectedIndex.toFloat()
+            selectedIndex
+                .toFloat()
     }
 
     val motion =
         rememberXvoxNavigationMotion(
-            position =
-                position
+            position = position
         )
 
     val parentShape =
@@ -73,138 +75,142 @@ fun XvoxBottomBar(
         )
 
     Box(
-        modifier = modifier
-            .width(
-                XvoxNavigationGeometry
-                    .barWidth
-            )
-            .height(
-                XvoxNavigationGeometry
-                    .hostHeight
-            )
+        modifier =
+            modifier
+                .width(
+                    XvoxNavigationGeometry
+                        .barWidth
+                )
+                .height(
+                    XvoxNavigationGeometry
+                        .hostHeight
+                )
     ) {
         Box(
-            modifier = Modifier
-                .align(
-                    Alignment.TopCenter
-                )
-                .offset(
-                    y =
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopCenter
+                    )
+                    .offset(
+                        y =
+                            XvoxNavigationGeometry
+                                .hostOverflow
+                    )
+                    .size(
                         XvoxNavigationGeometry
-                            .hostOverflow
-                )
-                .size(
-                    XvoxNavigationGeometry
-                        .barWidth,
-                    XvoxNavigationGeometry
-                        .barHeight
-                )
-                .graphicsLayer {
-                    shape =
-                        parentShape
-                    clip = true
-                }
-                .background(
-                    colors.surface
-                        .copy(
-                            alpha =
-                                0.88f
-                        )
-                )
-                .border(
-                    width =
+                            .barWidth,
                         XvoxNavigationGeometry
-                            .barBorderWidth,
-                    color =
-                        colors.cardBorder
+                            .barHeight
+                    )
+                    .graphicsLayer {
+                        shape =
+                            parentShape
+                        clip = true
+                    }
+                    .background(
+                        colors.surface
                             .copy(
                                 alpha =
-                                    0.62f
-                            ),
-                    shape =
-                        parentShape
-                )
+                                    0.88f
+                            )
+                    )
+                    .border(
+                        width =
+                            XvoxNavigationGeometry
+                                .barBorderWidth,
+                        color =
+                            colors.cardBorder
+                                .copy(
+                                    alpha =
+                                        0.62f
+                                ),
+                        shape =
+                            parentShape
+                    )
         )
 
         Box(
-            modifier = Modifier
-                .align(
-                    Alignment.TopStart
-                )
-                .offset(
-                    y =
-                        XvoxNavigationGeometry
-                            .hostOverflow +
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopStart
+                    )
+                    .offset(
+                        y =
                             XvoxNavigationGeometry
-                                .barHeight /
-                            2 -
-                            XvoxNavigationGeometry
-                                .selectorRestHeight /
-                            2
-                )
-                .graphicsLayer {
-                    translationX =
-                        (
-                            XvoxNavigationGeometry
-                                .selectorStart +
+                                .hostOverflow +
                                 XvoxNavigationGeometry
-                                    .selectorTravel *
-                                (
-                                    motion.position /
-                                        2f
-                                    )
-                            )
-                            .toPx()
+                                    .barHeight /
+                                2 -
+                                XvoxNavigationGeometry
+                                    .selectorRestHeight /
+                                2
+                    )
+                    .graphicsLayer {
+                        translationX =
+                            (
+                                XvoxNavigationGeometry
+                                    .selectorStart +
+                                    XvoxNavigationGeometry
+                                        .selectorTravel *
+                                    (
+                                        motion.position /
+                                            2f
+                                        )
+                                )
+                                .toPx()
 
-                    shape =
-                        selectorShape
+                        shape =
+                            selectorShape
 
-                    clip = true
-                }
-                .size(
-                    XvoxNavigationGeometry
-                        .selectorRestWidth,
-                    XvoxNavigationGeometry
-                        .selectorRestHeight
-                )
-                .background(
-                    colors.cardElevated
-                        .copy(
-                            alpha =
-                                0.42f
-                        )
-                )
-                .border(
-                    width =
+                        clip = true
+                    }
+                    .size(
                         XvoxNavigationGeometry
-                            .selectorBorderWidth,
-                    color =
-                        colors.cardBorder
+                            .selectorRestWidth,
+                        XvoxNavigationGeometry
+                            .selectorRestHeight
+                    )
+                    .background(
+                        colors.cardElevated
                             .copy(
                                 alpha =
-                                    0.72f
-                            ),
-                    shape =
-                        selectorShape
-                )
+                                    0.42f
+                            )
+                    )
+                    .border(
+                        width =
+                            XvoxNavigationGeometry
+                                .selectorBorderWidth,
+                        color =
+                            colors.cardBorder
+                                .copy(
+                                    alpha =
+                                        0.72f
+                                ),
+                        shape =
+                            selectorShape
+                    )
         )
 
         Row(
-            modifier = Modifier
-                .align(
-                    Alignment.TopCenter
-                )
-                .offset(
-                    y =
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopCenter
+                    )
+                    .offset(
+                        y =
+                            XvoxNavigationGeometry
+                                .hostOverflow
+                    )
+                    .size(
                         XvoxNavigationGeometry
-                            .hostOverflow
-                )
-                .size(
-                    XvoxNavigationGeometry
-                        .barWidth,
-                    XvoxNavigationGeometry
-                        .barHeight
-                ),
+                            .barWidth,
+                        XvoxNavigationGeometry
+                            .barHeight
+                    ),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -221,23 +227,24 @@ fun XvoxBottomBar(
                         }
 
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                            .clickable(
-                                interactionSource =
-                                    interaction,
-                                indication =
-                                    null
-                            ) {
-                                position =
-                                    index
-                                        .toFloat()
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource =
+                                        interaction,
+                                    indication =
+                                        null
+                                ) {
+                                    position =
+                                        index
+                                            .toFloat()
 
-                                onSelected(
-                                    destination
-                                )
-                            },
+                                    onSelected(
+                                        destination
+                                    )
+                                },
                         contentAlignment =
                             Alignment.Center
                     ) {
