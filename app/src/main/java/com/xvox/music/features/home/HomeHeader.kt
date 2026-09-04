@@ -27,11 +27,13 @@ import com.xvox.music.features.home.library.HomeLibraryMode
 fun HomeHeader(
     profile: UserPreferences,
     libraryMode: HomeLibraryMode,
+    onProfileClick: () -> Unit,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
     onLibraryModeClick: () -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Row(
         modifier = Modifier
@@ -45,12 +47,18 @@ fun HomeHeader(
         HomeProfileAvatar(
             profile = profile,
             modifier =
-                Modifier.size(42.dp)
+                Modifier.size(
+                    42.dp
+                ),
+            onClick =
+                onProfileClick
         )
 
         Spacer(
             modifier =
-                Modifier.width(10.dp)
+                Modifier.width(
+                    10.dp
+                )
         )
 
         Column(
@@ -58,8 +66,10 @@ fun HomeHeader(
                 Modifier.weight(1f)
         ) {
             Text(
-                text = profile.username,
-                color = colors.primaryText,
+                text =
+                    profile.username,
+                color =
+                    colors.primaryText,
                 fontFamily =
                     XvoxPersonalFont,
                 fontSize = 18.sp,
@@ -73,7 +83,9 @@ fun HomeHeader(
         }
 
         val actionShape =
-            RoundedCornerShape(21.dp)
+            RoundedCornerShape(
+                21.dp
+            )
 
         Row(
             modifier = Modifier
@@ -88,7 +100,8 @@ fun HomeHeader(
                     width = 0.65.dp,
                     color =
                         colors.cardBorder,
-                    shape = actionShape
+                    shape =
+                        actionShape
                 )
                 .padding(
                     horizontal = 2.dp
@@ -98,14 +111,18 @@ fun HomeHeader(
         ) {
             HomeHeaderIcon(
                 type =
-                    HomeHeaderIconType.SCAN,
-                onClick = onRefresh
+                    HomeHeaderIconType
+                        .SCAN,
+                onClick =
+                    onRefresh
             )
 
             HomeHeaderIcon(
                 type =
-                    HomeHeaderIconType.HEART,
-                onClick = onHeartClick
+                    HomeHeaderIconType
+                        .HEART,
+                onClick =
+                    onHeartClick
             )
 
             HomeHeaderIcon(
