@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -35,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -44,9 +44,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.SongArtwork
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
 @Composable
 fun PlaylistCoverEditor(
     playlist: XvoxPlaylist,
@@ -60,43 +57,11 @@ fun PlaylistCoverEditor(
     val colors =
         XvoxTheme.colors
 
-    val initial =
-        remember(
-            playlist.id
-        ) {
-            val stored =
-                playlist
-                    .coverSongIds
-                    .filter {
-                        id ->
-
-                        songs.any {
-                            it.id == id
-                        }
-                    }
-
-            (
-                stored +
-                    songs
-                        .map {
-                            it.id
-                        }
-                        .filterNot {
-                            it in stored
-                        }
-                )
-                .distinct()
-                .take(4)
-        }
-
     val selected =
         remember(
             playlist.id
         ) {
             mutableStateListOf<Long>()
-                .apply {
-                    addAll(initial)
-                }
         }
 
     var customUri by
@@ -116,9 +81,14 @@ fun PlaylistCoverEditor(
             uri ->
 
             if (uri != null) {
+                selected.clear()
                 customUri = uri
             }
         }
+
+    val canApply =
+        selected.isNotEmpty() ||
+            customUri != null
 
     Column(
         modifier =
@@ -130,21 +100,22 @@ fun PlaylistCoverEditor(
             color =
                 colors.primaryText,
             fontSize = 18.sp,
-            modifier =
-                Modifier.padding(
-                    end = 44.dp
-                )
+            fontWeight =
+                FontWeight.Bold
         )
 
         LazyVerticalGrid(
             columns =
                 GridCells.Fixed(4),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(250.dp)
-                .padding(
-                    top = 14.dp
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = 14.dp
+                    )
+                    .heightIn(
+                        max = 280.dp
+                    ),
             horizontalArrangement =
                 Arrangement.spacedBy(
                     7.dp
@@ -162,80 +133,76 @@ fun PlaylistCoverEditor(
             ) {
                 song ->
 
-                val selectedIndex =
+                val index =
                     selected.indexOf(
                         song.id
                     )
 
                 val active =
-                    selectedIndex >= 0
+                    index >= 0
+
+                val shape =
+                    RoundedCornerShape(
+                        10.dp
+                    )
 
                 Box(
-                    modifier = Modifier
-                        .aspectRatio(1f)
-                        .clip(
-                            RoundedCornerShape(
-                                10.dp
+                    modifier =
+                        Modifier
+                            .aspectRatio(
+                                1f
                             )
-                        )
-                        .background(
-                            colors.card
-                        )
-                        .then(
-                            if (active) {
-                                Modifier.border(
-                                    width =
-                                        2.dp,
-                                    color =
-                                        colors
-                                            .primaryAccent,
-                                    shape =
-                                        RoundedCornerShape(
-                                            10.dp
-                                        )
-                                )
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null
-                        ) {
-                            customUri =
-                                null
+                            .clip(shape)
+                            .background(
+                                colors.card
+                            )
+                            .border(
+                                width =
+                                    if (active) {
+                                        2.dp
+                                    } else {
+                                        0.6.dp
+                                    },
+                                color =
+                                    if (active) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.cardBorder
+                                    },
+                                shape = shape
+                            )
+                            .clickable(
+                                interactionSource =
+                                    remember {
+                                        MutableInteractionSource()
+                                    },
+                                indication = null
+                            ) {
+                                customUri =
+                                    null
 
-                            if (active) {
-                                selected.removeAt(
-                                    selectedIndex
-                                )
+                                if (active) {
+                                    selected.remove(
+                                        song.id
+                                    )
+                                } else {
+                                    if (
+                                        selected.size >=
+                                        4
+                                    ) {
+                                        selected.clear()
+                                    }
 
-                                selected.add(
-                                    song.id
-                                )
-                            } else {
-                                if (
-                                    selected.size >=
-                                    4
-                                ) {
-                                    selected.removeAt(
-                                        0
+                                    selected.add(
+                                        song.id
                                     )
                                 }
-
-                                selected.add(
-                                    song.id
-                                )
                             }
-                        }
                 ) {
                     SongArtwork(
                         artwork =
                             song.artworkUri,
-                        requestSize = 128,
+                        requestSize = 112,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -249,8 +216,7 @@ fun PlaylistCoverEditor(
                             modifier =
                                 Modifier
                                     .align(
-                                        Alignment
-                                            .TopStart
+                                        Alignment.TopStart
                                     )
                                     .padding(
                                         5.dp
@@ -259,8 +225,7 @@ fun PlaylistCoverEditor(
                                         19.dp
                                     )
                                     .background(
-                                        colors
-                                            .primaryAccent,
+                                        colors.primaryAccent,
                                         RoundedCornerShape(
                                             6.dp
                                         )
@@ -270,16 +235,13 @@ fun PlaylistCoverEditor(
                         ) {
                             Text(
                                 text =
-                                    (
-                                        selectedIndex +
-                                            1
-                                        )
+                                    (index + 1)
                                         .toString(),
                                 color =
-                                    colors
-                                        .background,
-                                fontSize =
-                                    9.sp
+                                    colors.background,
+                                fontSize = 9.sp,
+                                fontWeight =
+                                    FontWeight.Bold
                             )
                         }
                     }
@@ -287,55 +249,60 @@ fun PlaylistCoverEditor(
             }
 
             item(
-                key =
-                    "custom_cover"
+                key = "custom_cover"
             ) {
+                val shape =
+                    RoundedCornerShape(
+                        10.dp
+                    )
+
                 Box(
-                    modifier = Modifier
-                        .aspectRatio(1f)
-                        .clip(
-                            RoundedCornerShape(
-                                10.dp
+                    modifier =
+                        Modifier
+                            .aspectRatio(
+                                1f
                             )
-                        )
-                        .background(
-                            colors.card
-                        )
-                        .then(
-                            if (
-                                customUri !=
-                                null
+                            .clip(shape)
+                            .background(
+                                colors.card
+                            )
+                            .border(
+                                width =
+                                    if (
+                                        customUri !=
+                                        null
+                                    ) {
+                                        2.dp
+                                    } else {
+                                        0.6.dp
+                                    },
+                                color =
+                                    if (
+                                        customUri !=
+                                        null
+                                    ) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.cardBorder
+                                    },
+                                shape =
+                                    shape
+                            )
+                            .clickable(
+                                interactionSource =
+                                    remember {
+                                        MutableInteractionSource()
+                                    },
+                                indication = null
                             ) {
-                                Modifier.border(
-                                    width =
-                                        2.dp,
-                                    color =
-                                        colors
-                                            .primaryAccent,
-                                    shape =
-                                        RoundedCornerShape(
-                                            10.dp
-                                        )
+                                picker.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts
+                                            .PickVisualMedia
+                                            .ImageOnly
+                                    )
                                 )
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null
-                        ) {
-                            picker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts
-                                        .PickVisualMedia
-                                        .ImageOnly
-                                )
-                            )
-                        },
+                            },
                     contentAlignment =
                         Alignment.Center
                 ) {
@@ -347,7 +314,7 @@ fun PlaylistCoverEditor(
                             model =
                                 customUri,
                             contentDescription =
-                                null,
+                                "Custom playlist cover",
                             contentScale =
                                 ContentScale.Crop,
                             modifier =
@@ -367,11 +334,10 @@ fun PlaylistCoverEditor(
                             contentDescription =
                                 "Custom cover",
                             tint =
-                                colors
-                                    .primaryText,
+                                colors.primaryText,
                             modifier =
                                 Modifier.size(
-                                    22.dp
+                                    21.dp
                                 )
                         )
                     }
@@ -380,45 +346,55 @@ fun PlaylistCoverEditor(
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    top = 14.dp
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = 14.dp
+                    ),
             horizontalArrangement =
                 Arrangement.spacedBy(
                     10.dp
                 )
         ) {
-            CoverAction(
+            CoverButton(
                 title = "Cancel",
+                enabled = true,
                 onClick =
                     onCancel,
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.weight(
+                        1f
+                    )
             )
 
-            CoverAction(
+            CoverButton(
                 title = "Okay",
+                enabled =
+                    canApply,
                 onClick = {
-                    onApply(
-                        selected.toList(),
-                        customUri
-                    )
+                    if (canApply) {
+                        onApply(
+                            selected.toList(),
+                            customUri
+                        )
+                    }
                 },
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.weight(
+                        1f
+                    )
             )
         }
     }
 }
 
 @Composable
-private fun CoverAction(
+private fun CoverButton(
     title: String,
+    enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier =
-        Modifier
+    modifier: Modifier = Modifier
 ) {
     val colors =
         XvoxTheme.colors
@@ -426,7 +402,9 @@ private fun CoverAction(
     Box(
         modifier =
             modifier
-                .height(44.dp)
+                .heightIn(
+                    min = 44.dp
+                )
                 .background(
                     colors.card,
                     RoundedCornerShape(
@@ -434,6 +412,7 @@ private fun CoverAction(
                     )
                 )
                 .clickable(
+                    enabled = enabled,
                     interactionSource =
                         remember {
                             MutableInteractionSource()
@@ -447,8 +426,14 @@ private fun CoverAction(
         Text(
             text = title,
             color =
-                colors.primaryText,
-            fontSize = 13.sp
+                if (enabled) {
+                    colors.primaryText
+                } else {
+                    colors.mutedText
+                },
+            fontSize = 13.sp,
+            fontWeight =
+                FontWeight.SemiBold
         )
     }
 }
