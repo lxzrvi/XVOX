@@ -11,7 +11,8 @@ import org.json.JSONObject
 data class XvoxPlaylist(
     val id: String,
     val name: String,
-    val songIds: List<Long>
+    val songIds: List<Long>,
+    val createdAt: Long
 )
 
 class XvoxLibraryPreferences(
@@ -66,11 +67,11 @@ class XvoxLibraryPreferences(
         liked: Boolean
     ) {
         context.xvoxDataStore.edit {
-            preferences ->
+            prefs ->
 
             val ids =
                 decodeIds(
-                    preferences[
+                    prefs[
                         Keys.liked
                     ].orEmpty()
                 ).toMutableSet()
@@ -81,7 +82,7 @@ class XvoxLibraryPreferences(
                 ids.remove(songId)
             }
 
-            preferences[Keys.liked] =
+            prefs[Keys.liked] =
                 ids.joinToString(",")
         }
     }
@@ -90,18 +91,18 @@ class XvoxLibraryPreferences(
         songId: Long
     ) {
         context.xvoxDataStore.edit {
-            preferences ->
+            prefs ->
 
             val ids =
                 decodeIds(
-                    preferences[
+                    prefs[
                         Keys.hidden
                     ].orEmpty()
                 ).toMutableSet()
 
             ids.add(songId)
 
-            preferences[Keys.hidden] =
+            prefs[Keys.hidden] =
                 ids.joinToString(",")
         }
     }
@@ -110,36 +111,35 @@ class XvoxLibraryPreferences(
         name: String,
         songIds: Collection<Long>
     ): XvoxPlaylist? {
-        val clean =
-            name.trim()
+        val clean = name.trim()
 
         if (clean.isEmpty()) {
             return null
         }
 
+        val now =
+            System.currentTimeMillis()
+
         val playlist =
             XvoxPlaylist(
-                id =
-                    System.currentTimeMillis()
-                        .toString(),
+                id = now.toString(),
                 name = clean,
                 songIds =
-                    songIds.distinct()
+                    songIds.distinct(),
+                createdAt = now
             )
 
         context.xvoxDataStore.edit {
-            preferences ->
+            prefs ->
 
             val current =
                 decodePlaylists(
-                    preferences[
+                    prefs[
                         Keys.playlists
                     ].orEmpty()
                 )
 
-            preferences[
-                Keys.playlists
-            ] =
+            prefs[Keys.playlists] =
                 encodePlaylists(
                     current + playlist
                 )
@@ -151,16 +151,91 @@ class XvoxLibraryPreferences(
     suspend fun addSongToPlaylist(
         playlistId: String,
         songId: Long
-    ): XvoxPlaylist? {
-        var updatedPlaylist:
-            XvoxPlaylist? = null
+    ): XvoxPlaylist? =
+        updatePlaylist(
+            playlistId
+        ) {
+            it.copy(
+                songIds =
+                    (
+                        it.songIds +
+                            songId
+                        ).distinct()
+            )
+        }
 
+    suspend fun removeSongFromPlaylist(
+        playlistId: String,
+        songId: Long
+    ): XvoxPlaylist? =
+        updatePlaylist(
+            playlistId
+        ) {
+            it.copy(
+                songIds =
+                    it.songIds.filterNot {
+                        id ->
+                        id == songId
+                    }
+            )
+        }
+
+    suspend fun renamePlaylist(
+        playlistId: String,
+        name: String
+    ): XvoxPlaylist? {
+        val clean = name.trim()
+
+        if (clean.isEmpty()) {
+            return null
+        }
+
+        return updatePlaylist(
+            playlistId
+        ) {
+            it.copy(
+                name = clean
+            )
+        }
+    }
+
+    suspend fun deletePlaylist(
+        playlistId: String
+    ) {
         context.xvoxDataStore.edit {
-            preferences ->
+            prefs ->
 
             val current =
                 decodePlaylists(
-                    preferences[
+                    prefs[
+                        Keys.playlists
+                    ].orEmpty()
+                )
+
+            prefs[Keys.playlists] =
+                encodePlaylists(
+                    current.filterNot {
+                        it.id == playlistId
+                    }
+                )
+        }
+    }
+
+    private suspend fun updatePlaylist(
+        playlistId: String,
+        transform: (
+            XvoxPlaylist
+        ) -> XvoxPlaylist
+    ): XvoxPlaylist? {
+        var result: XvoxPlaylist? =
+            null
+
+        context.xvoxDataStore.edit {
+            prefs ->
+
+            val current =
+                decodePlaylists(
+                    prefs[
                         Keys.playlists
                     ].orEmpty()
                 )
@@ -173,28 +248,21 @@ class XvoxLibraryPreferences(
                         playlist.id ==
                         playlistId
                     ) {
-                        playlist.copy(
-                            songIds =
-                                (
-                                    playlist.songIds +
-                                        songId
-                                    )
-                                    .distinct()
+                        transform(
+                            playlist
                         ).also {
-                            updatedPlaylist = it
+                            result = it
                         }
                     } else {
                         playlist
                     }
                 }
 
-            preferences[
-                Keys.playlists
-            ] =
+            prefs[Keys.playlists] =
                 encodePlaylists(updated)
         }
 
-        return updatedPlaylist
+        return result
     }
 
     private fun decodeIds(
@@ -231,6 +299,10 @@ class XvoxLibraryPreferences(
                         playlist.name
                     )
                     .put(
+                        "createdAt",
+                        playlist.createdAt
+                    )
+                    .put(
                         "songs",
                         songs
                     )
@@ -256,16 +328,18 @@ class XvoxLibraryPreferences(
                     index in
                     0 until array.length()
                 ) {
-                    val objectValue =
+                    val value =
                         array.getJSONObject(
                             index
                         )
 
+                    val id =
+                        value.getString("id")
+
                     val songs =
-                        objectValue
-                            .optJSONArray(
-                                "songs"
-                            )
+                        value.optJSONArray(
+                            "songs"
+                        )
 
                     val songIds =
                         buildList {
@@ -284,20 +358,24 @@ class XvoxLibraryPreferences(
                             }
                         }
 
+                    val fallbackCreated =
+                        id.toLongOrNull()
+                            ?: 0L
+
                     add(
                         XvoxPlaylist(
-                            id =
-                                objectValue
-                                    .getString(
-                                        "id"
-                                    ),
+                            id = id,
                             name =
-                                objectValue
-                                    .getString(
-                                        "name"
-                                    ),
+                                value.getString(
+                                    "name"
+                                ),
                             songIds =
-                                songIds
+                                songIds,
+                            createdAt =
+                                value.optLong(
+                                    "createdAt",
+                                    fallbackCreated
+                                )
                         )
                     )
                 }
