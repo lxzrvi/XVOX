@@ -17,10 +17,14 @@ class MainPlayerViewModel(
 ) : AndroidViewModel(application) {
 
     private val controller =
-        PlaybackController(application)
+        PlaybackController(
+            application
+        )
 
     private val preferences =
-        UserPreferencesRepository(application)
+        UserPreferencesRepository(
+            application
+        )
 
     private val _state =
         MutableStateFlow(
@@ -31,8 +35,17 @@ class MainPlayerViewModel(
         StateFlow<MainPlayerUiState> =
         _state.asStateFlow()
 
-    private var restoreResolved = false
-    private var savedSongId: Long? = null
+    private var restoreResolved =
+        false
+
+    private var savedSongId:
+        Long? = null
+
+    private var libraryQueueSignature =
+        0L
+
+    private var libraryQueueSize =
+        -1
 
     init {
         viewModelScope.launch {
@@ -45,71 +58,142 @@ class MainPlayerViewModel(
         }
 
         viewModelScope.launch {
-            controller.state.collect {
-                playback ->
+            controller.state
+                .collect {
+                    playback ->
 
-                _state.update {
-                    it.copy(
-                        connected =
-                            playback.connected,
-                        currentSongId =
-                            playback.currentSongId,
-                        currentIndex =
-                            playback.currentIndex,
-                        isPlaying =
-                            playback.isPlaying,
-                        position =
-                            playback.position,
-                        duration =
-                            playback.duration
-                    )
+                    _state.update {
+                        it.copy(
+                            connected =
+                                playback.connected,
+                            currentSongId =
+                                playback.currentSongId,
+                            currentIndex =
+                                playback.currentIndex,
+                            isPlaying =
+                                playback.isPlaying,
+                            position =
+                                playback.position,
+                            duration =
+                                playback.duration
+                        )
+                    }
                 }
-            }
         }
     }
 
     fun setQueue(
         songs: List<Song>
     ) {
+        val signature =
+            queueSignature(
+                songs
+            )
+
+        if (
+            songs.size ==
+            libraryQueueSize &&
+            signature ==
+            libraryQueueSignature
+        ) {
+            return
+        }
+
+        libraryQueueSize =
+            songs.size
+
+        libraryQueueSignature =
+            signature
+
         val current =
             _state.value
 
         if (
-            current.currentSongId == null ||
+            current.currentSongId ==
+            null ||
             current.queue.isEmpty()
         ) {
-            controller.setQueue(songs)
+            controller.setQueue(
+                songs
+            )
 
             _state.update {
-                it.copy(queue = songs)
+                it.copy(
+                    queue = songs
+                )
             }
-        } else {
-            val available =
-                songs.map {
-                    it.id
-                }.toSet()
 
-            val retained =
-                current.queue.filter {
-                    it.id in available
+            restoreFromQueueIfPossible()
+            return
+        }
+
+        val available =
+            HashSet<Long>(
+                songs.size * 4 / 3 + 1
+            )
+
+        songs.forEach {
+            available.add(
+                it.id
+            )
+        }
+
+        val retained =
+            ArrayList<Song>(
+                current.queue.size
+            )
+
+        val existing =
+            HashSet<Long>(
+                songs.size * 4 / 3 + 1
+            )
+
+        current.queue
+            .forEach {
+                song ->
+
+                if (
+                    song.id in
+                    available
+                ) {
+                    retained.add(song)
+                    existing.add(
+                        song.id
+                    )
                 }
-
-            val existing =
-                retained.map {
-                    it.id
-                }.toSet()
-
-            val merged =
-                retained +
-                    songs.filterNot {
-                        it.id in existing
-                    }
-
-            controller.setQueue(merged)
-
-            _state.update {
-                it.copy(queue = merged)
             }
+
+        val merged =
+            ArrayList<Song>(
+                songs.size
+            )
+
+        merged.addAll(
+            retained
+        )
+
+        songs.forEach {
+            song ->
+
+            if (
+                existing.add(
+                    song.id
+                )
+            ) {
+                merged.add(
+                    song
+                )
+            }
+        }
+
+        controller.setQueue(
+            merged
+        )
+
+        _state.update {
+            it.copy(
+                queue = merged
+            )
         }
 
         restoreFromQueueIfPossible()
@@ -119,10 +203,14 @@ class MainPlayerViewModel(
         song: Song
     ) {
         val queue =
-            controller.playNext(song)
+            controller.playNext(
+                song
+            )
 
         _state.update {
-            it.copy(queue = queue)
+            it.copy(
+                queue = queue
+            )
         }
     }
 
@@ -130,10 +218,14 @@ class MainPlayerViewModel(
         song: Song
     ) {
         val queue =
-            controller.addToQueue(song)
+            controller.addToQueue(
+                song
+            )
 
         _state.update {
-            it.copy(queue = queue)
+            it.copy(
+                queue = queue
+            )
         }
     }
 
@@ -141,13 +233,15 @@ class MainPlayerViewModel(
         songId: Long
     ) {
         val wasCurrent =
-            _state.value.currentSongId ==
+            _state.value
+                .currentSongId ==
                 songId
 
         val queue =
-            controller.removeFromQueue(
-                songId
-            )
+            controller
+                .removeFromQueue(
+                    songId
+                )
 
         if (wasCurrent) {
             controller.stop()
@@ -173,35 +267,52 @@ class MainPlayerViewModel(
     }
 
     private fun restoreFromQueueIfPossible() {
-        if (restoreResolved) return
+        if (restoreResolved) {
+            return
+        }
 
         val songs =
             _state.value.queue
 
         val id =
-            savedSongId ?: return
+            savedSongId
+                ?: return
+
+        val index =
+            songs.indexOfFirst {
+                it.id == id
+            }
+
+        if (index < 0) {
+            return
+        }
 
         val song =
-            songs.firstOrNull {
-                it.id == id
-            } ?: return
+            songs[index]
 
         restoreResolved = true
-        controller.restoreSong(song.id)
+
+        controller.restoreSong(
+            song.id
+        )
 
         _state.update {
             current ->
 
             current.copy(
-                currentSongId = song.id,
+                currentSongId =
+                    song.id,
                 currentIndex =
-                    songs.indexOf(song),
-                duration = song.duration,
+                    index,
+                duration =
+                    song.duration,
                 position = 0L,
                 isPlaying = false,
-                miniPlayerVisible = true,
+                miniPlayerVisible =
+                    true,
                 miniPlayerRiseKey =
-                    current.miniPlayerRiseKey +
+                    current
+                        .miniPlayerRiseKey +
                         1
             )
         }
@@ -210,8 +321,11 @@ class MainPlayerViewModel(
     private fun persistSong(
         songId: Long
     ) {
-        savedSongId = songId
-        restoreResolved = true
+        savedSongId =
+            songId
+
+        restoreResolved =
+            true
 
         viewModelScope.launch {
             preferences
@@ -231,17 +345,24 @@ class MainPlayerViewModel(
                     .nowPlayingVisible
 
         controller.play(song)
-        persistSong(song.id)
+
+        persistSong(
+            song.id
+        )
 
         _state.update {
             current ->
 
             current.copy(
                 queue =
-                    controller.currentQueue(),
-                miniPlayerVisible = true,
+                    controller
+                        .currentQueue(),
+                miniPlayerVisible =
+                    true,
                 miniPlayerRiseKey =
-                    if (needsEntrance) {
+                    if (
+                        needsEntrance
+                    ) {
                         current
                             .miniPlayerRiseKey +
                             1
@@ -258,47 +379,66 @@ class MainPlayerViewModel(
     ) {
         val song =
             _state.value.queue
-                .getOrNull(index)
+                .getOrNull(
+                    index
+                )
                 ?: return
 
-        persistSong(song.id)
+        persistSong(
+            song.id
+        )
 
         controller.playQueueIndex(
             index = index,
-            keepPlayingState = true
+            keepPlayingState =
+                true
         )
     }
 
     fun playPrevious() {
         val target =
             _state.value
-                .currentIndex - 1
+                .currentIndex -
+                1
 
         if (
             target !in
-            _state.value.queue.indices
-        ) return
+            _state.value
+                .queue.indices
+        ) {
+            return
+        }
 
-        playQueueIndex(target)
+        playQueueIndex(
+            target
+        )
     }
 
     fun playNext() {
         val target =
             _state.value
-                .currentIndex + 1
+                .currentIndex +
+                1
 
         if (
             target !in
-            _state.value.queue.indices
-        ) return
+            _state.value
+                .queue.indices
+        ) {
+            return
+        }
 
-        playQueueIndex(target)
+        playQueueIndex(
+            target
+        )
     }
 
     fun seekTo(
         positionMs: Long
     ) {
-        controller.seekTo(positionMs)
+        controller.seekTo(
+            positionMs
+        )
     }
 
     fun togglePlay() {
@@ -307,14 +447,19 @@ class MainPlayerViewModel(
 
     fun openNowPlaying() {
         if (
-            _state.value.currentSongId ==
+            _state.value
+                .currentSongId ==
             null
-        ) return
+        ) {
+            return
+        }
 
         _state.update {
             it.copy(
-                nowPlayingVisible = true,
-                miniPlayerVisible = false
+                nowPlayingVisible =
+                    true,
+                miniPlayerVisible =
+                    false
             )
         }
     }
@@ -351,7 +496,8 @@ class MainPlayerViewModel(
     fun hideMiniPlayer() {
         _state.update {
             it.copy(
-                miniPlayerVisible = false
+                miniPlayerVisible =
+                    false
             )
         }
     }
@@ -361,10 +507,27 @@ class MainPlayerViewModel(
 
         _state.update {
             it.copy(
-                miniPlayerVisible = false,
-                nowPlayingVisible = false
+                miniPlayerVisible =
+                    false,
+                nowPlayingVisible =
+                    false
             )
         }
+    }
+
+    private fun queueSignature(
+        songs: List<Song>
+    ): Long {
+        var result =
+            1125899906842597L
+
+        songs.forEach {
+            result =
+                result * 31L +
+                    it.id
+        }
+
+        return result
     }
 
     override fun onCleared() {
