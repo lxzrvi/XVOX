@@ -11,14 +11,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -26,13 +29,17 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 @Composable
 fun PlaylistsSection(
     playlists: List<XvoxPlaylist>,
-    songsFor: (XvoxPlaylist) -> List<Song>,
+    songsFor:
+        (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit,
-    onOpen: (XvoxPlaylist) -> Unit,
-    onOptions: (XvoxPlaylist) -> Unit,
+    onOpen:
+        (XvoxPlaylist) -> Unit,
+    onOptions:
+        (XvoxPlaylist) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
         modifier =
@@ -50,7 +57,8 @@ fun PlaylistsSection(
         ) {
             Text(
                 text = "Playlists",
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontSize = 16.sp,
                 fontWeight =
                     FontWeight.SemiBold,
@@ -76,11 +84,20 @@ fun PlaylistsSection(
                 contentAlignment =
                     Alignment.Center
             ) {
-                Text(
-                    text = "+",
-                    color =
+                Icon(
+                    painter =
+                        painterResource(
+                            R.drawable
+                                .ic_xvox_plus
+                        ),
+                    contentDescription =
+                        "Create playlist",
+                    tint =
                         colors.primaryText,
-                    fontSize = 22.sp
+                    modifier =
+                        Modifier.size(
+                            19.dp
+                        )
                 )
             }
         }
@@ -94,8 +111,10 @@ fun PlaylistsSection(
                 fontSize = 12.sp,
                 modifier =
                     Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 28.dp
+                        horizontal =
+                            12.dp,
+                        vertical =
+                            28.dp
                     )
             )
         } else {
@@ -103,8 +122,10 @@ fun PlaylistsSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = 12.dp,
-                        vertical = 12.dp
+                        horizontal =
+                            12.dp,
+                        vertical =
+                            12.dp
                     ),
                 verticalArrangement =
                     Arrangement.spacedBy(
@@ -118,38 +139,41 @@ fun PlaylistsSection(
 
                         Row(
                             modifier =
-                                Modifier.fillMaxWidth(),
+                                Modifier
+                                    .fillMaxWidth(),
                             horizontalArrangement =
                                 Arrangement.spacedBy(
                                     10.dp
                                 )
                         ) {
-                            rowPlaylists.forEach {
-                                playlist ->
+                            rowPlaylists
+                                .forEach {
+                                    playlist ->
 
-                                PlaylistCard(
-                                    playlist =
-                                        playlist,
-                                    songs =
-                                        songsFor(
-                                            playlist
-                                        ),
-                                    onClick = {
-                                        onOpen(
-                                            playlist
-                                        )
-                                    },
-                                    onLongClick = {
-                                        onOptions(
-                                            playlist
-                                        )
-                                    },
-                                    modifier =
-                                        Modifier.weight(
-                                            1f
-                                        )
-                                )
-                            }
+                                    PlaylistCard(
+                                        playlist =
+                                            playlist,
+                                        songs =
+                                            songsFor(
+                                                playlist
+                                            ),
+                                        onClick = {
+                                            onOpen(
+                                                playlist
+                                            )
+                                        },
+                                        onLongClick = {
+                                            onOptions(
+                                                playlist
+                                            )
+                                        },
+                                        modifier =
+                                            Modifier
+                                                .weight(
+                                                    1f
+                                                )
+                                    )
+                                }
 
                             if (
                                 rowPlaylists.size ==
@@ -157,9 +181,10 @@ fun PlaylistsSection(
                             ) {
                                 Box(
                                     modifier =
-                                        Modifier.weight(
-                                            1f
-                                        )
+                                        Modifier
+                                            .weight(
+                                                1f
+                                            )
                                 )
                             }
                         }
