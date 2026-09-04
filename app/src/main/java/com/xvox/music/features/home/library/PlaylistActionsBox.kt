@@ -31,8 +31,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,19 +65,19 @@ fun PlaylistActionsBox(
             mutableStateOf(false)
         }
 
-    var editingCover by
+    var coverEditor by
         remember(
             playlist.id
         ) {
             mutableStateOf(false)
         }
 
-    if (editingCover) {
+    if (coverEditor) {
         PlaylistCoverEditor(
             playlist = playlist,
             songs = songs,
             onCancel = {
-                editingCover = false
+                coverEditor = false
             },
             onApply = {
                     ids,
@@ -85,7 +87,7 @@ fun PlaylistActionsBox(
                     ids,
                     uri
                 ) {
-                    editingCover =
+                    coverEditor =
                         false
                 }
             }
@@ -94,24 +96,29 @@ fun PlaylistActionsBox(
         return
     }
 
-    PlaylistActionsContent(
-        playlist = playlist,
+    PlaylistActionsMain(
+        playlist =
+            playlist,
         songs = songs,
-        editing = editing,
+        editing =
+            editing,
         onEditingChange = {
             editing = it
         },
-        onRename = onRename,
+        onRename =
+            onRename,
         onEditCover = {
-            editingCover = true
+            coverEditor = true
         },
-        onDelete = onDelete,
-        onInfo = onInfo
+        onDelete =
+            onDelete,
+        onInfo =
+            onInfo
     )
 }
 
 @Composable
-private fun PlaylistActionsContent(
+private fun PlaylistActionsMain(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     editing: Boolean,
@@ -131,7 +138,15 @@ private fun PlaylistActionsContent(
             playlist.name
         ) {
             mutableStateOf(
-                playlist.name
+                TextFieldValue(
+                    text =
+                        playlist.name,
+                    selection =
+                        TextRange(
+                            playlist.name
+                                .length
+                        )
+                )
             )
         }
 
@@ -144,6 +159,14 @@ private fun PlaylistActionsContent(
         editing
     ) {
         if (editing) {
+            name =
+                name.copy(
+                    selection =
+                        TextRange(
+                            name.text.length
+                        )
+                )
+
             focusRequester
                 .requestFocus()
         }
@@ -155,13 +178,9 @@ private fun PlaylistActionsContent(
     ) {
         Row(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        end = 42.dp
-                    ),
+                Modifier.fillMaxWidth(),
             verticalAlignment =
-                Alignment.CenterVertically
+                Alignment.Top
         ) {
             Box(
                 modifier =
@@ -200,11 +219,9 @@ private fun PlaylistActionsContent(
                                     34.dp
                                 )
                                 .background(
-                                    Color.Black
-                                        .copy(
-                                            alpha =
-                                                0.64f
-                                        ),
+                                    Color.Black.copy(
+                                        alpha = 0.64f
+                                    ),
                                     CircleShape
                                 )
                                 .clickable(
@@ -212,8 +229,7 @@ private fun PlaylistActionsContent(
                                         remember {
                                             MutableInteractionSource()
                                         },
-                                    indication =
-                                        null,
+                                    indication = null,
                                     onClick =
                                         onEditCover
                                 ),
@@ -245,46 +261,56 @@ private fun PlaylistActionsContent(
                 )
             )
 
-            if (editing) {
-                BasicTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                    },
-                    singleLine = true,
-                    textStyle =
-                        TextStyle(
-                            color =
-                                colors.primaryText,
-                            fontSize = 17.sp,
-                            fontWeight =
-                                FontWeight.Bold
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(
+                            36.dp
                         ),
-                    cursorBrush =
-                        SolidColor(
-                            colors.primaryText
-                        ),
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .focusRequester(
-                                focusRequester
-                            )
-                )
-            } else {
-                Text(
-                    text = name,
-                    color =
-                        colors.primaryText,
-                    fontSize = 17.sp,
-                    fontWeight =
-                        FontWeight.Bold,
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis,
-                    modifier =
-                        Modifier.weight(1f)
-                )
+                contentAlignment =
+                    Alignment.CenterStart
+            ) {
+                if (editing) {
+                    BasicTextField(
+                        value = name,
+                        onValueChange = {
+                            name = it
+                        },
+                        singleLine = true,
+                        textStyle =
+                            TextStyle(
+                                color =
+                                    colors.primaryText,
+                                fontSize = 17.sp,
+                                fontWeight =
+                                    FontWeight.Bold
+                            ),
+                        cursorBrush =
+                            SolidColor(
+                                colors.primaryText
+                            ),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(
+                                    focusRequester
+                                )
+                    )
+                } else {
+                    Text(
+                        text =
+                            name.text,
+                        color =
+                            colors.primaryText,
+                        fontSize = 17.sp,
+                        fontWeight =
+                            FontWeight.Bold,
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis
+                    )
+                }
             }
 
             Spacer(
@@ -306,22 +332,30 @@ private fun PlaylistActionsContent(
                         .clickable(
                             enabled =
                                 !editing ||
-                                    name.isNotBlank(),
+                                    name.text
+                                        .isNotBlank(),
                             interactionSource =
                                 remember {
                                     MutableInteractionSource()
                                 },
-                            indication =
-                                null
+                            indication = null
                         ) {
                             if (editing) {
-                                onRename(
-                                    name.trim()
-                                )
+                                val clean =
+                                    name.text
+                                        .trim()
 
-                                onEditingChange(
-                                    false
-                                )
+                                if (
+                                    clean.isNotEmpty()
+                                ) {
+                                    onRename(
+                                        clean
+                                    )
+
+                                    onEditingChange(
+                                        false
+                                    )
+                                }
                             } else {
                                 onEditingChange(
                                     true
@@ -351,7 +385,8 @@ private fun PlaylistActionsContent(
                     tint =
                         if (
                             !editing ||
-                            name.isNotBlank()
+                            name.text
+                                .isNotBlank()
                         ) {
                             colors.primaryText
                         } else {
@@ -367,7 +402,7 @@ private fun PlaylistActionsContent(
 
         Spacer(
             Modifier.height(
-                14.dp
+                12.dp
             )
         )
 
@@ -397,8 +432,7 @@ fun PlaylistInfoBox(
 
     val created =
         if (
-            playlist.createdAt >
-            0L
+            playlist.createdAt > 0L
         ) {
             DateFormat
                 .getDateTimeInstance(
@@ -407,8 +441,7 @@ fun PlaylistInfoBox(
                 )
                 .format(
                     Date(
-                        playlist
-                            .createdAt
+                        playlist.createdAt
                     )
                 )
         } else {
@@ -426,11 +459,7 @@ fun PlaylistInfoBox(
                 colors.primaryText,
             fontSize = 18.sp,
             fontWeight =
-                FontWeight.Bold,
-            modifier =
-                Modifier.padding(
-                    end = 44.dp
-                )
+                FontWeight.Bold
         )
 
         Spacer(
@@ -498,14 +527,12 @@ private fun PlaylistAction(
                         remember {
                             MutableInteractionSource()
                         },
-                    indication =
-                        null,
+                    indication = null,
                     onClick =
                         onClick
                 )
                 .padding(
-                    vertical =
-                        13.dp
+                    vertical = 13.dp
                 )
     )
 }
