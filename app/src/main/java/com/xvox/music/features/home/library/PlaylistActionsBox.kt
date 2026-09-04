@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,10 +54,12 @@ fun PlaylistActionsBox(
             "Rename",
             onRename
         )
+
         PlaylistAction(
             "Delete playlist",
             onDelete
         )
+
         PlaylistAction(
             "Playlist info",
             onInfo
@@ -182,8 +185,7 @@ fun PlaylistInfoBox(
         )
 
         Text(
-            text =
-                "$songCount songs",
+            text = "$songCount songs",
             color =
                 colors.secondaryText,
             fontSize = 12.sp
@@ -194,8 +196,7 @@ fun PlaylistInfoBox(
         )
 
         Text(
-            text =
-                "Created $created",
+            text = "Created $created",
             color =
                 colors.secondaryText,
             fontSize = 12.sp
