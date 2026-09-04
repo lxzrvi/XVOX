@@ -9,7 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.xvoxDataStore by
+internal val Context.xvoxDataStore by
     preferencesDataStore(
         name = "xvox_preferences"
     )
@@ -19,58 +19,99 @@ class UserPreferencesRepository(
 ) {
     private object Keys {
         val setupCompleted =
-            booleanPreferencesKey("setup_completed")
+            booleanPreferencesKey(
+                "setup_completed"
+            )
         val username =
-            stringPreferencesKey("username")
+            stringPreferencesKey(
+                "username"
+            )
         val selectedPfp =
-            stringPreferencesKey("selected_pfp")
+            stringPreferencesKey(
+                "selected_pfp"
+            )
         val customPfpUri =
-            stringPreferencesKey("custom_pfp_uri")
+            stringPreferencesKey(
+                "custom_pfp_uri"
+            )
         val recentSongIds =
-            stringPreferencesKey("recent_song_ids")
+            stringPreferencesKey(
+                "recent_song_ids"
+            )
         val lyricsUris =
-            stringPreferencesKey("lyrics_uris")
+            stringPreferencesKey(
+                "lyrics_uris"
+            )
         val lastPlayedSongId =
-            longPreferencesKey("last_played_song_id")
+            longPreferencesKey(
+                "last_played_song_id"
+            )
     }
 
     val preferences: Flow<UserPreferences> =
-        context.xvoxDataStore.data.map { prefs ->
+        context.xvoxDataStore.data.map {
+            prefs ->
+
             UserPreferences(
                 setupCompleted =
-                    prefs[Keys.setupCompleted] ?: false,
+                    prefs[
+                        Keys.setupCompleted
+                    ] ?: false,
                 username =
-                    prefs[Keys.username].orEmpty(),
+                    prefs[
+                        Keys.username
+                    ].orEmpty(),
                 selectedPfp =
-                    prefs[Keys.selectedPfp] ?: "DEFAULT",
+                    prefs[
+                        Keys.selectedPfp
+                    ] ?: "DEFAULT",
                 customPfpUri =
-                    prefs[Keys.customPfpUri]
+                    prefs[
+                        Keys.customPfpUri
+                    ]
             )
         }
 
     val recentSongIds: Flow<List<Long>> =
-        context.xvoxDataStore.data.map { prefs ->
-            prefs[Keys.recentSongIds]
+        context.xvoxDataStore.data.map {
+            prefs ->
+
+            prefs[
+                Keys.recentSongIds
+            ]
                 .orEmpty()
                 .split(",")
-                .mapNotNull { it.toLongOrNull() }
+                .mapNotNull {
+                    it.toLongOrNull()
+                }
                 .distinct()
                 .take(20)
         }
 
-    val lastPlayedSongId: Flow<Long?> =
-        context.xvoxDataStore.data.map { prefs ->
-            prefs[Keys.lastPlayedSongId]
+    val lastPlayedSongId:
+        Flow<Long?> =
+        context.xvoxDataStore.data.map {
+            prefs ->
+
+            prefs[
+                Keys.lastPlayedSongId
+            ]
         }
 
     suspend fun setLastPlayedSongId(
         songId: Long?
     ) {
-        context.xvoxDataStore.edit { prefs ->
+        context.xvoxDataStore.edit {
+            prefs ->
+
             if (songId == null) {
-                prefs.remove(Keys.lastPlayedSongId)
+                prefs.remove(
+                    Keys.lastPlayedSongId
+                )
             } else {
-                prefs[Keys.lastPlayedSongId] = songId
+                prefs[
+                    Keys.lastPlayedSongId
+                ] = songId
             }
         }
     }
@@ -80,32 +121,51 @@ class UserPreferencesRepository(
         selectedPfp: String,
         customPfpUri: String?
     ) {
-        context.xvoxDataStore.edit { prefs ->
-            prefs[Keys.username] = username
-            prefs[Keys.selectedPfp] = selectedPfp
+        context.xvoxDataStore.edit {
+            prefs ->
 
-            if (customPfpUri != null) {
-                prefs[Keys.customPfpUri] =
-                    customPfpUri
+            prefs[Keys.username] =
+                username
+            prefs[Keys.selectedPfp] =
+                selectedPfp
+
+            if (
+                customPfpUri != null
+            ) {
+                prefs[
+                    Keys.customPfpUri
+                ] = customPfpUri
             } else {
-                prefs.remove(Keys.customPfpUri)
+                prefs.remove(
+                    Keys.customPfpUri
+                )
             }
 
-            prefs[Keys.setupCompleted] = true
+            prefs[
+                Keys.setupCompleted
+            ] = true
         }
     }
 
     suspend fun recordRecentSong(
         songId: Long
     ) {
-        context.xvoxDataStore.edit { prefs ->
+        context.xvoxDataStore.edit {
+            prefs ->
+
             val current =
-                prefs[Keys.recentSongIds]
+                prefs[
+                    Keys.recentSongIds
+                ]
                     .orEmpty()
                     .split(",")
-                    .mapNotNull { it.toLongOrNull() }
+                    .mapNotNull {
+                        it.toLongOrNull()
+                    }
 
-            val updated =
+            prefs[
+                Keys.recentSongIds
+            ] =
                 buildList {
                     add(songId)
                     addAll(
@@ -116,30 +176,34 @@ class UserPreferencesRepository(
                 }
                     .take(20)
                     .joinToString(",")
-
-            prefs[Keys.recentSongIds] =
-                updated
         }
     }
 
     fun lyricsUri(
         songId: Long
-    ): Flow<String?> {
-        return context.xvoxDataStore.data.map { prefs ->
+    ): Flow<String?> =
+        context.xvoxDataStore.data.map {
+            prefs ->
+
             decodeLyricsUris(
-                prefs[Keys.lyricsUris].orEmpty()
+                prefs[
+                    Keys.lyricsUris
+                ].orEmpty()
             )[songId]
         }
-    }
 
     suspend fun setLyricsUri(
         songId: Long,
         uri: String?
     ) {
-        context.xvoxDataStore.edit { prefs ->
+        context.xvoxDataStore.edit {
+            prefs ->
+
             val map =
                 decodeLyricsUris(
-                    prefs[Keys.lyricsUris].orEmpty()
+                    prefs[
+                        Keys.lyricsUris
+                    ].orEmpty()
                 ).toMutableMap()
 
             if (uri == null) {
@@ -148,44 +212,55 @@ class UserPreferencesRepository(
                 map[songId] = uri
             }
 
-            prefs[Keys.lyricsUris] =
-                map.entries.joinToString("\n") {
-                    "${it.key}\t${it.value}"
-                }
+            prefs[
+                Keys.lyricsUris
+            ] =
+                map.entries
+                    .joinToString("\n") {
+                        "${it.key}\t${it.value}"
+                    }
         }
     }
 
     private fun decodeLyricsUris(
         raw: String
     ): Map<Long, String> {
-        if (raw.isBlank()) return emptyMap()
+        if (raw.isBlank()) {
+            return emptyMap()
+        }
 
         return buildMap {
-            raw.lineSequence().forEach { line ->
-                val separator =
-                    line.indexOf('\t')
+            raw.lineSequence()
+                .forEach {
+                    line ->
 
-                if (
-                    separator <= 0 ||
-                    separator >= line.lastIndex
-                ) {
-                    return@forEach
+                    val separator =
+                        line.indexOf('\t')
+
+                    if (
+                        separator <= 0 ||
+                        separator >=
+                        line.lastIndex
+                    ) {
+                        return@forEach
+                    }
+
+                    val id =
+                        line.substring(
+                            0,
+                            separator
+                        ).toLongOrNull()
+                            ?: return@forEach
+
+                    val uri =
+                        line.substring(
+                            separator + 1
+                        )
+
+                    if (uri.isNotBlank()) {
+                        put(id, uri)
+                    }
                 }
-
-                val id =
-                    line.substring(
-                        0,
-                        separator
-                    ).toLongOrNull()
-                        ?: return@forEach
-
-                val uri =
-                    line.substring(separator + 1)
-
-                if (uri.isNotBlank()) {
-                    put(id, uri)
-                }
-            }
         }
     }
 }
