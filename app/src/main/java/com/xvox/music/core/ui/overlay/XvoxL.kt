@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -50,7 +49,13 @@ fun XvoxL(
     val scope = rememberCoroutineScope()
 
     BoxWithConstraints(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                colors.background.copy(
+                    alpha = 0.97f
+                )
+            )
     ) {
         val hidden =
             constraints.maxHeight.toFloat()
@@ -93,11 +98,6 @@ fun XvoxL(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Color.Black.copy(
-                        alpha = 0.18f
-                    )
-                )
                 .pointerInput(Unit) {
                     detectTapGestures {
                         dismiss()
@@ -119,9 +119,7 @@ fun XvoxL(
                         offset.value
                 }
                 .background(
-                    colors.background.copy(
-                        alpha = 0.96f
-                    ),
+                    colors.cardElevated,
                     RoundedCornerShape(
                         topStart = 28.dp,
                         topEnd = 28.dp
