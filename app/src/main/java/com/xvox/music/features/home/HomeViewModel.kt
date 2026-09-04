@@ -22,46 +22,33 @@ class HomeViewModel(
 ) : AndroidViewModel(application) {
 
     private val songRepository =
-        MediaStoreSongRepository(
-            application
-        )
+        MediaStoreSongRepository(application)
 
     private val preferencesRepository =
-        UserPreferencesRepository(
-            application
-        )
+        UserPreferencesRepository(application)
 
     private val libraryPreferences =
-        XvoxLibraryPreferences(
-            application
-        )
+        XvoxLibraryPreferences(application)
 
     private val artworkPreloader =
-        ArtworkPreloader(
-            application
-        )
+        ArtworkPreloader(application)
 
     private val infoReader =
-        SongInfoReader(
-            application
-        )
+        SongInfoReader(application)
 
     private val _state =
         MutableStateFlow(
             HomeUiState()
         )
 
-    val state:
-        StateFlow<HomeUiState> =
+    val state: StateFlow<HomeUiState> =
         _state.asStateFlow()
 
     private var allSongs:
-        List<Song> =
-        emptyList()
+        List<Song> = emptyList()
 
     private var recentIds:
-        List<Long> =
-        emptyList()
+        List<Long> = emptyList()
 
     private var prefetchJob:
         Job? = null
@@ -83,13 +70,10 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository
                 .preferences
-                .collect {
-                    profile ->
-
+                .collect { profile ->
                     _state.update {
                         it.copy(
-                            profile =
-                                profile
+                            profile = profile
                         )
                     }
                 }
@@ -100,9 +84,7 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository
                 .recentSongIds
-                .collect {
-                    ids ->
-
+                .collect { ids ->
                     recentIds = ids
                     publishSongs()
                 }
@@ -113,13 +95,10 @@ class HomeViewModel(
         viewModelScope.launch {
             libraryPreferences
                 .likedSongIds
-                .collect {
-                    ids ->
-
+                .collect { ids ->
                     _state.update {
                         it.copy(
-                            likedSongIds =
-                                ids
+                            likedSongIds = ids
                         )
                     }
                 }
@@ -128,13 +107,10 @@ class HomeViewModel(
         viewModelScope.launch {
             libraryPreferences
                 .hiddenSongIds
-                .collect {
-                    ids ->
-
+                .collect { ids ->
                     _state.update {
                         it.copy(
-                            hiddenSongIds =
-                                ids
+                            hiddenSongIds = ids
                         )
                     }
 
@@ -145,13 +121,10 @@ class HomeViewModel(
         viewModelScope.launch {
             libraryPreferences
                 .playlists
-                .collect {
-                    playlists ->
-
+                .collect { playlists ->
                     _state.update {
                         it.copy(
-                            playlists =
-                                playlists
+                            playlists = playlists
                         )
                     }
                 }
@@ -160,8 +133,7 @@ class HomeViewModel(
 
     private fun publishSongs() {
         val hidden =
-            _state.value
-                .hiddenSongIds
+            _state.value.hiddenSongIds
 
         val visible =
             allSongs.filterNot {
@@ -183,8 +155,7 @@ class HomeViewModel(
     private fun loadLibrary() {
         viewModelScope.launch {
             allSongs =
-                songRepository
-                    .loadSongs()
+                songRepository.loadSongs()
 
             publishSongs()
 
@@ -199,24 +170,19 @@ class HomeViewModel(
     }
 
     fun refresh() {
-        if (
-            _state.value
-                .refreshing
-        ) {
+        if (_state.value.refreshing) {
             return
         }
 
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                    refreshing =
-                        true
+                    refreshing = true
                 )
             }
 
             allSongs =
-                songRepository
-                    .loadSongs()
+                songRepository.loadSongs()
 
             prefetchJob?.cancel()
             lastPrefetchStart = -1
@@ -225,10 +191,8 @@ class HomeViewModel(
 
             _state.update {
                 it.copy(
-                    refreshing =
-                        false,
-                    loading =
-                        false
+                    refreshing = false,
+                    loading = false
                 )
             }
 
@@ -261,6 +225,29 @@ class HomeViewModel(
         }
     }
 
+    fun removeFromRecent(
+        song: Song
+    ) {
+        _state.update {
+            current ->
+
+            current.copy(
+                recentlyPlayed =
+                    current.recentlyPlayed
+                        .filterNot {
+                            it.id == song.id
+                        }
+            )
+        }
+
+        viewModelScope.launch {
+            preferencesRepository
+                .removeRecentSong(
+                    song.id
+                )
+        }
+    }
+
     fun toggleLikedMode() {
         _state.update {
             current ->
@@ -271,11 +258,9 @@ class HomeViewModel(
                         current.libraryMode ==
                         HomeLibraryMode.LIKED
                     ) {
-                        HomeLibraryMode
-                            .ALL_SONGS
+                        HomeLibraryMode.ALL_SONGS
                     } else {
-                        HomeLibraryMode
-                            .LIKED
+                        HomeLibraryMode.LIKED
                     }
             )
         }
@@ -289,14 +274,11 @@ class HomeViewModel(
                 libraryMode =
                     if (
                         current.libraryMode ==
-                        HomeLibraryMode
-                            .PLAYLISTS
+                        HomeLibraryMode.PLAYLISTS
                     ) {
-                        HomeLibraryMode
-                            .ALL_SONGS
+                        HomeLibraryMode.ALL_SONGS
                     } else {
-                        HomeLibraryMode
-                            .PLAYLISTS
+                        HomeLibraryMode.PLAYLISTS
                     }
             )
         }
@@ -317,15 +299,13 @@ class HomeViewModel(
     ) {
         val liked =
             song.id in
-                _state.value
-                    .likedSongIds
+                _state.value.likedSongIds
 
         viewModelScope.launch {
-            libraryPreferences
-                .setLiked(
-                    song.id,
-                    !liked
-                )
+            libraryPreferences.setLiked(
+                song.id,
+                !liked
+            )
         }
     }
 
@@ -333,18 +313,16 @@ class HomeViewModel(
         song: Song
     ) {
         viewModelScope.launch {
-            libraryPreferences
-                .hideSong(
-                    song.id
-                )
+            libraryPreferences.hideSong(
+                song.id
+            )
         }
     }
 
     fun createPlaylist(
         name: String,
         songIds: Set<Long>,
-        onDone:
-            (XvoxPlaylist?) -> Unit
+        onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
             onDone(
@@ -360,8 +338,7 @@ class HomeViewModel(
     fun addToPlaylist(
         playlistId: String,
         song: Song,
-        onDone:
-            (XvoxPlaylist?) -> Unit
+        onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
             onDone(
@@ -377,8 +354,7 @@ class HomeViewModel(
     fun removeFromPlaylist(
         playlistId: String,
         song: Song,
-        onDone:
-            (XvoxPlaylist?) -> Unit
+        onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
             onDone(
@@ -394,8 +370,7 @@ class HomeViewModel(
     fun renamePlaylist(
         playlistId: String,
         name: String,
-        onDone:
-            (XvoxPlaylist?) -> Unit
+        onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
             onDone(
@@ -440,8 +415,7 @@ class HomeViewModel(
     fun likedSongs():
         List<Song> {
         val liked =
-            _state.value
-                .likedSongIds
+            _state.value.likedSongIds
 
         return _state.value.songs
             .filter {
@@ -451,14 +425,11 @@ class HomeViewModel(
 
     fun loadInfo(
         song: Song,
-        onLoaded:
-            (SongInfo) -> Unit
+        onLoaded: (SongInfo) -> Unit
     ) {
         viewModelScope.launch {
             onLoaded(
-                infoReader.read(
-                    song
-                )
+                infoReader.read(song)
             )
         }
     }
@@ -504,12 +475,10 @@ class HomeViewModel(
             RecentTransitionRequest(
                 id =
                     _state.value
-                        .recentTransition
-                        .id,
+                        .recentTransition.id,
                 songId = null,
                 mode =
-                    RecentTransitionMode
-                        .NONE
+                    RecentTransitionMode.NONE
             )
         )
     }
@@ -560,10 +529,7 @@ class HomeViewModel(
         }
 
         val start =
-            (
-                sourceIndex /
-                    12
-                ) * 12
+            (sourceIndex / 12) * 12
 
         if (
             start ==
@@ -572,20 +538,17 @@ class HomeViewModel(
             return
         }
 
-        lastPrefetchStart =
-            start
+        lastPrefetchStart = start
 
         prefetchJob?.cancel()
 
         prefetchJob =
             viewModelScope.launch {
-                artworkPreloader
-                    .warm(
-                        songs = songs,
-                        fromIndex =
-                            start,
-                        count = 48
-                    )
+                artworkPreloader.warm(
+                    songs = songs,
+                    fromIndex = start,
+                    count = 48
+                )
             }
     }
 
