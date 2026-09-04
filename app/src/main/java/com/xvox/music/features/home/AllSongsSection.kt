@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,9 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -43,8 +44,7 @@ fun AllSongsSection(
         }
 
     val state =
-        androidx.compose.foundation.lazy
-            .rememberLazyListState()
+        rememberLazyListState()
 
     LaunchedEffect(
         state,
@@ -54,9 +54,7 @@ fun AllSongsSection(
             state.firstVisibleItemIndex
         }
             .distinctUntilChanged()
-            .collect {
-                page ->
-
+            .collect { page ->
                 onPrefetch(
                     (page + 1) * 12
                 )
@@ -84,7 +82,8 @@ fun AllSongsSection(
         ) {
             Text(
                 text = "All Songs",
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =
@@ -94,7 +93,8 @@ fun AllSongsSection(
             Text(
                 text =
                     "Total ${songs.size} songs",
-                color = colors.mutedText,
+                color =
+                    colors.mutedText,
                 fontSize = 9.sp
             )
         }
@@ -132,7 +132,7 @@ fun AllSongsSection(
                         index,
                         page ->
 
-                        "page_${index}_" +
+                        "mosaic_${index}_" +
                             page.tiles
                                 .joinToString(
                                     "_"
@@ -161,13 +161,19 @@ fun AllSongsSection(
                                 unitWidth *
                                     tile.width +
                                     gap *
-                                    (tile.width - 1f)
+                                    (
+                                        tile.width -
+                                            1f
+                                        )
 
                             val tileHeight =
                                 unitHeight *
                                     tile.height +
                                     gap *
-                                    (tile.height - 1f)
+                                    (
+                                        tile.height -
+                                            1f
+                                        )
 
                             val x =
                                 edge +
@@ -182,7 +188,7 @@ fun AllSongsSection(
                                         gap
                                     ) * tile.y
 
-                            val modifier =
+                            val tileModifier =
                                 Modifier
                                     .offset(
                                         x = x,
@@ -220,7 +226,7 @@ fun AllSongsSection(
                                         )
                                     },
                                     modifier =
-                                        modifier
+                                        tileModifier
                                 )
                             } else {
                                 AllSongMosaicCard(
@@ -241,7 +247,7 @@ fun AllSongsSection(
                                         )
                                     },
                                     modifier =
-                                        modifier
+                                        tileModifier
                                 )
                             }
                         }
