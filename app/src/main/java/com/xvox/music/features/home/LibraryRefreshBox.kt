@@ -1,6 +1,8 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -24,22 +26,22 @@ import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
 fun LibraryRefreshBox(
-    refreshing: Boolean,
-    result: LibraryRefreshResult?
+    currentTotal: Int,
+    scanning: Boolean,
+    result: LibraryRefreshResult?,
+    onScan: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val colors =
         XvoxTheme.colors
 
     Column(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(
-                    end = 42.dp
-                )
+            Modifier.fillMaxWidth()
     ) {
         Text(
-            text = "Refresh library",
+            text =
+                "Refresh library",
             color =
                 colors.primaryText,
             fontSize = 18.sp,
@@ -48,103 +50,182 @@ fun LibraryRefreshBox(
         )
 
         Spacer(
-            Modifier.height(18.dp)
+            Modifier.height(
+                14.dp
+            )
         )
 
-        if (
-            refreshing ||
-            result == null
-        ) {
+        when {
+            scanning -> {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            12.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier.size(
+                                22.dp
+                            ),
+                        color =
+                            colors.primaryAccent,
+                        strokeWidth =
+                            2.dp
+                    )
+
+                    Column {
+                        Text(
+                            text =
+                                "Scanning device",
+                            color =
+                                colors.primaryText,
+                            fontSize = 13.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text =
+                                "Checking your music library…",
+                            color =
+                                colors.secondaryText,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
+            result != null -> {
+                Text(
+                    text =
+                        "Total ${result.totalSongs} songs",
+                    color =
+                        colors.primaryText,
+                    fontSize = 14.sp,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+
+                Spacer(
+                    Modifier.height(
+                        10.dp
+                    )
+                )
+
+                if (
+                    result.addedSongs == 0 &&
+                    result.removedSongs == 0
+                ) {
+                    ResultPill(
+                        text =
+                            "No changes"
+                    )
+                } else {
+                    Row(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                8.dp
+                            )
+                    ) {
+                        if (
+                            result.addedSongs >
+                            0
+                        ) {
+                            ResultPill(
+                                text =
+                                    "${result.addedSongs} added"
+                            )
+                        }
+
+                        if (
+                            result.removedSongs >
+                            0
+                        ) {
+                            ResultPill(
+                                text =
+                                    "${result.removedSongs} removed"
+                            )
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                Text(
+                    text =
+                        "Total $currentTotal songs",
+                    color =
+                        colors.primaryText,
+                    fontSize = 14.sp,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+
+                Spacer(
+                    Modifier.height(
+                        5.dp
+                    )
+                )
+
+                Text(
+                    text =
+                        "Scan your phone for changes to the music library.",
+                    color =
+                        colors.secondaryText,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+
+        if (!scanning) {
+            Spacer(
+                Modifier.height(
+                    18.dp
+                )
+            )
+
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.spacedBy(
-                        13.dp
-                    ),
-                verticalAlignment =
-                    Alignment.CenterVertically
+                        10.dp
+                    )
             ) {
-                CircularProgressIndicator(
+                RefreshActionButton(
+                    title =
+                        "Cancel",
+                    onClick =
+                        onCancel,
                     modifier =
-                        Modifier.size(
-                            22.dp
-                        ),
-                    color =
-                        colors.primaryAccent,
-                    strokeWidth =
-                        2.dp
+                        Modifier.weight(
+                            1f
+                        )
                 )
 
-                Column {
-                    Text(
-                        text =
-                            "Checking your music",
-                        color =
-                            colors.primaryText,
-                        fontSize = 13.sp,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-
-                    Text(
-                        text =
-                            "Scanning device library…",
-                        color =
-                            colors.secondaryText,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            return
-        }
-
-        Text(
-            text =
-                "Total ${result.totalSongs} songs",
-            color =
-                colors.primaryText,
-            fontSize = 15.sp,
-            fontWeight =
-                FontWeight.SemiBold
-        )
-
-        Spacer(
-            Modifier.height(12.dp)
-        )
-
-        if (
-            result.addedSongs == 0 &&
-            result.removedSongs == 0
-        ) {
-            ResultPill(
-                text = "No changes"
-            )
-        } else {
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        8.dp
-                    )
-            ) {
-                if (
-                    result.addedSongs > 0
-                ) {
-                    ResultPill(
-                        text =
-                            "${result.addedSongs} added"
-                    )
-                }
-
-                if (
-                    result.removedSongs > 0
-                ) {
-                    ResultPill(
-                        text =
-                            "${result.removedSongs} removed"
-                    )
-                }
+                RefreshActionButton(
+                    title =
+                        if (
+                            result == null
+                        ) {
+                            "Scan"
+                        } else {
+                            "Rescan"
+                        },
+                    onClick =
+                        onScan,
+                    accent = true,
+                    modifier =
+                        Modifier.weight(
+                            1f
+                        )
+                )
             }
         }
     }
@@ -163,12 +244,12 @@ private fun ResultPill(
                 .background(
                     colors.card,
                     RoundedCornerShape(
-                        14.dp
+                        12.dp
                     )
                 )
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = 8.dp
+                    horizontal = 11.dp,
+                    vertical = 7.dp
                 ),
         contentAlignment =
             Alignment.Center
@@ -177,7 +258,57 @@ private fun ResultPill(
             text = text,
             color =
                 colors.secondaryText,
-            fontSize = 11.sp,
+            fontSize = 11.sp
+        )
+    }
+}
+
+@Composable
+private fun RefreshActionButton(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false
+) {
+    val colors =
+        XvoxTheme.colors
+
+    Box(
+        modifier =
+            modifier
+                .height(
+                    44.dp
+                )
+                .background(
+                    if (accent) {
+                        colors.primaryAccent
+                    } else {
+                        colors.card
+                    },
+                    RoundedCornerShape(
+                        14.dp
+                    )
+                )
+                .clickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClick
+                ),
+        contentAlignment =
+            Alignment.Center
+    ) {
+        Text(
+            text = title,
+            color =
+                if (accent) {
+                    colors.background
+                } else {
+                    colors.primaryText
+                },
+            fontSize = 13.sp,
             fontWeight =
                 FontWeight.SemiBold
         )
