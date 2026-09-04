@@ -29,6 +29,7 @@ fun buildMosaicPages(
         songs.fold(processSeed) {
                 value,
                 song ->
+
             value * 31L + song.id
         }
 
@@ -45,38 +46,26 @@ fun buildMosaicPages(
         if (remaining <= 12) {
             pages +=
                 finalPage(
-                    songs.subList(
+                    songs = songs.subList(
                         index,
                         songs.size
-                    )
+                    ),
+                    random = random
                 )
 
             break
         }
 
-        val candidates =
-            listOf(9, 10, 11, 12)
-                .filter { count ->
-                    val after =
-                        remaining - count
-
-                    after == 0 ||
-                        after >= 1
-                }
-
         val count =
-            if (
-                remaining <= 16
-            ) {
-                when (remaining) {
-                    13 -> 12
-                    14 -> 12
-                    15 -> 12
-                    16 -> 12
-                    else -> 12
-                }
+            if (remaining <= 16) {
+                12
             } else {
-                candidates.random(random)
+                listOf(
+                    9,
+                    10,
+                    11,
+                    12
+                ).random(random)
             }
 
         val pageSongs =
@@ -84,11 +73,12 @@ fun buildMosaicPages(
                 index,
                 index + count
             )
+                .shuffled(random)
 
         pages +=
             integerPage(
-                pageSongs,
-                random
+                songs = pageSongs,
+                random = random
             )
 
         index += count
@@ -100,8 +90,8 @@ fun buildMosaicPages(
 private fun integerPage(
     songs: List<Song>,
     random: Random
-): MosaicPage {
-    return when (songs.size) {
+): MosaicPage =
+    when (songs.size) {
         9 ->
             ninePage(
                 songs,
@@ -121,20 +111,20 @@ private fun integerPage(
             )
 
         12 ->
-            regularPage(
-                songs.shuffled(random)
-            )
+            regularPage(songs)
 
         else ->
-            finalPage(songs)
+            finalPage(
+                songs,
+                random
+            )
     }
-}
 
 private fun ninePage(
     songs: List<Song>,
     flip: Boolean
 ): MosaicPage {
-    val layout =
+    val specs =
         if (!flip) {
             listOf(
                 Spec(0f, 0f, 2f, 1f),
@@ -155,38 +145,16 @@ private fun ninePage(
                 Spec(0f, 1f, 2f, 1f),
                 Spec(2f, 1f, 1f, 1f),
                 Spec(3f, 1f, 1f, 1f),
-                Spec(0f, 2f, 2f, 1f),
-                Spec(2f, 2f, 2f, 1f)
-            ) +
-                Spec(
-                    0f,
-                    0f,
-                    0f,
-                    0f
-                )
-        }
-
-    return if (!flip) {
-        fromSpecs(
-            songs,
-            layout
-        )
-    } else {
-        fromSpecs(
-            songs,
-            listOf(
-                Spec(0f, 0f, 1f, 1f),
-                Spec(1f, 0f, 1f, 1f),
-                Spec(2f, 0f, 2f, 1f),
-                Spec(0f, 1f, 2f, 1f),
-                Spec(2f, 1f, 1f, 1f),
-                Spec(3f, 1f, 1f, 1f),
                 Spec(0f, 2f, 1f, 1f),
                 Spec(1f, 2f, 1f, 1f),
                 Spec(2f, 2f, 2f, 1f)
             )
-        )
-    }
+        }
+
+    return fromSpecs(
+        songs,
+        specs
+    )
 }
 
 private fun tenPage(
@@ -234,9 +202,7 @@ private fun elevenPage(
 ): MosaicPage {
     val wideX =
         when (variant) {
-            0 -> 0
-            1 -> 2
-            2 -> 0
+            0, 2 -> 0
             else -> 2
         }
 
@@ -296,38 +262,50 @@ private fun regularPage(
                 song ->
 
             tile(
-                song,
-                (index % 4).toFloat(),
-                (index / 4).toFloat(),
-                1f,
-                1f
+                song = song,
+                x =
+                    (index % 4)
+                        .toFloat(),
+                y =
+                    (index / 4)
+                        .toFloat(),
+                width = 1f,
+                height = 1f
             )
         }
     )
 
 private fun finalPage(
-    songs: List<Song>
+    songs: List<Song>,
+    random: Random
 ): MosaicPage {
+    val randomizedSongs =
+        songs.shuffled(random)
+
     if (songs.size in 9..12) {
         return when (songs.size) {
-            9 -> ninePage(
-                songs,
-                false
-            )
+            9 ->
+                ninePage(
+                    randomizedSongs,
+                    random.nextBoolean()
+                )
 
-            10 -> tenPage(
-                songs,
-                false
-            )
+            10 ->
+                tenPage(
+                    randomizedSongs,
+                    random.nextBoolean()
+                )
 
-            11 -> elevenPage(
-                songs,
-                0
-            )
+            11 ->
+                elevenPage(
+                    randomizedSongs,
+                    random.nextInt(4)
+                )
 
-            else -> regularPage(
-                songs
-            )
+            else ->
+                regularPage(
+                    randomizedSongs
+                )
         }
     }
 
@@ -456,7 +434,7 @@ private fun finalPage(
         }
 
     return fromSpecs(
-        songs,
+        randomizedSongs,
         specs
     )
 }
@@ -473,7 +451,8 @@ private fun fromSpecs(
     specs: List<Spec>
 ): MosaicPage {
     require(
-        songs.size == specs.size
+        songs.size ==
+            specs.size
     )
 
     return MosaicPage(
@@ -482,11 +461,11 @@ private fun fromSpecs(
                 (song, spec) ->
 
                 tile(
-                    song,
-                    spec.x,
-                    spec.y,
-                    spec.width,
-                    spec.height
+                    song = song,
+                    x = spec.x,
+                    y = spec.y,
+                    width = spec.width,
+                    height = spec.height
                 )
             }
     )
