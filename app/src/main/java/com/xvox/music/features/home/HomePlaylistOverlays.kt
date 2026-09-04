@@ -24,7 +24,8 @@ fun showPlaylistActions(
                 ?: playlist
 
         PlaylistActionsBox(
-            playlist = current,
+            playlist =
+                current,
             songs =
                 viewModel
                     .playlistSongs(
@@ -124,7 +125,9 @@ fun showAddPlaylistSongs(
 
         AddPlaylistSongsBox(
             songs =
-                viewModel.state.value
+                viewModel
+                    .state
+                    .value
                     .songs,
             existingSongIds =
                 current.songIds
