@@ -23,10 +23,6 @@ fun RecentlyPlayedSection(
     onSongClick: (Song) -> Unit,
     onSongOptions: (Song) -> Unit
 ) {
-    if (songs.isEmpty()) {
-        return
-    }
-
     val colors =
         XvoxTheme.colors
 
@@ -55,10 +51,9 @@ fun RecentlyPlayedSection(
         )
 
         Spacer(
-            modifier =
-                Modifier.height(
-                    8.dp
-                )
+            Modifier.height(
+                8.dp
+            )
         )
 
         RecentCarousel(
