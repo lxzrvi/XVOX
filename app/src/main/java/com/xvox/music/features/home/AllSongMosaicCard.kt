@@ -11,7 +11,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -91,9 +90,9 @@ fun AllSongMosaicCard(
             .clip(shape)
             .background(colors.card)
             .border(
-                0.7.dp,
-                colors.cardBorder,
-                shape
+                width = 0.7.dp,
+                color = colors.cardBorder,
+                shape = shape
             )
             .combinedClickable(
                 interactionSource =
