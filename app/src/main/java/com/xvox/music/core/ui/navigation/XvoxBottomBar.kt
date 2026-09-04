@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -26,7 +26,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 @Composable
 fun XvoxBottomBar(
     selected: XvoxDestination,
-    onSelected: (XvoxDestination) -> Unit,
+    onSelected:
+        (XvoxDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors =
@@ -104,18 +105,22 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .background(
-                    colors.surface.copy(
-                        alpha = 0.88f
-                    )
+                    colors.surface
+                        .copy(
+                            alpha =
+                                0.88f
+                        )
                 )
                 .border(
                     width =
                         XvoxNavigationGeometry
                             .barBorderWidth,
                     color =
-                        colors.cardBorder.copy(
-                            alpha = 0.62f
-                        ),
+                        colors.cardBorder
+                            .copy(
+                                alpha =
+                                    0.62f
+                            ),
                     shape =
                         parentShape
                 )
@@ -165,7 +170,8 @@ fun XvoxBottomBar(
                 .background(
                     colors.cardElevated
                         .copy(
-                            alpha = 0.42f
+                            alpha =
+                                0.42f
                         )
                 )
                 .border(
@@ -173,9 +179,11 @@ fun XvoxBottomBar(
                         XvoxNavigationGeometry
                             .selectorBorderWidth,
                     color =
-                        colors.cardBorder.copy(
-                            alpha = 0.72f
-                        ),
+                        colors.cardBorder
+                            .copy(
+                                alpha =
+                                    0.72f
+                            ),
                     shape =
                         selectorShape
                 )
@@ -200,64 +208,65 @@ fun XvoxBottomBar(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            destinations.forEachIndexed {
-                index,
-                destination ->
+            destinations
+                .forEachIndexed {
+                    index,
+                    destination ->
 
-                val interaction =
-                    remember(
-                        destination
-                    ) {
-                        MutableInteractionSource()
-                    }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .clickable(
-                            interactionSource =
-                                interaction,
-                            indication = null
+                    val interaction =
+                        remember(
+                            destination
                         ) {
-                            position =
-                                index.toFloat()
+                            MutableInteractionSource()
+                        }
 
-                            if (
-                                destination !=
-                                selected
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                            .clickable(
+                                interactionSource =
+                                    interaction,
+                                indication =
+                                    null
                             ) {
+                                position =
+                                    index
+                                        .toFloat()
+
                                 onSelected(
                                     destination
                                 )
-                            }
-                        },
-                    contentAlignment =
-                        Alignment.Center
-                ) {
-                    XvoxNavigationItem(
-                        destination =
-                            destination,
-                        proximity =
-                            navigationProximity(
-                                position =
-                                    motion.position,
-                                index =
-                                    index
-                            ),
-                        dragging =
-                            false,
-                        inactiveColor =
-                            colors.mutedText.copy(
-                                alpha = 0.76f
-                            ),
-                        activeColor =
-                            colors.primaryText,
-                        modifier =
-                            Modifier.fillMaxSize()
-                    )
+                            },
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        XvoxNavigationItem(
+                            destination =
+                                destination,
+                            proximity =
+                                navigationProximity(
+                                    position =
+                                        motion.position,
+                                    index =
+                                        index
+                                ),
+                            dragging =
+                                false,
+                            inactiveColor =
+                                colors.mutedText
+                                    .copy(
+                                        alpha =
+                                            0.76f
+                                    ),
+                            activeColor =
+                                colors.primaryText,
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                        )
+                    }
                 }
-            }
         }
     }
 }
