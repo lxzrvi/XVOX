@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,11 +27,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -41,7 +44,8 @@ fun PlaylistPickerBox(
     onCreate: () -> Unit,
     onChoose: (XvoxPlaylist) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Column(
         modifier =
@@ -55,7 +59,8 @@ fun PlaylistPickerBox(
         ) {
             Text(
                 text = "Playlists",
-                color = colors.primaryText,
+                color =
+                    colors.primaryText,
                 fontSize = 18.sp,
                 fontWeight =
                     FontWeight.Bold,
@@ -85,10 +90,20 @@ fun PlaylistPickerBox(
                 contentAlignment =
                     Alignment.Center
             ) {
-                Text(
-                    text = "+",
-                    color = colors.primaryText,
-                    fontSize = 21.sp
+                Icon(
+                    painter =
+                        painterResource(
+                            R.drawable
+                                .ic_xvox_plus
+                        ),
+                    contentDescription =
+                        "Create playlist",
+                    tint =
+                        colors.primaryText,
+                    modifier =
+                        Modifier.size(
+                            18.dp
+                        )
                 )
             }
         }
@@ -122,11 +137,20 @@ fun PlaylistPickerBox(
                     contentAlignment =
                         Alignment.Center
                 ) {
-                    Text(
-                        text = "+",
-                        color =
+                    Icon(
+                        painter =
+                            painterResource(
+                                R.drawable
+                                    .ic_xvox_plus
+                            ),
+                        contentDescription =
+                            null,
+                        tint =
                             colors.primaryText,
-                        fontSize = 25.sp
+                        modifier =
+                            Modifier.size(
+                                22.dp
+                            )
                     )
                 }
 
@@ -178,7 +202,8 @@ fun PlaylistPickerBox(
                                 Modifier.weight(1f)
                         ) {
                             Text(
-                                text = playlist.name,
+                                text =
+                                    playlist.name,
                                 color =
                                     colors.primaryText,
                                 fontSize = 14.sp,
@@ -210,19 +235,25 @@ fun CreatePlaylistBox(
         Set<Long>
     ) -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     var name by remember {
         mutableStateOf("")
     }
 
     val selected =
-        remember(initialSong?.id) {
+        remember(
+            initialSong?.id
+        ) {
             mutableStateListOf<Long>()
                 .also {
-                    initialSong?.let { song ->
-                        it.add(song.id)
-                    }
+                    initialSong
+                        ?.let { song ->
+                            it.add(
+                                song.id
+                            )
+                        }
                 }
         }
 
@@ -231,8 +262,10 @@ fun CreatePlaylistBox(
             Modifier.fillMaxWidth()
     ) {
         Text(
-            text = "Create playlist",
-            color = colors.primaryText,
+            text =
+                "Create playlist",
+            color =
+                colors.primaryText,
             fontSize = 18.sp,
             fontWeight =
                 FontWeight.Bold
@@ -267,16 +300,21 @@ fun CreatePlaylistBox(
                     )
                 )
                 .height(48.dp),
-            decorationBox = { field ->
+            decorationBox = {
+                field ->
+
                 Box(
                     modifier =
                         Modifier.fillMaxWidth(),
                     contentAlignment =
                         Alignment.CenterStart
                 ) {
-                    if (name.isBlank()) {
+                    if (
+                        name.isBlank()
+                    ) {
                         Text(
-                            text = "Enter name",
+                            text =
+                                "Enter name",
                             color =
                                 colors.secondaryText,
                             fontSize = 13.sp
@@ -393,7 +431,9 @@ fun CreatePlaylistBox(
             Text(
                 text = "Create",
                 color =
-                    if (name.isNotBlank()) {
+                    if (
+                        name.isNotBlank()
+                    ) {
                         colors.primaryText
                     } else {
                         colors.mutedText
