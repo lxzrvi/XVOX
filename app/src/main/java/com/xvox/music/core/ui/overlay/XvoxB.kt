@@ -11,17 +11,14 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -153,49 +150,29 @@ fun XvoxB(
                                 colors.cardElevated,
                                 shape
                             )
-                            .pointerInput(
-                                Unit
-                            ) {
+                            .pointerInput(Unit) {
                                 detectTapGestures(
                                     onPress = {
                                         tryAwaitRelease()
                                     }
                                 )
                             }
+                            .padding(
+                                start = 16.dp,
+                                top = 18.dp,
+                                end = 16.dp,
+                                bottom = 16.dp
+                            )
                 ) {
-                    Column(
+                    Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .heightIn(
-                                    max =
-                                        maximumHeight
-                                )
-                                .verticalScroll(
-                                    rememberScrollState()
-                                )
                                 .padding(
-                                    start =
-                                        16.dp,
-                                    top =
-                                        18.dp,
-                                    end =
-                                        16.dp,
-                                    bottom =
-                                        16.dp
+                                    end = 44.dp
                                 )
                     ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        end =
-                                            44.dp
-                                    )
-                        ) {
-                            content()
-                        }
+                        content()
                     }
 
                     Box(
@@ -203,10 +180,6 @@ fun XvoxB(
                             Modifier
                                 .align(
                                     Alignment.TopEnd
-                                )
-                                .padding(
-                                    top = 14.dp,
-                                    end = 14.dp
                                 )
                                 .size(
                                     36.dp
