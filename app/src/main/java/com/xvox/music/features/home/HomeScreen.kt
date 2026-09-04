@@ -2,9 +2,7 @@ package com.xvox.music.features.home
 
 import android.app.Activity
 import android.app.PendingIntent
-import android.content.Intent
 import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,8 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -31,8 +30,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.home.library.HomeLibraryMode
+import com.xvox.music.features.home.library.LikedSongsSection
+import com.xvox.music.features.home.library.PlaylistActionsBox
+import com.xvox.music.features.home.library.PlaylistDetail
+import com.xvox.music.features.home.library.PlaylistInfoBox
+import com.xvox.music.features.home.library.PlaylistsSection
+import com.xvox.music.features.home.library.RenamePlaylistBox
 import com.xvox.music.player.playback.MainPlayerViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
@@ -43,27 +49,37 @@ fun HomeScreen(
     playerViewModel:
         MainPlayerViewModel =
         viewModel(),
-    viewModel: HomeViewModel =
+    viewModel:
+        HomeViewModel =
         viewModel()
 ) {
     val state by
         viewModel.state.collectAsState()
 
     val colors = XvoxTheme.colors
+
     val overlays =
         LocalXvoxOverlayController.current
 
-    val context = LocalContext.current
+    val context =
+        LocalContext.current
 
-    val activity =
-        context as? Activity
+    var selectedPlaylistId by remember {
+        mutableStateOf<String?>(null)
+    }
 
-    var pendingDelete =
-        remember {
-            androidx.compose.runtime
-                .mutableStateOf<Song?>(
-                    null
-                )
+    var pendingDelete by remember {
+        mutableStateOf<Song?>(null)
+    }
+
+    val selectedPlaylist =
+        selectedPlaylistId?.let {
+            id ->
+
+            state.playlists
+                .firstOrNull {
+                    it.id == id
+                }
         }
 
     val deleteLauncher =
@@ -71,10 +87,8 @@ fun HomeScreen(
             ActivityResultContracts
                 .StartIntentSenderForResult()
         ) { result ->
-            val song =
-                pendingDelete.value
-
-            pendingDelete.value = null
+            val song = pendingDelete
+            pendingDelete = null
 
             if (
                 result.resultCode ==
@@ -115,6 +129,35 @@ fun HomeScreen(
         }
     }
 
+    fun showCreatePlaylist(
+        initialSong: Song? = null
+    ) {
+        overlays.showB {
+            CreatePlaylistBox(
+                songs = state.songs,
+                initialSong =
+                    initialSong,
+                onCreate = {
+                        name,
+                        ids ->
+
+                    viewModel.createPlaylist(
+                        name,
+                        ids
+                    ) { playlist ->
+                        overlays.hideB()
+
+                        if (playlist != null) {
+                            overlays.showP(
+                                "Playlist created"
+                            )
+                        }
+                    }
+                }
+            )
+        }
+    }
+
     fun showPlaylistPicker(
         song: Song
     ) {
@@ -123,37 +166,9 @@ fun HomeScreen(
                 playlists =
                     state.playlists,
                 onCreate = {
-                    overlays.showB {
-                        CreatePlaylistBox(
-                            songs =
-                                state.songs,
-                            initialSong =
-                                song,
-                            onCreate = {
-                                    name,
-                                    ids ->
-
-                                viewModel
-                                    .createPlaylist(
-                                        name,
-                                        ids
-                                    ) {
-                                        playlist ->
-
-                                        overlays.hideB()
-
-                                        if (
-                                            playlist !=
-                                            null
-                                        ) {
-                                            overlays.showP(
-                                                "Playlist created"
-                                            )
-                                        }
-                                    }
-                            }
-                        )
-                    }
+                    showCreatePlaylist(
+                        song
+                    )
                 },
                 onChoose = {
                     playlist ->
@@ -161,9 +176,7 @@ fun HomeScreen(
                     viewModel.addToPlaylist(
                         playlist.id,
                         song
-                    ) {
-                        updated ->
-
+                    ) { updated ->
                         overlays.hideB()
 
                         if (updated != null) {
@@ -215,10 +228,8 @@ fun HomeScreen(
                                                 song
                                             )
 
-                                    if (
-                                        pending != null
-                                    ) {
-                                        pendingDelete.value =
+                                    if (pending != null) {
+                                        pendingDelete =
                                             song
 
                                         overlays.hideB()
@@ -264,7 +275,8 @@ fun HomeScreen(
     }
 
     fun showSongOptions(
-        song: Song
+        song: Song,
+        playlist: XvoxPlaylist? = null
     ) {
         overlays.showL {
             SongOptionsSheet(
@@ -272,6 +284,8 @@ fun HomeScreen(
                 liked =
                     song.id in
                         state.likedSongIds,
+                playlistName =
+                    playlist?.name,
                 onPlayNext = {
                     playerViewModel
                         .playNextInQueue(
@@ -296,6 +310,23 @@ fun HomeScreen(
                     overlays.hideL()
                     showPlaylistPicker(song)
                 },
+                onRemovePlaylist =
+                    playlist?.let {
+                        target ->
+
+                        {
+                            viewModel
+                                .removeFromPlaylist(
+                                    target.id,
+                                    song
+                                ) {
+                                    overlays.hideL()
+                                    overlays.showP(
+                                        "Removed from ${target.name}"
+                                    )
+                                }
+                        }
+                    },
                 onLiked = {
                     val wasLiked =
                         song.id in
@@ -373,10 +404,84 @@ fun HomeScreen(
         }
     }
 
+    fun showPlaylistOptions(
+        playlist: XvoxPlaylist
+    ) {
+        overlays.showB {
+            PlaylistActionsBox(
+                playlist = playlist,
+                onRename = {
+                    overlays.showB {
+                        RenamePlaylistBox(
+                            playlist =
+                                playlist,
+                            onRename = {
+                                name ->
+
+                                viewModel
+                                    .renamePlaylist(
+                                        playlist.id,
+                                        name
+                                    ) {
+                                        updated ->
+
+                                        overlays.hideB()
+
+                                        if (
+                                            updated != null
+                                        ) {
+                                            overlays.showP(
+                                                "Playlist renamed"
+                                            )
+                                        }
+                                    }
+                            }
+                        )
+                    }
+                },
+                onDelete = {
+                    viewModel.deletePlaylist(
+                        playlist.id
+                    ) {
+                        if (
+                            selectedPlaylistId ==
+                            playlist.id
+                        ) {
+                            selectedPlaylistId =
+                                null
+                        }
+
+                        overlays.hideB()
+
+                        overlays.showP(
+                            "Playlist deleted"
+                        )
+                    }
+                },
+                onInfo = {
+                    overlays.showB {
+                        PlaylistInfoBox(
+                            playlist =
+                                playlist,
+                            songCount =
+                                viewModel
+                                    .playlistSongs(
+                                        playlist
+                                    )
+                                    .size
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
     ) {
         LazyColumn(
             modifier =
@@ -387,56 +492,169 @@ fun HomeScreen(
                 )
         ) {
             item(
-                key = "songs"
+                key = "library"
             ) {
-                AllSongsSection(
-                    songs = state.songs,
-                    currentSongId =
-                        currentSongId,
-                    isPlaying =
-                        isPlaying,
-                    onSongClick = {
-                        song ->
+                if (
+                    selectedPlaylist != null
+                ) {
+                    PlaylistDetail(
+                        playlist =
+                            selectedPlaylist,
+                        songs =
+                            viewModel
+                                .playlistSongs(
+                                    selectedPlaylist
+                                ),
+                        currentSongId =
+                            currentSongId,
+                        isPlaying =
+                            isPlaying,
+                        onPlay = {
+                            song ->
 
-                        viewModel
-                            .recordPlayedFromLibrary(
+                            viewModel
+                                .recordPlayedFromLibrary(
+                                    song,
+                                    currentSongId
+                                )
+
+                            onPlay(song)
+                        },
+                        onOptions = {
+                            song ->
+
+                            showSongOptions(
                                 song,
-                                currentSongId
+                                selectedPlaylist
                             )
+                        },
+                        onClosed = {
+                            selectedPlaylistId =
+                                null
+                        }
+                    )
+                } else {
+                    when (
+                        state.libraryMode
+                    ) {
+                        HomeLibraryMode
+                            .ALL_SONGS -> {
+                            AllSongsSection(
+                                songs =
+                                    state.songs,
+                                currentSongId =
+                                    currentSongId,
+                                isPlaying =
+                                    isPlaying,
+                                onSongClick = {
+                                    song ->
 
-                        onPlay(song)
-                    },
-                    onSongLongClick =
-                        ::showSongOptions,
-                    onPrefetch =
-                        viewModel::prefetchFrom
-                )
+                                    viewModel
+                                        .recordPlayedFromLibrary(
+                                            song,
+                                            currentSongId
+                                        )
+
+                                    onPlay(song)
+                                },
+                                onSongLongClick = {
+                                    song ->
+
+                                    showSongOptions(
+                                        song
+                                    )
+                                },
+                                onPrefetch =
+                                    viewModel::prefetchFrom
+                            )
+                        }
+
+                        HomeLibraryMode
+                            .LIKED -> {
+                            LikedSongsSection(
+                                songs =
+                                    viewModel
+                                        .likedSongs(),
+                                currentSongId =
+                                    currentSongId,
+                                isPlaying =
+                                    isPlaying,
+                                onPlay = {
+                                    song ->
+
+                                    viewModel
+                                        .recordPlayedFromLibrary(
+                                            song,
+                                            currentSongId
+                                        )
+
+                                    onPlay(song)
+                                },
+                                onOptions = {
+                                    song ->
+
+                                    showSongOptions(
+                                        song
+                                    )
+                                }
+                            )
+                        }
+
+                        HomeLibraryMode
+                            .PLAYLISTS -> {
+                            PlaylistsSection(
+                                playlists =
+                                    state.playlists,
+                                songsFor =
+                                    viewModel::
+                                        playlistSongs,
+                                onCreate = {
+                                    showCreatePlaylist()
+                                },
+                                onOpen = {
+                                    playlist ->
+
+                                    selectedPlaylistId =
+                                        playlist.id
+                                },
+                                onOptions =
+                                    ::showPlaylistOptions
+                            )
+                        }
+                    }
+                }
             }
 
-            item(
-                key = "recent"
+            if (
+                selectedPlaylist == null &&
+                state.libraryMode ==
+                HomeLibraryMode.ALL_SONGS
             ) {
-                RecentlyPlayedSection(
-                    songs =
-                        state.recentlyPlayed,
-                    currentSongId =
-                        currentSongId,
-                    isPlaying =
-                        isPlaying,
-                    transition =
-                        state.recentTransition,
-                    onSongClick = {
-                        song ->
+                item(
+                    key = "recent"
+                ) {
+                    RecentlyPlayedSection(
+                        songs =
+                            state.recentlyPlayed,
+                        currentSongId =
+                            currentSongId,
+                        isPlaying =
+                            isPlaying,
+                        transition =
+                            state.recentTransition,
+                        onSongClick = {
+                            song ->
 
-                        viewModel
-                            .recordPlayedFromRecent(
-                                song,
-                                currentSongId
-                            )
+                            viewModel
+                                .recordPlayedFromRecent(
+                                    song,
+                                    currentSongId
+                                )
 
-                        onPlay(song)
-                    }
-                )
+                            onPlay(song)
+                        }
+                    )
+                }
             }
 
             item(
@@ -446,7 +664,8 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillParentMaxWidth()
                         .heightIn(
-                            min = screenHeight
+                            min =
+                                screenHeight
                         )
                 )
             }
@@ -454,13 +673,22 @@ fun HomeScreen(
 
         HomeGlassHeader(
             profile = state.profile,
-            showPlaylists =
-                state.showPlaylists,
+            libraryMode =
+                state.libraryMode,
             onRefresh =
                 viewModel::refresh,
-            onHeartClick = {},
-            onLibraryModeClick =
-                viewModel::toggleLibraryMode
+            onHeartClick = {
+                selectedPlaylistId =
+                    null
+
+                viewModel.toggleLikedMode()
+            },
+            onLibraryModeClick = {
+                selectedPlaylistId =
+                    null
+
+                viewModel.togglePlaylistMode()
+            }
         )
     }
 }
