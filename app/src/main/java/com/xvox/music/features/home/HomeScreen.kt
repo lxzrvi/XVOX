@@ -3,6 +3,7 @@ package com.xvox.music.features.home
 import android.app.Activity
 import android.app.PendingIntent
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,13 +38,13 @@ import com.xvox.music.features.home.library.PlaylistActionsBox
 import com.xvox.music.features.home.library.PlaylistDetail
 import com.xvox.music.features.home.library.PlaylistInfoBox
 import com.xvox.music.features.home.library.PlaylistsSection
-import com.xvox.music.features.home.library.RenamePlaylistBox
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
 fun HomeScreen(
     currentSongId: Long?,
     isPlaying: Boolean,
+    homeResetKey: Long = 0L,
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
     playerViewModel:
@@ -54,40 +55,50 @@ fun HomeScreen(
         viewModel()
 ) {
     val state by
-        viewModel.state.collectAsState()
+        viewModel.state
+            .collectAsState()
 
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val overlays =
-        LocalXvoxOverlayController.current
+        LocalXvoxOverlayController
+            .current
 
     val context =
         LocalContext.current
 
-    var selectedPlaylistId by remember {
-        mutableStateOf<String?>(null)
-    }
+    var selectedPlaylistId by
+        remember {
+            mutableStateOf<String?>(
+                null
+            )
+        }
 
-    var pendingDelete by remember {
-        mutableStateOf<Song?>(null)
-    }
+    var pendingDelete by
+        remember {
+            mutableStateOf<Song?>(
+                null
+            )
+        }
 
     val selectedPlaylist =
-        selectedPlaylistId?.let {
-            id ->
-
-            state.playlists
-                .firstOrNull {
-                    it.id == id
-                }
-        }
+        selectedPlaylistId
+            ?.let { id ->
+                state.playlists
+                    .firstOrNull {
+                        it.id == id
+                    }
+            }
 
     val deleteLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts
                 .StartIntentSenderForResult()
         ) { result ->
-            val song = pendingDelete
+            val song =
+                pendingDelete
+
             pendingDelete = null
 
             if (
@@ -123,10 +134,42 @@ fun HomeScreen(
         LocalConfiguration.current
             .screenHeightDp.dp
 
-    LaunchedEffect(state.songs) {
-        if (state.songs.isNotEmpty()) {
-            onQueueReady(state.songs)
+    LaunchedEffect(
+        state.songs
+    ) {
+        if (
+            state.songs.isNotEmpty()
+        ) {
+            onQueueReady(
+                state.songs
+            )
         }
+    }
+
+    LaunchedEffect(
+        homeResetKey
+    ) {
+        if (
+            homeResetKey > 0L
+        ) {
+            selectedPlaylistId =
+                null
+
+            viewModel.setLibraryMode(
+                HomeLibraryMode.ALL_SONGS
+            )
+        }
+    }
+
+    BackHandler(
+        enabled =
+            selectedPlaylist == null &&
+                state.libraryMode !=
+                HomeLibraryMode.ALL_SONGS
+    ) {
+        viewModel.setLibraryMode(
+            HomeLibraryMode.ALL_SONGS
+        )
     }
 
     fun showCreatePlaylist(
@@ -134,25 +177,29 @@ fun HomeScreen(
     ) {
         overlays.showB {
             CreatePlaylistBox(
-                songs = state.songs,
+                songs =
+                    state.songs,
                 initialSong =
                     initialSong,
                 onCreate = {
                         name,
                         ids ->
 
-                    viewModel.createPlaylist(
-                        name,
-                        ids
-                    ) { playlist ->
-                        overlays.hideB()
+                    viewModel
+                        .createPlaylist(
+                            name,
+                            ids
+                        ) { playlist ->
+                            overlays.hideB()
 
-                        if (playlist != null) {
-                            overlays.showP(
-                                "Playlist created"
-                            )
+                            if (
+                                playlist != null
+                            ) {
+                                overlays.showP(
+                                    "Playlist created"
+                                )
+                            }
                         }
-                    }
                 }
             )
         }
@@ -173,18 +220,21 @@ fun HomeScreen(
                 onChoose = {
                     playlist ->
 
-                    viewModel.addToPlaylist(
-                        playlist.id,
-                        song
-                    ) { updated ->
-                        overlays.hideB()
+                    viewModel
+                        .addToPlaylist(
+                            playlist.id,
+                            song
+                        ) { updated ->
+                            overlays.hideB()
 
-                        if (updated != null) {
-                            overlays.showP(
-                                "Added to ${updated.name}"
-                            )
+                            if (
+                                updated != null
+                            ) {
+                                overlays.showP(
+                                    "Added to ${updated.name}"
+                                )
+                            }
                         }
-                    }
                 }
             )
         }
@@ -202,7 +252,10 @@ fun HomeScreen(
                             song.id
                         )
 
-                    viewModel.hideSong(song)
+                    viewModel.hideSong(
+                        song
+                    )
+
                     overlays.hideB()
 
                     overlays.showP(
@@ -228,7 +281,9 @@ fun HomeScreen(
                                                 song
                                             )
 
-                                    if (pending != null) {
+                                    if (
+                                        pending != null
+                                    ) {
                                         pendingDelete =
                                             song
 
@@ -276,7 +331,9 @@ fun HomeScreen(
 
     fun showSongOptions(
         song: Song,
-        playlist: XvoxPlaylist? = null
+        playlist:
+            XvoxPlaylist? = null,
+        recent: Boolean = false
     ) {
         overlays.showL {
             SongOptionsSheet(
@@ -293,46 +350,73 @@ fun HomeScreen(
                         )
 
                     overlays.hideL()
+
                     overlays.showP(
                         "Playing next"
                     )
                 },
                 onAddQueue = {
                     playerViewModel
-                        .addToQueue(song)
+                        .addToQueue(
+                            song
+                        )
 
                     overlays.hideL()
+
                     overlays.showP(
                         "Added to queue"
                     )
                 },
                 onPlaylist = {
                     overlays.hideL()
-                    showPlaylistPicker(song)
+
+                    showPlaylistPicker(
+                        song
+                    )
                 },
                 onRemovePlaylist =
-                    playlist?.let {
-                        target ->
+                    playlist
+                        ?.let { target ->
+                            {
+                                viewModel
+                                    .removeFromPlaylist(
+                                        target.id,
+                                        song
+                                    ) {
+                                        overlays.hideL()
 
+                                        overlays.showP(
+                                            "Removed from ${target.name}"
+                                        )
+                                    }
+                            }
+                        },
+                onRemoveRecent =
+                    if (recent) {
                         {
                             viewModel
-                                .removeFromPlaylist(
-                                    target.id,
+                                .removeFromRecent(
                                     song
-                                ) {
-                                    overlays.hideL()
-                                    overlays.showP(
-                                        "Removed from ${target.name}"
-                                    )
-                                }
+                                )
+
+                            overlays.hideL()
+
+                            overlays.showP(
+                                "Removed from recent"
+                            )
                         }
+                    } else {
+                        null
                     },
                 onLiked = {
                     val wasLiked =
                         song.id in
                             state.likedSongIds
 
-                    viewModel.toggleLiked(song)
+                    viewModel.toggleLiked(
+                        song
+                    )
+
                     overlays.hideL()
 
                     overlays.showP(
@@ -350,13 +434,16 @@ fun HomeScreen(
                 onInfo = {
                     overlays.hideL()
 
-                    viewModel.loadInfo(song) {
-                        info ->
-
-                        overlays.showB {
-                            SongInfoBox(info)
+                    viewModel
+                        .loadInfo(
+                            song
+                        ) { info ->
+                            overlays.showB {
+                                SongInfoBox(
+                                    info
+                                )
+                            }
                         }
-                    }
                 },
                 onRingtone = {
                     overlays.hideL()
@@ -395,10 +482,11 @@ fun HomeScreen(
                 onShare = {
                     overlays.hideL()
 
-                    XvoxSongActions.share(
-                        context,
-                        song
-                    )
+                    XvoxSongActions
+                        .share(
+                            context,
+                            song
+                        )
                 }
             )
         }
@@ -409,54 +497,51 @@ fun HomeScreen(
     ) {
         overlays.showB {
             PlaylistActionsBox(
-                playlist = playlist,
+                playlist =
+                    playlist,
+                songs =
+                    viewModel
+                        .playlistSongs(
+                            playlist
+                        ),
                 onRename = {
-                    overlays.showB {
-                        RenamePlaylistBox(
-                            playlist =
-                                playlist,
-                            onRename = {
-                                name ->
+                    name ->
 
-                                viewModel
-                                    .renamePlaylist(
-                                        playlist.id,
-                                        name
-                                    ) {
-                                        updated ->
+                    viewModel
+                        .renamePlaylist(
+                            playlist.id,
+                            name
+                        ) { updated ->
+                            if (
+                                updated != null
+                            ) {
+                                overlays.hideB()
 
-                                        overlays.hideB()
-
-                                        if (
-                                            updated != null
-                                        ) {
-                                            overlays.showP(
-                                                "Playlist renamed"
-                                            )
-                                        }
-                                    }
+                                overlays.showP(
+                                    "Playlist renamed"
+                                )
                             }
-                        )
-                    }
+                        }
                 },
                 onDelete = {
-                    viewModel.deletePlaylist(
-                        playlist.id
-                    ) {
-                        if (
-                            selectedPlaylistId ==
+                    viewModel
+                        .deletePlaylist(
                             playlist.id
                         ) {
-                            selectedPlaylistId =
-                                null
+                            if (
+                                selectedPlaylistId ==
+                                playlist.id
+                            ) {
+                                selectedPlaylistId =
+                                    null
+                            }
+
+                            overlays.hideB()
+
+                            overlays.showP(
+                                "Playlist deleted"
+                            )
                         }
-
-                        overlays.hideB()
-
-                        overlays.showP(
-                            "Playlist deleted"
-                        )
-                    }
                 },
                 onInfo = {
                     overlays.showB {
@@ -471,6 +556,38 @@ fun HomeScreen(
                                     .size
                         )
                     }
+                }
+            )
+        }
+    }
+
+    fun showProfileEditor() {
+        overlays.showB {
+            ProfileEditorBox(
+                profile =
+                    state.profile,
+                onCancel =
+                    overlays::hideB,
+                onSave = {
+                        name,
+                        selectedPfp,
+                        customUri ->
+
+                    viewModel
+                        .saveProfile(
+                            username =
+                                name,
+                            selectedPfp =
+                                selectedPfp,
+                            customPfpUri =
+                                customUri
+                        ) {
+                            overlays.hideB()
+
+                            overlays.showP(
+                                "Profile updated"
+                            )
+                        }
                 }
             )
         }
@@ -495,7 +612,8 @@ fun HomeScreen(
                 key = "library"
             ) {
                 if (
-                    selectedPlaylist != null
+                    selectedPlaylist !=
+                    null
                 ) {
                     PlaylistDetail(
                         playlist =
@@ -537,8 +655,7 @@ fun HomeScreen(
                     when (
                         state.libraryMode
                     ) {
-                        HomeLibraryMode
-                            .ALL_SONGS -> {
+                        HomeLibraryMode.ALL_SONGS -> {
                             AllSongsSection(
                                 songs =
                                     state.songs,
@@ -569,8 +686,7 @@ fun HomeScreen(
                             )
                         }
 
-                        HomeLibraryMode
-                            .LIKED -> {
+                        HomeLibraryMode.LIKED -> {
                             LikedSongsSection(
                                 songs =
                                     viewModel
@@ -600,14 +716,12 @@ fun HomeScreen(
                             )
                         }
 
-                        HomeLibraryMode
-                            .PLAYLISTS -> {
+                        HomeLibraryMode.PLAYLISTS -> {
                             PlaylistsSection(
                                 playlists =
                                     state.playlists,
                                 songsFor =
-                                    viewModel::
-                                        playlistSongs,
+                                    viewModel::playlistSongs,
                                 onCreate = {
                                     showCreatePlaylist()
                                 },
@@ -652,6 +766,14 @@ fun HomeScreen(
                                 )
 
                             onPlay(song)
+                        },
+                        onSongOptions = {
+                            song ->
+
+                            showSongOptions(
+                                song = song,
+                                recent = true
+                            )
                         }
                     )
                 }
@@ -672,22 +794,27 @@ fun HomeScreen(
         }
 
         HomeGlassHeader(
-            profile = state.profile,
+            profile =
+                state.profile,
             libraryMode =
                 state.libraryMode,
+            onProfileClick =
+                ::showProfileEditor,
             onRefresh =
                 viewModel::refresh,
             onHeartClick = {
                 selectedPlaylistId =
                     null
 
-                viewModel.toggleLikedMode()
+                viewModel
+                    .toggleLikedMode()
             },
             onLibraryModeClick = {
                 selectedPlaylistId =
                     null
 
-                viewModel.togglePlaylistMode()
+                viewModel
+                    .togglePlaylistMode()
             }
         )
     }
