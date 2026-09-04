@@ -2,6 +2,7 @@ package com.xvox.music.features.home.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -43,50 +44,81 @@ fun LibrarySongRow(
     onOptions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
+
+    val shape =
+        RoundedCornerShape(
+            14.dp
+        )
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(62.dp)
-            .combinedClickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                onClick = onClick,
-                onLongClick = onOptions
-            )
-            .padding(
-                horizontal = 12.dp,
-                vertical = 6.dp
-            ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(
+                    64.dp
+                )
+                .clip(shape)
+                .background(
+                    colors.card
+                )
+                .border(
+                    width = 0.7.dp,
+                    color =
+                        colors.cardBorder,
+                    shape = shape
+                )
+                .combinedClickable(
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClick,
+                    onLongClick =
+                        onOptions
+                )
+                .padding(
+                    start = 6.dp,
+                    top = 6.dp,
+                    end = 8.dp,
+                    bottom = 6.dp
+                ),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
         SongArtwork(
-            artwork = song.artworkUri,
-            requestSize = 128,
-            modifier = Modifier
-                .size(50.dp)
-                .clip(
-                    RoundedCornerShape(
-                        9.dp
+            artwork =
+                song.artworkUri,
+            requestSize = 112,
+            modifier =
+                Modifier
+                    .size(
+                        52.dp
                     )
-                )
+                    .clip(
+                        RoundedCornerShape(
+                            9.dp
+                        )
+                    )
         )
 
         Spacer(
-            Modifier.size(11.dp)
+            Modifier.size(
+                10.dp
+            )
         )
 
         Column(
             modifier =
-                Modifier.weight(1f)
+                Modifier.weight(
+                    1f
+                )
         ) {
             Text(
-                text = song.title,
+                text =
+                    song.title,
                 color =
                     colors.primaryText,
                 fontSize = 13.sp,
@@ -95,7 +127,8 @@ fun LibrarySongRow(
                     if (current) {
                         FontWeight.Bold
                     } else {
-                        FontWeight.SemiBold
+                        FontWeight
+                            .SemiBold
                     },
                 maxLines = 1,
                 overflow =
@@ -123,37 +156,43 @@ fun LibrarySongRow(
         }
 
         Box(
-            modifier = Modifier
-                .size(38.dp)
-                .background(
-                    colors.card.copy(
-                        alpha = 0.45f
+            modifier =
+                Modifier
+                    .size(
+                        36.dp
+                    )
+                    .background(
+                        colors.cardElevated,
+                        CircleShape
+                    )
+                    .combinedClickable(
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication = null,
+                        onClick =
+                            onOptions,
+                        onLongClick =
+                            onOptions
                     ),
-                    CircleShape
-                )
-                .combinedClickable(
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
-                    indication = null,
-                    onClick = onOptions,
-                    onLongClick = onOptions
-                ),
             contentAlignment =
                 Alignment.Center
         ) {
             Icon(
                 painter =
                     painterResource(
-                        R.drawable.ic_xvox_more
+                        R.drawable
+                            .ic_xvox_more
                     ),
                 contentDescription =
                     "Song options",
                 tint =
                     colors.primaryText,
                 modifier =
-                    Modifier.size(18.dp)
+                    Modifier.size(
+                        18.dp
+                    )
             )
         }
     }
