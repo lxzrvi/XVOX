@@ -12,18 +12,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferences
+import com.xvox.music.features.home.library.HomeLibraryMode
 
 @Composable
 fun HomeGlassHeader(
     profile: UserPreferences,
-    showPlaylists: Boolean,
+    libraryMode: HomeLibraryMode,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
     onLibraryModeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = modifier
@@ -42,10 +42,8 @@ fun HomeGlassHeader(
     ) {
         HomeHeader(
             profile = profile,
-            showPlaylists =
-                showPlaylists,
-            onRefresh =
-                onRefresh,
+            libraryMode = libraryMode,
+            onRefresh = onRefresh,
             onHeartClick =
                 onHeartClick,
             onLibraryModeClick =
