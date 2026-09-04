@@ -14,9 +14,12 @@
 
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE" />
-    
+
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS" />
 
     <application
         android:name=".XvoxApplication"
@@ -48,9 +51,12 @@
             android:name=".player.session.XvoxPlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
+
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action
+                    android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
+
         </service>
 
     </application>
