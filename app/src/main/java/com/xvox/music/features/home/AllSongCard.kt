@@ -37,10 +37,10 @@ fun AllSongCard(
     current: Boolean,
     playing: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     val interaction =
         remember {
@@ -61,24 +61,17 @@ fun AllSongCard(
                 },
             animationSpec =
                 spring(
-                    dampingRatio =
-                        0.84f,
-                    stiffness =
-                        1500f
+                    dampingRatio = 0.84f,
+                    stiffness = 1500f
                 ),
-            label =
-                "songCardPress"
+            label = "songCardPress"
         )
 
     val cardShape =
-        RoundedCornerShape(
-            11.dp
-        )
+        RoundedCornerShape(11.dp)
 
     val artworkShape =
-        RoundedCornerShape(
-            7.dp
-        )
+        RoundedCornerShape(7.dp)
 
     Column(
         modifier = modifier
@@ -87,53 +80,42 @@ fun AllSongCard(
                 scaleY = scale
             }
             .clip(cardShape)
-            .background(
-                colors.card
-            )
+            .background(colors.card)
             .border(
                 width = 0.7.dp,
-                color =
-                    colors.cardBorder,
-                shape =
-                    cardShape
+                color = colors.cardBorder,
+                shape = cardShape
             )
             .combinedClickable(
                 interactionSource =
                     interaction,
                 indication = null,
-                onClick =
-                    onClick,
-                onLongClick = {}
+                onClick = onClick,
+                onLongClick =
+                    onLongClick
             )
             .padding(5.dp)
     ) {
         SongArtwork(
-            artwork =
-                song.artworkUri,
+            artwork = song.artworkUri,
             requestSize =
                 GridArtworkSize,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(
-                        artworkShape
-                    )
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(artworkShape)
         )
 
         Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
             verticalArrangement =
                 Arrangement.Center
         ) {
             Text(
-                text =
-                    song.title,
-                color =
-                    colors.primaryText,
+                text = song.title,
+                color = colors.primaryText,
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
                 fontWeight =
@@ -144,8 +126,7 @@ fun AllSongCard(
             )
 
             Text(
-                text =
-                    song.artist,
+                text = song.artist,
                 color =
                     colors.secondaryText,
                 fontSize = 8.sp,
