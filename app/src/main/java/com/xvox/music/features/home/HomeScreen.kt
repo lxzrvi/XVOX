@@ -82,9 +82,7 @@ fun HomeScreen(
 
     val selectedPlaylist =
         selectedPlaylistId
-            ?.let {
-                id ->
-
+            ?.let { id ->
                 state.playlists
                     .firstOrNull {
                         it.id == id
@@ -95,9 +93,7 @@ fun HomeScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts
                 .StartIntentSenderForResult()
-        ) {
-            result ->
-
+        ) { result ->
             val song =
                 pendingDelete
 
@@ -133,8 +129,7 @@ fun HomeScreen(
             HomeGeometry.sectionGap
 
     val screenHeight =
-        LocalConfiguration
-            .current
+        LocalConfiguration.current
             .screenHeightDp.dp
 
     LaunchedEffect(
@@ -188,23 +183,20 @@ fun HomeScreen(
                         name,
                         ids ->
 
-                    viewModel
-                        .createPlaylist(
-                            name,
-                            ids
+                    viewModel.createPlaylist(
+                        name,
+                        ids
+                    ) { playlist ->
+                        overlays.hideB()
+
+                        if (
+                            playlist != null
                         ) {
-                            playlist ->
-
-                            overlays.hideB()
-
-                            if (
-                                playlist != null
-                            ) {
-                                overlays.showP(
-                                    "Playlist created"
-                                )
-                            }
+                            overlays.showP(
+                                "Playlist created"
+                            )
                         }
+                    }
                 }
             )
         }
@@ -215,6 +207,7 @@ fun HomeScreen(
     ) {
         overlays.showB {
             PlaylistPickerBox(
+                song = song,
                 playlists =
                     state.playlists,
                 onCreate = {
@@ -222,23 +215,39 @@ fun HomeScreen(
                         song
                     )
                 },
-                onChoose = {
+                onAdd = {
+                    playlist ->
+
+                    viewModel.addToPlaylist(
+                        playlist.id,
+                        song
+                    ) { updated ->
+                        if (
+                            updated != null
+                        ) {
+                            overlays.hideB()
+
+                            overlays.showP(
+                                "Added to ${updated.name}"
+                            )
+                        }
+                    }
+                },
+                onRemove = {
                     playlist ->
 
                     viewModel
-                        .addToPlaylist(
+                        .removeFromPlaylist(
                             playlist.id,
                             song
-                        ) {
-                            updated ->
-
-                            overlays.hideB()
-
+                        ) { updated ->
                             if (
                                 updated != null
                             ) {
+                                overlays.hideB()
+
                                 overlays.showP(
-                                    "Added to ${updated.name}"
+                                    "Removed from ${updated.name}"
                                 )
                             }
                         }
@@ -439,23 +448,23 @@ fun HomeScreen(
                 },
                 onDelete = {
                     overlays.hideL()
-                    showDelete(song)
+
+                    showDelete(
+                        song
+                    )
                 },
                 onInfo = {
                     overlays.hideL()
 
-                    viewModel
-                        .loadInfo(
-                            song
-                        ) {
-                            info ->
-
-                            overlays.showB {
-                                SongInfoBox(
-                                    info
-                                )
-                            }
+                    viewModel.loadInfo(
+                        song
+                    ) { info ->
+                        overlays.showB {
+                            SongInfoBox(
+                                info
+                            )
                         }
+                    }
                 },
                 onRingtone = {
                     overlays.hideL()
@@ -494,11 +503,10 @@ fun HomeScreen(
                 onShare = {
                     overlays.hideL()
 
-                    XvoxSongActions
-                        .share(
-                            context,
-                            song
-                        )
+                    XvoxSongActions.share(
+                        context,
+                        song
+                    )
                 }
             )
         }
@@ -516,21 +524,19 @@ fun HomeScreen(
                         selectedPfp,
                         customUri ->
 
-                    viewModel
-                        .saveProfile(
-                            username =
-                                name,
-                            selectedPfp =
-                                selectedPfp,
-                            customPfpUri =
-                                customUri
-                        ) {
-                            overlays.hideB()
+                    viewModel.saveProfile(
+                        username = name,
+                        selectedPfp =
+                            selectedPfp,
+                        customPfpUri =
+                            customUri
+                    ) {
+                        overlays.hideB()
 
-                            overlays.showP(
-                                "Profile updated"
-                            )
-                        }
+                        overlays.showP(
+                            "Profile updated"
+                        )
+                    }
                 }
             )
         }
