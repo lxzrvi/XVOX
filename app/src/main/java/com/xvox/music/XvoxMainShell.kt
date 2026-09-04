@@ -31,36 +31,54 @@ import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
 fun XvoxMainShell(
-    playerViewModel: MainPlayerViewModel = viewModel()
+    playerViewModel:
+        MainPlayerViewModel =
+        viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val player by playerViewModel.state.collectAsState()
+
+    val player by
+        playerViewModel.state
+            .collectAsState()
 
     var destination by remember {
-        mutableStateOf(XvoxDestination.HOME)
+        mutableStateOf(
+            XvoxDestination.HOME
+        )
     }
 
     val currentSong =
-        player.queue.getOrNull(player.currentIndex)
-            ?: player.currentSongId?.let { id ->
-                player.queue.firstOrNull {
-                    it.id == id
+        player.queue.getOrNull(
+            player.currentIndex
+        )
+            ?: player.currentSongId
+                ?.let { id ->
+                    player.queue
+                        .firstOrNull {
+                            it.id == id
+                        }
                 }
-            }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
     ) {
         when (destination) {
             XvoxDestination.HOME -> {
                 HomeScreen(
-                    currentSongId = player.currentSongId,
-                    isPlaying = player.isPlaying,
+                    currentSongId =
+                        player.currentSongId,
+                    isPlaying =
+                        player.isPlaying,
                     onQueueReady =
                         playerViewModel::setQueue,
-                    onPlay = playerViewModel::play
+                    onPlay =
+                        playerViewModel::play,
+                    playerViewModel =
+                        playerViewModel
                 )
             }
 
@@ -84,12 +102,18 @@ fun XvoxMainShell(
         ) {
             XvoxMiniPlayer(
                 queue = player.queue,
-                currentSongId = currentSongId,
-                currentIndex = player.currentIndex,
-                isPlaying = player.isPlaying,
-                position = player.position,
-                duration = player.duration,
-                riseKey = player.miniPlayerRiseKey,
+                currentSongId =
+                    currentSongId,
+                currentIndex =
+                    player.currentIndex,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
+                riseKey =
+                    player.miniPlayerRiseKey,
                 togglePlay =
                     playerViewModel::togglePlay,
                 playQueueIndex =
@@ -101,7 +125,9 @@ fun XvoxMainShell(
                 onLike = {},
                 onAdd = {},
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(
+                        Alignment.BottomCenter
+                    )
                     .windowInsetsPadding(
                         WindowInsets.navigationBars
                     )
@@ -125,7 +151,9 @@ fun XvoxMainShell(
                 destination = it
             },
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(
+                    Alignment.BottomCenter
+                )
                 .windowInsetsPadding(
                     WindowInsets.navigationBars
                 )
@@ -153,10 +181,14 @@ fun XvoxMainShell(
             XvoxNowPlaying(
                 song = currentSong,
                 queue = player.queue,
-                currentIndex = player.currentIndex,
-                isPlaying = player.isPlaying,
-                position = player.position,
-                duration = player.duration,
+                currentIndex =
+                    player.currentIndex,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
                 onClose =
                     playerViewModel::closeNowPlaying,
                 onTogglePlay =
@@ -169,7 +201,8 @@ fun XvoxMainShell(
                     playerViewModel::playQueueIndex,
                 onSeek =
                     playerViewModel::seekTo,
-                modifier = Modifier.fillMaxSize()
+                modifier =
+                    Modifier.fillMaxSize()
             )
         }
     }
