@@ -2,13 +2,16 @@ package com.xvox.music.features.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -38,12 +42,17 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
+@OptIn(
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun RecentArtwork(
     song: Song,
     current: Boolean,
     playing: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    animateEntrance: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val colors =
@@ -63,7 +72,7 @@ fun RecentArtwork(
         cardInteraction
             .collectIsPressedAsState()
 
-    val scale by
+    val pressScale by
         androidx.compose.animation.core
             .animateFloatAsState(
                 targetValue =
@@ -80,6 +89,32 @@ fun RecentArtwork(
                 label = "recentPress"
             )
 
+    val entrance =
+        remember(song.id) {
+            Animatable(
+                if (animateEntrance) {
+                    0f
+                } else {
+                    1f
+                }
+            )
+        }
+
+    LaunchedEffect(
+        song.id,
+        animateEntrance
+    ) {
+        if (animateEntrance) {
+            entrance.animateTo(
+                1f,
+                animationSpec =
+                    tween(260)
+            )
+        } else {
+            entrance.snapTo(1f)
+        }
+    }
+
     val shape =
         RoundedCornerShape(
             3.dp
@@ -88,8 +123,25 @@ fun RecentArtwork(
     Box(
         modifier = modifier
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                val entranceScale =
+                    0.975f +
+                        0.025f *
+                        entrance.value
+
+                scaleX =
+                    pressScale *
+                        entranceScale
+
+                scaleY =
+                    pressScale *
+                        entranceScale
+
+                alpha =
+                    entrance.value
+
+                translationY =
+                    (1f - entrance.value) *
+                        22f
             }
             .clip(shape)
             .background(
@@ -101,11 +153,14 @@ fun RecentArtwork(
                     colors.cardBorder,
                 shape = shape
             )
-            .clickable(
+            .combinedClickable(
                 interactionSource =
                     cardInteraction,
                 indication = null,
-                onClick = onClick
+                onClick =
+                    onClick,
+                onLongClick =
+                    onLongClick
             )
     ) {
         SongArtwork(
@@ -176,11 +231,13 @@ fun RecentArtwork(
                             stiffness = 700f
                         )
                 )
-                .clickable(
+                .combinedClickable(
                     interactionSource =
                         controlInteraction,
                     indication = null,
-                    onClick = onClick
+                    onClick = onClick,
+                    onLongClick =
+                        onLongClick
                 )
                 .padding(
                     horizontal = 8.dp
@@ -206,11 +263,9 @@ fun RecentArtwork(
                 PlaybackIcon(
                     type =
                         if (active) {
-                            PlaybackIconType
-                                .PAUSE
+                            PlaybackIconType.PAUSE
                         } else {
-                            PlaybackIconType
-                                .PLAY
+                            PlaybackIconType.PLAY
                         },
                     color = Color.White,
                     modifier =
