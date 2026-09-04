@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,9 +41,11 @@ data class SongOption(
 fun SongOptionsSheet(
     song: Song,
     liked: Boolean,
+    playlistName: String? = null,
     onPlayNext: () -> Unit,
     onAddQueue: () -> Unit,
     onPlaylist: () -> Unit,
+    onRemovePlaylist: (() -> Unit)? = null,
     onLiked: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
@@ -50,6 +53,24 @@ fun SongOptionsSheet(
     onShare: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+
+    val playlistOption =
+        if (
+            playlistName != null &&
+            onRemovePlaylist != null
+        ) {
+            SongOption(
+                "Remove from $playlistName",
+                R.drawable.ic_xvox_delete,
+                onRemovePlaylist
+            )
+        } else {
+            SongOption(
+                "Add to playlist",
+                R.drawable.ic_xvox_playlist,
+                onPlaylist
+            )
+        }
 
     val options =
         listOf(
@@ -63,11 +84,7 @@ fun SongOptionsSheet(
                 R.drawable.ic_xvox_queue,
                 onAddQueue
             ),
-            SongOption(
-                "Add to playlist",
-                R.drawable.ic_xvox_playlist,
-                onPlaylist
-            ),
+            playlistOption,
             SongOption(
                 if (liked) {
                     "Remove from liked"
@@ -122,12 +139,16 @@ fun SongOptionsSheet(
             )
 
             Column(
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        start = 14.dp
+                    )
             ) {
                 Text(
                     text = song.title,
-                    color = colors.primaryText,
+                    color =
+                        colors.primaryText,
                     fontSize = 14.sp,
                     fontWeight =
                         FontWeight.Bold,
@@ -200,8 +221,7 @@ fun SongOptionsSheet(
                     }
 
                     Text(
-                        text =
-                            option.title,
+                        text = option.title,
                         color =
                             colors.primaryText,
                         fontSize = 13.sp
