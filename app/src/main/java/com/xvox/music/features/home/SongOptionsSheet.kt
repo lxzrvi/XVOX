@@ -46,13 +46,15 @@ fun SongOptionsSheet(
     onAddQueue: () -> Unit,
     onPlaylist: () -> Unit,
     onRemovePlaylist: (() -> Unit)? = null,
+    onRemoveRecent: (() -> Unit)? = null,
     onLiked: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
     onRingtone: () -> Unit,
     onShare: () -> Unit
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     val playlistOption =
         if (
@@ -73,48 +75,79 @@ fun SongOptionsSheet(
         }
 
     val options =
-        listOf(
-            SongOption(
-                "Play next",
-                R.drawable.ic_xvox_skip_next,
-                onPlayNext
-            ),
-            SongOption(
-                "Add to queue",
-                R.drawable.ic_xvox_queue,
-                onAddQueue
-            ),
-            playlistOption,
-            SongOption(
-                if (liked) {
-                    "Remove from liked"
-                } else {
-                    "Add to liked"
-                },
-                R.drawable.ic_xvox_heart,
-                onLiked
-            ),
-            SongOption(
-                "Delete",
-                R.drawable.ic_xvox_delete,
-                onDelete
-            ),
-            SongOption(
-                "Info",
-                R.drawable.ic_xvox_info,
-                onInfo
-            ),
-            SongOption(
-                "Set ringtone",
-                R.drawable.ic_xvox_music_note,
-                onRingtone
-            ),
-            SongOption(
-                "Share",
-                R.drawable.ic_xvox_share,
-                onShare
+        buildList {
+            add(
+                SongOption(
+                    "Play next",
+                    R.drawable.ic_xvox_skip_next,
+                    onPlayNext
+                )
             )
-        )
+
+            add(
+                SongOption(
+                    "Add to queue",
+                    R.drawable.ic_xvox_queue,
+                    onAddQueue
+                )
+            )
+
+            add(playlistOption)
+
+            add(
+                SongOption(
+                    if (liked) {
+                        "Remove from liked"
+                    } else {
+                        "Add to liked"
+                    },
+                    R.drawable.ic_xvox_heart,
+                    onLiked
+                )
+            )
+
+            if (onRemoveRecent != null) {
+                add(
+                    SongOption(
+                        "Remove from recent",
+                        R.drawable.ic_xvox_delete,
+                        onRemoveRecent
+                    )
+                )
+            }
+
+            add(
+                SongOption(
+                    "Delete",
+                    R.drawable.ic_xvox_delete,
+                    onDelete
+                )
+            )
+
+            add(
+                SongOption(
+                    "Info",
+                    R.drawable.ic_xvox_info,
+                    onInfo
+                )
+            )
+
+            add(
+                SongOption(
+                    "Set ringtone",
+                    R.drawable.ic_xvox_music_note,
+                    onRingtone
+                )
+            )
+
+            add(
+                SongOption(
+                    "Share",
+                    R.drawable.ic_xvox_share,
+                    onShare
+                )
+            )
+        }
 
     Column(
         modifier =
@@ -127,7 +160,8 @@ fun SongOptionsSheet(
                 Alignment.CenterVertically
         ) {
             SongArtwork(
-                artwork = song.artworkUri,
+                artwork =
+                    song.artworkUri,
                 requestSize = 128,
                 modifier = Modifier
                     .size(54.dp)
@@ -221,7 +255,8 @@ fun SongOptionsSheet(
                     }
 
                     Text(
-                        text = option.title,
+                        text =
+                            option.title,
                         color =
                             colors.primaryText,
                         fontSize = 13.sp
