@@ -43,15 +43,24 @@ class PlaybackController(
                 Dispatchers.Main.immediate
         )
 
-    private var controller: MediaController? = null
-    private var queue: List<Song> = emptyList()
+    private var controller:
+        MediaController? = null
+
+    private var queue:
+        List<Song> = emptyList()
+
     private var progressJob: Job? = null
-    private var restoredSongId: Long? = null
+
+    private var restoredSongId:
+        Long? = null
 
     private val _state =
-        MutableStateFlow(PlaybackState())
+        MutableStateFlow(
+            PlaybackState()
+        )
 
-    val state: StateFlow<PlaybackState> =
+    val state:
+        StateFlow<PlaybackState> =
         _state.asStateFlow()
 
     private val listener =
@@ -88,9 +97,16 @@ class PlaybackController(
             {
                 runCatching {
                     future.get()
-                }.onSuccess { mediaController ->
-                    controller = mediaController
-                    mediaController.addListener(listener)
+                }.onSuccess {
+                    mediaController ->
+
+                    controller =
+                        mediaController
+
+                    mediaController.addListener(
+                        listener
+                    )
+
                     publishState()
 
                     progressJob =
@@ -102,7 +118,9 @@ class PlaybackController(
                         }
                 }
             },
-            ContextCompat.getMainExecutor(appContext)
+            ContextCompat.getMainExecutor(
+                appContext
+            )
         )
     }
 
@@ -113,10 +131,93 @@ class PlaybackController(
         publishState()
     }
 
+    fun currentQueue():
+        List<Song> =
+        queue
+
+    fun playNext(
+        song: Song
+    ): List<Song> {
+        val currentId =
+            _state.value.currentSongId
+
+        val currentPosition =
+            queue.indexOfFirst {
+                it.id == currentId
+            }
+
+        val without =
+            queue.filterNot {
+                it.id == song.id
+            }
+                .toMutableList()
+
+        val updatedCurrent =
+            without.indexOfFirst {
+                it.id == currentId
+            }
+
+        val insert =
+            if (updatedCurrent >= 0) {
+                updatedCurrent + 1
+            } else if (
+                currentPosition >= 0
+            ) {
+                currentPosition
+                    .coerceAtMost(
+                        without.size
+                    )
+            } else {
+                0
+            }
+
+        without.add(
+            insert.coerceIn(
+                0,
+                without.size
+            ),
+            song
+        )
+
+        queue = without
+        publishState()
+        return queue
+    }
+
+    fun addToQueue(
+        song: Song
+    ): List<Song> {
+        if (
+            queue.any {
+                it.id == song.id
+            }
+        ) {
+            return queue
+        }
+
+        queue = queue + song
+        publishState()
+        return queue
+    }
+
+    fun removeFromQueue(
+        songId: Long
+    ): List<Song> {
+        queue =
+            queue.filterNot {
+                it.id == songId
+            }
+
+        publishState()
+        return queue
+    }
+
     fun restoreSong(
         songId: Long
     ) {
-        val mediaController = controller
+        val mediaController =
+            controller
+
         val liveId =
             mediaController
                 ?.currentMediaItem
@@ -155,11 +256,13 @@ class PlaybackController(
             controller ?: return
 
         val liveId =
-            mediaController.currentMediaItem
+            mediaController
+                .currentMediaItem
                 ?.mediaId
 
         if (
-            liveId == song.id.toString() &&
+            liveId ==
+            song.id.toString() &&
             restoredSongId == null
         ) {
             togglePlay()
@@ -168,10 +271,15 @@ class PlaybackController(
 
         restoredSongId = null
 
-        val index =
+        var index =
             queue.indexOfFirst {
                 it.id == song.id
             }
+
+        if (index < 0) {
+            queue = queue + song
+            index = queue.lastIndex
+        }
 
         mediaController.setMediaItem(
             song.toMediaItem()
@@ -235,17 +343,20 @@ class PlaybackController(
     }
 
     fun playPrevious() {
-        val index = _state.value.currentIndex
+        val index =
+            _state.value.currentIndex
+
         if (index <= 0) return
 
         playQueueIndex(
-            index = index - 1,
-            keepPlayingState = true
+            index - 1,
+            true
         )
     }
 
     fun playNext() {
-        val index = _state.value.currentIndex
+        val index =
+            _state.value.currentIndex
 
         if (
             index < 0 ||
@@ -253,8 +364,8 @@ class PlaybackController(
         ) return
 
         playQueueIndex(
-            index = index + 1,
-            keepPlayingState = true
+            index + 1,
+            true
         )
     }
 
@@ -271,24 +382,29 @@ class PlaybackController(
 
         val duration =
             mediaController.duration
-                .takeIf { it > 0L }
+                .takeIf {
+                    it > 0L
+                }
 
-        val target =
+        mediaController.seekTo(
             if (duration != null) {
                 positionMs.coerceIn(
                     0L,
                     duration
                 )
             } else {
-                positionMs.coerceAtLeast(0L)
+                positionMs.coerceAtLeast(
+                    0L
+                )
             }
+        )
 
-        mediaController.seekTo(target)
         publishState()
     }
 
     fun togglePlay() {
-        val restoredId = restoredSongId
+        val restoredId =
+            restoredSongId
 
         if (restoredId != null) {
             val index =
@@ -299,7 +415,7 @@ class PlaybackController(
             if (index >= 0) {
                 playQueueIndex(
                     index,
-                    keepPlayingState = false
+                    false
                 )
             }
 
@@ -331,12 +447,14 @@ class PlaybackController(
 
         _state.value =
             PlaybackState(
-                connected = controller != null
+                connected =
+                    controller != null
             )
     }
 
     private fun publishState() {
-        val mediaController = controller
+        val mediaController =
+            controller
 
         if (mediaController == null) {
             if (restoredSongId == null) {
@@ -352,12 +470,15 @@ class PlaybackController(
                 ?.toLongOrNull()
 
         if (id == null) {
-            val restoredId = restoredSongId
-            if (restoredId != null) {
+            val restored =
+                restoredSongId
+
+            if (restored != null) {
                 val index =
                     queue.indexOfFirst {
-                        it.id == restoredId
+                        it.id == restored
                     }
+
                 val song =
                     queue.getOrNull(index)
 
@@ -365,11 +486,12 @@ class PlaybackController(
                     _state.value =
                         PlaybackState(
                             connected = true,
-                            currentSongId = song.id,
-                            currentIndex = index,
-                            isPlaying = false,
-                            position = 0L,
-                            duration = song.duration
+                            currentSongId =
+                                song.id,
+                            currentIndex =
+                                index,
+                            duration =
+                                song.duration
                         )
                     return
                 }
@@ -399,34 +521,45 @@ class PlaybackController(
                 connected = true,
                 currentSongId = id,
                 currentIndex = index,
-                isPlaying = mediaController.isPlaying,
+                isPlaying =
+                    mediaController.isPlaying,
                 position =
-                    mediaController.currentPosition
+                    mediaController
+                        .currentPosition
                         .coerceAtLeast(0L),
                 duration =
                     mediaController.duration
-                        .takeIf { it > 0L }
+                        .takeIf {
+                            it > 0L
+                        }
                         ?: fallbackDuration
             )
     }
 
     fun release() {
         progressJob?.cancel()
-        controller?.removeListener(listener)
+        controller?.removeListener(
+            listener
+        )
         controller?.release()
         controller = null
         scope.cancel()
     }
 
-    private fun Song.toMediaItem(): MediaItem =
+    private fun Song.toMediaItem():
+        MediaItem =
         MediaItem.Builder()
-            .setMediaId(id.toString())
+            .setMediaId(
+                id.toString()
+            )
             .setUri(contentUri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
-                    .setArtworkUri(artworkUri)
+                    .setArtworkUri(
+                        artworkUri
+                    )
                     .build()
             )
             .build()
