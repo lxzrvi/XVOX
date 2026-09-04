@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,15 +54,10 @@ fun AddPlaylistSongsBox(
 
     Column(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(
-                    end = 42.dp
-                )
+            Modifier.fillMaxWidth()
     ) {
         Text(
-            text =
-                "Add songs",
+            text = "Add songs",
             color =
                 colors.primaryText,
             fontSize = 18.sp,
@@ -117,12 +113,9 @@ fun AddPlaylistSongsBox(
                                     remember {
                                         MutableInteractionSource()
                                     },
-                                indication =
-                                    null
+                                indication = null
                             ) {
-                                onAdd(
-                                    song
-                                )
+                                onAdd(song)
                             },
                     verticalAlignment =
                         Alignment.CenterVertically
@@ -130,14 +123,13 @@ fun AddPlaylistSongsBox(
                     SongArtwork(
                         artwork =
                             song.artworkUri,
-                        requestSize = 112,
+                        requestSize = 96,
                         modifier =
                             Modifier
                                 .size(
                                     44.dp
                                 )
-                                .background(
-                                    colors.card,
+                                .clip(
                                     RoundedCornerShape(
                                         9.dp
                                     )
@@ -147,12 +139,10 @@ fun AddPlaylistSongsBox(
                     Column(
                         modifier =
                             Modifier
-                                .weight(
-                                    1f
-                                )
+                                .weight(1f)
                                 .padding(
-                                    start =
-                                        11.dp
+                                    start = 11.dp,
+                                    end = 10.dp
                                 )
                     ) {
                         Text(
@@ -162,12 +152,10 @@ fun AddPlaylistSongsBox(
                                 colors.primaryText,
                             fontSize = 12.sp,
                             fontWeight =
-                                FontWeight
-                                    .SemiBold,
+                                FontWeight.SemiBold,
                             maxLines = 1,
                             overflow =
-                                TextOverflow
-                                    .Ellipsis
+                                TextOverflow.Ellipsis
                         )
 
                         Text(
@@ -178,8 +166,7 @@ fun AddPlaylistSongsBox(
                             fontSize = 9.sp,
                             maxLines = 1,
                             overflow =
-                                TextOverflow
-                                    .Ellipsis
+                                TextOverflow.Ellipsis
                         )
                     }
 
@@ -207,10 +194,9 @@ fun AddPlaylistSongsBox(
                             tint =
                                 colors.primaryText,
                             modifier =
-                                Modifier
-                                    .size(
-                                        16.dp
-                                    )
+                                Modifier.size(
+                                    16.dp
+                                )
                         )
                     }
                 }
