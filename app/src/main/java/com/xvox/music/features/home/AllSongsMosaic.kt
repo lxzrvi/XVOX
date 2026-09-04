@@ -15,8 +15,10 @@ data class MosaicPage(
     val tiles: List<MosaicTile>
 )
 
-private val processSeed =
-    System.nanoTime()
+private val processMosaicSeed =
+    System.nanoTime() xor
+        Runtime.getRuntime()
+            .freeMemory()
 
 fun buildMosaicPages(
     songs: List<Song>
@@ -26,14 +28,19 @@ fun buildMosaicPages(
     }
 
     val seed =
-        songs.fold(processSeed) {
+        songs.fold(
+            processMosaicSeed
+        ) {
                 value,
                 song ->
 
-            value * 31L + song.id
+            value * 31L +
+                song.id
         }
 
-    val random = Random(seed)
+    val random =
+        Random(seed)
+
     val pages =
         mutableListOf<MosaicPage>()
 
@@ -46,11 +53,13 @@ fun buildMosaicPages(
         if (remaining <= 12) {
             pages +=
                 finalPage(
-                    songs = songs.subList(
-                        index,
-                        songs.size
-                    ),
-                    random = random
+                    songs =
+                        songs.subList(
+                            index,
+                            songs.size
+                        ),
+                    random =
+                        random
                 )
 
             break
@@ -73,12 +82,13 @@ fun buildMosaicPages(
                 index,
                 index + count
             )
-                .shuffled(random)
 
         pages +=
             integerPage(
-                songs = pageSongs,
-                random = random
+                songs =
+                    pageSongs,
+                random =
+                    random
             )
 
         index += count
@@ -95,23 +105,25 @@ private fun integerPage(
         9 ->
             ninePage(
                 songs,
-                random.nextBoolean()
+                random.nextInt(4)
             )
 
         10 ->
             tenPage(
                 songs,
-                random.nextBoolean()
+                random.nextInt(4)
             )
 
         11 ->
             elevenPage(
                 songs,
-                random.nextInt(4)
+                random.nextInt(6)
             )
 
         12 ->
-            regularPage(songs)
+            regularPage(
+                songs
+            )
 
         else ->
             finalPage(
@@ -122,33 +134,61 @@ private fun integerPage(
 
 private fun ninePage(
     songs: List<Song>,
-    flip: Boolean
+    variant: Int
 ): MosaicPage {
     val specs =
-        if (!flip) {
-            listOf(
-                Spec(0f, 0f, 2f, 1f),
-                Spec(2f, 0f, 2f, 1f),
-                Spec(0f, 1f, 1f, 1f),
-                Spec(1f, 1f, 1f, 1f),
-                Spec(2f, 1f, 1f, 1f),
-                Spec(3f, 1f, 1f, 1f),
-                Spec(0f, 2f, 1f, 1f),
-                Spec(1f, 2f, 1f, 1f),
-                Spec(2f, 2f, 2f, 1f)
-            )
-        } else {
-            listOf(
-                Spec(0f, 0f, 1f, 1f),
-                Spec(1f, 0f, 1f, 1f),
-                Spec(2f, 0f, 2f, 1f),
-                Spec(0f, 1f, 2f, 1f),
-                Spec(2f, 1f, 1f, 1f),
-                Spec(3f, 1f, 1f, 1f),
-                Spec(0f, 2f, 1f, 1f),
-                Spec(1f, 2f, 1f, 1f),
-                Spec(2f, 2f, 2f, 1f)
-            )
+        when (variant) {
+            0 ->
+                listOf(
+                    Spec(0f, 0f, 2f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 1f, 1f),
+                    Spec(1f, 2f, 1f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
+                )
+
+            1 ->
+                listOf(
+                    Spec(0f, 0f, 1f, 1f),
+                    Spec(1f, 0f, 1f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 2f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 1f, 1f),
+                    Spec(1f, 2f, 1f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
+                )
+
+            2 ->
+                listOf(
+                    Spec(0f, 0f, 4f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 1f, 1f),
+                    Spec(1f, 2f, 1f, 1f),
+                    Spec(2f, 2f, 1f, 1f),
+                    Spec(3f, 2f, 1f, 1f)
+                )
+
+            else ->
+                listOf(
+                    Spec(0f, 0f, 1f, 1f),
+                    Spec(1f, 0f, 1f, 1f),
+                    Spec(2f, 0f, 1f, 1f),
+                    Spec(3f, 0f, 1f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 4f, 1f)
+                )
         }
 
     return fromSpecs(
@@ -159,35 +199,65 @@ private fun ninePage(
 
 private fun tenPage(
     songs: List<Song>,
-    flip: Boolean
+    variant: Int
 ): MosaicPage {
     val specs =
-        if (!flip) {
-            listOf(
-                Spec(0f, 0f, 2f, 1f),
-                Spec(2f, 0f, 1f, 1f),
-                Spec(3f, 0f, 1f, 1f),
-                Spec(0f, 1f, 1f, 1f),
-                Spec(1f, 1f, 1f, 1f),
-                Spec(2f, 1f, 1f, 1f),
-                Spec(3f, 1f, 1f, 1f),
-                Spec(0f, 2f, 1f, 1f),
-                Spec(1f, 2f, 1f, 1f),
-                Spec(2f, 2f, 2f, 1f)
-            )
-        } else {
-            listOf(
-                Spec(0f, 0f, 1f, 1f),
-                Spec(1f, 0f, 1f, 1f),
-                Spec(2f, 0f, 2f, 1f),
-                Spec(0f, 1f, 1f, 1f),
-                Spec(1f, 1f, 1f, 1f),
-                Spec(2f, 1f, 1f, 1f),
-                Spec(3f, 1f, 1f, 1f),
-                Spec(0f, 2f, 2f, 1f),
-                Spec(2f, 2f, 1f, 1f),
-                Spec(3f, 2f, 1f, 1f)
-            )
+        when (variant) {
+            0 ->
+                listOf(
+                    Spec(0f, 0f, 2f, 1f),
+                    Spec(2f, 0f, 1f, 1f),
+                    Spec(3f, 0f, 1f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 1f, 1f),
+                    Spec(1f, 2f, 1f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
+                )
+
+            1 ->
+                listOf(
+                    Spec(0f, 0f, 1f, 1f),
+                    Spec(1f, 0f, 1f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 2f, 1f),
+                    Spec(2f, 2f, 1f, 1f),
+                    Spec(3f, 2f, 1f, 1f)
+                )
+
+            2 ->
+                listOf(
+                    Spec(0f, 0f, 2f, 1f),
+                    Spec(2f, 0f, 2f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 1f, 1f),
+                    Spec(1f, 2f, 1f, 1f),
+                    Spec(2f, 2f, 1f, 1f),
+                    Spec(3f, 2f, 1f, 1f)
+                )
+
+            else ->
+                listOf(
+                    Spec(0f, 0f, 1f, 1f),
+                    Spec(1f, 0f, 1f, 1f),
+                    Spec(2f, 0f, 1f, 1f),
+                    Spec(3f, 0f, 1f, 1f),
+                    Spec(0f, 1f, 1f, 1f),
+                    Spec(1f, 1f, 1f, 1f),
+                    Spec(2f, 1f, 1f, 1f),
+                    Spec(3f, 1f, 1f, 1f),
+                    Spec(0f, 2f, 2f, 1f),
+                    Spec(2f, 2f, 2f, 1f)
+                )
         }
 
     return fromSpecs(
@@ -200,14 +270,15 @@ private fun elevenPage(
     songs: List<Song>,
     variant: Int
 ): MosaicPage {
-    val wideX =
+    val wideRow =
         when (variant) {
-            0, 2 -> 0
+            0, 1 -> 0
+            2, 3 -> 1
             else -> 2
         }
 
-    val wideY =
-        if (variant < 2) {
+    val wideColumn =
+        if (variant % 2 == 0) {
             0
         } else {
             2
@@ -221,8 +292,8 @@ private fun elevenPage(
 
         while (column < 4) {
             if (
-                row == wideY &&
-                column == wideX
+                row == wideRow &&
+                column == wideColumn
             ) {
                 specs +=
                     Spec(
@@ -279,33 +350,28 @@ private fun finalPage(
     songs: List<Song>,
     random: Random
 ): MosaicPage {
-    val randomizedSongs =
-        songs.shuffled(random)
-
     if (songs.size in 9..12) {
         return when (songs.size) {
             9 ->
                 ninePage(
-                    randomizedSongs,
-                    random.nextBoolean()
+                    songs,
+                    random.nextInt(4)
                 )
 
             10 ->
                 tenPage(
-                    randomizedSongs,
-                    random.nextBoolean()
+                    songs,
+                    random.nextInt(4)
                 )
 
             11 ->
                 elevenPage(
-                    randomizedSongs,
-                    random.nextInt(4)
+                    songs,
+                    random.nextInt(6)
                 )
 
             else ->
-                regularPage(
-                    randomizedSongs
-                )
+                regularPage(songs)
         }
     }
 
@@ -338,26 +404,51 @@ private fun finalPage(
                 )
 
             3 ->
-                listOf(
-                    Spec(
-                        0f,
-                        0f,
-                        2f,
-                        1.5f
-                    ),
-                    Spec(
-                        2f,
-                        0f,
-                        2f,
-                        1.5f
-                    ),
-                    Spec(
-                        0f,
-                        1.5f,
-                        4f,
-                        1.5f
+                if (
+                    random.nextBoolean()
+                ) {
+                    listOf(
+                        Spec(
+                            0f,
+                            0f,
+                            4f,
+                            1.5f
+                        ),
+                        Spec(
+                            0f,
+                            1.5f,
+                            2f,
+                            1.5f
+                        ),
+                        Spec(
+                            2f,
+                            1.5f,
+                            2f,
+                            1.5f
+                        )
                     )
-                )
+                } else {
+                    listOf(
+                        Spec(
+                            0f,
+                            0f,
+                            2f,
+                            1.5f
+                        ),
+                        Spec(
+                            2f,
+                            0f,
+                            2f,
+                            1.5f
+                        ),
+                        Spec(
+                            0f,
+                            1.5f,
+                            4f,
+                            1.5f
+                        )
+                    )
+                }
 
             4 ->
                 listOf(
@@ -388,13 +479,25 @@ private fun finalPage(
                 )
 
             5 ->
-                listOf(
-                    Spec(0f, 0f, 2f, 1f),
-                    Spec(2f, 0f, 2f, 1f),
-                    Spec(0f, 1f, 4f, 1f),
-                    Spec(0f, 2f, 2f, 1f),
-                    Spec(2f, 2f, 2f, 1f)
-                )
+                if (
+                    random.nextBoolean()
+                ) {
+                    listOf(
+                        Spec(0f, 0f, 4f, 1f),
+                        Spec(0f, 1f, 2f, 1f),
+                        Spec(2f, 1f, 2f, 1f),
+                        Spec(0f, 2f, 2f, 1f),
+                        Spec(2f, 2f, 2f, 1f)
+                    )
+                } else {
+                    listOf(
+                        Spec(0f, 0f, 2f, 1f),
+                        Spec(2f, 0f, 2f, 1f),
+                        Spec(0f, 1f, 4f, 1f),
+                        Spec(0f, 2f, 2f, 1f),
+                        Spec(2f, 2f, 2f, 1f)
+                    )
+                }
 
             6 ->
                 listOf(
@@ -407,26 +510,93 @@ private fun finalPage(
                 )
 
             7 ->
-                listOf(
-                    Spec(0f, 0f, 1f, 1f),
-                    Spec(1f, 0f, 1f, 1f),
-                    Spec(2f, 0f, 1f, 1f),
-                    Spec(3f, 0f, 1f, 1f),
-                    Spec(0f, 1f, 2f, 1f),
-                    Spec(2f, 1f, 2f, 1f),
-                    Spec(0f, 2f, 4f, 1f)
-                )
+                when (
+                    random.nextInt(3)
+                ) {
+                    0 ->
+                        listOf(
+                            Spec(0f, 0f, 4f, 1f),
+                            Spec(0f, 1f, 1f, 1f),
+                            Spec(1f, 1f, 1f, 1f),
+                            Spec(2f, 1f, 1f, 1f),
+                            Spec(3f, 1f, 1f, 1f),
+                            Spec(0f, 2f, 2f, 1f),
+                            Spec(2f, 2f, 2f, 1f)
+                        )
+
+                    1 ->
+                        listOf(
+                            Spec(0f, 0f, 1f, 1f),
+                            Spec(1f, 0f, 1f, 1f),
+                            Spec(2f, 0f, 1f, 1f),
+                            Spec(3f, 0f, 1f, 1f),
+                            Spec(0f, 1f, 4f, 1f),
+                            Spec(0f, 2f, 2f, 1f),
+                            Spec(2f, 2f, 2f, 1f)
+                        )
+
+                    else ->
+                        listOf(
+                            Spec(0f, 0f, 1f, 1f),
+                            Spec(1f, 0f, 1f, 1f),
+                            Spec(2f, 0f, 1f, 1f),
+                            Spec(3f, 0f, 1f, 1f),
+                            Spec(0f, 1f, 2f, 1f),
+                            Spec(2f, 1f, 2f, 1f),
+                            Spec(0f, 2f, 4f, 1f)
+                        )
+                }
 
             8 ->
                 listOf(
-                    Spec(0f, 0f, 1f, 1.5f),
-                    Spec(1f, 0f, 1f, 1.5f),
-                    Spec(2f, 0f, 1f, 1.5f),
-                    Spec(3f, 0f, 1f, 1.5f),
-                    Spec(0f, 1.5f, 1f, 1.5f),
-                    Spec(1f, 1.5f, 1f, 1.5f),
-                    Spec(2f, 1.5f, 1f, 1.5f),
-                    Spec(3f, 1.5f, 1f, 1.5f)
+                    Spec(
+                        0f,
+                        0f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        1f,
+                        0f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        2f,
+                        0f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        3f,
+                        0f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        0f,
+                        1.5f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        1f,
+                        1.5f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        2f,
+                        1.5f,
+                        1f,
+                        1.5f
+                    ),
+                    Spec(
+                        3f,
+                        1.5f,
+                        1f,
+                        1.5f
+                    )
                 )
 
             else ->
@@ -434,7 +604,7 @@ private fun finalPage(
         }
 
     return fromSpecs(
-        randomizedSongs,
+        songs,
         specs
     )
 }
@@ -464,8 +634,10 @@ private fun fromSpecs(
                     song = song,
                     x = spec.x,
                     y = spec.y,
-                    width = spec.width,
-                    height = spec.height
+                    width =
+                        spec.width,
+                    height =
+                        spec.height
                 )
             }
     )
