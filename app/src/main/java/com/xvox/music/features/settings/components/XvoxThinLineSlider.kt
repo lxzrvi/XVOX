@@ -14,7 +14,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
 @Composable
 fun XvoxThinLineSlider(
@@ -25,7 +24,6 @@ fun XvoxThinLineSlider(
     defaultValue: Float? = null
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
     val fraction = ((value - valueRange.start) / totalSpan).coerceIn(0f, 1f)
     val snapThreshold = totalSpan * 0.045f
@@ -44,7 +42,6 @@ fun XvoxThinLineSlider(
                     var newValue = valueRange.start + newFraction * totalSpan
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
-                        haptics.sliderTick()
                     }
                     onValueChange(newValue)
                 }
@@ -54,9 +51,6 @@ fun XvoxThinLineSlider(
                     val newFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
-                        if (value != defaultValue) {
-                            haptics.sliderTick()
-                        }
                         newValue = defaultValue
                     }
                     onValueChange(newValue)

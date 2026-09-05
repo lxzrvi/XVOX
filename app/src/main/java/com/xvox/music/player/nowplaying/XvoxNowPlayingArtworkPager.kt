@@ -119,17 +119,18 @@ fun XvoxNowPlayingArtworkPager(
                 .requiredWidth(screenWidth)
                 .fillMaxSize(),
             pageSize = PageSize.Fill,
-            pageSpacing = 0.dp, // Zero peeking
+            pageSpacing = 0.dp,
             beyondViewportPageCount = 1,
             verticalAlignment = Alignment.CenterVertically
         ) { page ->
             val song = queue.getOrNull(page)
             if (song != null) {
+                // Dimensions matching lyrics container (padding 8.dp on all sides)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 22.dp, vertical = 12.dp)
-                        .clip(RoundedCornerShape(22.dp)),
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxSongArtwork(

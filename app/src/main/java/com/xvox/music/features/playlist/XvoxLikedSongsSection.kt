@@ -1,12 +1,14 @@
 package com.xvox.music.features.playlist
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -24,82 +26,66 @@ fun XvoxLikedSongsSection(
     onOptions: (Song) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Column(
-        modifier =
-            modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Text(
-            text =
-                "Liked Songs",
-            color =
-                colors.primaryAccent,
-            fontSize = 16.sp,
-            lineHeight = 19.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-            modifier =
-                Modifier.padding(
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
                     start = 12.dp,
                     end = 12.dp,
                     bottom = HomeGeometry.sectionGap,
                 ),
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Liked Songs",
+                color = colors.primaryAccent,
+                fontSize = 16.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "Total ${songs.size} songs",
+                color = colors.mutedText,
+                fontSize = 9.sp,
+            )
+        }
 
         if (songs.isEmpty()) {
             Text(
-                text =
-                    "No liked songs",
-                color =
-                    colors.mutedText,
+                text = "No liked songs",
+                color = colors.mutedText,
                 fontSize = 12.sp,
-                modifier =
-                    Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 24.dp,
-                    ),
+                modifier = Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 24.dp,
+                ),
             )
         } else {
             Column(
-                modifier =
-                    Modifier.padding(
-                        horizontal = 6.dp,
-                    ),
+                modifier = Modifier.padding(
+                    horizontal = 6.dp,
+                ),
             ) {
                 songs.forEach { song ->
-
                     XvoxLikedSongRow(
                         song = song,
-                        current =
-                            currentSongId ==
-                                song.id,
-                        playing =
-                            currentSongId ==
-                                song.id &&
-                                isPlaying,
-                        onClick = {
-                            onPlay(song)
-                        },
-                        onOptions = {
-                            onOptions(song)
-                        },
+                        current = currentSongId == song.id,
+                        playing = currentSongId == song.id && isPlaying,
+                        onClick = { onPlay(song) },
+                        onOptions = { onOptions(song) },
                     )
 
-                    Spacer(
-                        Modifier.height(
-                            6.dp,
-                        ),
-                    )
+                    Spacer(Modifier.height(6.dp))
                 }
             }
         }
 
-        Spacer(
-            Modifier.height(
-                8.dp,
-            ),
-        )
+        Spacer(Modifier.height(8.dp))
     }
 }

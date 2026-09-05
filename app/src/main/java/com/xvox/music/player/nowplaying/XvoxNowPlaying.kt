@@ -71,7 +71,6 @@ import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
@@ -84,7 +83,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val NowPlayingEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+private val NowPlayingEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
 @Composable
 fun XvoxNowPlaying(
@@ -120,7 +119,6 @@ fun XvoxNowPlaying(
     lyricsViewModel: XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val lyricsState by lyricsViewModel.state.collectAsState()
 
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
@@ -137,7 +135,6 @@ fun XvoxNowPlaying(
     var motionJob by remember { mutableStateOf<Job?>(null) }
 
     val dismissProgress = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 0f
-    val screenCorner = 32.dp * dismissProgress
 
     fun animateScreen(
         target: Float,
@@ -163,21 +160,19 @@ fun XvoxNowPlaying(
     fun dismiss() {
         if (dismissing) return
         dismissing = true
-        haptics.tap()
         animateScreen(
             target = screenHeight,
-            durationMs = 350,
+            durationMs = 480,
             finished = onClose
         )
     }
 
     fun returnToRest() {
         val fraction = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 1f
-        animateScreen(0f, (350 * fraction).toInt().coerceAtLeast(140))
+        animateScreen(0f, (450 * fraction).toInt().coerceAtLeast(180))
     }
 
     fun requestPrevious() {
-        haptics.click()
         if (queue.isEmpty() || currentIndex < 0) return
         val atFirst = currentIndex <= 0
         if (atFirst && repeatMode == RepeatMode.OFF) return
@@ -190,7 +185,6 @@ fun XvoxNowPlaying(
     }
 
     fun requestNext() {
-        haptics.click()
         if (queue.isEmpty() || currentIndex < 0) return
         val atLast = currentIndex >= queue.lastIndex
         if (atLast && repeatMode == RepeatMode.OFF) return
@@ -240,8 +234,6 @@ fun XvoxNowPlaying(
             .fillMaxSize()
             .graphicsLayer {
                 translationY = screenY
-                shape = RoundedCornerShape(screenCorner)
-                clip = dismissProgress > 0f
             }
     ) {
         // Vibrant dominant glow gradient backdrop
@@ -260,7 +252,7 @@ fun XvoxNowPlaying(
                             screenY = nextY.coerceAtLeast(0f)
                         },
                         onDragEnd = {
-                            if (screenY > screenHeight * 0.28f) {
+                            if (screenY > screenHeight * 0.25f) {
                                 dismiss()
                             } else {
                                 returnToRest()
@@ -270,17 +262,11 @@ fun XvoxNowPlaying(
                     )
                 }
         ) {
-            // Header (Lyrics icon removed from top right pill)
+            // Header
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
-                onShare = {
-                    haptics.tap()
-                    onShare?.invoke()
-                },
-                onMore = {
-                    haptics.tap()
-                    showQuickSettingsSheet = true
-                },
+                onShare = { onShare?.invoke() },
+                onMore = { showQuickSettingsSheet = true },
                 playingSource = playingSource
             )
 
@@ -299,14 +285,11 @@ fun XvoxNowPlaying(
                         onSeek = onSeek,
                         onAttach = lyricsViewModel::attach,
                         onDelete = lyricsViewModel::removeCustom,
-                        onClose = {
-                            haptics.tap()
-                            showLyrics = false // ONLY closes lyrics
-                        },
+                        onClose = { showLyrics = false },
                         onFullscreen = lyricsViewModel::openFullscreen,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                             .clip(RoundedCornerShape(20.dp))
                     )
                 } else {
@@ -314,10 +297,7 @@ fun XvoxNowPlaying(
                         queue = queue,
                         currentIndex = currentIndex,
                         navigationRequest = navigationRequest,
-                        onArtworkTap = {
-                            haptics.tap()
-                            showLyrics = true
-                        },
+                        onArtworkTap = { showLyrics = true },
                         onSwipePalette = { base, adjacent, fraction ->
                             scope.launch { paletteState.blend(base, adjacent, fraction) }
                         },
@@ -340,26 +320,11 @@ fun XvoxNowPlaying(
                 NowPlayingActions(
                     isLiked = isLiked,
                     isInPlaylist = isInPlaylist,
-                    onTimer = {
-                        haptics.tap()
-                        onTimer?.invoke()
-                    },
-                    onQueue = {
-                        haptics.tap()
-                        onQueue?.invoke()
-                    },
-                    onInfo = {
-                        haptics.tap()
-                        onInfo?.invoke()
-                    },
-                    onToggleLiked = {
-                        haptics.success()
-                        onToggleLiked?.invoke()
-                    },
-                    onStarPlaylist = {
-                        haptics.tap()
-                        onStarPlaylist?.invoke()
-                    },
+                    onTimer = { onTimer?.invoke() },
+                    onQueue = { onQueue?.invoke() },
+                    onInfo = { onInfo?.invoke() },
+                    onToggleLiked = { onToggleLiked?.invoke() },
+                    onStarPlaylist = { onStarPlaylist?.invoke() },
                     timerProgress = sleepTimerProgress,
                 )
 
@@ -390,10 +355,7 @@ fun XvoxNowPlaying(
                 XvoxNowPlayingProgress(
                     position = position,
                     duration = duration,
-                    onSeek = {
-                        haptics.sliderTick()
-                        onSeek(it)
-                    }
+                    onSeek = { onSeek(it) }
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -402,20 +364,11 @@ fun XvoxNowPlaying(
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
-                    onShuffle = {
-                        haptics.toggle()
-                        onToggleShuffle?.invoke()
-                    },
+                    onShuffle = { onToggleShuffle?.invoke() },
                     onPrevious = ::requestPrevious,
-                    onTogglePlay = {
-                        haptics.click()
-                        onTogglePlay()
-                    },
+                    onTogglePlay = { onTogglePlay() },
                     onNext = ::requestNext,
-                    onRepeat = {
-                        haptics.toggle()
-                        onToggleRepeat?.invoke()
-                    },
+                    onRepeat = { onToggleRepeat?.invoke() },
                     currentIndex = currentIndex,
                     queueSize = queue.size,
                     modifier = Modifier.fillMaxWidth()
@@ -458,7 +411,6 @@ private fun NowPlayingOptionsSheet(
     onShare: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context) }
     val scope = rememberCoroutineScope()
@@ -503,11 +455,11 @@ private fun NowPlayingOptionsSheet(
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = tween(350, easing = NowPlayingEasing)
+                animationSpec = tween(380, easing = NowPlayingEasing)
             ) + fadeIn(tween(260, easing = NowPlayingEasing)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = tween(320, easing = NowPlayingEasing)
+                animationSpec = tween(340, easing = NowPlayingEasing)
             ) + fadeOut(tween(220, easing = NowPlayingEasing))
         ) {
             Column(
@@ -626,7 +578,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = eqEnabled,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setEqualizerEnabled(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -652,7 +603,6 @@ private fun NowPlayingOptionsSheet(
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                                         .clickable {
-                                            haptics.tap()
                                             scope.launch {
                                                 prefs.setEqPreset(p)
                                                 if (p != "Custom" && AudioEffectsManager.PRESETS.containsKey(p)) {
@@ -687,7 +637,6 @@ private fun NowPlayingOptionsSheet(
                                 XvoxThinLineSlider(
                                     value = currentVal.toFloat(),
                                     onValueChange = { newVal ->
-                                        haptics.sliderTick()
                                         val updated = eqBands.toMutableList()
                                         while (updated.size <= index) updated.add(0)
                                         updated[index] = newVal.roundToInt()
@@ -723,7 +672,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = gapless,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setGaplessPlayback(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -744,7 +692,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = crossfade,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setCrossfade(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -758,7 +705,6 @@ private fun NowPlayingOptionsSheet(
                         XvoxThinLineSlider(
                             value = crossfadeDuration.toFloat(),
                             onValueChange = {
-                                haptics.sliderTick()
                                 scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) }
                             },
                             valueRange = 1f..12f,
@@ -774,7 +720,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = fadeIn,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setFadeIn(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -792,7 +737,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = fadeOut,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setFadeOut(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -810,7 +754,6 @@ private fun NowPlayingOptionsSheet(
                         Switch(
                             checked = skipSilence,
                             onCheckedChange = {
-                                haptics.toggle()
                                 scope.launch { prefs.setSkipSilence(it) }
                             },
                             colors = SwitchDefaults.colors(
@@ -833,15 +776,11 @@ private fun QuickOptionButton(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(colors.card)
-            .clickable {
-                haptics.tap()
-                onClick()
-            }
+            .clickable { onClick() }
             .padding(vertical = 10.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center

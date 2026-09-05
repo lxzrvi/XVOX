@@ -38,162 +38,90 @@ fun XvoxPlaylistsSection(
     onOptions: (XvoxPlaylist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Column(
-        modifier =
-            modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 12.dp,
-                        end = 12.dp,
-                        bottom = 2.dp,
-                    ),
-            verticalAlignment =
-                Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = HomeGeometry.sectionGap,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Playlists",
-                color =
-                    colors.primaryAccent,
+                color = colors.primaryAccent,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
-                fontWeight =
-                    FontWeight.SemiBold,
-                modifier =
-                    Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
             )
 
             Box(
-                modifier =
-                    Modifier
-                        .size(38.dp)
-                        .background(
-                            colors.card,
-                            CircleShape,
-                        ).clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null,
-                            onClick = onCreate,
-                        ),
-                contentAlignment =
-                    Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(colors.card, CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCreate,
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter =
-                        painterResource(
-                            R.drawable
-                                .ic_xvox_plus,
-                        ),
-                    contentDescription =
-                        "Create playlist",
-                    tint =
-                        colors.primaryText,
-                    modifier =
-                        Modifier.size(
-                            19.dp,
-                        ),
+                    painter = painterResource(R.drawable.ic_xvox_plus),
+                    contentDescription = "Create playlist",
+                    tint = colors.primaryText,
+                    modifier = Modifier.size(17.dp),
                 )
             }
         }
 
-        // Gap below header equal to All Songs label niche gap (sectionGap)
-        Spacer(modifier = Modifier.height(HomeGeometry.sectionGap))
-
         if (playlists.isEmpty()) {
             Text(
-                text =
-                    "No playlists created",
-                color =
-                    colors.mutedText,
+                text = "No playlists created",
+                color = colors.mutedText,
                 fontSize = 12.sp,
-                modifier =
-                    Modifier.padding(
-                        horizontal =
-                            12.dp,
-                        vertical =
-                            28.dp,
-                    ),
+                modifier = Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 28.dp,
+                ),
             )
         } else {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal =
-                                6.dp,
-                            vertical =
-                                6.dp,
-                        ),
-                verticalArrangement =
-                    Arrangement.spacedBy(
-                        6.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 6.dp,
+                        vertical = 6.dp,
                     ),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                playlists
-                    .chunked(2)
-                    .forEach { rowPlaylists ->
+                playlists.chunked(2).forEach { rowPlaylists ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        rowPlaylists.forEach { playlist ->
+                            XvoxPlaylistCard(
+                                playlist = playlist,
+                                songs = songsFor(playlist),
+                                onClick = { onOpen(playlist) },
+                                onLongClick = { onOptions(playlist) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
 
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.spacedBy(
-                                    6.dp,
-                                ),
-                        ) {
-                            rowPlaylists
-                                .forEach { playlist ->
-
-                                    XvoxPlaylistCard(
-                                        playlist =
-                                        playlist,
-                                        songs =
-                                            songsFor(
-                                                playlist,
-                                            ),
-                                        onClick = {
-                                            onOpen(
-                                                playlist,
-                                            )
-                                        },
-                                        onLongClick = {
-                                            onOptions(
-                                                playlist,
-                                            )
-                                        },
-                                        modifier =
-                                            Modifier
-                                                .weight(
-                                                    1f,
-                                                ),
-                                    )
-                                }
-
-                            if (
-                                rowPlaylists.size ==
-                                1
-                            ) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .weight(
-                                                1f,
-                                            ),
-                                )
-                            }
+                        if (rowPlaylists.size == 1) {
+                            Box(modifier = Modifier.weight(1f))
                         }
                     }
+                }
             }
         }
     }

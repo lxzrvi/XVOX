@@ -25,11 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.SettingsToggle
 
 @Composable
 fun AppearanceSettingsSection(
@@ -37,7 +35,6 @@ fun AppearanceSettingsSection(
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
 
     SettingsSectionCard(title = "Themes & Appearance", iconRes = R.drawable.ic_xvox_settings) {
         Text(
@@ -58,10 +55,7 @@ fun AppearanceSettingsSection(
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (isSel) colors.primaryAccent else colors.cardElevated)
                         .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(10.dp))
-                        .clickable {
-                            haptics.tap()
-                            viewModel.setTheme(t)
-                        }
+                        .clickable { viewModel.setTheme(t) }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -104,10 +98,7 @@ fun AppearanceSettingsSection(
                             color = if (isSel) colorVal else colors.cardBorder,
                             shape = RoundedCornerShape(12.dp)
                         )
-                        .clickable {
-                            haptics.tap()
-                            viewModel.setAccentColor(name)
-                        }
+                        .clickable { viewModel.setAccentColor(name) }
                         .padding(vertical = 10.dp, horizontal = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -150,10 +141,7 @@ fun AppearanceSettingsSection(
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (isSel) colors.primaryAccent else colors.cardElevated)
                         .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
-                        .clickable {
-                            haptics.tap()
-                            viewModel.setFontSizeScale(scale)
-                        }
+                        .clickable { viewModel.setFontSizeScale(scale) }
                         .padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -163,55 +151,6 @@ fun AppearanceSettingsSection(
                         fontSize = 11.sp,
                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
                     )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SettingsToggle(
-            title = "Haptic feedback",
-            subtitle = "Vibrate gently on button taps and sliders",
-            checked = state.hapticFeedback
-        ) {
-            haptics.toggle()
-            viewModel.setHapticFeedback(it)
-        }
-
-        if (state.hapticFeedback) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Haptic Strength: ${state.hapticStrength}",
-                color = colors.secondaryText,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf("Light", "Medium", "Strong").forEach { s ->
-                    val isSel = state.hapticStrength.equals(s, ignoreCase = true)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSel) colors.primaryAccent else colors.cardElevated)
-                            .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
-                            .clickable {
-                                haptics.heavy()
-                                viewModel.setHapticStrength(s)
-                            }
-                            .padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = s,
-                            color = if (isSel) colors.background else colors.primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
                 }
             }
         }
