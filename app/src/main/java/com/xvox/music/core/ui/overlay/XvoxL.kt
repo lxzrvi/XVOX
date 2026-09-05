@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -37,8 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
@@ -58,26 +58,17 @@ fun XvoxL(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
 
-    val scope =
-        rememberCoroutineScope()
+    var visible by remember {
+        mutableStateOf(false)
+    }
 
-    var visible by
-        remember {
-            mutableStateOf(false)
-        }
-
-    var closing by
-        remember {
-            mutableStateOf(false)
-        }
-
-    var dragOffsetY by
-        remember {
-            mutableFloatStateOf(0f)
-        }
+    var closing by remember {
+        mutableStateOf(false)
+    }
 
     fun close() {
         if (closing) return
@@ -102,77 +93,95 @@ fun XvoxL(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Color.Transparent
-            )
+            .background(Color.Transparent)
             .pointerInput(Unit) {
                 detectTapGestures {
                     close()
                 }
             }
     ) {
-        val maxSheetHeight =
-            maxHeight * 0.94f
+        val screenHeightPx =
+            with(density) {
+                maxHeight.toPx()
+            }
+
+        val minimumOpenPx =
+            screenHeightPx * 0.25f
+
+        val maximumHeightPx =
+            screenHeightPx * 0.94f
+
+        /*
+         * Initial height is measured from content.
+         * Until content is measured, start around 72%.
+         */
+        var sheetHeightPx by remember(
+            screenHeightPx
+        ) {
+            mutableFloatStateOf(
+                screenHeightPx * 0.72f
+            )
+        }
+
+        var contentMeasured by remember {
+            mutableStateOf(false)
+        }
 
         AnimatedVisibility(
             visible = visible,
-            modifier =
-                Modifier.align(
-                    Alignment.BottomCenter
-                ),
+            modifier = Modifier.align(
+                Alignment.BottomCenter
+            ),
             enter =
                 slideInVertically(
-                    initialOffsetY = {
-                        it
-                    },
-                    animationSpec =
-                        tween(
-                            300,
-                            easing =
-                                XvoxLEasing
-                        )
+                    initialOffsetY = { it },
+                    animationSpec = tween(
+                        300,
+                        easing = XvoxLEasing
+                    )
                 ) +
                     fadeIn(
                         tween(
                             300,
-                            easing =
-                                XvoxLEasing
+                            easing = XvoxLEasing
                         )
                     ),
             exit =
                 slideOutVertically(
-                    targetOffsetY = {
-                        it
-                    },
-                    animationSpec =
-                        tween(
-                            300,
-                            easing =
-                                XvoxLEasing
-                        )
+                    targetOffsetY = { it },
+                    animationSpec = tween(
+                        300,
+                        easing = XvoxLEasing
+                    )
                 ) +
                     fadeOut(
                         tween(
                             300,
-                            easing =
-                                XvoxLEasing
+                            easing = XvoxLEasing
                         )
                     )
         ) {
+            /*
+             * Outer surface itself reaches screen bottom.
+             * Navigation bar inset is INSIDE this surface.
+             */
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(
-                        max =
-                            maxSheetHeight
+                    .then(
+                        with(density) {
+                            Modifier.size(
+                                width = maxWidth,
+                                height =
+                                    sheetHeightPx
+                                        .coerceIn(
+                                            minimumOpenPx,
+                                            maximumHeightPx
+                                        )
+                                        .toDp()
+                            )
+                        }
                     )
-                    .graphicsLayer {
-                        translationY =
-                            dragOffsetY
-                                .coerceAtLeast(
-                                    0f
-                                )
-                    }
                     .clip(
                         RoundedCornerShape(
                             topStart = 26.dp,
@@ -180,22 +189,19 @@ fun XvoxL(
                         )
                     )
                     .background(
-                        colors.cardElevated
-                            .copy(
-                                alpha = 0.98f
-                            )
+                        colors.cardElevated.copy(
+                            alpha = 0.98f
+                        )
                     )
                     .border(
                         width = 1.dp,
-                        color =
-                            Color.White.copy(
-                                alpha = 0.08f
-                            ),
-                        shape =
-                            RoundedCornerShape(
-                                topStart = 26.dp,
-                                topEnd = 26.dp
-                            )
+                        color = Color.White.copy(
+                            alpha = 0.08f
+                        ),
+                        shape = RoundedCornerShape(
+                            topStart = 26.dp,
+                            topEnd = 26.dp
+                        )
                     )
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -204,16 +210,12 @@ fun XvoxL(
                             }
                         )
                     }
-                    .windowInsetsPadding(
-                        WindowInsets.navigationBars
-                    )
-                    .imePadding()
-                    .padding(
-                        start = 14.dp,
-                        end = 14.dp,
-                        bottom = 8.dp
-                    )
             ) {
+                /*
+                 * Top handle changes the actual HEIGHT.
+                 * Up = taller.
+                 * Down = shorter.
+                 */
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -221,31 +223,60 @@ fun XvoxL(
                             top = 10.dp,
                             bottom = 8.dp
                         )
-                        .pointerInput(Unit) {
+                        .pointerInput(
+                            screenHeightPx
+                        ) {
+                            var rawHeight =
+                                sheetHeightPx
+
                             detectVerticalDragGestures(
+                                onDragStart = {
+                                    rawHeight =
+                                        sheetHeightPx
+                                },
                                 onVerticalDrag = {
                                         change,
-                                        amount ->
+                                        dragAmount ->
 
                                     change.consume()
 
-                                    dragOffsetY =
-                                        (
-                                            dragOffsetY +
-                                                amount
-                                            ).coerceAtLeast(
-                                            0f
-                                        )
+                                    rawHeight -=
+                                        dragAmount
+
+                                    /*
+                                     * Allow dragging below
+                                     * 25% while finger is down
+                                     * so close gesture feels
+                                     * continuous.
+                                     */
+                                    sheetHeightPx =
+                                        rawHeight
+                                            .coerceIn(
+                                                0f,
+                                                maximumHeightPx
+                                            )
                                 },
                                 onDragEnd = {
-                                    val closePoint =
-                                        112.dp.toPx()
-
                                     if (
-                                        dragOffsetY >=
-                                        closePoint
+                                        sheetHeightPx <
+                                        minimumOpenPx
                                     ) {
                                         close()
+                                    } else {
+                                        sheetHeightPx =
+                                            sheetHeightPx
+                                                .coerceAtMost(
+                                                    maximumHeightPx
+                                                )
+                                    }
+                                },
+                                onDragCancel = {
+                                    if (
+                                        sheetHeightPx <
+                                        minimumOpenPx
+                                    ) {
+                                        sheetHeightPx =
+                                            minimumOpenPx
                                     }
                                 }
                             )
@@ -270,9 +301,34 @@ fun XvoxL(
                     )
                 }
 
+                /*
+                 * Content occupies remaining sheet.
+                 * Bottom/nav inset lives inside the sheet,
+                 * therefore there is no visual bottom gap.
+                 */
                 Box(
-                    modifier =
-                        Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(
+                            WindowInsets.navigationBars
+                        )
+                        .imePadding()
+                        .padding(
+                            start = 14.dp,
+                            end = 14.dp,
+                            bottom = 8.dp
+                        )
+                        .onSizeChanged {
+                            /*
+                             * Measurement hook retained so
+                             * content doesn't cause an outer
+                             * bottom gap.
+                             */
+                            if (!contentMeasured) {
+                                contentMeasured = true
+                            }
+                        }
                 ) {
                     content()
                 }
