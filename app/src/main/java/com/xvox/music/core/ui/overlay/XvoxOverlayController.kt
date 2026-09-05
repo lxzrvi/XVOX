@@ -23,9 +23,6 @@ class XvoxOverlayController {
     internal var listContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
-    internal var boxContent by mutableStateOf<(@Composable () -> Unit)?>(null)
-        private set
-
     internal var popup by mutableStateOf<XvoxPopupMessage?>(null)
         private set
 
@@ -33,21 +30,11 @@ class XvoxOverlayController {
 
     fun showL(content: @Composable () -> Unit) {
         listKey++
-        boxContent = null
         listContent = content
     }
 
     fun hideL() {
         listContent = null
-        boxContent = null
-    }
-
-    fun showB(content: @Composable () -> Unit) {
-        showL(content)
-    }
-
-    fun hideB() {
-        hideL()
     }
 
     fun showP(text: String) {

@@ -57,121 +57,77 @@ fun XvoxFullscreenLyrics(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val custom = state.lyrics?.source == XvoxLyricsSource.USER_LRC || state.lyrics?.source == XvoxLyricsSource.USER_TEXT
 
-    val custom =
-        state.lyrics?.source ==
-            XvoxLyricsSource.USER_LRC ||
-            state.lyrics?.source ==
-            XvoxLyricsSource.USER_TEXT
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(onAttach)
+    }
 
-    val launcher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-            uri?.let(onAttach)
-        }
-
-    Box(
-        modifier = modifier.fillMaxSize()
-    ) {
-        XvoxNowPlayingBackdrop(
-            dominant = backgroundColor,
-            modifier = Modifier.fillMaxSize()
-        )
+    Box(modifier = modifier.fillMaxSize()) {
+        XvoxNowPlayingBackdrop(dominant = backgroundColor, modifier = Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(
-                    WindowInsets.statusBars
-                )
-                .padding(
-                    start = 14.dp,
-                    top = 10.dp,
-                    end = 14.dp,
-                    bottom = 12.dp
-                )
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 12.dp)
         ) {
             Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                verticalAlignment =
-                    Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 XvoxSongArtwork(
                     artwork = song.artworkUri,
                     requestSize = 128,
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                10.dp
-                            )
-                        )
+                        .clip(RoundedCornerShape(10.dp))
                 )
 
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(
-                            start = 10.dp,
-                            end = 8.dp
-                        )
+                        .padding(start = 10.dp, end = 8.dp)
                 ) {
                     Text(
                         text = song.title,
                         color = colors.primaryText,
                         fontSize = 13.sp,
                         lineHeight = 16.sp,
-                        fontWeight =
-                            FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
-
                     Text(
                         text = song.artist,
-                        color =
-                            colors.secondaryText,
+                        color = colors.secondaryText,
                         fontSize = 10.sp,
                         maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 if (custom) {
                     FullscreenCircle(
-                        resource =
-                            R.drawable.ic_xvox_delete,
-                        description =
-                            "Remove custom lyrics",
+                        resource = R.drawable.ic_xvox_delete,
+                        description = "Remove custom lyrics",
                         onClick = onDelete
                     )
-
-                    Spacer(
-                        Modifier.size(6.dp)
-                    )
+                    Spacer(Modifier.size(6.dp))
                 }
 
                 LyricsTransport(
                     isPlaying = isPlaying,
                     onPrevious = onPrevious,
-                    onTogglePlay =
-                        onTogglePlay,
+                    onTogglePlay = onTogglePlay,
                     onNext = onNext
                 )
 
-                Spacer(
-                    Modifier.size(6.dp)
-                )
+                Spacer(Modifier.size(6.dp))
 
                 FullscreenCircle(
-                    resource =
-                        R.drawable.ic_xvox_close,
-                    description =
-                        "Close fullscreen lyrics",
+                    resource = R.drawable.ic_xvox_close,
+                    description = "Close fullscreen lyrics",
                     onClick = onClose
                 )
             }
@@ -180,10 +136,7 @@ fun XvoxFullscreenLyrics(
                 position = position,
                 duration = duration,
                 onSeek = onSeek,
-                modifier =
-                    Modifier.padding(
-                        top = 9.dp
-                    )
+                modifier = Modifier.padding(top = 9.dp)
             )
 
             when {
@@ -192,19 +145,11 @@ fun XvoxFullscreenLyrics(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-                        contentAlignment =
-                            Alignment.Center
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text =
-                                "Loading lyrics…",
-                            color =
-                                colors.secondaryText,
-                            fontSize = 13.sp
-                        )
+                        Text(text = "Loading lyrics…", color = colors.secondaryText, fontSize = 13.sp)
                     }
                 }
-
                 state.lyrics != null -> {
                     XvoxSyncedLyrics(
                         lyrics = state.lyrics,
@@ -216,70 +161,39 @@ fun XvoxFullscreenLyrics(
                             .fillMaxWidth()
                     )
                 }
-
                 else -> {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-                        contentAlignment =
-                            Alignment.Center
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment =
-                                Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 modifier = Modifier
                                     .size(52.dp)
-                                    .background(
-                                        colors.card.copy(
-                                            alpha = 0.28f
-                                        ),
-                                        CircleShape
-                                    )
+                                    .background(colors.card.copy(alpha = 0.28f), CircleShape)
                                     .clickable(
-                                        interactionSource =
-                                            remember {
-                                                MutableInteractionSource()
-                                            },
+                                        interactionSource = remember { MutableInteractionSource() },
                                         indication = null
                                     ) {
-                                        launcher.launch(
-                                            arrayOf("*/*")
-                                        )
+                                        launcher.launch(arrayOf("*/*"))
                                     },
-                                contentAlignment =
-                                    Alignment.Center
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter =
-                                        painterResource(
-                                            R.drawable
-                                                .ic_xvox_lyrics_add
-                                        ),
-                                    contentDescription =
-                                        "Add lyrics",
-                                    tint =
-                                        colors.primaryText,
-                                    modifier =
-                                        Modifier.size(
-                                            22.dp
-                                        )
+                                    painter = painterResource(R.drawable.ic_xvox_lyrics_add),
+                                    contentDescription = "Add lyrics",
+                                    tint = colors.primaryText,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
-
                             Text(
                                 text = "No lyrics",
-                                color =
-                                    colors.primaryText,
+                                color = colors.primaryText,
                                 fontSize = 15.sp,
-                                fontWeight =
-                                    FontWeight.Bold,
-                                modifier =
-                                    Modifier.padding(
-                                        top = 10.dp
-                                    )
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 10.dp)
                             )
                         }
                     }
@@ -300,35 +214,13 @@ private fun LyricsTransport(
 
     Row(
         modifier = Modifier
-            .clip(
-                RoundedCornerShape(20.dp)
-            )
-            .background(
-                colors.card.copy(
-                    alpha = 0.38f
-                )
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.card.copy(alpha = 0.38f)),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        TransportButton(
-            R.drawable.ic_xvox_skip_previous,
-            onPrevious
-        )
-
-        TransportButton(
-            if (isPlaying) {
-                R.drawable.ic_xvox_pause
-            } else {
-                R.drawable.ic_xvox_play
-            },
-            onTogglePlay
-        )
-
-        TransportButton(
-            R.drawable.ic_xvox_skip_next,
-            onNext
-        )
+        TransportButton(R.drawable.ic_xvox_skip_previous, onPrevious)
+        TransportButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onTogglePlay)
+        TransportButton(R.drawable.ic_xvox_skip_next, onNext)
     }
 }
 
@@ -343,19 +235,14 @@ private fun TransportButton(
         modifier = Modifier
             .size(39.dp)
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(18.dp)
@@ -374,28 +261,17 @@ private fun FullscreenCircle(
     Box(
         modifier = Modifier
             .size(39.dp)
-            .background(
-                colors.card.copy(
-                    alpha = 0.32f
-                ),
-                CircleShape
-            )
+            .background(colors.card.copy(alpha = 0.32f), CircleShape)
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
-            contentDescription =
-                description,
+            painter = painterResource(resource),
+            contentDescription = description,
             tint = colors.primaryText,
             modifier = Modifier.size(18.dp)
         )

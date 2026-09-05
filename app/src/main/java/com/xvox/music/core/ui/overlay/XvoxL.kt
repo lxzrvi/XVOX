@@ -111,10 +111,6 @@ fun XvoxL(
         val maximumHeightPx =
             screenHeightPx * 0.94f
 
-        /*
-         * Initial height is measured from content.
-         * Until content is measured, start around 72%.
-         */
         var sheetHeightPx by remember(
             screenHeightPx
         ) {
@@ -161,10 +157,7 @@ fun XvoxL(
                         )
                     )
         ) {
-            /*
-             * Outer surface itself reaches screen bottom.
-             * Navigation bar inset is INSIDE this surface.
-             */
+            
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -211,11 +204,7 @@ fun XvoxL(
                         )
                     }
             ) {
-                /*
-                 * Top handle changes the actual HEIGHT.
-                 * Up = taller.
-                 * Down = shorter.
-                 */
+                
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -243,12 +232,6 @@ fun XvoxL(
                                     rawHeight -=
                                         dragAmount
 
-                                    /*
-                                     * Allow dragging below
-                                     * 25% while finger is down
-                                     * so close gesture feels
-                                     * continuous.
-                                     */
                                     sheetHeightPx =
                                         rawHeight
                                             .coerceIn(
@@ -301,11 +284,6 @@ fun XvoxL(
                     )
                 }
 
-                /*
-                 * Content occupies remaining sheet.
-                 * Bottom/nav inset lives inside the sheet,
-                 * therefore there is no visual bottom gap.
-                 */
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -320,11 +298,7 @@ fun XvoxL(
                             bottom = 8.dp
                         )
                         .onSizeChanged {
-                            /*
-                             * Measurement hook retained so
-                             * content doesn't cause an outer
-                             * bottom gap.
-                             */
+                            
                             if (!contentMeasured) {
                                 contentMeasured = true
                             }

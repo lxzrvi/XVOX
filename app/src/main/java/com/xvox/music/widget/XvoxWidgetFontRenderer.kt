@@ -10,10 +10,6 @@ import com.xvox.music.R
 
 object XvoxWidgetFontRenderer {
 
-    /**
-     * Renders the "XVOX" brand in the app's custom font (xvoxcinzeldecorative)
-     * onto a crisp Bitmap to guarantee 100% font fidelity on all Android launchers & versions.
-     */
     fun createLogoBitmap(
         context: Context,
         text: String = "XVOX",

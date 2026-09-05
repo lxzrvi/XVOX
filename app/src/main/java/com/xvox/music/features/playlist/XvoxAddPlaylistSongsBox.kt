@@ -74,7 +74,6 @@ fun XvoxAddPlaylistSongsBox(
             .fillMaxWidth()
             .imePadding()
     ) {
-        // UNIFIED FLAT HEADER (NO border radius on title and search bar container)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,7 +113,6 @@ fun XvoxAddPlaylistSongsBox(
 
             Spacer(Modifier.height(8.dp))
 
-            // Search Bar inside flat header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -160,7 +158,6 @@ fun XvoxAddPlaylistSongsBox(
             }
         }
 
-        // Song List with rounded item corners
         if (availableSongs.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -230,7 +227,6 @@ fun XvoxAddPlaylistSongsBox(
                             )
                         }
 
-                        // Checkmark multi-select tick
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
@@ -259,7 +255,6 @@ fun XvoxAddPlaylistSongsBox(
 
         Spacer(Modifier.height(10.dp))
 
-        // Bottom Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)

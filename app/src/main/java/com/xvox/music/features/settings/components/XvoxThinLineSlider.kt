@@ -58,7 +58,6 @@ fun XvoxThinLineSlider(
             },
         contentAlignment = Alignment.CenterStart
     ) {
-        // Inactive background track
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -67,7 +66,6 @@ fun XvoxThinLineSlider(
                 .background(colors.cardBorder)
         )
 
-        // Default value vertical notch indicator / symbol
         if (defaultFraction != null) {
             Box(
                 modifier = Modifier
@@ -84,7 +82,6 @@ fun XvoxThinLineSlider(
             }
         }
 
-        // Active accent track (NO THUMB CIRCLE, NO DOT)
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction)

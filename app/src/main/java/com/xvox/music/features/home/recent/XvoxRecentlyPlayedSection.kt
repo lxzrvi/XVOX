@@ -56,8 +56,6 @@ fun XvoxRecentlyPlayedSection(
             ),
         )
 
-        // Keep same area height even when empty - XvoxRecentCarousel handles empty with fixed height 122.dp
-        // Show "Nothing played yet" centered inside same bounds
         XvoxRecentCarousel(
             songs = songs,
             currentSongId =

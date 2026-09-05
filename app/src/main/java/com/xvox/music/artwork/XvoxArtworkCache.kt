@@ -3,10 +3,6 @@ package com.xvox.music.artwork
 import android.graphics.Bitmap
 import android.util.LruCache
 
-/**
- * Ultra-fast in-memory LRU Bitmap cache for song covers.
- * Guarantees zero-lag, instant instant rendering on scroll and playback changes.
- */
 object XvoxArtworkCache {
     private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
     private val cacheSize = (maxMemory / 4).coerceIn(32 * 1024, 128 * 1024) // 25% of heap

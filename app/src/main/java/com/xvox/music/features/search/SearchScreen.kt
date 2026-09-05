@@ -1,12 +1,9 @@
 package com.xvox.music.features.search
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,26 +39,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.HomeFooter
 import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.SongOptionsSheet
-import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.features.home.library.PlaylistCard
 import com.xvox.music.features.home.showPlaylistActions
+import com.xvox.music.features.playlist.XvoxPlaylistCard
 import com.xvox.music.player.playback.MainPlayerViewModel
 import kotlinx.coroutines.launch
 
-private fun songRelevance(song: com.xvox.music.core.model.Song, query: String): Int {
+private fun songRelevance(song: Song, query: String): Int {
     val q = query.trim().lowercase()
     if (q.isEmpty()) return 0
     val title = song.title.lowercase()
@@ -69,7 +65,7 @@ private fun songRelevance(song: com.xvox.music.core.model.Song, query: String): 
     var score = 0
     if (title == q) score = maxOf(score, 100)
     else if (title.startsWith(q)) score = maxOf(score, 90)
-    else if (title.contains(" $q") || title.contains(q + " ")) score = maxOf(score, 80)
+    else if (title.contains(" $q") || title.contains("$q ")) score = maxOf(score, 80)
     else if (title.contains(q)) score = maxOf(score, 70)
     if (artist == q) score = maxOf(score, 95)
     else if (artist.startsWith(q)) score = maxOf(score, 85)
@@ -77,7 +73,7 @@ private fun songRelevance(song: com.xvox.music.core.model.Song, query: String): 
     return score
 }
 
-private fun playlistRelevance(pl: com.xvox.music.data.preferences.XvoxPlaylist, query: String): Int {
+private fun playlistRelevance(pl: XvoxPlaylist, query: String): Int {
     val q = query.trim().lowercase()
     if (q.isEmpty()) return 0
     val name = pl.name.lowercase()
@@ -90,7 +86,6 @@ private fun playlistRelevance(pl: com.xvox.music.data.preferences.XvoxPlaylist, 
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
@@ -136,16 +131,11 @@ fun SearchScreen(
             .imePadding(),
         contentPadding = PaddingValues(top = 4.dp)
     ) {
-        // Search Header Title matching All Songs typography & position
         item(key = "search_header_title") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(
-                        start = 12.dp,
-                        end = 12.dp,
-                        bottom = HomeGeometry.sectionGap,
-                    ),
+                    .padding(start = 12.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -158,7 +148,6 @@ fun SearchScreen(
             }
         }
 
-        // Search Bar
         item(key = "search_bar") {
             Box(
                 modifier = Modifier
@@ -213,7 +202,6 @@ fun SearchScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        // Search Content
         if (query.isEmpty()) {
             if (recentSearches.isNotEmpty()) {
                 item(key = "recent_searches_header") {
@@ -269,7 +257,6 @@ fun SearchScreen(
                 }
             }
         } else {
-            // Playlists Results as Box Grid
             if (filteredPlaylists.isNotEmpty()) {
                 item(key = "playlists_header") {
                     Text(
@@ -291,7 +278,7 @@ fun SearchScreen(
                     ) {
                         chunk.forEach { playlist ->
                             val coverSongs = homeViewModel.playlistSongs(playlist)
-                            PlaylistCard(
+                            XvoxPlaylistCard(
                                 playlist = playlist,
                                 songs = coverSongs,
                                 onClick = {
@@ -314,7 +301,6 @@ fun SearchScreen(
                 item(key = "playlist_bottom_spacer") { Spacer(Modifier.height(10.dp)) }
             }
 
-            // Songs Results
             if (filteredSongs.isNotEmpty()) {
                 item(key = "songs_header") {
                     Text(
@@ -327,75 +313,14 @@ fun SearchScreen(
                 }
                 items(filteredSongs, key = { it.id }) { song ->
                     val isLiked = song.id in homeState.likedSongIds
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 3.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(colors.card)
-                            .combinedClickable(
-                                onClick = {
-                                    haptics.tap()
-                                    addRecent(query)
-                                    playerViewModel.playFromSource(song, filteredSongs, "Search")
-                                },
-                                onLongClick = {
-                                    haptics.heavy()
-                                    overlays.showL {
-                                        Column(modifier = Modifier.fillMaxWidth()) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth().clickable {
-                                                    overlays.hideL()
-                                                    playerViewModel.play(song)
-                                                    addRecent(query)
-                                                }.padding(vertical = 10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                                                    Icon(painter = painterResource(R.drawable.ic_xvox_play), contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(19.dp))
-                                                }
-                                                Text(text = "Play", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                            SongOptionsSheet(
-                                                song = song,
-                                                liked = isLiked,
-                                                onPlayNext = {
-                                                    playerViewModel.playNextInQueue(song)
-                                                    overlays.hideL()
-                                                    overlays.showP("Playing next")
-                                                },
-                                                onAddQueue = {
-                                                    playerViewModel.addToQueue(song)
-                                                    overlays.hideL()
-                                                    overlays.showP("Added to queue")
-                                                },
-                                                onPlaylist = { overlays.hideL() },
-                                                onLiked = {
-                                                    homeViewModel.toggleLiked(song)
-                                                    overlays.hideL()
-                                                },
-                                                onDelete = { overlays.hideL() },
-                                                onInfo = { overlays.hideL() },
-                                                onRingtone = { overlays.hideL() },
-                                                onShare = { overlays.hideL() }
-                                            )
-                                        }
-                                    }
-                                }
-                            )
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        XvoxSongArtwork(artwork = song.artworkUri, requestSize = 96, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
-                        Column(modifier = Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
-                            Text(text = song.title, color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(text = song.artist, color = colors.secondaryText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        if (isLiked) {
-                            Icon(painter = painterResource(R.drawable.ic_xvox_heart), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(14.dp).padding(end = 4.dp))
-                        }
-                        Icon(painter = painterResource(R.drawable.ic_xvox_play), contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(14.dp))
-                    }
+                    SearchSongCard(
+                        song = song,
+                        isLiked = isLiked,
+                        filteredSongs = filteredSongs,
+                        onSearchUsed = { addRecent(query) },
+                        homeViewModel = homeViewModel,
+                        playerViewModel = playerViewModel
+                    )
                 }
             }
 
@@ -408,7 +333,6 @@ fun SearchScreen(
             }
         }
 
-        // Pushed below screen fold matching Home screen
         item(key = "search_footer") {
             HomeFooter(
                 modifier = Modifier

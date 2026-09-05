@@ -1,11 +1,8 @@
 package com.xvox.music.features.home
 
 import android.app.Activity
-import android.app.PendingIntent
-import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -16,11 +13,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,10 +32,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.features.home.allsongs.XvoxAllSongsSection
-import com.xvox.music.features.home.recent.RecentTransitionMode
-import com.xvox.music.features.home.recent.RecentTransitionRequest
 import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.features.playlist.XvoxLikedSongsSection
@@ -59,7 +50,7 @@ fun HomeScreen(
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
     playerViewModel: MainPlayerViewModel = viewModel(),
-    viewModel: HomeViewModel = viewModel(),
+    viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
@@ -83,12 +74,9 @@ fun HomeScreen(
         state.playlists.firstOrNull { it.id == id }
     }
 
-    val deleteLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
+    val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         val song = pendingDelete
         pendingDelete = null
-
         if (result.resultCode == Activity.RESULT_OK && song != null) {
             playerViewModel.removeFromQueue(song.id)
             viewModel.refresh()
@@ -119,176 +107,31 @@ fun HomeScreen(
         viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
     }
 
-    fun showCreatePlaylist(initialSong: Song? = null) {
-        overlays.showL {
-            CreatePlaylistBox(
-                songs = state.songs,
-                initialSong = initialSong,
-                onCreate = { name, ids ->
-                    viewModel.createPlaylist(name, ids) { playlist ->
-                        overlays.hideL()
-                        if (playlist != null) {
-                            overlays.showP("Playlist created")
-                        }
-                    }
-                },
-            )
-        }
-    }
-
-    fun showPlaylistPicker(song: Song) {
-        overlays.showL {
-            PlaylistPickerBox(
-                song = song,
-                playlists = state.playlists,
-                onCreate = { showCreatePlaylist(song) },
-                onAdd = { playlist ->
-                    viewModel.addToPlaylist(playlist.id, song) { updated ->
-                        if (updated != null) {
-                            overlays.hideL()
-                            overlays.showP("Added to ${updated.name}")
-                        }
-                    }
-                },
-                onRemove = { playlist ->
-                    viewModel.removeFromPlaylist(playlist.id, song) { updated ->
-                        if (updated != null) {
-                            overlays.hideL()
-                            overlays.showP("Removed from ${updated.name}")
-                        }
-                    }
-                },
-                songs = state.songs,
-                songsFor = viewModel::playlistSongs,
-            )
-        }
-    }
-
-    fun showDelete(song: Song) {
-        overlays.showL {
-            DeleteSongBox(
-                song = song,
-                onRemoveApp = {
-                    playerViewModel.removeFromQueue(song.id)
-                    viewModel.hideSong(song)
-                    overlays.hideL()
-                    overlays.showP("Removed from XVOX")
-                },
-                onDeleteDevice = {
-                    overlays.showL {
-                        ConfirmDeviceDeleteBox(
-                            song = song,
-                            onCancel = overlays::hideL,
-                            onDelete = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    val pending: PendingIntent? = XvoxSongActions.deletePendingIntent(context, song)
-                                    if (pending != null) {
-                                        pendingDelete = song
-                                        overlays.hideL()
-                                        deleteLauncher.launch(
-                                            IntentSenderRequest.Builder(pending.intentSender).build()
-                                        )
-                                    }
-                                } else {
-                                    val deleted = XvoxSongActions.deleteLegacy(context, song)
-                                    overlays.hideL()
-                                    if (deleted) {
-                                        playerViewModel.removeFromQueue(song.id)
-                                        viewModel.refresh()
-                                        overlays.showP("Deleted from device")
-                                    }
-                                }
-                            },
-                        )
-                    }
-                },
-            )
-        }
-    }
-
-    fun showSongOptions(
-        song: Song,
-        playlist: XvoxPlaylist? = null,
-        recent: Boolean = false,
-    ) {
-        overlays.showL {
-            SongOptionsSheet(
-                song = song,
-                liked = song.id in state.likedSongIds,
-                playlistName = playlist?.name,
-                onPlayNext = {
-                    playerViewModel.playNextInQueue(song)
-                    overlays.hideL()
-                    overlays.showP("Playing next")
-                },
-                onAddQueue = {
-                    playerViewModel.addToQueue(song)
-                    overlays.hideL()
-                    overlays.showP("Added to queue")
-                },
-                onPlaylist = {
-                    overlays.hideL()
-                    showPlaylistPicker(song)
-                },
-                onRemovePlaylist = playlist?.let { target ->
-                    {
-                        viewModel.removeFromPlaylist(target.id, song) {
-                            overlays.hideL()
-                            overlays.showP("Removed from ${target.name}")
-                        }
-                    }
-                },
-                onRemoveRecent = if (recent) {
-                    {
-                        viewModel.removeFromRecent(song)
-                        overlays.hideL()
-                        overlays.showP("Removed from recent")
-                    }
-                } else null,
-                onLiked = {
-                    val wasLiked = song.id in state.likedSongIds
-                    viewModel.toggleLiked(song)
-                    overlays.hideL()
-                    overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
-                },
-                onDelete = {
-                    overlays.hideL()
-                    showDelete(song)
-                },
-                onInfo = {
-                    overlays.hideL()
-                    viewModel.loadInfo(song) { info ->
-                        overlays.showL {
-                            SongInfoBox(info)
-                        }
-                    }
-                },
-                onRingtone = {
-                    overlays.hideL()
-                    if (XvoxSongActions.canWriteSettings(context)) {
-                        val success = XvoxSongActions.setRingtone(context, song)
-                        overlays.showP(if (success) "Ringtone set" else "Couldn't set ringtone")
-                    } else {
-                        XvoxSongActions.openWriteSettings(context)
-                        overlays.showP("Allow modify system settings")
-                    }
-                },
-                onShare = {
-                    overlays.hideL()
-                    XvoxSongActions.share(context, song)
-                },
-            )
-        }
+    fun openSongOptions(song: Song, playlist: XvoxPlaylist? = null, recent: Boolean = false) {
+        showSongOptionsOverlay(
+            overlays = overlays,
+            context = context,
+            song = song,
+            isLiked = song.id in state.likedSongIds,
+            playlist = playlist,
+            recent = recent,
+            viewModel = viewModel,
+            playerViewModel = playerViewModel,
+            playlists = state.playlists,
+            songs = state.songs,
+            deleteLauncher = deleteLauncher,
+            onPendingDelete = { pendingDelete = it }
+        )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background),
+            .background(colors.background)
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 4.dp),
+            contentPadding = PaddingValues(top = 4.dp)
         ) {
             item(key = "library") {
                 AnimatedContent(
@@ -298,7 +141,7 @@ fun HomeScreen(
                             .togetherWith(fadeOut(animationSpec = tween(160)))
                     },
                     label = "home_library_mode_switch"
-                ) { targetStateKey ->
+                ) { _ ->
                     if (selectedPlaylist != null) {
                         XvoxPlaylistDetail(
                             playlist = selectedPlaylist,
@@ -309,19 +152,15 @@ fun HomeScreen(
                                 viewModel.recordPlayedFromLibrary(song, currentSongId)
                                 playerViewModel.playFromSource(song, viewModel.playlistSongs(selectedPlaylist), selectedPlaylist.name)
                             },
-                            onOptions = { song ->
-                                showSongOptions(song, selectedPlaylist)
-                            },
+                            onOptions = { song -> openSongOptions(song, selectedPlaylist) },
                             onAddSongs = {
                                 showAddPlaylistSongs(
                                     overlays = overlays,
                                     viewModel = viewModel,
-                                    playlist = selectedPlaylist,
+                                    playlist = selectedPlaylist
                                 )
                             },
-                            onClosed = {
-                                setSelectedPlaylistId(null)
-                            },
+                            onClosed = { setSelectedPlaylistId(null) }
                         )
                     } else {
                         when (state.libraryMode) {
@@ -334,13 +173,10 @@ fun HomeScreen(
                                         viewModel.recordPlayedFromLibrary(song, currentSongId)
                                         playerViewModel.playFromSource(song, state.songs, "All Songs")
                                     },
-                                    onSongLongClick = { song ->
-                                        showSongOptions(song)
-                                    },
-                                    onPrefetch = viewModel::prefetchFrom,
+                                    onSongLongClick = { song -> openSongOptions(song) },
+                                    onPrefetch = viewModel::prefetchFrom
                                 )
                             }
-
                             XvoxHomeLibraryMode.LIKED -> {
                                 XvoxLikedSongsSection(
                                     songs = viewModel.likedSongs(),
@@ -350,17 +186,14 @@ fun HomeScreen(
                                         viewModel.recordPlayedFromLibrary(song, currentSongId)
                                         playerViewModel.playFromSource(song, viewModel.likedSongs(), "Liked Songs")
                                     },
-                                    onOptions = { song ->
-                                        showSongOptions(song)
-                                    },
+                                    onOptions = { song -> openSongOptions(song) }
                                 )
                             }
-
                             XvoxHomeLibraryMode.PLAYLISTS -> {
                                 XvoxPlaylistsSection(
                                     playlists = state.playlists,
                                     songsFor = viewModel::playlistSongs,
-                                    onCreate = { showCreatePlaylist() },
+                                    onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
                                     onOpen = { playlist -> setSelectedPlaylistId(playlist.id) },
                                     onOptions = { playlist ->
                                         showPlaylistActions(
@@ -371,9 +204,9 @@ fun HomeScreen(
                                                 if (effectiveSelectedPlaylistId == playlist.id) {
                                                     setSelectedPlaylistId(null)
                                                 }
-                                            },
+                                            }
                                         )
-                                    },
+                                    }
                                 )
                             }
                         }
@@ -392,9 +225,7 @@ fun HomeScreen(
                             viewModel.recordPlayedFromRecent(song, currentSongId)
                             playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
                         },
-                        onSongOptions = { song ->
-                            showSongOptions(song = song, recent = true)
-                        },
+                        onSongOptions = { song -> openSongOptions(song = song, recent = true) }
                     )
                 }
             }
@@ -403,7 +234,7 @@ fun HomeScreen(
                 HomeFooter(
                     modifier = Modifier
                         .fillParentMaxWidth()
-                        .heightIn(min = screenHeight),
+                        .heightIn(min = screenHeight)
                 )
             }
         }

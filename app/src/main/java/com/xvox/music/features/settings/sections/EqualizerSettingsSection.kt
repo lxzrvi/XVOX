@@ -68,7 +68,6 @@ fun EqualizerSettingsSection(
             Column {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Equalizer Reset Button
                 Button(
                     onClick = {
                         haptics.heavy()

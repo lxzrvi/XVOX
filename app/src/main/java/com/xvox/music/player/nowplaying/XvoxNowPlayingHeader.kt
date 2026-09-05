@@ -55,7 +55,6 @@ fun XvoxNowPlayingHeader(
             .height(52.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Down / Collapse Button on the left
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -80,7 +79,6 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Centered Header Source Info
         Column(
             modifier = Modifier
                 .padding(horizontal = 56.dp)
@@ -107,7 +105,6 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Top right pill with Share & More (No outer border)
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)

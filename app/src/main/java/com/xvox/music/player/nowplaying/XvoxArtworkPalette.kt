@@ -30,7 +30,6 @@ class XvoxArtworkPaletteLoader(
         cache[key]?.let { return it }
 
         val result = withContext(Dispatchers.IO) {
-            // First check memory cache
             val cached = XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_160")
                 ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
             if (cached != null) {
@@ -94,9 +93,7 @@ class XvoxArtworkPaletteLoader(
                 val saturation = hsv[1]
                 val value = hsv[2]
 
-                // Filter out washed out whites, deep pitch blacks, and low-saturation greys
                 if (value in 0.15f..0.92f && saturation >= 0.20f) {
-                    // Score biased towards rich vibrant musical album colors
                     val score = saturation * 1.6f + (1.0f - abs(value - 0.55f)) * 1.1f
                     if (score > maxScore) {
                         maxScore = score
@@ -107,7 +104,6 @@ class XvoxArtworkPaletteLoader(
         }
 
         if (bestColor == 0) {
-            // Secondary fallback: average non-black pixels
             var totalR = 0L
             var totalG = 0L
             var totalB = 0L
@@ -145,7 +141,6 @@ class XvoxArtworkPaletteLoader(
 
     private fun normalize(source: Color): Color {
         val lum = source.luminance()
-        // Ensure perfect contrast for NowPlaying backdrop
         val targetLum = when {
             lum < 0.22f -> 0.32f
             lum > 0.65f -> 0.48f

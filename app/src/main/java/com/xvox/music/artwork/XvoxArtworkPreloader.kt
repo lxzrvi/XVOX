@@ -15,10 +15,6 @@ class XvoxArtworkPreloader(
     private val appContext =
         context.applicationContext
 
-    /**
-     * Fast load for visible covers + preload behind on scroll without realizing
-     * Uses enqueue (non-blocking) and temporary store
-     */
     suspend fun warm(
         songs: List<Song>,
         fromIndex: Int,
@@ -54,7 +50,6 @@ class XvoxArtworkPreloader(
                 appContext
             )
 
-        // Preload behind covers on scroll - enqueue without blocking UI
         songs.subList(
             start,
             end
@@ -69,7 +64,6 @@ class XvoxArtworkPreloader(
 
                 val key = XvoxArtworkCache.keyFor(uri)
 
-                // If already in temp cache, skip
                 if (XvoxArtworkCache.get(key) != null) {
                     return@forEach
                 }
@@ -98,29 +92,20 @@ class XvoxArtworkPreloader(
                         )
                         .build()
 
-                // Use enqueue for behind covers - non-blocking, user won't realize
-                // For visible covers (first 6), use execute for fast load
                 val isVisible = songs.indexOfFirst { it.artworkUri == uri } in start until (start + 6)
 
                 runCatching {
                     if (isVisible) {
-                        // Fast load for visible screen
                         val result = loader.execute(request)
                         result.image?.let { image ->
-                            // Store in temp cache if bitmap
-                            // Coil3 image to bitmap conversion handled via cache
                         }
                     } else {
-                        // Behind covers - enqueue without blocking
                         loader.enqueue(request)
                     }
                 }
             }
     }
 
-    /**
-     * Immediate warm for visible screen - call on app opening for home UI
-     */
     suspend fun warmVisible(songs: List<Song>) {
         warm(songs, 0, 12)
     }

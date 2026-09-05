@@ -42,78 +42,42 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
-import java.text.DateFormat
-import java.util.Date
 
 @Composable
 fun XvoxPlaylistActionsBox(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     onRename: (String) -> Unit,
-    onSaveCover: (
-        List<Long>,
-        Uri?,
-        () -> Unit
-    ) -> Unit,
+    onSaveCover: (List<Long>, Uri?, () -> Unit) -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit
 ) {
-    var editing by
-        remember(
-            playlist.id
-        ) {
-            mutableStateOf(false)
-        }
-
-    var coverEditor by
-        remember(
-            playlist.id
-        ) {
-            mutableStateOf(false)
-        }
+    var editing by remember(playlist.id) { mutableStateOf(false) }
+    var coverEditor by remember(playlist.id) { mutableStateOf(false) }
 
     if (coverEditor) {
         XvoxPlaylistCoverEditor(
             playlist = playlist,
             songs = songs,
-            onCancel = {
-                coverEditor = false
-            },
-            onApply = {
-                    ids,
-                    uri ->
-
-                onSaveCover(
-                    ids,
-                    uri
-                ) {
-                    coverEditor =
-                        false
+            onCancel = { coverEditor = false },
+            onApply = { ids, uri ->
+                onSaveCover(ids, uri) {
+                    coverEditor = false
                 }
             }
         )
-
         return
     }
 
     PlaylistActionsMain(
-        playlist =
-            playlist,
+        playlist = playlist,
         songs = songs,
-        editing =
-            editing,
-        onEditingChange = {
-            editing = it
-        },
-        onRename =
-            onRename,
-        onEditCover = {
-            coverEditor = true
-        },
-        onDelete =
-            onDelete,
-        onInfo =
-            onInfo
+        editing = editing,
+        onEditingChange = { editing = it },
+        onRename = onRename,
+        onEditCover = { coverEditor = true },
+        onDelete = onDelete,
+        onInfo = onInfo
     )
 }
 
@@ -122,386 +86,152 @@ private fun PlaylistActionsMain(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     editing: Boolean,
-    onEditingChange:
-        (Boolean) -> Unit,
+    onEditingChange: (Boolean) -> Unit,
     onRename: (String) -> Unit,
     onEditCover: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
-    var name by
-        remember(
-            playlist.id,
-            playlist.name
-        ) {
-            mutableStateOf(
-                TextFieldValue(
-                    text =
-                        playlist.name,
-                    selection =
-                        TextRange(
-                            playlist.name
-                                .length
-                        )
-                )
+    var name by remember(playlist.id, playlist.name) {
+        mutableStateOf(
+            TextFieldValue(
+                text = playlist.name,
+                selection = TextRange(playlist.name.length)
             )
-        }
+        )
+    }
 
-    val focusRequester =
-        remember {
-            FocusRequester()
-        }
+    val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(
-        editing
-    ) {
+    LaunchedEffect(editing) {
         if (editing) {
-            name =
-                name.copy(
-                    selection =
-                        TextRange(
-                            name.text.length
-                        )
-                )
-
-            focusRequester
-                .requestFocus()
+            name = name.copy(selection = TextRange(name.text.length))
+            focusRequester.requestFocus()
         }
     }
 
-    Column(
-        modifier =
-            Modifier.fillMaxWidth()
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.Top
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
         ) {
             Box(
-                modifier =
-                    Modifier.size(
-                        62.dp
-                    ),
-                contentAlignment =
-                    Alignment.Center
+                modifier = Modifier.size(62.dp),
+                contentAlignment = Alignment.Center
             ) {
                 XvoxPlaylistCover(
                     songs = songs,
-                    coverSongIds =
-                        playlist
-                            .coverSongIds,
-                    customCoverUri =
-                        playlist
-                            .customCoverUri,
+                    coverSongIds = playlist.coverSongIds,
+                    customCoverUri = playlist.customCoverUri,
                     requestSize = 128,
-                    modifier =
-                        Modifier
-                            .size(
-                                58.dp
-                            )
-                            .clip(
-                                RoundedCornerShape(
-                                    12.dp
-                                )
-                            )
+                    modifier = Modifier
+                        .size(58.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
 
                 if (editing) {
                     Box(
-                        modifier =
-                            Modifier
-                                .size(
-                                    34.dp
-                                )
-                                .background(
-                                    Color.Black.copy(
-                                        alpha = 0.64f
-                                    ),
-                                    CircleShape
-                                )
-                                .clickable(
-                                    interactionSource =
-                                        remember {
-                                            MutableInteractionSource()
-                                        },
-                                    indication = null,
-                                    onClick =
-                                        onEditCover
-                                ),
-                        contentAlignment =
-                            Alignment.Center
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(Color.Black.copy(alpha = 0.64f), CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onEditCover
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter =
-                                painterResource(
-                                    R.drawable
-                                        .ic_xvox_edit
-                                ),
-                            contentDescription =
-                                "Edit cover",
-                            tint =
-                                Color.White,
-                            modifier =
-                                Modifier.size(
-                                    17.dp
-                                )
+                            painter = painterResource(R.drawable.ic_xvox_edit),
+                            contentDescription = "Edit cover",
+                            tint = Color.White,
+                            modifier = Modifier.size(17.dp)
                         )
                     }
                 }
             }
 
-            Spacer(
-                Modifier.size(
-                    10.dp
-                )
-            )
+            Spacer(Modifier.size(10.dp))
 
             Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(
-                            36.dp
-                        ),
-                contentAlignment =
-                    Alignment.CenterStart
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
                 if (editing) {
                     BasicTextField(
                         value = name,
-                        onValueChange = {
-                            name = it
-                        },
+                        onValueChange = { name = it },
                         singleLine = true,
-                        textStyle =
-                            TextStyle(
-                                color =
-                                    colors.primaryText,
-                                fontSize = 17.sp,
-                                fontWeight =
-                                    FontWeight.Bold
-                            ),
-                        cursorBrush =
-                            SolidColor(
-                                colors.primaryText
-                            ),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(
-                                    focusRequester
-                                )
+                        textStyle = TextStyle(
+                            color = colors.primaryText,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        cursorBrush = SolidColor(colors.primaryText),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
                     )
                 } else {
                     Text(
-                        text =
-                            name.text,
-                        color =
-                            colors.primaryText,
+                        text = name.text,
+                        color = colors.primaryText,
                         fontSize = 17.sp,
-                        fontWeight =
-                            FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(
-                Modifier.size(
-                    8.dp
-                )
-            )
+            Spacer(Modifier.size(8.dp))
 
             Box(
-                modifier =
-                    Modifier
-                        .size(
-                            36.dp
-                        )
-                        .background(
-                            colors.card,
-                            CircleShape
-                        )
-                        .clickable(
-                            enabled =
-                                !editing ||
-                                    name.text
-                                        .isNotBlank(),
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null
-                        ) {
-                            if (editing) {
-                                val clean =
-                                    name.text
-                                        .trim()
-
-                                if (
-                                    clean.isNotEmpty()
-                                ) {
-                                    onRename(
-                                        clean
-                                    )
-
-                                    onEditingChange(
-                                        false
-                                    )
-                                }
-                            } else {
-                                onEditingChange(
-                                    true
-                                )
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(colors.card, CircleShape)
+                    .clickable(
+                        enabled = !editing || name.text.isNotBlank(),
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (editing) {
+                            val clean = name.text.trim()
+                            if (clean.isNotEmpty()) {
+                                onRename(clean)
+                                onEditingChange(false)
                             }
-                        },
-                contentAlignment =
-                    Alignment.Center
+                        } else {
+                            onEditingChange(true)
+                        }
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter =
-                        painterResource(
-                            if (editing) {
-                                R.drawable
-                                    .ic_xvox_check
-                            } else {
-                                R.drawable
-                                    .ic_xvox_edit
-                            }
-                        ),
-                    contentDescription =
-                        if (editing) {
-                            "Save name"
-                        } else {
-                            "Rename"
-                        },
-                    tint =
-                        if (
-                            !editing ||
-                            name.text
-                                .isNotBlank()
-                        ) {
-                            colors.primaryText
-                        } else {
-                            colors.mutedText
-                        },
-                    modifier =
-                        Modifier.size(
-                            17.dp
-                        )
+                    painter = painterResource(
+                        if (editing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit
+                    ),
+                    contentDescription = if (editing) "Save name" else "Rename",
+                    tint = if (!editing || name.text.isNotBlank()) colors.primaryText else colors.mutedText,
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
 
-        Spacer(
-            Modifier.height(
-                12.dp
-            )
+        Spacer(Modifier.height(12.dp))
+
+        PlaylistAction(
+            title = "Delete playlist",
+            onClick = onDelete
         )
 
         PlaylistAction(
-            title =
-                "Delete playlist",
-            onClick =
-                onDelete
-        )
-
-        PlaylistAction(
-            title =
-                "Playlist info",
-            onClick =
-                onInfo
-        )
-    }
-}
-
-@Composable
-fun PlaylistInfoBox(
-    playlist: XvoxPlaylist,
-    songCount: Int
-) {
-    val colors =
-        XvoxTheme.colors
-
-    val created =
-        if (
-            playlist.createdAt > 0L
-        ) {
-            DateFormat
-                .getDateTimeInstance(
-                    DateFormat.MEDIUM,
-                    DateFormat.SHORT
-                )
-                .format(
-                    Date(
-                        playlist.createdAt
-                    )
-                )
-        } else {
-            "Unknown"
-        }
-
-    Column(
-        modifier =
-            Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text =
-                "Playlist info",
-            color =
-                colors.primaryText,
-            fontSize = 18.sp,
-            fontWeight =
-                FontWeight.Bold
-        )
-
-        Spacer(
-            Modifier.height(
-                14.dp
-            )
-        )
-
-        Text(
-            text =
-                playlist.name,
-            color =
-                colors.primaryText,
-            fontSize = 14.sp
-        )
-
-        Spacer(
-            Modifier.height(
-                8.dp
-            )
-        )
-
-        Text(
-            text =
-                "$songCount songs",
-            color =
-                colors.secondaryText,
-            fontSize = 12.sp
-        )
-
-        Spacer(
-            Modifier.height(
-                6.dp
-            )
-        )
-
-        Text(
-            text =
-                "Created $created",
-            color =
-                colors.secondaryText,
-            fontSize = 12.sp
+            title = "Playlist info",
+            onClick = onInfo
         )
     }
 }
@@ -511,28 +241,19 @@ private fun PlaylistAction(
     title: String,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Text(
         text = title,
-        color =
-            colors.primaryText,
+        color = colors.primaryText,
         fontSize = 14.sp,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
-                    indication = null,
-                    onClick =
-                        onClick
-                )
-                .padding(
-                    vertical = 13.dp
-                )
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(vertical = 13.dp)
     )
 }

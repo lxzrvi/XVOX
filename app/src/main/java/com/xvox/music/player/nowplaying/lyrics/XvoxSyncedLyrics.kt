@@ -49,7 +49,6 @@ fun XvoxSyncedLyrics(
 ) {
     if (lyrics.lines.isEmpty()) return
 
-    // Timely sync - no artificial 300ms late, use position directly, seek quickly resolves
     val activeIndex = if (lyrics.synchronized) {
         lyrics.lines.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= position }.coerceAtLeast(0)
     } else -1
@@ -92,7 +91,6 @@ fun XvoxSyncedLyrics(
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
-                    // Balanced symmetric fade - visible to header & bottom, strongest at extreme edges, progressive to center, central 0.25-0.75 clear, not aggressive
                     val stops = if (strongEdgeFade) {
                         arrayOf(
                             0.00f to Color.Transparent,
@@ -131,7 +129,6 @@ fun XvoxSyncedLyrics(
             itemsIndexed(items = lyrics.lines, key = { index, line -> "$index-${line.timeMs}-${line.text}" }) { index, line ->
                 val distance = abs(index - activeIndex)
                 val isActive = lyrics.synchronized && index == activeIndex
-                // One-line style: single active focus, others faded by distance
                 val alpha = when (distance) {
                     0 -> 1f
                     1 -> 0.68f

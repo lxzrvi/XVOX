@@ -62,20 +62,13 @@ private fun LibraryRefreshContent(
 
                     var pendingResult: LibraryRefreshResult? = null
 
-                    // Trigger refresh and capture result
                     viewModel.refresh { refreshed ->
                         pendingResult = refreshed
                     }
 
-                    // Ensure minimum 3 seconds visible loading to avoid flash
-                    // Refresh itself typically takes 1-2 sec, we ensure total 3000ms
-                    // Poll until viewModel not refreshing or pendingResult set
                     while (pendingResult == null) {
                         delay(100L)
-                        // If refresh finished quickly, pendingResult will be set via callback
-                        // If viewModel still refreshing, wait
                         if (!viewModel.state.value.refreshing && pendingResult == null) {
-                            // Edge: callback not yet delivered, wait a bit
                             delay(200L)
                         }
                     }

@@ -27,7 +27,6 @@ object AudioEffectsManager {
     private var syncJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    // Standard preset band levels in dB (-15 to +15)
     val PRESETS = mapOf(
         "Flat" to listOf(0, 0, 0, 0, 0),
         "Bass Boost" to listOf(7, 5, 2, 0, -1),
@@ -122,7 +121,6 @@ object AudioEffectsManager {
         val prefs = UserPreferencesRepository(context)
 
         syncJob = scope.launch {
-            // Equalizer observer
             launch {
                 combine(
                     prefs.equalizerEnabled,
@@ -135,7 +133,6 @@ object AudioEffectsManager {
                 }
             }
 
-            // Bass Boost & Loudness Compensation observer
             launch {
                 combine(
                     prefs.bassBoost,
@@ -153,7 +150,6 @@ object AudioEffectsManager {
                 }
             }
 
-            // Virtualizer observer
             launch {
                 combine(
                     prefs.virtualizerEnabled,
@@ -208,11 +204,9 @@ object AudioEffectsManager {
             }.onFailure { Log.w(TAG, "Error applying BassBoost: ${it.message}") }
         }
 
-        // Automatic volume makeup compensation to prevent Android AGC from crushing the sound
         loudnessEnhancer?.let { le ->
             runCatching {
                 val effectiveGain = if (bassEnabled && bassStrength > 0) {
-                    // Makeup gain between 150mB and 450mB based on bass strength
                     val makeup = (bassStrength * 0.45f).toInt()
                     if (loudnessEnabled) loudnessGainMb + makeup else makeup
                 } else if (loudnessEnabled) {

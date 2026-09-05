@@ -21,7 +21,6 @@ fun XvoxNowPlayingBackdrop(
     val midGlow = lerp(dominant, Color.White, 0.08f)
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        // Base dark vertical gradient
         drawRect(
             brush = Brush.verticalGradient(
                 0f to dark.copy(alpha = 0.95f),
@@ -30,7 +29,6 @@ fun XvoxNowPlayingBackdrop(
             )
         )
 
-        // Top-left lush ambient glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -43,7 +41,6 @@ fun XvoxNowPlayingBackdrop(
             )
         )
 
-        // Center-right vibrant radiant glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -56,7 +53,6 @@ fun XvoxNowPlayingBackdrop(
             )
         )
 
-        // Bottom subtle soft glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(

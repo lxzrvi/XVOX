@@ -90,7 +90,6 @@ fun ProfileEditorBox(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // Avatar selector row
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -199,7 +198,6 @@ fun ProfileEditorBox(
 
         Spacer(Modifier.height(18.dp))
 
-        // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.Center

@@ -61,7 +61,6 @@ fun WidgetSettingsSection(
     val context = LocalContext.current
 
     SettingsSectionCard(title = "Home Screen Widget Customizer", iconRes = R.drawable.ic_xvox_music_note) {
-        // Live Widget Preview Card
         WidgetLivePreviewCard(
             transparency = state.widgetTransparency,
             theme = state.widgetTheme,
@@ -72,7 +71,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 1-Tap Add Widget to Home Screen
         Button(
             onClick = {
                 haptics.success()
@@ -107,7 +105,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Transparency Thin Line Slider
         Text(
             text = "Widget Transparency: ${(state.widgetTransparency * 100).roundToInt()}%",
             color = colors.primaryText,
@@ -128,7 +125,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Widget Theme Selector
         Text(
             text = "Widget Theme Style",
             color = colors.primaryText,
@@ -168,7 +164,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Corner Radius Thin Line Slider
         Text(
             text = "Corner Radius: ${state.widgetCornerRadius}dp",
             color = colors.primaryText,
@@ -189,7 +184,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Show X Logo Toggle
         SettingsToggle(
             title = "Show X Logo (Cinzel Font)",
             subtitle = "Display brand watermark on widget",
@@ -201,7 +195,6 @@ fun WidgetSettingsSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Refresh Active Widgets Button
         Button(
             onClick = {
                 haptics.success()
@@ -264,7 +257,6 @@ private fun WidgetLivePreviewCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left-aligned Cover
             Box(
                 modifier = Modifier
                     .size(46.dp)

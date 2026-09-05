@@ -20,7 +20,6 @@ class AppViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            // Settle time 5000ms (5 seconds) as requested
             delay(5000L)
 
             _state.value =

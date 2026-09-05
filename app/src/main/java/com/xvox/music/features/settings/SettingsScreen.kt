@@ -48,7 +48,6 @@ fun SettingsScreen(
         contentPadding = PaddingValues(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Settings Header Title matching All Songs typography & position
         item(key = "settings_title") {
             Row(
                 modifier = Modifier
@@ -70,49 +69,42 @@ fun SettingsScreen(
             }
         }
 
-        // 1. THEMES & APPEARANCE (TOP)
         item(key = "appearance_section") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 AppearanceSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // 2. EQUALIZER & AUDIO DSP SECTION
         item(key = "equalizer_section") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 EqualizerSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // 3. PLAYBACK SETTINGS SECTION
         item(key = "playback_section") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 PlaybackSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // 4. VOLUME & OUTPUT SECTION
         item(key = "volume_section") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 VolumeSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // 5. NOTIFICATION SECTION
         item(key = "notification_section") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 NotificationSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // 6. HOME SCREEN WIDGET (BOTTOM)
         item(key = "widget_customizer") {
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 WidgetSettingsSection(state = state, viewModel = settingsViewModel)
             }
         }
 
-        // Bottom Branding
         item(key = "settings_brand") {
             Spacer(Modifier.height(16.dp))
             HomeFooter(modifier = Modifier.fillMaxWidth().height(180.dp).padding(bottom = 20.dp))

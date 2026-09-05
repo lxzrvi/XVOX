@@ -100,7 +100,6 @@ object XvoxWidgetHelper {
 
         val views = RemoteViews(context.packageName, layoutId)
 
-        // 1. Load artwork
         val targetArtSize = when (layoutType) {
             WidgetLayoutType.SQUARE -> 400
             WidgetLayoutType.HORIZONTAL -> 220
@@ -109,7 +108,6 @@ object XvoxWidgetHelper {
         }
         val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, targetArtSize)
 
-        // 2. Colors calculation
         val primaryTextColor: Int
         val secondaryTextColor: Int
         val accentColor: Int
@@ -138,12 +136,10 @@ object XvoxWidgetHelper {
             accentColor = Color.parseColor("#FFFFFF")
         }
 
-        // 3. Background with rounded corners
         val bgBitmap = createRoundedBackgroundBitmap(context, bgColor, state.cornerRadiusDp)
         views.setImageViewBitmap(R.id.widget_bg, bgBitmap)
         runCatching { views.setImageViewBitmap(R.id.widget_background, bgBitmap) }
 
-        // 4. Bind Cover Artwork with proper corner radius
         if (artworkBitmap != null) {
             val density = context.resources.displayMetrics.density
             val cornerRadPx = if (layoutType == WidgetLayoutType.SQUARE) state.cornerRadiusDp * density else 10f * density
@@ -158,7 +154,6 @@ object XvoxWidgetHelper {
             runCatching { views.setImageViewResource(R.id.widget_artwork, R.drawable.ic_xvox_music_note) }
         }
 
-        // 5. Cinzel X Logo
         if (state.showLogo) {
             val logoBitmap = XvoxWidgetFontRenderer.createLogoBitmap(
                 context = context,
@@ -177,7 +172,6 @@ object XvoxWidgetHelper {
             runCatching { views.setViewVisibility(R.id.widget_logo_xvox, View.GONE) }
         }
 
-        // 6. Text info
         views.setTextViewText(R.id.widget_title, state.songTitle)
         views.setTextColor(R.id.widget_title, primaryTextColor)
         views.setTextViewText(R.id.widget_artist, state.songArtist)
@@ -190,7 +184,6 @@ object XvoxWidgetHelper {
             views.setTextColor(R.id.widget_song_artist, secondaryTextColor)
         }
 
-        // 7. Progress Bar
         if (state.duration > 0L) {
             val progressInt = ((state.currentPosition.toFloat() / state.duration.toFloat()) * 1000).toInt().coerceIn(0, 1000)
             runCatching { views.setProgressBar(R.id.widget_progress_bar, 1000, progressInt, false) }
@@ -198,7 +191,6 @@ object XvoxWidgetHelper {
             runCatching { views.setProgressBar(R.id.widget_progress_bar, 1000, 0, false) }
         }
 
-        // 8. Buttons: Play/Pause, Next, Prev, Like
         val playPauseRes = if (state.isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play
         views.setImageViewResource(R.id.widget_btn_play_pause, playPauseRes)
         views.setInt(R.id.widget_btn_play_pause, "setColorFilter", accentColor)
@@ -209,7 +201,6 @@ object XvoxWidgetHelper {
         views.setImageViewResource(R.id.widget_btn_like, heartRes)
         views.setInt(R.id.widget_btn_like, "setColorFilter", if (state.isLiked) Color.parseColor("#FF453A") else secondaryTextColor)
 
-        // 9. Pending Intents
         views.setOnClickPendingIntent(R.id.widget_btn_play_pause, createBroadcastPendingIntent(context, ACTION_PLAY_PAUSE, 101))
         views.setOnClickPendingIntent(R.id.widget_btn_prev, createBroadcastPendingIntent(context, ACTION_PREVIOUS, 102))
         views.setOnClickPendingIntent(R.id.widget_btn_next, createBroadcastPendingIntent(context, ACTION_NEXT, 103))
@@ -294,7 +285,6 @@ object XvoxWidgetHelper {
     }
 
     private fun getRoundedBitmap(bitmap: Bitmap, cornerRadiusPx: Float): Bitmap {
-        // Crop bitmap to square first to avoid distortion
         val size = minOf(bitmap.width, bitmap.height)
         val xOffset = (bitmap.width - size) / 2
         val yOffset = (bitmap.height - size) / 2

@@ -65,10 +65,8 @@ fun XvoxStartupLoadingScreen() {
                 modifier = Modifier.scale(pulseScale)
             )
 
-            // Tight gap between XVOX and waveform bars
             Spacer(Modifier.height(14.dp))
 
-            // Animated Waveform Bars
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,

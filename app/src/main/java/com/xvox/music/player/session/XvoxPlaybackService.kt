@@ -107,7 +107,6 @@ class XvoxPlaybackService : MediaSessionService() {
 
         player = exoPlayer
 
-        // Attach DSP & Equalizer engine
         val sessionId = exoPlayer.audioSessionId
         if (sessionId > 0) {
             AudioEffectsManager.attachAudioSession(sessionId, this)
@@ -126,7 +125,6 @@ class XvoxPlaybackService : MediaSessionService() {
             .setSessionActivity(sessionActivityPendingIntent)
             .build()
 
-        // Listen to Player Events to sync widgets and handle playback transitions & DSP
         exoPlayer.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 val sid = exoPlayer.audioSessionId
@@ -161,10 +159,8 @@ class XvoxPlaybackService : MediaSessionService() {
             }
         })
 
-        // Register hardware audio broadcast receivers
         registerAudioReceivers()
 
-        // Observe Preferences to update ExoPlayer runtime config
         observePreferences(exoPlayer)
     }
 
@@ -227,7 +223,6 @@ class XvoxPlaybackService : MediaSessionService() {
                 }
             }
 
-            // Observe Volume & Volume Limit
             launch {
                 combine(
                     prefs.appVolume,
@@ -239,14 +234,12 @@ class XvoxPlaybackService : MediaSessionService() {
                 }
             }
 
-            // Observe Stereo Balance
             launch {
                 prefs.balance.collect { bal ->
                     balanceAudioProcessor.balance = bal
                 }
             }
 
-            // Observe Pitch & Speed
             launch {
                 prefs.pitchControl.collect { enabled ->
                     exoPlayer.setPlaybackSpeed(1.0f)

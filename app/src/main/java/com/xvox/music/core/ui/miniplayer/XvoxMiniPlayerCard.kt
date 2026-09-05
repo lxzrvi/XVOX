@@ -183,9 +183,6 @@ fun XvoxMiniPlayerCard(
             )
         }
 
-        /*
-         * TOP PROGRESS BAR (Flush against top card border, clipped cleanly inside cardShape)
-         */
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -204,9 +201,6 @@ fun XvoxMiniPlayerCard(
             }
         }
 
-        /*
-         * Outer border drawn LAST so the perimeter finishing is crisp and never conflicted
-         */
         Box(
             modifier = Modifier
                 .fillMaxSize()

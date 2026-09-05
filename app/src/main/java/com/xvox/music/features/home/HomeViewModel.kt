@@ -9,9 +9,9 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxLibraryPreferences
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.playlist.XvoxHomeLibraryMode
-import com.xvox.music.features.home.recent.RecentTransitionRequest
 import com.xvox.music.features.home.recent.RecentTransitionMode
+import com.xvox.music.features.home.recent.RecentTransitionRequest
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.features.playlist.XvoxPlaylistCoverStorage
 import com.xvox.music.media.MediaStoreSongRepository
 import kotlinx.coroutines.Dispatchers
@@ -24,48 +24,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class HomeViewModel(
-    application: Application,
+    application: Application
 ) : AndroidViewModel(application) {
-    private val songRepository =
-        MediaStoreSongRepository(application)
+    private val songRepository = MediaStoreSongRepository(application)
+    private val preferencesRepository = UserPreferencesRepository(application)
+    private val libraryPreferences = XvoxLibraryPreferences(application)
+    private val artworkPreloader = XvoxArtworkPreloader(application)
+    private val coverStorage = XvoxPlaylistCoverStorage(application)
+    private val infoReader = SongInfoReader(application)
 
-    private val preferencesRepository =
-        UserPreferencesRepository(application)
+    private val _state = MutableStateFlow(HomeUiState())
+    val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    private val libraryPreferences =
-        XvoxLibraryPreferences(application)
-
-    private val artworkPreloader =
-        XvoxArtworkPreloader(application)
-
-    private val coverStorage =
-        XvoxPlaylistCoverStorage(application)
-
-    private val infoReader =
-        SongInfoReader(application)
-
-    private val _state =
-        MutableStateFlow(
-            HomeUiState(),
-        )
-
-    val state: StateFlow<HomeUiState> =
-        _state.asStateFlow()
-
-    private var allSongs:
-        List<Song> = emptyList()
-
-    private var recentIds:
-        List<Long> = emptyList()
-
-    private var prefetchJob:
-        Job? = null
-
-    private var lastPrefetchStart =
-        -1
-
-    private var transitionId =
-        0L
+    private var allSongs: List<Song> = emptyList()
+    private var recentIds: List<Long> = emptyList()
+    private var prefetchJob: Job? = null
+    private var lastPrefetchStart = -1
+    private var transitionId = 0L
 
     init {
         observeProfile()
@@ -76,170 +51,92 @@ class HomeViewModel(
 
     private fun observeProfile() {
         viewModelScope.launch {
-            preferencesRepository
-                .preferences
-                .collect { profile ->
-                    _state.update {
-                        it.copy(
-                            profile = profile,
-                        )
-                    }
-                }
+            preferencesRepository.preferences.collect { profile ->
+                _state.update { it.copy(profile = profile) }
+            }
         }
     }
 
     private fun observeRecent() {
         viewModelScope.launch {
-            preferencesRepository
-                .recentSongIds
-                .collect { ids ->
-                    recentIds = ids
-                    publishSongs()
-                }
+            preferencesRepository.recentSongIds.collect { ids ->
+                recentIds = ids
+                publishSongs()
+            }
         }
     }
 
     private fun observeLibraryPreferences() {
         viewModelScope.launch {
-            libraryPreferences
-                .likedSongIds
-                .collect { ids ->
-                    _state.update {
-                        it.copy(
-                            likedSongIds = ids,
-                        )
-                    }
-                }
+            libraryPreferences.likedSongIds.collect { ids ->
+                _state.update { it.copy(likedSongIds = ids) }
+            }
         }
 
         viewModelScope.launch {
-            libraryPreferences
-                .hiddenSongIds
-                .collect { ids ->
-                    _state.update {
-                        it.copy(
-                            hiddenSongIds = ids,
-                        )
-                    }
-
-                    publishSongs()
-                }
+            libraryPreferences.hiddenSongIds.collect { ids ->
+                _state.update { it.copy(hiddenSongIds = ids) }
+                publishSongs()
+            }
         }
 
         viewModelScope.launch {
-            libraryPreferences
-                .playlists
-                .collect { playlists ->
-                    _state.update {
-                        it.copy(
-                            playlists = playlists,
-                        )
-                    }
-                }
+            libraryPreferences.playlists.collect { playlists ->
+                _state.update { it.copy(playlists = playlists) }
+            }
         }
     }
 
     private fun publishSongs() {
-        val hidden =
-            _state.value.hiddenSongIds
-
-        val visible =
-            allSongs.filterNot {
-                it.id in hidden
-            }
-
+        val hidden = _state.value.hiddenSongIds
+        val visible = allSongs.filterNot { it.id in hidden }
         _state.update {
             it.copy(
                 songs = visible,
-                recentlyPlayed =
-                    resolveRecent(
-                        visible,
-                        recentIds,
-                    ),
+                recentlyPlayed = resolveRecent(visible, recentIds)
             )
         }
     }
 
     private fun loadLibrary() {
         viewModelScope.launch {
-            // Move heavy MediaStore query off main thread to fix 5-min lag and cold start stutter
-            val loaded =
-                withContext(Dispatchers.IO) {
-                    songRepository.loadSongs()
-                }
-            allSongs = loaded
-
-            publishSongs()
-
-            _state.update {
-                it.copy(
-                    loading = false,
-                )
+            val loaded = withContext(Dispatchers.IO) {
+                songRepository.loadSongs()
             }
-
-            // Prefetch immediately on IO, without delay - stabilize on app opening
+            allSongs = loaded
+            publishSongs()
+            _state.update { it.copy(loading = false) }
             prefetchFrom(0)
         }
     }
 
-    fun refresh(
-        onDone: (LibraryRefreshResult) -> Unit =
-            {},
-    ) {
-        if (_state.value.refreshing) {
-            return
-        }
+    fun refresh(onDone: (LibraryRefreshResult) -> Unit = {}) {
+        if (_state.value.refreshing) return
 
         viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    refreshing = true,
-                )
+            _state.update { it.copy(refreshing = true) }
+            val before = allSongs.asSequence().map { it.id }.toSet()
+            val refreshed = withContext(Dispatchers.IO) {
+                songRepository.loadSongs()
             }
-
-            val before =
-                allSongs
-                    .asSequence()
-                    .map { it.id }
-                    .toSet()
-
-            val refreshed =
-                withContext(Dispatchers.IO) {
-                    songRepository.loadSongs()
-                }
-
-            val after =
-                refreshed
-                    .asSequence()
-                    .map { it.id }
-                    .toSet()
-
-            val result =
-                LibraryRefreshResult(
-                    totalSongs =
-                        refreshed.size,
-                    addedSongs =
-                        (after - before)
-                            .size,
-                    removedSongs =
-                        (before - after)
-                            .size,
-                )
+            val after = refreshed.asSequence().map { it.id }.toSet()
+            val result = LibraryRefreshResult(
+                totalSongs = refreshed.size,
+                addedSongs = (after - before).size,
+                removedSongs = (before - after).size
+            )
 
             allSongs = refreshed
-
             prefetchJob?.cancel()
             lastPrefetchStart = -1
-
             publishSongs()
 
             _state.update {
                 it.copy(
                     refreshing = false,
-                    loading = false,
+                    loading = false
                 )
             }
-
             prefetchFrom(0)
             onDone(result)
         }
@@ -249,173 +146,92 @@ class HomeViewModel(
         username: String,
         selectedPfp: String,
         customPfpUri: String?,
-        onDone: () -> Unit = {},
+        onDone: () -> Unit = {}
     ) {
-        if (username.isBlank()) {
-            return
-        }
-
+        if (username.isBlank()) return
         viewModelScope.launch {
-            preferencesRepository
-                .saveProfile(
-                    username =
-                    username,
-                    selectedPfp =
-                    selectedPfp,
-                    customPfpUri =
-                    customPfpUri,
-                )
-
+            preferencesRepository.saveProfile(
+                username = username,
+                selectedPfp = selectedPfp,
+                customPfpUri = customPfpUri
+            )
             onDone()
         }
     }
 
     fun removeFromRecent(song: Song) {
         _state.update { current ->
-
             current.copy(
-                recentlyPlayed =
-                    current.recentlyPlayed
-                        .filterNot {
-                            it.id == song.id
-                        },
+                recentlyPlayed = current.recentlyPlayed.filterNot { it.id == song.id }
             )
         }
-
         viewModelScope.launch {
-            preferencesRepository
-                .removeRecentSong(
-                    song.id,
-                )
+            preferencesRepository.removeRecentSong(song.id)
         }
     }
 
     fun toggleLikedMode() {
         _state.update { current ->
-
             current.copy(
-                libraryMode =
-                    if (
-                        current.libraryMode ==
-                        XvoxHomeLibraryMode.LIKED
-                    ) {
-                        XvoxHomeLibraryMode.ALL_SONGS
-                    } else {
-                        XvoxHomeLibraryMode.LIKED
-                    },
+                libraryMode = if (current.libraryMode == XvoxHomeLibraryMode.LIKED) {
+                    XvoxHomeLibraryMode.ALL_SONGS
+                } else {
+                    XvoxHomeLibraryMode.LIKED
+                }
             )
         }
     }
 
     fun togglePlaylistMode() {
         _state.update { current ->
-
             current.copy(
-                libraryMode =
-                    if (
-                        current.libraryMode ==
-                        XvoxHomeLibraryMode.PLAYLISTS
-                    ) {
-                        XvoxHomeLibraryMode.ALL_SONGS
-                    } else {
-                        XvoxHomeLibraryMode.PLAYLISTS
-                    },
+                libraryMode = if (current.libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
+                    XvoxHomeLibraryMode.ALL_SONGS
+                } else {
+                    XvoxHomeLibraryMode.PLAYLISTS
+                }
             )
         }
     }
 
     fun setLibraryMode(mode: XvoxHomeLibraryMode) {
-        _state.update {
-            it.copy(
-                libraryMode = mode,
-            )
-        }
+        _state.update { it.copy(libraryMode = mode) }
     }
 
     fun toggleLiked(song: Song) {
-        val liked =
-            song.id in
-                _state.value.likedSongIds
-
+        val liked = song.id in _state.value.likedSongIds
         viewModelScope.launch {
-            libraryPreferences
-                .setLiked(
-                    song.id,
-                    !liked,
-                )
+            libraryPreferences.setLiked(song.id, !liked)
         }
     }
 
     fun hideSong(song: Song) {
         viewModelScope.launch {
-            libraryPreferences
-                .hideSong(
-                    song.id,
-                )
+            libraryPreferences.hideSong(song.id)
         }
     }
 
-    fun createPlaylist(
-        name: String,
-        songIds: Set<Long>,
-        onDone: (XvoxPlaylist?) -> Unit,
-    ) {
+    fun createPlaylist(name: String, songIds: Set<Long>, onDone: (XvoxPlaylist?) -> Unit) {
         viewModelScope.launch {
-            onDone(
-                libraryPreferences
-                    .createPlaylist(
-                        name,
-                        songIds,
-                    ),
-            )
+            onDone(libraryPreferences.createPlaylist(name, songIds))
         }
     }
 
-    fun addToPlaylist(
-        playlistId: String,
-        song: Song,
-        onDone: (XvoxPlaylist?) -> Unit,
-    ) {
+    fun addToPlaylist(playlistId: String, song: Song, onDone: (XvoxPlaylist?) -> Unit) {
         viewModelScope.launch {
-            onDone(
-                libraryPreferences
-                    .addSongToPlaylist(
-                        playlistId,
-                        song.id,
-                    ),
-            )
+            onDone(libraryPreferences.addSongToPlaylist(playlistId, song.id))
         }
     }
 
-    fun removeFromPlaylist(
-        playlistId: String,
-        song: Song,
-        onDone: (XvoxPlaylist?) -> Unit,
-    ) {
+    fun removeFromPlaylist(playlistId: String, song: Song, onDone: (XvoxPlaylist?) -> Unit) {
         viewModelScope.launch {
-            onDone(
-                libraryPreferences
-                    .removeSongFromPlaylist(
-                        playlistId,
-                        song.id,
-                    ),
-            )
+            onDone(libraryPreferences.removeSongFromPlaylist(playlistId, song.id))
         }
     }
 
-    fun renamePlaylist(
-        playlistId: String,
-        name: String,
-        onDone: (XvoxPlaylist?) -> Unit,
-    ) {
+    fun renamePlaylist(playlistId: String, name: String, onDone: (XvoxPlaylist?) -> Unit) {
         viewModelScope.launch {
-            onDone(
-                libraryPreferences
-                    .renamePlaylist(
-                        playlistId,
-                        name,
-                    ),
-            )
+            onDone(libraryPreferences.renamePlaylist(playlistId, name))
         }
     }
 
@@ -423,225 +239,107 @@ class HomeViewModel(
         playlistId: String,
         songIds: List<Long>,
         customUri: Uri?,
-        onDone: (XvoxPlaylist?) -> Unit,
+        onDone: (XvoxPlaylist?) -> Unit
     ) {
         viewModelScope.launch {
-            val persistedUri =
-                if (customUri != null) {
-                    coverStorage.persist(
-                        playlistId,
-                        customUri,
-                    )
-                } else {
-                    coverStorage.delete(
-                        playlistId,
-                    )
+            val persistedUri = if (customUri != null) {
+                coverStorage.persist(playlistId, customUri)
+            } else {
+                coverStorage.delete(playlistId)
+                null
+            }
 
-                    null
-                }
-
-            val updated =
-                libraryPreferences
-                    .setPlaylistCover(
-                        playlistId =
-                        playlistId,
-                        coverSongIds =
-                        songIds,
-                        customCoverUri =
-                        persistedUri,
-                    )
-
+            val updated = libraryPreferences.setPlaylistCover(
+                playlistId = playlistId,
+                coverSongIds = songIds,
+                customCoverUri = persistedUri
+            )
             onDone(updated)
         }
     }
 
-    fun deletePlaylist(
-        playlistId: String,
-        onDone: () -> Unit,
-    ) {
+    fun deletePlaylist(playlistId: String, onDone: () -> Unit) {
         viewModelScope.launch {
-            libraryPreferences
-                .deletePlaylist(
-                    playlistId,
-                )
-
-            coverStorage.delete(
-                playlistId,
-            )
-
+            libraryPreferences.deletePlaylist(playlistId)
+            coverStorage.delete(playlistId)
             onDone()
         }
     }
 
     fun playlistSongs(playlist: XvoxPlaylist): List<Song> {
-        val byId =
-            _state.value.songs
-                .associateBy {
-                    it.id
-                }
-
-        return playlist.songIds
-            .mapNotNull {
-                byId[it]
-            }
+        val byId = _state.value.songs.associateBy { it.id }
+        return playlist.songIds.mapNotNull { byId[it] }
     }
 
     fun likedSongs(): List<Song> {
-        val liked =
-            _state.value.likedSongIds
-
-        return _state.value.songs
-            .filter {
-                it.id in liked
-            }
+        val liked = _state.value.likedSongIds
+        return _state.value.songs.filter { it.id in liked }
     }
 
-    fun loadInfo(
-        song: Song,
-        onLoaded: (SongInfo) -> Unit,
-    ) {
+    fun loadInfo(song: Song, onLoaded: (SongInfo) -> Unit) {
         viewModelScope.launch {
             val info = withContext(Dispatchers.IO) { infoReader.read(song) }
             onLoaded(info)
         }
     }
 
-    fun recordPlayedFromLibrary(
-        song: Song,
-        currentSongId: Long?,
-    ) {
-        if (
-            song.id ==
-            currentSongId
-        ) {
-            return
-        }
-
+    fun recordPlayedFromLibrary(song: Song, currentSongId: Long?) {
+        if (song.id == currentSongId) return
         transitionId++
-
         promote(
             song,
             RecentTransitionRequest(
                 id = transitionId,
                 songId = song.id,
-                mode =
-                    RecentTransitionMode
-                        .LIBRARY,
-            ),
+                mode = RecentTransitionMode.LIBRARY
+            )
         )
     }
 
-    fun recordPlayedFromRecent(
-        song: Song,
-        currentSongId: Long?,
-    ) {
-        if (
-            song.id ==
-            currentSongId
-        ) {
-            return
-        }
-
+    fun recordPlayedFromRecent(song: Song, currentSongId: Long?) {
+        if (song.id == currentSongId) return
         promote(
             song,
             RecentTransitionRequest(
-                id =
-                    _state.value
-                        .recentTransition.id,
+                id = _state.value.recentTransition.id,
                 songId = null,
-                mode =
-                    RecentTransitionMode.NONE,
-            ),
+                mode = RecentTransitionMode.NONE
+            )
         )
     }
 
-    private fun promote(
-        song: Song,
-        transition: RecentTransitionRequest,
-    ) {
+    private fun promote(song: Song, transition: RecentTransitionRequest) {
         _state.update { current ->
-
             current.copy(
-                recentlyPlayed =
-                    buildList {
-                        add(song)
-
-                        addAll(
-                            current.recentlyPlayed
-                                .filterNot {
-                                    it.id ==
-                                        song.id
-                                },
-                        )
-                    }.take(20),
-                recentTransition =
-                transition,
+                recentlyPlayed = buildList {
+                    add(song)
+                    addAll(current.recentlyPlayed.filterNot { it.id == song.id })
+                }.take(20),
+                recentTransition = transition
             )
         }
-
         viewModelScope.launch {
-            preferencesRepository
-                .recordRecentSong(
-                    song.id,
-                )
+            preferencesRepository.recordRecentSong(song.id)
         }
     }
 
     fun prefetchFrom(sourceIndex: Int) {
-        val songs =
-            _state.value.songs
-
-        if (songs.isEmpty()) {
-            return
-        }
-
-        val start =
-            sourceIndex.coerceIn(
-                0,
-                songs.lastIndex,
-            )
-
-        if (
-            start ==
-            lastPrefetchStart
-        ) {
-            return
-        }
-
-        lastPrefetchStart =
-            start
+        val songs = _state.value.songs
+        if (songs.isEmpty()) return
+        val start = sourceIndex.coerceIn(0, songs.lastIndex)
+        if (start == lastPrefetchStart) return
+        lastPrefetchStart = start
 
         prefetchJob?.cancel()
-
-        prefetchJob =
-            viewModelScope.launch(Dispatchers.IO) {
-                artworkPreloader.warm(
-                    songs = songs,
-                    fromIndex = start,
-                    count = 24,
-                )
-            }
+        prefetchJob = viewModelScope.launch(Dispatchers.IO) {
+            artworkPreloader.warm(songs = songs, fromIndex = start, count = 24)
+        }
     }
 
-    private fun resolveRecent(
-        songs: List<Song>,
-        ids: List<Long>,
-    ): List<Song> {
-        if (
-            songs.isEmpty() ||
-            ids.isEmpty()
-        ) {
-            return emptyList()
-        }
-
-        val byId =
-            songs.associateBy {
-                it.id
-            }
-
-        return ids.mapNotNull {
-            byId[it]
-        }
+    private fun resolveRecent(songs: List<Song>, ids: List<Long>): List<Song> {
+        if (songs.isEmpty() || ids.isEmpty()) return emptyList()
+        val byId = songs.associateBy { it.id }
+        return ids.mapNotNull { byId[it] }
     }
 
     override fun onCleared() {
