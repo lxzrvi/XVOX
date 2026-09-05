@@ -193,7 +193,7 @@ fun HomeScreen(
     }
 
     fun showCreatePlaylist(initialSong: Song? = null) {
-        overlays.showB {
+        overlays.showL {
             CreatePlaylistBox(
                 songs =
                     state.songs,
@@ -208,7 +208,7 @@ fun HomeScreen(
                         name,
                         ids,
                     ) { playlist ->
-                        overlays.hideB()
+                        overlays.hideL()
 
                         if (
                             playlist != null
@@ -224,7 +224,7 @@ fun HomeScreen(
     }
 
     fun showPlaylistPicker(song: Song) {
-        overlays.showB {
+        overlays.showL {
             PlaylistPickerBox(
                 song = song,
                 playlists =
@@ -243,7 +243,7 @@ fun HomeScreen(
                         if (
                             updated != null
                         ) {
-                            overlays.hideB()
+                            overlays.hideL()
 
                             overlays.showP(
                                 "Added to ${updated.name}",
@@ -261,7 +261,7 @@ fun HomeScreen(
                             if (
                                 updated != null
                             ) {
-                                overlays.hideB()
+                                overlays.hideL()
 
                                 overlays.showP(
                                     "Removed from ${updated.name}",
@@ -276,7 +276,7 @@ fun HomeScreen(
     }
 
     fun showDelete(song: Song) {
-        overlays.showB {
+        overlays.showL {
             DeleteSongBox(
                 song = song,
                 onRemoveApp = {
@@ -289,18 +289,18 @@ fun HomeScreen(
                         song,
                     )
 
-                    overlays.hideB()
+                    overlays.hideL()
 
                     overlays.showP(
                         "Removed from XVOX",
                     )
                 },
                 onDeleteDevice = {
-                    overlays.showB {
+                    overlays.showL {
                         ConfirmDeviceDeleteBox(
                             song = song,
                             onCancel =
-                                overlays::hideB,
+                                overlays::hideL,
                             onDelete = {
                                 if (
                                     Build.VERSION.SDK_INT >=
@@ -320,7 +320,7 @@ fun HomeScreen(
                                         pendingDelete =
                                             song
 
-                                        overlays.hideB()
+                                        overlays.hideL()
 
                                         deleteLauncher.launch(
                                             IntentSenderRequest
@@ -338,7 +338,7 @@ fun HomeScreen(
                                                 song,
                                             )
 
-                                    overlays.hideB()
+                                    overlays.hideL()
 
                                     if (deleted) {
                                         playerViewModel
@@ -473,7 +473,7 @@ fun HomeScreen(
                     viewModel.loadInfo(
                         song,
                     ) { info ->
-                        overlays.showB {
+                        overlays.showL {
                             SongInfoBox(
                                 info,
                             )
@@ -527,12 +527,12 @@ fun HomeScreen(
     }
 
     fun showProfileEditor() {
-        overlays.showB {
+        overlays.showL {
             ProfileEditorBox(
                 profile =
                     state.profile,
                 onCancel =
-                    overlays::hideB,
+                    overlays::hideL,
                 onSave = {
                     name,
                     selectedPfp,
@@ -546,7 +546,7 @@ fun HomeScreen(
                         customPfpUri =
                         customUri,
                     ) {
-                        overlays.hideB()
+                        overlays.hideL()
 
                         overlays.showP(
                             "Profile updated",

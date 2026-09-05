@@ -49,8 +49,9 @@ fun PlaylistsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = 2.dp
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = 2.dp
                 ),
             verticalAlignment =
                 Alignment.CenterVertically
@@ -58,8 +59,9 @@ fun PlaylistsSection(
             Text(
                 text = "Playlists",
                 color =
-                    colors.primaryText,
+                    colors.primaryAccent,
                 fontSize = 16.sp,
+                lineHeight = 19.sp,
                 fontWeight =
                     FontWeight.SemiBold,
                 modifier =

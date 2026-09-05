@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -38,10 +37,10 @@ fun XvoxStartupLoadingScreen(
     val infiniteTransition = rememberInfiniteTransition(label = "startup_pulse")
 
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+        initialValue = 0.96f,
+        targetValue = 1.04f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = FastOutSlowInEasing),
+            animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "logo_scale"
@@ -57,34 +56,17 @@ fun XvoxStartupLoadingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Clean Logo without outer glow circle
-            Box(
-                modifier = Modifier
-                    .size(90.dp)
-                    .scale(pulseScale),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "X",
-                    fontFamily = XvoxLogoFont,
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.primaryAccent
-                )
-            }
-
-            Spacer(Modifier.height(14.dp))
-
             Text(
                 text = "XVOX",
                 fontFamily = XvoxLogoFont,
-                fontSize = 20.sp,
-                letterSpacing = 4.sp,
+                fontSize = 28.sp,
+                letterSpacing = 6.sp,
                 fontWeight = FontWeight.Bold,
-                color = colors.primaryText
+                color = colors.primaryText,
+                modifier = Modifier.scale(pulseScale)
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(32.dp))
 
             // Animated Waveform Bars
             Row(

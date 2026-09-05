@@ -31,38 +31,25 @@ fun HomeProfileAvatar(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
-    val type =
-        runCatching {
-            PfpType.valueOf(
-                profile.selectedPfp
-            )
-        }.getOrDefault(
-            PfpType.DEFAULT
-        )
+    val type = runCatching {
+        PfpType.valueOf(profile.selectedPfp)
+    }.getOrDefault(PfpType.DEFAULT)
 
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(
-                colors.cardElevated
-            )
+            .background(colors.cardElevated)
             .border(
-                width = 1.dp,
-                color =
-                    colors.cardBorder,
-                shape =
-                    CircleShape
+                width = 1.5.dp,
+                color = colors.primaryAccent,
+                shape = CircleShape
             )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
+                        interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onClick
                     )
@@ -70,63 +57,36 @@ fun HomeProfileAvatar(
                     Modifier
                 }
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         when {
-            type ==
-                PfpType.CUSTOM &&
-                profile.customPfpUri !=
-                null -> {
-
+            type == PfpType.CUSTOM && profile.customPfpUri != null -> {
                 AsyncImage(
-                    model =
-                        Uri.parse(
-                            profile
-                                .customPfpUri
-                        ),
-                    contentDescription =
-                        "Profile picture",
-                    contentScale =
-                        ContentScale.Crop,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .clip(
-                                CircleShape
-                            )
+                    model = Uri.parse(profile.customPfpUri),
+                    contentDescription = "Profile picture",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
                 )
             }
 
-            type ==
-                PfpType.DEFAULT -> {
-
+            type == PfpType.DEFAULT -> {
                 Text(
-                    text =
-                        profile.username
-                            .firstOrNull()
-                            ?.uppercase()
-                            ?: "X",
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxPersonalFont,
-                    fontSize =
-                        18.sp
+                    text = profile.username.firstOrNull()?.uppercase() ?: "X",
+                    color = colors.primaryAccent,
+                    fontFamily = XvoxPersonalFont,
+                    fontSize = 18.sp
                 )
             }
 
             else -> {
                 PfpIcon(
                     type = type,
-                    color =
-                        colors.primaryText,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(
-                                8.dp
-                            )
+                    color = colors.primaryAccent,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
                 )
             }
         }

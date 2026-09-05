@@ -118,7 +118,7 @@ fun PlaylistPickerBox(
                     Icon(
                         painter = painterResource(R.drawable.ic_xvox_plus),
                         contentDescription = null,
-                        tint = colors.primaryAccent,
+                        tint = colors.primaryText,
                         modifier = Modifier.size(20.dp)
                     )
                 }

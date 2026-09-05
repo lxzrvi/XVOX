@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -101,6 +106,7 @@ fun SearchScreen(
     val recentSearches by prefs.recentSearches.collectAsState(initial = emptyList())
     val overlays = LocalXvoxOverlayController.current
     val scope = rememberCoroutineScope()
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     val filteredSongs = remember(homeState.songs, query) {
         if (query.isBlank()) emptyList()
@@ -116,8 +122,10 @@ fun SearchScreen(
     }
 
     fun addRecent(q: String) {
-        if (q.isBlank()) return
-        scope.launch { prefs.addRecentSearch(q) }
+        val clean = q.trim()
+        if (clean.isNotBlank()) {
+            scope.launch { prefs.addRecentSearch(clean) }
+        }
     }
 
     LazyColumn(
@@ -169,6 +177,8 @@ fun SearchScreen(
                         value = query,
                         onValueChange = { query = it },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { addRecent(query) }),
                         textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
                         cursorBrush = SolidColor(colors.primaryAccent),
                         modifier = Modifier
@@ -396,9 +406,14 @@ fun SearchScreen(
             }
         }
 
+        // Pushed below screen fold matching Home screen
         item(key = "search_footer") {
-            Spacer(Modifier.height(16.dp))
-            HomeFooter(modifier = Modifier.fillMaxWidth().height(180.dp).padding(bottom = 20.dp))
+            HomeFooter(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = screenHeight)
+                    .padding(bottom = 20.dp)
+            )
         }
 
         item(key = "search_bottom_inset") { Spacer(Modifier.height(80.dp)) }

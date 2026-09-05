@@ -14,7 +14,7 @@ fun showLibraryRefresh(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
 ) {
-    overlays.showB {
+    overlays.showL {
         LibraryRefreshContent(
             overlays =
             overlays,
@@ -52,7 +52,7 @@ private fun LibraryRefreshContent(
         result =
         result,
         onCancel =
-            overlays::hideB,
+            overlays::hideL,
         onScan = {
             if (!scanning) {
                 scanning = true

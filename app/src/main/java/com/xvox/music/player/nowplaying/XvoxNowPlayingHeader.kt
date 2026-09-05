@@ -71,7 +71,7 @@ fun XvoxNowPlayingHeader(
         ) {
             Text(
                 text = "PLAYING FROM",
-                color = colors.primaryText,
+                color = colors.primaryAccent,
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
                 fontWeight = FontWeight.SemiBold
@@ -79,7 +79,7 @@ fun XvoxNowPlayingHeader(
 
             Text(
                 text = playingSource,
-                color = colors.primaryText,
+                color = colors.primaryAccent,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -87,7 +87,7 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Top right pill with Share & More (Lyrics icon removed as requested)
+        // Top right pill with Share & More
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)

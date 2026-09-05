@@ -128,7 +128,7 @@ fun XvoxNowPlayingArtworkPager(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 6.dp) // Exact tight margin matching All Songs card grid spacing
+                        .padding(horizontal = 4.dp) // Reduced cover side gaps
                         .clip(RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {

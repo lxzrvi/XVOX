@@ -14,7 +14,7 @@ fun showPlaylistActions(
     playlist: XvoxPlaylist,
     onDeleted: () -> Unit
 ) {
-    overlays.showB {
+    overlays.showL {
         val current =
             viewModel.state.value
                 .playlists
@@ -83,7 +83,7 @@ fun showPlaylistActions(
                     .deletePlaylist(
                         current.id
                     ) {
-                        overlays.hideB()
+                        overlays.hideL()
                         onDeleted()
 
                         overlays.showP(
@@ -92,7 +92,7 @@ fun showPlaylistActions(
                     }
             },
             onInfo = {
-                overlays.showB {
+                overlays.showL {
                     PlaylistInfoBox(
                         playlist =
                             current,
@@ -114,7 +114,7 @@ fun showPlaylistCoverEditor(
     viewModel: HomeViewModel,
     playlist: XvoxPlaylist
 ) {
-    overlays.showB {
+    overlays.showL {
         val current =
             viewModel.state.value
                 .playlists
@@ -125,14 +125,14 @@ fun showPlaylistCoverEditor(
         XvoxPlaylistCoverEditor(
             playlist = current,
             songs = viewModel.playlistSongs(current),
-            onCancel = overlays::hideB,
+            onCancel = overlays::hideL,
             onApply = { songIds, customUri ->
                 viewModel.savePlaylistCover(
                     playlistId = current.id,
                     songIds = songIds,
                     customUri = customUri
                 ) { updated ->
-                    overlays.hideB()
+                    overlays.hideL()
                     if (updated != null) {
                         overlays.showP("Playlist cover updated")
                     }
@@ -147,7 +147,7 @@ fun showAddPlaylistSongs(
     viewModel: HomeViewModel,
     playlist: XvoxPlaylist
 ) {
-    overlays.showB {
+    overlays.showL {
         val current =
             viewModel.state.value
                 .playlists
@@ -181,7 +181,7 @@ fun showAddPlaylistSongs(
                         if (
                             updated != null
                         ) {
-                            overlays.hideB()
+                            overlays.hideL()
 
                             overlays.showP(
                                 "Added to ${updated.name}"

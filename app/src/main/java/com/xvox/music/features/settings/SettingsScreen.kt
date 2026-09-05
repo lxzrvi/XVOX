@@ -138,21 +138,19 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(
+                        start = 12.dp,
+                        end = 12.dp,
+                        bottom = 10.dp,
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_xvox_settings),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Settings",
-                    color = colors.primaryText,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    color = colors.primaryAccent,
+                    fontSize = 16.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

@@ -30,7 +30,7 @@ class AppViewModel(
         viewModelScope.launch {
             val prefs = preferencesRepository.preferences.first()
             // Settle time for complete UI initialization before fading in
-            delay(750L)
+            delay(1200L)
             _state.value = if (prefs.setupCompleted) AppUiState.Home else AppUiState.Setup
         }
     }

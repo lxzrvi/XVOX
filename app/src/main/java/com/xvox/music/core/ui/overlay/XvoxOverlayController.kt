@@ -41,17 +41,17 @@ class XvoxOverlayController {
 
     fun hideL() {
         listContent = null
+        boxContent = null
     }
 
     fun showB(
         content: @Composable () -> Unit
     ) {
-        listContent = null
-        boxContent = content
+        showL(content)
     }
 
     fun hideB() {
-        boxContent = null
+        hideL()
     }
 
     fun showP(

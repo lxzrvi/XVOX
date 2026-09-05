@@ -105,7 +105,7 @@ import com.xvox.music.player.playback.MainPlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val MainEase = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+private val MainEase = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
 @Composable
 fun XvoxMainShell(
@@ -131,13 +131,13 @@ fun XvoxMainShell(
         }
 
     fun showProfileEditor() {
-        overlays.showB {
+        overlays.showL {
             ProfileEditorBox(
                 profile = homeState.profile,
-                onCancel = { overlays.hideB() },
+                onCancel = { overlays.hideL() },
                 onSave = { name, pfp, uri ->
                     homeViewModel.saveProfile(name, pfp, uri)
-                    overlays.hideB()
+                    overlays.hideL()
                     overlays.showP("Profile updated")
                 }
             )
@@ -145,7 +145,7 @@ fun XvoxMainShell(
     }
 
     fun showRefreshOverlay() {
-        overlays.showB {
+        overlays.showL {
             LibraryRefreshBox(
                 currentTotal = homeState.songs.size,
                 scanning = homeState.refreshing,
@@ -153,29 +153,29 @@ fun XvoxMainShell(
                 onScan = {
                     haptics.heavy()
                     homeViewModel.refresh { result ->
-                        overlays.hideB()
+                        overlays.hideL()
                         overlays.showP("Library refreshed (${result.totalSongs} songs)")
                     }
                 },
-                onCancel = { overlays.hideB() }
+                onCancel = { overlays.hideL() }
             )
         }
     }
 
     // Helper to show playlist picker for miniplayer add button and now playing star
     fun showPlaylistPickerForSong(song: Song) {
-        overlays.showB {
+        overlays.showL {
             PlaylistPickerBox(
                 song = song,
                 playlists = homeState.playlists,
                 onCreate = {
-                    overlays.showB {
+                    overlays.showL {
                         CreatePlaylistBox(
                             songs = homeState.songs,
                             initialSong = song,
                             onCreate = { name, ids ->
                                 homeViewModel.createPlaylist(name, ids) { playlist ->
-                                    overlays.hideB()
+                                    overlays.hideL()
                                     if (playlist != null) {
                                         overlays.showP("Playlist created")
                                     }
@@ -187,7 +187,7 @@ fun XvoxMainShell(
                 onAdd = { playlist ->
                     homeViewModel.addToPlaylist(playlist.id, song) { updated ->
                         if (updated != null) {
-                            overlays.hideB()
+                            overlays.hideL()
                             overlays.showP("Added to ${updated.name}")
                         }
                     }
@@ -195,7 +195,7 @@ fun XvoxMainShell(
                 onRemove = { playlist ->
                     homeViewModel.removeFromPlaylist(playlist.id, song) { updated ->
                         if (updated != null) {
-                            overlays.hideB()
+                            overlays.hideL()
                             overlays.showP("Removed from ${updated.name}")
                         }
                     }
@@ -212,7 +212,7 @@ fun XvoxMainShell(
     }
 
     fun showQueueSheet() {
-        overlays.showB {
+        overlays.showL {
             val listState = rememberLazyListState()
             val density = LocalDensity.current
             val itemHeightPx = with(density) { 60.dp.toPx() }
@@ -321,7 +321,7 @@ fun XvoxMainShell(
                                 .clickable {
                                     if (draggingIndex == null) {
                                         playerViewModel.playQueueIndex(idx)
-                                        overlays.hideB()
+                                        overlays.hideL()
                                     }
                                 }
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -365,23 +365,23 @@ fun XvoxMainShell(
     }
 
     fun showTimerSheet() {
-        overlays.showB {
+        overlays.showL {
             TimerSheetContent(
                 currentMinutes = player.sleepTimerMinutes,
                 onSetMinutes = { mins ->
                     playerViewModel.setSleepTimer(mins)
-                    overlays.hideB()
+                    overlays.hideL()
                     overlays.showP("Timer set $mins min")
                 },
                 onCustom = { mins, secs, pause, closeApp ->
                     playerViewModel.setCustomSleepTimer(mins, secs, pause, closeApp)
-                    overlays.hideB()
+                    overlays.hideL()
                     val total = mins * 60 + secs
                     if (total > 0) overlays.showP("Custom timer ${mins}m ${secs}s")
                 },
                 onCancel = {
                     playerViewModel.cancelSleepTimer()
-                    overlays.hideB()
+                    overlays.hideL()
                     overlays.showP("Timer off")
                 }
             )
@@ -389,12 +389,12 @@ fun XvoxMainShell(
     }
 
     fun showPlayerStyleSheet() {
-        overlays.showB {
+        overlays.showL {
             PlayerStyleSheetContent(
                 currentStyle = player.playerStyle,
                 onSelect = { style ->
                     playerViewModel.setPlayerStyle(style)
-                    overlays.hideB()
+                    overlays.hideL()
                     val name = when (style) {
                         XvoxPlayerStyle.NORMAL -> "Normal"
                         XvoxPlayerStyle.FULL_ART -> "Full Art"
@@ -412,11 +412,11 @@ fun XvoxMainShell(
                 .background(colors.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // FIXED TOP HEADER (Does NOT animate when switching tabs!)
+                // FIXED TOP HEADER (Translucent Glass style)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colors.background)
+                        .background(colors.surface.copy(alpha = 0.85f))
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .padding(bottom = 6.dp)
                 ) {
@@ -448,11 +448,17 @@ fun XvoxMainShell(
                             HomeGreeting()
                         }
 
-                        // Right Pill Button: Visible ON HOME ONLY, hidden on Search & Settings
+                        // Right Pill Button: Visible ON HOME ONLY, slides UP & fades out on other tabs, slides DOWN on Home!
                         AnimatedVisibility(
                             visible = destination == XvoxDestination.HOME,
-                            enter = fadeIn(tween(180)),
-                            exit = fadeOut(tween(140))
+                            enter = slideInVertically(
+                                initialOffsetY = { -it },
+                                animationSpec = tween(260, easing = MainEase)
+                            ) + fadeIn(tween(200)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { -it },
+                                animationSpec = tween(220, easing = MainEase)
+                            ) + fadeOut(tween(160))
                         ) {
                             val actionShape = RoundedCornerShape(21.dp)
                             Row(
@@ -576,7 +582,11 @@ fun XvoxMainShell(
                 if (visSongId != null) {
                     val density = LocalDensity.current
                     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
-                    val bottomGap = if (isKeyboardOpen) 8.dp else XvoxMiniPlayerPlacement.miniPlayerBottom
+                    val animatedBottomPadding by animateDpAsState(
+                        targetValue = if (isKeyboardOpen) 4.dp else XvoxMiniPlayerPlacement.miniPlayerBottom,
+                        animationSpec = tween(durationMillis = 200, easing = MainEase),
+                        label = "miniPlayerBottomGap"
+                    )
 
                     val miniModifier = Modifier
                         .navigationBarsPadding()
@@ -584,7 +594,7 @@ fun XvoxMainShell(
                         .padding(
                             start = XvoxMiniPlayerPlacement.horizontalEdge,
                             end = XvoxMiniPlayerPlacement.horizontalEdge,
-                            bottom = bottomGap,
+                            bottom = animatedBottomPadding,
                         )
 
                     XvoxMiniPlayer(
@@ -648,9 +658,15 @@ fun XvoxMainShell(
             }
 
             // NOW PLAYING FULLSCREEN POPUP
-            if (player.nowPlayingVisible && currentSong != null) {
+            AnimatedVisibility(
+                visible = player.nowPlayingVisible && currentSong != null,
+                enter = slideInVertically(tween(440, easing = MainEase)) { it } + fadeIn(tween(300)),
+                exit = slideOutVertically(tween(380, easing = MainEase)) { it } + fadeOut(tween(260)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val curSong = currentSong ?: return@AnimatedVisibility
                 XvoxNowPlaying(
-                    song = currentSong,
+                    song = curSong,
                     queue = player.queue,
                     currentIndex = player.currentIndex,
                     isPlaying = player.isPlaying,
@@ -679,10 +695,10 @@ fun XvoxMainShell(
                     onSeek = {
                         playerViewModel.seekTo(it)
                     },
-                    isLiked = currentSong.id in homeState.likedSongIds,
+                    isLiked = curSong.id in homeState.likedSongIds,
                     onToggleLiked = {
-                        val wasLiked = currentSong.id in homeState.likedSongIds
-                        homeViewModel.toggleLiked(currentSong)
+                        val wasLiked = curSong.id in homeState.likedSongIds
+                        homeViewModel.toggleLiked(curSong)
                         if (wasLiked) haptics.tap() else haptics.success()
                         overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                     },
@@ -696,11 +712,11 @@ fun XvoxMainShell(
                     },
                     onStarPlaylist = {
                         haptics.tap()
-                        showPlaylistPickerForSong(currentSong)
+                        showPlaylistPickerForSong(curSong)
                     },
                     onInfo = {
                         haptics.tap()
-                        homeViewModel.loadInfo(currentSong) { info ->
+                        homeViewModel.loadInfo(curSong) { info ->
                             overlays.showL {
                                 com.xvox.music.features.home.SongInfoBox(
                                     info = info
