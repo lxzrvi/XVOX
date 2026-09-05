@@ -3,7 +3,6 @@ package com.xvox.music.player.nowplaying
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -71,6 +70,7 @@ import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
@@ -81,9 +81,8 @@ import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
-
-private val NowPlayingEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
 @Composable
 fun XvoxNowPlaying(
@@ -120,37 +119,52 @@ fun XvoxNowPlaying(
 ) {
     val colors = XvoxTheme.colors
     val lyricsState by lyricsViewModel.state.collectAsState()
-
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
-
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val screenHeight = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    val screenHeight =
+        with(density) {
+            LocalConfiguration.current.screenHeightDp.dp.toPx()
+        }
 
-    var screenY by rememberSaveable { mutableFloatStateOf(0f) }
-    var showLyrics by remember { mutableStateOf(false) }
-    var showQuickSettingsSheet by remember { mutableStateOf(false) }
-    var dismissing by remember { mutableStateOf(false) }
-    var navigationRequest by remember { mutableIntStateOf(0) }
-    var motionJob by remember { mutableStateOf<Job?>(null) }
-
-    val dismissProgress = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 0f
+    var screenY by rememberSaveable {
+        mutableFloatStateOf(0f)
+    }
+    var showLyrics by remember {
+        mutableStateOf(false)
+    }
+    var showQuickSettingsSheet by remember {
+        mutableStateOf(false)
+    }
+    var dismissing by remember {
+        mutableStateOf(false)
+    }
+    var navigationRequest by remember {
+        mutableIntStateOf(0)
+    }
+    var motionJob by remember {
+        mutableStateOf<Job?>(null)
+    }
 
     fun animateScreen(
         target: Float,
-        durationMs: Int,
         finished: (() -> Unit)? = null
     ) {
         motionJob?.cancel()
         val start = screenY
+
         motionJob = scope.launch {
             val animation = Animatable(start)
             animation.animateTo(
                 target,
-                tween(durationMillis = durationMs, easing = NowPlayingEasing)
+                tween(
+                    durationMillis = XvoxPlayerTransitionMotion.Duration,
+                    easing = XvoxPlayerTransitionMotion.easing
+                )
             ) {
                 screenY = value
             }
+
             screenY = target
             motionJob = null
             finished?.invoke()
@@ -162,37 +176,63 @@ fun XvoxNowPlaying(
         dismissing = true
         animateScreen(
             target = screenHeight,
-            durationMs = 480,
             finished = onClose
         )
     }
 
     fun returnToRest() {
-        val fraction = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 1f
-        animateScreen(0f, (450 * fraction).toInt().coerceAtLeast(180))
+        animateScreen(0f)
     }
 
     fun requestPrevious() {
-        if (queue.isEmpty() || currentIndex < 0) return
-        val atFirst = currentIndex <= 0
-        if (atFirst && repeatMode == RepeatMode.OFF) return
-        val target = if (atFirst && repeatMode == RepeatMode.ALL) queue.lastIndex else currentIndex - 1
-        if (showLyrics || atFirst) {
+        if (
+            queue.isEmpty() ||
+            currentIndex < 0
+        ) return
+
+        val atFirst =
+            currentIndex <= 0
+
+        if (
+            atFirst &&
+            repeatMode != RepeatMode.ALL
+        ) return
+
+        if (showLyrics) {
+            val target =
+                if (atFirst) queue.lastIndex
+                else currentIndex - 1
+
             onPlayQueueIndex(target)
         } else {
-            navigationRequest = -(kotlin.math.abs(navigationRequest) + 1)
+            navigationRequest =
+                -(abs(navigationRequest) + 1)
         }
     }
 
     fun requestNext() {
-        if (queue.isEmpty() || currentIndex < 0) return
-        val atLast = currentIndex >= queue.lastIndex
-        if (atLast && repeatMode == RepeatMode.OFF) return
-        val target = if (atLast && repeatMode == RepeatMode.ALL) 0 else currentIndex + 1
-        if (showLyrics || atLast) {
+        if (
+            queue.isEmpty() ||
+            currentIndex < 0
+        ) return
+
+        val atLast =
+            currentIndex >= queue.lastIndex
+
+        if (
+            atLast &&
+            repeatMode != RepeatMode.ALL
+        ) return
+
+        if (showLyrics) {
+            val target =
+                if (atLast) 0
+                else currentIndex + 1
+
             onPlayQueueIndex(target)
         } else {
-            navigationRequest = kotlin.math.abs(navigationRequest) + 1
+            navigationRequest =
+                abs(navigationRequest) + 1
         }
     }
 
@@ -202,10 +242,14 @@ fun XvoxNowPlaying(
 
     BackHandler {
         when {
-            showQuickSettingsSheet -> showQuickSettingsSheet = false
-            lyricsState.fullscreen -> lyricsViewModel.closeFullscreen()
-            showLyrics -> showLyrics = false
-            else -> dismiss()
+            showQuickSettingsSheet ->
+                showQuickSettingsSheet = false
+            lyricsState.fullscreen ->
+                lyricsViewModel.closeFullscreen()
+            showLyrics ->
+                showLyrics = false
+            else ->
+                dismiss()
         }
     }
 
@@ -236,7 +280,6 @@ fun XvoxNowPlaying(
                 translationY = screenY
             }
     ) {
-        // Vibrant dominant glow gradient backdrop
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
             modifier = Modifier.fillMaxSize()
@@ -247,35 +290,49 @@ fun XvoxNowPlaying(
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
-                        onVerticalDrag = { _, dragAmount ->
-                            val nextY = screenY + dragAmount
-                            screenY = nextY.coerceAtLeast(0f)
+                        onVerticalDrag = {
+                                _,
+                                dragAmount ->
+
+                            screenY =
+                                (screenY + dragAmount)
+                                    .coerceAtLeast(0f)
                         },
                         onDragEnd = {
-                            if (screenY > screenHeight * 0.25f) {
+                            if (
+                                screenY >
+                                screenHeight * 0.25f
+                            ) {
                                 dismiss()
                             } else {
                                 returnToRest()
                             }
                         },
-                        onDragCancel = { returnToRest() }
+                        onDragCancel = {
+                            returnToRest()
+                        }
                     )
                 }
         ) {
-            // Header
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
-                onShare = { onShare?.invoke() },
-                onMore = { showQuickSettingsSheet = true },
+                onShare = {
+                    onShare?.invoke()
+                },
+                onMore = {
+                    showQuickSettingsSheet = true
+                },
                 playingSource = playingSource
             )
 
-            // Center Artwork / Lyrics
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                    .padding(
+                        horizontal = 2.dp,
+                        vertical = 4.dp
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 if (showLyrics) {
@@ -285,50 +342,101 @@ fun XvoxNowPlaying(
                         onSeek = onSeek,
                         onAttach = lyricsViewModel::attach,
                         onDelete = lyricsViewModel::removeCustom,
-                        onClose = { showLyrics = false },
-                        onFullscreen = lyricsViewModel::openFullscreen,
+                        onClose = {
+                            showLyrics = false
+                        },
+                        onFullscreen =
+                            lyricsViewModel::openFullscreen,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .padding(
+                                horizontal = 8.dp,
+                                vertical = 8.dp
+                            )
+                            .clip(
+                                RoundedCornerShape(20.dp)
+                            )
                     )
                 } else {
                     XvoxNowPlayingArtworkPager(
                         queue = queue,
                         currentIndex = currentIndex,
                         navigationRequest = navigationRequest,
-                        onArtworkTap = { showLyrics = true },
-                        onSwipePalette = { base, adjacent, fraction ->
-                            scope.launch { paletteState.blend(base, adjacent, fraction) }
+                        onArtworkTap = {
+                            showLyrics = true
                         },
-                        onSettledPage = onPlayQueueIndex,
-                        modifier = Modifier.fillMaxSize(),
-                        repeatMode = repeatMode
+                        onSwipePalette = {
+                                base,
+                                adjacent,
+                                fraction ->
+
+                            scope.launch {
+                                paletteState.blend(
+                                    base,
+                                    adjacent,
+                                    fraction
+                                )
+                            }
+                        },
+                        onSettledPage =
+                            onPlayQueueIndex,
+                        modifier =
+                            Modifier.fillMaxSize(),
+                        repeatMode =
+                            repeatMode
                     )
                 }
             }
 
-            // Bottom Player Sheet (Actions, Title, Progress, Controls)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(colors.background.copy(alpha = 0.35f))
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(start = 14.dp, top = 12.dp, end = 14.dp, bottom = 8.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 28.dp,
+                            topEnd = 28.dp
+                        )
+                    )
+                    .background(
+                        colors.background.copy(
+                            alpha = 0.35f
+                        )
+                    )
+                    .windowInsetsPadding(
+                        WindowInsets.navigationBars
+                    )
+                    .padding(
+                        start = 14.dp,
+                        top = 12.dp,
+                        end = 14.dp,
+                        bottom = 8.dp
+                    )
             ) {
                 NowPlayingActions(
                     isLiked = isLiked,
                     isInPlaylist = isInPlaylist,
-                    onTimer = { onTimer?.invoke() },
-                    onQueue = { onQueue?.invoke() },
-                    onInfo = { onInfo?.invoke() },
-                    onToggleLiked = { onToggleLiked?.invoke() },
-                    onStarPlaylist = { onStarPlaylist?.invoke() },
-                    timerProgress = sleepTimerProgress,
+                    onTimer = {
+                        onTimer?.invoke()
+                    },
+                    onQueue = {
+                        onQueue?.invoke()
+                    },
+                    onInfo = {
+                        onInfo?.invoke()
+                    },
+                    onToggleLiked = {
+                        onToggleLiked?.invoke()
+                    },
+                    onStarPlaylist = {
+                        onStarPlaylist?.invoke()
+                    },
+                    timerProgress =
+                        sleepTimerProgress
                 )
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(
+                    Modifier.height(18.dp)
+                )
 
                 Text(
                     text = song.title,
@@ -350,49 +458,75 @@ fun XvoxNowPlaying(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(
+                    Modifier.height(14.dp)
+                )
 
                 XvoxNowPlayingProgress(
                     position = position,
                     duration = duration,
-                    onSeek = { onSeek(it) }
+                    onSeek = onSeek
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 XvoxNowPlayingControls(
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
-                    onShuffle = { onToggleShuffle?.invoke() },
-                    onPrevious = ::requestPrevious,
-                    onTogglePlay = { onTogglePlay() },
-                    onNext = ::requestNext,
-                    onRepeat = { onToggleRepeat?.invoke() },
-                    currentIndex = currentIndex,
-                    queueSize = queue.size,
-                    modifier = Modifier.fillMaxWidth()
+                    onShuffle = {
+                        onToggleShuffle?.invoke()
+                    },
+                    onPrevious =
+                        ::requestPrevious,
+                    onTogglePlay =
+                        onTogglePlay,
+                    onNext =
+                        ::requestNext,
+                    onRepeat = {
+                        onToggleRepeat?.invoke()
+                    },
+                    currentIndex =
+                        currentIndex,
+                    queueSize =
+                        queue.size,
+                    modifier =
+                        Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(
+                    Modifier.height(14.dp)
+                )
 
                 Text(
                     text = "XVOX",
-                    color = colors.primaryText.copy(alpha = 0.55f),
-                    fontFamily = XvoxLogoFont,
+                    color =
+                        colors.primaryText.copy(
+                            alpha = 0.55f
+                        ),
+                    fontFamily =
+                        XvoxLogoFont,
                     fontSize = 11.sp,
                     letterSpacing = 2.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier =
+                        Modifier.align(
+                            Alignment.CenterHorizontally
+                        )
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(
+                    Modifier.height(4.dp)
+                )
             }
         }
 
-        // Height-Adjustable Quick Settings, Equalizer & Playback Bottom Sheet with transparent backdrop
         if (showQuickSettingsSheet) {
             NowPlayingOptionsSheet(
-                onDismiss = { showQuickSettingsSheet = false },
+                onDismiss = {
+                    showQuickSettingsSheet = false
+                },
                 onTimer = onTimer,
                 onInfo = onInfo,
                 onStarPlaylist = onStarPlaylist,
@@ -412,121 +546,287 @@ private fun NowPlayingOptionsSheet(
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
-    val prefs = remember { UserPreferencesRepository(context) }
+    val prefs = remember {
+        UserPreferencesRepository(context)
+    }
     val scope = rememberCoroutineScope()
 
-    val eqEnabled by prefs.equalizerEnabled.collectAsState(initial = false)
-    val eqPreset by prefs.eqPreset.collectAsState(initial = "Flat")
-    val eqBands by prefs.eqBands.collectAsState(initial = listOf(0, 0, 0, 0, 0))
-    val gapless by prefs.gaplessPlayback.collectAsState(initial = true)
-    val crossfade by prefs.crossfade.collectAsState(initial = false)
-    val crossfadeDuration by prefs.crossfadeDuration.collectAsState(initial = 3)
-    val fadeIn by prefs.fadeIn.collectAsState(initial = false)
-    val fadeOut by prefs.fadeOut.collectAsState(initial = false)
-    val skipSilence by prefs.skipSilence.collectAsState(initial = false)
+    val eqEnabled by
+        prefs.equalizerEnabled.collectAsState(
+            initial = false
+        )
+    val eqPreset by
+        prefs.eqPreset.collectAsState(
+            initial = "Flat"
+        )
+    val eqBands by
+        prefs.eqBands.collectAsState(
+            initial =
+                listOf(0, 0, 0, 0, 0)
+        )
+    val gapless by
+        prefs.gaplessPlayback.collectAsState(
+            initial = true
+        )
+    val crossfade by
+        prefs.crossfade.collectAsState(
+            initial = false
+        )
+    val crossfadeDuration by
+        prefs.crossfadeDuration.collectAsState(
+            initial = 3
+        )
+    val fadeInEnabled by
+        prefs.fadeIn.collectAsState(
+            initial = false
+        )
+    val fadeOutEnabled by
+        prefs.fadeOut.collectAsState(
+            initial = false
+        )
+    val skipSilence by
+        prefs.skipSilence.collectAsState(
+            initial = false
+        )
 
-    var visible by remember { mutableStateOf(false) }
-    var closing by remember { mutableStateOf(false) }
-    var sheetDragOffset by remember { mutableFloatStateOf(0f) }
+    var visible by remember {
+        mutableStateOf(false)
+    }
+    var closing by remember {
+        mutableStateOf(false)
+    }
+    var sheetDragOffset by remember {
+        mutableFloatStateOf(0f)
+    }
 
     fun close() {
         if (closing) return
         closing = true
         visible = false
+
         scope.launch {
-            delay(280L)
+            delay(
+                XvoxPlayerTransitionMotion
+                    .Duration.toLong()
+            )
             onDismiss()
         }
     }
 
-    LaunchedEffect(Unit) { visible = true }
-    BackHandler { close() }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    BackHandler {
+        close()
+    }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Transparent)
-            .pointerInput(Unit) { detectTapGestures { close() } }
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    close()
+                }
+            }
     ) {
-        val maxSheetHeight = (maxHeight * 0.85f).coerceAtLeast(280.dp)
+        val maxSheetHeight =
+            (maxHeight * 0.85f)
+                .coerceAtLeast(
+                    280.dp
+                )
 
         AnimatedVisibility(
             visible = visible,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(380, easing = NowPlayingEasing)
-            ) + fadeIn(tween(260, easing = NowPlayingEasing)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(340, easing = NowPlayingEasing)
-            ) + fadeOut(tween(220, easing = NowPlayingEasing))
+            modifier =
+                Modifier.align(
+                    Alignment.BottomCenter
+                ),
+            enter =
+                slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec =
+                        tween(
+                            XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ) +
+                    fadeIn(
+                        tween(
+                            XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                    ),
+            exit =
+                slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec =
+                        tween(
+                            XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ) +
+                    fadeOut(
+                        tween(
+                            XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                    )
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = maxSheetHeight)
+                    .heightIn(
+                        max =
+                            maxSheetHeight
+                    )
                     .graphicsLayer {
-                        translationY = sheetDragOffset.coerceAtLeast(0f)
+                        translationY =
+                            sheetDragOffset
+                                .coerceAtLeast(0f)
                     }
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(colors.cardElevated.copy(alpha = 0.98f))
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .pointerInput(Unit) { detectTapGestures(onPress = { tryAwaitRelease() }) }
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 28.dp,
+                            topEnd = 28.dp
+                        )
+                    )
+                    .background(
+                        colors.cardElevated
+                            .copy(
+                                alpha = 0.98f
+                            )
+                    )
+                    .border(
+                        1.dp,
+                        Color.White.copy(
+                            alpha = 0.08f
+                        ),
+                        RoundedCornerShape(
+                            topStart = 28.dp,
+                            topEnd = 28.dp
+                        )
+                    )
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                tryAwaitRelease()
+                            }
+                        )
+                    }
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
-                            onVerticalDrag = { change, dragAmount ->
+                            onVerticalDrag = {
+                                    change,
+                                    dragAmount ->
+
                                 change.consume()
-                                sheetDragOffset = (sheetDragOffset + dragAmount).coerceAtLeast(0f)
+                                sheetDragOffset =
+                                    (
+                                        sheetDragOffset +
+                                            dragAmount
+                                        ).coerceAtLeast(
+                                        0f
+                                    )
                             },
                             onDragEnd = {
-                                if (sheetDragOffset > 90f) {
+                                if (
+                                    sheetDragOffset >
+                                    90f
+                                ) {
                                     close()
                                 } else {
                                     sheetDragOffset = 0f
                                 }
                             },
-                            onDragCancel = { sheetDragOffset = 0f }
+                            onDragCancel = {
+                                sheetDragOffset = 0f
+                            }
                         )
                     }
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .windowInsetsPadding(
+                        WindowInsets.navigationBars
+                    )
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 10.dp
+                    )
             ) {
-                // Top Drag Handle Indicator
                 Box(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 8.dp)
+                        .align(
+                            Alignment.CenterHorizontally
+                        )
+                        .padding(
+                            bottom = 8.dp
+                        )
                         .width(44.dp)
                         .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(colors.cardBorder)
+                        .clip(
+                            RoundedCornerShape(
+                                2.dp
+                            )
+                        )
+                        .background(
+                            colors.cardBorder
+                        )
                 )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            bottom = 6.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Audio & Playback Controls",
-                        color = colors.primaryText,
+                        text =
+                            "Audio & Playback Controls",
+                        color =
+                            colors.primaryText,
                         fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                        fontWeight =
+                            FontWeight.Bold,
+                        modifier =
+                            Modifier.weight(1f)
                     )
+
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(colors.card.copy(alpha = 0.94f))
-                            .clickable { close() },
-                        contentAlignment = Alignment.Center
+                            .background(
+                                colors.card.copy(
+                                    alpha = 0.94f
+                                )
+                            )
+                            .clickable {
+                                close()
+                            },
+                        contentAlignment =
+                            Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_xvox_close),
-                            contentDescription = "Close",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(15.dp)
+                            painter =
+                                painterResource(
+                                    R.drawable
+                                        .ic_xvox_close
+                                ),
+                            contentDescription =
+                                "Close",
+                            tint =
+                                colors.primaryText,
+                            modifier =
+                                Modifier.size(
+                                    15.dp
+                                )
                         )
                     }
                 }
@@ -535,236 +835,494 @@ private fun NowPlayingOptionsSheet(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(
+                            rememberScrollState()
+                        )
                 ) {
-                    // Quick Action Buttons
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                8.dp
+                            )
                     ) {
                         if (onTimer != null) {
-                            QuickOptionButton("Sleep Timer", R.drawable.ic_xvox_timer, Modifier.weight(1f)) {
+                            QuickOptionButton(
+                                "Sleep Timer",
+                                R.drawable.ic_xvox_timer,
+                                Modifier.weight(1f)
+                            ) {
                                 close()
                                 onTimer()
                             }
                         }
+
                         if (onInfo != null) {
-                            QuickOptionButton("Song Info", R.drawable.ic_xvox_info, Modifier.weight(1f)) {
+                            QuickOptionButton(
+                                "Song Info",
+                                R.drawable.ic_xvox_info,
+                                Modifier.weight(1f)
+                            ) {
                                 close()
                                 onInfo()
                             }
                         }
+
                         if (onStarPlaylist != null) {
-                            QuickOptionButton("Add Playlist", R.drawable.ic_xvox_playlist, Modifier.weight(1f)) {
+                            QuickOptionButton(
+                                "Add Playlist",
+                                R.drawable.ic_xvox_playlist,
+                                Modifier.weight(1f)
+                            ) {
                                 close()
                                 onStarPlaylist()
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(
+                        Modifier.height(16.dp)
+                    )
 
-                    // Section 1: Equalizer
-                    Text(text = "Equalizer & DSP", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text =
+                            "Equalizer & DSP",
+                        color =
+                            colors.primaryText,
+                        fontSize = 14.sp,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
+
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                vertical = 4.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Master Equalizer", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            Text("Preset: $eqPreset", color = colors.secondaryText, fontSize = 11.sp)
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+                            Text(
+                                "Master Equalizer",
+                                color =
+                                    colors.primaryText,
+                                fontSize = 13.sp,
+                                fontWeight =
+                                    FontWeight.Medium
+                            )
+
+                            Text(
+                                "Preset: $eqPreset",
+                                color =
+                                    colors.secondaryText,
+                                fontSize = 11.sp
+                            )
                         }
+
                         Switch(
                             checked = eqEnabled,
                             onCheckedChange = {
-                                scope.launch { prefs.setEqualizerEnabled(it) }
+                                scope.launch {
+                                    prefs.setEqualizerEnabled(
+                                        it
+                                    )
+                                }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
-                            )
+                            colors =
+                                SwitchDefaults.colors(
+                                    checkedThumbColor =
+                                        colors.background,
+                                    checkedTrackColor =
+                                        colors.primaryAccent
+                                )
                         )
                     }
 
                     if (eqEnabled) {
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(
+                            Modifier.height(6.dp)
+                        )
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                .horizontalScroll(
+                                    rememberScrollState()
+                                ),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    6.dp
+                                )
                         ) {
-                            val presets = listOf("Flat", "Bass Boost", "Treble", "Rock", "Pop", "Jazz", "Electronic", "Vocal", "Custom")
-                            presets.forEach { p ->
-                                val isSelected = eqPreset == p
+                            val presets =
+                                listOf(
+                                    "Flat",
+                                    "Bass Boost",
+                                    "Treble",
+                                    "Rock",
+                                    "Pop",
+                                    "Jazz",
+                                    "Electronic",
+                                    "Vocal",
+                                    "Custom"
+                                )
+
+                            presets.forEach { preset ->
+                                val selected =
+                                    eqPreset == preset
+
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                        .clip(
+                                            RoundedCornerShape(
+                                                8.dp
+                                            )
+                                        )
+                                        .background(
+                                            if (selected) {
+                                                colors.primaryAccent
+                                            } else {
+                                                colors.cardElevated
+                                            }
+                                        )
                                         .clickable {
                                             scope.launch {
-                                                prefs.setEqPreset(p)
-                                                if (p != "Custom" && AudioEffectsManager.PRESETS.containsKey(p)) {
-                                                    val bandVals = AudioEffectsManager.PRESETS[p] ?: listOf(0, 0, 0, 0, 0)
-                                                    prefs.setEqBands(bandVals)
+                                                prefs.setEqPreset(
+                                                    preset
+                                                )
+
+                                                if (
+                                                    preset != "Custom" &&
+                                                    AudioEffectsManager
+                                                        .PRESETS
+                                                        .containsKey(
+                                                            preset
+                                                        )
+                                                ) {
+                                                    prefs.setEqBands(
+                                                        AudioEffectsManager
+                                                            .PRESETS[
+                                                            preset
+                                                        ] ?: listOf(
+                                                            0,
+                                                            0,
+                                                            0,
+                                                            0,
+                                                            0
+                                                        )
+                                                    )
                                                 }
                                             }
                                         }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
+                                        .padding(
+                                            horizontal = 10.dp,
+                                            vertical = 6.dp
+                                        ),
+                                    contentAlignment =
+                                        Alignment.Center
                                 ) {
                                     Text(
-                                        text = p,
-                                        color = if (isSelected) colors.background else colors.primaryText,
+                                        text = preset,
+                                        color =
+                                            if (selected) {
+                                                colors.background
+                                            } else {
+                                                colors.primaryText
+                                            },
                                         fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight =
+                                            if (selected) {
+                                                FontWeight.Bold
+                                            } else {
+                                                FontWeight.Normal
+                                            }
                                     )
                                 }
                             }
                         }
 
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(
+                            Modifier.height(10.dp)
+                        )
 
-                        val bandLabels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
-                        bandLabels.forEachIndexed { index, label ->
-                            val currentVal = eqBands.getOrElse(index) { 0 }
+                        val labels =
+                            listOf(
+                                "60 Hz",
+                                "230 Hz",
+                                "910 Hz",
+                                "3.6 kHz",
+                                "14 kHz"
+                            )
+
+                        labels.forEachIndexed {
+                                index,
+                                label ->
+
+                            val value =
+                                eqBands.getOrElse(
+                                    index
+                                ) {
+                                    0
+                                }
+
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        vertical = 2.dp
+                                    ),
+                                verticalAlignment =
+                                    Alignment.CenterVertically
                             ) {
-                                Text(text = label, color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
+                                Text(
+                                    text = label,
+                                    color =
+                                        colors.secondaryText,
+                                    fontSize = 11.sp,
+                                    modifier =
+                                        Modifier.width(
+                                            55.dp
+                                        )
+                                )
+
                                 XvoxThinLineSlider(
-                                    value = currentVal.toFloat(),
-                                    onValueChange = { newVal ->
-                                        val updated = eqBands.toMutableList()
-                                        while (updated.size <= index) updated.add(0)
-                                        updated[index] = newVal.roundToInt()
+                                    value =
+                                        value.toFloat(),
+                                    onValueChange = {
+                                            newValue ->
+
+                                        val updated =
+                                            eqBands.toMutableList()
+
+                                        while (
+                                            updated.size <=
+                                            index
+                                        ) {
+                                            updated.add(0)
+                                        }
+
+                                        updated[index] =
+                                            newValue.roundToInt()
+
                                         scope.launch {
-                                            prefs.setEqBands(updated)
-                                            prefs.setEqPreset("Custom")
+                                            prefs.setEqBands(
+                                                updated
+                                            )
+                                            prefs.setEqPreset(
+                                                "Custom"
+                                            )
                                         }
                                     },
-                                    valueRange = -15f..15f,
-                                    modifier = Modifier.weight(1f)
+                                    valueRange =
+                                        -15f..15f,
+                                    modifier =
+                                        Modifier.weight(
+                                            1f
+                                        )
                                 )
+
                                 Text(
-                                    text = "${if (currentVal > 0) "+" else ""}$currentVal dB",
-                                    color = colors.primaryText,
+                                    text =
+                                        "${if (value > 0) "+" else ""}$value dB",
+                                    color =
+                                        colors.primaryText,
                                     fontSize = 10.sp,
-                                    modifier = Modifier.width(44.dp)
+                                    modifier =
+                                        Modifier.width(
+                                            44.dp
+                                        )
                                 )
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(
+                        Modifier.height(14.dp)
+                    )
 
-                    // Section 2: Playback Options
-                    Text(text = "Playback Settings", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text =
+                            "Playback Settings",
+                        color =
+                            colors.primaryText,
+                        fontSize = 14.sp,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Gapless Playback", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = gapless,
-                            onCheckedChange = {
-                                scope.launch { prefs.setGaplessPlayback(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
-                            )
-                        )
-                    }
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Crossfade Tracks", color = colors.primaryText, fontSize = 13.sp)
-                            if (crossfade) Text("${crossfadeDuration}s duration", color = colors.secondaryText, fontSize = 11.sp)
+                    PlaybackSwitchRow(
+                        title =
+                            "Gapless Playback",
+                        checked =
+                            gapless,
+                        onCheckedChange = {
+                            scope.launch {
+                                prefs.setGaplessPlayback(
+                                    it
+                                )
+                            }
                         }
-                        Switch(
-                            checked = crossfade,
-                            onCheckedChange = {
-                                scope.launch { prefs.setCrossfade(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                vertical = 4.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+                            Text(
+                                "Crossfade Tracks",
+                                color =
+                                    colors.primaryText,
+                                fontSize = 13.sp
                             )
+
+                            if (crossfade) {
+                                Text(
+                                    "${crossfadeDuration}s duration",
+                                    color =
+                                        colors.secondaryText,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked =
+                                crossfade,
+                            onCheckedChange = {
+                                scope.launch {
+                                    prefs.setCrossfade(
+                                        it
+                                    )
+                                }
+                            },
+                            colors =
+                                SwitchDefaults.colors(
+                                    checkedThumbColor =
+                                        colors.background,
+                                    checkedTrackColor =
+                                        colors.primaryAccent
+                                )
                         )
                     }
 
                     if (crossfade) {
                         XvoxThinLineSlider(
-                            value = crossfadeDuration.toFloat(),
+                            value =
+                                crossfadeDuration.toFloat(),
                             onValueChange = {
-                                scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) }
+                                scope.launch {
+                                    prefs.setCrossfadeDuration(
+                                        it.roundToInt()
+                                    )
+                                }
                             },
-                            valueRange = 1f..12f,
-                            modifier = Modifier.fillMaxWidth()
+                            valueRange =
+                                1f..12f,
+                            modifier =
+                                Modifier.fillMaxWidth()
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Fade In on Start", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = fadeIn,
-                            onCheckedChange = {
-                                scope.launch { prefs.setFadeIn(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
-                            )
-                        )
-                    }
+                    PlaybackSwitchRow(
+                        title =
+                            "Fade In on Start",
+                        checked =
+                            fadeInEnabled,
+                        onCheckedChange = {
+                            scope.launch {
+                                prefs.setFadeIn(it)
+                            }
+                        }
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Fade Out on Pause", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = fadeOut,
-                            onCheckedChange = {
-                                scope.launch { prefs.setFadeOut(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
-                            )
-                        )
-                    }
+                    PlaybackSwitchRow(
+                        title =
+                            "Fade Out on Pause",
+                        checked =
+                            fadeOutEnabled,
+                        onCheckedChange = {
+                            scope.launch {
+                                prefs.setFadeOut(it)
+                            }
+                        }
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Skip Silence", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = skipSilence,
-                            onCheckedChange = {
-                                scope.launch { prefs.setSkipSilence(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent
-                            )
-                        )
-                    }
+                    PlaybackSwitchRow(
+                        title =
+                            "Skip Silence",
+                        checked =
+                            skipSilence,
+                        onCheckedChange = {
+                            scope.launch {
+                                prefs.setSkipSilence(
+                                    it
+                                )
+                            }
+                        }
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PlaybackSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val colors = XvoxTheme.colors
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            color = colors.primaryText,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(1f)
+        )
+
+        Switch(
+            checked = checked,
+            onCheckedChange =
+                onCheckedChange,
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor =
+                        colors.background,
+                    checkedTrackColor =
+                        colors.primaryAccent
+                )
+        )
     }
 }
 
@@ -776,23 +1334,49 @@ private fun QuickOptionButton(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(
+                RoundedCornerShape(
+                    12.dp
+                )
+            )
             .background(colors.card)
-            .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .clickable {
+                onClick()
+            }
+            .padding(
+                vertical = 10.dp,
+                horizontal = 6.dp
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically,
+        horizontalArrangement =
+            Arrangement.Center
     ) {
         Icon(
-            painter = painterResource(iconRes),
+            painter =
+                painterResource(iconRes),
             contentDescription = null,
-            tint = colors.primaryAccent,
-            modifier = Modifier.size(15.dp)
+            tint =
+                colors.primaryAccent,
+            modifier =
+                Modifier.size(15.dp)
         )
-        Spacer(Modifier.width(6.dp))
-        Text(text = title, color = colors.primaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+
+        Spacer(
+            Modifier.width(6.dp)
+        )
+
+        Text(
+            text = title,
+            color =
+                colors.primaryText,
+            fontSize = 11.sp,
+            fontWeight =
+                FontWeight.SemiBold
+        )
     }
 }
 
@@ -805,39 +1389,82 @@ private fun NowPlayingActions(
     onInfo: (() -> Unit)? = null,
     onToggleLiked: (() -> Unit)? = null,
     onStarPlaylist: (() -> Unit)? = null,
-    timerProgress: Float? = null,
+    timerProgress: Float? = null
 ) {
     val colors = XvoxTheme.colors
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
         Row(
             modifier = Modifier
-                .background(colors.card.copy(alpha = 0.22f), RoundedCornerShape(22.dp))
-                .padding(horizontal = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(
+                    colors.card.copy(
+                        alpha = 0.22f
+                    ),
+                    RoundedCornerShape(
+                        22.dp
+                    )
+                )
+                .padding(
+                    horizontal = 3.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
-            NowPlayingActionIcon(R.drawable.ic_xvox_timer, onClick = onTimer, progress = timerProgress)
-            NowPlayingActionIcon(R.drawable.ic_xvox_queue, onClick = onQueue)
-            NowPlayingActionIcon(R.drawable.ic_xvox_info, onClick = onInfo)
+            NowPlayingActionIcon(
+                R.drawable.ic_xvox_timer,
+                onClick = onTimer,
+                progress = timerProgress
+            )
+
+            NowPlayingActionIcon(
+                R.drawable.ic_xvox_queue,
+                onClick = onQueue
+            )
+
+            NowPlayingActionIcon(
+                R.drawable.ic_xvox_info,
+                onClick = onInfo
+            )
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(
+            Modifier.weight(1f)
+        )
 
         NowPlayingCircleAction(
             R.drawable.ic_xvox_star,
-            tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
-            onClick = onStarPlaylist
+            tint =
+                if (isInPlaylist) {
+                    colors.primaryAccent
+                } else {
+                    colors.primaryText
+                },
+            onClick =
+                onStarPlaylist
         )
 
-        Spacer(Modifier.size(10.dp))
+        Spacer(
+            Modifier.size(10.dp)
+        )
 
         NowPlayingCircleAction(
-            if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-            tint = if (isLiked) colors.primaryAccent else colors.primaryText,
-            onClick = onToggleLiked
+            if (isLiked) {
+                R.drawable.ic_xvox_heart
+            } else {
+                R.drawable.ic_xvox_heart_outline
+            },
+            tint =
+                if (isLiked) {
+                    colors.primaryAccent
+                } else {
+                    colors.primaryText
+                },
+            onClick =
+                onToggleLiked
         )
     }
 }
@@ -848,43 +1475,74 @@ private fun NowPlayingActionIcon(
     onClick: (() -> Unit)? = null,
     progress: Float? = null
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Box(
         modifier = Modifier
             .size(42.dp)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource =
+                    remember {
+                        MutableInteractionSource()
+                    },
                 indication = null,
-                enabled = onClick != null,
-                onClick = { onClick?.invoke() }
+                enabled =
+                    onClick != null,
+                onClick = {
+                    onClick?.invoke()
+                }
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         if (progress != null) {
-            androidx.compose.foundation.Canvas(modifier = Modifier.size(32.dp)) {
-                val stroke = 2.5.dp.toPx()
+            androidx.compose.foundation.Canvas(
+                modifier =
+                    Modifier.size(32.dp)
+            ) {
+                val stroke =
+                    2.5.dp.toPx()
+
                 drawArc(
-                    color = colors.mutedText.copy(alpha = 0.22f),
+                    color =
+                        colors.mutedText.copy(
+                            alpha = 0.22f
+                        ),
                     startAngle = -90f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+                    style =
+                        androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = stroke
+                        )
                 )
+
                 drawArc(
-                    color = colors.primaryAccent,
+                    color =
+                        colors.primaryAccent,
                     startAngle = -90f,
-                    sweepAngle = progress * 360f,
+                    sweepAngle =
+                        progress * 360f,
                     useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    style =
+                        androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = stroke,
+                            cap =
+                                androidx.compose.ui.graphics.StrokeCap.Round
+                        )
                 )
             }
         }
+
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
-            tint = colors.primaryText,
-            modifier = Modifier.size(19.dp)
+            tint =
+                colors.primaryText,
+            modifier =
+                Modifier.size(19.dp)
         )
     }
 }
@@ -895,25 +1553,42 @@ private fun NowPlayingCircleAction(
     tint: Color? = null,
     onClick: (() -> Unit)? = null
 ) {
-    val colors = XvoxTheme.colors
+    val colors =
+        XvoxTheme.colors
 
     Box(
         modifier = Modifier
             .size(42.dp)
-            .background(colors.card.copy(alpha = 0.22f), CircleShape)
+            .background(
+                colors.card.copy(
+                    alpha = 0.22f
+                ),
+                CircleShape
+            )
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource =
+                    remember {
+                        MutableInteractionSource()
+                    },
                 indication = null,
-                enabled = onClick != null,
-                onClick = { onClick?.invoke() }
+                enabled =
+                    onClick != null,
+                onClick = {
+                    onClick?.invoke()
+                }
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
-            painter = painterResource(resource),
+            painter =
+                painterResource(resource),
             contentDescription = null,
-            tint = tint ?: colors.primaryAccent,
-            modifier = Modifier.size(19.dp)
+            tint =
+                tint
+                    ?: colors.primaryAccent,
+            modifier =
+                Modifier.size(19.dp)
         )
     }
 }

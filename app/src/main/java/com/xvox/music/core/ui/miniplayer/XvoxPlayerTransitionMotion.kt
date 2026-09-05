@@ -2,16 +2,18 @@ package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 
 object XvoxPlayerTransitionMotion {
-    const val Duration = 245
 
-    private val easing =
+    const val Duration = 320
+
+    val easing: Easing =
         CubicBezierEasing(
-            0.22f,
-            0.61f,
-            0.36f,
+            0.20f,
+            0.90f,
+            0.10f,
             1f
         )
 
