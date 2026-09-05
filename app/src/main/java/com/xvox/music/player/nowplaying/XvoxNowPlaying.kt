@@ -137,19 +137,6 @@ fun XvoxNowPlaying(
         mutableStateOf(false)
     }
 
-    LaunchedEffect(screenHeight) {
-        if (
-            !entered &&
-            screenHeight > 0f
-        ) {
-            entered = true
-            screenY = screenHeight
-
-            animateScreen(
-                target = 0f
-            )
-        }
-    }
     var showLyrics by remember {
         mutableStateOf(false)
     }
@@ -188,6 +175,20 @@ fun XvoxNowPlaying(
             screenY = target
             motionJob = null
             finished?.invoke()
+        }
+    }
+
+    LaunchedEffect(screenHeight) {
+        if (
+            !entered &&
+            screenHeight > 0f
+        ) {
+            entered = true
+            screenY = screenHeight
+
+            animateScreen(
+                target = 0f
+            )
         }
     }
 
