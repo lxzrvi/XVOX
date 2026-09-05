@@ -10,20 +10,12 @@ import com.xvox.music.core.design.theme.XvoxTheme
 
 class MainActivity : ComponentActivity() {
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-
         super.onCreate(savedInstanceState)
-
-        WindowCompat.setDecorFitsSystemWindows(
-            window,
-            false
-        )
-
-        window.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        )
-
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContent {
             XvoxTheme {
                 XvoxAppRoot()

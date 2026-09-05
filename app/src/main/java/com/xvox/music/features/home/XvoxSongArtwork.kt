@@ -67,7 +67,7 @@ fun XvoxSongArtwork(
 
     val request = remember(artwork, requestSize) {
         ImageRequest.Builder(context)
-            .data(artwork as Any)
+            .data(artwork)
             .size(requestSize, requestSize)
             .precision(Precision.INEXACT)
             .memoryCachePolicy(CachePolicy.ENABLED)

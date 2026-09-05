@@ -70,7 +70,7 @@ class XvoxMetadataReader(
                 year = tag?.field(FieldKey.YEAR)?.take(4)?.toIntOrNull(),
                 trackNumber = tag?.field(FieldKey.TRACK)?.substringBefore("/")?.toIntOrNull(),
                 discNumber = tag?.field(FieldKey.DISC_NO)?.substringBefore("/")?.toIntOrNull(),
-                duration = header?.trackLength?.toLong()?.times(1000L),
+                duration = header?.trackLength?.times(1000L),
                 bitrate = header?.bitRateAsNumber?.toInt(),
                 sampleRate = header?.sampleRateAsNumber?.toInt(),
                 lyrics = lyrics,

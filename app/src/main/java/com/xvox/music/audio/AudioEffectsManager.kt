@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+@Suppress("DEPRECATION")
 object AudioEffectsManager {
     private const val TAG = "AudioEffectsManager"
 
