@@ -1,7 +1,5 @@
 package com.xvox.music.features.settings.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxGlass
 
 @Composable
 fun SettingsSectionCard(
@@ -29,12 +28,17 @@ fun SettingsSectionCard(
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
+            .clip(shape)
+            .xvoxGlass(
+                shape = shape,
+                tint = colors.card.copy(alpha = 0.65f),
+                solidFallback = colors.card
+            )
             .padding(12.dp)
     ) {
         Row(

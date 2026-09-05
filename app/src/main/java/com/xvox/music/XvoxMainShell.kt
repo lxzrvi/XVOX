@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.XvoxAmbientBlurryBackdrop
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
@@ -166,11 +167,22 @@ fun XvoxMainShell(
         }
     }
 
+    val currentPlayingSong = remember(player.currentSongId, homeState.songs) {
+        homeState.songs.firstOrNull { it.id == player.currentSongId }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.background)
     ) {
+        if (destination == XvoxDestination.HOME || destination == XvoxDestination.SEARCH) {
+            XvoxAmbientBlurryBackdrop(
+                song = currentPlayingSong,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
             XvoxShellTopHeader(
                 profile = homeState.profile,

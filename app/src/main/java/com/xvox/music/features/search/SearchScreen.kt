@@ -1,6 +1,8 @@
 package com.xvox.music.features.search
 
-import androidx.compose.foundation.background
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -53,6 +55,7 @@ import com.xvox.music.features.home.HomeFooter
 import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.showPlaylistActions
+import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.playlist.XvoxPlaylistCard
 import com.xvox.music.player.playback.MainPlayerViewModel
 import kotlinx.coroutines.launch
@@ -94,8 +97,8 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val homeState by homeViewModel.state.collectAsState()
+    val playerState by playerViewModel.playerState.collectAsState()
     var query by remember { mutableStateOf("") }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context) }
@@ -103,6 +106,20 @@ fun SearchScreen(
     val overlays = LocalXvoxOverlayController.current
     val scope = rememberCoroutineScope()
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+    var pendingDelete by remember { mutableStateOf<Song?>(null) }
+    val deleteLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            pendingDelete?.let { song ->
+                playerViewModel.removeFromQueue(song.id)
+                homeViewModel.refresh()
+                overlays.showP("Deleted from device")
+            }
+        }
+        pendingDelete = null
+    }
 
     val filteredSongs = remember(homeState.songs, query) {
         if (query.isBlank()) emptyList()
@@ -127,7 +144,6 @@ fun SearchScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background)
             .imePadding(),
         contentPadding = PaddingValues(top = 4.dp)
     ) {
@@ -149,12 +165,17 @@ fun SearchScreen(
         }
 
         item(key = "search_bar") {
+            val searchBarShape = RoundedCornerShape(12.dp)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
+                    .clip(searchBarShape)
+                    .xvoxGlass(
+                        shape = searchBarShape,
+                        tint = colors.card.copy(alpha = 0.65f),
+                        solidFallback = colors.card
+                    )
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -191,10 +212,7 @@ fun SearchScreen(
                             tint = colors.secondaryText,
                             modifier = Modifier
                                 .size(16.dp)
-                                .clickable {
-                                    haptics.tap()
-                                    query = ""
-                                }
+                                .clickable { query = "" }
                         )
                     }
                 }
@@ -223,22 +241,24 @@ fun SearchScreen(
                             color = colors.secondaryText,
                             fontSize = 11.sp,
                             modifier = Modifier.clickable {
-                                haptics.tap()
                                 scope.launch { prefs.clearRecentSearches() }
                             }
                         )
                     }
                 }
                 items(recentSearches, key = { "recent_$it" }) { item ->
+                    val recentShape = RoundedCornerShape(8.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 3.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                haptics.tap()
-                                query = item
-                            }
+                            .clip(recentShape)
+                            .xvoxGlass(
+                                shape = recentShape,
+                                tint = colors.card.copy(alpha = 0.5f),
+                                solidFallback = colors.card
+                            )
+                            .clickable { query = item }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -249,7 +269,6 @@ fun SearchScreen(
                             contentDescription = null,
                             tint = colors.mutedText,
                             modifier = Modifier.size(13.dp).clickable {
-                                haptics.tap()
                                 scope.launch { prefs.removeRecentSearch(item) }
                             }
                         )
@@ -282,12 +301,10 @@ fun SearchScreen(
                                 playlist = playlist,
                                 songs = coverSongs,
                                 onClick = {
-                                    haptics.tap()
                                     addRecent(query)
                                     if (onPlaylistSelected != null) onPlaylistSelected(playlist.id)
                                 },
                                 onLongClick = {
-                                    haptics.heavy()
                                     showPlaylistActions(overlays, homeViewModel, playlist) {}
                                 },
                                 modifier = Modifier.weight(1f)
@@ -312,14 +329,33 @@ fun SearchScreen(
                     )
                 }
                 items(filteredSongs, key = { it.id }) { song ->
-                    val isLiked = song.id in homeState.likedSongIds
+                    val isCurrent = song.id == playerState.currentSongId
+                    val isPlaying = isCurrent && playerState.isPlaying
                     SearchSongCard(
                         song = song,
-                        isLiked = isLiked,
-                        filteredSongs = filteredSongs,
-                        onSearchUsed = { addRecent(query) },
-                        homeViewModel = homeViewModel,
-                        playerViewModel = playerViewModel
+                        current = isCurrent,
+                        playing = isPlaying,
+                        onClick = {
+                            addRecent(query)
+                            playerViewModel.playFromSource(song, filteredSongs, "Search")
+                        },
+                        onOptions = {
+                            showSongOptionsOverlay(
+                                overlays = overlays,
+                                context = context,
+                                song = song,
+                                isLiked = song.id in homeState.likedSongIds,
+                                playlist = null,
+                                recent = false,
+                                viewModel = homeViewModel,
+                                playerViewModel = playerViewModel,
+                                playlists = homeState.playlists,
+                                songs = homeState.songs,
+                                deleteLauncher = deleteLauncher,
+                                onPendingDelete = { pendingDelete = it }
+                            )
+                        },
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
                     )
                 }
             }

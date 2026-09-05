@@ -3,8 +3,6 @@ package com.xvox.music.features.home.allsongs
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -25,12 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxAllSongMosaicCard(
     song: Song,
@@ -40,53 +37,26 @@ fun XvoxAllSongMosaicCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
 
-    val interaction =
-        remember {
-            MutableInteractionSource()
-        }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.84f,
+            stiffness = 1400f
+        ),
+        label = "mosaicPress"
+    )
 
-    val pressed by
-        interaction
-            .collectIsPressedAsState()
+    val shape = RoundedCornerShape(11.dp)
 
-    val scale by
-        animateFloatAsState(
-            targetValue =
-                if (pressed) {
-                    0.965f
-                } else {
-                    1f
-                },
-            animationSpec =
-                spring(
-                    dampingRatio = 0.84f,
-                    stiffness = 1400f
-                ),
-            label =
-                "mosaicPress"
-        )
-
-    val shape =
-        RoundedCornerShape(
-            11.dp
-        )
-
-    val requestSize =
-        when {
-            widthUnits >= 4f ||
-                heightUnits >= 2f ->
-                384
-
-            widthUnits >= 2f ||
-                heightUnits > 1f ->
-                256
-
-            else ->
-                XvoxGridArtworkSize
-        }
+    val requestSize = when {
+        widthUnits >= 4f || heightUnits >= 2f -> 384
+        widthUnits >= 2f || heightUnits > 1f -> 256
+        else -> XvoxGridArtworkSize
+    }
 
     Column(
         modifier = modifier
@@ -96,86 +66,45 @@ fun XvoxAllSongMosaicCard(
                 scaleY = scale
             }
             .clip(shape)
-            .background(
-                colors.card
-            )
-            .border(
-                width = 0.7.dp,
-                color =
-                    colors.cardBorder,
-                shape = shape
+            .xvoxGlass(
+                shape = shape,
+                tint = colors.card.copy(alpha = 0.65f),
+                solidFallback = colors.card
             )
             .combinedClickable(
-                interactionSource =
-                    interaction,
+                interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
-                onLongClick =
-                    onLongClick
+                onLongClick = onLongClick
             )
             .padding(5.dp)
     ) {
         XvoxSongArtwork(
-            artwork =
-                song.artworkUri,
-            requestSize =
-                requestSize,
+            artwork = song.artworkUri,
+            requestSize = requestSize,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
-                .clip(
-                    RoundedCornerShape(
-                        7.dp
-                    )
-                )
+                .clip(RoundedCornerShape(7.dp))
         )
 
         Text(
             text = song.title,
-            color =
-                colors.primaryText,
-            fontSize =
-                if (
-                    widthUnits >= 2f
-                ) {
-                    12.sp
-                } else {
-                    10.sp
-                },
-            lineHeight =
-                if (
-                    widthUnits >= 2f
-                ) {
-                    14.sp
-                } else {
-                    11.sp
-                },
-            fontWeight =
-                FontWeight.SemiBold,
+            color = colors.primaryText,
+            fontSize = if (widthUnits >= 2f) 12.sp else 10.sp,
+            lineHeight = if (widthUnits >= 2f) 14.sp else 11.sp,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis,
-            modifier =
-                Modifier.padding(
-                    top = 5.dp
-                )
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 5.dp)
         )
 
         Text(
             text = song.artist,
-            color =
-                colors.secondaryText,
-            fontSize =
-                if (
-                    widthUnits >= 2f
-                ) {
-                    9.sp
-                } else {
-                    8.sp
-                },
+            color = colors.secondaryText,
+            fontSize = if (widthUnits >= 2f) 9.sp else 8.sp,
             maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

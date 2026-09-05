@@ -1,13 +1,14 @@
 package com.xvox.music.core.ui.effects
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -21,30 +22,44 @@ val LocalLiveBlurEnabled = compositionLocalOf { true }
 fun Modifier.xvoxGlass(
     shape: Shape,
     enabled: Boolean = LocalLiveBlurEnabled.current,
-    tint: Color = XvoxTheme.colors.card.copy(alpha = 0.72f),
+    tint: Color = XvoxTheme.colors.card.copy(alpha = 0.62f),
     solidFallback: Color = XvoxTheme.colors.card,
-    borderWidth: Dp = 0.6.dp,
-    borderColor: Color = Color.White.copy(alpha = 0.12f)
+    borderWidth: Dp = 0.75.dp,
+    showSpecularSheen: Boolean = true
 ): Modifier {
     val colors = XvoxTheme.colors
     return if (enabled) {
         val glassBorderBrush = Brush.verticalGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.22f),
-                borderColor,
+                Color.White.copy(alpha = 0.38f),
+                Color.White.copy(alpha = 0.14f),
                 Color.White.copy(alpha = 0.04f)
             )
         )
         this
             .clip(shape)
+            .background(tint)
             .then(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Modifier.blur(20.dp)
+                if (showSpecularSheen) {
+                    Modifier.drawBehind {
+                        val sheenBrush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.10f),
+                                Color.Transparent
+                            ),
+                            startY = 0f,
+                            endY = size.height * 0.45f
+                        )
+                        drawRect(
+                            brush = sheenBrush,
+                            topLeft = Offset.Zero,
+                            size = Size(size.width, size.height * 0.45f)
+                        )
+                    }
                 } else {
                     Modifier
                 }
             )
-            .background(tint)
             .border(borderWidth, glassBorderBrush, shape)
     } else {
         this
@@ -60,15 +75,7 @@ fun Modifier.xvoxHeaderGlass(
 ): Modifier {
     val colors = XvoxTheme.colors
     return if (enabled) {
-        this
-            .then(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Modifier.blur(16.dp)
-                } else {
-                    Modifier
-                }
-            )
-            .background(colors.background.copy(alpha = 0.75f))
+        this.background(colors.background.copy(alpha = 0.72f))
     } else {
         this.background(colors.background)
     }
