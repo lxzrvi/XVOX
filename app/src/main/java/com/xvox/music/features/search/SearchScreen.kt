@@ -98,7 +98,7 @@ fun SearchScreen(
 ) {
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
-    val playerState by playerViewModel.playerState.collectAsState()
+    val playerState by playerViewModel.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context) }

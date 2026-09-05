@@ -25,6 +25,7 @@ fun Modifier.xvoxGlass(
     tint: Color = XvoxTheme.colors.card.copy(alpha = 0.62f),
     solidFallback: Color = XvoxTheme.colors.card,
     borderWidth: Dp = 0.75.dp,
+    borderColor: Color = Color.White.copy(alpha = 0.14f),
     showSpecularSheen: Boolean = true
 ): Modifier {
     val colors = XvoxTheme.colors
@@ -32,7 +33,7 @@ fun Modifier.xvoxGlass(
         val glassBorderBrush = Brush.verticalGradient(
             colors = listOf(
                 Color.White.copy(alpha = 0.38f),
-                Color.White.copy(alpha = 0.14f),
+                borderColor,
                 Color.White.copy(alpha = 0.04f)
             )
         )
