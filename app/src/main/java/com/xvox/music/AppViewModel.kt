@@ -1,26 +1,18 @@
 package com.xvox.music
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class AppViewModel(
-    application: Application
-) : AndroidViewModel(application) {
-
-    private val preferencesRepository =
-        UserPreferencesRepository(application)
+class AppViewModel : ViewModel() {
 
     private val _state =
         MutableStateFlow<AppUiState>(
-            AppUiState.Loading
+            AppUiState.Loading,
         )
 
     val state: StateFlow<AppUiState> =
@@ -28,10 +20,11 @@ class AppViewModel(
 
     init {
         viewModelScope.launch {
-            val prefs = preferencesRepository.preferences.first()
-            // Settle time for complete UI initialization before fading in
-            delay(1200L)
-            _state.value = if (prefs.setupCompleted) AppUiState.Home else AppUiState.Setup
+            // Settle time extended to allow background services and library state to load cleanly
+            delay(1800L)
+
+            _state.value =
+                AppUiState.Home
         }
     }
 }

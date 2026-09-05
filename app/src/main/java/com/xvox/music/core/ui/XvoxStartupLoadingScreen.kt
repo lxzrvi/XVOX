@@ -21,8 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,10 +30,9 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
-fun XvoxStartupLoadingScreen(
-    modifier: Modifier = Modifier
-) {
+fun XvoxStartupLoadingScreen() {
     val colors = XvoxTheme.colors
+
     val infiniteTransition = rememberInfiniteTransition(label = "startup_pulse")
 
     val pulseScale by infiniteTransition.animateFloat(
@@ -47,7 +46,7 @@ fun XvoxStartupLoadingScreen(
     )
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(colors.background),
         contentAlignment = Alignment.Center
@@ -66,20 +65,24 @@ fun XvoxStartupLoadingScreen(
                 modifier = Modifier.scale(pulseScale)
             )
 
-            Spacer(Modifier.height(32.dp))
+            // Tight gap between XVOX and waveform bars
+            Spacer(Modifier.height(14.dp))
 
             // Animated Waveform Bars
             Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.height(24.dp)
             ) {
-                val heights = listOf(14.dp, 26.dp, 36.dp, 22.dp, 12.dp)
+                val heights = listOf(14.dp, 22.dp, 10.dp, 18.dp, 8.dp)
+                val durations = listOf(600, 800, 500, 750, 650)
+
                 heights.forEachIndexed { index, targetHeight ->
                     val barScale by infiniteTransition.animateFloat(
-                        initialValue = 0.25f,
-                        targetValue = 1.0f,
+                        initialValue = 0.3f,
+                        targetValue = 1f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(550 + index * 110, easing = FastOutSlowInEasing),
+                            animation = tween(durations[index], easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "bar_$index"
@@ -87,10 +90,15 @@ fun XvoxStartupLoadingScreen(
 
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(targetHeight * barScale)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(colors.primaryAccent.copy(alpha = 0.85f))
+                            .width(3.dp)
+                            .height(targetHeight)
+                            .graphicsLayer {
+                                scaleY = barScale
+                            }
+                            .background(
+                                color = colors.primaryAccent.copy(alpha = 0.85f),
+                                shape = RoundedCornerShape(2.dp)
+                            )
                     )
                 }
             }

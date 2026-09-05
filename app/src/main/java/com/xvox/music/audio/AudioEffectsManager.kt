@@ -42,7 +42,6 @@ object AudioEffectsManager {
     fun attachAudioSession(sessionId: Int, context: Context) {
         if (sessionId <= 0) return
         if (currentSessionId == sessionId && equalizer != null) {
-            // Already attached, ensure values are fresh
             applyAllCurrent(context)
             return
         }
@@ -107,15 +106,14 @@ object AudioEffectsManager {
 
             val bbEn = prefs.bassBoost.first()
             val bbSt = prefs.bassBoostStrength.first()
-            applyBassBoost(bbEn, bbSt)
+            val leEn = prefs.loudnessEnhancer.first()
+            val leG = prefs.loudnessGainMb.first()
+
+            applyBassBoostWithCompensation(bbEn, bbSt, leEn, leG)
 
             val virtEn = prefs.virtualizerEnabled.first()
             val virtSt = prefs.virtualizerStrength.first()
             applyVirtualizer(virtEn, virtSt)
-
-            val leEn = prefs.loudnessEnhancer.first()
-            val leG = prefs.loudnessGainMb.first()
-            applyLoudnessEnhancer(leEn, leG)
         }
     }
 
@@ -137,15 +135,21 @@ object AudioEffectsManager {
                 }
             }
 
-            // Bass Boost observer
+            // Bass Boost & Loudness Compensation observer
             launch {
                 combine(
                     prefs.bassBoost,
-                    prefs.bassBoostStrength
-                ) { enabled, strength ->
-                    Pair(enabled, strength)
-                }.collect { (enabled, strength) ->
-                    applyBassBoost(enabled, strength)
+                    prefs.bassBoostStrength,
+                    prefs.loudnessEnhancer,
+                    prefs.loudnessGainMb
+                ) { bbEn, bbSt, leEn, leG ->
+                    listOf(bbEn, bbSt, leEn, leG)
+                }.collect { params ->
+                    val bbEn = params[0] as Boolean
+                    val bbSt = params[1] as Int
+                    val leEn = params[2] as Boolean
+                    val leG = params[3] as Int
+                    applyBassBoostWithCompensation(bbEn, bbSt, leEn, leG)
                 }
             }
 
@@ -158,18 +162,6 @@ object AudioEffectsManager {
                     Pair(enabled, strength)
                 }.collect { (enabled, strength) ->
                     applyVirtualizer(enabled, strength)
-                }
-            }
-
-            // Loudness Enhancer observer
-            launch {
-                combine(
-                    prefs.loudnessEnhancer,
-                    prefs.loudnessGainMb
-                ) { enabled, gain ->
-                    Pair(enabled, gain)
-                }.collect { (enabled, gain) ->
-                    applyLoudnessEnhancer(enabled, gain)
                 }
             }
         }
@@ -193,7 +185,6 @@ object AudioEffectsManager {
 
                     for (i in 0 until numBands) {
                         val dbVal = targetBands.getOrNull(i) ?: 0
-                        // 1 dB = 100 mB
                         val mbVal = (dbVal * 100).coerceIn(minLevel.toInt(), maxLevel.toInt()).toShort()
                         eq.setBandLevel(i.toShort(), mbVal)
                     }
@@ -202,14 +193,41 @@ object AudioEffectsManager {
         }
     }
 
-    private fun applyBassBoost(enabled: Boolean, strength: Int) {
+    private fun applyBassBoostWithCompensation(
+        bassEnabled: Boolean,
+        bassStrength: Int,
+        loudnessEnabled: Boolean,
+        loudnessGainMb: Int
+    ) {
         bassBoost?.let { bb ->
             runCatching {
-                bb.enabled = enabled
-                if (enabled && bb.strengthSupported) {
-                    bb.setStrength(strength.coerceIn(0, 1000).toShort())
+                bb.enabled = bassEnabled
+                if (bassEnabled && bb.strengthSupported) {
+                    bb.setStrength(bassStrength.coerceIn(0, 1000).toShort())
                 }
             }.onFailure { Log.w(TAG, "Error applying BassBoost: ${it.message}") }
+        }
+
+        // Automatic volume makeup compensation to prevent Android AGC from crushing the sound
+        loudnessEnhancer?.let { le ->
+            runCatching {
+                val effectiveGain = if (bassEnabled && bassStrength > 0) {
+                    // Makeup gain between 150mB and 450mB based on bass strength
+                    val makeup = (bassStrength * 0.45f).toInt()
+                    if (loudnessEnabled) loudnessGainMb + makeup else makeup
+                } else if (loudnessEnabled) {
+                    loudnessGainMb
+                } else {
+                    0
+                }
+
+                if (effectiveGain > 0) {
+                    le.enabled = true
+                    le.setTargetGain(effectiveGain.coerceIn(0, 2000))
+                } else {
+                    le.enabled = false
+                }
+            }.onFailure { Log.w(TAG, "Error applying LoudnessEnhancer compensation: ${it.message}") }
         }
     }
 
@@ -221,17 +239,6 @@ object AudioEffectsManager {
                     virt.setStrength(strength.coerceIn(0, 1000).toShort())
                 }
             }.onFailure { Log.w(TAG, "Error applying Virtualizer: ${it.message}") }
-        }
-    }
-
-    private fun applyLoudnessEnhancer(enabled: Boolean, gainMb: Int) {
-        loudnessEnhancer?.let { le ->
-            runCatching {
-                le.enabled = enabled
-                if (enabled) {
-                    le.setTargetGain(gainMb.coerceIn(0, 2000))
-                }
-            }.onFailure { Log.w(TAG, "Error applying LoudnessEnhancer: ${it.message}") }
         }
     }
 

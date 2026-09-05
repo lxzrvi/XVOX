@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,7 +29,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,7 +53,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,7 +61,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -102,8 +97,6 @@ import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private val MainEase = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
@@ -115,7 +108,6 @@ fun XvoxMainShell(
     val colors = XvoxTheme.colors
     val haptics = rememberXvoxHaptics()
     val overlays = LocalXvoxOverlayController.current
-    val context = LocalContext.current
 
     var destination by remember { mutableStateOf(XvoxDestination.HOME) }
     var homeResetKey by remember { mutableLongStateOf(0L) }
@@ -130,15 +122,21 @@ fun XvoxMainShell(
                 ?: homeState.songs.firstOrNull { it.id == id }
         }
 
+    val isInPlaylist = remember(currentSong?.id, homeState.playlists) {
+        val songId = currentSong?.id
+        if (songId != null) homeState.playlists.any { songId in it.songIds } else false
+    }
+
     fun showProfileEditor() {
         overlays.showL {
             ProfileEditorBox(
                 profile = homeState.profile,
                 onCancel = { overlays.hideL() },
                 onSave = { name, pfp, uri ->
-                    homeViewModel.saveProfile(name, pfp, uri)
-                    overlays.hideL()
-                    overlays.showP("Profile updated")
+                    homeViewModel.saveProfile(name, pfp, uri) {
+                        overlays.hideL()
+                        overlays.showP("Profile updated")
+                    }
                 }
             )
         }
@@ -162,7 +160,6 @@ fun XvoxMainShell(
         }
     }
 
-    // Helper to show playlist picker for miniplayer add button and now playing star
     fun showPlaylistPickerForSong(song: Song) {
         overlays.showL {
             PlaylistPickerBox(
@@ -215,7 +212,7 @@ fun XvoxMainShell(
         overlays.showL {
             val listState = rememberLazyListState()
             val density = LocalDensity.current
-            val itemHeightPx = with(density) { 60.dp.toPx() }
+            val itemHeightPx = with(density) { 58.dp.toPx() }
 
             var draggingIndex by remember { mutableStateOf<Int?>(null) }
             var dragOffsetY by remember { mutableFloatStateOf(0f) }
@@ -240,39 +237,17 @@ fun XvoxMainShell(
 
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.heightIn(max = 480.dp),
+                    modifier = Modifier.heightIn(max = 440.dp),
                     contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
-                    itemsIndexed(player.queue, key = { _, s -> "q_${s.id}" }) { idx, s ->
+                    itemsIndexed(player.queue, key = { idx, s -> "queue_${s.id}_$idx" }) { idx, s ->
                         val isCurrent = idx == player.currentIndex
                         val isDragging = draggingIndex == idx
-
-                        // Real-time neighboring card dynamic displacement to make room
-                        val shiftY by animateFloatAsState(
-                            targetValue = when {
-                                isDragging -> dragOffsetY
-                                draggingIndex != null && targetDropIndex != null -> {
-                                    val dragIdx = draggingIndex!!
-                                    val targetIdx = targetDropIndex!!
-                                    when {
-                                        dragIdx < targetIdx && idx > dragIdx && idx <= targetIdx -> -itemHeightPx
-                                        dragIdx > targetIdx && idx < dragIdx && idx >= targetIdx -> itemHeightPx
-                                        else -> 0f
-                                    }
-                                }
-                                else -> 0f
-                            },
-                            animationSpec = spring(
-                                dampingRatio = 0.85f,
-                                stiffness = 1200f
-                            ),
-                            label = "queueItemShift_$idx"
-                        )
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 3.dp)
+                                .padding(vertical = 2.5.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     if (isDragging) colors.cardElevated.copy(alpha = 0.98f)
@@ -280,12 +255,12 @@ fun XvoxMainShell(
                                     else colors.cardElevated.copy(alpha = 0.40f)
                                 )
                                 .graphicsLayer {
-                                    translationY = shiftY
-                                    scaleX = if (isDragging) 1.025f else 1f
-                                    scaleY = if (isDragging) 1.025f else 1f
-                                    shadowElevation = if (isDragging) 24f else 0f
+                                    translationY = if (isDragging) dragOffsetY else 0f
+                                    scaleX = if (isDragging) 1.03f else 1f
+                                    scaleY = if (isDragging) 1.03f else 1f
+                                    shadowElevation = if (isDragging) 20f else 0f
                                 }
-                                .zIndex(if (isDragging) 10f else 1f)
+                                .zIndex(if (isDragging) 50f else 1f)
                                 .pointerInput(idx, player.queue.size) {
                                     detectDragGesturesAfterLongPress(
                                         onDragStart = {
@@ -330,7 +305,7 @@ fun XvoxMainShell(
                             XvoxSongArtwork(
                                 artwork = s.artworkUri,
                                 requestSize = 96,
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp))
+                                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
                             )
                             Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 6.dp)) {
                                 Text(
@@ -412,11 +387,11 @@ fun XvoxMainShell(
                 .background(colors.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // FIXED TOP HEADER (Translucent Glass style)
+                // FIXED TOP HEADER (Translucent Glass style with lighter 0.55 alpha)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colors.surface.copy(alpha = 0.85f))
+                        .background(colors.surface.copy(alpha = 0.55f))
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .padding(bottom = 6.dp)
                 ) {
@@ -448,17 +423,17 @@ fun XvoxMainShell(
                             HomeGreeting()
                         }
 
-                        // Right Pill Button: Visible ON HOME ONLY, slides UP & fades out on other tabs, slides DOWN on Home!
+                        // Right Pill Button: Visible ON HOME ONLY, slides UP smoothly and gently on non-Home tabs
                         AnimatedVisibility(
                             visible = destination == XvoxDestination.HOME,
                             enter = slideInVertically(
                                 initialOffsetY = { -it },
-                                animationSpec = tween(260, easing = MainEase)
-                            ) + fadeIn(tween(200)),
+                                animationSpec = tween(380, easing = MainEase)
+                            ) + fadeIn(tween(280)),
                             exit = slideOutVertically(
                                 targetOffsetY = { -it },
-                                animationSpec = tween(220, easing = MainEase)
-                            ) + fadeOut(tween(160))
+                                animationSpec = tween(340, easing = MainEase)
+                            ) + fadeOut(tween(240))
                         ) {
                             val actionShape = RoundedCornerShape(21.dp)
                             Row(
@@ -520,7 +495,7 @@ fun XvoxMainShell(
                     }
                 }
 
-                // TAB CONTENT (Animates horizontally below the static header)
+                // TAB CONTENT
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     AnimatedContent(
                         targetState = destination,
@@ -571,7 +546,7 @@ fun XvoxMainShell(
                 player.queue.isNotEmpty()
             val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
 
-            // Keyboard-smooth miniplayer placement: sit flush above keyboard when open
+            // Keyboard-smooth miniplayer placement: equal vertical rhythm, smoothly sits above IME
             AnimatedVisibility(
                 visible = miniVisible,
                 enter = slideInVertically(tween(300, easing = MainEase)) { it } + fadeIn(tween(260)),
@@ -583,8 +558,8 @@ fun XvoxMainShell(
                     val density = LocalDensity.current
                     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
                     val animatedBottomPadding by animateDpAsState(
-                        targetValue = if (isKeyboardOpen) 4.dp else XvoxMiniPlayerPlacement.miniPlayerBottom,
-                        animationSpec = tween(durationMillis = 200, easing = MainEase),
+                        targetValue = if (isKeyboardOpen) 10.dp else 84.dp,
+                        animationSpec = tween(durationMillis = 220, easing = MainEase),
                         label = "miniPlayerBottomGap"
                     )
 
@@ -638,11 +613,12 @@ fun XvoxMainShell(
                 }
             }
 
-            // STATIC BOTTOM NAVBAR (Does NOT animate when switching tabs!)
+            // STATIC BOTTOM NAVBAR: 10dp bottom margin
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
+                    .padding(bottom = 10.dp)
             ) {
                 XvoxBottomBar(
                     selected = destination,
@@ -696,6 +672,7 @@ fun XvoxMainShell(
                         playerViewModel.seekTo(it)
                     },
                     isLiked = curSong.id in homeState.likedSongIds,
+                    isInPlaylist = isInPlaylist,
                     onToggleLiked = {
                         val wasLiked = curSong.id in homeState.likedSongIds
                         homeViewModel.toggleLiked(curSong)

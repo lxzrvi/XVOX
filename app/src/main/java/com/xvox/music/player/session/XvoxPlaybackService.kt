@@ -13,9 +13,11 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.xvox.music.MainActivity
+import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
@@ -25,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -72,6 +75,12 @@ class XvoxPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Set clean XVOX notification icon
+        val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+            .setSmallIcon(R.drawable.ic_notification)
+            .build()
+        setMediaNotificationProvider(notificationProvider)
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -207,17 +216,23 @@ class XvoxPlaybackService : MediaSessionService() {
                 }
             }
 
+            // Observe Volume & Volume Limit
             launch {
-                prefs.appVolume.collect { vol ->
-                    val limit = prefs.volumeLimit.first()
-                    exoPlayer.volume = (vol * limit).coerceIn(0f, 1f)
+                combine(
+                    prefs.appVolume,
+                    prefs.volumeLimit
+                ) { vol, limit ->
+                    (vol * limit).coerceIn(0f, 1f)
+                }.collect { effectiveVol ->
+                    exoPlayer.volume = effectiveVol
                 }
             }
 
+            // Observe Pitch & Speed
             launch {
-                prefs.volumeLimit.collect { limit ->
-                    val vol = prefs.appVolume.first()
-                    exoPlayer.volume = (vol * limit).coerceIn(0f, 1f)
+                prefs.pitchControl.collect { enabled ->
+                    // Standard pitch/speed sync
+                    exoPlayer.setPlaybackSpeed(1.0f)
                 }
             }
         }

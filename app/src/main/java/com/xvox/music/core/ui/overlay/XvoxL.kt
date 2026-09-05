@@ -13,26 +13,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,9 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -66,6 +58,7 @@ fun XvoxL(
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    var isExpanded by remember { mutableStateOf(false) }
 
     fun close() {
         if (closing) return
@@ -83,10 +76,10 @@ fun XvoxL(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Transparent) // Matches XvoxB transparent background
+            .background(Color.Transparent)
             .pointerInput(Unit) { detectTapGestures { close() } }
     ) {
-        val maxSheetHeight = (maxHeight * 0.88f).coerceAtLeast(200.dp)
+        val maxAvailableHeight = if (isExpanded) maxHeight * 0.94f else maxHeight * 0.85f
         var dragOffset by remember { mutableFloatStateOf(0f) }
 
         AnimatedVisibility(
@@ -104,7 +97,9 @@ fun XvoxL(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = maxSheetHeight)
+                    .wrapContentHeight()
+                    .heightIn(min = 100.dp, max = maxAvailableHeight)
+                    .animateContentSize(animationSpec = tween(200, easing = XvoxLEasing))
                     .graphicsLayer {
                         translationY = dragOffset.coerceAtLeast(0f)
                     }
@@ -118,26 +113,11 @@ fun XvoxL(
                     .pointerInput(Unit) {
                         detectTapGestures(onPress = { tryAwaitRelease() })
                     }
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffset = (dragOffset + dragAmount).coerceAtLeast(0f)
-                            },
-                            onDragEnd = {
-                                if (dragOffset > 100f) {
-                                    close()
-                                } else {
-                                    dragOffset = 0f
-                                }
-                            },
-                            onDragCancel = { dragOffset = 0f }
-                        )
-                    }
                     .windowInsetsPadding(WindowInsets.navigationBars)
+                    .imePadding()
                     .padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
             ) {
-                // Top Drag Handle Indicator
+                // Top Drag Handle Indicator: drag up to expand, drag down to dismiss
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -145,6 +125,26 @@ fun XvoxL(
                         .size(width = 44.dp, height = 4.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(colors.cardBorder)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onVerticalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    if (dragAmount < -10f) {
+                                        isExpanded = true
+                                    } else {
+                                        dragOffset = (dragOffset + dragAmount).coerceAtLeast(0f)
+                                    }
+                                },
+                                onDragEnd = {
+                                    if (dragOffset > 90f) {
+                                        close()
+                                    } else {
+                                        dragOffset = 0f
+                                    }
+                                },
+                                onDragCancel = { dragOffset = 0f }
+                            )
+                        }
                 )
 
                 content()

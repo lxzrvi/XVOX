@@ -116,6 +116,7 @@ fun XvoxNowPlaying(
     playerStyle: XvoxPlayerStyle = XvoxPlayerStyle.NORMAL,
     sleepTimerProgress: Float? = null,
     playingSource: String = "All Songs",
+    isInPlaylist: Boolean = false,
     lyricsViewModel: XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
@@ -338,6 +339,7 @@ fun XvoxNowPlaying(
             ) {
                 NowPlayingActions(
                     isLiked = isLiked,
+                    isInPlaylist = isInPlaylist,
                     onTimer = {
                         haptics.tap()
                         onTimer?.invoke()
@@ -858,6 +860,7 @@ private fun QuickOptionButton(
 @Composable
 private fun NowPlayingActions(
     isLiked: Boolean = false,
+    isInPlaylist: Boolean = false,
     onTimer: (() -> Unit)? = null,
     onQueue: (() -> Unit)? = null,
     onInfo: (() -> Unit)? = null,
@@ -884,7 +887,11 @@ private fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
-        NowPlayingCircleAction(R.drawable.ic_xvox_star, onClick = onStarPlaylist)
+        NowPlayingCircleAction(
+            R.drawable.ic_xvox_star,
+            tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
+            onClick = onStarPlaylist
+        )
 
         Spacer(Modifier.size(10.dp))
 
@@ -937,7 +944,7 @@ private fun NowPlayingActionIcon(
         Icon(
             painter = painterResource(resource),
             contentDescription = null,
-            tint = colors.primaryAccent,
+            tint = colors.primaryText,
             modifier = Modifier.size(19.dp)
         )
     }

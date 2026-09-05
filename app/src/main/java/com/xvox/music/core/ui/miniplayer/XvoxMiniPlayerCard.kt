@@ -49,55 +49,25 @@ fun XvoxMiniPlayerCard(
     togglePlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
-    val cardShape =
-        RoundedCornerShape(
-            15.dp
-        )
+    val cardShape = RoundedCornerShape(15.dp)
+    val artworkShape = RoundedCornerShape(11.dp)
 
-    val artworkShape =
-        RoundedCornerShape(
-            11.dp
-        )
+    val controlInteraction = remember { MutableInteractionSource() }
 
-    val controlInteraction =
-        remember {
-            MutableInteractionSource()
-        }
-
-    val progress =
-        if (duration > 0L) {
-            (
-                position.toFloat() /
-                    duration.toFloat()
-                )
-                .coerceIn(
-                    0f,
-                    1f
-                )
-        } else {
-            0f
-        }
+    val progress = if (duration > 0L) {
+        (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            /*
-             * Clip BEFORE drawing background, border and
-             * progress children.
-             *
-             * Children physically cannot paint outside the
-             * rounded card bounds.
-             */
             .clip(cardShape)
-            .background(
-                colors.surface.copy(
-                    alpha = 0.88f
-                )
-            )
+            .background(colors.surface.copy(alpha = 0.88f))
     ) {
         Row(
             modifier = Modifier
@@ -108,43 +78,26 @@ fun XvoxMiniPlayerCard(
                     end = 50.dp,
                     bottom = 4.dp
                 ),
-            verticalAlignment =
-                Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .size(50.dp)
-                    .clip(
-                        artworkShape
-                    )
+                    .clip(artworkShape)
             ) {
                 AnimatedContent(
-                    targetState =
-                        song,
-                    contentKey = {
-                        it.id
-                    },
+                    targetState = song,
+                    contentKey = { it.id },
                     transitionSpec = {
-                        fadeIn(
-                            tween(180)
-                        ).togetherWith(
-                            fadeOut(
-                                tween(140)
-                            )
-                        )
+                        fadeIn(tween(180)).togetherWith(fadeOut(tween(140)))
                     },
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    label =
-                        "miniArtworkFade"
+                    modifier = Modifier.fillMaxSize(),
+                    label = "miniArtworkFade"
                 ) { visualSong ->
                     XvoxSongArtwork(
-                        artwork =
-                            visualSong
-                                .artworkUri,
+                        artwork = visualSong.artworkUri,
                         requestSize = 160,
-                        modifier =
-                            Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
@@ -155,117 +108,49 @@ fun XvoxMiniPlayerCard(
                     .height(50.dp)
             ) {
                 AnimatedContent(
-                    targetState =
-                        song,
-                    contentKey = {
-                        it.id
-                    },
+                    targetState = song,
+                    contentKey = { it.id },
                     transitionSpec = {
                         when {
                             direction > 0 -> {
-                                (
-                                    fadeIn(
-                                        tween(150)
-                                    ) +
-                                        slideInVertically(
-                                            animationSpec =
-                                                tween(200),
-                                            initialOffsetY = {
-                                                it
-                                            }
-                                        )
-                                    )
-                                    .togetherWith(
-                                        fadeOut(
-                                            tween(120)
-                                        ) +
-                                            slideOutVertically(
-                                                animationSpec =
-                                                    tween(180),
-                                                targetOffsetY = {
-                                                    -it
-                                                }
-                                            )
-                                    )
+                                (fadeIn(tween(150)) + slideInVertically(animationSpec = tween(200), initialOffsetY = { it }))
+                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically(animationSpec = tween(180), targetOffsetY = { -it }))
                             }
-
                             direction < 0 -> {
-                                (
-                                    fadeIn(
-                                        tween(150)
-                                    ) +
-                                        slideInVertically(
-                                            animationSpec =
-                                                tween(200),
-                                            initialOffsetY = {
-                                                -it
-                                            }
-                                        )
-                                    )
-                                    .togetherWith(
-                                        fadeOut(
-                                            tween(120)
-                                        ) +
-                                            slideOutVertically(
-                                                animationSpec =
-                                                    tween(180),
-                                                targetOffsetY = {
-                                                    it
-                                                }
-                                            )
-                                    )
+                                (fadeIn(tween(150)) + slideInVertically(animationSpec = tween(200), initialOffsetY = { -it }))
+                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically(animationSpec = tween(180), targetOffsetY = { it }))
                             }
-
                             else -> {
-                                fadeIn(
-                                    tween(140)
-                                ).togetherWith(
-                                    fadeOut(
-                                        tween(100)
-                                    )
-                                )
+                                fadeIn(tween(140)).togetherWith(fadeOut(tween(100)))
                             }
                         }
                     },
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    label =
-                        "miniMetadataSlide"
+                    modifier = Modifier.fillMaxSize(),
+                    label = "miniMetadataSlide"
                 ) { visualSong ->
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(
-                                start = 9.dp,
-                                end = 5.dp
-                            ),
-                        verticalArrangement =
-                            Arrangement.Center
+                            .padding(start = 9.dp, end = 5.dp),
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text =
-                                visualSong.title,
-                            color =
-                                colors.primaryText,
+                            text = visualSong.title,
+                            color = colors.primaryText,
                             fontSize = 12.sp,
                             lineHeight = 14.sp,
-                            fontWeight =
-                                FontWeight.SemiBold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
-                            overflow =
-                                TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         Text(
-                            text =
-                                visualSong.artist,
-                            color =
-                                colors.secondaryText,
+                            text = visualSong.artist,
+                            color = colors.secondaryText,
                             fontSize = 9.sp,
                             lineHeight = 11.sp,
                             maxLines = 1,
-                            overflow =
-                                TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -274,97 +159,61 @@ fun XvoxMiniPlayerCard(
 
         Box(
             modifier = Modifier
-                .align(
-                    Alignment.CenterEnd
-                )
-                .padding(
-                    end = 7.dp
-                )
+                .align(Alignment.CenterEnd)
+                .padding(end = 7.dp)
                 .size(38.dp)
-                .clip(
-                    CircleShape
-                )
-                .background(
-                    colors.cardElevated.copy(
-                        alpha = 0.68f
-                    )
-                )
+                .clip(CircleShape)
+                .background(colors.cardElevated.copy(alpha = 0.68f))
                 .border(
                     width = 0.5.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        CircleShape
+                    color = colors.cardBorder,
+                    shape = CircleShape
                 )
                 .clickable(
-                    interactionSource =
-                        controlInteraction,
+                    interactionSource = controlInteraction,
                     indication = null,
-                    onClick =
-                        togglePlay
+                    onClick = togglePlay
                 ),
-            contentAlignment =
-                Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             XvoxMiniPlayerIcon(
-                icon =
-                    if (isPlaying) {
-                        XvoxMiniIcon.PAUSE
-                    } else {
-                        XvoxMiniIcon.PLAY
-                    },
-                color =
-                    colors.primaryText,
-                modifier =
-                    Modifier.size(18.dp)
+                icon = if (isPlaying) XvoxMiniIcon.PAUSE else XvoxMiniIcon.PLAY,
+                color = colors.primaryText,
+                modifier = Modifier.size(18.dp)
             )
         }
 
         /*
-         * ====================================================
-         * BOTTOM PROGRESS BAR (FLUSH AGAINST BOTTOM CARD BORDER)
-         * ====================================================
+         * TOP PROGRESS BAR (Flush against top card border, clipped cleanly inside cardShape)
          */
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.5.dp)
-                .align(
-                    Alignment.BottomStart
-                )
+                .align(Alignment.TopStart)
         ) {
             if (progress > 0f) {
                 drawRect(
-                    color =
-                        colors.primaryAccent,
-                    topLeft =
-                        Offset.Zero,
-                    size =
-                        Size(
-                            width =
-                                size.width * progress,
-                            height =
-                                size.height
-                        )
+                    color = colors.primaryAccent,
+                    topLeft = Offset.Zero,
+                    size = Size(
+                        width = size.width * progress,
+                        height = size.height
+                    )
                 )
             }
         }
 
         /*
-         * Border is drawn LAST.
-         *
-         * So even at the top edge the border visually owns
-         * the outside perimeter and progress stays inside it.
+         * Outer border drawn LAST so the perimeter finishing is crisp and never conflicted
          */
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .border(
                     width = 0.65.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        cardShape
+                    color = colors.cardBorder,
+                    shape = cardShape
                 )
         )
     }

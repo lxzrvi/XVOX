@@ -190,7 +190,15 @@ object XvoxWidgetHelper {
             views.setTextColor(R.id.widget_song_artist, secondaryTextColor)
         }
 
-        // 7. Buttons: Play/Pause, Next, Prev, Like
+        // 7. Progress Bar
+        if (state.duration > 0L) {
+            val progressInt = ((state.currentPosition.toFloat() / state.duration.toFloat()) * 1000).toInt().coerceIn(0, 1000)
+            runCatching { views.setProgressBar(R.id.widget_progress_bar, 1000, progressInt, false) }
+        } else {
+            runCatching { views.setProgressBar(R.id.widget_progress_bar, 1000, 0, false) }
+        }
+
+        // 8. Buttons: Play/Pause, Next, Prev, Like
         val playPauseRes = if (state.isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play
         views.setImageViewResource(R.id.widget_btn_play_pause, playPauseRes)
         views.setInt(R.id.widget_btn_play_pause, "setColorFilter", accentColor)
@@ -201,7 +209,7 @@ object XvoxWidgetHelper {
         views.setImageViewResource(R.id.widget_btn_like, heartRes)
         views.setInt(R.id.widget_btn_like, "setColorFilter", if (state.isLiked) Color.parseColor("#FF453A") else secondaryTextColor)
 
-        // 8. Pending Intents
+        // 9. Pending Intents
         views.setOnClickPendingIntent(R.id.widget_btn_play_pause, createBroadcastPendingIntent(context, ACTION_PLAY_PAUSE, 101))
         views.setOnClickPendingIntent(R.id.widget_btn_prev, createBroadcastPendingIntent(context, ACTION_PREVIOUS, 102))
         views.setOnClickPendingIntent(R.id.widget_btn_next, createBroadcastPendingIntent(context, ACTION_NEXT, 103))

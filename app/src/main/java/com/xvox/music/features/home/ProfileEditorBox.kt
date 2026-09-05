@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -15,9 +16,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,14 +34,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferences
-import com.xvox.music.features.setup.PfpCarousel
+import com.xvox.music.features.setup.PfpIcon
 import com.xvox.music.features.setup.PfpType
 
 @Composable
@@ -67,33 +78,100 @@ fun ProfileEditorBox(
     val canSave = name.isNotBlank() && (selected != PfpType.CUSTOM || customUri != null)
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Text(
             text = "Edit Profile",
             color = colors.primaryText,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(end = 48.dp, bottom = 12.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        PfpCarousel(
-            selected = selected,
-            username = name,
-            customPfpUri = customUri,
-            onSelected = {
-                haptics.tap()
-                selected = it
-            },
-            onAddClick = {
-                haptics.tap()
-                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        // Avatar selector row
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items(PfpType.entries.toTypedArray()) { type ->
+                val isSelected = selected == type
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(colors.cardElevated)
+                        .border(
+                            width = if (isSelected) 2.dp else 0.7.dp,
+                            color = if (isSelected) colors.primaryAccent else colors.cardBorder,
+                            shape = CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            haptics.tap()
+                            if (type == PfpType.CUSTOM) {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            } else {
+                                selected = type
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        type == PfpType.DEFAULT -> {
+                            Text(
+                                text = name.firstOrNull()?.uppercase() ?: "X",
+                                color = if (isSelected) colors.primaryAccent else colors.primaryText,
+                                fontFamily = XvoxPersonalFont,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        type == PfpType.CUSTOM && customUri != null -> {
+                            AsyncImage(
+                                model = customUri,
+                                contentDescription = "Custom picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(54.dp).clip(CircleShape)
+                            )
+                        }
+
+                        type == PfpType.CUSTOM -> {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_add),
+                                contentDescription = "Pick photo",
+                                tint = if (isSelected) colors.primaryAccent else colors.primaryText,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        else -> {
+                            PfpIcon(
+                                type = type,
+                                color = if (isSelected) colors.primaryAccent else colors.primaryText,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
             }
-        )
+        }
 
         Spacer(Modifier.height(14.dp))
 
-        Text(text = "Username", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+        Text(
+            text = "Username",
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
 
         BasicTextField(
             value = name,
@@ -108,7 +186,10 @@ fun ProfileEditorBox(
                 .background(colors.card),
             decorationBox = { field ->
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     field()
@@ -116,9 +197,9 @@ fun ProfileEditorBox(
             }
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
 
-        // Compact Action Buttons with bottom margin
+        // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.Center

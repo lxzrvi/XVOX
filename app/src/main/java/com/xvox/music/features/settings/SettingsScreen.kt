@@ -481,6 +481,7 @@ fun SettingsScreen(
                                             }
                                         },
                                         valueRange = -15f..15f,
+                                        defaultValue = 0f,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text(
@@ -512,6 +513,7 @@ fun SettingsScreen(
                                             scope.launch { prefs.setBassBoostStrength(it.roundToInt()) }
                                         },
                                         valueRange = 0f..1000f,
+                                        defaultValue = 0f,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text("${(bassBoostStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(36.dp))
@@ -535,6 +537,7 @@ fun SettingsScreen(
                                             scope.launch { prefs.setVirtualizerStrength(it.roundToInt()) }
                                         },
                                         valueRange = 0f..1000f,
+                                        defaultValue = 0f,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text("${(virtualizerStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(36.dp))
@@ -558,6 +561,7 @@ fun SettingsScreen(
                                             scope.launch { prefs.setLoudnessGainMb(it.roundToInt()) }
                                         },
                                         valueRange = 0f..2000f,
+                                        defaultValue = 0f,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text("+${(loudnessGainMb / 100)} dB", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(44.dp))
@@ -578,6 +582,7 @@ fun SettingsScreen(
                                         scope.launch { prefs.setBalance(it) }
                                     },
                                     valueRange = -1.0f..1.0f,
+                                    defaultValue = 0f,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text("R", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(18.dp))
@@ -616,6 +621,7 @@ fun SettingsScreen(
                                     scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) }
                                 },
                                 valueRange = 1f..12f,
+                                defaultValue = 3f,
                                 modifier = Modifier.weight(1f)
                             )
                             Text("${crossfadeDuration}s", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(32.dp))
@@ -695,6 +701,7 @@ fun SettingsScreen(
                             scope.launch { prefs.setAppVolume(it) }
                         },
                         valueRange = 0f..1f,
+                        defaultValue = 1.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -721,6 +728,7 @@ fun SettingsScreen(
                             scope.launch { prefs.setVolumeLimit(it) }
                         },
                         valueRange = 0.5f..1.0f,
+                        defaultValue = 1.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -809,6 +817,7 @@ fun SettingsScreen(
                             scope.launch { prefs.setWidgetTransparency(it) }
                         },
                         valueRange = 0.0f..1.0f,
+                        defaultValue = 0.25f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -872,6 +881,7 @@ fun SettingsScreen(
                             scope.launch { prefs.setWidgetCornerRadius(it.toInt()) }
                         },
                         valueRange = 12f..36f,
+                        defaultValue = 24f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -930,26 +940,44 @@ fun XvoxThinLineSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    defaultValue: Float? = null
 ) {
     val colors = XvoxTheme.colors
-    val fraction = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
+    val haptics = LocalXvoxHaptics.current
+    val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
+    val fraction = ((value - valueRange.start) / totalSpan).coerceIn(0f, 1f)
+    val snapThreshold = totalSpan * 0.045f
+
+    val defaultFraction = if (defaultValue != null) {
+        ((defaultValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
+    } else null
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(24.dp)
-            .pointerInput(valueRange) {
+            .height(26.dp)
+            .pointerInput(valueRange, defaultValue) {
                 detectTapGestures { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    val newValue = valueRange.start + newFraction * (valueRange.endInclusive - valueRange.start)
+                    var newValue = valueRange.start + newFraction * totalSpan
+                    if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                        newValue = defaultValue
+                        haptics.sliderTick()
+                    }
                     onValueChange(newValue)
                 }
             }
-            .pointerInput(valueRange) {
+            .pointerInput(valueRange, defaultValue) {
                 detectDragGestures { change, _ ->
                     val newFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    val newValue = valueRange.start + newFraction * (valueRange.endInclusive - valueRange.start)
+                    var newValue = valueRange.start + newFraction * totalSpan
+                    if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                        if (value != defaultValue) {
+                            haptics.sliderTick()
+                        }
+                        newValue = defaultValue
+                    }
                     onValueChange(newValue)
                 }
             },
@@ -963,6 +991,23 @@ fun XvoxThinLineSlider(
                 .clip(RoundedCornerShape(2.dp))
                 .background(colors.cardBorder)
         )
+
+        // Default value vertical notch indicator / symbol
+        if (defaultFraction != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(defaultFraction)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(width = 2.5.dp, height = 10.dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(colors.primaryText.copy(alpha = 0.65f))
+                )
+            }
+        }
+
         // Active accent track (NO THUMB CIRCLE, NO DOT)
         Box(
             modifier = Modifier

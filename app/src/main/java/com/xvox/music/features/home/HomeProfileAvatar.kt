@@ -42,8 +42,8 @@ fun HomeProfileAvatar(
             .clip(CircleShape)
             .background(colors.cardElevated)
             .border(
-                width = 1.5.dp,
-                color = colors.primaryAccent,
+                width = 0.7.dp,
+                color = colors.cardBorder,
                 shape = CircleShape
             )
             .then(
