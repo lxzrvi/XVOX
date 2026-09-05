@@ -570,8 +570,7 @@ fun HomeScreen(
                 Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
-                    top =
-                    headerSpace,
+                    top = 4.dp,
                 ),
         ) {
             item(
@@ -781,34 +780,5 @@ fun HomeScreen(
                 )
             }
         }
-
-        HomeGlassHeader(
-            profile =
-                state.profile,
-            libraryMode =
-                state.libraryMode,
-            onProfileClick =
-                ::showProfileEditor,
-            onRefresh = {
-                showLibraryRefresh(
-                    overlays =
-                    overlays,
-                    viewModel =
-                    viewModel,
-                )
-            },
-            onHeartClick = {
-                setSelectedPlaylistId(null)
-
-                viewModel
-                    .toggleLikedMode()
-            },
-            onLibraryModeClick = {
-                setSelectedPlaylistId(null)
-
-                viewModel
-                    .togglePlaylistMode()
-            },
-        )
     }
 }

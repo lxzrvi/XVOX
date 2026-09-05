@@ -2,10 +2,8 @@ package com.xvox.music
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,7 +14,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +32,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -75,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -85,9 +84,12 @@ import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.home.CreatePlaylistBox
+import com.xvox.music.features.home.HomeGreeting
+import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.PlaylistPickerBox
+import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.search.SearchScreen
@@ -121,6 +123,20 @@ fun XvoxMainShell(
             player.queue.firstOrNull { it.id == id }
                 ?: homeState.songs.firstOrNull { it.id == id }
         }
+
+    fun showProfileEditor() {
+        overlays.showB {
+            ProfileEditorBox(
+                profile = homeState.profile,
+                onCancel = { overlays.hideB() },
+                onSave = { name, pfp, uri ->
+                    homeViewModel.saveProfile(name, pfp, uri)
+                    overlays.hideB()
+                    overlays.showP("Profile updated")
+                }
+            )
+        }
+    }
 
     // Helper to show playlist picker for miniplayer add button and now playing star
     fun showPlaylistPickerForSong(song: Song) {
@@ -208,15 +224,6 @@ fun XvoxMainShell(
                         val isCurrent = idx == player.currentIndex
                         val isDragging = draggingIndex == idx
 
-                        val gapShift = when {
-                            draggingOriginal == null || targetIndex == null -> 0f
-                            isDragging -> 0f
-                            draggingOriginal!! < targetIndex!! && idx in (draggingOriginal!! + 1)..targetIndex!! -> -itemHeightPx
-                            draggingOriginal!! > targetIndex!! && idx in targetIndex!! until draggingOriginal!! -> itemHeightPx
-                            else -> 0f
-                        }
-                        val animGap by animateFloatAsState(targetValue = gapShift, animationSpec = tween(180), label = "gap")
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -224,7 +231,7 @@ fun XvoxMainShell(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isCurrent) colors.card.copy(alpha = 0.95f) else colors.cardElevated.copy(alpha = 0.40f))
                                 .graphicsLayer {
-                                    translationY = if (isDragging) dragOffset else animGap
+                                    translationY = if (isDragging) dragOffset else 0f
                                     shadowElevation = if (isDragging) 18f else 0f
                                 }
                                 .zIndex(if (isDragging) 4f else 0f)
@@ -259,19 +266,52 @@ fun XvoxMainShell(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            if (isCurrent && player.isPlaying) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_equalizer),
-                                    contentDescription = null,
-                                    tint = colors.primaryAccent,
-                                    modifier = Modifier.size(16.dp).padding(end = 6.dp)
-                                )
+
+                            // Reorder Controls: Move Up & Move Down & Drag Handle
+                            if (idx > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            haptics.tap()
+                                            playerViewModel.moveQueueItem(idx, idx - 1)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_xvox_collapse),
+                                        contentDescription = "Move Up",
+                                        tint = colors.secondaryText,
+                                        modifier = Modifier.size(15.dp).graphicsLayer { rotationZ = 180f }
+                                    )
+                                }
+                            }
+
+                            if (idx < player.queue.lastIndex) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            haptics.tap()
+                                            playerViewModel.moveQueueItem(idx, idx + 1)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_xvox_collapse),
+                                        contentDescription = "Move Down",
+                                        tint = colors.secondaryText,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
                             }
 
                             // Tactile Drag Handle
                             Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(32.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .pointerInput(idx, player.queue.size) {
                                         detectDragGesturesAfterLongPress(
@@ -291,7 +331,7 @@ fun XvoxMainShell(
                                                 dragOffset = 0f
                                                 if (from != null && to != null && from != to) {
                                                     scope.launch {
-                                                        delay(50)
+                                                        delay(30)
                                                         playerViewModel.moveQueueItem(from, to)
                                                     }
                                                 }
@@ -318,7 +358,7 @@ fun XvoxMainShell(
                                     painter = painterResource(R.drawable.ic_xvox_queue),
                                     contentDescription = "Reorder",
                                     tint = colors.secondaryText,
-                                    modifier = Modifier.size(17.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -369,53 +409,90 @@ fun XvoxMainShell(
         }
     }
 
-    val density = LocalDensity.current
-    val navBarsBottom = WindowInsets.navigationBars.getBottom(density)
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    val isKeyboardOpen = imeBottom > navBarsBottom
-
     CompositionLocalProvider(LocalXvoxHaptics provides haptics) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(colors.background)
         ) {
-            AnimatedContent(
-                targetState = destination,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
-                        .togetherWith(fadeOut(animationSpec = tween(160)))
-                },
-                label = "tab_switch_transition",
-                modifier = Modifier.fillMaxSize()
-            ) { targetDest ->
-                when (targetDest) {
-                    XvoxDestination.HOME -> {
-                        HomeScreen(
-                            currentSongId = player.currentSongId,
-                            isPlaying = player.isPlaying,
-                            homeResetKey = homeResetKey,
-                            selectedPlaylistId = hoistedSelectedPlaylistId,
-                            onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                            onQueueReady = playerViewModel::setQueue,
-                            onPlay = playerViewModel::play,
-                            playerViewModel = playerViewModel,
-                        )
-                    }
-
-                    XvoxDestination.SEARCH -> {
-                        SearchScreen(
-                            homeViewModel = homeViewModel,
-                            playerViewModel = playerViewModel,
-                            onPlaylistSelected = { playlistId ->
-                                hoistedSelectedPlaylistId = playlistId
-                                destination = XvoxDestination.HOME
+            Column(modifier = Modifier.fillMaxSize()) {
+                // FIXED TOP HEADER (Does NOT animate when switching tabs!)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colors.background)
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(bottom = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 14.dp)
+                            .height(54.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HomeProfileAvatar(
+                            profile = homeState.profile,
+                            modifier = Modifier.size(42.dp),
+                            onClick = {
+                                haptics.tap()
+                                showProfileEditor()
                             }
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = homeState.profile.username,
+                                color = colors.primaryText,
+                                fontFamily = XvoxPersonalFont,
+                                fontSize = 18.sp,
+                                lineHeight = 19.sp,
+                                maxLines = 1
+                            )
+                            HomeGreeting()
+                        }
                     }
+                }
 
-                    XvoxDestination.SETTINGS -> {
-                        SettingsScreen(homeViewModel = homeViewModel)
+                // TAB CONTENT (Animates horizontally below the static header)
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    AnimatedContent(
+                        targetState = destination,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
+                                .togetherWith(fadeOut(animationSpec = tween(160)))
+                        },
+                        label = "tab_switch_transition",
+                        modifier = Modifier.fillMaxSize()
+                    ) { targetDest ->
+                        when (targetDest) {
+                            XvoxDestination.HOME -> {
+                                HomeScreen(
+                                    currentSongId = player.currentSongId,
+                                    isPlaying = player.isPlaying,
+                                    homeResetKey = homeResetKey,
+                                    selectedPlaylistId = hoistedSelectedPlaylistId,
+                                    onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
+                                    onQueueReady = playerViewModel::setQueue,
+                                    onPlay = playerViewModel::play,
+                                    playerViewModel = playerViewModel,
+                                )
+                            }
+
+                            XvoxDestination.SEARCH -> {
+                                SearchScreen(
+                                    homeViewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    onPlaylistSelected = { playlistId ->
+                                        hoistedSelectedPlaylistId = playlistId
+                                        destination = XvoxDestination.HOME
+                                    }
+                                )
+                            }
+
+                            XvoxDestination.SETTINGS -> {
+                                SettingsScreen(homeViewModel = homeViewModel)
+                            }
+                        }
                     }
                 }
             }
@@ -427,14 +504,11 @@ fun XvoxMainShell(
                 player.queue.isNotEmpty()
             val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
 
-            // Keyboard-smooth miniplayer placement: stays perfectly at resting spot on keyboard close
-            val targetBottom = if (isKeyboardOpen) 8.dp else XvoxMiniPlayerPlacement.miniPlayerBottom
-            val animatedBottom by animateDpAsState(targetValue = targetBottom, animationSpec = tween(180), label = "mini_bottom")
-
+            // Keyboard-smooth miniplayer placement: stable anchoring with navigation & IME
             AnimatedVisibility(
                 visible = miniVisible,
-                enter = slideInVertically(tween(260, easing = MainEase)) { it } + fadeIn(tween(240)),
-                exit = slideOutVertically(tween(240, easing = MainEase)) { it } + fadeOut(tween(200)),
+                enter = slideInVertically(tween(300, easing = MainEase)) { it } + fadeIn(tween(260)),
+                exit = slideOutVertically(tween(260, easing = MainEase)) { it } + fadeOut(tween(200)),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 val visSongId = if (miniVisibleBase) currentSongId else null
@@ -445,7 +519,7 @@ fun XvoxMainShell(
                         .padding(
                             start = XvoxMiniPlayerPlacement.horizontalEdge,
                             end = XvoxMiniPlayerPlacement.horizontalEdge,
-                            bottom = animatedBottom,
+                            bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
                         )
 
                     XvoxMiniPlayer(
@@ -491,30 +565,29 @@ fun XvoxMainShell(
                 }
             }
 
-            if (!isKeyboardOpen) {
-                XvoxBottomBar(
-                    selected = destination,
-                    onSelected = { selected ->
-                        haptics.tap()
-                        if (selected == XvoxDestination.HOME && destination == XvoxDestination.HOME) {
-                            homeResetKey++
-                            hoistedSelectedPlaylistId = null
-                        } else {
-                            destination = selected
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(bottom = XvoxMiniPlayerPlacement.navigationHostBottom),
-                )
-            }
+            // Fixed Bottom Bar anchored to navigation bar
+            XvoxBottomBar(
+                selected = destination,
+                onSelected = { selected ->
+                    haptics.tap()
+                    if (selected == XvoxDestination.HOME && destination == XvoxDestination.HOME) {
+                        homeResetKey++
+                        hoistedSelectedPlaylistId = null
+                    } else {
+                        destination = selected
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(bottom = XvoxMiniPlayerPlacement.navigationHostBottom),
+            )
 
             // NowPlaying Presentation with silky smooth slide transition
             AnimatedVisibility(
                 visible = player.nowPlayingVisible && currentSong != null,
-                enter = slideInVertically(tween(300, easing = MainEase)) { it } + fadeIn(tween(220)),
-                exit = slideOutVertically(tween(260, easing = MainEase)) { it } + fadeOut(tween(200)),
+                enter = slideInVertically(tween(350, easing = MainEase)) { it } + fadeIn(tween(260)),
+                exit = slideOutVertically(tween(320, easing = MainEase)) { it } + fadeOut(tween(220)),
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (currentSong != null) {

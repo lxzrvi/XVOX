@@ -119,7 +119,7 @@ fun XvoxNowPlayingArtworkPager(
                 .requiredWidth(screenWidth)
                 .fillMaxSize(),
             pageSize = PageSize.Fill,
-            pageSpacing = 0.dp, // No gap between pages so next cover never peeks
+            pageSpacing = 0.dp, // Zero peeking
             beyondViewportPageCount = 1,
             verticalAlignment = Alignment.CenterVertically
         ) { page ->
@@ -128,7 +128,7 @@ fun XvoxNowPlayingArtworkPager(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 14.dp) // Matches All Songs card sides gap
+                        .padding(horizontal = 8.dp) // Exact tight margin matching All Songs card gap
                         .clip(RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {

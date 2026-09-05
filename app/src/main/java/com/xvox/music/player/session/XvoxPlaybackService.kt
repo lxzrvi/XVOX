@@ -89,7 +89,9 @@ class XvoxPlaybackService : MediaSessionService() {
 
         // Attach DSP & Equalizer engine
         val sessionId = exoPlayer.audioSessionId
-        AudioEffectsManager.attachAudioSession(sessionId, this)
+        if (sessionId > 0) {
+            AudioEffectsManager.attachAudioSession(sessionId, this)
+        }
 
         val sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
@@ -104,21 +106,37 @@ class XvoxPlaybackService : MediaSessionService() {
             .setSessionActivity(sessionActivityPendingIntent)
             .build()
 
-        // Listen to Player Events to sync widgets and handle playback transitions
+        // Listen to Player Events to sync widgets and handle playback transitions & DSP
         exoPlayer.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
+                val sid = exoPlayer.audioSessionId
+                if (sid > 0) {
+                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
+                }
                 syncWidgetState(player)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val sid = exoPlayer.audioSessionId
+                if (sid > 0) {
+                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
+                }
                 syncWidgetState(exoPlayer)
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val sid = exoPlayer.audioSessionId
+                if (sid > 0) {
+                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
+                }
                 syncWidgetState(exoPlayer)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                val sid = exoPlayer.audioSessionId
+                if (sid > 0) {
+                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
+                }
                 syncWidgetState(exoPlayer)
             }
         })

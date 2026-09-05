@@ -12,7 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -33,7 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -167,14 +165,14 @@ fun XvoxNowPlaying(
         haptics.tap()
         animateScreen(
             target = screenHeight,
-            durationMs = 240,
+            durationMs = 350,
             finished = onClose
         )
     }
 
     fun returnToRest() {
         val fraction = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 1f
-        animateScreen(0f, (240 * fraction).toInt().coerceAtLeast(120))
+        animateScreen(0f, (350 * fraction).toInt().coerceAtLeast(140))
     }
 
     fun requestPrevious() {
@@ -290,7 +288,7 @@ fun XvoxNowPlaying(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                    .padding(horizontal = 2.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (showLyrics) {
@@ -302,12 +300,12 @@ fun XvoxNowPlaying(
                         onDelete = lyricsViewModel::removeCustom,
                         onClose = {
                             haptics.tap()
-                            showLyrics = false // ONLY closes lyrics, does NOT change songs or close player
+                            showLyrics = false // ONLY closes lyrics
                         },
                         onFullscreen = lyricsViewModel::openFullscreen,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 14.dp)
+                            .padding(horizontal = 8.dp)
                             .clip(RoundedCornerShape(20.dp))
                     )
                 } else {
@@ -482,7 +480,7 @@ private fun NowPlayingOptionsSheet(
         closing = true
         visible = false
         scope.launch {
-            delay(240L)
+            delay(280L)
             onDismiss()
         }
     }
@@ -493,7 +491,7 @@ private fun NowPlayingOptionsSheet(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Transparent) // Matches XvoxB transparent backdrop
+            .background(Color.Transparent)
             .pointerInput(Unit) { detectTapGestures { close() } }
     ) {
         val maxSheetHeight = (maxHeight * 0.85f).coerceAtLeast(280.dp)
@@ -503,12 +501,12 @@ private fun NowPlayingOptionsSheet(
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = tween(280, easing = NowPlayingEasing)
-            ) + fadeIn(tween(220, easing = NowPlayingEasing)),
+                animationSpec = tween(350, easing = NowPlayingEasing)
+            ) + fadeIn(tween(260, easing = NowPlayingEasing)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = tween(240, easing = NowPlayingEasing)
-            ) + fadeOut(tween(180, easing = NowPlayingEasing))
+                animationSpec = tween(320, easing = NowPlayingEasing)
+            ) + fadeOut(tween(220, easing = NowPlayingEasing))
         ) {
             Column(
                 modifier = Modifier

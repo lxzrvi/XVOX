@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object AudioEffectsManager {
@@ -29,39 +30,61 @@ object AudioEffectsManager {
     // Standard preset band levels in dB (-15 to +15)
     val PRESETS = mapOf(
         "Flat" to listOf(0, 0, 0, 0, 0),
-        "Bass Boost" to listOf(6, 4, 1, 0, -1),
-        "Treble" to listOf(-1, 0, 1, 4, 6),
-        "Rock" to listOf(4, 2, -1, 2, 4),
-        "Pop" to listOf(-1, 2, 4, 2, -1),
-        "Jazz" to listOf(3, 1, -1, 2, 3),
-        "Electronic" to listOf(5, 3, 0, 2, 4),
-        "Vocal" to listOf(-2, 1, 5, 3, 0)
+        "Bass Boost" to listOf(7, 5, 2, 0, -1),
+        "Treble" to listOf(-2, 0, 2, 5, 7),
+        "Rock" to listOf(5, 3, -1, 3, 5),
+        "Pop" to listOf(-1, 3, 5, 3, -1),
+        "Jazz" to listOf(4, 2, -1, 2, 4),
+        "Electronic" to listOf(6, 4, 0, 3, 5),
+        "Vocal" to listOf(-3, 1, 6, 4, 1)
     )
 
     fun attachAudioSession(sessionId: Int, context: Context) {
         if (sessionId <= 0) return
-        if (currentSessionId == sessionId && equalizer != null) return
+        if (currentSessionId == sessionId && equalizer != null) {
+            // Already attached, ensure values are fresh
+            applyAllCurrent(context)
+            return
+        }
 
         releaseEffects()
         currentSessionId = sessionId
 
         runCatching {
-            equalizer = Equalizer(0, sessionId).apply {
+            equalizer = Equalizer(1000, sessionId).apply {
                 enabled = true
             }
-        }.onFailure { Log.e(TAG, "Failed to init Equalizer: ${it.message}") }
+        }.onFailure {
+            runCatching {
+                equalizer = Equalizer(0, sessionId).apply {
+                    enabled = true
+                }
+            }.onFailure { Log.e(TAG, "Failed to init Equalizer: ${it.message}") }
+        }
 
         runCatching {
-            bassBoost = BassBoost(0, sessionId).apply {
+            bassBoost = BassBoost(1000, sessionId).apply {
                 enabled = true
             }
-        }.onFailure { Log.e(TAG, "Failed to init BassBoost: ${it.message}") }
+        }.onFailure {
+            runCatching {
+                bassBoost = BassBoost(0, sessionId).apply {
+                    enabled = true
+                }
+            }.onFailure { Log.e(TAG, "Failed to init BassBoost: ${it.message}") }
+        }
 
         runCatching {
-            virtualizer = Virtualizer(0, sessionId).apply {
+            virtualizer = Virtualizer(1000, sessionId).apply {
                 enabled = true
             }
-        }.onFailure { Log.e(TAG, "Failed to init Virtualizer: ${it.message}") }
+        }.onFailure {
+            runCatching {
+                virtualizer = Virtualizer(0, sessionId).apply {
+                    enabled = true
+                }
+            }.onFailure { Log.e(TAG, "Failed to init Virtualizer: ${it.message}") }
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             runCatching {
@@ -72,6 +95,28 @@ object AudioEffectsManager {
         }
 
         startObservingPreferences(context)
+    }
+
+    private fun applyAllCurrent(context: Context) {
+        scope.launch {
+            val prefs = UserPreferencesRepository(context)
+            val eqEn = prefs.equalizerEnabled.first()
+            val eqPr = prefs.eqPreset.first()
+            val eqB = prefs.eqBands.first()
+            applyEqualizer(eqEn, eqPr, eqB)
+
+            val bbEn = prefs.bassBoost.first()
+            val bbSt = prefs.bassBoostStrength.first()
+            applyBassBoost(bbEn, bbSt)
+
+            val virtEn = prefs.virtualizerEnabled.first()
+            val virtSt = prefs.virtualizerStrength.first()
+            applyVirtualizer(virtEn, virtSt)
+
+            val leEn = prefs.loudnessEnhancer.first()
+            val leG = prefs.loudnessGainMb.first()
+            applyLoudnessEnhancer(leEn, leG)
+        }
     }
 
     private fun startObservingPreferences(context: Context) {

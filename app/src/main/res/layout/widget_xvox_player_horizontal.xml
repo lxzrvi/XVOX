@@ -12,14 +12,14 @@
         android:layout_height="match_parent"
         android:scaleType="fitXY" />
 
-    <!-- Right Side: Cover Artwork -->
+    <!-- Left Side: Cover Artwork -->
     <RelativeLayout
-        android:id="@+id/widget_right_cover_container"
+        android:id="@+id/widget_left_cover_container"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_alignParentEnd="true"
+        android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
-        android:layout_marginStart="8dp">
+        android:layout_marginEnd="10dp">
 
         <ImageView
             android:id="@+id/widget_cover"
@@ -34,27 +34,77 @@
             android:layout_centerInParent="true"
             android:visibility="gone"
             android:src="@drawable/ic_xvox_music_note" />
-
-        <!-- Small XVOX Logo below/on cover -->
-        <ImageView
-            android:id="@+id/widget_logo_cinzel"
-            android:layout_width="44dp"
-            android:layout_height="14dp"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:scaleType="fitCenter" />
     </RelativeLayout>
 
-    <!-- Left Side: Controls & Info -->
+    <!-- Right Side: Music Controls -->
     <LinearLayout
-        android:id="@+id/widget_left_content"
+        android:id="@+id/widget_right_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/widget_btn_like"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_xvox_heart_outline"
+            android:tint="#FFFFFF"
+            android:scaleType="centerInside" />
+
+        <ImageButton
+            android:id="@+id/widget_btn_prev"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="6dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_xvox_skip_previous"
+            android:tint="#FFFFFF"
+            android:scaleType="centerInside" />
+
+        <ImageButton
+            android:id="@+id/widget_btn_play_pause"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_xvox_play"
+            android:tint="#FFFFFF"
+            android:scaleType="centerInside" />
+
+        <ImageButton
+            android:id="@+id/widget_btn_next"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_xvox_skip_next"
+            android:tint="#FFFFFF"
+            android:scaleType="centerInside" />
+    </LinearLayout>
+
+    <!-- Center Info: Title & Artist -->
+    <LinearLayout
+        android:id="@+id/widget_center_info"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_toStartOf="@+id/widget_right_cover_container"
+        android:layout_toEndOf="@+id/widget_left_cover_container"
+        android:layout_toStartOf="@+id/widget_right_controls"
+        android:layout_marginEnd="8dp"
         android:orientation="vertical"
         android:gravity="center_vertical">
 
-        <!-- Title & Artist -->
+        <!-- Cinzel X Logo -->
+        <ImageView
+            android:id="@+id/widget_logo_cinzel"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginBottom="2dp"
+            android:scaleType="fitCenter" />
+
         <TextView
             android:id="@+id/widget_title"
             android:layout_width="wrap_content"
@@ -71,58 +121,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Tap to play"
-            android:textColor="#A0A0A0"
+            android:textColor="#D0D0D0"
             android:textSize="11sp"
             android:maxLines="1"
             android:ellipsize="end" />
-
-        <!-- Music Control Buttons Row -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:layout_marginTop="2dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageButton
-                android:id="@+id/widget_btn_like"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:background="?android:selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_xvox_heart_outline"
-                android:tint="#FFFFFF"
-                android:scaleType="centerInside" />
-
-            <ImageButton
-                android:id="@+id/widget_btn_prev"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginStart="4dp"
-                android:background="?android:selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_xvox_skip_previous"
-                android:tint="#FFFFFF"
-                android:scaleType="centerInside" />
-
-            <ImageButton
-                android:id="@+id/widget_btn_play_pause"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="4dp"
-                android:background="?android:selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_xvox_play"
-                android:tint="#FFFFFF"
-                android:scaleType="centerInside" />
-
-            <ImageButton
-                android:id="@+id/widget_btn_next"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginStart="4dp"
-                android:background="?android:selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_xvox_skip_next"
-                android:tint="#FFFFFF"
-                android:scaleType="centerInside" />
-        </LinearLayout>
     </LinearLayout>
 
 </RelativeLayout>

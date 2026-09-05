@@ -23,15 +23,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -62,16 +59,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxLogoFont
-import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.HomeFooter
-import com.xvox.music.features.home.HomeGreeting
-import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -83,8 +75,6 @@ fun SettingsScreen(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
-    val homeState by homeViewModel.state.collectAsState()
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
@@ -138,83 +128,30 @@ fun SettingsScreen(
     val widgetShowLogo by prefs.widgetShowLogo.collectAsState(initial = true)
     val widgetCornerRadius by prefs.widgetCornerRadius.collectAsState(initial = 24)
 
-    fun showProfileEditor() {
-        overlays.showB {
-            ProfileEditorBox(
-                profile = homeState.profile,
-                onCancel = { overlays.hideB() },
-                onSave = { name, pfp, uri ->
-                    homeViewModel.saveProfile(name, pfp, uri)
-                    overlays.hideB()
-                    overlays.showP("Profile updated")
-                }
-            )
-        }
-    }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Top Header matching Home (Profile avatar + greeting, NO right pill filters)
-        item(key = "settings_header") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.background.copy(alpha = 0.85f))
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(bottom = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .height(54.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HomeProfileAvatar(
-                        profile = homeState.profile,
-                        modifier = Modifier.size(42.dp),
-                        onClick = {
-                            haptics.tap()
-                            showProfileEditor()
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = homeState.profile.username,
-                            color = colors.primaryText,
-                            fontFamily = XvoxPersonalFont,
-                            fontSize = 18.sp,
-                            lineHeight = 19.sp,
-                            maxLines = 1
-                        )
-                        HomeGreeting()
-                    }
-                }
-            }
-        }
-
         item(key = "settings_title") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_xvox_settings),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Settings",
                     color = colors.primaryText,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -224,7 +161,7 @@ fun SettingsScreen(
         // 1. THEMES & APPEARANCE (TOP)
         // ==========================================
         item(key = "appearance_section") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Themes & Appearance", iconRes = R.drawable.ic_xvox_settings) {
                     Text(
                         text = "App Theme: $theme",
@@ -263,7 +200,6 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 3 Refined Accent Colors: Default, XVOX Red, XVOX Blue
                     Text(
                         text = "Accent Color: $accentColor",
                         color = colors.secondaryText,
@@ -319,7 +255,6 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Font Size Scale
                     Text(
                         text = "Font Scale: ${fontSizeScale}x",
                         color = colors.secondaryText,
@@ -382,32 +317,32 @@ fun SettingsScreen(
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSel) colors.primaryAccent else colors.cardElevated)
                                         .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            haptics.heavy()
-                                            scope.launch { prefs.setHapticStrength(s) }
-                                        }
-                                        .padding(vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = s,
-                                        color = if (isSel) colors.background else colors.primaryText,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
+                                    .clickable {
+                                        haptics.heavy()
+                                        scope.launch { prefs.setHapticStrength(s) }
+                                    }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = s,
+                                    color = if (isSel) colors.background else colors.primaryText,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
                             }
                         }
                     }
                 }
             }
         }
+    }
 
         // ==========================================
         // 2. EQUALIZER & AUDIO DSP SECTION
         // ==========================================
         item(key = "equalizer_section") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Equalizer & DSP Engine", iconRes = R.drawable.ic_xvox_equalizer) {
                     SettingsToggle(
                         title = "Master Equalizer",
@@ -617,7 +552,7 @@ fun SettingsScreen(
         // 3. PLAYBACK SETTINGS SECTION
         // ==========================================
         item(key = "playback_section") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Playback", iconRes = R.drawable.ic_xvox_play) {
                     SettingsToggle("Gapless playback", "Seamless transition between tracks", gapless) {
                         haptics.toggle()
@@ -704,7 +639,7 @@ fun SettingsScreen(
         // 4. VOLUME & OUTPUT SECTION
         // ==========================================
         item(key = "volume_section") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Volume & Output", iconRes = R.drawable.ic_xvox_volume_high) {
                     Text(
                         text = "In-App Stream Volume: ${(appVolume * 100).roundToInt()}%",
@@ -756,7 +691,7 @@ fun SettingsScreen(
         // 5. NOTIFICATION SECTION
         // ==========================================
         item(key = "notification_section") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Notification", iconRes = R.drawable.ic_xvox_settings) {
                     SettingsToggle("Media notification", "Show foreground player notification with controls", mediaNotif) {
                         haptics.toggle()
@@ -770,9 +705,9 @@ fun SettingsScreen(
         // 6. HOME SCREEN WIDGET (BOTTOM)
         // ==========================================
         item(key = "widget_customizer") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 SettingsSection(title = "Home Screen Widget Customizer", iconRes = R.drawable.ic_xvox_music_note) {
-                    // Live Widget Preview Card (Removed subtitle description as requested)
+                    // Live Widget Preview Card
                     WidgetLivePreviewCard(
                         transparency = widgetTransparency,
                         theme = widgetTheme,
@@ -1044,6 +979,7 @@ private fun WidgetLivePreviewCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left-aligned Cover
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -1090,7 +1026,7 @@ private fun WidgetLivePreviewCard(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_xvox_heart),
@@ -1142,7 +1078,7 @@ private fun SettingsSection(
             .clip(RoundedCornerShape(14.dp))
             .background(colors.card)
             .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
-            .padding(14.dp)
+            .padding(12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
