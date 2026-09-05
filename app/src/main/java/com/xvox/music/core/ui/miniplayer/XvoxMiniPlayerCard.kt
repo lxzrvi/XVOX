@@ -322,53 +322,29 @@ fun XvoxMiniPlayerCard(
 
         /*
          * ====================================================
-         * INNER TOP PROGRESS
+         * BOTTOM PROGRESS BAR (FLUSH AGAINST BOTTOM CARD BORDER)
          * ====================================================
-         *
-         * Full-width character is restored.
-         *
-         * 2dp left/right = safely inside rounded side edge.
-         * 1dp top = inside the border rather than over it.
          */
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.5.dp)
                 .align(
-                    Alignment.TopStart
+                    Alignment.BottomStart
                 )
         ) {
             if (progress > 0f) {
-                val horizontalInset =
-                    2.dp.toPx()
-
-                val topInset =
-                    1.dp.toPx()
-
-                val availableWidth =
-                    (
-                        size.width -
-                            horizontalInset * 2f
-                        )
-                        .coerceAtLeast(0f)
-
                 drawRect(
                     color =
-                        colors.progressActive,
+                        colors.primaryAccent,
                     topLeft =
-                        Offset(
-                            x =
-                                horizontalInset,
-                            y =
-                                topInset
-                        ),
+                        Offset.Zero,
                     size =
                         Size(
                             width =
-                                availableWidth *
-                                    progress,
+                                size.width * progress,
                             height =
-                                1.25.dp.toPx()
+                                size.height
                         )
                 )
             }

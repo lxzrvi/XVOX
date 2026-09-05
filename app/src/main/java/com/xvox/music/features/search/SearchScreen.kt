@@ -126,9 +126,30 @@ fun SearchScreen(
             .background(colors.background)
             .imePadding()
     ) {
+        // Search Header Title matching All Songs typography & position
+        item(key = "search_header_title") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 12.dp,
+                        end = 12.dp,
+                        bottom = 10.dp,
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Search",
+                    color = colors.primaryAccent,
+                    fontSize = 16.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
         // Search Bar
         item(key = "search_bar") {
-            Spacer(Modifier.height(4.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

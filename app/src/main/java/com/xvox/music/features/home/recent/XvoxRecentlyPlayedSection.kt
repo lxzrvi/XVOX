@@ -38,7 +38,7 @@ fun XvoxRecentlyPlayedSection(
             text =
                 "Recently Played",
             color =
-                colors.primaryText,
+                colors.primaryAccent,
             fontSize = 16.sp,
             lineHeight = 19.sp,
             fontWeight =

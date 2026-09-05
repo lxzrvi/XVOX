@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class AppViewModel(
@@ -26,16 +28,10 @@ class AppViewModel(
 
     init {
         viewModelScope.launch {
-            preferencesRepository.preferences.collect {
-                preferences ->
-
-                _state.value =
-                    if (preferences.setupCompleted) {
-                        AppUiState.Home
-                    } else {
-                        AppUiState.Setup
-                    }
-            }
+            val prefs = preferencesRepository.preferences.first()
+            // Settle time for complete UI initialization before fading in
+            delay(750L)
+            _state.value = if (prefs.setupCompleted) AppUiState.Home else AppUiState.Setup
         }
     }
 }

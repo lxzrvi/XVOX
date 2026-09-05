@@ -937,7 +937,7 @@ private fun NowPlayingActionIcon(
         Icon(
             painter = painterResource(resource),
             contentDescription = null,
-            tint = colors.primaryText,
+            tint = colors.primaryAccent,
             modifier = Modifier.size(19.dp)
         )
     }
@@ -966,7 +966,7 @@ private fun NowPlayingCircleAction(
         Icon(
             painter = painterResource(resource),
             contentDescription = null,
-            tint = tint ?: colors.primaryText,
+            tint = tint ?: colors.primaryAccent,
             modifier = Modifier.size(19.dp)
         )
     }

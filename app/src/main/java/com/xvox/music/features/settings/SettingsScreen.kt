@@ -361,6 +361,48 @@ fun SettingsScreen(
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            // Equalizer Reset Button
+                            Button(
+                                onClick = {
+                                    haptics.heavy()
+                                    scope.launch {
+                                        prefs.setEqPreset("Flat")
+                                        prefs.setEqBands(listOf(0, 0, 0, 0, 0))
+                                        prefs.setEqPreamp(0f)
+                                        prefs.setBassBoost(false)
+                                        prefs.setBassBoostStrength(0)
+                                        prefs.setVirtualizer(false)
+                                        prefs.setVirtualizerStrength(0)
+                                        prefs.setLoudnessEnhancer(false)
+                                        prefs.setLoudnessGainMb(0)
+                                        prefs.setBalance(0f)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colors.cardElevated,
+                                    contentColor = colors.primaryAccent
+                                )
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_xvox_refresh),
+                                    contentDescription = "Reset Equalizer",
+                                    tint = colors.primaryAccent,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Reset Equalizer to Defaults",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
                             Text(
                                 text = "Presets",
                                 color = colors.secondaryText,

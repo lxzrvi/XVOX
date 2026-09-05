@@ -24,8 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,23 +38,13 @@ fun XvoxStartupLoadingScreen(
     val infiniteTransition = rememberInfiniteTransition(label = "startup_pulse")
 
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
+        initialValue = 0.95f,
+        targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1100, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "logo_scale"
-    )
-
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow_alpha"
     )
 
     Box(
@@ -69,33 +57,23 @@ fun XvoxStartupLoadingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Ambient Radial Glow
+            // Clean Logo without outer glow circle
             Box(
                 modifier = Modifier
-                    .size(140.dp)
-                    .scale(pulseScale)
-                    .clip(RoundedCornerShape(70.dp))
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                colors.primaryAccent.copy(alpha = glowAlpha * 0.40f),
-                                Color.Transparent
-                            )
-                        )
-                    ),
+                    .size(90.dp)
+                    .scale(pulseScale),
                 contentAlignment = Alignment.Center
             ) {
-                // Cinzel X Logo
                 Text(
                     text = "X",
                     fontFamily = XvoxLogoFont,
-                    fontSize = 58.sp,
+                    fontSize = 64.sp,
                     fontWeight = FontWeight.Bold,
                     color = colors.primaryAccent
                 )
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
 
             Text(
                 text = "XVOX",
@@ -106,7 +84,7 @@ fun XvoxStartupLoadingScreen(
                 color = colors.primaryText
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
 
             // Animated Waveform Bars
             Row(
@@ -116,10 +94,10 @@ fun XvoxStartupLoadingScreen(
                 val heights = listOf(14.dp, 26.dp, 36.dp, 22.dp, 12.dp)
                 heights.forEachIndexed { index, targetHeight ->
                     val barScale by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
+                        initialValue = 0.25f,
                         targetValue = 1.0f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(600 + index * 120, easing = FastOutSlowInEasing),
+                            animation = tween(550 + index * 110, easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "bar_$index"
@@ -130,7 +108,7 @@ fun XvoxStartupLoadingScreen(
                             .width(3.5.dp)
                             .height(targetHeight * barScale)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(colors.primaryAccent.copy(alpha = 0.75f + barScale * 0.25f))
+                            .background(colors.primaryAccent.copy(alpha = 0.85f))
                     )
                 }
             }

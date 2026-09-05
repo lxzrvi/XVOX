@@ -182,9 +182,13 @@ fun RecentArtwork(
                         CircleShape
                     )
                     .background(
-                        Color.Black.copy(
-                            alpha = 0.58f
-                        )
+                        if (current && playing) {
+                            colors.primaryAccent
+                        } else {
+                            Color.Black.copy(
+                                alpha = 0.58f
+                            )
+                        }
                     )
                     .animateContentSize(
                         animationSpec =

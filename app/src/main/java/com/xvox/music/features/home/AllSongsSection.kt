@@ -98,7 +98,7 @@ fun AllSongsSection(
             Text(
                 text = "All Songs",
                 color =
-                    colors.primaryText,
+                    colors.primaryAccent,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
                 fontWeight =

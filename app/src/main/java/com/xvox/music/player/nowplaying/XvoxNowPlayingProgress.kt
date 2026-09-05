@@ -62,11 +62,7 @@ fun XvoxNowPlayingProgress(
             position
         }
 
-    val darkMode =
-        colors.background.luminance() < 0.5f
-
-    val activeColor =
-        if (darkMode) Color.White else Color.Black
+    val activeColor = colors.primaryAccent
 
     Column(
         modifier = modifier.fillMaxWidth()

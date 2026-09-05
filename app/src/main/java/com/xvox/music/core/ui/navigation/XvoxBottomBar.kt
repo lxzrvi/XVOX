@@ -267,7 +267,7 @@ fun XvoxBottomBar(
                                             0.76f
                                     ),
                             activeColor =
-                                colors.primaryText,
+                                colors.primaryAccent,
                             modifier =
                                 Modifier
                                     .fillMaxSize()
