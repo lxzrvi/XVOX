@@ -623,18 +623,6 @@ fun XvoxMainShell(
                             haptics.tap()
                             showMiniPlayerPlaylistPicker()
                         },
-                        onQueue = {
-                            haptics.tap()
-                            showQueueSheet()
-                        },
-                        onTimer = {
-                            haptics.tap()
-                            showTimerSheet()
-                        },
-                        onStyle = {
-                            haptics.tap()
-                            showPlayerStyleSheet()
-                        },
                         modifier = miniModifier
                     )
                 }
@@ -715,8 +703,7 @@ fun XvoxMainShell(
                         homeViewModel.loadInfo(currentSong) { info ->
                             overlays.showL {
                                 com.xvox.music.features.home.SongInfoBox(
-                                    info = info,
-                                    onClose = { overlays.hideL() }
+                                    info = info
                                 )
                             }
                         }
@@ -734,7 +721,7 @@ fun XvoxMainShell(
                     },
                     playerStyle = player.playerStyle,
                     sleepTimerProgress = player.sleepTimerProgress,
-                    playingSource = player.currentSource ?: "All Songs",
+                    playingSource = player.playingSource,
                     modifier = Modifier.fillMaxSize()
                 )
             }
