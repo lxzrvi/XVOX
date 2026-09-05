@@ -51,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -212,20 +213,22 @@ fun XvoxMainShell(
         overlays.showL {
             val listState = rememberLazyListState()
             val density = LocalDensity.current
-            val itemHeightPx = with(density) { 58.dp.toPx() }
+            val itemHeightPx = with(density) { 56.dp.toPx() }
+
+            val localQueue = remember(player.queue) {
+                mutableStateListOf<Song>().apply { addAll(player.queue) }
+            }
 
             var draggingIndex by remember { mutableStateOf<Int?>(null) }
             var dragOffsetY by remember { mutableFloatStateOf(0f) }
-            var targetDropIndex by remember { mutableStateOf<Int?>(null) }
 
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Playing Queue (${player.queue.size})",
+                        text = "Playing Queue (${localQueue.size})",
                         color = colors.primaryText,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
@@ -233,14 +236,14 @@ fun XvoxMainShell(
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
 
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.heightIn(max = 440.dp),
                     contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
-                    itemsIndexed(player.queue, key = { idx, s -> "queue_${s.id}_$idx" }) { idx, s ->
+                    itemsIndexed(localQueue, key = { idx, s -> "q_${s.id}_$idx" }) { idx, s ->
                         val isCurrent = idx == player.currentIndex
                         val isDragging = draggingIndex == idx
 
@@ -258,38 +261,42 @@ fun XvoxMainShell(
                                     translationY = if (isDragging) dragOffsetY else 0f
                                     scaleX = if (isDragging) 1.03f else 1f
                                     scaleY = if (isDragging) 1.03f else 1f
-                                    shadowElevation = if (isDragging) 20f else 0f
+                                    shadowElevation = if (isDragging) 24f else 0f
                                 }
-                                .zIndex(if (isDragging) 50f else 1f)
-                                .pointerInput(idx, player.queue.size) {
+                                .zIndex(if (isDragging) 99f else 1f)
+                                .pointerInput(idx, localQueue.size) {
                                     detectDragGesturesAfterLongPress(
                                         onDragStart = {
                                             haptics.heavy()
                                             draggingIndex = idx
-                                            targetDropIndex = idx
                                             dragOffsetY = 0f
                                         },
                                         onDragEnd = {
                                             val from = draggingIndex
-                                            val to = targetDropIndex
                                             draggingIndex = null
-                                            targetDropIndex = null
                                             dragOffsetY = 0f
-                                            if (from != null && to != null && from != to) {
+                                            if (from != null) {
                                                 haptics.success()
-                                                playerViewModel.moveQueueItem(from, to)
+                                                playerViewModel.setQueue(localQueue.toList())
                                             }
                                         },
                                         onDragCancel = {
                                             draggingIndex = null
-                                            targetDropIndex = null
                                             dragOffsetY = 0f
                                         },
                                         onDrag = { change, dragAmount ->
                                             change.consume()
                                             dragOffsetY += dragAmount.y
-                                            val offsetIndex = kotlin.math.round(dragOffsetY / itemHeightPx).toInt()
-                                            targetDropIndex = (idx + offsetIndex).coerceIn(0, player.queue.lastIndex)
+                                            val currentDragIdx = draggingIndex ?: return@detectDragGesturesAfterLongPress
+                                            val shiftSlots = (dragOffsetY / itemHeightPx).toInt()
+                                            val targetIdx = (currentDragIdx + shiftSlots).coerceIn(0, localQueue.lastIndex)
+                                            if (targetIdx != currentDragIdx) {
+                                                val movedItem = localQueue.removeAt(currentDragIdx)
+                                                localQueue.add(targetIdx, movedItem)
+                                                draggingIndex = targetIdx
+                                                dragOffsetY -= (targetIdx - currentDragIdx) * itemHeightPx
+                                                haptics.sliderTick()
+                                            }
                                         }
                                     )
                                 }
@@ -299,7 +306,7 @@ fun XvoxMainShell(
                                         overlays.hideL()
                                     }
                                 }
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             XvoxSongArtwork(
@@ -363,23 +370,6 @@ fun XvoxMainShell(
         }
     }
 
-    fun showPlayerStyleSheet() {
-        overlays.showL {
-            PlayerStyleSheetContent(
-                currentStyle = player.playerStyle,
-                onSelect = { style ->
-                    playerViewModel.setPlayerStyle(style)
-                    overlays.hideL()
-                    val name = when (style) {
-                        XvoxPlayerStyle.NORMAL -> "Normal"
-                        XvoxPlayerStyle.FULL_ART -> "Full Art"
-                    }
-                    overlays.showP("$name style")
-                }
-            )
-        }
-    }
-
     CompositionLocalProvider(LocalXvoxHaptics provides haptics) {
         Box(
             modifier = Modifier
@@ -387,11 +377,11 @@ fun XvoxMainShell(
                 .background(colors.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // FIXED TOP HEADER (Translucent Glass style with lighter 0.55 alpha)
+                // FIXED TOP HEADER (Fully Transparent background matching clean iOS style)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colors.surface.copy(alpha = 0.55f))
+                        .background(Color.Transparent)
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .padding(bottom = 6.dp)
                 ) {
@@ -423,7 +413,7 @@ fun XvoxMainShell(
                             HomeGreeting()
                         }
 
-                        // Right Pill Button: Visible ON HOME ONLY, slides UP smoothly and gently on non-Home tabs
+                        // Right Pill Button: Visible ON HOME ONLY, slides UP smoothly on other tabs
                         AnimatedVisibility(
                             visible = destination == XvoxDestination.HOME,
                             enter = slideInVertically(
@@ -546,7 +536,7 @@ fun XvoxMainShell(
                 player.queue.isNotEmpty()
             val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
 
-            // Keyboard-smooth miniplayer placement: equal vertical rhythm, smoothly sits above IME
+            // Keyboard-smooth miniplayer placement: lifted 96.dp above navbar resting, 12.dp above keyboard
             AnimatedVisibility(
                 visible = miniVisible,
                 enter = slideInVertically(tween(300, easing = MainEase)) { it } + fadeIn(tween(260)),
@@ -558,8 +548,8 @@ fun XvoxMainShell(
                     val density = LocalDensity.current
                     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
                     val animatedBottomPadding by animateDpAsState(
-                        targetValue = if (isKeyboardOpen) 10.dp else 84.dp,
-                        animationSpec = tween(durationMillis = 220, easing = MainEase),
+                        targetValue = if (isKeyboardOpen) 12.dp else 96.dp,
+                        animationSpec = tween(durationMillis = 240, easing = MainEase),
                         label = "miniPlayerBottomGap"
                     )
 
@@ -613,7 +603,7 @@ fun XvoxMainShell(
                 }
             }
 
-            // STATIC BOTTOM NAVBAR: 10dp bottom margin
+            // STATIC BOTTOM NAVBAR
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -633,11 +623,17 @@ fun XvoxMainShell(
                 )
             }
 
-            // NOW PLAYING FULLSCREEN POPUP
+            // NOW PLAYING FULLSCREEN POPUP: Smooth bottom-to-top slide up and down
             AnimatedVisibility(
                 visible = player.nowPlayingVisible && currentSong != null,
-                enter = slideInVertically(tween(440, easing = MainEase)) { it } + fadeIn(tween(300)),
-                exit = slideOutVertically(tween(380, easing = MainEase)) { it } + fadeOut(tween(260)),
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(420, easing = MainEase)
+                ) + fadeIn(tween(260)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(380, easing = MainEase)
+                ) + fadeOut(tween(240)),
                 modifier = Modifier.fillMaxSize()
             ) {
                 val curSong = currentSong ?: return@AnimatedVisibility
@@ -782,7 +778,6 @@ private fun TimerSheetContent(
 
         Spacer(Modifier.size(6.dp))
 
-        // Custom Timer Expandable Section
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -920,55 +915,6 @@ private fun TimerSheetContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Cancel Timer", color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlayerStyleSheetContent(
-    currentStyle: XvoxPlayerStyle,
-    onSelect: (XvoxPlayerStyle) -> Unit
-) {
-    val colors = XvoxTheme.colors
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Player Style", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.size(4.dp))
-        Text("Choose artwork style", color = colors.secondaryText, fontSize = 12.sp)
-        Spacer(Modifier.size(14.dp))
-
-        val items = listOf(
-            Triple(XvoxPlayerStyle.NORMAL, "Normal", "Square + backdrop palette"),
-            Triple(XvoxPlayerStyle.FULL_ART, "Full Art", "Fullscreen cover")
-        )
-
-        items.forEach { (style, name, desc) ->
-            val selected = currentStyle == style
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) colors.primaryAccent.copy(alpha = 0.15f) else colors.card.copy(alpha = 0.97f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onSelect(style) }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(name, color = if (selected) colors.primaryAccent else colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(desc, color = colors.secondaryText, fontSize = 11.sp)
-                }
-                if (selected) {
-                    Icon(painter = painterResource(R.drawable.ic_xvox_check), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(16.dp))
-                }
             }
         }
     }

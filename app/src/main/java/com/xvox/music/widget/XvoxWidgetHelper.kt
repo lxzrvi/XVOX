@@ -102,10 +102,10 @@ object XvoxWidgetHelper {
 
         // 1. Load artwork
         val targetArtSize = when (layoutType) {
-            WidgetLayoutType.SQUARE -> 300
-            WidgetLayoutType.HORIZONTAL -> 160
-            WidgetLayoutType.COMPACT -> 140
-            WidgetLayoutType.STANDARD -> 200
+            WidgetLayoutType.SQUARE -> 400
+            WidgetLayoutType.HORIZONTAL -> 220
+            WidgetLayoutType.COMPACT -> 180
+            WidgetLayoutType.STANDARD -> 260
         }
         val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, targetArtSize)
 
@@ -146,7 +146,7 @@ object XvoxWidgetHelper {
         // 4. Bind Cover Artwork with proper corner radius
         if (artworkBitmap != null) {
             val density = context.resources.displayMetrics.density
-            val cornerRadPx = if (layoutType == WidgetLayoutType.SQUARE) state.cornerRadiusDp * density else 12f * density
+            val cornerRadPx = if (layoutType == WidgetLayoutType.SQUARE) state.cornerRadiusDp * density else 10f * density
             val roundedArt = getRoundedBitmap(artworkBitmap, cornerRadPx)
             views.setImageViewBitmap(R.id.widget_cover, roundedArt)
             views.setViewVisibility(R.id.widget_cover, View.VISIBLE)
@@ -242,8 +242,8 @@ object XvoxWidgetHelper {
     private fun createRoundedBackgroundBitmap(context: Context, color: Int, radiusDp: Int): Bitmap {
         val density = context.resources.displayMetrics.density
         val radiusPx = radiusDp * density
-        val width = (320 * density).toInt()
-        val height = (180 * density).toInt()
+        val width = (320 * density).toInt().coerceAtLeast(100)
+        val height = (180 * density).toInt().coerceAtLeast(60)
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -294,20 +294,27 @@ object XvoxWidgetHelper {
     }
 
     private fun getRoundedBitmap(bitmap: Bitmap, cornerRadiusPx: Float): Bitmap {
-        val width = bitmap.width
-        val height = bitmap.height
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        // Crop bitmap to square first to avoid distortion
+        val size = minOf(bitmap.width, bitmap.height)
+        val xOffset = (bitmap.width - size) / 2
+        val yOffset = (bitmap.height - size) / 2
+        val srcRect = Rect(xOffset, yOffset, xOffset + size, yOffset + size)
+
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val rect = Rect(0, 0, width, height)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            isFilterBitmap = true
+            isDither = true
+        }
+        val rect = Rect(0, 0, size, size)
         val rectF = RectF(rect)
 
         canvas.drawARGB(0, 0, 0, 0)
         canvas.drawRoundRect(rectF, cornerRadiusPx, cornerRadiusPx, paint)
 
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(bitmap, rect, rect, paint)
+        canvas.drawBitmap(bitmap, srcRect, rect, paint)
 
         return output
     }

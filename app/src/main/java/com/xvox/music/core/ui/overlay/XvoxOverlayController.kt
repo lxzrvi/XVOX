@@ -17,24 +17,22 @@ data class XvoxPopupMessage(
 
 @Stable
 class XvoxOverlayController {
-    internal var listContent by
-        mutableStateOf<(@Composable () -> Unit)?>(null)
+    var listKey by mutableLongStateOf(0L)
         private set
 
-    internal var boxContent by
-        mutableStateOf<(@Composable () -> Unit)?>(null)
+    internal var listContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
-    internal var popup by
-        mutableStateOf<XvoxPopupMessage?>(null)
+    internal var boxContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
-    private var popupId by
-        mutableLongStateOf(0L)
+    internal var popup by mutableStateOf<XvoxPopupMessage?>(null)
+        private set
 
-    fun showL(
-        content: @Composable () -> Unit
-    ) {
+    private var popupId by mutableLongStateOf(0L)
+
+    fun showL(content: @Composable () -> Unit) {
+        listKey++
         boxContent = null
         listContent = content
     }
@@ -44,9 +42,7 @@ class XvoxOverlayController {
         boxContent = null
     }
 
-    fun showB(
-        content: @Composable () -> Unit
-    ) {
+    fun showB(content: @Composable () -> Unit) {
         showL(content)
     }
 
@@ -54,21 +50,12 @@ class XvoxOverlayController {
         hideL()
     }
 
-    fun showP(
-        text: String
-    ) {
+    fun showP(text: String) {
         popupId++
-
-        popup =
-            XvoxPopupMessage(
-                id = popupId,
-                text = text
-            )
+        popup = XvoxPopupMessage(id = popupId, text = text)
     }
 
-    internal fun clearPopup(
-        id: Long
-    ) {
+    internal fun clearPopup(id: Long) {
         if (popup?.id == id) {
             popup = null
         }
@@ -77,7 +64,5 @@ class XvoxOverlayController {
 
 val LocalXvoxOverlayController =
     staticCompositionLocalOf<XvoxOverlayController> {
-        error(
-            "XvoxOverlayController not provided"
-        )
+        error("XvoxOverlayController not provided")
     }

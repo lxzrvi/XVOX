@@ -240,7 +240,7 @@ fun RecentArtwork(
                                 .PLAY
                         },
                     color =
-                        Color.White,
+                        if (active) colors.primaryAccent else Color.White,
                     modifier =
                         Modifier.size(
                             14.dp

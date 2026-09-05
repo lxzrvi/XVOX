@@ -20,8 +20,8 @@ class AppViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            // Settle time extended to allow background services and library state to load cleanly
-            delay(1800L)
+            // Settle time 5000ms (5 seconds) as requested
+            delay(5000L)
 
             _state.value =
                 AppUiState.Home

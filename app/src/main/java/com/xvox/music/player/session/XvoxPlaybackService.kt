@@ -12,12 +12,15 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.xvox.music.MainActivity
-import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
+import com.xvox.music.audio.StereoBalanceAudioProcessor
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.widget.XvoxAppWidgetProvider
@@ -34,6 +37,7 @@ class XvoxPlaybackService : MediaSessionService() {
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
+    private val balanceAudioProcessor = StereoBalanceAudioProcessor()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var prefsSyncJob: Job? = null
@@ -80,7 +84,21 @@ class XvoxPlaybackService : MediaSessionService() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        val exoPlayer = ExoPlayer.Builder(this)
+        val audioSink = DefaultAudioSink.Builder(this)
+            .setAudioProcessors(arrayOf(balanceAudioProcessor))
+            .build()
+
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink {
+                return audioSink
+            }
+        }
+
+        val exoPlayer = ExoPlayer.Builder(this, renderersFactory)
             .build()
             .apply {
                 setAudioAttributes(audioAttributes, true)
@@ -221,10 +239,16 @@ class XvoxPlaybackService : MediaSessionService() {
                 }
             }
 
+            // Observe Stereo Balance
+            launch {
+                prefs.balance.collect { bal ->
+                    balanceAudioProcessor.balance = bal
+                }
+            }
+
             // Observe Pitch & Speed
             launch {
                 prefs.pitchControl.collect { enabled ->
-                    // Standard pitch/speed sync
                     exoPlayer.setPlaybackSpeed(1.0f)
                 }
             }

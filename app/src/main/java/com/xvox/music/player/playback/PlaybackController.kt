@@ -102,10 +102,8 @@ class PlaybackController(
             }
             RepeatMode.OFF -> {
                 if (queue.isNotEmpty() && curIdx >= 0 && curIdx < queue.lastIndex) {
-                    // Auto advance to next song seamlessly
                     playQueueIndex(curIdx + 1, true)
                 } else {
-                    // End of playlist reached
                     scope.launch {
                         val shouldClear = prefs.clearQueueAfterPlayback.first()
                         if (shouldClear) {
@@ -142,7 +140,7 @@ class PlaybackController(
                         while (isActive) {
                             publishState()
                             checkCrossfadeAndAdvance()
-                            delay(400L)
+                            delay(350L)
                         }
                     }
                 }
@@ -165,7 +163,7 @@ class PlaybackController(
         scope.launch {
             val isCrossfade = prefs.crossfade.first()
             val crossfadeDurationSec = prefs.crossfadeDuration.first()
-            val crossfadeThreshold = (crossfadeDurationSec * 1000L).coerceIn(1000L, 12000L)
+            val crossfadeThreshold = (crossfadeDurationSec * 1000L).coerceIn(1500L, 12000L)
 
             if (isCrossfade && remainingMs <= crossfadeThreshold && crossfadeTriggeredForSongId != currentId) {
                 crossfadeTriggeredForSongId = currentId
@@ -180,7 +178,6 @@ class PlaybackController(
                         RepeatMode.ONE -> curIdx
                         RepeatMode.OFF -> curIdx + 1
                     }
-                    // Perform smooth iOS-level crossfade volume dip and transition
                     performCrossfadeTransition(nextIdx, crossfadeThreshold)
                 }
             }
@@ -191,26 +188,26 @@ class PlaybackController(
         val mediaController = controller ?: return
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            val steps = 10
-            val stepDelay = durationMs / steps
-            val originalVol = prefs.appVolume.first()
+            val steps = 12
+            val stepDelay = durationMs / (steps * 2)
+            val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
 
-            for (i in (steps - 1) downTo 1) {
+            for (i in (steps - 1) downTo 2) {
                 val fraction = i.toFloat() / steps.toFloat()
-                mediaController.volume = (originalVol * fraction).coerceIn(0f, 1f)
+                mediaController.volume = (masterVol * fraction).coerceIn(0f, 1f)
                 delay(stepDelay)
             }
 
-            // Advance to next track
+            // Advance to target track
             playQueueIndex(targetIndex, true)
 
             // Fade in new track
-            for (i in 1..steps) {
+            for (i in 2..steps) {
                 val fraction = i.toFloat() / steps.toFloat()
-                mediaController.volume = (originalVol * fraction).coerceIn(0f, 1f)
-                delay(stepDelay / 2)
+                mediaController.volume = (masterVol * fraction).coerceIn(0f, 1f)
+                delay(stepDelay)
             }
-            mediaController.volume = originalVol
+            mediaController.volume = masterVol
         }
     }
 
@@ -222,6 +219,13 @@ class PlaybackController(
 
     fun setQueue(songs: List<Song>) {
         queue = songs
+        val mediaController = controller
+        if (mediaController != null && songs.isNotEmpty()) {
+            val curId = _state.value.currentSongId
+            val curIndex = songs.indexOfFirst { it.id == curId }.coerceAtLeast(0)
+            val mediaItems = songs.map { it.toMediaItem() }
+            mediaController.setMediaItems(mediaItems, curIndex, mediaController.currentPosition)
+        }
         publishState()
     }
 
@@ -299,9 +303,35 @@ class PlaybackController(
             index = queue.lastIndex
         }
 
-        mediaController.setMediaItem(song.toMediaItem())
-        mediaController.prepare()
-        mediaController.play()
+        scope.launch {
+            val isGapless = prefs.gaplessPlayback.first()
+            val isFadeIn = prefs.fadeIn.first()
+            val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
+
+            if (isGapless && queue.size > 1) {
+                val mediaItems = queue.map { it.toMediaItem() }
+                mediaController.setMediaItems(mediaItems, index, 0L)
+            } else {
+                mediaController.setMediaItem(song.toMediaItem())
+            }
+
+            mediaController.prepare()
+
+            if (isFadeIn) {
+                mediaController.volume = 0f
+                mediaController.play()
+                val steps = 10
+                for (i in 1..steps) {
+                    delay(80L)
+                    mediaController.volume = (masterVol * (i.toFloat() / steps)).coerceIn(0f, 1f)
+                }
+                mediaController.volume = masterVol
+            } else {
+                mediaController.volume = masterVol
+                mediaController.play()
+            }
+        }
+
         expectedPlaying = true
         expectedPlayingUntil = System.currentTimeMillis() + 1800
 
@@ -334,13 +364,21 @@ class PlaybackController(
         expectedPlaying = shouldPlay
         expectedPlayingUntil = System.currentTimeMillis() + 1800
 
-        mediaController.setMediaItem(song.toMediaItem())
-        mediaController.prepare()
+        scope.launch {
+            val isGapless = prefs.gaplessPlayback.first()
+            if (isGapless && queue.size > 1) {
+                val mediaItems = queue.map { it.toMediaItem() }
+                mediaController.setMediaItems(mediaItems, index, 0L)
+            } else {
+                mediaController.setMediaItem(song.toMediaItem())
+            }
 
-        if (shouldPlay) {
-            mediaController.play()
-        } else {
-            mediaController.pause()
+            mediaController.prepare()
+            if (shouldPlay) {
+                mediaController.play()
+            } else {
+                mediaController.pause()
+            }
         }
 
         _state.value = _state.value.copy(
@@ -402,11 +440,41 @@ class PlaybackController(
         if (mediaController.currentMediaItem == null) return
 
         if (mediaController.isPlaying) {
-            mediaController.pause()
+            scope.launch {
+                val isFadeOut = prefs.fadeOut.first()
+                val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
+                if (isFadeOut) {
+                    val steps = 8
+                    for (i in (steps - 1) downTo 0) {
+                        delay(40L)
+                        mediaController.volume = (masterVol * (i.toFloat() / steps)).coerceIn(0f, 1f)
+                    }
+                    mediaController.pause()
+                    mediaController.volume = masterVol
+                } else {
+                    mediaController.pause()
+                }
+            }
             expectedPlaying = false
             expectedPlayingUntil = System.currentTimeMillis() + 400
         } else {
-            mediaController.play()
+            scope.launch {
+                val isFadeIn = prefs.fadeIn.first()
+                val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
+                if (isFadeIn) {
+                    mediaController.volume = 0f
+                    mediaController.play()
+                    val steps = 8
+                    for (i in 1..steps) {
+                        delay(60L)
+                        mediaController.volume = (masterVol * (i.toFloat() / steps)).coerceIn(0f, 1f)
+                    }
+                    mediaController.volume = masterVol
+                } else {
+                    mediaController.volume = masterVol
+                    mediaController.play()
+                }
+            }
             expectedPlaying = true
             expectedPlayingUntil = System.currentTimeMillis() + 800
         }

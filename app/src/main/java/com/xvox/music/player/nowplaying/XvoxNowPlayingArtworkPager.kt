@@ -128,8 +128,8 @@ fun XvoxNowPlayingArtworkPager(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 4.dp) // Reduced cover side gaps
-                        .clip(RoundedCornerShape(20.dp)),
+                        .padding(horizontal = 22.dp, vertical = 12.dp)
+                        .clip(RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxSongArtwork(

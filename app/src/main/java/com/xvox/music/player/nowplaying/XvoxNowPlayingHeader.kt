@@ -62,7 +62,6 @@ fun XvoxNowPlayingHeader(
                 .size(42.dp)
                 .clip(CircleShape)
                 .background(colors.card.copy(alpha = 0.50f))
-                .border(0.65.dp, colors.cardBorder, CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -108,14 +107,13 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Top right pill with Share & More
+        // Top right pill with Share & More (No outer border)
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
                 .background(colors.card.copy(alpha = 0.50f))
-                .border(0.65.dp, colors.cardBorder, RoundedCornerShape(21.dp))
                 .padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
