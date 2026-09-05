@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxGlass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -158,6 +159,11 @@ fun XvoxL(
                     )
         ) {
             
+            val sheetCornerShape = RoundedCornerShape(
+                topStart = 26.dp,
+                topEnd = 26.dp
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,26 +181,12 @@ fun XvoxL(
                             )
                         }
                     )
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 26.dp,
-                            topEnd = 26.dp
-                        )
-                    )
-                    .background(
-                        colors.cardElevated.copy(
-                            alpha = 0.98f
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(
-                            alpha = 0.08f
-                        ),
-                        shape = RoundedCornerShape(
-                            topStart = 26.dp,
-                            topEnd = 26.dp
-                        )
+                    .xvoxGlass(
+                        shape = sheetCornerShape,
+                        tint = colors.cardElevated.copy(alpha = 0.94f),
+                        solidFallback = colors.cardElevated,
+                        borderWidth = 0.8.dp,
+                        borderColor = Color.White.copy(alpha = 0.12f)
                     )
                     .pointerInput(Unit) {
                         detectTapGestures(

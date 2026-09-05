@@ -1,7 +1,5 @@
 package com.xvox.music.core.ui.navigation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -22,258 +20,97 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxGlass
 
 @Composable
 fun XvoxBottomBar(
     selected: XvoxDestination,
-    onSelected:
-        (XvoxDestination) -> Unit,
+    onSelected: (XvoxDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val destinations = XvoxDestination.entries
+    val selectedIndex = destinations.indexOf(selected)
 
-    val destinations =
-        XvoxDestination.entries
+    var position by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
 
-    val selectedIndex =
-        destinations.indexOf(
-            selected
-        )
-
-    var position by
-        remember {
-            mutableFloatStateOf(
-                selectedIndex
-                    .toFloat()
-            )
-        }
-
-    LaunchedEffect(
-        selectedIndex
-    ) {
-        position =
-            selectedIndex
-                .toFloat()
+    LaunchedEffect(selectedIndex) {
+        position = selectedIndex.toFloat()
     }
 
-    val motion =
-        rememberXvoxNavigationMotion(
-            position = position
-        )
-
-    val parentShape =
-        RoundedCornerShape(
-            XvoxNavigationGeometry
-                .barRadius
-        )
-
-    val selectorShape =
-        RoundedCornerShape(
-            XvoxNavigationGeometry
-                .selectorBaseRadius
-        )
+    val motion = rememberXvoxNavigationMotion(position = position)
+    val parentShape = RoundedCornerShape(XvoxNavigationGeometry.barRadius)
+    val selectorShape = RoundedCornerShape(XvoxNavigationGeometry.selectorBaseRadius)
 
     Box(
-        modifier =
-            modifier
-                .width(
-                    XvoxNavigationGeometry
-                        .barWidth
-                )
-                .height(
-                    XvoxNavigationGeometry
-                        .hostHeight
-                )
+        modifier = modifier
+            .width(XvoxNavigationGeometry.barWidth)
+            .height(XvoxNavigationGeometry.hostHeight)
     ) {
         Box(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopCenter
-                    )
-                    .offset(
-                        y =
-                            XvoxNavigationGeometry
-                                .hostOverflow
-                    )
-                    .size(
-                        XvoxNavigationGeometry
-                            .barWidth,
-                        XvoxNavigationGeometry
-                            .barHeight
-                    )
-                    .graphicsLayer {
-                        shape =
-                            parentShape
-                        clip = true
-                    }
-                    .background(
-                        colors.surface
-                            .copy(
-                                alpha =
-                                    0.88f
-                            )
-                    )
-                    .border(
-                        width =
-                            XvoxNavigationGeometry
-                                .barBorderWidth,
-                        color =
-                            colors.cardBorder
-                                .copy(
-                                    alpha =
-                                        0.62f
-                                ),
-                        shape =
-                            parentShape
-                    )
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = XvoxNavigationGeometry.hostOverflow)
+                .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight)
+                .xvoxGlass(
+                    shape = parentShape,
+                    tint = colors.surface.copy(alpha = 0.84f),
+                    solidFallback = colors.surface
+                )
         )
 
         Box(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopStart
-                    )
-                    .offset(
-                        y =
-                            XvoxNavigationGeometry
-                                .hostOverflow +
-                                XvoxNavigationGeometry
-                                    .barHeight /
-                                2 -
-                                XvoxNavigationGeometry
-                                    .selectorRestHeight /
-                                2
-                    )
-                    .graphicsLayer {
-                        translationX =
-                            (
-                                XvoxNavigationGeometry
-                                    .selectorStart +
-                                    XvoxNavigationGeometry
-                                        .selectorTravel *
-                                    (
-                                        motion.position /
-                                            2f
-                                        )
-                                )
-                                .toPx()
-
-                        shape =
-                            selectorShape
-
-                        clip = true
-                    }
-                    .size(
-                        XvoxNavigationGeometry
-                            .selectorRestWidth,
-                        XvoxNavigationGeometry
-                            .selectorRestHeight
-                    )
-                    .background(
-                        colors.cardElevated
-                            .copy(
-                                alpha =
-                                    0.42f
-                            )
-                    )
-                    .border(
-                        width =
-                            XvoxNavigationGeometry
-                                .selectorBorderWidth,
-                        color =
-                            colors.cardBorder
-                                .copy(
-                                    alpha =
-                                        0.72f
-                                ),
-                        shape =
-                            selectorShape
-                    )
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    y = XvoxNavigationGeometry.hostOverflow + XvoxNavigationGeometry.barHeight / 2 - XvoxNavigationGeometry.selectorRestHeight / 2
+                )
+                .graphicsLayer {
+                    translationX = (XvoxNavigationGeometry.selectorStart + XvoxNavigationGeometry.selectorTravel * (motion.position / 2f)).toPx()
+                    shape = selectorShape
+                    clip = true
+                }
+                .size(XvoxNavigationGeometry.selectorRestWidth, XvoxNavigationGeometry.selectorRestHeight)
+                .xvoxGlass(
+                    shape = selectorShape,
+                    tint = colors.cardElevated.copy(alpha = 0.50f),
+                    solidFallback = colors.cardElevated
+                )
         )
 
         Row(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopCenter
-                    )
-                    .offset(
-                        y =
-                            XvoxNavigationGeometry
-                                .hostOverflow
-                    )
-                    .size(
-                        XvoxNavigationGeometry
-                            .barWidth,
-                        XvoxNavigationGeometry
-                            .barHeight
-                    ),
-            verticalAlignment =
-                Alignment.CenterVertically
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = XvoxNavigationGeometry.hostOverflow)
+                .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            destinations
-                .forEachIndexed {
-                    index,
-                    destination ->
+            destinations.forEachIndexed { index, destination ->
+                val interaction = remember(destination) { MutableInteractionSource() }
 
-                    val interaction =
-                        remember(
-                            destination
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = interaction,
+                            indication = null
                         ) {
-                            MutableInteractionSource()
-                        }
-
-                    Box(
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .fillMaxSize()
-                                .clickable(
-                                    interactionSource =
-                                        interaction,
-                                    indication =
-                                        null
-                                ) {
-                                    position =
-                                        index
-                                            .toFloat()
-
-                                    onSelected(
-                                        destination
-                                    )
-                                },
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        XvoxNavigationItem(
-                            destination =
-                                destination,
-                            proximity =
-                                navigationProximity(
-                                    position =
-                                        motion.position,
-                                    index =
-                                        index
-                                ),
-                            dragging =
-                                false,
-                            inactiveColor =
-                                colors.mutedText
-                                    .copy(
-                                        alpha =
-                                            0.76f
-                                    ),
-                            activeColor =
-                                colors.primaryAccent,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                        )
-                    }
+                            position = index.toFloat()
+                            onSelected(destination)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    XvoxNavigationItem(
+                        destination = destination,
+                        proximity = navigationProximity(position = motion.position, index = index),
+                        dragging = false,
+                        inactiveColor = colors.mutedText.copy(alpha = 0.76f),
+                        activeColor = colors.primaryAccent,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
+            }
         }
     }
 }

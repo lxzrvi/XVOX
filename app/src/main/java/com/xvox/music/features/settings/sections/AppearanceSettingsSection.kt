@@ -28,6 +28,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsSectionCard
+import com.xvox.music.features.settings.components.SettingsToggle
 
 @Composable
 fun AppearanceSettingsSection(
@@ -120,6 +121,15 @@ fun AppearanceSettingsSection(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        SettingsToggle(
+            title = "Live Blur (iOS Glass)",
+            subtitle = "Real-time frosted glass backdrop effect",
+            checked = state.liveBlur,
+            onCheckedChange = viewModel::setLiveBlur
+        )
 
         Spacer(modifier = Modifier.height(14.dp))
 

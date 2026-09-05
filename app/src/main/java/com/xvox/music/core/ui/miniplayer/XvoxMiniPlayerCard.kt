@@ -8,8 +8,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -66,18 +65,16 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            .clip(cardShape)
-            .background(colors.surface.copy(alpha = 0.88f))
+            .xvoxGlass(
+                shape = cardShape,
+                tint = colors.surface.copy(alpha = 0.82f),
+                solidFallback = colors.surface
+            )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    start = 4.dp,
-                    top = 4.dp,
-                    end = 50.dp,
-                    bottom = 4.dp
-                ),
+                .padding(start = 4.dp, top = 4.dp, end = 50.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -162,12 +159,10 @@ fun XvoxMiniPlayerCard(
                 .align(Alignment.CenterEnd)
                 .padding(end = 7.dp)
                 .size(38.dp)
-                .clip(CircleShape)
-                .background(colors.cardElevated.copy(alpha = 0.68f))
-                .border(
-                    width = 0.5.dp,
-                    color = colors.cardBorder,
-                    shape = CircleShape
+                .xvoxGlass(
+                    shape = CircleShape,
+                    tint = colors.cardElevated.copy(alpha = 0.68f),
+                    solidFallback = colors.cardElevated
                 )
                 .clickable(
                     interactionSource = controlInteraction,
@@ -200,15 +195,5 @@ fun XvoxMiniPlayerCard(
                 )
             }
         }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .border(
-                    width = 0.65.dp,
-                    color = colors.cardBorder,
-                    shape = cardShape
-                )
-        )
     }
 }
