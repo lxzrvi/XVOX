@@ -42,14 +42,17 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,12 +60,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +79,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -80,12 +89,9 @@ import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.PlaylistPickerBox
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.features.player.styles.PlayerStyleSheetContent
+import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
-import com.xvox.music.player.mini.XvoxMiniPlayer
-import com.xvox.music.player.mini.XvoxMiniPlayerPlacement
-import com.xvox.music.player.nowplaying.TimerSheetContent
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
 import kotlinx.coroutines.delay
@@ -104,7 +110,7 @@ fun XvoxMainShell(
     val context = LocalContext.current
 
     var destination by remember { mutableStateOf(XvoxDestination.HOME) }
-    var homeResetKey by remember { mutableIntStateOf(0) }
+    var homeResetKey by remember { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
 
     val homeState by homeViewModel.state.collectAsState()
@@ -354,8 +360,8 @@ fun XvoxMainShell(
                     playerViewModel.setPlayerStyle(style)
                     overlays.hideB()
                     val name = when (style) {
-                        com.xvox.music.features.player.styles.XvoxPlayerStyle.NORMAL -> "Normal"
-                        com.xvox.music.features.player.styles.XvoxPlayerStyle.FULL_ART -> "Full Art"
+                        XvoxPlayerStyle.NORMAL -> "Normal"
+                        XvoxPlayerStyle.FULL_ART -> "Full Art"
                     }
                     overlays.showP("$name style")
                 }
@@ -550,11 +556,267 @@ fun XvoxMainShell(
                         isShuffleEnabled = player.isShuffleEnabled,
                         repeatMode = player.repeatMode,
                         onToggleShuffle = playerViewModel::toggleShuffle,
-                        onToggleRepeat = playerViewModel::cycleRepeatMode,
+                        onToggleRepeat = playerViewModel::toggleRepeat,
                         playerStyle = player.playerStyle,
                         sleepTimerProgress = player.sleepTimerProgress,
                         playingSource = player.playingSource,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimerSheetContent(
+    currentMinutes: Int?,
+    onSetMinutes: (Int) -> Unit,
+    onCustom: (Int, Int, Boolean, Boolean) -> Unit,
+    onCancel: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    var showCustom by remember { mutableStateOf(false) }
+    var minText by remember { mutableStateOf("") }
+    var secText by remember { mutableStateOf("") }
+    var pauseMusic by remember { mutableStateOf(true) }
+    var closeApp by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Sleep Timer",
+                color = colors.primaryText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.size(4.dp))
+        Text("Audio stops automatically when timer ends", color = colors.secondaryText, fontSize = 12.sp)
+        Spacer(Modifier.size(14.dp))
+
+        val presets = listOf(5, 10, 15, 30, 45, 60)
+        presets.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row.forEach { mins ->
+                    val selected = currentMinutes == mins
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) colors.primaryAccent else colors.card.copy(alpha = 0.97f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onSetMinutes(mins) }
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "$mins min",
+                            color = if (selected) colors.background else colors.primaryText,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.size(6.dp))
+
+        // Custom Timer Expandable Section
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card.copy(alpha = 0.97f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { showCustom = !showCustom }
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Custom time...", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Icon(
+                painter = painterResource(if (showCustom) R.drawable.ic_xvox_collapse else R.drawable.ic_xvox_caret_right),
+                contentDescription = null,
+                tint = colors.secondaryText,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        if (showCustom) {
+            Spacer(Modifier.size(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BasicTextField(
+                    value = minText,
+                    onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) minText = it },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+                    cursorBrush = SolidColor(colors.primaryAccent),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.card.copy(alpha = 0.97f))
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    decorationBox = { inner ->
+                        if (minText.isEmpty()) Text("Minutes", color = colors.mutedText, fontSize = 14.sp)
+                        inner()
+                    }
+                )
+                BasicTextField(
+                    value = secText,
+                    onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) secText = it },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+                    cursorBrush = SolidColor(colors.primaryAccent),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.card.copy(alpha = 0.97f))
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    decorationBox = { inner ->
+                        if (secText.isEmpty()) Text("Seconds", color = colors.mutedText, fontSize = 14.sp)
+                        inner()
+                    }
+                )
+            }
+
+            Spacer(Modifier.size(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        pauseMusic = true
+                        closeApp = false
+                    }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = pauseMusic, onClick = { pauseMusic = true; closeApp = false })
+                Text("Pause music", color = colors.primaryText, fontSize = 13.sp)
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        closeApp = true
+                        pauseMusic = false
+                    }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = closeApp, onClick = { closeApp = true; pauseMusic = false })
+                Text("Close full app", color = colors.primaryText, fontSize = 13.sp)
+            }
+
+            Spacer(Modifier.size(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.primaryAccent)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        val m = minText.toIntOrNull() ?: 0
+                        val s = secText.toIntOrNull() ?: 0
+                        if (m == 0 && s == 0) return@clickable
+                        onCustom(m, s, pauseMusic, closeApp)
+                    }
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text("Start custom timer", color = colors.background, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (currentMinutes != null) {
+            Spacer(Modifier.size(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card.copy(alpha = 0.97f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onCancel() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Cancel Timer", color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerStyleSheetContent(
+    currentStyle: XvoxPlayerStyle,
+    onSelect: (XvoxPlayerStyle) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Player Style", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.size(4.dp))
+        Text("Choose artwork style", color = colors.secondaryText, fontSize = 12.sp)
+        Spacer(Modifier.size(14.dp))
+
+        val items = listOf(
+            Triple(XvoxPlayerStyle.NORMAL, "Normal", "Square + backdrop palette"),
+            Triple(XvoxPlayerStyle.FULL_ART, "Full Art", "Fullscreen cover")
+        )
+
+        items.forEach { (style, name, desc) ->
+            val selected = currentStyle == style
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (selected) colors.primaryAccent.copy(alpha = 0.15f) else colors.card.copy(alpha = 0.97f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onSelect(style) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(name, color = if (selected) colors.primaryAccent else colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(desc, color = colors.secondaryText, fontSize = 11.sp)
+                }
+                if (selected) {
+                    Icon(painter = painterResource(R.drawable.ic_xvox_check), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(16.dp))
                 }
             }
         }
