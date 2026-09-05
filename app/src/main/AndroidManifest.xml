@@ -21,6 +21,9 @@
     <uses-permission
         android:name="android.permission.WRITE_SETTINGS" />
 
+    <uses-permission
+        android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".XvoxApplication"
         android:allowBackup="true"
@@ -59,6 +62,27 @@
             </intent-filter>
 
         </service>
+
+        <!-- XVOX Resizable Home Screen Music Widget -->
+        <receiver
+            android:name=".widget.XvoxAppWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.xvox.music.widget.ACTION_PLAY_PAUSE" />
+                <action android:name="com.xvox.music.widget.ACTION_PREVIOUS" />
+                <action android:name="com.xvox.music.widget.ACTION_NEXT" />
+                <action android:name="com.xvox.music.widget.ACTION_TOGGLE_LIKE" />
+                <action android:name="com.xvox.music.widget.ACTION_UPDATE_WIDGET" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/xvox_widget_info" />
+
+        </receiver>
 
     </application>
 

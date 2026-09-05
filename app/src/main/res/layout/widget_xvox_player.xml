@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="0dp">
+
+    <!-- Dynamic Customizable Background with Transparency and Color -->
+    <ImageView
+        android:id="@+id/widget_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+
+    <!-- Main Widget Container -->
+    <LinearLayout
+        android:id="@+id/widget_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Top Header: XVOX Logo (in custom Cinzel Font) + Like Button -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="6dp">
+
+            <!-- XVOX Brand in Custom Font rendered as dynamic crisp Bitmap -->
+            <ImageView
+                android:id="@+id/widget_logo_xvox"
+                android:layout_width="wrap_content"
+                android:layout_height="22dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:adjustViewBounds="true"
+                android:scaleType="fitStart"
+                android:contentDescription="XVOX Logo" />
+
+            <!-- Like / Favorite Heart Toggle -->
+            <ImageView
+                android:id="@+id/widget_btn_like"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:padding="3dp"
+                android:src="@drawable/ic_xvox_heart_outline"
+                android:contentDescription="Like" />
+        </RelativeLayout>
+
+        <!-- Center Row: Album Artwork + Song Title & Artist -->
+        <LinearLayout
+            android:id="@+id/widget_info_row"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- Rounded Album Artwork -->
+            <ImageView
+                android:id="@+id/widget_artwork"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_xvox_music_note"
+                android:contentDescription="Album Artwork" />
+
+            <!-- Track Info -->
+            <LinearLayout
+                android:id="@+id/widget_text_container"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_song_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="No track playing"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_song_artist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="Tap to play in XVOX"
+                    android:textColor="#A0A0A0"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Playback Progress Bar -->
+        <ProgressBar
+            android:id="@+id/widget_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="6dp"
+            android:max="1000"
+            android:progress="0"
+            android:progressTint="#FFFFFF" />
+
+        <!-- Bottom Controls Row: Previous, Play/Pause, Next -->
+        <LinearLayout
+            android:id="@+id/widget_controls_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <!-- Previous Button -->
+            <ImageView
+                android:id="@+id/widget_btn_prev"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_xvox_skip_previous"
+                android:contentDescription="Previous" />
+
+            <!-- Play / Pause Button -->
+            <ImageView
+                android:id="@+id/widget_btn_play_pause"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_xvox_play"
+                android:contentDescription="Play/Pause" />
+
+            <!-- Next Button -->
+            <ImageView
+                android:id="@+id/widget_btn_next"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_xvox_skip_next"
+                android:contentDescription="Next" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

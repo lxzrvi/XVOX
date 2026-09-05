@@ -9,7 +9,9 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.xvox.music.core.model.Song
+import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.player.session.XvoxPlaybackService
+import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -36,6 +39,9 @@ class PlaybackController(
 ) {
     private val appContext =
         context.applicationContext
+
+    private val prefs =
+        UserPreferencesRepository(appContext)
 
     private val scope =
         CoroutineScope(
@@ -97,9 +103,16 @@ class PlaybackController(
                             }
                         }
                         RepeatMode.OFF -> {
-                            expectedPlaying = false
-                            expectedPlayingUntil = System.currentTimeMillis() + 800
-                            publishState()
+                            scope.launch {
+                                val shouldClear = prefs.clearQueueAfterPlayback.first()
+                                if (shouldClear) {
+                                    stop()
+                                } else {
+                                    expectedPlaying = false
+                                    expectedPlayingUntil = System.currentTimeMillis() + 800
+                                    publishState()
+                                }
+                            }
                         }
                     }
                 }
@@ -159,7 +172,6 @@ class PlaybackController(
 
     fun setRepeatMode(mode: RepeatMode) {
         repeatMode = mode
-        // Keep ExoPlayer repeat OFF - we handle manually for queue source
         controller?.repeatMode = Player.REPEAT_MODE_OFF
         publishState()
     }
@@ -287,6 +299,14 @@ class PlaybackController(
                 position = 0L,
                 duration = song.duration
             )
+
+        XvoxAppWidgetProvider.updateAllWidgets(
+            appContext,
+            song,
+            false,
+            0L,
+            song.duration
+        )
     }
 
     fun play(
@@ -338,6 +358,14 @@ class PlaybackController(
                 position = 0L,
                 duration = song.duration
             )
+
+        XvoxAppWidgetProvider.updateAllWidgets(
+            appContext,
+            song,
+            true,
+            0L,
+            song.duration
+        )
     }
 
     fun playQueueIndex(
@@ -355,7 +383,6 @@ class PlaybackController(
             if (restoredSongId != null) {
                 true
             } else if (keepPlayingState) {
-                // Seamless: if was playing (isPlaying or playWhenReady), keep playing
                 _state.value.isPlaying || mediaController.isPlaying || mediaController.playWhenReady
             } else {
                 true
@@ -385,6 +412,14 @@ class PlaybackController(
                 position = 0L,
                 duration = song.duration
             )
+
+        XvoxAppWidgetProvider.updateAllWidgets(
+            appContext,
+            song,
+            shouldPlay,
+            0L,
+            song.duration
+        )
     }
 
     fun playPrevious() {
@@ -489,6 +524,7 @@ class PlaybackController(
             expectedPlaying = true
             expectedPlayingUntil = System.currentTimeMillis() + 800
         }
+        publishState()
     }
 
     fun stop() {
@@ -504,6 +540,14 @@ class PlaybackController(
                 connected =
                     controller != null
             )
+
+        XvoxAppWidgetProvider.updateAllWidgets(
+            appContext,
+            null,
+            false,
+            0L,
+            0L
+        )
     }
 
     private fun publishState() {
@@ -547,6 +591,13 @@ class PlaybackController(
                             duration =
                                 song.duration
                         )
+                    XvoxAppWidgetProvider.updateAllWidgets(
+                        appContext,
+                        song,
+                        false,
+                        0L,
+                        song.duration
+                    )
                     return
                 }
             }
@@ -565,8 +616,10 @@ class PlaybackController(
                 it.id == id
             }
 
+        val currentSong = queue.getOrNull(index)
+
         val fallbackDuration =
-            queue.getOrNull(index)
+            currentSong
                 ?.duration
                 ?: 0L
 
@@ -585,23 +638,26 @@ class PlaybackController(
             else -> mediaController.playWhenReady && mediaController.playbackState != Player.STATE_ENDED && mediaController.playbackState != Player.STATE_IDLE
         }
 
+        val currentPos = mediaController.currentPosition.coerceAtLeast(0L)
+        val currentDur = mediaController.duration.takeIf { it > 0L } ?: fallbackDuration
+
         _state.value =
             PlaybackState(
                 connected = true,
                 currentSongId = id,
                 currentIndex = index,
                 isPlaying = effectiveIsPlaying,
-                position =
-                    mediaController
-                        .currentPosition
-                        .coerceAtLeast(0L),
-                duration =
-                    mediaController.duration
-                        .takeIf {
-                            it > 0L
-                        }
-                        ?: fallbackDuration
+                position = currentPos,
+                duration = currentDur
             )
+
+        XvoxAppWidgetProvider.updateAllWidgets(
+            appContext,
+            currentSong,
+            effectiveIsPlaying,
+            currentPos,
+            currentDur
+        )
     }
 
     fun release() {

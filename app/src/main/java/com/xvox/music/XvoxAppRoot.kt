@@ -27,6 +27,8 @@ fun XvoxAppRoot(
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
+    val accentStr by prefs.accentColor.collectAsState(initial = "Default")
+
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
         "Dark" -> XvoxThemeMode.DARK
@@ -34,7 +36,7 @@ fun XvoxAppRoot(
         else -> XvoxThemeMode.SYSTEM
     }
 
-    XvoxTheme(mode = mode) {
+    XvoxTheme(mode = mode, accent = accentStr) {
         CompositionLocalProvider(LocalXvoxOverlayController provides overlays) {
             Box(modifier = Modifier.fillMaxSize()) {
                 when (state) {

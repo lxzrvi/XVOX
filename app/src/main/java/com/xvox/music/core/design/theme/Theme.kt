@@ -30,9 +30,10 @@ object XvoxTheme {
 @Composable
 fun XvoxTheme(
     mode: XvoxThemeMode = XvoxThemeMode.SYSTEM,
+    accent: String = "Default",
     content: @Composable () -> Unit
 ) {
-    val palette = when (mode) {
+    val basePalette = when (mode) {
         XvoxThemeMode.LIGHT -> XvoxWhitePalette
         XvoxThemeMode.DARK -> XvoxDarkPalette
         XvoxThemeMode.AMOLED -> XvoxAmoledPalette
@@ -45,6 +46,8 @@ fun XvoxTheme(
             }
         }
     }
+
+    val palette = basePalette.withAccent(accent)
 
     val materialColors =
         if (

@@ -3,8 +3,17 @@ package com.xvox.music.features.settings
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,32 +27,51 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xvox.music.R
+import com.xvox.music.audio.AudioEffectsManager
+import com.xvox.music.core.design.theme.XvoxLogoFont
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.home.HomeFooter
 import com.xvox.music.features.home.HomeGreeting
 import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.HomeFooter
+import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 private fun SettingsHeaderNoPill(
@@ -67,14 +95,13 @@ private fun SettingsHeaderNoPill(
             Text(
                 text = homeState.profile.username,
                 color = colors.primaryText,
-                fontFamily = com.xvox.music.core.design.theme.XvoxPersonalFont,
+                fontFamily = XvoxPersonalFont,
                 fontSize = 18.sp,
                 lineHeight = 19.sp,
                 maxLines = 1
             )
             HomeGreeting()
         }
-        // No pill – 7/8
     }
 }
 
@@ -85,11 +112,13 @@ fun SettingsScreen(
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
-    val prefs = remember { UserPreferencesRepository(context) }
+    val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
 
+    // Playback preferences
     val gapless by prefs.gaplessPlayback.collectAsState(initial = true)
     val crossfade by prefs.crossfade.collectAsState(initial = false)
+    val crossfadeDuration by prefs.crossfadeDuration.collectAsState(initial = 3)
     val fadeIn by prefs.fadeIn.collectAsState(initial = false)
     val fadeOut by prefs.fadeOut.collectAsState(initial = false)
     val replayGain by prefs.replayGain.collectAsState(initial = false)
@@ -97,31 +126,57 @@ fun SettingsScreen(
     val skipSilence by prefs.skipSilence.collectAsState(initial = false)
     val audioFocus by prefs.audioFocus.collectAsState(initial = true)
     val pauseOnDisconnect by prefs.pauseOnHeadphoneDisconnect.collectAsState(initial = true)
+    val playOnConnect by prefs.playOnHeadsetConnect.collectAsState(initial = false)
     val clearQueue by prefs.clearQueueAfterPlayback.collectAsState(initial = false)
     val rememberQueue by prefs.rememberQueue.collectAsState(initial = true)
-    val playOnConnect by prefs.playOnHeadsetConnect.collectAsState(initial = false)
+
+    // Equalizer & Audio DSP preferences
     val equalizer by prefs.equalizerEnabled.collectAsState(initial = false)
+    val eqPreset by prefs.eqPreset.collectAsState(initial = "Flat")
+    val eqBands by prefs.eqBands.collectAsState(initial = listOf(0, 0, 0, 0, 0))
     val bassBoost by prefs.bassBoost.collectAsState(initial = false)
+    val bassBoostStrength by prefs.bassBoostStrength.collectAsState(initial = 0)
     val virtualizer by prefs.virtualizerEnabled.collectAsState(initial = false)
+    val virtualizerStrength by prefs.virtualizerStrength.collectAsState(initial = 0)
+    val loudnessEnhancer by prefs.loudnessEnhancer.collectAsState(initial = false)
+    val loudnessGainMb by prefs.loudnessGainMb.collectAsState(initial = 0)
+    val balance by prefs.balance.collectAsState(initial = 0f)
     val mono by prefs.monoAudio.collectAsState(initial = false)
     val stereo by prefs.stereoWidening.collectAsState(initial = false)
+
+    // Notification
     val mediaNotif by prefs.mediaNotification.collectAsState(initial = true)
+
+    // Volume
+    val appVolume by prefs.appVolume.collectAsState(initial = 1.0f)
     val rememberVol by prefs.rememberVolume.collectAsState(initial = true)
+    val volumeLimit by prefs.volumeLimit.collectAsState(initial = 1.0f)
+
+    // Customization & Appearance
     val theme by prefs.theme.collectAsState(initial = "System")
+    val accentColor by prefs.accentColor.collectAsState(initial = "Default")
+    val fontSizeScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
     val haptic by prefs.hapticFeedback.collectAsState(initial = true)
+
+    // Widget Customizer preferences
+    val widgetTransparency by prefs.widgetTransparency.collectAsState(initial = 0.25f)
+    val widgetTheme by prefs.widgetTheme.collectAsState(initial = "Dynamic")
+    val widgetCustomColor by prefs.widgetCustomColor.collectAsState(initial = "#171717")
+    val widgetShowLogo by prefs.widgetShowLogo.collectAsState(initial = true)
+    val widgetCornerRadius by prefs.widgetCornerRadius.collectAsState(initial = 24)
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 8 – Settings header Home-style language without pill
+        // Settings Header
         item(key = "settings_header") {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(colors.background.copy(alpha = 0.78f))
+                    .background(colors.background.copy(alpha = 0.85f))
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(bottom = 8.dp)
             ) {
@@ -130,166 +185,878 @@ fun SettingsScreen(
         }
 
         item(key = "settings_title") {
-            Text(text = "Settings", color = colors.primaryText, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
-        }
-
-        item(key = "playback") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Playback") {
-                    SettingsToggle("Gapless playback", "Seamless transition between tracks", gapless) { scope.launch { prefs.setGaplessPlayback(it) } }
-                    SettingsToggle("Crossfade", "Blend end/start of tracks (Media3 crossfade)", crossfade) { scope.launch { prefs.setCrossfade(it) } }
-                    SettingsToggle("Fade in", "Gradual volume rise on play", fadeIn) { scope.launch { prefs.setFadeIn(it) } }
-                    SettingsToggle("Fade out", "Gradual volume fall on pause/stop", fadeOut) { scope.launch { prefs.setFadeOut(it) } }
-                    SettingsToggle("ReplayGain", "Normalize loudness via metadata", replayGain) { scope.launch { prefs.setReplayGain(it) } }
-                    SettingsToggle("Loudness normalization", "EBU R128 style normalization", loudnessNorm) { scope.launch { prefs.setLoudnessNormalization(it) } }
-                    SettingsToggle("Skip silence", "Trim silent gaps (ExoPlayer skipSilence)", skipSilence) {
-                        scope.launch { prefs.setSkipSilence(it) }
-                    }
-                    SettingsToggle("Audio focus", "React to calls/other apps", audioFocus) { scope.launch { prefs.setAudioFocus(it) } }
-                    SettingsToggle("Pause on headphone disconnect", "Auto pause when headset removed", pauseOnDisconnect) { scope.launch { prefs.setPauseOnHeadphoneDisconnect(it) } }
-                    SettingsToggle("Play on headset connect", "Resume when headset plugged", playOnConnect) { scope.launch { prefs.setPlayOnHeadsetConnect(it) } }
-                    SettingsToggle("Clear queue after playback", "Empty queue when completed", clearQueue) { scope.launch { prefs.setClearQueueAfterPlayback(it) } }
-                    SettingsToggle("Remember queue", "Restore queue next launch", rememberQueue) { scope.launch { prefs.setRememberQueue(it) } }
-                }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_xvox_settings),
+                    contentDescription = null,
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Settings",
+                    color = colors.primaryText,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
-        item(key = "eq") {
+        // ==========================================
+        // 1. HOME SCREEN WIDGET CUSTOMIZER SECTION
+        // ==========================================
+        item(key = "widget_customizer") {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Equalizer / Audio") {
-                    SettingsToggle("Equalizer", "Master enable (DSP pipeline)", equalizer) { scope.launch { prefs.setEqualizerEnabled(it) } }
-                    SettingsInfo("Presets", "Flat / Bass Boost / Treble / Vocal / Custom — loads bands + preamp, persists")
-                    SettingsToggle("Bass boost", "Low frequency enhancement", bassBoost) { scope.launch { prefs.setBassBoost(it) } }
-                    SettingsToggle("Virtualizer", "Stereo widening effect", virtualizer) { scope.launch { prefs.setVirtualizer(it) } }
-                    SettingsToggle("Mono audio", "Downmix to mono", mono) { scope.launch { prefs.setMonoAudio(it) } }
-                    SettingsToggle("Stereo widening", "Expand stereo image", stereo) { scope.launch { prefs.setStereoWidening(it) } }
-                    SettingsInfo("Bands & Preamp", "5-10 band EQ interconnected, custom persists after reload")
-                    SettingsInfo("Loudness / Compressor / Limiter", "Dynamics processors in PCM pipeline")
-                    SettingsInfo("Balance L/R", "Left-right panning control")
-                    SettingsInfo("Volume normalization", "Per-track gain compensation")
-                }
-            }
-        }
+                SettingsSection(title = "Home Screen Widget Customizer", iconRes = R.drawable.ic_xvox_music_note) {
+                    Text(
+                        text = "Customize your resizable home screen music widget. Changes apply instantly to all widgets.",
+                        color = colors.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
 
-        item(key = "bt") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Headphones / Bluetooth") {
-                    SettingsToggle("Play on connect", "Auto play when BT/headset connects", playOnConnect) { scope.launch { prefs.setPlayOnHeadsetConnect(it) } }
-                    SettingsToggle("Pause on disconnect", "Synced pause on remove", pauseOnDisconnect) { scope.launch { prefs.setPauseOnHeadphoneDisconnect(it) } }
-                    SettingsInfo("Bluetooth", "Uses BluetoothHeadset & AudioManager callbacks, synchronized with playback")
-                }
-            }
-        }
+                    // LIVE WIDGET PREVIEW CARD
+                    WidgetLivePreviewCard(
+                        transparency = widgetTransparency,
+                        theme = widgetTheme,
+                        customColor = widgetCustomColor,
+                        showLogo = widgetShowLogo,
+                        cornerRadiusDp = widgetCornerRadius
+                    )
 
-        item(key = "notif") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Notification") {
-                    SettingsToggle("Media notification", "Foreground MediaSession notification", mediaNotif) { scope.launch { prefs.setMediaNotification(it) } }
-                    SettingsInfo("MediaSession", "Connected to PlaybackController, respects foreground restrictions")
-                }
-            }
-        }
+                    Spacer(modifier = Modifier.height(14.dp))
 
-        item(key = "volume") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Volume") {
-                    SettingsInfo("App volume", "In-app stream volume, 0-100%")
-                    SettingsToggle("Remember volume", "Restore level next launch", rememberVol) { }
-                    SettingsInfo("Volume limit", "Cap max output (e.g. 85%) — enforced on every set")
-                }
-            }
-        }
+                    // Transparency Slider
+                    Text(
+                        text = "Widget Transparency: ${(widgetTransparency * 100).roundToInt()}%",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Slider(
+                        value = widgetTransparency,
+                        onValueChange = { scope.launch { prefs.setWidgetTransparency(it) } },
+                        valueRange = 0.0f..1.0f,
+                        steps = 20,
+                        colors = SliderDefaults.colors(
+                            thumbColor = colors.primaryAccent,
+                            activeTrackColor = colors.primaryAccent,
+                            inactiveTrackColor = colors.cardBorder
+                        )
+                    )
 
-        item(key = "output") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-                val devices = remember {
-                    try {
-                        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.toReadableName() }.distinct()
-                    } catch (_: Exception) { listOf("Phone") }
-                }
-                SettingsSection(title = "Output") {
-                    SettingsInfo("Available routes", devices.joinToString(", ").ifEmpty { "Phone" })
-                    SettingsInfo("Selection", "Phone speaker / Wired headphones / Bluetooth / USB audio — via AudioManager, no fake routes")
-                    devices.forEach { name ->
-                        SettingsInfo("• $name", "Detected via AudioManager.getDevices()", small = true)
-                    }
-                }
-            }
-        }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-        item(key = "custom") {
-            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Customizations") {
-                    Text(text = "Theme: $theme", color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                        listOf("System", "Light", "Dark", "AMOLED").forEach { t ->
+                    // Widget Theme Selector
+                    Text(
+                        text = "Widget Theme Style",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Dynamic", "AMOLED", "Dark", "Light", "Glass").forEach { t ->
+                            val isSelected = widgetTheme == t
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (theme == t) colors.primaryText else colors.card)
-                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { scope.launch { prefs.setTheme(t) } }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                    .clickable {
+                                        scope.launch {
+                                            prefs.setWidgetTheme(t)
+                                            XvoxAppWidgetProvider.notifyWidgetUpdate(context)
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = t, color = if (theme == t) colors.background else colors.primaryText, fontSize = 11.sp)
+                                Text(
+                                    text = t,
+                                    color = if (isSelected) colors.background else colors.primaryText,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
                             }
                         }
                     }
-                    SettingsInfo("Accent color", "Global tint applied instantly")
-                    SettingsInfo("Mini / Full player layout", "Compact / Expanded")
-                    SettingsInfo("Home layout", "Grid / List")
-                    SettingsInfo("Font size", "Scalable 0.85x - 1.25x")
-                    SettingsToggle("Haptic feedback", "Vibration on interactions", haptic) { scope.launch { prefs.setHapticFeedback(it) } }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Corner Radius Slider
+                    Text(
+                        text = "Corner Radius: ${widgetCornerRadius}dp",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Slider(
+                        value = widgetCornerRadius.toFloat(),
+                        onValueChange = { scope.launch { prefs.setWidgetCornerRadius(it.toInt()) } },
+                        valueRange = 12f..36f,
+                        steps = 12,
+                        colors = SliderDefaults.colors(
+                            thumbColor = colors.primaryAccent,
+                            activeTrackColor = colors.primaryAccent,
+                            inactiveTrackColor = colors.cardBorder
+                        )
+                    )
+
+                    // Show XVOX Logo Toggle
+                    SettingsToggle(
+                        title = "Show XVOX Logo (Cinzel Font)",
+                        subtitle = "Display brand watermark on widget",
+                        checked = widgetShowLogo
+                    ) {
+                        scope.launch {
+                            prefs.setWidgetShowLogo(it)
+                            XvoxAppWidgetProvider.notifyWidgetUpdate(context)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Instant Apply & Refresh Button
+                    Button(
+                        onClick = {
+                            XvoxAppWidgetProvider.notifyWidgetUpdate(context)
+                            Toast.makeText(context, "Widgets Updated!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.primaryAccent,
+                            contentColor = colors.background
+                        )
+                    ) {
+                        Text(text = "Apply & Refresh Home Widgets", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
 
-        item(key = "widgets") {
+        // ==========================================
+        // 2. EQUALIZER & AUDIO DSP SECTION
+        // ==========================================
+        item(key = "equalizer_section") {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Widgets") {
-                    SettingsInfo("Now Playing / Controls / Album Art / Like / Progress / Queue / Recently Played / Quick EQ", "Each widget bound to real playback state")
-                    SettingsInfo("Connection", "Widgets observe PlaybackController flow, update instantly")
+                SettingsSection(title = "Equalizer & DSP Engine", iconRes = R.drawable.ic_xvox_equalizer) {
+                    SettingsToggle(
+                        title = "Master Equalizer",
+                        subtitle = "Enable real-time hardware audio processing",
+                        checked = equalizer
+                    ) {
+                        scope.launch { prefs.setEqualizerEnabled(it) }
+                    }
+
+                    AnimatedVisibility(
+                        visible = equalizer,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // EQ Presets
+                            Text(
+                                text = "Presets",
+                                color = colors.secondaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val presets = listOf("Flat", "Bass Boost", "Treble", "Rock", "Pop", "Jazz", "Electronic", "Vocal", "Custom")
+                                presets.forEach { p ->
+                                    val isSelected = eqPreset == p
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                            .clickable {
+                                                scope.launch {
+                                                    prefs.setEqPreset(p)
+                                                    if (p != "Custom" && AudioEffectsManager.PRESETS.containsKey(p)) {
+                                                        val bandVals = AudioEffectsManager.PRESETS[p] ?: listOf(0, 0, 0, 0, 0)
+                                                        prefs.setEqBands(bandVals)
+                                                    }
+                                                }
+                                            }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = p,
+                                            color = if (isSelected) colors.background else colors.primaryText,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 5 EQ Band Sliders
+                            val bandLabels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
+                            Text(
+                                text = "5-Band Equalizer (-15 dB to +15 dB)",
+                                color = colors.primaryText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            bandLabels.forEachIndexed { index, label ->
+                                val currentVal = eqBands.getOrElse(index) { 0 }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = colors.secondaryText,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.width(60.dp)
+                                    )
+                                    Slider(
+                                        value = currentVal.toFloat(),
+                                        onValueChange = { newVal ->
+                                            val updated = eqBands.toMutableList()
+                                            while (updated.size <= index) updated.add(0)
+                                            updated[index] = newVal.roundToInt()
+                                            scope.launch {
+                                                prefs.setEqBands(updated)
+                                                prefs.setEqPreset("Custom")
+                                            }
+                                        },
+                                        valueRange = -15f..15f,
+                                        steps = 30,
+                                        modifier = Modifier.weight(1f),
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = colors.primaryAccent,
+                                            activeTrackColor = colors.primaryAccent,
+                                            inactiveTrackColor = colors.cardBorder
+                                        )
+                                    )
+                                    Text(
+                                        text = "${if (currentVal > 0) "+" else ""}$currentVal dB",
+                                        color = colors.primaryText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.width(48.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Bass Boost
+                            SettingsToggle("Bass Boost", "Low frequency enhancement", bassBoost) {
+                                scope.launch { prefs.setBassBoost(it) }
+                            }
+                            if (bassBoost) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(60.dp))
+                                    Slider(
+                                        value = bassBoostStrength.toFloat(),
+                                        onValueChange = { scope.launch { prefs.setBassBoostStrength(it.roundToInt()) } },
+                                        valueRange = 0f..1000f,
+                                        modifier = Modifier.weight(1f),
+                                        colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                                    )
+                                    Text("${(bassBoostStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(42.dp))
+                                }
+                            }
+
+                            // Virtualizer
+                            SettingsToggle("Virtualizer / 3D Surround", "Stereo widening effect", virtualizer) {
+                                scope.launch { prefs.setVirtualizer(it) }
+                            }
+                            if (virtualizer) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(60.dp))
+                                    Slider(
+                                        value = virtualizerStrength.toFloat(),
+                                        onValueChange = { scope.launch { prefs.setVirtualizerStrength(it.roundToInt()) } },
+                                        valueRange = 0f..1000f,
+                                        modifier = Modifier.weight(1f),
+                                        colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                                    )
+                                    Text("${(virtualizerStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(42.dp))
+                                }
+                            }
+
+                            // Loudness Enhancer
+                            SettingsToggle("Loudness Enhancer", "Target gain boost for quiet tracks", loudnessEnhancer) {
+                                scope.launch { prefs.setLoudnessEnhancer(it) }
+                            }
+                            if (loudnessEnhancer) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Gain", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(60.dp))
+                                    Slider(
+                                        value = loudnessGainMb.toFloat(),
+                                        onValueChange = { scope.launch { prefs.setLoudnessGainMb(it.roundToInt()) } },
+                                        valueRange = 0f..2000f,
+                                        modifier = Modifier.weight(1f),
+                                        colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                                    )
+                                    Text("+${(loudnessGainMb / 100)} dB", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(48.dp))
+                                }
+                            }
+
+                            // Balance L / R
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(text = "Stereo Balance L / R", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("L", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(20.dp))
+                                Slider(
+                                    value = balance,
+                                    onValueChange = { scope.launch { prefs.setBalance(it) } },
+                                    valueRange = -1.0f..1.0f,
+                                    modifier = Modifier.weight(1f),
+                                    colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                                )
+                                Text("R", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(20.dp))
+                            }
+
+                            SettingsToggle("Mono Audio", "Downmix stereo to single channel", mono) {
+                                scope.launch { prefs.setMonoAudio(it) }
+                            }
+                            SettingsToggle("Stereo Widening", "Spatial field expander", stereo) {
+                                scope.launch { prefs.setStereoWidening(it) }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        item(key = "dsp") {
+        // ==========================================
+        // 3. PLAYBACK SETTINGS SECTION
+        // ==========================================
+        item(key = "playback_section") {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SettingsSection(title = "Custom DSP Engine") {
-                    SettingsInfo("Pipeline", "Media3 → PCM → XVOX DSP (EQ/Bass/Virtualizer/Compressor/Limiter/Balance) → Oboe → Output")
-                    SettingsInfo("Status", "Real PCM handoff, not label — AudioProcessor chain processes buffers before render")
+                SettingsSection(title = "Playback", iconRes = R.drawable.ic_xvox_play) {
+                    SettingsToggle("Gapless playback", "Seamless transition between tracks", gapless) {
+                        scope.launch { prefs.setGaplessPlayback(it) }
+                    }
+
+                    SettingsToggle("Crossfade", "Blend track end and start", crossfade) {
+                        scope.launch { prefs.setCrossfade(it) }
+                    }
+                    if (crossfade) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Duration", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(60.dp))
+                            Slider(
+                                value = crossfadeDuration.toFloat(),
+                                onValueChange = { scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) } },
+                                valueRange = 1f..12f,
+                                steps = 11,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                            )
+                            Text("${crossfadeDuration}s", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(36.dp))
+                        }
+                    }
+
+                    SettingsToggle("Fade in", "Gradual volume rise on playback start", fadeIn) {
+                        scope.launch { prefs.setFadeIn(it) }
+                    }
+
+                    SettingsToggle("Fade out", "Gradual volume fall on pause/stop", fadeOut) {
+                        scope.launch { prefs.setFadeOut(it) }
+                    }
+
+                    SettingsToggle("ReplayGain", "Normalize loudness via metadata tags", replayGain) {
+                        scope.launch { prefs.setReplayGain(it) }
+                    }
+
+                    SettingsToggle("Loudness normalization", "EBU R128 standard volume leveling", loudnessNorm) {
+                        scope.launch { prefs.setLoudnessNormalization(it) }
+                    }
+
+                    SettingsToggle("Skip silence", "Trim leading and trailing silent gaps", skipSilence) {
+                        scope.launch { prefs.setSkipSilence(it) }
+                    }
+
+                    SettingsToggle("Audio focus", "React to phone calls, navigation & other apps", audioFocus) {
+                        scope.launch { prefs.setAudioFocus(it) }
+                    }
+
+                    SettingsToggle("Pause on headphone disconnect", "Auto pause when headset or Bluetooth disconnects", pauseOnDisconnect) {
+                        scope.launch { prefs.setPauseOnHeadphoneDisconnect(it) }
+                    }
+
+                    SettingsToggle("Play on headset connect", "Resume playback when headset or Bluetooth connects", playOnConnect) {
+                        scope.launch { prefs.setPlayOnHeadsetConnect(it) }
+                    }
+
+                    SettingsToggle("Clear queue after playback", "Empty queue when current list completes", clearQueue) {
+                        scope.launch { prefs.setClearQueueAfterPlayback(it) }
+                    }
+
+                    SettingsToggle("Remember queue", "Restore playing queue on next launch", rememberQueue) {
+                        scope.launch { prefs.setRememberQueue(it) }
+                    }
                 }
             }
         }
 
-        // 1 – bottom brand space like Home
+        // ==========================================
+        // 4. VOLUME & OUTPUT SECTION
+        // ==========================================
+        item(key = "volume_section") {
+            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                SettingsSection(title = "Volume & Output", iconRes = R.drawable.ic_xvox_volume_high) {
+                    // In-App Volume Slider
+                    Text(
+                        text = "In-App Stream Volume: ${(appVolume * 100).roundToInt()}%",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Slider(
+                        value = appVolume,
+                        onValueChange = { scope.launch { prefs.setAppVolume(it) } },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                    )
+
+                    SettingsToggle("Remember Volume", "Restore volume level on next app start", rememberVol) {
+                        scope.launch { prefs.setRememberVolume(it) }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Volume Limit Slider
+                    Text(
+                        text = "Volume Limiter Cap: ${(volumeLimit * 100).roundToInt()}%",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Slider(
+                        value = volumeLimit,
+                        onValueChange = { scope.launch { prefs.setVolumeLimit(it) } },
+                        valueRange = 0.5f..1.0f,
+                        steps = 10,
+                        colors = SliderDefaults.colors(thumbColor = colors.primaryAccent, activeTrackColor = colors.primaryAccent)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Live Output Audio Devices
+                    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+                    val devices = remember {
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.toReadableName() }.distinct()
+                            } else listOf("Phone Speaker")
+                        } catch (_: Exception) { listOf("Phone Speaker") }
+                    }
+
+                    Text(
+                        text = "Active Audio Routes",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                    )
+                    devices.forEach { devName ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF45B97C)))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = devName, color = colors.primaryText, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 5. NOTIFICATION SECTION
+        // ==========================================
+        item(key = "notification_section") {
+            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                SettingsSection(title = "Notification", iconRes = R.drawable.ic_xvox_settings) {
+                    SettingsToggle("Media notification", "Show foreground player notification with controls", mediaNotif) {
+                        scope.launch { prefs.setMediaNotification(it) }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 6. APPEARANCE & CUSTOMIZATION
+        // ==========================================
+        item(key = "appearance_section") {
+            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                SettingsSection(title = "Appearance & Theme", iconRes = R.drawable.ic_xvox_settings) {
+                    // Theme Mode Selector
+                    Text(text = "App Theme: $theme", color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("System", "Light", "Dark", "AMOLED").forEach { t ->
+                            val isSel = theme == t
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) colors.primaryAccent else colors.cardElevated)
+                                    .clickable { scope.launch { prefs.setTheme(t) } }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = t,
+                                    color = if (isSel) colors.background else colors.primaryText,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Accent Colors
+                    Text(text = "Accent Color: $accentColor", color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    val accentOptions = listOf(
+                        "Default" to Color(0xFFF5F5F5),
+                        "Violet" to Color(0xFF8B5CF6),
+                        "Cyan" to Color(0xFF06B6D4),
+                        "Emerald" to Color(0xFF10B981),
+                        "Sunset Orange" to Color(0xFFF97316),
+                        "Crimson Red" to Color(0xFFEF4444),
+                        "Neon Pink" to Color(0xFFEC4899),
+                        "Electric Blue" to Color(0xFF3B82F6),
+                        "Amber Gold" to Color(0xFFF59E0B)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        accentOptions.forEach { (name, colorVal) ->
+                            val isSel = accentColor == name
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { scope.launch { prefs.setAccentColor(name) } }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(colorVal)
+                                        .border(
+                                            width = if (isSel) 2.5.dp else 1.dp,
+                                            color = if (isSel) colors.primaryText else Color.Transparent,
+                                            shape = CircleShape
+                                        )
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = name, color = if (isSel) colors.primaryText else colors.secondaryText, fontSize = 10.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Font Size Scale
+                    Text(
+                        text = "Font Scale: ${fontSizeScale}x",
+                        color = colors.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(0.85f to "Small", 1.0f to "Normal", 1.15f to "Large", 1.25f to "XL").forEach { (scale, label) ->
+                            val isSel = fontSizeScale == scale
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) colors.primaryAccent else colors.cardElevated)
+                                    .clickable { scope.launch { prefs.setFontSizeScale(scale) } }
+                                    .padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSel) colors.background else colors.primaryText,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    SettingsToggle("Haptic feedback", "Vibrate gently on button taps and sliders", haptic) {
+                        scope.launch { prefs.setHapticFeedback(it) }
+                    }
+                }
+            }
+        }
+
+        // Bottom Branding
         item(key = "settings_brand") {
-            Spacer(Modifier.height(24.dp))
-            HomeFooter(modifier = Modifier.fillMaxWidth().height(220.dp).padding(bottom = 20.dp))
+            Spacer(Modifier.height(16.dp))
+            HomeFooter(modifier = Modifier.fillMaxWidth().height(200.dp).padding(bottom = 20.dp))
         }
 
         item(key = "settings_bottom_inset") { Spacer(Modifier.height(80.dp)) }
     }
 }
 
+// ==========================================
+// LIVE WIDGET PREVIEW CARD (FOR SETTINGS)
+// ==========================================
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+private fun WidgetLivePreviewCard(
+    transparency: Float,
+    theme: String,
+    customColor: String,
+    showLogo: Boolean,
+    cornerRadiusDp: Int
+) {
+    val colors = XvoxTheme.colors
+
+    val previewBgColor = when (theme) {
+        "AMOLED" -> Color(0xFF000000)
+        "Dark" -> Color(0xFF141414)
+        "Light" -> Color(0xFFFAFAFA)
+        "Glass" -> Color(0xFF1E1E1E)
+        "Custom" -> runCatching { Color(android.graphics.Color.parseColor(customColor)) }.getOrDefault(Color(0xFF171717))
+        else -> Color(0xFF1A1F2C) // Dynamic simulation
+    }
+
+    val alphaVal = (1.0f - transparency).coerceIn(0f, 1f)
+    val effectiveBg = previewBgColor.copy(alpha = alphaVal)
+    val isLight = theme == "Light" && transparency < 0.6f
+    val textColor = if (isLight) Color(0xFF111111) else Color(0xFFFFFFFF)
+    val subTextColor = if (isLight) Color(0xFF555555) else Color(0xFFA0A0A0)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(cornerRadiusDp.dp))
+            .background(effectiveBg)
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(cornerRadiusDp.dp))
+            .padding(14.dp)
+    ) {
+        // Header: XVOX in custom logo font + Heart
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showLogo) {
+                Text(
+                    text = "XVOX",
+                    fontFamily = XvoxLogoFont,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor,
+                    letterSpacing = 2.sp
+                )
+            } else {
+                Spacer(modifier = Modifier.width(1.dp))
+            }
+            Icon(
+                painter = painterResource(id = R.drawable.ic_xvox_heart),
+                contentDescription = null,
+                tint = Color(0xFFFF453A),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Center: Artwork + Song Details
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFFA855F7)))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_xvox_music_note),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Live Track Preview",
+                    color = textColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Text(
+                    text = "XVOX Sound Engine • Hi-Res",
+                    color = subTextColor,
+                    fontSize = 11.sp,
+                    maxLines = 1
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Progress line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White.copy(alpha = 0.2f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(textColor)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_xvox_skip_previous),
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(26.dp)
+            )
+            Spacer(modifier = Modifier.width(24.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(textColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_xvox_pause),
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(24.dp))
+            Icon(
+                painter = painterResource(id = R.drawable.ic_xvox_skip_next),
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    iconRes: Int? = null,
+    content: @Composable () -> Unit
+) {
     val colors = XvoxTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(colors.card)
-            .padding(12.dp)
+            .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
+            .padding(14.dp)
     ) {
-        Text(text = title, color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 10.dp)
+        ) {
+            if (iconRes != null) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = title,
+                color = colors.primaryText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
         content()
     }
 }
 
 @Composable
-private fun SettingsToggle(title: String, subtitle: String? = null, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun SettingsToggle(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit
+) {
     val colors = XvoxTheme.colors
     Row(
         modifier = Modifier
@@ -297,36 +1064,45 @@ private fun SettingsToggle(title: String, subtitle: String? = null, checked: Boo
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-            Text(text = title, color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            if (subtitle != null) Text(text = subtitle, color = colors.secondaryText, fontSize = 11.sp)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        ) {
+            Text(
+                text = title,
+                color = colors.primaryText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    color = colors.secondaryText,
+                    fontSize = 11.sp
+                )
+            }
         }
         Switch(
             checked = checked,
             onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = colors.background,
-                checkedTrackColor = colors.primaryText,
+                checkedTrackColor = colors.primaryAccent,
                 uncheckedThumbColor = colors.secondaryText,
-                uncheckedTrackColor = colors.card
+                uncheckedTrackColor = colors.cardElevated
             )
         )
     }
 }
 
-@Composable
-private fun SettingsInfo(title: String, subtitle: String, small: Boolean = false) {
-    val colors = XvoxTheme.colors
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(text = title, color = colors.primaryText, fontSize = if (small) 11.sp else 12.sp, fontWeight = if (small) FontWeight.Normal else FontWeight.Medium)
-        Text(text = subtitle, color = colors.secondaryText, fontSize = if (small) 10.sp else 11.sp)
-    }
-}
-
 private fun AudioDeviceInfo.toReadableName(): String = when (type) {
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone speaker"
-    AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired headphones"
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
-    AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET -> "USB audio"
-    else -> "Output $type"
+    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone Speaker"
+    AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired Headphones"
+    AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headset"
+    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth Audio (A2DP)"
+    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth Headset (SCO)"
+    AudioDeviceInfo.TYPE_USB_DEVICE -> "USB Audio Device"
+    AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Headset"
+    else -> "Audio Route ($type)"
 }
