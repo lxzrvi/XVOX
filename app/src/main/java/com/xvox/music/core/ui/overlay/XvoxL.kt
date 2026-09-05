@@ -118,7 +118,7 @@ fun XvoxL(
                 .fillMaxWidth()
                 .heightIn(
                     max =
-                        maxHeight * 0.5f
+                        maxHeight * 0.78f
                 )
                 .graphicsLayer {
                     translationY =

@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -20,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.player.playback.RepeatMode
 
 @Composable
 fun XvoxNowPlayingControls(
@@ -29,8 +31,15 @@ fun XvoxNowPlayingControls(
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
     onRepeat: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isShuffleEnabled: Boolean = false,
+    repeatMode: RepeatMode = RepeatMode.OFF,
+    currentIndex: Int = -1,
+    queueSize: Int = 0,
 ) {
+    val colors = XvoxTheme.colors
+    val prevEnabled = repeatMode == RepeatMode.ALL || currentIndex > 0
+    val nextEnabled = repeatMode == RepeatMode.ALL || (queueSize > 0 && currentIndex < queueSize - 1)
     Layout(
         modifier = modifier
             .fillMaxWidth()
@@ -39,13 +48,17 @@ fun XvoxNowPlayingControls(
             BareControl(
                 R.drawable.ic_xvox_shuffle,
                 20,
-                onShuffle
+                onShuffle,
+                tint = if (isShuffleEnabled) colors.primaryAccent else colors.primaryText,
+                showDot = isShuffleEnabled
             )
 
             BareControl(
                 R.drawable.ic_xvox_skip_previous,
                 25,
-                onPrevious
+                onPrevious,
+                tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
+                enabled = prevEnabled
             )
 
             PlayControl(
@@ -56,13 +69,19 @@ fun XvoxNowPlayingControls(
             BareControl(
                 R.drawable.ic_xvox_skip_next,
                 25,
-                onNext
+                onNext,
+                tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
+                enabled = nextEnabled
             )
 
             BareControl(
-                R.drawable.ic_xvox_repeat,
+                when (repeatMode) {
+                    RepeatMode.ONE -> R.drawable.ic_xvox_repeat_one
+                    else -> R.drawable.ic_xvox_repeat
+                },
                 20,
-                onRepeat
+                onRepeat,
+                tint = if (repeatMode != RepeatMode.OFF) colors.primaryAccent else colors.primaryText
             )
         }
     ) { measurables, constraints ->
@@ -119,7 +138,10 @@ fun XvoxNowPlayingControls(
 private fun BareControl(
     resource: Int,
     iconSize: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tint: Color? = null,
+    showDot: Boolean = false,
+    enabled: Boolean = true
 ) {
     val colors = XvoxTheme.colors
 
@@ -132,6 +154,7 @@ private fun BareControl(
                         MutableInteractionSource()
                     },
                 indication = null,
+                enabled = enabled,
                 onClick = onClick
             ),
         contentAlignment =
@@ -141,10 +164,19 @@ private fun BareControl(
             painter =
                 painterResource(resource),
             contentDescription = null,
-            tint = colors.primaryText,
+            tint = tint ?: colors.primaryText,
             modifier =
                 Modifier.size(iconSize.dp)
         )
+        if (showDot) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 2.dp)
+                    .size(4.dp)
+                    .background(colors.primaryAccent, CircleShape)
+            )
+        }
     }
 }
 

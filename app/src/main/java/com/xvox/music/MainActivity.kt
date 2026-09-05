@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         )
 
         window.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         )
 
         setContent {

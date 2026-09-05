@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,6 +109,12 @@ class MainPlayerViewModel(
 
         val current =
             _state.value
+
+        // Keep exact source queue when playing from non-All-Songs source (Recently Played, Liked, Playlist)
+        // Library auto-queue should not overwrite source queue
+        if (current.playingSource != "All Songs" && current.queue.isNotEmpty() && current.currentSongId != null) {
+            return
+        }
 
         if (
             current.currentSongId ==
@@ -335,8 +343,35 @@ class MainPlayerViewModel(
         }
     }
 
+    fun setPlayingSource(source: String) {
+        _state.update { it.copy(playingSource = source) }
+    }
+
+    fun setQueueExact(songs: List<Song>) {
+        controller.setQueue(songs)
+        libraryQueueSize = songs.size
+        libraryQueueSignature = queueSignature(songs)
+        _state.update { it.copy(queue = songs) }
+        restoreFromQueueIfPossible()
+    }
+
+    fun playFromSource(
+        song: Song,
+        sourceQueue: List<Song>,
+        source: String
+    ) {
+        val queue = if (sourceQueue.isEmpty()) listOf(song) else sourceQueue
+        // Replace queue exactly with source's songs
+        controller.setQueue(queue)
+        libraryQueueSize = queue.size
+        libraryQueueSignature = queueSignature(queue)
+        _state.update { it.copy(queue = queue, playingSource = source) }
+        play(song, source)
+    }
+
     fun play(
-        song: Song
+        song: Song,
+        source: String? = null
     ) {
         val needsEntrance =
             !_state.value
@@ -369,7 +404,8 @@ class MainPlayerViewModel(
                     } else {
                         current
                             .miniPlayerRiseKey
-                    }
+                    },
+                playingSource = source ?: current.playingSource
             )
         }
     }
@@ -396,41 +432,23 @@ class MainPlayerViewModel(
     }
 
     fun playPrevious() {
-        val target =
-            _state.value
-                .currentIndex -
-                1
-
-        if (
-            target !in
-            _state.value
-                .queue.indices
-        ) {
-            return
-        }
-
-        playQueueIndex(
-            target
-        )
+        val queue = _state.value.queue
+        val idx = _state.value.currentIndex
+        if (queue.isEmpty() || idx < 0) return
+        val atFirst = idx <= 0
+        if (atFirst && _state.value.repeatMode == RepeatMode.OFF) return
+        val target = if (atFirst && _state.value.repeatMode == RepeatMode.ALL) queue.lastIndex else idx - 1
+        playQueueIndex(target)
     }
 
     fun playNext() {
-        val target =
-            _state.value
-                .currentIndex +
-                1
-
-        if (
-            target !in
-            _state.value
-                .queue.indices
-        ) {
-            return
-        }
-
-        playQueueIndex(
-            target
-        )
+        val queue = _state.value.queue
+        val idx = _state.value.currentIndex
+        if (queue.isEmpty() || idx < 0) return
+        val atLast = idx >= queue.lastIndex
+        if (atLast && _state.value.repeatMode == RepeatMode.OFF) return
+        val target = if (atLast && _state.value.repeatMode == RepeatMode.ALL) 0 else idx + 1
+        playQueueIndex(target)
     }
 
     fun seekTo(
@@ -513,6 +531,184 @@ class MainPlayerViewModel(
                     false
             )
         }
+    }
+
+    private var sleepTimerJob: Job? = null
+    private var sleepTimerProgressJob: Job? = null
+    private var originalQueueBeforeShuffle: List<Song>? = null
+
+    fun toggleShuffle() {
+        val newShuffle = !_state.value.isShuffleEnabled
+        _state.update { it.copy(isShuffleEnabled = newShuffle) }
+        if (newShuffle) {
+            val currentId = _state.value.currentSongId
+            val currentQueue = _state.value.queue
+            originalQueueBeforeShuffle = currentQueue.toList()
+            val currentIdx = currentQueue.indexOfFirst { it.id == currentId }
+            if (currentIdx >= 0 && currentQueue.size > 2) {
+                val currentSong = currentQueue[currentIdx]
+                val others = currentQueue.filterIndexed { idx, _ -> idx != currentIdx }.shuffled()
+                val shuffled = listOf(currentSong) + others
+                controller.setQueue(shuffled)
+                _state.update { it.copy(queue = shuffled, currentIndex = 0) }
+            }
+        } else {
+            val original = originalQueueBeforeShuffle
+            if (original != null && original.size == _state.value.queue.size) {
+                val curId = _state.value.currentSongId
+                val curIds = _state.value.queue.map { it.id }.toSet()
+                val origIds = original.map { it.id }.toSet()
+                if (curIds == origIds) {
+                    controller.setQueue(original)
+                    val newIdx = original.indexOfFirst { it.id == curId }.coerceAtLeast(0)
+                    _state.update { it.copy(queue = original, currentIndex = newIdx) }
+                    originalQueueBeforeShuffle = null
+                } else {
+                    originalQueueBeforeShuffle = null
+                }
+            } else {
+                originalQueueBeforeShuffle = null
+            }
+        }
+    }
+
+    fun toggleRepeat() {
+        val next = when (_state.value.repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        _state.update { it.copy(repeatMode = next) }
+        controller.setRepeatMode(next)
+    }
+
+    fun moveQueueItem(from: Int, to: Int) {
+        val current = _state.value.queue.toMutableList()
+        if (from !in current.indices || to !in current.indices) return
+        val item = current.removeAt(from)
+        current.add(to, item)
+        // update currentIndex if moved current song
+        val oldCurrentId = _state.value.currentSongId
+        val newIndex = current.indexOfFirst { it.id == oldCurrentId }
+        controller.setQueue(current)
+        _state.update { it.copy(queue = current, currentIndex = newIndex.coerceAtLeast(0)) }
+    }
+
+    fun setSleepTimer(minutes: Int?) {
+        sleepTimerJob?.cancel()
+        sleepTimerProgressJob?.cancel()
+        if (minutes == null || minutes <= 0) {
+            _state.update { it.copy(sleepTimerMinutes = null, sleepTimerProgress = null, sleepTimerRemainingMillis = null, sleepTimerShouldCloseApp = false) }
+            return
+        }
+        val totalMillis = minutes * 60 * 1000L
+        _state.update { it.copy(sleepTimerMinutes = minutes, sleepTimerProgress = 1f, sleepTimerRemainingMillis = totalMillis, sleepTimerShouldCloseApp = false) }
+        sleepTimerJob = viewModelScope.launch {
+            delay(totalMillis)
+            // ensure progress job does not overwrite null with 0 - cancel first
+            sleepTimerProgressJob?.cancel()
+            controller.stop()
+            _state.update {
+                it.copy(
+                    isPlaying = false,
+                    sleepTimerMinutes = null,
+                    sleepTimerProgress = null,
+                    sleepTimerRemainingMillis = null,
+                    miniPlayerVisible = false,
+                    nowPlayingVisible = false
+                )
+            }
+        }
+        sleepTimerProgressJob = viewModelScope.launch {
+            val start = System.currentTimeMillis()
+            while (true) {
+                delay(200L)
+                val elapsed = System.currentTimeMillis() - start
+                val remaining = (totalMillis - elapsed).coerceAtLeast(0L)
+                if (remaining <= 0L) {
+                    // let sleepTimerJob handle clearing to null to avoid leftover 0 ring
+                    break
+                }
+                val progress = (remaining.toFloat() / totalMillis).coerceIn(0f, 1f)
+                _state.update { it.copy(sleepTimerProgress = progress, sleepTimerRemainingMillis = remaining) }
+            }
+        }
+    }
+
+    fun setCustomSleepTimer(minutes: Int, seconds: Int, pauseMusic: Boolean, closeApp: Boolean) {
+        sleepTimerJob?.cancel()
+        sleepTimerProgressJob?.cancel()
+        val totalMillis = (minutes * 60 + seconds) * 1000L
+        if (totalMillis <= 0L) {
+            _state.update { it.copy(sleepTimerMinutes = null, sleepTimerProgress = null, sleepTimerRemainingMillis = null, sleepTimerShouldCloseApp = false) }
+            return
+        }
+        val totalMins = (totalMillis / 60000).toInt().coerceAtLeast(1)
+        val doPause = if (pauseMusic && closeApp) true else pauseMusic
+        val doClose = if (pauseMusic && closeApp) false else closeApp
+        _state.update { it.copy(sleepTimerMinutes = totalMins, sleepTimerProgress = 1f, sleepTimerRemainingMillis = totalMillis, sleepTimerShouldCloseApp = false) }
+        sleepTimerJob = viewModelScope.launch {
+            delay(totalMillis)
+            sleepTimerProgressJob?.cancel()
+            if (doPause) {
+                controller.stop()
+                _state.update {
+                    it.copy(
+                        isPlaying = false,
+                        sleepTimerMinutes = null,
+                        sleepTimerProgress = null,
+                        sleepTimerRemainingMillis = null,
+                        miniPlayerVisible = false,
+                        nowPlayingVisible = false
+                    )
+                }
+            }
+            if (doClose) {
+                controller.stop()
+                _state.update {
+                    it.copy(
+                        isPlaying = false,
+                        sleepTimerMinutes = null,
+                        sleepTimerProgress = null,
+                        sleepTimerRemainingMillis = null,
+                        miniPlayerVisible = false,
+                        nowPlayingVisible = false,
+                        sleepTimerShouldCloseApp = true
+                    )
+                }
+            }
+            // if neither (should not happen) ensure clean
+            if (!doPause && !doClose) {
+                _state.update { it.copy(sleepTimerMinutes = null, sleepTimerProgress = null, sleepTimerRemainingMillis = null) }
+            }
+        }
+        sleepTimerProgressJob = viewModelScope.launch {
+            val start = System.currentTimeMillis()
+            while (true) {
+                delay(200L)
+                val elapsed = System.currentTimeMillis() - start
+                val remaining = (totalMillis - elapsed).coerceAtLeast(0L)
+                if (remaining <= 0L) {
+                    break
+                }
+                val progress = (remaining.toFloat() / totalMillis).coerceIn(0f, 1f)
+                _state.update { it.copy(sleepTimerProgress = progress, sleepTimerRemainingMillis = remaining) }
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerProgressJob?.cancel()
+        _state.update { it.copy(sleepTimerMinutes = null, sleepTimerProgress = null, sleepTimerRemainingMillis = null, sleepTimerShouldCloseApp = false) }
+    }
+
+    fun consumeCloseApp() {
+        _state.update { it.copy(sleepTimerShouldCloseApp = false) }
+    }
+
+    fun setPlayerStyle(style: com.xvox.music.features.player.styles.XvoxPlayerStyle) {
+        _state.update { it.copy(playerStyle = style) }
     }
 
     private fun queueSignature(

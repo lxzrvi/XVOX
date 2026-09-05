@@ -3,7 +3,7 @@ package com.xvox.music.features.setup
 import android.net.Uri
 
 enum class PfpType(
-    val label: String
+    val label: String,
 ) {
     DEFAULT("Default"),
     HEART("Amour"),
@@ -11,7 +11,7 @@ enum class PfpType(
     CIRCLE("Luna"),
     DIAMOND("Prism"),
     HEXAGON("Nexus"),
-    CUSTOM("Add")
+    CUSTOM("Add"),
 }
 
 data class SetupUiState(
@@ -19,11 +19,12 @@ data class SetupUiState(
     val selectedPfp: PfpType = PfpType.DEFAULT,
     val customPfpUri: Uri? = null,
     val audioGranted: Boolean = false,
-    val notificationGranted: Boolean = false
+    val notificationGranted: Boolean = false,
 ) {
     val setupComplete: Boolean
         get() =
             name.isNotBlank() &&
                 audioGranted &&
-                notificationGranted
+                notificationGranted &&
+                (selectedPfp != PfpType.CUSTOM || customPfpUri != null)
 }

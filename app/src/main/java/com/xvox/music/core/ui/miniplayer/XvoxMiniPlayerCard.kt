@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.SongArtwork
+import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
 fun XvoxMiniPlayerCard(
@@ -138,7 +138,7 @@ fun XvoxMiniPlayerCard(
                     label =
                         "miniArtworkFade"
                 ) { visualSong ->
-                    SongArtwork(
+                    XvoxSongArtwork(
                         artwork =
                             visualSong
                                 .artworkUri,

@@ -3,9 +3,10 @@ package com.xvox.music.features.home
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.library.AddPlaylistSongsBox
-import com.xvox.music.features.home.library.PlaylistActionsBox
-import com.xvox.music.features.home.library.PlaylistInfoBox
+import com.xvox.music.features.playlist.XvoxAddPlaylistSongsBox
+import com.xvox.music.features.playlist.XvoxPlaylistActionsBox
+import com.xvox.music.features.playlist.XvoxPlaylistCoverEditor
+import com.xvox.music.features.playlist.PlaylistInfoBox
 
 fun showPlaylistActions(
     overlays: XvoxOverlayController,
@@ -23,7 +24,7 @@ fun showPlaylistActions(
                 }
                 ?: playlist
 
-        PlaylistActionsBox(
+        XvoxPlaylistActionsBox(
             playlist =
                 current,
             songs =
@@ -108,6 +109,39 @@ fun showPlaylistActions(
     }
 }
 
+fun showPlaylistCoverEditor(
+    overlays: XvoxOverlayController,
+    viewModel: HomeViewModel,
+    playlist: XvoxPlaylist
+) {
+    overlays.showB {
+        val current =
+            viewModel.state.value
+                .playlists
+                .firstOrNull {
+                    it.id == playlist.id
+                } ?: playlist
+
+        XvoxPlaylistCoverEditor(
+            playlist = current,
+            songs = viewModel.playlistSongs(current),
+            onCancel = overlays::hideB,
+            onApply = { songIds, customUri ->
+                viewModel.savePlaylistCover(
+                    playlistId = current.id,
+                    songIds = songIds,
+                    customUri = customUri
+                ) { updated ->
+                    overlays.hideB()
+                    if (updated != null) {
+                        overlays.showP("Playlist cover updated")
+                    }
+                }
+            }
+        )
+    }
+}
+
 fun showAddPlaylistSongs(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
@@ -123,7 +157,7 @@ fun showAddPlaylistSongs(
                 }
                 ?: playlist
 
-        AddPlaylistSongsBox(
+        XvoxAddPlaylistSongsBox(
             songs =
                 viewModel
                     .state
@@ -132,6 +166,8 @@ fun showAddPlaylistSongs(
             existingSongIds =
                 current.songIds
                     .toSet(),
+            playlist = current,
+            playlistSongs = viewModel.playlistSongs(current),
             onAdd = {
                 song: Song ->
 

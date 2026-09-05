@@ -42,49 +42,48 @@ fun ProfileEditorBox(
     onSave: (
         String,
         String,
-        String?
-    ) -> Unit
+        String?,
+    ) -> Unit,
 ) {
     val colors =
         XvoxTheme.colors
 
     var name by remember(
-        profile.username
+        profile.username,
     ) {
         mutableStateOf(
-            profile.username
+            profile.username,
         )
     }
 
     var selected by remember(
-        profile.selectedPfp
+        profile.selectedPfp,
     ) {
         mutableStateOf(
             runCatching {
                 PfpType.valueOf(
-                    profile.selectedPfp
+                    profile.selectedPfp,
                 )
             }.getOrDefault(
-                PfpType.DEFAULT
-            )
+                PfpType.DEFAULT,
+            ),
         )
     }
 
     var customUri by remember(
-        profile.customPfpUri
+        profile.customPfpUri,
     ) {
         mutableStateOf(
             profile.customPfpUri
-                ?.let(Uri::parse)
+                ?.let(Uri::parse),
         )
     }
 
     val photoPicker =
         rememberLauncherForActivityResult(
             ActivityResultContracts
-                .PickVisualMedia()
-        ) {
-            uri ->
+                .PickVisualMedia(),
+        ) { uri ->
 
             if (uri != null) {
                 customUri = uri
@@ -93,9 +92,12 @@ fun ProfileEditorBox(
             }
         }
 
+    // Fix: if Add (CUSTOM) selected but no photo, Okay should be disabled. Require photo for CUSTOM.
+    val canSave = name.isNotBlank() && (selected != PfpType.CUSTOM || customUri != null)
+
     Column(
         modifier =
-            Modifier.fillMaxWidth()
+            Modifier.fillMaxWidth(),
     ) {
         Text(
             text = "Profile",
@@ -106,52 +108,54 @@ fun ProfileEditorBox(
                 FontWeight.Bold,
             modifier =
                 Modifier.padding(
-                    end = 48.dp
-                )
+                    end = 48.dp,
+                ),
         )
 
         Spacer(
             Modifier.height(
-                14.dp
-            )
+                14.dp,
+            ),
         )
 
         PfpCarousel(
             selected = selected,
             username = name,
             customPfpUri =
-                customUri,
+            customUri,
             onSelected = {
                 selected = it
+                // If user selects CUSTOM without photo, keep but cannot save until photo picked
+                // If user leaves CUSTOM without photo, keep selected as CUSTOM but canSave false
             },
             onAddClick = {
                 photoPicker.launch(
                     PickVisualMediaRequest(
                         ActivityResultContracts
                             .PickVisualMedia
-                            .ImageOnly
-                    )
+                            .ImageOnly,
+                    ),
                 )
-            }
+            },
         )
 
         Spacer(
             Modifier.height(
-                12.dp
-            )
+                12.dp,
+            ),
         )
 
         Text(
             text = "Rename",
             color =
                 colors.secondaryText,
-            fontSize = 11.sp
+            fontSize = 11.sp,
         )
 
         Spacer(
             Modifier.height(
-                6.dp
-            )
+                6.dp,
+            ),
         )
 
         BasicTextField(
@@ -168,45 +172,46 @@ fun ProfileEditorBox(
                 TextStyle(
                     color =
                         colors.primaryText,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
                 ),
             cursorBrush =
                 SolidColor(
-                    colors.primaryText
+                    colors.primaryText,
                 ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .background(
-                    colors.card,
-                    RoundedCornerShape(
-                        14.dp
-                    )
-                ),
-            decorationBox = {
-                field ->
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .background(
+                        colors.card,
+                        RoundedCornerShape(
+                            14.dp,
+                        ),
+                    ),
+            decorationBox = { field ->
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .padding(
-                            horizontal =
-                                14.dp
-                        ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .padding(
+                                horizontal =
+                                    14.dp,
+                            ),
                     contentAlignment =
                         Alignment
-                            .CenterStart
+                            .CenterStart,
                 ) {
                     field()
                 }
-            }
+            },
         )
 
         Spacer(
             Modifier.height(
-                14.dp
-            )
+                14.dp,
+            ),
         )
 
         Row(
@@ -214,32 +219,34 @@ fun ProfileEditorBox(
                 Modifier.fillMaxWidth(),
             horizontalArrangement =
                 Arrangement.spacedBy(
-                    10.dp
-                )
+                    10.dp,
+                ),
         ) {
             ProfileEditorAction(
                 title = "Cancel",
                 enabled = true,
                 onClick =
-                    onCancel,
+                onCancel,
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
             )
 
             ProfileEditorAction(
                 title = "Okay",
                 enabled =
-                    name.isNotBlank(),
+                canSave,
                 onClick = {
-                    onSave(
-                        name.trim(),
-                        selected.name,
-                        customUri
-                            ?.toString()
-                    )
+                    if (canSave) {
+                        onSave(
+                            name.trim(),
+                            selected.name,
+                            customUri
+                                ?.toString(),
+                        )
+                    }
                 },
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
             )
         }
     }
@@ -250,31 +257,31 @@ private fun ProfileEditorAction(
     title: String,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val colors =
         XvoxTheme.colors
 
     Box(
-        modifier = modifier
-            .height(44.dp)
-            .background(
-                colors.card,
-                RoundedCornerShape(
-                    14.dp
-                )
-            )
-            .clickable(
-                enabled = enabled,
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                onClick = onClick
-            ),
+        modifier =
+            modifier
+                .height(44.dp)
+                .background(
+                    colors.card,
+                    RoundedCornerShape(
+                        14.dp,
+                    ),
+                ).clickable(
+                    enabled = enabled,
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication = null,
+                    onClick = onClick,
+                ),
         contentAlignment =
-            Alignment.Center
+            Alignment.Center,
     ) {
         Text(
             text = title,
@@ -286,7 +293,7 @@ private fun ProfileEditorAction(
                 },
             fontSize = 13.sp,
             fontWeight =
-                FontWeight.SemiBold
+                FontWeight.SemiBold,
         )
     }
 }

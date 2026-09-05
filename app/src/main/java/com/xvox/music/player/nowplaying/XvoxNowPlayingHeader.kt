@@ -33,7 +33,10 @@ fun XvoxNowPlayingHeader(
     onClose: () -> Unit,
     onShare: () -> Unit,
     onMore: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLyrics: (() -> Unit)? = null,
+    showLyricsButton: Boolean = false,
+    playingSource: String = "All Songs"
 ) {
     val colors = XvoxTheme.colors
 
@@ -99,11 +102,12 @@ fun XvoxNowPlayingHeader(
             )
 
             Text(
-                text = "All Songs",
+                text = playingSource,
                 color = colors.primaryText,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
         }
 
@@ -121,6 +125,12 @@ fun XvoxNowPlayingHeader(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
+            if (showLyricsButton && onLyrics != null) {
+                HeaderAction(
+                    R.drawable.ic_xvox_lyrics,
+                    onLyrics
+                )
+            }
             HeaderAction(
                 R.drawable.ic_xvox_share,
                 onShare

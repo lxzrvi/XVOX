@@ -12,12 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferences
-import com.xvox.music.features.home.library.HomeLibraryMode
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
 @Composable
 fun HomeGlassHeader(
     profile: UserPreferences,
-    libraryMode: HomeLibraryMode,
+    libraryMode: XvoxHomeLibraryMode,
     onProfileClick: () -> Unit,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,

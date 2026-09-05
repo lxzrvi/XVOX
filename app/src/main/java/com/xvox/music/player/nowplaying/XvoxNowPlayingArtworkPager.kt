@@ -21,8 +21,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.RecentArtworkSize
-import com.xvox.music.features.home.SongArtwork
+import com.xvox.music.features.home.XvoxRecentArtworkSize
+import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
@@ -39,7 +40,8 @@ fun XvoxNowPlayingArtworkPager(
         Float
     ) -> Unit,
     onSettledPage: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
 
@@ -53,30 +55,61 @@ fun XvoxNowPlayingArtworkPager(
     val latestCommit =
         rememberUpdatedState(onSettledPage)
 
+    val isWrapEnabled = repeatMode == RepeatMode.ALL && queue.size > 1
+    val infinitePageCount = if (isWrapEnabled) Int.MAX_VALUE else queue.size
+    val startPage = if (isWrapEnabled) {
+        // Start in middle so we can swipe both directions infinitely
+        val middle = Int.MAX_VALUE / 2
+        middle - (middle % queue.size) + currentIndex.coerceIn(0, queue.lastIndex)
+    } else currentIndex.coerceIn(0, queue.lastIndex)
+
     val pagerState =
         rememberPagerState(
-            initialPage =
-                currentIndex.coerceIn(
-                    0,
-                    queue.lastIndex
-                ),
-            pageCount = {
-                queue.size
-            }
+            initialPage = startPage,
+            pageCount = { infinitePageCount }
         )
+
+    // Map infinite page -> queue index
+    fun toQueueIndex(page: Int): Int = ((page % queue.size) + queue.size) % queue.size
+    fun targetInfinitePage(targetQueueIndex: Int, currentPagerPage: Int): Int {
+        if (!isWrapEnabled) return targetQueueIndex
+        val currentMapped = toQueueIndex(currentPagerPage)
+        var delta = targetQueueIndex - currentMapped
+        // Choose shortest delta but preserve wrap direction: from last->0 is +1 not -(n-1)
+        if (abs(delta) > queue.size / 2) {
+            delta = if (delta > 0) delta - queue.size else delta + queue.size
+        }
+        return currentPagerPage + delta
+    }
 
     LaunchedEffect(
         currentIndex,
-        queue.size
+        queue.size,
+        isWrapEnabled
     ) {
-        if (
-            !pagerState.isScrollInProgress &&
-            currentIndex in queue.indices &&
-            pagerState.settledPage != currentIndex
-        ) {
-            pagerState.scrollToPage(
-                currentIndex
-            )
+        if (queue.isEmpty() || currentIndex !in queue.indices) return@LaunchedEffect
+        if (isWrapEnabled) {
+            val target = targetInfinitePage(currentIndex, pagerState.currentPage)
+            if (!pagerState.isScrollInProgress && pagerState.currentPage != target) {
+                // Use animate for wrap to keep forward/backward slide, not teleport
+                // If distance is 1 and it is wrap, animate; otherwise scroll for non-wrap external change
+                val distance = abs(target - pagerState.currentPage)
+                if (distance == 1) {
+                    // Will animate as normal pager motion (forward for last->first, backward for first->last)
+                    pagerState.animateScrollToPage(target)
+                } else if (pagerState.settledPage != target) {
+                    // For non-adjacent jumps (e.g., initial), just snap
+                    pagerState.scrollToPage(target)
+                }
+            }
+        } else {
+            if (
+                !pagerState.isScrollInProgress &&
+                currentIndex in queue.indices &&
+                toQueueIndex(pagerState.settledPage) != currentIndex
+            ) {
+                pagerState.scrollToPage(currentIndex)
+            }
         }
     }
 
@@ -84,20 +117,20 @@ fun XvoxNowPlayingArtworkPager(
         if (navigationRequest == 0) {
             return@LaunchedEffect
         }
-
-        val target =
-            if (navigationRequest > 0) {
-                (pagerState.settledPage + 1)
-                    .coerceAtMost(queue.lastIndex)
-            } else {
-                (pagerState.settledPage - 1)
-                    .coerceAtLeast(0)
+        if (isWrapEnabled) {
+            val target = pagerState.currentPage + if (navigationRequest > 0) 1 else -1
+            pagerState.animateScrollToPage(target)
+        } else {
+            val currentMapped = if (isWrapEnabled) toQueueIndex(pagerState.settledPage) else pagerState.settledPage
+            val target =
+                if (navigationRequest > 0) {
+                    (currentMapped + 1).coerceAtMost(queue.lastIndex)
+                } else {
+                    (currentMapped - 1).coerceAtLeast(0)
+                }
+            if (target != currentMapped) {
+                pagerState.animateScrollToPage(target)
             }
-
-        if (target != pagerState.settledPage) {
-            pagerState.animateScrollToPage(
-                target
-            )
         }
     }
 
@@ -109,21 +142,17 @@ fun XvoxNowPlayingArtworkPager(
             pagerState.currentPage to
                 pagerState.currentPageOffsetFraction
         }.collect { (page, fraction) ->
+            val baseIndex = toQueueIndex(page)
             val base =
-                queue.getOrNull(page)
+                queue.getOrNull(baseIndex)
                     ?: return@collect
 
-            val adjacent =
-                when {
-                    fraction > 0f ->
-                        queue.getOrNull(page + 1)
-
-                    fraction < 0f ->
-                        queue.getOrNull(page - 1)
-
-                    else ->
-                        null
-                }
+            val adjacentIndex = when {
+                fraction > 0f -> toQueueIndex(page + 1)
+                fraction < 0f -> toQueueIndex(page - 1)
+                else -> null
+            }
+            val adjacent = adjacentIndex?.let { queue.getOrNull(it) }
 
             onSwipePalette(
                 base,
@@ -145,7 +174,7 @@ fun XvoxNowPlayingArtworkPager(
             ) {
                 null
             } else {
-                pagerState.settledPage
+                toQueueIndex(pagerState.settledPage)
             }
         }
             .distinctUntilChanged()
@@ -175,6 +204,7 @@ fun XvoxNowPlayingArtworkPager(
             verticalAlignment =
                 Alignment.CenterVertically
         ) { page ->
+            val qIndex = toQueueIndex(page)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -189,11 +219,11 @@ fun XvoxNowPlayingArtworkPager(
                 contentAlignment =
                     Alignment.Center
             ) {
-                SongArtwork(
+                XvoxSongArtwork(
                     artwork =
-                        queue[page].artworkUri,
+                        queue[qIndex].artworkUri,
                     requestSize =
-                        RecentArtworkSize,
+                        XvoxRecentArtworkSize,
                     modifier =
                         Modifier.fillMaxSize()
                 )
@@ -202,7 +232,7 @@ fun XvoxNowPlayingArtworkPager(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(
-                            queue[page].id
+                            queue[qIndex].id
                         ) {
                             detectTapGestures(
                                 onTap = {

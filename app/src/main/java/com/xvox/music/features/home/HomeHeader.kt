@@ -21,12 +21,12 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferences
-import com.xvox.music.features.home.library.HomeLibraryMode
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
 @Composable
 fun HomeHeader(
     profile: UserPreferences,
-    libraryMode: HomeLibraryMode,
+    libraryMode: XvoxHomeLibraryMode,
     onProfileClick: () -> Unit,
     onRefresh: () -> Unit,
     onHeartClick: () -> Unit,
@@ -129,7 +129,7 @@ fun HomeHeader(
                 type =
                     if (
                         libraryMode ==
-                        HomeLibraryMode
+                        XvoxHomeLibraryMode
                             .PLAYLISTS
                     ) {
                         HomeHeaderIconType

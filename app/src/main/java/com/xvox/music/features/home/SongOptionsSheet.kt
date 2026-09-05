@@ -159,7 +159,7 @@ fun SongOptionsSheet(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-            SongArtwork(
+            XvoxSongArtwork(
                 artwork =
                     song.artworkUri,
                 requestSize = 128,

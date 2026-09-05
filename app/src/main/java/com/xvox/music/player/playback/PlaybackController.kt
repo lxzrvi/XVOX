@@ -54,6 +54,11 @@ class PlaybackController(
     private var restoredSongId:
         Long? = null
 
+    private var repeatMode: RepeatMode = RepeatMode.OFF
+
+    private var expectedPlaying: Boolean? = null
+    private var expectedPlayingUntil: Long = 0L
+
     private val _state =
         MutableStateFlow(
             PlaybackState()
@@ -70,6 +75,34 @@ class PlaybackController(
                 events: Player.Events
             ) {
                 publishState()
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    when (repeatMode) {
+                        RepeatMode.ONE -> {
+                            controller?.let {
+                                it.seekTo(0)
+                                it.play()
+                                expectedPlaying = true
+                                expectedPlayingUntil = System.currentTimeMillis() + 1500
+                                publishState()
+                            }
+                        }
+                        RepeatMode.ALL -> {
+                            if (queue.isNotEmpty()) {
+                                val curIdx = _state.value.currentIndex
+                                val nextIdx = if (curIdx < 0) 0 else (curIdx + 1) % queue.size
+                                playQueueIndex(nextIdx, true)
+                            }
+                        }
+                        RepeatMode.OFF -> {
+                            expectedPlaying = false
+                            expectedPlayingUntil = System.currentTimeMillis() + 800
+                            publishState()
+                        }
+                    }
+                }
             }
         }
 
@@ -122,6 +155,13 @@ class PlaybackController(
                 appContext
             )
         )
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
+        repeatMode = mode
+        // Keep ExoPlayer repeat OFF - we handle manually for queue source
+        controller?.repeatMode = Player.REPEAT_MODE_OFF
+        publishState()
     }
 
     fun setQueue(
@@ -286,6 +326,8 @@ class PlaybackController(
         )
         mediaController.prepare()
         mediaController.play()
+        expectedPlaying = true
+        expectedPlayingUntil = System.currentTimeMillis() + 1800
 
         _state.value =
             _state.value.copy(
@@ -313,12 +355,15 @@ class PlaybackController(
             if (restoredSongId != null) {
                 true
             } else if (keepPlayingState) {
-                mediaController.isPlaying
+                // Seamless: if was playing (isPlaying or playWhenReady), keep playing
+                _state.value.isPlaying || mediaController.isPlaying || mediaController.playWhenReady
             } else {
                 true
             }
 
         restoredSongId = null
+        expectedPlaying = shouldPlay
+        expectedPlayingUntil = System.currentTimeMillis() + 1800
 
         mediaController.setMediaItem(
             song.toMediaItem()
@@ -346,10 +391,14 @@ class PlaybackController(
         val index =
             _state.value.currentIndex
 
-        if (index <= 0) return
+        if (queue.isEmpty() || index < 0) return
+
+        val atFirst = index <= 0
+        if (atFirst && repeatMode == RepeatMode.OFF) return
+        val target = if (atFirst && repeatMode == RepeatMode.ALL) queue.lastIndex else index - 1
 
         playQueueIndex(
-            index - 1,
+            target,
             true
         )
     }
@@ -358,13 +407,14 @@ class PlaybackController(
         val index =
             _state.value.currentIndex
 
-        if (
-            index < 0 ||
-            index >= queue.lastIndex
-        ) return
+        if (queue.isEmpty() || index < 0) return
+
+        val atLast = index >= queue.lastIndex
+        if (atLast && repeatMode == RepeatMode.OFF) return
+        val target = if (atLast && repeatMode == RepeatMode.ALL) 0 else index + 1
 
         playQueueIndex(
-            index + 1,
+            target,
             true
         )
     }
@@ -432,8 +482,12 @@ class PlaybackController(
 
         if (mediaController.isPlaying) {
             mediaController.pause()
+            expectedPlaying = false
+            expectedPlayingUntil = System.currentTimeMillis() + 400
         } else {
             mediaController.play()
+            expectedPlaying = true
+            expectedPlayingUntil = System.currentTimeMillis() + 800
         }
     }
 
@@ -516,13 +570,27 @@ class PlaybackController(
                 ?.duration
                 ?: 0L
 
+        val now = System.currentTimeMillis()
+        val isExpectedActive = expectedPlaying != null && now < expectedPlayingUntil
+        if (!isExpectedActive && expectedPlaying != null) {
+            expectedPlaying = null
+        }
+        val rawIsPlaying = mediaController.isPlaying
+        if (rawIsPlaying) {
+            expectedPlaying = null
+        }
+        val effectiveIsPlaying = when {
+            rawIsPlaying -> true
+            isExpectedActive -> expectedPlaying!!
+            else -> mediaController.playWhenReady && mediaController.playbackState != Player.STATE_ENDED && mediaController.playbackState != Player.STATE_IDLE
+        }
+
         _state.value =
             PlaybackState(
                 connected = true,
                 currentSongId = id,
                 currentIndex = index,
-                isPlaying =
-                    mediaController.isPlaying,
+                isPlaying = effectiveIsPlaying,
                 position =
                     mediaController
                         .currentPosition

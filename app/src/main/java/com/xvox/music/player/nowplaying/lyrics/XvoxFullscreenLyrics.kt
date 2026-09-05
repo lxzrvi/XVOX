@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.SongArtwork
+import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.nowplaying.XvoxNowPlayingBackdrop
 import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 
@@ -98,7 +98,7 @@ fun XvoxFullscreenLyrics(
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
-                SongArtwork(
+                XvoxSongArtwork(
                     artwork = song.artworkUri,
                     requestSize = 128,
                     modifier = Modifier

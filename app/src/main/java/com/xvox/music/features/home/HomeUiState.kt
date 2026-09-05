@@ -3,7 +3,9 @@ package com.xvox.music.features.home
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.library.HomeLibraryMode
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.features.home.recent.RecentTransitionRequest
+import com.xvox.music.features.home.recent.RecentTransitionMode
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -15,8 +17,8 @@ data class HomeUiState(
     val profile: UserPreferences =
         UserPreferences(),
     val libraryMode:
-        HomeLibraryMode =
-        HomeLibraryMode.ALL_SONGS,
+        XvoxHomeLibraryMode =
+        XvoxHomeLibraryMode.ALL_SONGS,
     val recentTransition:
         RecentTransitionRequest =
         RecentTransitionRequest(),
