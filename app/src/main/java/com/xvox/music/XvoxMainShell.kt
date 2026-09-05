@@ -14,7 +14,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -35,24 +36,25 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +79,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -86,7 +89,6 @@ import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.LibraryRefreshBox
-import com.xvox.music.features.home.PlaylistPickerBox
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
@@ -94,45 +96,97 @@ import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
-import java.util.Collections
+import kotlinx.coroutines.launch
 
-private val MainEase = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
+private val MainEase =
+    CubicBezierEasing(
+        0.2f,
+        0.9f,
+        0.1f,
+        1f
+    )
 
 @Composable
 fun XvoxMainShell(
     homeViewModel: HomeViewModel = viewModel(),
-    playerViewModel: MainPlayerViewModel = viewModel(),
+    playerViewModel: MainPlayerViewModel = viewModel()
 ) {
-    val colors = XvoxTheme.colors
-    val overlays = LocalXvoxOverlayController.current
+    val colors =
+        XvoxTheme.colors
 
-    var destination by remember { mutableStateOf(XvoxDestination.HOME) }
-    var homeResetKey by remember { mutableLongStateOf(0L) }
-    var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    val overlays =
+        LocalXvoxOverlayController.current
 
-    val homeState by homeViewModel.state.collectAsState()
-    val player by playerViewModel.state.collectAsState()
+    var destination by remember {
+        mutableStateOf(
+            XvoxDestination.HOME
+        )
+    }
+
+    var homeResetKey by remember {
+        mutableLongStateOf(0L)
+    }
+
+    var hoistedSelectedPlaylistId by remember {
+        mutableStateOf<String?>(
+            null
+        )
+    }
+
+    val homeState by
+        homeViewModel.state.collectAsState()
+
+    val player by
+        playerViewModel.state.collectAsState()
 
     val currentSong =
         player.currentSongId?.let { id ->
-            player.queue.firstOrNull { it.id == id }
-                ?: homeState.songs.firstOrNull { it.id == id }
+            player.queue.firstOrNull {
+                it.id == id
+            } ?: homeState.songs.firstOrNull {
+                it.id == id
+            }
         }
 
-    val isInPlaylist = remember(currentSong?.id, homeState.playlists) {
-        val songId = currentSong?.id
-        if (songId != null) homeState.playlists.any { songId in it.songIds } else false
-    }
+    val isInPlaylist =
+        remember(
+            currentSong?.id,
+            homeState.playlists
+        ) {
+            val songId =
+                currentSong?.id
+
+            if (songId != null) {
+                homeState.playlists.any {
+                    songId in it.songIds
+                }
+            } else {
+                false
+            }
+        }
 
     fun showProfileEditor() {
         overlays.showL {
             ProfileEditorBox(
-                profile = homeState.profile,
-                onCancel = { overlays.hideL() },
-                onSave = { name, pfp, uri ->
-                    homeViewModel.saveProfile(name, pfp, uri) {
+                profile =
+                    homeState.profile,
+                onCancel = {
+                    overlays.hideL()
+                },
+                onSave = {
+                        name,
+                        pfp,
+                        uri ->
+
+                    homeViewModel.saveProfile(
+                        name,
+                        pfp,
+                        uri
+                    ) {
                         overlays.hideL()
-                        overlays.showP("Profile updated")
+                        overlays.showP(
+                            "Profile updated"
+                        )
                     }
                 }
             )
@@ -142,211 +196,1101 @@ fun XvoxMainShell(
     fun showRefreshOverlay() {
         overlays.showL {
             LibraryRefreshBox(
-                currentTotal = homeState.songs.size,
-                scanning = homeState.refreshing,
+                currentTotal =
+                    homeState.songs.size,
+                scanning =
+                    homeState.refreshing,
                 result = null,
                 onScan = {
-                    homeViewModel.refresh { result ->
+                    homeViewModel.refresh {
+                            result ->
+
                         overlays.hideL()
-                        overlays.showP("Library refreshed (${result.totalSongs} songs)")
+
+                        overlays.showP(
+                            "Library refreshed (${result.totalSongs} songs)"
+                        )
                     }
                 },
-                onCancel = { overlays.hideL() }
+                onCancel = {
+                    overlays.hideL()
+                }
             )
         }
     }
 
-    fun showPlaylistPickerForSong(song: Song) {
+    fun showAddCurrentSongToPlaylist(
+        song: Song
+    ) {
         overlays.showL {
-            PlaylistPickerBox(
-                song = song,
-                playlists = homeState.playlists,
-                onCreate = {
-                    overlays.showL {
-                        CreatePlaylistBox(
-                            songs = homeState.songs,
-                            initialSong = song,
-                            onCreate = { name, ids ->
-                                homeViewModel.createPlaylist(name, ids) { playlist ->
-                                    overlays.hideL()
-                                    if (playlist != null) {
-                                        overlays.showP("Playlist created")
+            var query by remember {
+                mutableStateOf("")
+            }
+
+            var selectedPlaylistId by remember {
+                mutableStateOf<String?>(
+                    null
+                )
+            }
+
+            val filteredPlaylists =
+                remember(
+                    homeState.playlists,
+                    query
+                ) {
+                    if (query.isBlank()) {
+                        homeState.playlists
+                    } else {
+                        homeState.playlists.filter {
+                            it.name.contains(
+                                query,
+                                ignoreCase = true
+                            )
+                        }
+                    }
+                }
+
+            Column(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 4.dp,
+                            vertical = 2.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text =
+                                "Add to Playlist",
+                            color =
+                                colors.primaryText,
+                            fontSize = 17.sp,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+
+                        Text(
+                            text = song.title,
+                            color =
+                                colors.secondaryText,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow =
+                                TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (
+                        selectedPlaylistId !=
+                        null
+                    ) {
+                        Text(
+                            text = "1 selected",
+                            color =
+                                colors.primaryAccent,
+                            fontSize = 12.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(
+                    Modifier.height(8.dp)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                10.dp
+                            )
+                        )
+                        .background(
+                            colors.card
+                        )
+                        .padding(
+                            horizontal = 10.dp,
+                            vertical = 9.dp
+                        )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter =
+                                painterResource(
+                                    R.drawable
+                                        .ic_xvox_search
+                                ),
+                            contentDescription =
+                                null,
+                            tint =
+                                colors.secondaryText,
+                            modifier =
+                                Modifier.size(
+                                    16.dp
+                                )
+                        )
+
+                        BasicTextField(
+                            value = query,
+                            onValueChange = {
+                                query = it
+                            },
+                            singleLine = true,
+                            textStyle =
+                                TextStyle(
+                                    color =
+                                        colors.primaryText,
+                                    fontSize = 13.sp
+                                ),
+                            cursorBrush =
+                                SolidColor(
+                                    colors.primaryAccent
+                                ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 8.dp
+                                ),
+                            decorationBox = {
+                                    inner ->
+
+                                if (
+                                    query.isEmpty()
+                                ) {
+                                    Text(
+                                        text =
+                                            "Search playlists...",
+                                        color =
+                                            colors.mutedText,
+                                        fontSize = 13.sp
+                                    )
+                                }
+
+                                inner()
+                            }
+                        )
+
+                        if (
+                            query.isNotEmpty()
+                        ) {
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        R.drawable
+                                            .ic_xvox_close
+                                    ),
+                                contentDescription =
+                                    "Clear",
+                                tint =
+                                    colors.secondaryText,
+                                modifier =
+                                    Modifier
+                                        .size(16.dp)
+                                        .clickable(
+                                            interactionSource =
+                                                remember {
+                                                    MutableInteractionSource()
+                                                },
+                                            indication =
+                                                null
+                                        ) {
+                                            query = ""
+                                        }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(
+                    Modifier.height(8.dp)
+                )
+
+                if (
+                    homeState.playlists
+                        .isEmpty()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                "No playlists yet",
+                            color =
+                                colors.mutedText,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else if (
+                    filteredPlaylists
+                        .isEmpty()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                "No matching playlists",
+                            color =
+                                colors.mutedText,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier =
+                            Modifier.heightIn(
+                                max = 320.dp
+                            ),
+                        verticalArrangement =
+                            Arrangement.spacedBy(
+                                4.dp
+                            )
+                    ) {
+                        items(
+                            items =
+                                filteredPlaylists,
+                            key = {
+                                it.id
+                            }
+                        ) { playlist ->
+
+                            val alreadyAdded =
+                                song.id in
+                                    playlist.songIds
+
+                            val selected =
+                                selectedPlaylistId ==
+                                    playlist.id
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(
+                                        RoundedCornerShape(
+                                            12.dp
+                                        )
+                                    )
+                                    .background(
+                                        if (selected) {
+                                            colors.card
+                                                .copy(
+                                                    alpha =
+                                                        0.95f
+                                                )
+                                        } else {
+                                            Color.Transparent
+                                        }
+                                    )
+                                    .clickable(
+                                        enabled =
+                                            !alreadyAdded,
+                                        interactionSource =
+                                            remember {
+                                                MutableInteractionSource()
+                                            },
+                                        indication =
+                                            null
+                                    ) {
+                                        selectedPlaylistId =
+                                            if (
+                                                selected
+                                            ) {
+                                                null
+                                            } else {
+                                                playlist.id
+                                            }
+                                    }
+                                    .padding(
+                                        horizontal =
+                                            8.dp,
+                                        vertical =
+                                            9.dp
+                                    ),
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier =
+                                        Modifier.weight(
+                                            1f
+                                        )
+                                ) {
+                                    Text(
+                                        text =
+                                            playlist.name,
+                                        color =
+                                            when {
+                                                alreadyAdded ->
+                                                    colors.mutedText
+
+                                                selected ->
+                                                    colors.primaryAccent
+
+                                                else ->
+                                                    colors.primaryText
+                                            },
+                                        fontSize =
+                                            13.sp,
+                                        fontWeight =
+                                            FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow =
+                                            TextOverflow.Ellipsis
+                                    )
+
+                                    Text(
+                                        text =
+                                            if (
+                                                alreadyAdded
+                                            ) {
+                                                "Already added"
+                                            } else {
+                                                "${playlist.songIds.size} songs"
+                                            },
+                                        color =
+                                            colors.secondaryText,
+                                        fontSize =
+                                            11.sp
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(
+                                            24.dp
+                                        )
+                                        .clip(
+                                            CircleShape
+                                        )
+                                        .background(
+                                            when {
+                                                alreadyAdded ->
+                                                    colors.cardElevated
+
+                                                selected ->
+                                                    colors.primaryAccent
+
+                                                else ->
+                                                    Color.Transparent
+                                            }
+                                        )
+                                        .border(
+                                            width =
+                                                1.5.dp,
+                                            color =
+                                                when {
+                                                    selected ->
+                                                        colors.primaryAccent
+
+                                                    alreadyAdded ->
+                                                        colors.mutedText
+
+                                                    else ->
+                                                        colors.cardBorder
+                                                },
+                                            shape =
+                                                CircleShape
+                                        ),
+                                    contentAlignment =
+                                        Alignment.Center
+                                ) {
+                                    if (
+                                        selected ||
+                                        alreadyAdded
+                                    ) {
+                                        Icon(
+                                            painter =
+                                                painterResource(
+                                                    R.drawable
+                                                        .ic_xvox_check
+                                                ),
+                                            contentDescription =
+                                                null,
+                                            tint =
+                                                if (
+                                                    selected
+                                                ) {
+                                                    colors.background
+                                                } else {
+                                                    colors.mutedText
+                                                },
+                                            modifier =
+                                                Modifier.size(
+                                                    14.dp
+                                                )
+                                        )
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                Spacer(
+                    Modifier.height(10.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 2.dp,
+                            vertical = 4.dp
+                        ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            10.dp
+                        )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    12.dp
+                                )
+                            )
+                            .background(
+                                colors.card
+                            )
+                            .clickable {
+                                overlays.hideL()
+                            },
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            color =
+                                colors.primaryText,
+                            fontSize = 13.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
                         )
                     }
-                },
-                onAdd = { playlist ->
-                    homeViewModel.addToPlaylist(playlist.id, song) { updated ->
-                        if (updated != null) {
-                            overlays.hideL()
-                            overlays.showP("Added to ${updated.name}")
-                        }
+
+                    val canAdd =
+                        selectedPlaylistId !=
+                            null
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1.5f)
+                            .height(44.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    12.dp
+                                )
+                            )
+                            .background(
+                                if (canAdd) {
+                                    colors.primaryAccent
+                                } else {
+                                    colors.cardElevated
+                                }
+                            )
+                            .clickable(
+                                enabled =
+                                    canAdd,
+                                interactionSource =
+                                    remember {
+                                        MutableInteractionSource()
+                                    },
+                                indication =
+                                    null
+                            ) {
+                                val id =
+                                    selectedPlaylistId
+                                        ?: return@clickable
+
+                                homeViewModel
+                                    .addToPlaylist(
+                                        id,
+                                        song
+                                    ) {
+                                            updated ->
+
+                                        if (
+                                            updated !=
+                                            null
+                                        ) {
+                                            overlays.hideL()
+
+                                            overlays.showP(
+                                                "Added to ${updated.name}"
+                                            )
+                                        }
+                                    }
+                            },
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                if (canAdd) {
+                                    "Add to Playlist"
+                                } else {
+                                    "Select Playlist"
+                                },
+                            color =
+                                if (canAdd) {
+                                    colors.background
+                                } else {
+                                    colors.mutedText
+                                },
+                            fontSize = 13.sp,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
                     }
-                },
-                onRemove = { playlist ->
-                    homeViewModel.removeFromPlaylist(playlist.id, song) { updated ->
-                        if (updated != null) {
-                            overlays.hideL()
-                            overlays.showP("Removed from ${updated.name}")
-                        }
-                    }
-                },
-                songs = homeState.songs,
-                songsFor = { pl -> homeViewModel.playlistSongs(pl) }
-            )
+                }
+            }
         }
     }
 
     fun showMiniPlayerPlaylistPicker() {
-        val song = currentSong ?: return
-        showPlaylistPickerForSong(song)
+        val song =
+            currentSong ?: return
+
+        showAddCurrentSongToPlaylist(
+            song
+        )
     }
 
     fun showQueueSheet() {
         overlays.showL {
-            val listState = rememberLazyListState()
-            val density = LocalDensity.current
-            val slotHeightPx = with(density) { 56.dp.toPx() }
+            val listState =
+                rememberLazyListState()
 
-            val localQueue = remember(player.queue) {
-                mutableStateListOf<Song>().apply { addAll(player.queue) }
-            }
+            val scope =
+                rememberCoroutineScope()
 
-            var draggingSlotIndex by remember { mutableStateOf<Int?>(null) }
-            var dragAccumulatedY by remember { mutableFloatStateOf(0f) }
+            val density =
+                LocalDensity.current
 
-            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp)) {
+            val slotHeightPx =
+                with(density) {
+                    58.dp.toPx()
+                }
+
+            val localQueue =
+                remember(player.queue) {
+                    mutableStateListOf<Song>()
+                        .apply {
+                            addAll(
+                                player.queue
+                            )
+                        }
+                }
+
+            var draggingSongId by
+                remember {
+                    mutableStateOf<Long?>(
+                        null
+                    )
+                }
+
+            var dragOffsetY by
+                remember {
+                    mutableFloatStateOf(
+                        0f
+                    )
+                }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 2.dp,
+                        vertical = 2.dp
+                    )
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 6.dp,
+                            vertical = 4.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Playing Queue (${localQueue.size})",
-                        color = colors.primaryText,
+                        text =
+                            "Playing Queue (${localQueue.size})",
+                        color =
+                            colors.primaryText,
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                        fontWeight =
+                            FontWeight.Bold,
+                        modifier =
+                            Modifier.weight(
+                                1f
+                            )
                     )
+
                     Text(
-                        text = "Drag ≡ to reorder",
-                        color = colors.mutedText,
+                        text =
+                            "Long press & drag",
+                        color =
+                            colors.mutedText,
                         fontSize = 11.sp
                     )
                 }
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(
+                    Modifier.height(
+                        6.dp
+                    )
+                )
 
                 LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp)
+                    state =
+                        listState,
+                    modifier =
+                        Modifier.heightIn(
+                            max = 520.dp
+                        ),
+                    contentPadding =
+                        PaddingValues(
+                            bottom = 16.dp
+                        )
                 ) {
-                    itemsIndexed(localQueue, key = { idx, s -> "queue_item_${s.id}_$idx" }) { idx, s ->
-                        val isCurrent = idx == player.currentIndex
-                        val isDragging = draggingSlotIndex == idx
+                    itemsIndexed(
+                        items =
+                            localQueue,
+                        key = {
+                                _,
+                                song ->
+
+                            song.id
+                        }
+                    ) {
+                            _,
+                            song ->
+
+                        val isCurrent =
+                            song.id ==
+                                player.currentSongId
+
+                        val isDragging =
+                            song.id ==
+                                draggingSongId
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (isDragging) colors.cardElevated.copy(alpha = 0.98f)
-                                    else if (isCurrent) colors.card.copy(alpha = 0.95f)
-                                    else colors.cardElevated.copy(alpha = 0.40f)
+                                .padding(
+                                    vertical =
+                                        2.dp
+                                )
+                                .zIndex(
+                                    if (
+                                        isDragging
+                                    ) {
+                                        100f
+                                    } else {
+                                        0f
+                                    }
                                 )
                                 .graphicsLayer {
-                                    translationY = if (isDragging) dragAccumulatedY else 0f
-                                    scaleX = if (isDragging) 1.02f else 1f
-                                    scaleY = if (isDragging) 1.02f else 1f
+                                    translationY =
+                                        if (
+                                            isDragging
+                                        ) {
+                                            dragOffsetY
+                                        } else {
+                                            0f
+                                        }
+
+                                    scaleX =
+                                        if (
+                                            isDragging
+                                        ) {
+                                            1.025f
+                                        } else {
+                                            1f
+                                        }
+
+                                    scaleY =
+                                        if (
+                                            isDragging
+                                        ) {
+                                            1.025f
+                                        } else {
+                                            1f
+                                        }
+
+                                    shadowElevation =
+                                        if (
+                                            isDragging
+                                        ) {
+                                            16.dp
+                                                .toPx()
+                                        } else {
+                                            0f
+                                        }
                                 }
-                                .zIndex(if (isDragging) 99f else 1f)
-                                .clickable {
-                                    if (draggingSlotIndex == null) {
-                                        playerViewModel.playQueueIndex(idx)
+                                .clip(
+                                    RoundedCornerShape(
+                                        12.dp
+                                    )
+                                )
+                                .background(
+                                    when {
+                                        isDragging ->
+                                            colors.cardElevated
+
+                                        isCurrent ->
+                                            colors.card
+                                                .copy(
+                                                    alpha =
+                                                        0.95f
+                                                )
+
+                                        else ->
+                                            colors.cardElevated
+                                                .copy(
+                                                    alpha =
+                                                        0.40f
+                                                )
+                                    }
+                                )
+                                .pointerInput(
+                                    song.id,
+                                    localQueue.size
+                                ) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggingSongId =
+                                                song.id
+
+                                            dragOffsetY =
+                                                0f
+                                        },
+                                        onDrag = {
+                                                change,
+                                                amount ->
+
+                                            change.consume()
+
+                                            dragOffsetY +=
+                                                amount.y
+
+                                            var currentIndex =
+                                                localQueue
+                                                    .indexOfFirst {
+                                                        it.id ==
+                                                            song.id
+                                                    }
+
+                                            if (
+                                                currentIndex <
+                                                0
+                                            ) {
+                                                return@detectDragGesturesAfterLongPress
+                                            }
+
+                                            while (
+                                                dragOffsetY >
+                                                slotHeightPx /
+                                                    2f &&
+                                                currentIndex <
+                                                localQueue
+                                                    .lastIndex
+                                            ) {
+                                                val moving =
+                                                    localQueue
+                                                        .removeAt(
+                                                            currentIndex
+                                                        )
+
+                                                localQueue.add(
+                                                    currentIndex +
+                                                        1,
+                                                    moving
+                                                )
+
+                                                currentIndex++
+
+                                                dragOffsetY -=
+                                                    slotHeightPx
+                                            }
+
+                                            while (
+                                                dragOffsetY <
+                                                -slotHeightPx /
+                                                    2f &&
+                                                currentIndex >
+                                                0
+                                            ) {
+                                                val moving =
+                                                    localQueue
+                                                        .removeAt(
+                                                            currentIndex
+                                                        )
+
+                                                localQueue.add(
+                                                    currentIndex -
+                                                        1,
+                                                    moving
+                                                )
+
+                                                currentIndex--
+
+                                                dragOffsetY +=
+                                                    slotHeightPx
+                                            }
+
+                                            val layoutInfo =
+                                                listState
+                                                    .layoutInfo
+
+                                            val draggedIndex =
+                                                localQueue
+                                                    .indexOfFirst {
+                                                        it.id ==
+                                                            song.id
+                                                    }
+
+                                            val itemInfo =
+                                                layoutInfo
+                                                    .visibleItemsInfo
+                                                    .firstOrNull {
+                                                        it.index ==
+                                                            draggedIndex
+                                                    }
+
+                                            if (
+                                                itemInfo !=
+                                                null
+                                            ) {
+                                                val visualTop =
+                                                    itemInfo.offset +
+                                                        dragOffsetY
+
+                                                val visualBottom =
+                                                    visualTop +
+                                                        itemInfo.size
+
+                                                val edge =
+                                                    slotHeightPx
+
+                                                when {
+                                                    visualTop <
+                                                        layoutInfo
+                                                            .viewportStartOffset +
+                                                        edge -> {
+                                                        scope.launch {
+                                                            listState
+                                                                .scrollBy(
+                                                                    -20f
+                                                                )
+                                                        }
+                                                    }
+
+                                                    visualBottom >
+                                                        layoutInfo
+                                                            .viewportEndOffset -
+                                                        edge -> {
+                                                        scope.launch {
+                                                            listState
+                                                                .scrollBy(
+                                                                    20f
+                                                                )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            dragOffsetY =
+                                                0f
+
+                                            draggingSongId =
+                                                null
+
+                                            playerViewModel
+                                                .reorderQueue(
+                                                    localQueue
+                                                        .toList()
+                                                )
+                                        },
+                                        onDragCancel = {
+                                            dragOffsetY =
+                                                0f
+
+                                            draggingSongId =
+                                                null
+
+                                            playerViewModel
+                                                .reorderQueue(
+                                                    localQueue
+                                                        .toList()
+                                                )
+                                        }
+                                    )
+                                }
+                                .clickable(
+                                    enabled =
+                                        draggingSongId ==
+                                            null,
+                                    interactionSource =
+                                        remember {
+                                            MutableInteractionSource()
+                                        },
+                                    indication =
+                                        null
+                                ) {
+                                    val actualIndex =
+                                        localQueue
+                                            .indexOfFirst {
+                                                it.id ==
+                                                    song.id
+                                            }
+
+                                    if (
+                                        actualIndex >=
+                                        0
+                                    ) {
+                                        playerViewModel
+                                            .playQueueIndex(
+                                                actualIndex
+                                            )
+
                                         overlays.hideL()
                                     }
                                 }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(
+                                    horizontal =
+                                        8.dp,
+                                    vertical =
+                                        6.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
                         ) {
                             XvoxSongArtwork(
-                                artwork = s.artworkUri,
-                                requestSize = 96,
-                                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
+                                artwork =
+                                    song.artworkUri,
+                                requestSize =
+                                    96,
+                                modifier =
+                                    Modifier
+                                        .size(
+                                            42.dp
+                                        )
+                                        .clip(
+                                            RoundedCornerShape(
+                                                8.dp
+                                            )
+                                        )
                             )
-                            Column(modifier = Modifier.weight(1f).padding(start = 10.dp, end = 6.dp)) {
+
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .weight(
+                                            1f
+                                        )
+                                        .padding(
+                                            start =
+                                                10.dp,
+                                            end =
+                                                6.dp
+                                        )
+                            ) {
                                 Text(
-                                    text = s.title,
-                                    color = if (isCurrent) colors.primaryAccent else colors.primaryText,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    text =
+                                        song.title,
+                                    color =
+                                        if (
+                                            isCurrent
+                                        ) {
+                                            colors.primaryAccent
+                                        } else {
+                                            colors.primaryText
+                                        },
+                                    fontSize =
+                                        13.sp,
+                                    fontWeight =
+                                        FontWeight.SemiBold,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow =
+                                        TextOverflow.Ellipsis
                                 )
+
                                 Text(
-                                    text = s.artist,
-                                    color = colors.secondaryText,
-                                    fontSize = 11.sp,
+                                    text =
+                                        song.artist,
+                                    color =
+                                        colors.secondaryText,
+                                    fontSize =
+                                        11.sp,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow =
+                                        TextOverflow.Ellipsis
                                 )
                             }
 
                             if (isCurrent) {
                                 Text(
-                                    text = "Playing",
-                                    color = colors.primaryAccent,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(end = 6.dp)
+                                    text =
+                                        "Playing",
+                                    color =
+                                        colors.primaryAccent,
+                                    fontSize =
+                                        11.sp,
+                                    fontWeight =
+                                        FontWeight.SemiBold,
+                                    modifier =
+                                        Modifier.padding(
+                                            end =
+                                                6.dp
+                                        )
                                 )
                             }
 
-                            // Interactive Drag Handle
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .pointerInput(idx, localQueue.size) {
-                                        detectDragGestures(
-                                            onDragStart = {
-                                                draggingSlotIndex = idx
-                                                dragAccumulatedY = 0f
-                                            },
-                                            onDragEnd = {
-                                                draggingSlotIndex = null
-                                                dragAccumulatedY = 0f
-                                                playerViewModel.setQueue(localQueue.toList())
-                                            },
-                                            onDragCancel = {
-                                                draggingSlotIndex = null
-                                                dragAccumulatedY = 0f
-                                            },
-                                            onDrag = { change, dragAmount ->
-                                                change.consume()
-                                                dragAccumulatedY += dragAmount.y
-                                                val fromSlot = draggingSlotIndex ?: return@detectDragGestures
-                                                val shiftCount = (dragAccumulatedY / slotHeightPx).toInt()
-                                                val targetSlot = (fromSlot + shiftCount).coerceIn(0, localQueue.lastIndex)
-                                                if (targetSlot != fromSlot) {
-                                                    Collections.swap(localQueue, fromSlot, targetSlot)
-                                                    draggingSlotIndex = targetSlot
-                                                    dragAccumulatedY -= (targetSlot - fromSlot) * slotHeightPx
-                                                }
-                                            }
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_more),
-                                    contentDescription = "Reorder",
-                                    tint = colors.secondaryText,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        R.drawable
+                                            .ic_xvox_more
+                                    ),
+                                contentDescription =
+                                    "Long press to reorder",
+                                tint =
+                                    colors.secondaryText,
+                                modifier =
+                                    Modifier.size(
+                                        18.dp
+                                    )
+                            )
                         }
                     }
                 }
@@ -357,22 +1301,57 @@ fun XvoxMainShell(
     fun showTimerSheet() {
         overlays.showL {
             TimerSheetContent(
-                currentMinutes = player.sleepTimerMinutes,
-                onSetMinutes = { mins ->
-                    playerViewModel.setSleepTimer(mins)
+                currentMinutes =
+                    player.sleepTimerMinutes,
+                onSetMinutes = {
+                        minutes ->
+
+                    playerViewModel
+                        .setSleepTimer(
+                            minutes
+                        )
+
                     overlays.hideL()
-                    overlays.showP("Timer set $mins min")
+
+                    overlays.showP(
+                        "Timer set $minutes min"
+                    )
                 },
-                onCustom = { mins, secs, pause, closeApp ->
-                    playerViewModel.setCustomSleepTimer(mins, secs, pause, closeApp)
+                onCustom = {
+                        minutes,
+                        seconds,
+                        pause,
+                        closeApp ->
+
+                    playerViewModel
+                        .setCustomSleepTimer(
+                            minutes,
+                            seconds,
+                            pause,
+                            closeApp
+                        )
+
                     overlays.hideL()
-                    val total = mins * 60 + secs
-                    if (total > 0) overlays.showP("Custom timer ${mins}m ${secs}s")
+
+                    val total =
+                        minutes * 60 +
+                            seconds
+
+                    if (total > 0) {
+                        overlays.showP(
+                            "Custom timer ${minutes}m ${seconds}s"
+                        )
+                    }
                 },
                 onCancel = {
-                    playerViewModel.cancelSleepTimer()
+                    playerViewModel
+                        .cancelSleepTimer()
+
                     overlays.hideL()
-                    overlays.showP("Timer off")
+
+                    overlays.showP(
+                        "Timer off"
+                    )
                 }
             )
         }
@@ -381,290 +1360,780 @@ fun XvoxMainShell(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(
+                colors.background
+            )
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // FIXED TOP HEADER (Fully Transparent background)
+        Column(
+            modifier =
+                Modifier.fillMaxSize()
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Transparent)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(bottom = 6.dp)
+                    .background(
+                        Color.Transparent
+                    )
+                    .windowInsetsPadding(
+                        WindowInsets.statusBars
+                    )
+                    .padding(
+                        bottom = 6.dp
+                    )
             ) {
                 Row(
                     modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .height(54.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(
+                            horizontal = 14.dp
+                        )
+                        .height(
+                            54.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
                     HomeProfileAvatar(
-                        profile = homeState.profile,
-                        modifier = Modifier.size(42.dp),
-                        onClick = { showProfileEditor() }
+                        profile =
+                            homeState.profile,
+                        modifier =
+                            Modifier.size(
+                                42.dp
+                            ),
+                        onClick = {
+                            showProfileEditor()
+                        }
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+
+                    Spacer(
+                        modifier =
+                            Modifier.width(
+                                10.dp
+                            )
+                    )
+
+                    Column(
+                        modifier =
+                            Modifier.weight(
+                                1f
+                            )
+                    ) {
                         Text(
-                            text = homeState.profile.username,
-                            color = colors.primaryAccent,
-                            fontFamily = XvoxPersonalFont,
-                            fontSize = 18.sp,
-                            lineHeight = 19.sp,
+                            text =
+                                homeState.profile.username,
+                            color =
+                                colors.primaryAccent,
+                            fontFamily =
+                                XvoxPersonalFont,
+                            fontSize =
+                                18.sp,
+                            lineHeight =
+                                19.sp,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow =
+                                TextOverflow.Ellipsis
                         )
+
                         HomeGreeting()
                     }
 
-                    // Right Pill Button: Visible ON HOME ONLY, slides UP smoothly on other tabs
                     AnimatedVisibility(
-                        visible = destination == XvoxDestination.HOME,
-                        enter = slideInVertically(
-                            initialOffsetY = { -it },
-                            animationSpec = tween(380, easing = MainEase)
-                        ) + fadeIn(tween(280)),
-                        exit = slideOutVertically(
-                            targetOffsetY = { -it },
-                            animationSpec = tween(340, easing = MainEase)
-                        ) + fadeOut(tween(240))
+                        visible =
+                            destination ==
+                                XvoxDestination.HOME,
+                        enter =
+                            slideInVertically(
+                                initialOffsetY = {
+                                    -it
+                                },
+                                animationSpec =
+                                    tween(
+                                        380,
+                                        easing =
+                                            MainEase
+                                    )
+                            ) +
+                                fadeIn(
+                                    tween(
+                                        280
+                                    )
+                                ),
+                        exit =
+                            slideOutVertically(
+                                targetOffsetY = {
+                                    -it
+                                },
+                                animationSpec =
+                                    tween(
+                                        340,
+                                        easing =
+                                            MainEase
+                                    )
+                            ) +
+                                fadeOut(
+                                    tween(
+                                        240
+                                    )
+                                )
                     ) {
-                        val actionShape = RoundedCornerShape(21.dp)
+                        val actionShape =
+                            RoundedCornerShape(
+                                21.dp
+                            )
+
                         Row(
                             modifier = Modifier
-                                .height(42.dp)
-                                .clip(actionShape)
-                                .background(colors.card.copy(alpha = 0.72f))
-                                .border(width = 0.65.dp, color = colors.cardBorder, shape = actionShape)
-                                .padding(horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Scan / Refresh Pill Icon
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_refresh),
-                                contentDescription = "Refresh Library",
-                                tint = colors.primaryText,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .xvoxPressScale(pressedScale = 0.90f) { showRefreshOverlay() }
-                                    .padding(8.dp)
-                            )
-
-                            // Heart / Liked Songs Toggle Pill Icon
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_heart),
-                                contentDescription = "Liked Songs",
-                                tint = if (homeState.libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .xvoxPressScale(pressedScale = 0.90f) {
-                                        hoistedSelectedPlaylistId = null
-                                        homeViewModel.toggleLikedMode()
-                                    }
-                                    .padding(8.dp)
-                            )
-
-                            // Playlist / Songs Toggle Pill Icon
-                            Icon(
-                                painter = painterResource(
-                                    if (homeState.libraryMode == XvoxHomeLibraryMode.PLAYLISTS) R.drawable.ic_xvox_music_note else R.drawable.ic_xvox_playlist
+                                .height(
+                                    42.dp
+                                )
+                                .clip(
+                                    actionShape
+                                )
+                                .background(
+                                    colors.card
+                                        .copy(
+                                            alpha =
+                                                0.72f
+                                        )
+                                )
+                                .border(
+                                    width =
+                                        0.65.dp,
+                                    color =
+                                        colors.cardBorder,
+                                    shape =
+                                        actionShape
+                                )
+                                .padding(
+                                    horizontal =
+                                        2.dp
                                 ),
-                                contentDescription = "Playlists",
-                                tint = if (homeState.libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .xvoxPressScale(pressedScale = 0.90f) {
-                                        hoistedSelectedPlaylistId = null
-                                        homeViewModel.togglePlaylistMode()
-                                    }
-                                    .padding(8.dp)
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        R.drawable
+                                            .ic_xvox_refresh
+                                    ),
+                                contentDescription =
+                                    "Refresh Library",
+                                tint =
+                                    colors.primaryText,
+                                modifier =
+                                    Modifier
+                                        .size(
+                                            36.dp
+                                        )
+                                        .xvoxPressScale(
+                                            pressedScale =
+                                                0.90f
+                                        ) {
+                                            showRefreshOverlay()
+                                        }
+                                        .padding(
+                                            8.dp
+                                        )
+                            )
+
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        R.drawable
+                                            .ic_xvox_heart
+                                    ),
+                                contentDescription =
+                                    "Liked Songs",
+                                tint =
+                                    if (
+                                        homeState.libraryMode ==
+                                        XvoxHomeLibraryMode.LIKED
+                                    ) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.primaryText
+                                    },
+                                modifier =
+                                    Modifier
+                                        .size(
+                                            36.dp
+                                        )
+                                        .xvoxPressScale(
+                                            pressedScale =
+                                                0.90f
+                                        ) {
+                                            hoistedSelectedPlaylistId =
+                                                null
+
+                                            homeViewModel
+                                                .toggleLikedMode()
+                                        }
+                                        .padding(
+                                            8.dp
+                                        )
+                            )
+
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        if (
+                                            homeState.libraryMode ==
+                                            XvoxHomeLibraryMode.PLAYLISTS
+                                        ) {
+                                            R.drawable
+                                                .ic_xvox_music_note
+                                        } else {
+                                            R.drawable
+                                                .ic_xvox_playlist
+                                        }
+                                    ),
+                                contentDescription =
+                                    "Playlists",
+                                tint =
+                                    if (
+                                        homeState.libraryMode ==
+                                        XvoxHomeLibraryMode.PLAYLISTS
+                                    ) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.primaryText
+                                    },
+                                modifier =
+                                    Modifier
+                                        .size(
+                                            36.dp
+                                        )
+                                        .xvoxPressScale(
+                                            pressedScale =
+                                                0.90f
+                                        ) {
+                                            hoistedSelectedPlaylistId =
+                                                null
+
+                                            homeViewModel
+                                                .togglePlaylistMode()
+                                        }
+                                        .padding(
+                                            8.dp
+                                        )
                             )
                         }
                     }
                 }
             }
 
-            // TAB CONTENT
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                modifier =
+                    Modifier
+                        .weight(
+                            1f
+                        )
+                        .fillMaxWidth()
+            ) {
                 AnimatedContent(
-                    targetState = destination,
+                    targetState =
+                        destination,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
-                            .togetherWith(fadeOut(animationSpec = tween(160)))
+                        (
+                            fadeIn(
+                                animationSpec =
+                                    tween(
+                                        220
+                                    )
+                            ) +
+                                slideInHorizontally(
+                                    animationSpec =
+                                        tween(
+                                            220
+                                        )
+                                ) {
+                                    if (
+                                        targetState.ordinal >
+                                        initialState.ordinal
+                                    ) {
+                                        50
+                                    } else {
+                                        -50
+                                    }
+                                }
+                            )
+                            .togetherWith(
+                                fadeOut(
+                                    animationSpec =
+                                        tween(
+                                            160
+                                        )
+                                )
+                            )
                     },
-                    label = "tab_switch_transition",
-                    modifier = Modifier.fillMaxSize()
-                ) { targetDest ->
-                    when (targetDest) {
+                    label =
+                        "tab_switch_transition",
+                    modifier =
+                        Modifier.fillMaxSize()
+                ) {
+                        targetDestination ->
+
+                    when (
+                        targetDestination
+                    ) {
                         XvoxDestination.HOME -> {
                             HomeScreen(
-                                currentSongId = player.currentSongId,
-                                isPlaying = player.isPlaying,
-                                homeResetKey = homeResetKey,
-                                selectedPlaylistId = hoistedSelectedPlaylistId,
-                                onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                                onQueueReady = playerViewModel::setQueue,
-                                onPlay = playerViewModel::play,
-                                playerViewModel = playerViewModel,
+                                currentSongId =
+                                    player.currentSongId,
+                                isPlaying =
+                                    player.isPlaying,
+                                homeResetKey =
+                                    homeResetKey,
+                                selectedPlaylistId =
+                                    hoistedSelectedPlaylistId,
+                                onSelectedPlaylistIdChange = {
+                                    hoistedSelectedPlaylistId =
+                                        it
+                                },
+                                onQueueReady =
+                                    playerViewModel::setQueue,
+                                onPlay =
+                                    playerViewModel::play,
+                                playerViewModel =
+                                    playerViewModel
                             )
                         }
 
                         XvoxDestination.SEARCH -> {
                             SearchScreen(
-                                homeViewModel = homeViewModel,
-                                playerViewModel = playerViewModel,
-                                onPlaylistSelected = { playlistId ->
-                                    hoistedSelectedPlaylistId = playlistId
-                                    destination = XvoxDestination.HOME
+                                homeViewModel =
+                                    homeViewModel,
+                                playerViewModel =
+                                    playerViewModel,
+                                onPlaylistSelected = {
+                                        playlistId ->
+
+                                    hoistedSelectedPlaylistId =
+                                        playlistId
+
+                                    destination =
+                                        XvoxDestination.HOME
                                 }
                             )
                         }
 
                         XvoxDestination.SETTINGS -> {
-                            SettingsScreen(homeViewModel = homeViewModel)
+                            SettingsScreen(
+                                homeViewModel =
+                                    homeViewModel
+                            )
                         }
                     }
                 }
             }
         }
 
-        val currentSongId = player.currentSongId
-        val miniVisibleBase = player.miniPlayerVisible &&
-            !player.nowPlayingVisible &&
-            currentSongId != null &&
-            player.queue.isNotEmpty()
-        val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
+        val currentSongId =
+            player.currentSongId
 
-        // Smooth MiniPlayer placement without double-hop when keyboard closes
+        val miniVisibleBase =
+            player.miniPlayerVisible &&
+                !player.nowPlayingVisible &&
+                currentSongId != null &&
+                player.queue.isNotEmpty()
+
+        val miniVisible =
+            miniVisibleBase &&
+                destination !=
+                XvoxDestination.SETTINGS
+
         AnimatedVisibility(
-            visible = miniVisible,
-            enter = slideInVertically(tween(320, easing = MainEase)) { it } + fadeIn(tween(260)),
-            exit = slideOutVertically(tween(260, easing = MainEase)) { it } + fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            val visSongId = if (miniVisibleBase) currentSongId else null
-            if (visSongId != null) {
-                val density = LocalDensity.current
-                val imeBottomPx = WindowInsets.ime.getBottom(density)
-                val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-                val isKeyboardOpen = imeBottomPx > 0
-                val effectiveImeDp = with(density) { (imeBottomPx - navBottomPx).coerceAtLeast(0).toDp() }
-
-                val animatedBottomPadding by animateDpAsState(
-                    targetValue = if (isKeyboardOpen) effectiveImeDp + 14.dp else 96.dp,
-                    animationSpec = tween(durationMillis = 280, easing = MainEase),
-                    label = "miniPlayerBottomGap"
+            visible =
+                miniVisible,
+            enter =
+                slideInVertically(
+                    animationSpec =
+                        tween(
+                            durationMillis =
+                                XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ) {
+                    it
+                } +
+                    fadeIn(
+                        animationSpec =
+                            tween(
+                                durationMillis =
+                                    XvoxPlayerTransitionMotion.Duration,
+                                easing =
+                                    XvoxPlayerTransitionMotion.easing
+                            )
+                    ),
+            exit =
+                slideOutVertically(
+                    animationSpec =
+                        tween(
+                            durationMillis =
+                                XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ) {
+                    it
+                } +
+                    fadeOut(
+                        animationSpec =
+                            tween(
+                                durationMillis =
+                                    XvoxPlayerTransitionMotion.Duration,
+                                easing =
+                                    XvoxPlayerTransitionMotion.easing
+                            )
+                    ),
+            modifier =
+                Modifier.align(
+                    Alignment.BottomCenter
                 )
+        ) {
+            val visibleSongId =
+                if (
+                    miniVisibleBase
+                ) {
+                    currentSongId
+                } else {
+                    null
+                }
 
-                val miniModifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(
-                        start = XvoxMiniPlayerPlacement.horizontalEdge,
-                        end = XvoxMiniPlayerPlacement.horizontalEdge,
-                        bottom = animatedBottomPadding,
+            if (
+                visibleSongId !=
+                null
+            ) {
+                val density =
+                    LocalDensity.current
+
+                val imeBottomPx =
+                    WindowInsets.ime
+                        .getBottom(
+                            density
+                        )
+
+                val navBottomPx =
+                    WindowInsets
+                        .navigationBars
+                        .getBottom(
+                            density
+                        )
+
+                val keyboardOpen =
+                    imeBottomPx > 0
+
+                val effectiveImeDp =
+                    with(density) {
+                        (
+                            imeBottomPx -
+                                navBottomPx
+                            )
+                            .coerceAtLeast(
+                                0
+                            )
+                            .toDp()
+                    }
+
+                val animatedBottomPadding by
+                    animateDpAsState(
+                        targetValue =
+                            if (
+                                keyboardOpen
+                            ) {
+                                effectiveImeDp +
+                                    14.dp
+                            } else {
+                                96.dp
+                            },
+                        animationSpec =
+                            tween(
+                                durationMillis =
+                                    280,
+                                easing =
+                                    MainEase
+                            ),
+                        label =
+                            "miniPlayerBottomGap"
                     )
 
+                val miniModifier =
+                    Modifier
+                        .navigationBarsPadding()
+                        .padding(
+                            start =
+                                XvoxMiniPlayerPlacement.horizontalEdge,
+                            end =
+                                XvoxMiniPlayerPlacement.horizontalEdge,
+                            bottom =
+                                animatedBottomPadding
+                        )
+
                 XvoxMiniPlayer(
-                    queue = player.queue,
-                    currentSongId = visSongId,
-                    currentIndex = player.currentIndex,
-                    isPlaying = player.isPlaying,
-                    position = player.position,
-                    duration = player.duration,
-                    riseKey = player.miniPlayerRiseKey,
-                    togglePlay = { playerViewModel.togglePlay() },
-                    playQueueIndex = { playerViewModel.playQueueIndex(it) },
-                    stopAndDismiss = { playerViewModel.stopPlayback() },
-                    openPlayer = { playerViewModel.openNowPlaying() },
+                    queue =
+                        player.queue,
+                    currentSongId =
+                        visibleSongId,
+                    currentIndex =
+                        player.currentIndex,
+                    isPlaying =
+                        player.isPlaying,
+                    position =
+                        player.position,
+                    duration =
+                        player.duration,
+                    riseKey =
+                        player.miniPlayerRiseKey,
+                    togglePlay = {
+                        playerViewModel
+                            .togglePlay()
+                    },
+                    playQueueIndex = {
+                        playerViewModel
+                            .playQueueIndex(
+                                it
+                            )
+                    },
+                    stopAndDismiss = {
+                        playerViewModel
+                            .stopPlayback()
+                    },
+                    openPlayer = {
+                        playerViewModel
+                            .openNowPlaying()
+                    },
                     onLike = {
-                        currentSong?.let { song ->
-                            val wasLiked = song.id in homeState.likedSongIds
-                            homeViewModel.toggleLiked(song)
-                            overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
+                        currentSong?.let {
+                                song ->
+
+                            val wasLiked =
+                                song.id in
+                                    homeState.likedSongIds
+
+                            homeViewModel
+                                .toggleLiked(
+                                    song
+                                )
+
+                            overlays.showP(
+                                if (
+                                    wasLiked
+                                ) {
+                                    "Removed from liked"
+                                } else {
+                                    "Added to liked"
+                                }
+                            )
                         }
                     },
-                    onAdd = { showMiniPlayerPlaylistPicker() },
-                    modifier = miniModifier
+                    onAdd = {
+                        showMiniPlayerPlaylistPicker()
+                    },
+                    modifier =
+                        miniModifier
                 )
             }
         }
 
-        // STATIC BOTTOM NAVBAR
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(
+                    Alignment.BottomCenter
+                )
                 .navigationBarsPadding()
-                .padding(bottom = 10.dp)
+                .padding(
+                    bottom = 10.dp
+                )
         ) {
             XvoxBottomBar(
-                selected = destination,
-                onSelected = { next ->
-                    if (destination == XvoxDestination.HOME && next == XvoxDestination.HOME) {
-                        hoistedSelectedPlaylistId = null
-                        homeResetKey = System.currentTimeMillis()
+                selected =
+                    destination,
+                onSelected = {
+                        next ->
+
+                    if (
+                        destination ==
+                        XvoxDestination.HOME &&
+                        next ==
+                        XvoxDestination.HOME
+                    ) {
+                        hoistedSelectedPlaylistId =
+                            null
+
+                        homeResetKey =
+                            System.currentTimeMillis()
                     }
-                    destination = next
+
+                    destination =
+                        next
                 }
             )
         }
 
-        // NOW PLAYING FULLSCREEN POPUP: Smooth and slow vertical slide up and down (NO fade on exit)
+        /*
+         * XvoxNowPlaying itself performs vertical
+         * opening/closing translation.
+         *
+         * Parent only fades, preventing the previous
+         * double vertical animation.
+         */
         AnimatedVisibility(
-            visible = player.nowPlayingVisible && currentSong != null,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(520, easing = MainEase)
-            ) + fadeIn(tween(320)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(480, easing = MainEase)
-            ),
-            modifier = Modifier.fillMaxSize()
+            visible =
+                player.nowPlayingVisible &&
+                    currentSong != null,
+            enter =
+                fadeIn(
+                    animationSpec =
+                        tween(
+                            durationMillis =
+                                XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ),
+            exit =
+                fadeOut(
+                    animationSpec =
+                        tween(
+                            durationMillis =
+                                XvoxPlayerTransitionMotion.Duration,
+                            easing =
+                                XvoxPlayerTransitionMotion.easing
+                        )
+                ),
+            modifier =
+                Modifier.fillMaxSize()
         ) {
-            val curSong = currentSong ?: return@AnimatedVisibility
+            val playingSong =
+                currentSong
+                    ?: return@AnimatedVisibility
+
             XvoxNowPlaying(
-                song = curSong,
-                queue = player.queue,
-                currentIndex = player.currentIndex,
-                isPlaying = player.isPlaying,
-                position = player.position,
-                duration = player.duration,
-                onClose = { playerViewModel.closeNowPlaying() },
-                onTogglePlay = { playerViewModel.togglePlay() },
-                onPrevious = { playerViewModel.playPrevious() },
-                onNext = { playerViewModel.playNext() },
-                onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
-                onSeek = { playerViewModel.seekTo(it) },
-                isLiked = curSong.id in homeState.likedSongIds,
-                isInPlaylist = isInPlaylist,
+                song =
+                    playingSong,
+                queue =
+                    player.queue,
+                currentIndex =
+                    player.currentIndex,
+                isPlaying =
+                    player.isPlaying,
+                position =
+                    player.position,
+                duration =
+                    player.duration,
+                onClose = {
+                    playerViewModel
+                        .closeNowPlaying()
+                },
+                onTogglePlay = {
+                    playerViewModel
+                        .togglePlay()
+                },
+                onPrevious = {
+                    playerViewModel
+                        .playPrevious()
+                },
+                onNext = {
+                    playerViewModel
+                        .playNext()
+                },
+                onPlayQueueIndex = {
+                    playerViewModel
+                        .playQueueIndex(
+                            it
+                        )
+                },
+                onSeek = {
+                    playerViewModel
+                        .seekTo(
+                            it
+                        )
+                },
+                isLiked =
+                    playingSong.id in
+                        homeState.likedSongIds,
+                isInPlaylist =
+                    isInPlaylist,
                 onToggleLiked = {
-                    val wasLiked = curSong.id in homeState.likedSongIds
-                    homeViewModel.toggleLiked(curSong)
-                    overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
-                },
-                onTimer = { showTimerSheet() },
-                onQueue = { showQueueSheet() },
-                onStarPlaylist = { showPlaylistPickerForSong(curSong) },
-                onInfo = {
-                    homeViewModel.loadInfo(curSong) { info ->
-                        overlays.showL {
-                            com.xvox.music.features.home.SongInfoBox(
-                                info = info
-                            )
+                    val wasLiked =
+                        playingSong.id in
+                            homeState.likedSongIds
+
+                    homeViewModel
+                        .toggleLiked(
+                            playingSong
+                        )
+
+                    overlays.showP(
+                        if (
+                            wasLiked
+                        ) {
+                            "Removed from liked"
+                        } else {
+                            "Added to liked"
                         }
-                    }
+                    )
                 },
-                isShuffleEnabled = player.isShuffleEnabled,
-                repeatMode = player.repeatMode,
+                onTimer = {
+                    showTimerSheet()
+                },
+                onQueue = {
+                    showQueueSheet()
+                },
+                onStarPlaylist = {
+                    showAddCurrentSongToPlaylist(
+                        playingSong
+                    )
+                },
+                onInfo = {
+                    homeViewModel
+                        .loadInfo(
+                            playingSong
+                        ) {
+                                info ->
+
+                            overlays.showL {
+                                com.xvox.music.features.home.SongInfoBox(
+                                    info =
+                                        info
+                                )
+                            }
+                        }
+                },
+                isShuffleEnabled =
+                    player.isShuffleEnabled,
+                repeatMode =
+                    player.repeatMode,
                 onToggleShuffle = {
-                    playerViewModel.toggleShuffle()
-                    overlays.showP(if (!player.isShuffleEnabled) "Shuffle on" else "Shuffle off")
+                    val wasEnabled =
+                        player.isShuffleEnabled
+
+                    playerViewModel
+                        .toggleShuffle()
+
+                    overlays.showP(
+                        if (
+                            wasEnabled
+                        ) {
+                            "Shuffle off"
+                        } else {
+                            "Shuffle on"
+                        }
+                    )
                 },
-                onToggleRepeat = { playerViewModel.toggleRepeat() },
-                playerStyle = player.playerStyle,
-                sleepTimerProgress = player.sleepTimerProgress,
-                playingSource = player.playingSource,
-                modifier = Modifier.fillMaxSize()
+                onToggleRepeat = {
+                    playerViewModel
+                        .toggleRepeat()
+                },
+                playerStyle =
+                    player.playerStyle,
+                sleepTimerProgress =
+                    player.sleepTimerProgress,
+                playingSource =
+                    player.playingSource,
+                modifier =
+                    Modifier.fillMaxSize()
             )
         }
     }
@@ -674,199 +2143,655 @@ fun XvoxMainShell(
 private fun TimerSheetContent(
     currentMinutes: Int?,
     onSetMinutes: (Int) -> Unit,
-    onCustom: (Int, Int, Boolean, Boolean) -> Unit,
+    onCustom: (
+        Int,
+        Int,
+        Boolean,
+        Boolean
+    ) -> Unit,
     onCancel: () -> Unit
 ) {
-    val colors = XvoxTheme.colors
-    var showCustom by remember { mutableStateOf(false) }
-    var minText by remember { mutableStateOf("") }
-    var secText by remember { mutableStateOf("") }
-    var pauseMusic by remember { mutableStateOf(true) }
-    var closeApp by remember { mutableStateOf(false) }
+    val colors =
+        XvoxTheme.colors
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+    var showCustom by remember {
+        mutableStateOf(false)
+    }
+
+    var minText by remember {
+        mutableStateOf("")
+    }
+
+    var secText by remember {
+        mutableStateOf("")
+    }
+
+    var pauseMusic by remember {
+        mutableStateOf(true)
+    }
+
+    var closeApp by remember {
+        mutableStateOf(false)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 4.dp,
+                vertical = 4.dp
+            )
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 4.dp,
+                    vertical = 6.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
-            Text("Sleep Timer", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            if (currentMinutes != null) {
-                Text("$currentMinutes min active", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text =
+                    "Sleep Timer",
+                color =
+                    colors.primaryText,
+                fontSize = 18.sp,
+                fontWeight =
+                    FontWeight.Bold,
+                modifier =
+                    Modifier.weight(
+                        1f
+                    )
+            )
+
+            if (
+                currentMinutes !=
+                null
+            ) {
+                Text(
+                    text =
+                        "$currentMinutes min active",
+                    color =
+                        colors.primaryAccent,
+                    fontSize = 12.sp,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(
+            Modifier.height(
+                10.dp
+            )
+        )
 
-        val presets = listOf(5, 10, 15, 30, 45, 60)
-        presets.chunked(3).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                row.forEach { mins ->
-                    val selected = currentMinutes == mins
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) colors.primaryAccent else colors.card.copy(alpha = 0.97f))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { onSetMinutes(mins) }
-                            .padding(vertical = 14.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "$mins min",
-                            color = if (selected) colors.background else colors.primaryText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+        val presets =
+            listOf(
+                5,
+                10,
+                15,
+                30,
+                45,
+                60
+            )
+
+        presets
+            .chunked(3)
+            .forEach { row ->
+
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                vertical =
+                                    4.dp
+                            ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            8.dp
                         )
+                ) {
+                    row.forEach {
+                            minutes ->
+
+                        val selected =
+                            currentMinutes ==
+                                minutes
+
+                        Box(
+                            modifier = Modifier
+                                .weight(
+                                    1f
+                                )
+                                .clip(
+                                    RoundedCornerShape(
+                                        12.dp
+                                    )
+                                )
+                                .background(
+                                    if (
+                                        selected
+                                    ) {
+                                        colors.primaryAccent
+                                    } else {
+                                        colors.card
+                                            .copy(
+                                                alpha =
+                                                    0.97f
+                                            )
+                                    }
+                                )
+                                .clickable(
+                                    interactionSource =
+                                        remember {
+                                            MutableInteractionSource()
+                                        },
+                                    indication =
+                                        null
+                                ) {
+                                    onSetMinutes(
+                                        minutes
+                                    )
+                                }
+                                .padding(
+                                    vertical =
+                                        14.dp
+                                ),
+                            contentAlignment =
+                                Alignment.Center
+                        ) {
+                            Text(
+                                text =
+                                    "$minutes min",
+                                color =
+                                    if (
+                                        selected
+                                    ) {
+                                        colors.background
+                                    } else {
+                                        colors.primaryText
+                                    },
+                                fontSize =
+                                    13.sp,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        Spacer(Modifier.size(6.dp))
+        Spacer(
+            Modifier.size(
+                6.dp
+            )
+        )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.card.copy(alpha = 0.97f))
+                .clip(
+                    RoundedCornerShape(
+                        12.dp
+                    )
+                )
+                .background(
+                    colors.card.copy(
+                        alpha = 0.97f
+                    )
+                )
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { showCustom = !showCustom }
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                    interactionSource =
+                        remember {
+                            MutableInteractionSource()
+                        },
+                    indication =
+                        null
+                ) {
+                    showCustom =
+                        !showCustom
+                }
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 14.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
-            Text("Custom time...", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(
+                text =
+                    "Custom time...",
+                color =
+                    colors.primaryText,
+                fontSize = 14.sp,
+                fontWeight =
+                    FontWeight.SemiBold,
+                modifier =
+                    Modifier.weight(
+                        1f
+                    )
+            )
+
             Icon(
-                painter = painterResource(if (showCustom) R.drawable.ic_xvox_collapse else R.drawable.ic_xvox_caret_right),
-                contentDescription = null,
-                tint = colors.secondaryText,
-                modifier = Modifier.size(16.dp)
+                painter =
+                    painterResource(
+                        if (
+                            showCustom
+                        ) {
+                            R.drawable
+                                .ic_xvox_collapse
+                        } else {
+                            R.drawable
+                                .ic_xvox_caret_right
+                        }
+                    ),
+                contentDescription =
+                    null,
+                tint =
+                    colors.secondaryText,
+                modifier =
+                    Modifier.size(
+                        16.dp
+                    )
             )
         }
 
         if (showCustom) {
-            Spacer(Modifier.size(8.dp))
+            Spacer(
+                Modifier.size(
+                    8.dp
+                )
+            )
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
             ) {
                 BasicTextField(
-                    value = minText,
-                    onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) minText = it },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-                    cursorBrush = SolidColor(colors.primaryAccent),
+                    value =
+                        minText,
+                    onValueChange = {
+                        if (
+                            it.length <= 3 &&
+                            it.all {
+                                    character ->
+
+                                character.isDigit()
+                            }
+                        ) {
+                            minText = it
+                        }
+                    },
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                KeyboardType.Number
+                        ),
+                    textStyle =
+                        TextStyle(
+                            color =
+                                colors.primaryText,
+                            fontSize =
+                                14.sp
+                        ),
+                    cursorBrush =
+                        SolidColor(
+                            colors.primaryAccent
+                        ),
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(colors.card.copy(alpha = 0.97f))
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    decorationBox = { inner ->
-                        if (minText.isEmpty()) Text("Minutes", color = colors.mutedText, fontSize = 14.sp)
+                        .clip(
+                            RoundedCornerShape(
+                                10.dp
+                            )
+                        )
+                        .background(
+                            colors.card
+                                .copy(
+                                    alpha =
+                                        0.97f
+                                )
+                        )
+                        .padding(
+                            horizontal =
+                                12.dp,
+                            vertical =
+                                12.dp
+                        ),
+                    decorationBox = {
+                            inner ->
+
+                        if (
+                            minText.isEmpty()
+                        ) {
+                            Text(
+                                text =
+                                    "Minutes",
+                                color =
+                                    colors.mutedText,
+                                fontSize =
+                                    14.sp
+                            )
+                        }
+
                         inner()
                     }
                 )
+
                 BasicTextField(
-                    value = secText,
-                    onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) secText = it },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-                    cursorBrush = SolidColor(colors.primaryAccent),
+                    value =
+                        secText,
+                    onValueChange = {
+                        if (
+                            it.length <= 2 &&
+                            it.all {
+                                    character ->
+
+                                character.isDigit()
+                            }
+                        ) {
+                            secText = it
+                        }
+                    },
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                KeyboardType.Number
+                        ),
+                    textStyle =
+                        TextStyle(
+                            color =
+                                colors.primaryText,
+                            fontSize =
+                                14.sp
+                        ),
+                    cursorBrush =
+                        SolidColor(
+                            colors.primaryAccent
+                        ),
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(colors.card.copy(alpha = 0.97f))
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    decorationBox = { inner ->
-                        if (secText.isEmpty()) Text("Seconds", color = colors.mutedText, fontSize = 14.sp)
+                        .clip(
+                            RoundedCornerShape(
+                                10.dp
+                            )
+                        )
+                        .background(
+                            colors.card
+                                .copy(
+                                    alpha =
+                                        0.97f
+                                )
+                        )
+                        .padding(
+                            horizontal =
+                                12.dp,
+                            vertical =
+                                12.dp
+                        ),
+                    decorationBox = {
+                            inner ->
+
+                        if (
+                            secText.isEmpty()
+                        ) {
+                            Text(
+                                text =
+                                    "Seconds",
+                                color =
+                                    colors.mutedText,
+                                fontSize =
+                                    14.sp
+                            )
+                        }
+
                         inner()
                     }
                 )
             }
 
-            Spacer(Modifier.size(8.dp))
+            Spacer(
+                Modifier.size(
+                    8.dp
+                )
+            )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(
+                        RoundedCornerShape(
+                            10.dp
+                        )
+                    )
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication =
+                            null
                     ) {
-                        pauseMusic = true
-                        closeApp = false
+                        pauseMusic =
+                            true
+
+                        closeApp =
+                            false
                     }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(
+                        vertical = 4.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                RadioButton(selected = pauseMusic, onClick = { pauseMusic = true; closeApp = false })
-                Text("Pause music", color = colors.primaryText, fontSize = 13.sp)
+                RadioButton(
+                    selected =
+                        pauseMusic,
+                    onClick = {
+                        pauseMusic =
+                            true
+
+                        closeApp =
+                            false
+                    }
+                )
+
+                Text(
+                    text =
+                        "Pause music",
+                    color =
+                        colors.primaryText,
+                    fontSize =
+                        13.sp
+                )
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(
+                        RoundedCornerShape(
+                            10.dp
+                        )
+                    )
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication =
+                            null
                     ) {
-                        closeApp = true
-                        pauseMusic = false
+                        closeApp =
+                            true
+
+                        pauseMusic =
+                            false
                     }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(
+                        vertical = 4.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                RadioButton(selected = closeApp, onClick = { closeApp = true; pauseMusic = false })
-                Text("Close full app", color = colors.primaryText, fontSize = 13.sp)
+                RadioButton(
+                    selected =
+                        closeApp,
+                    onClick = {
+                        closeApp =
+                            true
+
+                        pauseMusic =
+                            false
+                    }
+                )
+
+                Text(
+                    text =
+                        "Close full app",
+                    color =
+                        colors.primaryText,
+                    fontSize =
+                        13.sp
+                )
             }
 
-            Spacer(Modifier.size(8.dp))
+            Spacer(
+                Modifier.size(
+                    8.dp
+                )
+            )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.primaryAccent)
+                    .clip(
+                        RoundedCornerShape(
+                            12.dp
+                        )
+                    )
+                    .background(
+                        colors.primaryAccent
+                    )
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication =
+                            null
                     ) {
-                        val m = minText.toIntOrNull() ?: 0
-                        val s = secText.toIntOrNull() ?: 0
-                        if (m == 0 && s == 0) return@clickable
-                        onCustom(m, s, pauseMusic, closeApp)
+                        val minutes =
+                            minText
+                                .toIntOrNull()
+                                ?: 0
+
+                        val seconds =
+                            secText
+                                .toIntOrNull()
+                                ?: 0
+
+                        if (
+                            minutes == 0 &&
+                            seconds == 0
+                        ) {
+                            return@clickable
+                        }
+
+                        onCustom(
+                            minutes,
+                            seconds,
+                            pauseMusic,
+                            closeApp
+                        )
                     }
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center
+                    .padding(
+                        vertical =
+                            12.dp
+                    ),
+                horizontalArrangement =
+                    Arrangement.Center
             ) {
-                Text("Start custom timer", color = colors.background, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text =
+                        "Start custom timer",
+                    color =
+                        colors.background,
+                    fontSize =
+                        14.sp,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
             }
         }
 
-        if (currentMinutes != null) {
-            Spacer(Modifier.size(8.dp))
+        if (
+            currentMinutes !=
+            null
+        ) {
+            Spacer(
+                Modifier.size(
+                    8.dp
+                )
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card.copy(alpha = 0.97f))
+                    .clip(
+                        RoundedCornerShape(
+                            12.dp
+                        )
+                    )
+                    .background(
+                        colors.card.copy(
+                            alpha =
+                                0.97f
+                        )
+                    )
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onCancel() }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication =
+                            null
+                    ) {
+                        onCancel()
+                    }
+                    .padding(
+                        horizontal =
+                            14.dp,
+                        vertical =
+                            12.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                Text("Cancel Timer", color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(
+                    text =
+                        "Cancel Timer",
+                    color =
+                        Color(
+                            0xFFDC2626
+                        ),
+                    fontSize =
+                        14.sp,
+                    fontWeight =
+                        FontWeight.SemiBold,
+                    modifier =
+                        Modifier.weight(
+                            1f
+                        )
+                )
             }
         }
     }
