@@ -40,10 +40,66 @@ jobs:
           SOURCE = Path("phosphor-core")
           OUTPUT_DIR = Path("app/src/main/res/drawable")
 
-          # Only genuinely missing icons belong here.
-          # Existing XVOX resources are never overwritten.
           ICONS = [
-              ("plus", "regular", "ic_xvox_plus.xml"),
+              # Player Controls (Fill & Premium Bold Soft Edges)
+              ("play", "fill", "ic_xvox_play.xml"),
+              ("pause", "fill", "ic_xvox_pause.xml"),
+              ("skip-forward", "fill", "ic_xvox_skip_next.xml"),
+              ("skip-back", "fill", "ic_xvox_skip_previous.xml"),
+              ("shuffle", "bold", "ic_xvox_shuffle.xml"),
+              ("repeat", "bold", "ic_xvox_repeat.xml"),
+              ("repeat-once", "bold", "ic_xvox_repeat_one.xml"),
+
+              # Favorites & User Interactions (Fill)
+              ("heart", "fill", "ic_xvox_heart.xml"),
+              ("heart", "bold", "ic_xvox_heart_outline.xml"),
+              ("star", "fill", "ic_xvox_star.xml"),
+              ("share-network", "fill", "ic_xvox_share.xml"),
+              ("trash", "fill", "ic_xvox_delete.xml"),
+
+              # Navigation & Core Headers (Fill / Bold)
+              ("house", "fill", "ic_xvox_home.xml"),
+              ("magnifying-glass", "bold", "ic_xvox_search.xml"),
+              ("magnifying-glass", "bold", "ic_xvox_search_action.xml"),
+              ("gear-six", "fill", "ic_xvox_settings.xml"),
+              ("sliders-horizontal", "fill", "ic_xvox_equalizer.xml"),
+              ("timer", "fill", "ic_xvox_timer.xml"),
+
+              # Library, Audio & Playlists (Fill)
+              ("playlist", "fill", "ic_xvox_playlist.xml"),
+              ("queue", "fill", "ic_xvox_queue.xml"),
+              ("music-notes", "fill", "ic_xvox_music_note.xml"),
+              ("waveform", "bold", "ic_xvox_waveform.xml"),
+              ("disc", "fill", "ic_xvox_disc.xml"),
+              ("folder-simple", "fill", "ic_xvox_folder.xml"),
+
+              # Volume Controls (Fill)
+              ("speaker-high", "fill", "ic_xvox_volume_high.xml"),
+              ("speaker-low", "fill", "ic_xvox_volume_low.xml"),
+              ("speaker-slash", "fill", "ic_xvox_mute.xml"),
+
+              # Lyrics & Text (Fill / Bold)
+              ("text-align-left", "bold", "ic_xvox_lyrics.xml"),
+              ("file-plus", "fill", "ic_xvox_lyrics_add.xml"),
+              ("file-text", "fill", "ic_xvox_lyrics_file.xml"),
+              ("microphone-stage", "fill", "ic_xvox_microphone.xml"),
+
+              # UI Actions & Modals (Bold with Soft Round Edges)
+              ("plus", "bold", "ic_xvox_plus.xml"),
+              ("plus", "bold", "ic_xvox_add.xml"),
+              ("check", "bold", "ic_xvox_check.xml"),
+              ("x", "bold", "ic_xvox_close.xml"),
+              ("caret-down", "bold", "ic_xvox_collapse.xml"),
+              ("caret-right", "bold", "ic_xvox_caret_right.xml"),
+              ("arrow-left", "bold", "ic_xvox_arrow_left.xml"),
+              ("download-simple", "bold", "ic_xvox_download.xml"),
+              ("pencil-simple", "fill", "ic_xvox_edit.xml"),
+              ("dots-three-vertical", "bold", "ic_xvox_more.xml"),
+              ("info", "fill", "ic_xvox_info.xml"),
+              ("arrows-clockwise", "bold", "ic_xvox_refresh.xml"),
+              ("arrows-out-simple", "bold", "ic_xvox_fullscreen.xml"),
+              ("arrows-in-simple", "bold", "ic_xvox_fullscreen_exit.xml"),
+              ("sparkle", "fill", "ic_xvox_sparkle.xml"),
           ]
 
           def local_name(tag):
@@ -52,16 +108,9 @@ jobs:
           def number(value, default=0.0):
               if value is None:
                   return default
-
-              match = re.search(
-                  r"-?(?:\d+(?:\.\d*)?|\.\d+)"
-                  r"(?:[eE][+-]?\d+)?",
-                  str(value),
-              )
-
+              match = re.search(r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(value))
               if not match:
                   return default
-
               try:
                   return float(match.group(0))
               except ValueError:
@@ -69,170 +118,77 @@ jobs:
 
           def fmt(value):
               value = float(value)
-
               if value.is_integer():
                   return str(int(value))
-
-              return (
-                  f"{value:.5f}"
-                  .rstrip("0")
-                  .rstrip(".")
-              )
+              return f"{value:.5f}".rstrip("0").rstrip(".")
 
           def find_svg(icon, weight):
               preferred = [
+                  SOURCE / "assets" / weight / f"{icon}-{weight}.svg",
+                  SOURCE / "assets" / weight / f"{icon}.svg",
                   SOURCE / "raw" / weight / f"{icon}-{weight}.svg",
                   SOURCE / "raw" / weight / f"{icon}.svg",
-                  SOURCE / "assets" / weight / f"{icon}.svg",
               ]
-
               for path in preferred:
                   if path.exists():
                       return path
-
-              names = {
-                  f"{icon}.svg".lower(),
-                  f"{icon}-{weight}.svg".lower(),
-              }
-
-              matches = []
-
               for path in SOURCE.rglob("*.svg"):
-                  if path.name.lower() not in names:
-                      continue
-
-                  score = 0
-                  full = str(path).lower()
-
-                  if weight in full:
-                      score += 100
-
-                  if (
-                      path.name.lower()
-                      == f"{icon}-{weight}.svg"
-                  ):
-                      score += 50
-
-                  matches.append(
-                      (score, path)
-                  )
-
-              if not matches:
-                  return None
-
-              matches.sort(
-                  key=lambda item: item[0],
-                  reverse=True,
-              )
-
-              return matches[0][1]
+                  if path.stem.lower() in {f"{icon}-{weight}".lower(), icon.lower()} and weight in str(path).lower():
+                      return path
+              return None
 
           def circle_path(element):
               cx = number(element.attrib.get("cx"))
               cy = number(element.attrib.get("cy"))
               r = number(element.attrib.get("r"))
-
               if r <= 0:
                   return None
-
-              return (
-                  f"M {fmt(cx-r)},{fmt(cy)} "
-                  f"A {fmt(r)},{fmt(r)} 0 1,0 "
-                  f"{fmt(cx+r)},{fmt(cy)} "
-                  f"A {fmt(r)},{fmt(r)} 0 1,0 "
-                  f"{fmt(cx-r)},{fmt(cy)} Z"
-              )
+              return f"M {fmt(cx-r)},{fmt(cy)} A {fmt(r)},{fmt(r)} 0 1,0 {fmt(cx+r)},{fmt(cy)} A {fmt(r)},{fmt(r)} 0 1,0 {fmt(cx-r)},{fmt(cy)} Z"
 
           def ellipse_path(element):
               cx = number(element.attrib.get("cx"))
               cy = number(element.attrib.get("cy"))
               rx = number(element.attrib.get("rx"))
               ry = number(element.attrib.get("ry"))
-
               if rx <= 0 or ry <= 0:
                   return None
-
-              return (
-                  f"M {fmt(cx-rx)},{fmt(cy)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 1,0 "
-                  f"{fmt(cx+rx)},{fmt(cy)} "
-                  f"A {fmt(rx)},{fmt(ry)} 0 1,0 "
-                  f"{fmt(cx-rx)},{fmt(cy)} Z"
-              )
+              return f"M {fmt(cx-rx)},{fmt(cy)} A {fmt(rx)},{fmt(ry)} 0 1,0 {fmt(cx+rx)},{fmt(cy)} A {fmt(rx)},{fmt(ry)} 0 1,0 {fmt(cx-rx)},{fmt(cy)} Z"
 
           def line_path(element):
               x1 = number(element.attrib.get("x1"))
               y1 = number(element.attrib.get("y1"))
               x2 = number(element.attrib.get("x2"))
               y2 = number(element.attrib.get("y2"))
-
-              return (
-                  f"M {fmt(x1)},{fmt(y1)} "
-                  f"L {fmt(x2)},{fmt(y2)}"
-              )
+              return f"M {fmt(x1)},{fmt(y1)} L {fmt(x2)},{fmt(y2)}"
 
           def rect_path(element):
               x = number(element.attrib.get("x"))
               y = number(element.attrib.get("y"))
               width = number(element.attrib.get("width"))
               height = number(element.attrib.get("height"))
-
               if width <= 0 or height <= 0:
                   return None
-
-              return (
-                  f"M {fmt(x)},{fmt(y)} "
-                  f"H {fmt(x+width)} "
-                  f"V {fmt(y+height)} "
-                  f"H {fmt(x)} Z"
-              )
+              return f"M {fmt(x)},{fmt(y)} H {fmt(x+width)} V {fmt(y+height)} H {fmt(x)} Z"
 
           def points_path(element, close):
-              values = re.findall(
-                  r"-?(?:\d+(?:\.\d*)?|\.\d+)"
-                  r"(?:[eE][+-]?\d+)?",
-                  element.attrib.get("points", ""),
-              )
-
+              values = re.findall(r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", element.attrib.get("points", ""))
               if len(values) < 4:
                   return None
-
               if len(values) % 2:
                   values = values[:-1]
-
               pairs = []
-
               for index in range(0, len(values), 2):
-                  pairs.append(
-                      (
-                          number(values[index]),
-                          number(values[index + 1]),
-                      )
-                  )
-
-              data = (
-                  f"M {fmt(pairs[0][0])},"
-                  f"{fmt(pairs[0][1])}"
-              )
-
+                  pairs.append((number(values[index]), number(values[index + 1])))
+              data = f"M {fmt(pairs[0][0])},{fmt(pairs[0][1])}"
               for x, y in pairs[1:]:
                   data += f" L {fmt(x)},{fmt(y)}"
-
               if close:
                   data += " Z"
-
               return data
 
           def convert(source, output):
               root = ET.parse(source).getroot()
-
-              viewbox = (
-                  root.attrib
-                  .get("viewBox", "0 0 256 256")
-                  .replace(",", " ")
-                  .split()
-              )
-
+              viewbox = root.attrib.get("viewBox", "0 0 256 256").replace(",", " ").split()
               if len(viewbox) != 4:
                   raise RuntimeError("Invalid viewBox")
 
@@ -242,14 +198,11 @@ jobs:
               vector = ET.Element(
                   "vector",
                   {
-                      "xmlns:android":
-                          "http://schemas.android.com/apk/res/android",
+                      "xmlns:android": "http://schemas.android.com/apk/res/android",
                       "android:width": "24dp",
                       "android:height": "24dp",
-                      "android:viewportWidth":
-                          fmt(viewport_width),
-                      "android:viewportHeight":
-                          fmt(viewport_height),
+                      "android:viewportWidth": fmt(viewport_width),
+                      "android:viewportHeight": fmt(viewport_height),
                   },
               )
 
@@ -257,23 +210,12 @@ jobs:
 
               def walk(element, inherited=None):
                   nonlocal path_count
-
                   if inherited is None:
                       inherited = {}
-
                   style = dict(inherited)
-
-                  for attribute in (
-                      "fill",
-                      "stroke",
-                      "stroke-width",
-                      "stroke-linecap",
-                      "stroke-linejoin",
-                  ):
+                  for attribute in ("fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"):
                       if attribute in element.attrib:
-                          style[attribute] = (
-                              element.attrib[attribute]
-                          )
+                          style[attribute] = element.attrib[attribute]
 
                   tag = local_name(element.tag)
                   data = None
@@ -296,59 +238,23 @@ jobs:
                   if data:
                       fill = style.get("fill", "black")
                       stroke = style.get("stroke", "none")
-
                       if tag == "line":
                           fill = "none"
-
                           if "stroke" not in style:
                               stroke = "black"
 
                       attrs = {
                           "android:pathData": data,
-                          "android:fillColor":
-                              (
-                                  "#00000000"
-                                  if fill == "none"
-                                  else "#FFFFFFFF"
-                              ),
+                          "android:fillColor": ("#00000000" if fill == "none" else "#FFFFFFFF"),
                       }
 
                       if stroke != "none":
                           attrs["android:strokeColor"] = "#FFFFFFFF"
-                          attrs["android:strokeWidth"] = fmt(
-                              number(
-                                  style.get("stroke-width"),
-                                  1,
-                              )
-                          )
+                          attrs["android:strokeWidth"] = fmt(number(style.get("stroke-width"), 1))
+                          attrs["android:strokeLineCap"] = "round"
+                          attrs["android:strokeLineJoin"] = "round"
 
-                          cap = style.get("stroke-linecap")
-                          join = style.get("stroke-linejoin")
-
-                          if cap in {
-                              "butt",
-                              "round",
-                              "square",
-                          }:
-                              attrs[
-                                  "android:strokeLineCap"
-                              ] = cap
-
-                          if join in {
-                              "miter",
-                              "round",
-                              "bevel",
-                          }:
-                              attrs[
-                                  "android:strokeLineJoin"
-                              ] = join
-
-                      ET.SubElement(
-                          vector,
-                          "path",
-                          attrs,
-                      )
-
+                      ET.SubElement(vector, "path", attrs)
                       path_count += 1
 
                   for child in element:
@@ -357,70 +263,33 @@ jobs:
               walk(root)
 
               if path_count == 0:
-                  raise RuntimeError(
-                      f"No convertible geometry in {source}"
-                  )
+                  raise RuntimeError(f"No convertible geometry in {source}")
 
-              ET.indent(
-                  vector,
-                  space="    ",
-              )
-
+              ET.indent(vector, space="    ")
               output.write_text(
                   '<?xml version="1.0" encoding="utf-8"?>\n'
-                  + ET.tostring(
-                      vector,
-                      encoding="unicode",
-                  )
+                  + ET.tostring(vector, encoding="unicode")
                   + "\n",
                   encoding="utf-8",
               )
-
               return path_count
 
           generated = []
 
           for icon, weight, filename in ICONS:
               output = OUTPUT_DIR / filename
-
-              if output.exists():
-                  print(
-                      "SKIP existing:",
-                      output,
-                  )
-                  continue
-
-              source = find_svg(
-                  icon,
-                  weight,
-              )
+              source = find_svg(icon, weight)
 
               if source is None:
-                  print(
-                      f"{icon} ({weight}) not found",
-                      file=sys.stderr,
-                  )
+                  print(f"{icon} ({weight}) not found", file=sys.stderr)
                   sys.exit(1)
 
-              count = convert(
-                  source,
-                  output,
-              )
-
+              count = convert(source, output)
               generated.append(output)
-
-              print(
-                  "GENERATED:",
-                  output,
-                  "<-",
-                  source,
-                  f"({count} paths)",
-              )
+              print(f"GENERATED: {output.name} <- {source.name} ({count} paths) [weight: {weight}]")
 
           if not generated:
-              print(
-                  "All required icons already exist."
-              )
+              print("All required icons already exist.")
           PY
 
       - name: Stage generated icons
@@ -428,8 +297,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          git add \
-            app/src/main/res/drawable/ic_xvox_plus.xml
+          git add app/src/main/res/drawable/ic_xvox_*.xml
 
           git status --short
 
@@ -443,17 +311,9 @@ jobs:
             exit 0
           fi
 
-          git config \
-            user.name \
-            "github-actions[bot]"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git config \
-            user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Import all 46 premium Fill & Bold Phosphor icons"
 
-          git commit \
-            -m "Add missing XVOX Phosphor icons"
-
-          git push \
-            origin \
-            "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
