@@ -860,32 +860,32 @@ class MainPlayerViewModel(
         from: Int,
         to: Int
     ) {
-        val current =
-            _state.value
-                .queue
-                .toMutableList()
-
-        if (
-            from !in current.indices ||
-            to !in current.indices ||
-            from == to
-        ) {
-            return
-        }
-
-        val item =
-            current.removeAt(
-                from
+        val queue =
+            controller.moveQueueItem(
+                from,
+                to
             )
 
-        current.add(
-            to,
-            item
-        )
+        val currentId =
+            _state.value.currentSongId
 
-        reorderQueue(
-            current
-        )
+        val currentIndex =
+            queue.indexOfFirst {
+                it.id == currentId
+            }
+
+        libraryQueueSize =
+            queue.size
+
+        libraryQueueSignature =
+            queueSignature(queue)
+
+        _state.update {
+            it.copy(
+                queue = queue,
+                currentIndex = currentIndex
+            )
+        }
     }
 
     fun setSleepTimer(

@@ -128,7 +128,27 @@ fun XvoxNowPlaying(
         }
 
     var screenY by rememberSaveable {
-        mutableFloatStateOf(0f)
+        mutableFloatStateOf(
+            screenHeight
+        )
+    }
+
+    var entered by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(screenHeight) {
+        if (
+            !entered &&
+            screenHeight > 0f
+        ) {
+            entered = true
+            screenY = screenHeight
+
+            animateScreen(
+                target = 0f
+            )
+        }
     }
     var showLyrics by remember {
         mutableStateOf(false)

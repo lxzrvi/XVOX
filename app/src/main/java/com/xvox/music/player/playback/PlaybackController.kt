@@ -264,6 +264,46 @@ class PlaybackController(
         return queue
     }
 
+    fun moveQueueItem(
+        from: Int,
+        to: Int
+    ): List<Song> {
+        if (
+            from !in queue.indices ||
+            to !in queue.indices ||
+            from == to
+        ) {
+            return queue
+        }
+
+        val mutable =
+            queue.toMutableList()
+
+        val moved =
+            mutable.removeAt(from)
+
+        mutable.add(
+            to,
+            moved
+        )
+
+        queue = mutable
+
+        /*
+         * Media3 changes timeline order in place.
+         * Current playback position/play state is
+         * not reset by rebuilding all MediaItems.
+         */
+        controller?.moveMediaItem(
+            from,
+            to
+        )
+
+        publishState()
+
+        return queue
+    }
+
     fun restoreSong(songId: Long) {
         val mediaController = controller
         val liveId = mediaController?.currentMediaItem?.mediaId?.toLongOrNull()

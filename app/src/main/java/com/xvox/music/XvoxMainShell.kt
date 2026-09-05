@@ -48,9 +48,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -800,7 +802,7 @@ fun XvoxMainShell(
                 }
 
             val localQueue =
-                remember(player.queue) {
+                remember {
                     mutableStateListOf<Song>()
                         .apply {
                             addAll(
@@ -809,495 +811,137 @@ fun XvoxMainShell(
                         }
                 }
 
-            var draggingSongId by
-                remember {
-                    mutableStateOf<Long?>(
-                        null
-                    )
-                }
+            var draggingSongId by remember {
+                mutableStateOf<Long?>(null)
+            }
 
-            var dragOffsetY by
-                remember {
-                    mutableFloatStateOf(
-                        0f
-                    )
-                }
+            var dragOffsetY by remember {
+                mutableFloatStateOf(0f)
+            }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = 2.dp,
-                        vertical = 2.dp
-                    )
+            /*
+             * -1 = scroll toward top
+             *  0 = no edge scroll
+             *  1 = scroll toward bottom
+             */
+            var autoScrollDirection by remember {
+                mutableIntStateOf(0)
+            }
+
+            /*
+             * Continuous edge-hover auto scroll.
+             * This continues even when the finger
+             * is stationary at an edge.
+             */
+            LaunchedEffect(
+                draggingSongId,
+                autoScrollDirection
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = 6.dp,
-                            vertical = 4.dp
-                        ),
-                    verticalAlignment =
-                        Alignment.CenterVertically
+                if (
+                    draggingSongId == null ||
+                    autoScrollDirection == 0
                 ) {
-                    Text(
-                        text =
-                            "Playing Queue (${localQueue.size})",
-                        color =
-                            colors.primaryText,
-                        fontSize = 16.sp,
-                        fontWeight =
-                            FontWeight.Bold,
-                        modifier =
-                            Modifier.weight(
-                                1f
-                            )
-                    )
-
-                    Text(
-                        text =
-                            "Long press & drag",
-                        color =
-                            colors.mutedText,
-                        fontSize = 11.sp
-                    )
+                    return@LaunchedEffect
                 }
 
-                Spacer(
-                    Modifier.height(
-                        6.dp
-                    )
-                )
-
-                LazyColumn(
-                    state =
-                        listState,
-                    modifier =
-                        Modifier.heightIn(
-                            max = 520.dp
-                        ),
-                    contentPadding =
-                        PaddingValues(
-                            bottom = 16.dp
-                        )
+                while (
+                    draggingSongId != null &&
+                    autoScrollDirection != 0
                 ) {
-                    itemsIndexed(
-                        items =
-                            localQueue,
-                        key = {
-                                _,
-                                song ->
+                    val amount =
+                        12f *
+                            autoScrollDirection
 
-                            song.id
-                        }
-                    ) {
-                            _,
-                            song ->
+                    val consumed =
+                        listState.scrollBy(
+                            amount
+                        )
 
-                        val isCurrent =
-                            song.id ==
-                                player.currentSongId
+                    /*
+                     * Keep dragged card visually
+                     * attached to stationary finger
+                     * while list moves underneath.
+                     */
+                    dragOffsetY -= consumed
 
-                        val isDragging =
-                            song.id ==
-                                draggingSongId
+                    /*
+                     * Re-evaluate crossed slots while
+                     * auto scrolling.
+                     */
+                    val songId =
+                        draggingSongId
+                            ?: break
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    vertical =
-                                        2.dp
-                                )
-                                .zIndex(
-                                    if (
-                                        isDragging
-                                    ) {
-                                        100f
-                                    } else {
-                                        0f
-                                    }
-                                )
-                                .graphicsLayer {
-                                    translationY =
-                                        if (
-                                            isDragging
-                                        ) {
-                                            dragOffsetY
-                                        } else {
-                                            0f
-                                        }
-
-                                    scaleX =
-                                        if (
-                                            isDragging
-                                        ) {
-                                            1.025f
-                                        } else {
-                                            1f
-                                        }
-
-                                    scaleY =
-                                        if (
-                                            isDragging
-                                        ) {
-                                            1.025f
-                                        } else {
-                                            1f
-                                        }
-
-                                    shadowElevation =
-                                        if (
-                                            isDragging
-                                        ) {
-                                            16.dp
-                                                .toPx()
-                                        } else {
-                                            0f
-                                        }
-                                }
-                                .clip(
-                                    RoundedCornerShape(
-                                        12.dp
-                                    )
-                                )
-                                .background(
-                                    when {
-                                        isDragging ->
-                                            colors.cardElevated
-
-                                        isCurrent ->
-                                            colors.card
-                                                .copy(
-                                                    alpha =
-                                                        0.95f
-                                                )
-
-                                        else ->
-                                            colors.cardElevated
-                                                .copy(
-                                                    alpha =
-                                                        0.40f
-                                                )
-                                    }
-                                )
-                                .pointerInput(
-                                    song.id,
-                                    localQueue.size
-                                ) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            draggingSongId =
-                                                song.id
-
-                                            dragOffsetY =
-                                                0f
-                                        },
-                                        onDrag = {
-                                                change,
-                                                amount ->
-
-                                            change.consume()
-
-                                            dragOffsetY +=
-                                                amount.y
-
-                                            var currentIndex =
-                                                localQueue
-                                                    .indexOfFirst {
-                                                        it.id ==
-                                                            song.id
-                                                    }
-
-                                            if (
-                                                currentIndex <
-                                                0
-                                            ) {
-                                                return@detectDragGesturesAfterLongPress
-                                            }
-
-                                            while (
-                                                dragOffsetY >
-                                                slotHeightPx /
-                                                    2f &&
-                                                currentIndex <
-                                                localQueue
-                                                    .lastIndex
-                                            ) {
-                                                val moving =
-                                                    localQueue
-                                                        .removeAt(
-                                                            currentIndex
-                                                        )
-
-                                                localQueue.add(
-                                                    currentIndex +
-                                                        1,
-                                                    moving
-                                                )
-
-                                                currentIndex++
-
-                                                dragOffsetY -=
-                                                    slotHeightPx
-                                            }
-
-                                            while (
-                                                dragOffsetY <
-                                                -slotHeightPx /
-                                                    2f &&
-                                                currentIndex >
-                                                0
-                                            ) {
-                                                val moving =
-                                                    localQueue
-                                                        .removeAt(
-                                                            currentIndex
-                                                        )
-
-                                                localQueue.add(
-                                                    currentIndex -
-                                                        1,
-                                                    moving
-                                                )
-
-                                                currentIndex--
-
-                                                dragOffsetY +=
-                                                    slotHeightPx
-                                            }
-
-                                            val layoutInfo =
-                                                listState
-                                                    .layoutInfo
-
-                                            val draggedIndex =
-                                                localQueue
-                                                    .indexOfFirst {
-                                                        it.id ==
-                                                            song.id
-                                                    }
-
-                                            val itemInfo =
-                                                layoutInfo
-                                                    .visibleItemsInfo
-                                                    .firstOrNull {
-                                                        it.index ==
-                                                            draggedIndex
-                                                    }
-
-                                            if (
-                                                itemInfo !=
-                                                null
-                                            ) {
-                                                val visualTop =
-                                                    itemInfo.offset +
-                                                        dragOffsetY
-
-                                                val visualBottom =
-                                                    visualTop +
-                                                        itemInfo.size
-
-                                                val edge =
-                                                    slotHeightPx
-
-                                                when {
-                                                    visualTop <
-                                                        layoutInfo
-                                                            .viewportStartOffset +
-                                                        edge -> {
-                                                        scope.launch {
-                                                            listState
-                                                                .scrollBy(
-                                                                    -20f
-                                                                )
-                                                        }
-                                                    }
-
-                                                    visualBottom >
-                                                        layoutInfo
-                                                            .viewportEndOffset -
-                                                        edge -> {
-                                                        scope.launch {
-                                                            listState
-                                                                .scrollBy(
-                                                                    20f
-                                                                )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        onDragEnd = {
-                                            dragOffsetY =
-                                                0f
-
-                                            draggingSongId =
-                                                null
-
-                                            playerViewModel
-                                                .reorderQueue(
-                                                    localQueue
-                                                        .toList()
-                                                )
-                                        },
-                                        onDragCancel = {
-                                            dragOffsetY =
-                                                0f
-
-                                            draggingSongId =
-                                                null
-
-                                            playerViewModel
-                                                .reorderQueue(
-                                                    localQueue
-                                                        .toList()
-                                                )
-                                        }
-                                    )
-                                }
-                                .clickable(
-                                    enabled =
-                                        draggingSongId ==
-                                            null,
-                                    interactionSource =
-                                        remember {
-                                            MutableInteractionSource()
-                                        },
-                                    indication =
-                                        null
-                                ) {
-                                    val actualIndex =
-                                        localQueue
-                                            .indexOfFirst {
-                                                it.id ==
-                                                    song.id
-                                            }
-
-                                    if (
-                                        actualIndex >=
-                                        0
-                                    ) {
-                                        playerViewModel
-                                            .playQueueIndex(
-                                                actualIndex
-                                            )
-
-                                        overlays.hideL()
-                                    }
-                                }
-                                .padding(
-                                    horizontal =
-                                        8.dp,
-                                    vertical =
-                                        6.dp
-                                ),
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
-                            XvoxSongArtwork(
-                                artwork =
-                                    song.artworkUri,
-                                requestSize =
-                                    96,
-                                modifier =
-                                    Modifier
-                                        .size(
-                                            42.dp
-                                        )
-                                        .clip(
-                                            RoundedCornerShape(
-                                                8.dp
-                                            )
-                                        )
-                            )
-
-                            Column(
-                                modifier =
-                                    Modifier
-                                        .weight(
-                                            1f
-                                        )
-                                        .padding(
-                                            start =
-                                                10.dp,
-                                            end =
-                                                6.dp
-                                        )
-                            ) {
-                                Text(
-                                    text =
-                                        song.title,
-                                    color =
-                                        if (
-                                            isCurrent
-                                        ) {
-                                            colors.primaryAccent
-                                        } else {
-                                            colors.primaryText
-                                        },
-                                    fontSize =
-                                        13.sp,
-                                    fontWeight =
-                                        FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow =
-                                        TextOverflow.Ellipsis
-                                )
-
-                                Text(
-                                    text =
-                                        song.artist,
-                                    color =
-                                        colors.secondaryText,
-                                    fontSize =
-                                        11.sp,
-                                    maxLines = 1,
-                                    overflow =
-                                        TextOverflow.Ellipsis
-                                )
+                    var from =
+                        localQueue
+                            .indexOfFirst {
+                                it.id == songId
                             }
 
-                            if (isCurrent) {
-                                Text(
-                                    text =
-                                        "Playing",
-                                    color =
-                                        colors.primaryAccent,
-                                    fontSize =
-                                        11.sp,
-                                    fontWeight =
-                                        FontWeight.SemiBold,
-                                    modifier =
-                                        Modifier.padding(
-                                            end =
-                                                6.dp
-                                        )
-                                )
-                            }
-
-                            Icon(
-                                painter =
-                                    painterResource(
-                                        R.drawable
-                                            .ic_xvox_more
-                                    ),
-                                contentDescription =
-                                    "Long press to reorder",
-                                tint =
-                                    colors.secondaryText,
-                                modifier =
-                                    Modifier.size(
-                                        18.dp
-                                    )
-                            )
-                        }
+                    if (from < 0) {
+                        break
                     }
+
+                    while (
+                        dragOffsetY >
+                        slotHeightPx / 2f &&
+                        from <
+                        localQueue.lastIndex
+                    ) {
+                        val moving =
+                            localQueue.removeAt(
+                                from
+                            )
+
+                        localQueue.add(
+                            from + 1,
+                            moving
+                        )
+
+                        playerViewModel
+                            .moveQueueItem(
+                                from,
+                                from + 1
+                            )
+
+                        from++
+
+                        dragOffsetY -=
+                            slotHeightPx
+                    }
+
+                    while (
+                        dragOffsetY <
+                        -slotHeightPx / 2f &&
+                        from > 0
+                    ) {
+                        val moving =
+                            localQueue.removeAt(
+                                from
+                            )
+
+                        localQueue.add(
+                            from - 1,
+                            moving
+                        )
+
+                        playerViewModel
+                            .moveQueueItem(
+                                from,
+                                from - 1
+                            )
+
+                        from--
+
+                        dragOffsetY +=
+                            slotHeightPx
+                    }
+
+                    kotlinx.coroutines.delay(
+                        16L
+                    )
                 }
             }
-        }
-    }
 
     fun showTimerSheet() {
         overlays.showL {
