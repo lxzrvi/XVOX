@@ -35,9 +35,9 @@ import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.LibraryRefreshBox
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
+import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
@@ -90,31 +90,20 @@ fun XvoxMainShell(
     fun showProfileEditor() {
         overlays.showL {
             ProfileEditorBox(
-                initialUsername = homeState.profile.username,
-                initialPfp = homeState.profile.selectedPfp,
-                initialCustomPfpUri = homeState.profile.customPfpUri,
+                profile = homeState.profile,
+                onCancel = overlays::hideL,
                 onSave = { name, pfp, uri ->
                     homeViewModel.saveProfile(name, pfp, uri) {
                         overlays.hideL()
                         overlays.showP("Profile updated")
                     }
-                },
-                onCancel = overlays::hideL
+                }
             )
         }
     }
 
     fun showRefreshOverlay() {
-        overlays.showL {
-            LibraryRefreshBox(
-                isRefreshing = homeState.refreshing,
-                onCancel = overlays::hideL
-            )
-        }
-        homeViewModel.refresh {
-            overlays.hideL()
-            overlays.showP("Library scanned")
-        }
+        showLibraryRefresh(overlays, homeViewModel)
     }
 
     fun showAddCurrentSongToPlaylist(song: Song) {
