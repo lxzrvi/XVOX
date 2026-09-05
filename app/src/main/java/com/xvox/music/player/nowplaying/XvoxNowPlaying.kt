@@ -74,7 +74,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
-import com.xvox.music.features.settings.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxFullscreenLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
