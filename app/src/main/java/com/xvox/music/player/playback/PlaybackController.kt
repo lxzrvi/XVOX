@@ -41,138 +41,177 @@ class PlaybackController(
         var activeInstance: PlaybackController? = null
     }
 
-    private val appContext =
-        context.applicationContext
+    private val appContext = context.applicationContext
+    private val prefs = UserPreferencesRepository(appContext)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private val prefs =
-        UserPreferencesRepository(appContext)
-
-    private val scope =
-        CoroutineScope(
-            SupervisorJob() +
-                Dispatchers.Main.immediate
-        )
-
-    private var controller:
-        MediaController? = null
-
-    private var queue:
-        List<Song> = emptyList()
-
+    private var controller: MediaController? = null
+    private var queue: List<Song> = emptyList()
     private var progressJob: Job? = null
+    private var fadeJob: Job? = null
+    private var crossfadeTriggeredForSongId: Long? = null
 
-    private var restoredSongId:
-        Long? = null
-
+    private var restoredSongId: Long? = null
     private var repeatMode: RepeatMode = RepeatMode.OFF
 
     private var expectedPlaying: Boolean? = null
     private var expectedPlayingUntil: Long = 0L
 
-    private val _state =
-        MutableStateFlow(
-            PlaybackState()
-        )
+    private val _state = MutableStateFlow(PlaybackState())
+    val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
-    val state:
-        StateFlow<PlaybackState> =
-        _state.asStateFlow()
+    private val listener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            publishState()
+        }
 
-    private val listener =
-        object : Player.Listener {
-            override fun onEvents(
-                player: Player,
-                events: Player.Events
-            ) {
-                publishState()
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    when (repeatMode) {
-                        RepeatMode.ONE -> {
-                            controller?.let {
-                                it.seekTo(0)
-                                it.play()
-                                expectedPlaying = true
-                                expectedPlayingUntil = System.currentTimeMillis() + 1500
-                                publishState()
-                            }
-                        }
-                        RepeatMode.ALL -> {
-                            if (queue.isNotEmpty()) {
-                                val curIdx = _state.value.currentIndex
-                                val nextIdx = if (curIdx < 0) 0 else (curIdx + 1) % queue.size
-                                playQueueIndex(nextIdx, true)
-                            }
-                        }
-                        RepeatMode.OFF -> {
-                            scope.launch {
-                                val shouldClear = prefs.clearQueueAfterPlayback.first()
-                                if (shouldClear) {
-                                    stop()
-                                } else {
-                                    expectedPlaying = false
-                                    expectedPlayingUntil = System.currentTimeMillis() + 800
-                                    publishState()
-                                }
-                            }
-                        }
-                    }
-                }
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) {
+                handleTrackEnded()
             }
         }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            crossfadeTriggeredForSongId = null
+            publishState()
+        }
+    }
 
     init {
         activeInstance = this
         connect()
     }
 
-    private fun connect() {
-        val token =
-            SessionToken(
-                appContext,
-                ComponentName(
-                    appContext,
-                    XvoxPlaybackService::class.java
-                )
-            )
+    private fun handleTrackEnded() {
+        val curIdx = _state.value.currentIndex
+        when (repeatMode) {
+            RepeatMode.ONE -> {
+                controller?.let {
+                    it.seekTo(0)
+                    it.play()
+                    expectedPlaying = true
+                    expectedPlayingUntil = System.currentTimeMillis() + 1500
+                    publishState()
+                }
+            }
+            RepeatMode.ALL -> {
+                if (queue.isNotEmpty()) {
+                    val nextIdx = if (curIdx < 0) 0 else (curIdx + 1) % queue.size
+                    playQueueIndex(nextIdx, true)
+                }
+            }
+            RepeatMode.OFF -> {
+                if (queue.isNotEmpty() && curIdx >= 0 && curIdx < queue.lastIndex) {
+                    // Auto advance to next song seamlessly
+                    playQueueIndex(curIdx + 1, true)
+                } else {
+                    // End of playlist reached
+                    scope.launch {
+                        val shouldClear = prefs.clearQueueAfterPlayback.first()
+                        if (shouldClear) {
+                            stop()
+                        } else {
+                            expectedPlaying = false
+                            expectedPlayingUntil = System.currentTimeMillis() + 800
+                            publishState()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-        val future =
-            MediaController.Builder(
-                appContext,
-                token
-            ).buildAsync()
+    private fun connect() {
+        val token = SessionToken(
+            appContext,
+            ComponentName(appContext, XvoxPlaybackService::class.java)
+        )
+
+        val future = MediaController.Builder(appContext, token).buildAsync()
 
         future.addListener(
             {
                 runCatching {
                     future.get()
-                }.onSuccess {
-                    mediaController ->
-
-                    controller =
-                        mediaController
-
-                    mediaController.addListener(
-                        listener
-                    )
-
+                }.onSuccess { mediaController ->
+                    controller = mediaController
+                    mediaController.addListener(listener)
                     publishState()
 
-                    progressJob =
-                        scope.launch {
-                            while (isActive) {
-                                publishState()
-                                delay(500L)
-                            }
+                    progressJob = scope.launch {
+                        while (isActive) {
+                            publishState()
+                            checkCrossfadeAndAdvance()
+                            delay(400L)
                         }
+                    }
                 }
             },
-            ContextCompat.getMainExecutor(
-                appContext
-            )
+            ContextCompat.getMainExecutor(appContext)
         )
+    }
+
+    private fun checkCrossfadeAndAdvance() {
+        val mediaController = controller ?: return
+        if (!mediaController.isPlaying) return
+
+        val duration = mediaController.duration
+        val position = mediaController.currentPosition
+        if (duration <= 0L || position <= 0L) return
+
+        val remainingMs = duration - position
+        val currentId = _state.value.currentSongId ?: return
+
+        scope.launch {
+            val isCrossfade = prefs.crossfade.first()
+            val crossfadeDurationSec = prefs.crossfadeDuration.first()
+            val crossfadeThreshold = (crossfadeDurationSec * 1000L).coerceIn(1000L, 12000L)
+
+            if (isCrossfade && remainingMs <= crossfadeThreshold && crossfadeTriggeredForSongId != currentId) {
+                crossfadeTriggeredForSongId = currentId
+                val curIdx = _state.value.currentIndex
+                val hasNext = when (repeatMode) {
+                    RepeatMode.ALL, RepeatMode.ONE -> queue.isNotEmpty()
+                    RepeatMode.OFF -> curIdx >= 0 && curIdx < queue.lastIndex
+                }
+                if (hasNext) {
+                    val nextIdx = when (repeatMode) {
+                        RepeatMode.ALL -> (curIdx + 1) % queue.size
+                        RepeatMode.ONE -> curIdx
+                        RepeatMode.OFF -> curIdx + 1
+                    }
+                    // Perform smooth iOS-level crossfade volume dip and transition
+                    performCrossfadeTransition(nextIdx, crossfadeThreshold)
+                }
+            }
+        }
+    }
+
+    private fun performCrossfadeTransition(targetIndex: Int, durationMs: Long) {
+        val mediaController = controller ?: return
+        fadeJob?.cancel()
+        fadeJob = scope.launch {
+            val steps = 10
+            val stepDelay = durationMs / steps
+            val originalVol = prefs.appVolume.first()
+
+            for (i in (steps - 1) downTo 1) {
+                val fraction = i.toFloat() / steps.toFloat()
+                mediaController.volume = (originalVol * fraction).coerceIn(0f, 1f)
+                delay(stepDelay)
+            }
+
+            // Advance to next track
+            playQueueIndex(targetIndex, true)
+
+            // Fade in new track
+            for (i in 1..steps) {
+                val fraction = i.toFloat() / steps.toFloat()
+                mediaController.volume = (originalVol * fraction).coerceIn(0f, 1f)
+                delay(stepDelay / 2)
+            }
+            mediaController.volume = originalVol
+        }
     }
 
     fun setRepeatMode(mode: RepeatMode) {
@@ -181,225 +220,121 @@ class PlaybackController(
         publishState()
     }
 
-    fun setQueue(
-        songs: List<Song>
-    ) {
+    fun setQueue(songs: List<Song>) {
         queue = songs
         publishState()
     }
 
-    fun currentQueue():
-        List<Song> =
-        queue
+    fun currentQueue(): List<Song> = queue
 
-    fun playNext(
-        song: Song
-    ): List<Song> {
-        val currentId =
-            _state.value.currentSongId
+    fun playNext(song: Song): List<Song> {
+        val currentId = _state.value.currentSongId
+        val currentPosition = queue.indexOfFirst { it.id == currentId }
+        val without = queue.filterNot { it.id == song.id }.toMutableList()
+        val updatedCurrent = without.indexOfFirst { it.id == currentId }
 
-        val currentPosition =
-            queue.indexOfFirst {
-                it.id == currentId
-            }
+        val insert = if (updatedCurrent >= 0) {
+            updatedCurrent + 1
+        } else if (currentPosition >= 0) {
+            currentPosition.coerceAtMost(without.size)
+        } else {
+            0
+        }
 
-        val without =
-            queue.filterNot {
-                it.id == song.id
-            }
-                .toMutableList()
-
-        val updatedCurrent =
-            without.indexOfFirst {
-                it.id == currentId
-            }
-
-        val insert =
-            if (updatedCurrent >= 0) {
-                updatedCurrent + 1
-            } else if (
-                currentPosition >= 0
-            ) {
-                currentPosition
-                    .coerceAtMost(
-                        without.size
-                    )
-            } else {
-                0
-            }
-
-        without.add(
-            insert.coerceIn(
-                0,
-                without.size
-            ),
-            song
-        )
-
+        without.add(insert.coerceIn(0, without.size), song)
         queue = without
         publishState()
         return queue
     }
 
-    fun addToQueue(
-        song: Song
-    ): List<Song> {
-        if (
-            queue.any {
-                it.id == song.id
-            }
-        ) {
-            return queue
-        }
-
+    fun addToQueue(song: Song): List<Song> {
+        if (queue.any { it.id == song.id }) return queue
         queue = queue + song
         publishState()
         return queue
     }
 
-    fun removeFromQueue(
-        songId: Long
-    ): List<Song> {
-        queue =
-            queue.filterNot {
-                it.id == songId
-            }
-
+    fun removeFromQueue(songId: Long): List<Song> {
+        queue = queue.filterNot { it.id == songId }
         publishState()
         return queue
     }
 
-    fun restoreSong(
-        songId: Long
-    ) {
-        val mediaController =
-            controller
-
-        val liveId =
-            mediaController
-                ?.currentMediaItem
-                ?.mediaId
-                ?.toLongOrNull()
-
+    fun restoreSong(songId: Long) {
+        val mediaController = controller
+        val liveId = mediaController?.currentMediaItem?.mediaId?.toLongOrNull()
         if (liveId != null) return
 
-        val index =
-            queue.indexOfFirst {
-                it.id == songId
-            }
-
-        val song =
-            queue.getOrNull(index)
-                ?: return
+        val index = queue.indexOfFirst { it.id == songId }
+        val song = queue.getOrNull(index) ?: return
 
         restoredSongId = song.id
-
-        _state.value =
-            PlaybackState(
-                connected =
-                    mediaController != null,
-                currentSongId = song.id,
-                currentIndex = index,
-                isPlaying = false,
-                position = 0L,
-                duration = song.duration
-            )
-
-        XvoxAppWidgetProvider.updateAllWidgets(
-            appContext,
-            song,
-            false,
-            0L,
-            song.duration
+        _state.value = PlaybackState(
+            connected = mediaController != null,
+            currentSongId = song.id,
+            currentIndex = index,
+            isPlaying = false,
+            position = 0L,
+            duration = song.duration
         )
+
+        XvoxAppWidgetProvider.updateAllWidgets(appContext, song, false, 0L, song.duration)
     }
 
-    fun play(
-        song: Song
-    ) {
-        val mediaController =
-            controller ?: return
+    fun play(song: Song) {
+        val mediaController = controller ?: return
+        val liveId = mediaController.currentMediaItem?.mediaId
 
-        val liveId =
-            mediaController
-                .currentMediaItem
-                ?.mediaId
-
-        if (
-            liveId ==
-            song.id.toString() &&
-            restoredSongId == null
-        ) {
+        if (liveId == song.id.toString() && restoredSongId == null) {
             togglePlay()
             return
         }
 
         restoredSongId = null
+        crossfadeTriggeredForSongId = null
 
-        var index =
-            queue.indexOfFirst {
-                it.id == song.id
-            }
-
+        var index = queue.indexOfFirst { it.id == song.id }
         if (index < 0) {
             queue = queue + song
             index = queue.lastIndex
         }
 
-        mediaController.setMediaItem(
-            song.toMediaItem()
-        )
+        mediaController.setMediaItem(song.toMediaItem())
         mediaController.prepare()
         mediaController.play()
         expectedPlaying = true
         expectedPlayingUntil = System.currentTimeMillis() + 1800
 
-        _state.value =
-            _state.value.copy(
-                connected = true,
-                currentSongId = song.id,
-                currentIndex = index,
-                isPlaying = true,
-                position = 0L,
-                duration = song.duration
-            )
-
-        XvoxAppWidgetProvider.updateAllWidgets(
-            appContext,
-            song,
-            true,
-            0L,
-            song.duration
+        _state.value = _state.value.copy(
+            connected = true,
+            currentSongId = song.id,
+            currentIndex = index,
+            isPlaying = true,
+            position = 0L,
+            duration = song.duration
         )
+
+        XvoxAppWidgetProvider.updateAllWidgets(appContext, song, true, 0L, song.duration)
     }
 
-    fun playQueueIndex(
-        index: Int,
-        keepPlayingState: Boolean = true
-    ) {
-        val song =
-            queue.getOrNull(index)
-                ?: return
+    fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
+        val song = queue.getOrNull(index) ?: return
+        val mediaController = controller ?: return
 
-        val mediaController =
-            controller ?: return
-
-        val shouldPlay =
-            if (restoredSongId != null) {
-                true
-            } else if (keepPlayingState) {
-                _state.value.isPlaying || mediaController.isPlaying || mediaController.playWhenReady
-            } else {
-                true
-            }
+        val shouldPlay = if (restoredSongId != null) {
+            true
+        } else if (keepPlayingState) {
+            _state.value.isPlaying || mediaController.isPlaying || mediaController.playWhenReady
+        } else {
+            true
+        }
 
         restoredSongId = null
+        crossfadeTriggeredForSongId = null
         expectedPlaying = shouldPlay
         expectedPlayingUntil = System.currentTimeMillis() + 1800
 
-        mediaController.setMediaItem(
-            song.toMediaItem()
-        )
+        mediaController.setMediaItem(song.toMediaItem())
         mediaController.prepare()
 
         if (shouldPlay) {
@@ -408,117 +343,63 @@ class PlaybackController(
             mediaController.pause()
         }
 
-        _state.value =
-            _state.value.copy(
-                connected = true,
-                currentSongId = song.id,
-                currentIndex = index,
-                isPlaying = shouldPlay,
-                position = 0L,
-                duration = song.duration
-            )
-
-        XvoxAppWidgetProvider.updateAllWidgets(
-            appContext,
-            song,
-            shouldPlay,
-            0L,
-            song.duration
+        _state.value = _state.value.copy(
+            connected = true,
+            currentSongId = song.id,
+            currentIndex = index,
+            isPlaying = shouldPlay,
+            position = 0L,
+            duration = song.duration
         )
+
+        XvoxAppWidgetProvider.updateAllWidgets(appContext, song, shouldPlay, 0L, song.duration)
     }
 
     fun playPrevious() {
-        val index =
-            _state.value.currentIndex
-
+        val index = _state.value.currentIndex
         if (queue.isEmpty() || index < 0) return
 
         val atFirst = index <= 0
         if (atFirst && repeatMode == RepeatMode.OFF) return
         val target = if (atFirst && repeatMode == RepeatMode.ALL) queue.lastIndex else index - 1
 
-        playQueueIndex(
-            target,
-            true
-        )
+        playQueueIndex(target, true)
     }
 
     fun playNext() {
-        val index =
-            _state.value.currentIndex
-
+        val index = _state.value.currentIndex
         if (queue.isEmpty() || index < 0) return
 
         val atLast = index >= queue.lastIndex
         if (atLast && repeatMode == RepeatMode.OFF) return
         val target = if (atLast && repeatMode == RepeatMode.ALL) 0 else index + 1
 
-        playQueueIndex(
-            target,
-            true
-        )
+        playQueueIndex(target, true)
     }
 
-    fun seekTo(
-        positionMs: Long
-    ) {
-        val mediaController =
-            controller ?: return
+    fun seekTo(positionMs: Long) {
+        val mediaController = controller ?: return
+        if (mediaController.currentMediaItem == null) return
 
-        if (
-            mediaController.currentMediaItem ==
-            null
-        ) return
-
-        val duration =
-            mediaController.duration
-                .takeIf {
-                    it > 0L
-                }
-
+        val duration = mediaController.duration.takeIf { it > 0L }
         mediaController.seekTo(
-            if (duration != null) {
-                positionMs.coerceIn(
-                    0L,
-                    duration
-                )
-            } else {
-                positionMs.coerceAtLeast(
-                    0L
-                )
-            }
+            if (duration != null) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L)
         )
-
         publishState()
     }
 
     fun togglePlay() {
-        val restoredId =
-            restoredSongId
-
+        val restoredId = restoredSongId
         if (restoredId != null) {
-            val index =
-                queue.indexOfFirst {
-                    it.id == restoredId
-                }
-
+            val index = queue.indexOfFirst { it.id == restoredId }
             if (index >= 0) {
-                playQueueIndex(
-                    index,
-                    false
-                )
+                playQueueIndex(index, true)
             }
-
             return
         }
 
-        val mediaController =
-            controller ?: return
-
-        if (
-            mediaController.currentMediaItem ==
-            null
-        ) return
+        val mediaController = controller ?: return
+        if (mediaController.currentMediaItem == null) return
 
         if (mediaController.isPlaying) {
             mediaController.pause()
@@ -534,99 +415,53 @@ class PlaybackController(
 
     fun stop() {
         restoredSongId = null
+        crossfadeTriggeredForSongId = null
+        fadeJob?.cancel()
 
         controller?.let {
             it.stop()
             it.clearMediaItems()
         }
 
-        _state.value =
-            PlaybackState(
-                connected =
-                    controller != null
-            )
-
-        XvoxAppWidgetProvider.updateAllWidgets(
-            appContext,
-            null,
-            false,
-            0L,
-            0L
-        )
+        _state.value = PlaybackState(connected = controller != null)
+        XvoxAppWidgetProvider.updateAllWidgets(appContext, null, false, 0L, 0L)
     }
 
     private fun publishState() {
-        val mediaController =
-            controller
-
+        val mediaController = controller
         if (mediaController == null) {
             if (restoredSongId == null) {
-                _state.value =
-                    PlaybackState()
+                _state.value = PlaybackState()
             }
             return
         }
 
-        val id =
-            mediaController.currentMediaItem
-                ?.mediaId
-                ?.toLongOrNull()
-
+        val id = mediaController.currentMediaItem?.mediaId?.toLongOrNull()
         if (id == null) {
-            val restored =
-                restoredSongId
-
+            val restored = restoredSongId
             if (restored != null) {
-                val index =
-                    queue.indexOfFirst {
-                        it.id == restored
-                    }
-
-                val song =
-                    queue.getOrNull(index)
-
+                val index = queue.indexOfFirst { it.id == restored }
+                val song = queue.getOrNull(index)
                 if (song != null) {
-                    _state.value =
-                        PlaybackState(
-                            connected = true,
-                            currentSongId =
-                                song.id,
-                            currentIndex =
-                                index,
-                            duration =
-                                song.duration
-                        )
-                    XvoxAppWidgetProvider.updateAllWidgets(
-                        appContext,
-                        song,
-                        false,
-                        0L,
-                        song.duration
+                    _state.value = PlaybackState(
+                        connected = true,
+                        currentSongId = song.id,
+                        currentIndex = index,
+                        duration = song.duration
                     )
+                    XvoxAppWidgetProvider.updateAllWidgets(appContext, song, false, 0L, song.duration)
                     return
                 }
             }
 
-            _state.value =
-                PlaybackState(
-                    connected = true
-                )
+            _state.value = PlaybackState(connected = true)
             return
         }
 
         restoredSongId = null
-
-        val index =
-            queue.indexOfFirst {
-                it.id == id
-            }
-
+        val index = queue.indexOfFirst { it.id == id }
         val currentSong = queue.getOrNull(index)
-
-        val fallbackDuration =
-            currentSong
-                ?.duration
-                ?: 0L
+        val fallbackDuration = currentSong?.duration ?: 0L
 
         val now = System.currentTimeMillis()
         val isExpectedActive = expectedPlaying != null && now < expectedPlayingUntil
@@ -646,15 +481,14 @@ class PlaybackController(
         val currentPos = mediaController.currentPosition.coerceAtLeast(0L)
         val currentDur = mediaController.duration.takeIf { it > 0L } ?: fallbackDuration
 
-        _state.value =
-            PlaybackState(
-                connected = true,
-                currentSongId = id,
-                currentIndex = index,
-                isPlaying = effectiveIsPlaying,
-                position = currentPos,
-                duration = currentDur
-            )
+        _state.value = PlaybackState(
+            connected = true,
+            currentSongId = id,
+            currentIndex = index,
+            isPlaying = effectiveIsPlaying,
+            position = currentPos,
+            duration = currentDur
+        )
 
         XvoxAppWidgetProvider.updateAllWidgets(
             appContext,
@@ -667,28 +501,22 @@ class PlaybackController(
 
     fun release() {
         progressJob?.cancel()
-        controller?.removeListener(
-            listener
-        )
+        fadeJob?.cancel()
+        controller?.removeListener(listener)
         controller?.release()
         controller = null
         scope.cancel()
     }
 
-    private fun Song.toMediaItem():
-        MediaItem =
+    private fun Song.toMediaItem(): MediaItem =
         MediaItem.Builder()
-            .setMediaId(
-                id.toString()
-            )
+            .setMediaId(id.toString())
             .setUri(contentUri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
-                    .setArtworkUri(
-                        artworkUri
-                    )
+                    .setArtworkUri(artworkUri)
                     .build()
             )
             .build()

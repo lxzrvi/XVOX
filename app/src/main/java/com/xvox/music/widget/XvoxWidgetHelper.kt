@@ -14,6 +14,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.graphics.ColorUtils
 import com.xvox.music.MainActivity
@@ -35,15 +36,15 @@ object XvoxWidgetHelper {
     const val ACTION_UPDATE_WIDGET = "com.xvox.music.widget.ACTION_UPDATE_WIDGET"
 
     data class WidgetDisplayState(
-        val songTitle: String = "No track playing",
-        val songArtist: String = "Tap to open XVOX",
+        val songTitle: String = "XVOX Music",
+        val songArtist: String = "Tap to play",
         val artworkUri: Uri? = null,
         val isPlaying: Boolean = false,
         val isLiked: Boolean = false,
         val currentPosition: Long = 0L,
         val duration: Long = 0L,
-        val transparency: Float = 0.25f, // 0.0 = solid, 1.0 = fully transparent
-        val theme: String = "Dynamic", // Dynamic, AMOLED, Dark, Light, Glass, Custom
+        val transparency: Float = 0.25f,
+        val theme: String = "Dynamic",
         val customColor: String = "#171717",
         val showLogo: Boolean = true,
         val cornerRadiusDp: Int = 24
@@ -70,8 +71,8 @@ object XvoxWidgetHelper {
         } else false
 
         WidgetDisplayState(
-            songTitle = song?.title ?: "No track playing",
-            songArtist = song?.artist ?: "Tap to open XVOX",
+            songTitle = song?.title ?: "XVOX Music",
+            songArtist = song?.artist ?: "Tap to play",
             artworkUri = song?.artworkUri,
             isPlaying = isPlaying,
             isLiked = isLiked,
@@ -88,44 +89,43 @@ object XvoxWidgetHelper {
     suspend fun buildRemoteViews(
         context: Context,
         state: WidgetDisplayState,
-        isCompact: Boolean = false
+        layoutType: WidgetLayoutType = WidgetLayoutType.HORIZONTAL
     ): RemoteViews = withContext(Dispatchers.IO) {
-        val layoutId = if (isCompact) R.layout.widget_xvox_player_compact else R.layout.widget_xvox_player
-        val views = RemoteViews(context.packageName, layoutId)
-
-        // 1. Artwork loading (Scales nicely)
-        val targetArtSize = if (isCompact) 140 else 200
-        val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, targetArtSize)
-        if (artworkBitmap != null) {
-            val roundedArt = getRoundedBitmap(artworkBitmap, 18f)
-            views.setImageViewBitmap(R.id.widget_artwork, roundedArt)
-        } else {
-            views.setImageViewResource(R.id.widget_artwork, R.drawable.ic_xvox_music_note)
+        val layoutId = when (layoutType) {
+            WidgetLayoutType.SQUARE -> R.layout.widget_xvox_player_square
+            WidgetLayoutType.HORIZONTAL -> R.layout.widget_xvox_player_horizontal
+            WidgetLayoutType.COMPACT -> R.layout.widget_xvox_player_compact
+            WidgetLayoutType.STANDARD -> R.layout.widget_xvox_player
         }
 
-        // 2. Background Color & Transparency computation
+        val views = RemoteViews(context.packageName, layoutId)
+
+        // 1. Load artwork
+        val targetArtSize = when (layoutType) {
+            WidgetLayoutType.SQUARE -> 250
+            WidgetLayoutType.HORIZONTAL -> 160
+            WidgetLayoutType.COMPACT -> 140
+            WidgetLayoutType.STANDARD -> 200
+        }
+        val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, targetArtSize)
+
+        // 2. Colors calculation
         val primaryTextColor: Int
         val secondaryTextColor: Int
         val accentColor: Int
-        val bgColor: Int
-
         val baseColor = when (state.theme) {
             "AMOLED" -> Color.parseColor("#000000")
             "Dark" -> Color.parseColor("#141414")
             "Light" -> Color.parseColor("#F5F5F5")
             "Glass" -> Color.parseColor("#1E1E1E")
             "Custom" -> runCatching { Color.parseColor(state.customColor) }.getOrDefault(Color.parseColor("#171717"))
-            else -> { // Dynamic
-                if (artworkBitmap != null) {
-                    extractDominantColor(artworkBitmap)
-                } else {
-                    Color.parseColor("#18181B")
-                }
+            else -> {
+                if (artworkBitmap != null) extractDominantColor(artworkBitmap) else Color.parseColor("#18181B")
             }
         }
 
         val alphaInt = ((1.0f - state.transparency.coerceIn(0f, 1f)) * 255).toInt().coerceIn(0, 255)
-        bgColor = Color.argb(alphaInt, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+        val bgColor = Color.argb(alphaInt, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
 
         val isLightBg = ColorUtils.calculateLuminance(baseColor) > 0.5 && state.transparency < 0.7f
         if (isLightBg) {
@@ -138,79 +138,78 @@ object XvoxWidgetHelper {
             accentColor = Color.parseColor("#FFFFFF")
         }
 
-        // 3. Render dynamic background with rounded corners
+        // 3. Background with rounded corners
         val bgBitmap = createRoundedBackgroundBitmap(context, bgColor, state.cornerRadiusDp)
-        views.setImageViewBitmap(R.id.widget_background, bgBitmap)
+        views.setImageViewBitmap(R.id.widget_bg, bgBitmap)
+        runCatching { views.setImageViewBitmap(R.id.widget_background, bgBitmap) }
 
-        // 4. "XVOX" Branding in custom Cinzel font
+        // 4. Bind Cover Artwork
+        if (artworkBitmap != null) {
+            val cornerRad = if (layoutType == WidgetLayoutType.SQUARE) 16f else 12f
+            val roundedArt = getRoundedBitmap(artworkBitmap, cornerRad)
+            views.setImageViewBitmap(R.id.widget_cover, roundedArt)
+            views.setViewVisibility(R.id.widget_cover, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_fallback_logo, View.GONE)
+            runCatching { views.setImageViewBitmap(R.id.widget_artwork, roundedArt) }
+        } else {
+            views.setViewVisibility(R.id.widget_cover, View.GONE)
+            views.setViewVisibility(R.id.widget_fallback_logo, View.VISIBLE)
+            runCatching { views.setImageViewResource(R.id.widget_artwork, R.drawable.ic_xvox_music_note) }
+        }
+
+        // 5. Cinzel XVOX Logo
         if (state.showLogo) {
             val logoBitmap = XvoxWidgetFontRenderer.createLogoBitmap(
                 context = context,
                 text = "XVOX",
                 textColor = primaryTextColor,
-                textSizePx = if (isCompact) 28f else 38f
+                textSizePx = 28f
             )
-            views.setImageViewBitmap(R.id.widget_logo_xvox, logoBitmap)
-            views.setViewVisibility(R.id.widget_logo_xvox, android.view.View.VISIBLE)
+            views.setImageViewBitmap(R.id.widget_logo_cinzel, logoBitmap)
+            views.setViewVisibility(R.id.widget_logo_cinzel, View.VISIBLE)
+            runCatching {
+                views.setImageViewBitmap(R.id.widget_logo_xvox, logoBitmap)
+                views.setViewVisibility(R.id.widget_logo_xvox, View.VISIBLE)
+            }
         } else {
-            views.setViewVisibility(R.id.widget_logo_xvox, android.view.View.GONE)
+            views.setViewVisibility(R.id.widget_logo_cinzel, View.GONE)
+            runCatching { views.setViewVisibility(R.id.widget_logo_xvox, View.GONE) }
         }
 
-        // 5. Track Info text & colors
-        views.setTextViewText(R.id.widget_song_title, state.songTitle)
-        views.setTextColor(R.id.widget_song_title, primaryTextColor)
-        views.setTextViewText(R.id.widget_song_artist, state.songArtist)
-        views.setTextColor(R.id.widget_song_artist, secondaryTextColor)
+        // 6. Text info
+        views.setTextViewText(R.id.widget_title, state.songTitle)
+        views.setTextColor(R.id.widget_title, primaryTextColor)
+        views.setTextViewText(R.id.widget_artist, state.songArtist)
+        views.setTextColor(R.id.widget_artist, secondaryTextColor)
 
-        // 6. Play / Pause button icon
+        runCatching {
+            views.setTextViewText(R.id.widget_song_title, state.songTitle)
+            views.setTextColor(R.id.widget_song_title, primaryTextColor)
+            views.setTextViewText(R.id.widget_song_artist, state.songArtist)
+            views.setTextColor(R.id.widget_song_artist, secondaryTextColor)
+        }
+
+        // 7. Buttons: Play/Pause, Next, Prev, Like
         val playPauseRes = if (state.isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play
         views.setImageViewResource(R.id.widget_btn_play_pause, playPauseRes)
         views.setInt(R.id.widget_btn_play_pause, "setColorFilter", accentColor)
         views.setInt(R.id.widget_btn_prev, "setColorFilter", primaryTextColor)
         views.setInt(R.id.widget_btn_next, "setColorFilter", primaryTextColor)
 
-        // 7. Like Heart button
         val heartRes = if (state.isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline
         views.setImageViewResource(R.id.widget_btn_like, heartRes)
         views.setInt(R.id.widget_btn_like, "setColorFilter", if (state.isLiked) Color.parseColor("#FF453A") else secondaryTextColor)
 
-        // Progress bar (only in full layout)
-        if (!isCompact) {
-            val progress = if (state.duration > 0) {
-                ((state.currentPosition.toFloat() / state.duration) * 1000).toInt().coerceIn(0, 1000)
-            } else 0
-            views.setProgressBar(R.id.widget_progress_bar, 1000, progress, false)
-        }
+        // 8. Pending Intents
+        views.setOnClickPendingIntent(R.id.widget_btn_play_pause, createBroadcastPendingIntent(context, ACTION_PLAY_PAUSE, 101))
+        views.setOnClickPendingIntent(R.id.widget_btn_prev, createBroadcastPendingIntent(context, ACTION_PREVIOUS, 102))
+        views.setOnClickPendingIntent(R.id.widget_btn_next, createBroadcastPendingIntent(context, ACTION_NEXT, 103))
+        views.setOnClickPendingIntent(R.id.widget_btn_like, createBroadcastPendingIntent(context, ACTION_TOGGLE_LIKE, 104))
 
-        // 8. Pending Intents for interactive controls
-        // Play/Pause
-        views.setOnClickPendingIntent(
-            R.id.widget_btn_play_pause,
-            createBroadcastPendingIntent(context, ACTION_PLAY_PAUSE, 101)
-        )
-        // Previous
-        views.setOnClickPendingIntent(
-            R.id.widget_btn_prev,
-            createBroadcastPendingIntent(context, ACTION_PREVIOUS, 102)
-        )
-        // Next
-        views.setOnClickPendingIntent(
-            R.id.widget_btn_next,
-            createBroadcastPendingIntent(context, ACTION_NEXT, 103)
-        )
-        // Like Toggle
-        views.setOnClickPendingIntent(
-            R.id.widget_btn_like,
-            createBroadcastPendingIntent(context, ACTION_TOGGLE_LIKE, 104)
-        )
-
-        // Click on Info / Background opens MainActivity
         val openAppPendingIntent = createActivityPendingIntent(context, 105)
-        views.setOnClickPendingIntent(R.id.widget_artwork, openAppPendingIntent)
-        views.setOnClickPendingIntent(R.id.widget_song_title, openAppPendingIntent)
-        if (!isCompact) {
-            views.setOnClickPendingIntent(R.id.widget_info_row, openAppPendingIntent)
-        }
+        views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_cover, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_title, openAppPendingIntent)
 
         views
     }
@@ -234,8 +233,8 @@ object XvoxWidgetHelper {
     private fun createRoundedBackgroundBitmap(context: Context, color: Int, radiusDp: Int): Bitmap {
         val density = context.resources.displayMetrics.density
         val radiusPx = radiusDp * density
-        val width = (300 * density).toInt()
-        val height = (160 * density).toInt()
+        val width = (320 * density).toInt()
+        val height = (180 * density).toInt()
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -248,9 +247,9 @@ object XvoxWidgetHelper {
         canvas.drawRoundRect(rect, radiusPx, radiusPx, paint)
 
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = Color.argb(40, 255, 255, 255)
+            this.color = Color.argb(35, 255, 255, 255)
             style = Paint.Style.STROKE
-            strokeWidth = 1.5f * density
+            strokeWidth = 1.2f * density
         }
         val borderRect = RectF(1f, 1f, width.toFloat() - 1f, height.toFloat() - 1f)
         canvas.drawRoundRect(borderRect, radiusPx, radiusPx, borderPaint)

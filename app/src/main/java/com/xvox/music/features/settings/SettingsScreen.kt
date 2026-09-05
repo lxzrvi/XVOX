@@ -1,6 +1,10 @@
 package com.xvox.music.features.settings
 
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -59,48 +63,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxLogoFont
-import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.HomeFooter
-import com.xvox.music.features.home.HomeGreeting
-import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-
-@Composable
-private fun SettingsHeaderNoPill(
-    homeViewModel: HomeViewModel
-) {
-    val homeState by homeViewModel.state.collectAsState()
-    val colors = XvoxTheme.colors
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 18.dp)
-            .height(54.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        HomeProfileAvatar(
-            profile = homeState.profile,
-            modifier = Modifier.size(42.dp),
-            onClick = {}
-        )
-        Spacer(modifier = Modifier.size(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = homeState.profile.username,
-                color = colors.primaryText,
-                fontFamily = XvoxPersonalFont,
-                fontSize = 18.sp,
-                lineHeight = 19.sp,
-                maxLines = 1
-            )
-            HomeGreeting()
-        }
-    }
-}
 
 @Composable
 fun SettingsScreen(
@@ -108,6 +78,7 @@ fun SettingsScreen(
     homeViewModel: HomeViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
@@ -117,6 +88,7 @@ fun SettingsScreen(
     val accentColor by prefs.accentColor.collectAsState(initial = "Default")
     val fontSizeScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
     val haptic by prefs.hapticFeedback.collectAsState(initial = true)
+    val hapticStrength by prefs.hapticStrength.collectAsState(initial = "Medium")
 
     // 2. Playback
     val gapless by prefs.gaplessPlayback.collectAsState(initial = true)
@@ -168,20 +140,8 @@ fun SettingsScreen(
             .background(colors.background),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Settings Header
-        item(key = "settings_header") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.background.copy(alpha = 0.85f))
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(bottom = 8.dp)
-            ) {
-                SettingsHeaderNoPill(homeViewModel = homeViewModel)
-            }
-        }
-
         item(key = "settings_title") {
+            Spacer(Modifier.height(4.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -192,25 +152,25 @@ fun SettingsScreen(
                     painter = painterResource(id = R.drawable.ic_xvox_settings),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Settings",
                     color = colors.primaryText,
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
         // ==========================================
-        // 1. THEMES & APPEARANCE (TOP AS REQUESTED)
+        // 1. THEMES & APPEARANCE (TOP)
         // ==========================================
         item(key = "appearance_section") {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                 SettingsSection(title = "Themes & Appearance", iconRes = R.drawable.ic_xvox_settings) {
-                    // Theme Selector
+                    // App Theme
                     Text(
                         text = "App Theme: $theme",
                         color = colors.secondaryText,
@@ -229,7 +189,10 @@ fun SettingsScreen(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isSel) colors.primaryAccent else colors.cardElevated)
                                     .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(10.dp))
-                                    .clickable { scope.launch { prefs.setTheme(t) } }
+                                    .clickable {
+                                        haptics.tap()
+                                        scope.launch { prefs.setTheme(t) }
+                                    }
                                     .padding(vertical = 8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -245,7 +208,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Accent Colors
+                    // 3 Refined Accent Colors: Default, XVOX Red, XVOX Blue
                     Text(
                         text = "Accent Color: $accentColor",
                         color = colors.secondaryText,
@@ -254,45 +217,47 @@ fun SettingsScreen(
                     )
                     val accentOptions = listOf(
                         "Default" to Color(0xFFF5F5F5),
-                        "Violet" to Color(0xFF8B5CF6),
-                        "Cyan" to Color(0xFF06B6D4),
-                        "Emerald" to Color(0xFF10B981),
-                        "Sunset Orange" to Color(0xFFF97316),
-                        "Crimson Red" to Color(0xFFEF4444),
-                        "Neon Pink" to Color(0xFFEC4899),
-                        "Electric Blue" to Color(0xFF3B82F6),
-                        "Amber Gold" to Color(0xFFF59E0B)
+                        "XVOX Red" to Color(0xFFFA2D48),
+                        "XVOX Blue" to Color(0xFF007AFF)
                     )
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         accentOptions.forEach { (name, colorVal) ->
                             val isSel = accentColor == name
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.clickable { scope.launch { prefs.setAccentColor(name) } }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(colors.cardElevated)
+                                    .border(
+                                        width = if (isSel) 2.dp else 1.dp,
+                                        color = if (isSel) colorVal else colors.cardBorder,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable {
+                                        haptics.tap()
+                                        scope.launch { prefs.setAccentColor(name) }
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(colorVal)
-                                        .border(
-                                            width = if (isSel) 2.5.dp else 1.dp,
-                                            color = if (isSel) colors.primaryText else Color.Transparent,
-                                            shape = CircleShape
-                                        )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = name,
-                                    color = if (isSel) colors.primaryText else colors.secondaryText,
-                                    fontSize = 10.sp,
-                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(colorVal)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = name,
+                                        color = if (isSel) colors.primaryText else colors.secondaryText,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
                             }
                         }
                     }
@@ -318,7 +283,10 @@ fun SettingsScreen(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSel) colors.primaryAccent else colors.cardElevated)
                                     .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
-                                    .clickable { scope.launch { prefs.setFontSizeScale(scale) } }
+                                    .clickable {
+                                        haptics.tap()
+                                        scope.launch { prefs.setFontSizeScale(scale) }
+                                    }
                                     .padding(vertical = 7.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -332,14 +300,54 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    SettingsToggle("Haptic feedback", "Vibrate gently on button taps and sliders", haptic) {
+                    // Haptic Feedback with Strength Selector
+                    SettingsToggle("Haptic feedback", "Vibrate gently on every button tap and slider", haptic) {
+                        haptics.toggle()
                         scope.launch { prefs.setHapticFeedback(it) }
+                    }
+
+                    if (haptic) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Haptic Strength: $hapticStrength",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("Light", "Medium", "Strong").forEach { s ->
+                                val isSel = hapticStrength.equals(s, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSel) colors.primaryAccent else colors.cardElevated)
+                                        .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        haptics.heavy()
+                                        scope.launch { prefs.setHapticStrength(s) }
+                                    }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = s,
+                                    color = if (isSel) colors.background else colors.primaryText,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+    }
 
         // ==========================================
         // 2. EQUALIZER & AUDIO DSP SECTION
@@ -349,9 +357,10 @@ fun SettingsScreen(
                 SettingsSection(title = "Equalizer & DSP Engine", iconRes = R.drawable.ic_xvox_equalizer) {
                     SettingsToggle(
                         title = "Master Equalizer",
-                        subtitle = "Enable real-time audio sound processing",
+                        subtitle = "Real-time hardware sound processing",
                         checked = equalizer
                     ) {
+                        haptics.toggle()
                         scope.launch { prefs.setEqualizerEnabled(it) }
                     }
 
@@ -363,7 +372,6 @@ fun SettingsScreen(
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Presets
                             Text(
                                 text = "Presets",
                                 color = colors.secondaryText,
@@ -385,6 +393,7 @@ fun SettingsScreen(
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                                             .clickable {
+                                                haptics.tap()
                                                 scope.launch {
                                                     prefs.setEqPreset(p)
                                                     if (p != "Custom" && AudioEffectsManager.PRESETS.containsKey(p)) {
@@ -408,7 +417,6 @@ fun SettingsScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 5 Slim EQ Band Sliders
                             val bandLabels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
                             Text(
                                 text = "5-Band Equalizer (-15 dB to +15 dB)",
@@ -434,6 +442,7 @@ fun SettingsScreen(
                                     XvoxSlimSlider(
                                         value = currentVal.toFloat(),
                                         onValueChange = { newVal ->
+                                            haptics.sliderTick()
                                             val updated = eqBands.toMutableList()
                                             while (updated.size <= index) updated.add(0)
                                             updated[index] = newVal.roundToInt()
@@ -457,8 +466,8 @@ fun SettingsScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Bass Boost
                             SettingsToggle("Bass Boost", "Deep low-end enhancement", bassBoost) {
+                                haptics.toggle()
                                 scope.launch { prefs.setBassBoost(it) }
                             }
                             if (bassBoost) {
@@ -469,7 +478,10 @@ fun SettingsScreen(
                                     Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
                                     XvoxSlimSlider(
                                         value = bassBoostStrength.toFloat(),
-                                        onValueChange = { scope.launch { prefs.setBassBoostStrength(it.roundToInt()) } },
+                                        onValueChange = {
+                                            haptics.sliderTick()
+                                            scope.launch { prefs.setBassBoostStrength(it.roundToInt()) }
+                                        },
                                         valueRange = 0f..1000f,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -477,8 +489,8 @@ fun SettingsScreen(
                                 }
                             }
 
-                            // Virtualizer
                             SettingsToggle("Virtualizer / 3D Surround", "Stereo sound stage expander", virtualizer) {
+                                haptics.toggle()
                                 scope.launch { prefs.setVirtualizer(it) }
                             }
                             if (virtualizer) {
@@ -489,7 +501,10 @@ fun SettingsScreen(
                                     Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
                                     XvoxSlimSlider(
                                         value = virtualizerStrength.toFloat(),
-                                        onValueChange = { scope.launch { prefs.setVirtualizerStrength(it.roundToInt()) } },
+                                        onValueChange = {
+                                            haptics.sliderTick()
+                                            scope.launch { prefs.setVirtualizerStrength(it.roundToInt()) }
+                                        },
                                         valueRange = 0f..1000f,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -497,8 +512,8 @@ fun SettingsScreen(
                                 }
                             }
 
-                            // Loudness Enhancer
                             SettingsToggle("Loudness Enhancer", "Volume boost for quiet audio files", loudnessEnhancer) {
+                                haptics.toggle()
                                 scope.launch { prefs.setLoudnessEnhancer(it) }
                             }
                             if (loudnessEnhancer) {
@@ -509,7 +524,10 @@ fun SettingsScreen(
                                     Text("Gain", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
                                     XvoxSlimSlider(
                                         value = loudnessGainMb.toFloat(),
-                                        onValueChange = { scope.launch { prefs.setLoudnessGainMb(it.roundToInt()) } },
+                                        onValueChange = {
+                                            haptics.sliderTick()
+                                            scope.launch { prefs.setLoudnessGainMb(it.roundToInt()) }
+                                        },
                                         valueRange = 0f..2000f,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -517,7 +535,6 @@ fun SettingsScreen(
                                 }
                             }
 
-                            // Balance L / R
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(text = "Stereo Balance L / R", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             Row(
@@ -527,18 +544,14 @@ fun SettingsScreen(
                                 Text("L", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(18.dp))
                                 XvoxSlimSlider(
                                     value = balance,
-                                    onValueChange = { scope.launch { prefs.setBalance(it) } },
+                                    onValueChange = {
+                                        haptics.sliderTick()
+                                        scope.launch { prefs.setBalance(it) }
+                                    },
                                     valueRange = -1.0f..1.0f,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text("R", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(18.dp))
-                            }
-
-                            SettingsToggle("Mono Audio", "Downmix stereo to single channel", mono) {
-                                scope.launch { prefs.setMonoAudio(it) }
-                            }
-                            SettingsToggle("Stereo Widening", "Spatial field expander", stereo) {
-                                scope.launch { prefs.setStereoWidening(it) }
                             }
                         }
                     }
@@ -553,10 +566,12 @@ fun SettingsScreen(
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                 SettingsSection(title = "Playback", iconRes = R.drawable.ic_xvox_play) {
                     SettingsToggle("Gapless playback", "Seamless transition between tracks", gapless) {
+                        haptics.toggle()
                         scope.launch { prefs.setGaplessPlayback(it) }
                     }
 
-                    SettingsToggle("Crossfade", "Blend track end and start", crossfade) {
+                    SettingsToggle("Crossfade", "iOS-level beat sync blend between tracks", crossfade) {
+                        haptics.toggle()
                         scope.launch { prefs.setCrossfade(it) }
                     }
                     if (crossfade) {
@@ -567,7 +582,10 @@ fun SettingsScreen(
                             Text("Duration", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
                             XvoxSlimSlider(
                                 value = crossfadeDuration.toFloat(),
-                                onValueChange = { scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) } },
+                                onValueChange = {
+                                    haptics.sliderTick()
+                                    scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) }
+                                },
                                 valueRange = 1f..12f,
                                 modifier = Modifier.weight(1f)
                             )
@@ -576,42 +594,52 @@ fun SettingsScreen(
                     }
 
                     SettingsToggle("Fade in", "Gradual volume rise on playback start", fadeIn) {
+                        haptics.toggle()
                         scope.launch { prefs.setFadeIn(it) }
                     }
 
                     SettingsToggle("Fade out", "Gradual volume fall on pause/stop", fadeOut) {
+                        haptics.toggle()
                         scope.launch { prefs.setFadeOut(it) }
                     }
 
                     SettingsToggle("ReplayGain", "Normalize loudness via metadata tags", replayGain) {
+                        haptics.toggle()
                         scope.launch { prefs.setReplayGain(it) }
                     }
 
                     SettingsToggle("Loudness normalization", "EBU R128 standard volume leveling", loudnessNorm) {
+                        haptics.toggle()
                         scope.launch { prefs.setLoudnessNormalization(it) }
                     }
 
                     SettingsToggle("Skip silence", "Trim leading and trailing silent gaps", skipSilence) {
+                        haptics.toggle()
                         scope.launch { prefs.setSkipSilence(it) }
                     }
 
                     SettingsToggle("Audio focus", "React to phone calls, navigation & other apps", audioFocus) {
+                        haptics.toggle()
                         scope.launch { prefs.setAudioFocus(it) }
                     }
 
                     SettingsToggle("Pause on headphone disconnect", "Auto pause when headset or Bluetooth disconnects", pauseOnDisconnect) {
+                        haptics.toggle()
                         scope.launch { prefs.setPauseOnHeadphoneDisconnect(it) }
                     }
 
                     SettingsToggle("Play on headset connect", "Resume playback when headset or Bluetooth connects", playOnConnect) {
+                        haptics.toggle()
                         scope.launch { prefs.setPlayOnHeadsetConnect(it) }
                     }
 
                     SettingsToggle("Clear queue after playback", "Empty queue when current list completes", clearQueue) {
+                        haptics.toggle()
                         scope.launch { prefs.setClearQueueAfterPlayback(it) }
                     }
 
                     SettingsToggle("Remember queue", "Restore playing queue on next launch", rememberQueue) {
+                        haptics.toggle()
                         scope.launch { prefs.setRememberQueue(it) }
                     }
                 }
@@ -632,12 +660,16 @@ fun SettingsScreen(
                     )
                     XvoxSlimSlider(
                         value = appVolume,
-                        onValueChange = { scope.launch { prefs.setAppVolume(it) } },
+                        onValueChange = {
+                            haptics.sliderTick()
+                            scope.launch { prefs.setAppVolume(it) }
+                        },
                         valueRange = 0f..1f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     SettingsToggle("Remember Volume", "Restore volume level on next app start", rememberVol) {
+                        haptics.toggle()
                         scope.launch { prefs.setRememberVolume(it) }
                     }
 
@@ -651,39 +683,13 @@ fun SettingsScreen(
                     )
                     XvoxSlimSlider(
                         value = volumeLimit,
-                        onValueChange = { scope.launch { prefs.setVolumeLimit(it) } },
+                        onValueChange = {
+                            haptics.sliderTick()
+                            scope.launch { prefs.setVolumeLimit(it) }
+                        },
                         valueRange = 0.5f..1.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-                    val devices = remember {
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.toReadableName() }.distinct()
-                            } else listOf("Phone Speaker")
-                        } catch (_: Exception) { listOf("Phone Speaker") }
-                    }
-
-                    Text(
-                        text = "Active Audio Routes",
-                        color = colors.primaryText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                    )
-                    devices.forEach { devName ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF45B97C)))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = devName, color = colors.primaryText, fontSize = 12.sp)
-                        }
-                    }
                 }
             }
         }
@@ -695,6 +701,7 @@ fun SettingsScreen(
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                 SettingsSection(title = "Notification", iconRes = R.drawable.ic_xvox_settings) {
                     SettingsToggle("Media notification", "Show foreground player notification with controls", mediaNotif) {
+                        haptics.toggle()
                         scope.launch { prefs.setMediaNotification(it) }
                     }
                 }
@@ -702,19 +709,19 @@ fun SettingsScreen(
         }
 
         // ==========================================
-        // 6. HOME SCREEN WIDGET (BOTTOM AS REQUESTED)
+        // 6. HOME SCREEN WIDGET (BOTTOM)
         // ==========================================
         item(key = "widget_customizer") {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                 SettingsSection(title = "Home Screen Widget Customizer", iconRes = R.drawable.ic_xvox_music_note) {
                     Text(
-                        text = "Customize your home screen music widget. Changes apply instantly to all widgets.",
+                        text = "Create and customize your home screen music widget. Supports all sizes (1x1, 2x2, 3x3, 4x4, 2x1, 3x1, 4x1, 5x1).",
                         color = colors.secondaryText,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    // LIVE WIDGET PREVIEW CARD (THEME ACCORDING & XVOX IN CINZEL FONT)
+                    // Live Widget Preview Card
                     WidgetLivePreviewCard(
                         transparency = widgetTransparency,
                         theme = widgetTheme,
@@ -723,6 +730,41 @@ fun SettingsScreen(
                         cornerRadiusDp = widgetCornerRadius,
                         accentColorName = accentColor
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // ONE-TAP ADD / PIN WIDGET TO HOME SCREEN BUTTON
+                    Button(
+                        onClick = {
+                            haptics.success()
+                            val appWidgetManager = AppWidgetManager.getInstance(context)
+                            val myProvider = ComponentName(context, XvoxAppWidgetProvider::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported) {
+                                val callbackIntent = Intent(context, XvoxAppWidgetProvider::class.java)
+                                val callbackPendingIntent = PendingIntent.getBroadcast(
+                                    context,
+                                    0,
+                                    callbackIntent,
+                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                                )
+                                appWidgetManager.requestPinAppWidget(myProvider, null, callbackPendingIntent)
+                                Toast.makeText(context, "Adding XVOX widget to home screen...", Toast.LENGTH_SHORT).show()
+                            } else {
+                                XvoxAppWidgetProvider.notifyWidgetUpdate(context)
+                                Toast.makeText(context, "Add XVOX widget from your launcher widget picker", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.primaryAccent,
+                            contentColor = colors.background
+                        )
+                    ) {
+                        Icon(painter = painterResource(R.drawable.ic_xvox_plus), contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = "Add Widget to Home Screen", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -735,7 +777,10 @@ fun SettingsScreen(
                     )
                     XvoxSlimSlider(
                         value = widgetTransparency,
-                        onValueChange = { scope.launch { prefs.setWidgetTransparency(it) } },
+                        onValueChange = {
+                            haptics.sliderTick()
+                            scope.launch { prefs.setWidgetTransparency(it) }
+                        },
                         valueRange = 0.0f..1.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -764,6 +809,7 @@ fun SettingsScreen(
                                     .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                                     .border(1.dp, if (isSelected) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(10.dp))
                                     .clickable {
+                                        haptics.tap()
                                         scope.launch {
                                             prefs.setWidgetTheme(t)
                                             XvoxAppWidgetProvider.notifyWidgetUpdate(context)
@@ -793,7 +839,10 @@ fun SettingsScreen(
                     )
                     XvoxSlimSlider(
                         value = widgetCornerRadius.toFloat(),
-                        onValueChange = { scope.launch { prefs.setWidgetCornerRadius(it.toInt()) } },
+                        onValueChange = {
+                            haptics.sliderTick()
+                            scope.launch { prefs.setWidgetCornerRadius(it.toInt()) }
+                        },
                         valueRange = 12f..36f,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -804,6 +853,7 @@ fun SettingsScreen(
                         subtitle = "Display brand watermark on widget",
                         checked = widgetShowLogo
                     ) {
+                        haptics.toggle()
                         scope.launch {
                             prefs.setWidgetShowLogo(it)
                             XvoxAppWidgetProvider.notifyWidgetUpdate(context)
@@ -812,20 +862,21 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Instant Apply & Refresh Button
+                    // Refresh Button
                     Button(
                         onClick = {
+                            haptics.success()
                             XvoxAppWidgetProvider.notifyWidgetUpdate(context)
-                            Toast.makeText(context, "Home Widgets Refreshed!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Home Widgets Updated!", Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.primaryAccent,
-                            contentColor = colors.background
+                            containerColor = colors.cardElevated,
+                            contentColor = colors.primaryText
                         )
                     ) {
-                        Text(text = "Apply & Refresh Home Widgets", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Refresh Active Widgets", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -834,16 +885,13 @@ fun SettingsScreen(
         // Bottom Branding
         item(key = "settings_brand") {
             Spacer(Modifier.height(16.dp))
-            HomeFooter(modifier = Modifier.fillMaxWidth().height(200.dp).padding(bottom = 20.dp))
+            HomeFooter(modifier = Modifier.fillMaxWidth().height(180.dp).padding(bottom = 20.dp))
         }
 
         item(key = "settings_bottom_inset") { Spacer(Modifier.height(80.dp)) }
     }
 }
 
-// ==========================================
-// SLEEK SLIM SLIDER COMPONENT (MOTE SLIDERS AVOIDED)
-// ==========================================
 @Composable
 private fun XvoxSlimSlider(
     value: Float,
@@ -856,7 +904,7 @@ private fun XvoxSlimSlider(
         value = value,
         onValueChange = onValueChange,
         valueRange = valueRange,
-        modifier = modifier.height(28.dp),
+        modifier = modifier.height(26.dp),
         colors = SliderDefaults.colors(
             thumbColor = colors.primaryAccent,
             activeTrackColor = colors.primaryAccent,
@@ -865,9 +913,6 @@ private fun XvoxSlimSlider(
     )
 }
 
-// ==========================================
-// LIVE WIDGET PREVIEW CARD (THEME ACCORDING & CINZEL FONT)
-// ==========================================
 @Composable
 private fun WidgetLivePreviewCard(
     transparency: Float,
@@ -894,7 +939,6 @@ private fun WidgetLivePreviewCard(
     val textColor = if (isLight) Color(0xFF111111) else Color(0xFFFFFFFF)
     val subTextColor = if (isLight) Color(0xFF555555) else Color(0xFFA0A0A0)
 
-    // Artwork box gradient matches app accent & theme (No hardcoded purple!)
     val artGradient = Brush.linearGradient(
         listOf(
             colors.primaryAccent.copy(alpha = 0.85f),
@@ -910,12 +954,10 @@ private fun WidgetLivePreviewCard(
             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(cornerRadiusDp.dp))
             .padding(12.dp)
     ) {
-        // Slim horizontal banner: Cover on LEFT, Info in CENTER, Controls on RIGHT
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Artwork matching theme
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -933,7 +975,6 @@ private fun WidgetLivePreviewCard(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Center: Info + Cinzel XVOX Logo
             Column(modifier = Modifier.weight(1f)) {
                 if (showLogo) {
                     Text(
@@ -962,7 +1003,6 @@ private fun WidgetLivePreviewCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Right: Music Controls
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1087,15 +1127,4 @@ private fun SettingsToggle(
             )
         )
     }
-}
-
-private fun AudioDeviceInfo.toReadableName(): String = when (type) {
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone Speaker"
-    AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired Headphones"
-    AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headset"
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth Audio (A2DP)"
-    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth Headset (SCO)"
-    AudioDeviceInfo.TYPE_USB_DEVICE -> "USB Audio Device"
-    AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Headset"
-    else -> "Audio Route ($type)"
 }

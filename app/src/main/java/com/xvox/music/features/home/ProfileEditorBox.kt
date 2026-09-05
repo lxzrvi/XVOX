@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
@@ -25,12 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.features.setup.PfpCarousel
 import com.xvox.music.features.setup.PfpType
@@ -39,261 +42,125 @@ import com.xvox.music.features.setup.PfpType
 fun ProfileEditorBox(
     profile: UserPreferences,
     onCancel: () -> Unit,
-    onSave: (
-        String,
-        String,
-        String?,
-    ) -> Unit,
+    onSave: (String, String, String?) -> Unit,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
 
-    var name by remember(
-        profile.username,
-    ) {
-        mutableStateOf(
-            profile.username,
-        )
+    var name by remember(profile.username) { mutableStateOf(profile.username) }
+    var selected by remember(profile.selectedPfp) {
+        mutableStateOf(runCatching { PfpType.valueOf(profile.selectedPfp) }.getOrDefault(PfpType.DEFAULT))
+    }
+    var customUri by remember(profile.customPfpUri) {
+        mutableStateOf(profile.customPfpUri?.let(Uri::parse))
     }
 
-    var selected by remember(
-        profile.selectedPfp,
-    ) {
-        mutableStateOf(
-            runCatching {
-                PfpType.valueOf(
-                    profile.selectedPfp,
-                )
-            }.getOrDefault(
-                PfpType.DEFAULT,
-            ),
-        )
-    }
-
-    var customUri by remember(
-        profile.customPfpUri,
-    ) {
-        mutableStateOf(
-            profile.customPfpUri
-                ?.let(Uri::parse),
-        )
-    }
-
-    val photoPicker =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .PickVisualMedia(),
-        ) { uri ->
-
-            if (uri != null) {
-                customUri = uri
-                selected =
-                    PfpType.CUSTOM
-            }
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            customUri = uri
+            selected = PfpType.CUSTOM
         }
+    }
 
-    // Fix: if Add (CUSTOM) selected but no photo, Okay should be disabled. Require photo for CUSTOM.
     val canSave = name.isNotBlank() && (selected != PfpType.CUSTOM || customUri != null)
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Text(
-            text = "Profile",
-            color =
-                colors.primaryText,
+            text = "Edit Profile",
+            color = colors.primaryText,
             fontSize = 18.sp,
-            fontWeight =
-                FontWeight.Bold,
-            modifier =
-                Modifier.padding(
-                    end = 48.dp,
-                ),
-        )
-
-        Spacer(
-            Modifier.height(
-                14.dp,
-            ),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(end = 48.dp, bottom = 12.dp)
         )
 
         PfpCarousel(
             selected = selected,
             username = name,
-            customPfpUri =
-            customUri,
+            customPfpUri = customUri,
             onSelected = {
+                haptics.tap()
                 selected = it
-                // If user selects CUSTOM without photo, keep but cannot save until photo picked
-                // If user leaves CUSTOM without photo, keep selected as CUSTOM but canSave false
             },
             onAddClick = {
-                photoPicker.launch(
-                    PickVisualMediaRequest(
-                        ActivityResultContracts
-                            .PickVisualMedia
-                            .ImageOnly,
-                    ),
-                )
-            },
+                haptics.tap()
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
         )
 
-        Spacer(
-            Modifier.height(
-                12.dp,
-            ),
-        )
+        Spacer(Modifier.height(14.dp))
 
-        Text(
-            text = "Rename",
-            color =
-                colors.secondaryText,
-            fontSize = 11.sp,
-        )
-
-        Spacer(
-            Modifier.height(
-                6.dp,
-            ),
-        )
+        Text(text = "Username", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
 
         BasicTextField(
             value = name,
-            onValueChange = {
-                if (
-                    it.length <= 12
-                ) {
-                    name = it
-                }
-            },
+            onValueChange = { if (it.length <= 16) name = it },
             singleLine = true,
-            textStyle =
-                TextStyle(
-                    color =
-                        colors.primaryText,
-                    fontSize = 14.sp,
-                ),
-            cursorBrush =
-                SolidColor(
-                    colors.primaryText,
-                ),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .background(
-                        colors.card,
-                        RoundedCornerShape(
-                            14.dp,
-                        ),
-                    ),
+            textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+            cursorBrush = SolidColor(colors.primaryAccent),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card),
             decorationBox = { field ->
-
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .padding(
-                                horizontal =
-                                    14.dp,
-                            ),
-                    contentAlignment =
-                        Alignment
-                            .CenterStart,
+                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     field()
                 }
-            },
+            }
         )
 
-        Spacer(
-            Modifier.height(
-                14.dp,
-            ),
-        )
+        Spacer(Modifier.height(16.dp))
 
+        // Compact Action Buttons with bottom margin
         Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    10.dp,
-                ),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.Center
         ) {
-            ProfileEditorAction(
-                title = "Cancel",
-                enabled = true,
-                onClick =
-                onCancel,
-                modifier =
-                    Modifier.weight(1f),
-            )
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(colors.cardElevated)
+                    .clickable {
+                        haptics.tap()
+                        onCancel()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "Cancel", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
 
-            ProfileEditorAction(
-                title = "Okay",
-                enabled =
-                canSave,
-                onClick = {
-                    if (canSave) {
-                        onSave(
-                            name.trim(),
-                            selected.name,
-                            customUri
-                                ?.toString(),
-                        )
-                    }
-                },
-                modifier =
-                    Modifier.weight(1f),
-            )
+            Spacer(Modifier.width(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(if (canSave) colors.primaryAccent else colors.cardElevated)
+                    .clickable(enabled = canSave) {
+                        if (canSave) {
+                            haptics.success()
+                            onSave(name.trim(), selected.name, customUri?.toString())
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Save",
+                    color = if (canSave) colors.background else colors.mutedText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun ProfileEditorAction(
-    title: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors =
-        XvoxTheme.colors
-
-    Box(
-        modifier =
-            modifier
-                .height(44.dp)
-                .background(
-                    colors.card,
-                    RoundedCornerShape(
-                        14.dp,
-                    ),
-                ).clickable(
-                    enabled = enabled,
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
-                    indication = null,
-                    onClick = onClick,
-                ),
-        contentAlignment =
-            Alignment.Center,
-    ) {
-        Text(
-            text = title,
-            color =
-                if (enabled) {
-                    colors.primaryText
-                } else {
-                    colors.mutedText
-                },
-            fontSize = 13.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-        )
     }
 }

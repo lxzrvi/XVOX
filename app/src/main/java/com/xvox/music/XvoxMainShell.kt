@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -61,7 +62,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
-import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
+import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -95,6 +98,10 @@ fun XvoxMainShell(
     val homeState by homeViewModel.state.collectAsState()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    val prefs = remember { UserPreferencesRepository(context) }
+    val hapticEnabled by prefs.hapticFeedback.collectAsState(initial = true)
+    val hapticStrength by prefs.hapticStrength.collectAsState(initial = "Medium")
+    val haptics = rememberXvoxHaptics(enabled = hapticEnabled, strength = hapticStrength)
 
     // Full app close from background when timer with closeApp ends
     androidx.compose.runtime.LaunchedEffect(player.sleepTimerShouldCloseApp) {
@@ -401,160 +408,179 @@ fun XvoxMainShell(
     }
 
     val density = LocalDensity.current
-    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
+    val navBarsBottom = WindowInsets.navigationBars.getBottom(density)
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val isKeyboardOpen = imeBottom > navBarsBottom
 
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    colors.background,
-                ),
-    ) {
-        AnimatedContent(
-            targetState = destination,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
-                    .togetherWith(fadeOut(animationSpec = tween(160)))
-            },
-            label = "tab_switch_transition",
-            modifier = Modifier.fillMaxSize()
-        ) { targetDest ->
-            when (targetDest) {
-                XvoxDestination.HOME -> {
-                    HomeScreen(
-                        currentSongId =
-                            player.currentSongId,
-                        isPlaying =
-                            player.isPlaying,
-                        homeResetKey =
-                        homeResetKey,
-                        selectedPlaylistId = hoistedSelectedPlaylistId,
-                        onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                        onQueueReady =
-                            playerViewModel::setQueue,
-                        onPlay =
-                            playerViewModel::play,
-                        playerViewModel =
-                        playerViewModel,
-                    )
-                }
+    CompositionLocalProvider(LocalXvoxHaptics provides haptics) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        colors.background,
+                    ),
+        ) {
+            AnimatedContent(
+                targetState = destination,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
+                        .togetherWith(fadeOut(animationSpec = tween(160)))
+                },
+                label = "tab_switch_transition",
+                modifier = Modifier.fillMaxSize()
+            ) { targetDest ->
+                when (targetDest) {
+                    XvoxDestination.HOME -> {
+                        HomeScreen(
+                            currentSongId =
+                                player.currentSongId,
+                            isPlaying =
+                                player.isPlaying,
+                            homeResetKey =
+                            homeResetKey,
+                            selectedPlaylistId = hoistedSelectedPlaylistId,
+                            onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
+                            onQueueReady =
+                                playerViewModel::setQueue,
+                            onPlay =
+                                playerViewModel::play,
+                            playerViewModel =
+                            playerViewModel,
+                        )
+                    }
 
-                XvoxDestination.SEARCH -> {
-                    SearchScreen(
-                        homeViewModel = homeViewModel,
-                        playerViewModel = playerViewModel,
-                        onPlaylistSelected = { playlistId ->
-                            hoistedSelectedPlaylistId = playlistId
-                            destination = XvoxDestination.HOME
-                        }
-                    )
-                }
+                    XvoxDestination.SEARCH -> {
+                        SearchScreen(
+                            homeViewModel = homeViewModel,
+                            playerViewModel = playerViewModel,
+                            onPlaylistSelected = { playlistId ->
+                                hoistedSelectedPlaylistId = playlistId
+                                destination = XvoxDestination.HOME
+                            }
+                        )
+                    }
 
-                XvoxDestination.SETTINGS -> {
-                    SettingsScreen(homeViewModel = homeViewModel)
+                    XvoxDestination.SETTINGS -> {
+                        SettingsScreen(homeViewModel = homeViewModel)
+                    }
                 }
             }
-        }
 
-        val currentSongId =
-            player.currentSongId
+            val currentSongId =
+                player.currentSongId
 
-        // 2 + 14 – MiniPlayer keyboard aware + Settings slide out
-        val miniVisibleBase =
-            player.miniPlayerVisible &&
-            !player.nowPlayingVisible &&
-            currentSongId != null &&
-            player.queue.isNotEmpty()
-        val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
+            // 2 + 14 – MiniPlayer keyboard aware + Settings slide out
+            val miniVisibleBase =
+                player.miniPlayerVisible &&
+                !player.nowPlayingVisible &&
+                currentSongId != null &&
+                player.queue.isNotEmpty()
+            val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
 
-        AnimatedVisibility(
-            visible = miniVisible,
-            enter = slideInVertically(tween(260)) { it } + fadeIn(tween(260)),
-            exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(260)),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            val visSongId = if (miniVisibleBase) currentSongId else null
-            if (visSongId != null) {
-                val miniModifier = if (isImeVisible) {
-                    Modifier
-                        .imePadding()
-                        .padding(
-                            start = XvoxMiniPlayerPlacement.horizontalEdge,
-                            end = XvoxMiniPlayerPlacement.horizontalEdge,
-                            bottom = 8.dp,
-                        )
+            AnimatedVisibility(
+                visible = miniVisible,
+                enter = slideInVertically(tween(260)) { it } + fadeIn(tween(260)),
+                exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(260)),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                val visSongId = if (miniVisibleBase) currentSongId else null
+                if (visSongId != null) {
+                    val miniModifier = if (isKeyboardOpen) {
+                        Modifier
+                            .imePadding()
+                            .padding(
+                                start = XvoxMiniPlayerPlacement.horizontalEdge,
+                                end = XvoxMiniPlayerPlacement.horizontalEdge,
+                                bottom = 8.dp,
+                            )
+                    } else {
+                        Modifier
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(
+                                start = XvoxMiniPlayerPlacement.horizontalEdge,
+                                end = XvoxMiniPlayerPlacement.horizontalEdge,
+                                bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
+                            )
+                    }
+
+                    XvoxMiniPlayer(
+                        queue = player.queue,
+                        currentSongId = visSongId,
+                        currentIndex = player.currentIndex,
+                        isPlaying = player.isPlaying,
+                        position = player.position,
+                        duration = player.duration,
+                        riseKey = player.miniPlayerRiseKey,
+                        togglePlay = {
+                            haptics.click()
+                            playerViewModel.togglePlay()
+                        },
+                        playQueueIndex = {
+                            haptics.tap()
+                            playerViewModel.playQueueIndex(it)
+                        },
+                        stopAndDismiss = {
+                            haptics.heavy()
+                            playerViewModel.stopPlayback()
+                        },
+                        openPlayer = {
+                            haptics.tap()
+                            playerViewModel.openNowPlaying()
+                        },
+                        onLike = {
+                            currentSong?.let { song ->
+                                val wasLiked = song.id in homeState.likedSongIds
+                                homeViewModel.toggleLiked(song)
+                                if (wasLiked) haptics.tap() else haptics.success()
+                                overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
+                            }
+                        },
+                        onAdd = {
+                            haptics.tap()
+                            showMiniPlayerPlaylistPicker()
+                        },
+                        modifier = miniModifier,
+                    )
                 } else {
-                    Modifier
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(
-                            start = XvoxMiniPlayerPlacement.horizontalEdge,
-                            end = XvoxMiniPlayerPlacement.horizontalEdge,
-                            bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
-                        )
+                    Box(Modifier.fillMaxWidth().heightIn(min = 1.dp))
                 }
+            }
 
-                XvoxMiniPlayer(
-                    queue = player.queue,
-                    currentSongId = visSongId,
-                    currentIndex = player.currentIndex,
-                    isPlaying = player.isPlaying,
-                    position = player.position,
-                    duration = player.duration,
-                    riseKey = player.miniPlayerRiseKey,
-                    togglePlay = playerViewModel::togglePlay,
-                    playQueueIndex = playerViewModel::playQueueIndex,
-                    stopAndDismiss = playerViewModel::stopPlayback,
-                    openPlayer = playerViewModel::openNowPlaying,
-                    onLike = {
-                        currentSong?.let { song ->
-                            val wasLiked = song.id in homeState.likedSongIds
-                            homeViewModel.toggleLiked(song)
-                            overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
+            if (!isKeyboardOpen) {
+                XvoxBottomBar(
+                    selected =
+                    destination,
+                    onSelected = { selected ->
+                        haptics.tap()
+                        if (
+                            selected ==
+                            XvoxDestination.HOME &&
+                            destination ==
+                            XvoxDestination.HOME
+                        ) {
+                            homeResetKey++
+                            hoistedSelectedPlaylistId = null
+                        } else {
+                            destination =
+                                selected
                         }
                     },
-                    onAdd = { showMiniPlayerPlaylistPicker() },
-                    modifier = miniModifier,
+                    modifier =
+                        Modifier
+                            .align(
+                                Alignment
+                                    .BottomCenter,
+                            ).windowInsetsPadding(
+                                WindowInsets
+                                    .navigationBars,
+                            ).padding(
+                                bottom =
+                                    XvoxMiniPlayerPlacement
+                                        .navigationHostBottom,
+                            ),
                 )
-            } else {
-                Box(Modifier.fillMaxWidth().heightIn(min = 1.dp))
             }
-        }
-
-        if (!isImeVisible) {
-            XvoxBottomBar(
-                selected =
-                destination,
-                onSelected = { selected ->
-
-                    if (
-                        selected ==
-                        XvoxDestination.HOME &&
-                        destination ==
-                        XvoxDestination.HOME
-                    ) {
-                        homeResetKey++
-                        hoistedSelectedPlaylistId = null
-                    } else {
-                        destination =
-                            selected
-                    }
-                },
-                modifier =
-                    Modifier
-                        .align(
-                            Alignment
-                                .BottomCenter,
-                        ).windowInsetsPadding(
-                            WindowInsets
-                                .navigationBars,
-                        ).padding(
-                            bottom =
-                                XvoxMiniPlayerPlacement
-                                    .navigationHostBottom,
-                        ),
-            )
-        }
 
         if (
             player.nowPlayingVisible &&
@@ -646,6 +672,7 @@ fun XvoxMainShell(
             )
         }
     }
+}
 }
 
 @Composable

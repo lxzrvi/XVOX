@@ -82,6 +82,7 @@ class UserPreferencesRepository(
         val homeLayout = stringPreferencesKey("home_layout")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
         val hapticFeedback = booleanPreferencesKey("haptic_feedback")
+        val hapticStrength = stringPreferencesKey("haptic_strength")
 
         // Widgets
         val widgetTransparency = floatPreferencesKey("widget_transparency")
@@ -162,6 +163,7 @@ class UserPreferencesRepository(
     val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }
     val hapticFeedback: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedback] ?: true }
+    val hapticStrength: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticStrength] ?: "Medium" }
 
     // Widget customization flows
     val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }
@@ -211,6 +213,7 @@ class UserPreferencesRepository(
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setHapticFeedback(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedback] = v } }
+    suspend fun setHapticStrength(v: String) { context.xvoxDataStore.edit { it[Keys.hapticStrength] = v } }
 
     suspend fun setWidgetTransparency(v: Float) { context.xvoxDataStore.edit { it[Keys.widgetTransparency] = v } }
     suspend fun setWidgetTheme(v: String) { context.xvoxDataStore.edit { it[Keys.widgetTheme] = v } }

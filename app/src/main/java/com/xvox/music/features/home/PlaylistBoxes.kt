@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxPlaylistCover
 
@@ -53,200 +55,98 @@ fun PlaylistPickerBox(
     songs: List<Song> = emptyList(),
     songsFor: ((XvoxPlaylist) -> List<Song>)? = null,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Row(
-            modifier =
-                Modifier.fillMaxWidth().padding(end = 52.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text =
-                    "Playlists",
-                color =
-                    colors.primaryText,
-                fontSize = 18.sp,
-                fontWeight =
-                    FontWeight.Bold,
-                modifier =
-                    Modifier.weight(
-                        1f
-                    )
+                text = "Add to Playlist",
+                color = colors.primaryText,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
 
             Box(
-                modifier =
-                    Modifier
-                        .size(
-                            36.dp
-                        )
-                        .background(
-                            colors.card.copy(alpha = 0.97f),
-                            CircleShape
-                        )
-                        .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null,
-                            onClick =
-                                onCreate
-                        ),
-                contentAlignment =
-                    Alignment.Center
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(colors.card)
+                    .clickable {
+                        haptics.tap()
+                        onCreate()
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter =
-                        painterResource(
-                            R.drawable
-                                .ic_xvox_plus
-                        ),
-                    contentDescription =
-                        "Create playlist",
-                    tint =
-                        colors.primaryText,
-                    modifier =
-                        Modifier.size(
-                            18.dp
-                        )
+                    painter = painterResource(R.drawable.ic_xvox_plus),
+                    contentDescription = "Create playlist",
+                    tint = colors.primaryText,
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
 
-        Spacer(
-            Modifier.height(
-                8.dp
-            )
-        )
+        Spacer(Modifier.height(8.dp))
 
-        if (
-            playlists.isEmpty()
-        ) {
+        if (playlists.isEmpty()) {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null,
-                            onClick =
-                                onCreate
-                        )
-                        .padding(
-                            vertical =
-                                10.dp
-                        ),
-                horizontalAlignment =
-                    Alignment
-                        .CenterHorizontally
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        haptics.tap()
+                        onCreate()
+                    }
+                    .padding(vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
-                    modifier =
-                        Modifier
-                            .size(
-                                46.dp
-                            )
-                            .background(
-                                colors.card.copy(alpha = 0.97f),
-                                CircleShape
-                            ),
-                    contentAlignment =
-                        Alignment.Center
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(colors.cardElevated),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter =
-                            painterResource(
-                                R.drawable
-                                    .ic_xvox_plus
-                            ),
-                        contentDescription =
-                            null,
-                        tint =
-                            colors.primaryText,
-                        modifier =
-                            Modifier.size(
-                                21.dp
-                            )
+                        painter = painterResource(R.drawable.ic_xvox_plus),
+                        contentDescription = null,
+                        tint = colors.primaryAccent,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-
-                Spacer(
-                    Modifier.height(
-                        8.dp
-                    )
-                )
-
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    text =
-                        "Create a new playlist",
-                    color =
-                        colors.secondaryText,
-                    fontSize = 12.sp
+                    text = "Create a new playlist",
+                    color = colors.secondaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         } else {
             LazyColumn(
-                modifier =
-                    Modifier.heightIn(
-                        max = 320.dp
-                    ),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 4.dp)
+                modifier = Modifier.heightIn(max = 340.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
             ) {
-                items(
-                    items =
-                        playlists,
-                    key = {
-                        it.id
-                    }
-                ) {
-                    playlist ->
-
-                    val contains =
-                        song.id in
-                            playlist.songIds
-
+                items(items = playlists, key = { it.id }) { playlist ->
+                    val contains = song.id in playlist.songIds
                     Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(
-                                    58.dp
-                                )
-                                .clickable(
-                                    interactionSource =
-                                        remember {
-                                            MutableInteractionSource()
-                                        },
-                                    indication =
-                                        null
-                                ) {
-                                    if (
-                                        contains
-                                    ) {
-                                        onRemove(
-                                            playlist
-                                        )
-                                    } else {
-                                        onAdd(
-                                            playlist
-                                        )
-                                    }
-                                },
-                        verticalAlignment =
-                            Alignment
-                                .CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                haptics.tap()
+                                if (contains) onRemove(playlist) else onAdd(playlist)
+                            }
+                            .padding(horizontal = 6.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Playlist cover at start
                         val coverSongs = if (songsFor != null) songsFor(playlist) else {
                             if (songs.isNotEmpty()) songs.filter { it.id in playlist.songIds } else emptyList()
                         }
@@ -261,72 +161,32 @@ fun PlaylistPickerBox(
                         )
 
                         Column(
-                            modifier =
-                                Modifier
-                                    .weight(
-                                        1f
-                                    )
-                                    .padding(
-                                        start = 10.dp,
-                                        end =
-                                            8.dp
-                                    )
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp, end = 8.dp)
                         ) {
                             Text(
-                                text =
-                                    playlist.name,
-                                color =
-                                    colors.primaryText,
-                                fontSize = 14.sp,
-                                fontWeight =
-                                    FontWeight
-                                        .SemiBold,
+                                text = playlist.name,
+                                color = colors.primaryText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
-                                overflow =
-                                    TextOverflow
-                                        .Ellipsis
+                                overflow = TextOverflow.Ellipsis
                             )
-
                             Text(
-                                text =
-                                    if (
-                                        contains
-                                    ) {
-                                        "Remove from this playlist"
-                                    } else {
-                                        "${playlist.songIds.size} songs"
-                                    },
-                                color =
-                                    if (
-                                        contains
-                                    ) {
-                                        colors
-                                            .primaryAccent
-                                    } else {
-                                        colors
-                                            .secondaryText
-                                    },
-                                fontSize = 10.sp,
+                                text = if (contains) "Added" else "${playlist.songIds.size} songs",
+                                color = if (contains) colors.primaryAccent else colors.secondaryText,
+                                fontSize = 11.sp,
                                 maxLines = 1
                             )
                         }
 
                         if (contains) {
                             Icon(
-                                painter =
-                                    painterResource(
-                                        R.drawable
-                                            .ic_xvox_check
-                                    ),
-                                contentDescription =
-                                    null,
-                                tint =
-                                    colors
-                                        .primaryAccent,
-                                modifier =
-                                    Modifier.size(
-                                        16.dp
-                                    )
+                                painter = painterResource(R.drawable.ic_xvox_check),
+                                contentDescription = null,
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -340,227 +200,171 @@ fun PlaylistPickerBox(
 fun CreatePlaylistBox(
     songs: List<Song>,
     initialSong: Song?,
-    onCreate: (
-        String,
-        Set<Long>
-    ) -> Unit
+    onCreate: (String, Set<Long>) -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
 
-    var name by
-        remember {
-            mutableStateOf("")
+    var name by remember { mutableStateOf("") }
+    val selected = remember(initialSong?.id) {
+        mutableStateListOf<Long>().apply {
+            initialSong?.let { add(it.id) }
         }
-
-    val selected =
-        remember(
-            initialSong?.id
-        ) {
-            mutableStateListOf<Long>()
-                .apply {
-                    initialSong
-                        ?.let {
-                            add(it.id)
-                        }
-                }
-        }
+    }
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth().imePadding()
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 360.dp, max = 500.dp)
+            .imePadding()
+            .padding(horizontal = 6.dp, vertical = 6.dp)
     ) {
-        // Layered surface: list renders behind header + Enter name field with translucent overlay (no hard clip, continuous surface) - minimal functional padding
-        Box(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
-        ) {
-            LazyColumn(
-                modifier =
-                    Modifier.fillMaxWidth().heightIn(max = 340.dp),
-                contentPadding = PaddingValues(top = 100.dp, bottom = 72.dp)
-            ) {
-                items(
-                    items = songs,
-                    key = {
-                        it.id
-                    }
-                ) {
-                    song ->
+        // Header
+        Text(
+            text = "Create Playlist",
+            color = colors.primaryText,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+        )
 
-                    val checked =
-                        song.id in
-                            selected
+        Spacer(Modifier.height(10.dp))
 
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(
-                                    44.dp
-                                )
-                                .clickable(
-                                    interactionSource =
-                                        remember {
-                                            MutableInteractionSource()
-                                        },
-                                    indication =
-                                        null
-                                ) {
-                                    if (checked) {
-                                        selected.remove(
-                                            song.id
-                                        )
-                                    } else {
-                                        selected.add(
-                                            song.id
-                                        )
-                                    }
-                                },
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        // Song cover for selection
-                        com.xvox.music.features.home.XvoxSongArtwork(
-                            artwork = song.artworkUri,
-                            requestSize = 96,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(7.dp))
-                        )
-
-                        Text(
-                            text =
-                                song.title,
-                            color =
-                                colors.primaryText,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow =
-                                TextOverflow
-                                    .Ellipsis,
-                            modifier =
-                                Modifier
-                                    .weight(
-                                        1f
-                                    )
-                                    .padding(
-                                        start = 10.dp,
-                                        end =
-                                            10.dp
-                                    )
-                        )
-
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(
-                                        15.dp
-                                    )
-                                    .background(
-                                        if (
-                                            checked
-                                        ) {
-                                            colors
-                                                .primaryAccent
-                                        } else {
-                                            colors.card
-                                        },
-                                        CircleShape
-                                    )
-                        )
-                    }
-                }
-            }
-            // Floating Create button overlaying bottom padding area - no full-width footer background, only button - continuous rounded edge
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .background(
-                            colors.card.copy(alpha = 0.97f),
-                            RoundedCornerShape(14.dp)
-                        )
-                        .clickable(
-                            enabled =
-                                name.isNotBlank(),
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null
-                        ) {
-                            onCreate(
-                                name.trim(),
-                                selected.toSet()
-                            )
-                        },
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Text(
-                    text = "Create",
-                    color =
-                        if (
-                            name.isNotBlank()
-                        ) {
-                            colors.primaryText
-                        } else {
-                            colors.mutedText
-                        },
-                    fontSize = 13.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-            }
-            // Header + Enter name overlay translucent, list scrolls behind, no hard clipping
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxWidth()
-                    .background(colors.cardElevated.copy(alpha = 0.82f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 4.dp, vertical = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(36.dp).padding(end = 36.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Create playlist",
-                        color = colors.primaryText,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                BasicTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-                    cursorBrush = SolidColor(colors.primaryText),
+        // Name input
+        BasicTextField(
+            value = name,
+            onValueChange = { name = it },
+            singleLine = true,
+            textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+            cursorBrush = SolidColor(colors.primaryAccent),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card),
+            decorationBox = { field ->
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .background(colors.card.copy(alpha = 0.97f), RoundedCornerShape(14.dp)),
-                    decorationBox = { field ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (name.isEmpty()) {
-                                Text(text = "Enter name", color = colors.secondaryText, fontSize = 13.sp)
-                            }
-                            field()
+                        .height(46.dp)
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (name.isEmpty()) {
+                        Text(text = "Playlist name", color = colors.secondaryText, fontSize = 13.sp)
+                    }
+                    field()
+                }
+            }
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = "Select Songs (${selected.size} selected)",
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+
+        Spacer(Modifier.height(6.dp))
+
+        // Songs list
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = 6.dp)
+        ) {
+            items(items = songs, key = { it.id }) { song ->
+                val checked = song.id in selected
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            haptics.tap()
+                            if (checked) selected.remove(song.id) else selected.add(song.id)
+                        }
+                        .padding(horizontal = 6.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    XvoxSongArtwork(
+                        artwork = song.artworkUri,
+                        requestSize = 96,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 10.dp, end = 10.dp)
+                    ) {
+                        Text(
+                            text = song.title,
+                            color = colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = song.artist,
+                            color = colors.secondaryText,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (checked) colors.primaryAccent else colors.cardElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (checked) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_check),
+                                contentDescription = null,
+                                tint = colors.background,
+                                modifier = Modifier.size(12.dp)
+                            )
                         }
                     }
-                )
+                }
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Compact Create Button with bottom margin
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .width(180.dp)
+                .height(42.dp)
+                .clip(RoundedCornerShape(21.dp))
+                .background(if (name.isNotBlank()) colors.primaryAccent else colors.cardElevated)
+                .clickable(enabled = name.isNotBlank()) {
+                    haptics.success()
+                    onCreate(name.trim(), selected.toSet())
+                }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Create Playlist",
+                color = if (name.isNotBlank()) colors.background else colors.mutedText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
     }
 }

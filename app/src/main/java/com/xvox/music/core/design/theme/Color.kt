@@ -18,20 +18,14 @@ data class XvoxPalette(
 ) {
     fun withAccent(accentName: String): XvoxPalette {
         val accentColor = when (accentName) {
-            "Violet" -> Color(0xFF8B5CF6)
-            "Cyan" -> Color(0xFF06B6D4)
-            "Emerald" -> Color(0xFF10B981)
-            "Sunset Orange" -> Color(0xFFF97316)
-            "Crimson Red" -> Color(0xFFEF4444)
-            "Neon Pink" -> Color(0xFFEC4899)
-            "Electric Blue" -> Color(0xFF3B82F6)
-            "Amber Gold" -> Color(0xFFF59E0B)
-            else -> return this
+            "XVOX Red", "Red" -> Color(0xFFFA2D48) // Apple Music style vivid Red
+            "XVOX Blue", "Blue" -> Color(0xFF007AFF) // iOS System Blue
+            else -> return this // Default monochrome accent
         }
         return this.copy(
             primaryAccent = accentColor,
             progressActive = accentColor,
-            accentSoft = accentColor.copy(alpha = 0.15f)
+            accentSoft = accentColor.copy(alpha = 0.18f)
         )
     }
 }

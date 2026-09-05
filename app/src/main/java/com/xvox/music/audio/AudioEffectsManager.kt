@@ -26,16 +26,16 @@ object AudioEffectsManager {
     private var syncJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    // Standard default bands in mB (-1500 to +1500)
+    // Standard preset band levels in dB (-15 to +15)
     val PRESETS = mapOf(
         "Flat" to listOf(0, 0, 0, 0, 0),
-        "Bass Boost" to listOf(600, 400, 100, 0, -100),
-        "Treble" to listOf(-100, 0, 100, 400, 600),
-        "Rock" to listOf(400, 200, -100, 200, 400),
-        "Pop" to listOf(-100, 200, 400, 200, -100),
-        "Jazz" to listOf(300, 100, -100, 200, 300),
-        "Electronic" to listOf(500, 300, 0, 200, 400),
-        "Vocal" to listOf(-200, 100, 500, 300, 0)
+        "Bass Boost" to listOf(6, 4, 1, 0, -1),
+        "Treble" to listOf(-1, 0, 1, 4, 6),
+        "Rock" to listOf(4, 2, -1, 2, 4),
+        "Pop" to listOf(-1, 2, 4, 2, -1),
+        "Jazz" to listOf(3, 1, -1, 2, 3),
+        "Electronic" to listOf(5, 3, 0, 2, 4),
+        "Vocal" to listOf(-2, 1, 5, 3, 0)
     )
 
     fun attachAudioSession(sessionId: Int, context: Context) {
@@ -47,26 +47,26 @@ object AudioEffectsManager {
 
         runCatching {
             equalizer = Equalizer(0, sessionId).apply {
-                enabled = false
+                enabled = true
             }
         }.onFailure { Log.e(TAG, "Failed to init Equalizer: ${it.message}") }
 
         runCatching {
             bassBoost = BassBoost(0, sessionId).apply {
-                enabled = false
+                enabled = true
             }
         }.onFailure { Log.e(TAG, "Failed to init BassBoost: ${it.message}") }
 
         runCatching {
             virtualizer = Virtualizer(0, sessionId).apply {
-                enabled = false
+                enabled = true
             }
         }.onFailure { Log.e(TAG, "Failed to init Virtualizer: ${it.message}") }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             runCatching {
                 loudnessEnhancer = LoudnessEnhancer(sessionId).apply {
-                    enabled = false
+                    enabled = true
                 }
             }.onFailure { Log.e(TAG, "Failed to init LoudnessEnhancer: ${it.message}") }
         }
@@ -147,9 +147,10 @@ object AudioEffectsManager {
                     val maxLevel = range?.getOrNull(1) ?: 1500
 
                     for (i in 0 until numBands) {
-                        val level = targetBands.getOrNull(i) ?: 0
-                        val clamped = (level * 100).coerceIn(minLevel.toInt(), maxLevel.toInt()).toShort()
-                        eq.setBandLevel(i.toShort(), clamped)
+                        val dbVal = targetBands.getOrNull(i) ?: 0
+                        // 1 dB = 100 mB
+                        val mbVal = (dbVal * 100).coerceIn(minLevel.toInt(), maxLevel.toInt()).toShort()
+                        eq.setBandLevel(i.toShort(), mbVal)
                     }
                 }
             }.onFailure { Log.w(TAG, "Error applying Equalizer: ${it.message}") }
