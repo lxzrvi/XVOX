@@ -3,10 +3,10 @@ package com.xvox.music.features.home
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.playlist.PlaylistInfoBox
 import com.xvox.music.features.playlist.XvoxAddPlaylistSongsBox
 import com.xvox.music.features.playlist.XvoxPlaylistActionsBox
 import com.xvox.music.features.playlist.XvoxPlaylistCoverEditor
-import com.xvox.music.features.playlist.PlaylistInfoBox
 
 fun showPlaylistActions(
     overlays: XvoxOverlayController,
@@ -19,89 +19,43 @@ fun showPlaylistActions(
             viewModel.state.value
                 .playlists
                 .firstOrNull {
-                    it.id ==
-                        playlist.id
-                }
-                ?: playlist
+                    it.id == playlist.id
+                } ?: playlist
 
         XvoxPlaylistActionsBox(
-            playlist =
-                current,
-            songs =
-                viewModel
-                    .playlistSongs(
-                        current
-                    ),
-            onRename = {
-                name ->
-
-                viewModel
-                    .renamePlaylist(
-                        current.id,
-                        name
-                    ) {
-                        updated ->
-
-                        if (
-                            updated != null
-                        ) {
-                            overlays.showP(
-                                "Playlist renamed"
-                            )
-                        }
+            playlist = current,
+            songs = viewModel.playlistSongs(current),
+            onRename = { name ->
+                viewModel.renamePlaylist(current.id, name) { updated ->
+                    if (updated != null) {
+                        overlays.showP("Playlist renamed")
                     }
+                }
             },
-            onSaveCover = {
-                    songIds,
-                    customUri,
-                    done ->
-
-                viewModel
-                    .savePlaylistCover(
-                        playlistId =
-                            current.id,
-                        songIds =
-                            songIds,
-                        customUri =
-                            customUri
-                    ) {
-                        updated ->
-
-                        done()
-
-                        if (
-                            updated != null
-                        ) {
-                            overlays.showP(
-                                "Playlist cover updated"
-                            )
-                        }
+            onSaveCover = { songIds, customUri, done ->
+                viewModel.savePlaylistCover(
+                    playlistId = current.id,
+                    songIds = songIds,
+                    customUri = customUri
+                ) { updated ->
+                    done()
+                    if (updated != null) {
+                        overlays.showP("Playlist cover updated")
                     }
+                }
             },
             onDelete = {
-                viewModel
-                    .deletePlaylist(
-                        current.id
-                    ) {
-                        overlays.hideL()
-                        onDeleted()
-
-                        overlays.showP(
-                            "Playlist deleted"
-                        )
-                    }
+                viewModel.deletePlaylist(current.id) {
+                    overlays.hideL()
+                    onDeleted()
+                    overlays.showP("Playlist deleted")
+                }
             },
             onInfo = {
                 overlays.showL {
                     PlaylistInfoBox(
-                        playlist =
-                            current,
-                        songCount =
-                            viewModel
-                                .playlistSongs(
-                                    current
-                                )
-                                .size
+                        playlist = current,
+                        songCount = viewModel.playlistSongs(current).size
                     )
                 }
             }
@@ -152,43 +106,22 @@ fun showAddPlaylistSongs(
             viewModel.state.value
                 .playlists
                 .firstOrNull {
-                    it.id ==
-                        playlist.id
-                }
-                ?: playlist
+                    it.id == playlist.id
+                } ?: playlist
 
         XvoxAddPlaylistSongsBox(
-            songs =
-                viewModel
-                    .state
-                    .value
-                    .songs,
-            existingSongIds =
-                current.songIds
-                    .toSet(),
+            songs = viewModel.state.value.songs,
+            existingSongIds = current.songIds.toSet(),
             playlist = current,
             playlistSongs = viewModel.playlistSongs(current),
-            onAdd = {
-                song: Song ->
-
-                viewModel
-                    .addToPlaylist(
-                        current.id,
-                        song
-                    ) {
-                        updated ->
-
-                        if (
-                            updated != null
-                        ) {
-                            overlays.hideL()
-
-                            overlays.showP(
-                                "Added to ${updated.name}"
-                            )
-                        }
-                    }
-            }
+            onAddMultiple = { selectedSongs ->
+                selectedSongs.forEach { s ->
+                    viewModel.addToPlaylist(current.id, s) {}
+                }
+                overlays.hideL()
+                overlays.showP("Added ${selectedSongs.size} songs to ${current.name}")
+            },
+            onCancel = { overlays.hideL() }
         )
     }
 }

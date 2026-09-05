@@ -1,32 +1,40 @@
 package com.xvox.music.features.playlist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -44,154 +52,252 @@ import com.xvox.music.features.home.XvoxSongArtwork
 fun XvoxAddPlaylistSongsBox(
     songs: List<Song>,
     existingSongIds: Set<Long>,
-    onAdd: (Song) -> Unit,
+    onAddMultiple: (List<Song>) -> Unit,
+    onCancel: () -> Unit,
     playlist: XvoxPlaylist? = null,
     playlistSongs: List<Song> = emptyList(),
 ) {
-    val colors =
-        XvoxTheme.colors
-
+    val colors = XvoxTheme.colors
     var query by remember { mutableStateOf("") }
+    val selectedSongIds = remember { mutableStateListOf<Long>() }
 
-    val available =
-        remember(
-            songs,
-            existingSongIds,
-            query
-        ) {
-            val filtered = songs.filterNot {
-                it.id in existingSongIds
-            }
-            if (query.isBlank()) filtered else filtered.filter {
-                it.title.contains(query, ignoreCase = true) ||
-                    it.artist.contains(query, ignoreCase = true)
-            }
+    val availableSongs = remember(songs, existingSongIds, query) {
+        val filtered = songs.filterNot { it.id in existingSongIds }
+        if (query.isBlank()) filtered
+        else filtered.filter {
+            it.title.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true)
         }
+    }
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth().imePadding()
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
     ) {
-        if (available.isEmpty()) {
-            // Header still shown even if empty, with overlay treatment
-            Box(modifier = Modifier.fillMaxWidth().padding(end = 36.dp)) {
-                Column(modifier = Modifier.fillMaxWidth().background(colors.cardElevated.copy(alpha = 0.82f), RoundedCornerShape(12.dp)).padding(10.dp)) {
+        // UNIFIED FLAT HEADER (NO border radius on title and search bar container)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent)
+                .padding(bottom = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Add Songs",
+                        color = colors.primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     if (playlist != null) {
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            XvoxPlaylistCover(
-                                songs = playlistSongs.ifEmpty { songs.filter { it.id in playlist.songIds } },
-                                coverSongIds = playlist.coverSongIds,
-                                customCoverUri = playlist.customCoverUri,
-                                requestSize = 128,
-                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp))
-                            )
-                            Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
-                                Text(text = playlist.name, color = colors.primaryText, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(text = "${playlist.songIds.size} songs", color = colors.secondaryText, fontSize = 11.sp)
-                            }
-                        }
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = "To ${playlist.name}",
+                            color = colors.secondaryText,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
-                    Text(text = "Add songs", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).background(colors.card, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Icon(painter = painterResource(R.drawable.ic_xvox_search), contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
-                            BasicTextField(
-                                value = query, onValueChange = { query = it }, singleLine = true,
-                                textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
-                                cursorBrush = SolidColor(colors.primaryText),
-                                modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                decorationBox = { inner -> if (query.isEmpty()) Text(text = "Search songs", color = colors.mutedText, fontSize = 13.sp); inner() }
-                            )
-                            if (query.isNotEmpty()) {
-                                Icon(painter = painterResource(R.drawable.ic_xvox_close), contentDescription = "Clear", tint = colors.secondaryText, modifier = Modifier.size(16.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { query = "" })
+                }
+                if (selectedSongIds.isNotEmpty()) {
+                    Text(
+                        text = "${selectedSongIds.size} selected",
+                        color = colors.primaryAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Search Bar inside flat header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.card)
+                    .padding(horizontal = 10.dp, vertical = 9.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_search),
+                        contentDescription = null,
+                        tint = colors.secondaryText,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
+                        cursorBrush = SolidColor(colors.primaryAccent),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                        decorationBox = { inner ->
+                            if (query.isEmpty()) {
+                                Text(text = "Search songs to add...", color = colors.mutedText, fontSize = 13.sp)
                             }
+                            inner()
                         }
+                    )
+                    if (query.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_close),
+                            contentDescription = "Clear",
+                            tint = colors.secondaryText,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { query = "" }
+                        )
                     }
                 }
             }
-            Text(
-                text = if (query.isNotBlank()) "No songs match \"$query\"" else "All songs are already in this playlist",
-                color = colors.secondaryText, fontSize = 12.sp,
-                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
-            )
-            return
         }
 
-        // Layered header-behind scroll: minimal functional padding, no extra outer/inner - use available box area
-        Box(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+        // Song List with rounded item corners
+        if (availableSongs.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (query.isNotBlank()) "No matching songs found" else "All songs are already in this playlist",
+                    color = colors.mutedText,
+                    fontSize = 13.sp
+                )
+            }
+        } else {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(top = if (playlist != null) 136.dp else 80.dp, bottom = 12.dp)
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-            items(
-                items =
-                    available,
-                key = {
-                    it.id
-                }
-            ) { song ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(58.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() }, indication = null
-                    ) { onAdd(song) },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    XvoxSongArtwork(
-                        artwork = song.artworkUri,
-                        requestSize = 96,
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(9.dp))
-                    )
-                    Column(modifier = Modifier.weight(1f).padding(start = 11.dp, end = 10.dp)) {
-                        Text(text = song.title, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(text = song.artist, color = colors.secondaryText, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Box(modifier = Modifier.size(32.dp).background(colors.card, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(painter = painterResource(R.drawable.ic_xvox_plus), contentDescription = "Add", tint = colors.primaryText, modifier = Modifier.size(16.dp))
+                items(availableSongs, key = { it.id }) { song ->
+                    val isSelected = song.id in selectedSongIds
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) colors.card.copy(alpha = 0.95f) else Color.Transparent)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                if (isSelected) {
+                                    selectedSongIds.remove(song.id)
+                                } else {
+                                    selectedSongIds.add(song.id)
+                                }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        XvoxSongArtwork(
+                            artwork = song.artworkUri,
+                            requestSize = 96,
+                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 10.dp, end = 10.dp)
+                        ) {
+                            Text(
+                                text = song.title,
+                                color = if (isSelected) colors.primaryAccent else colors.primaryText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.artist,
+                                color = colors.secondaryText,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Checkmark multi-select tick
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) colors.primaryAccent else Color.Transparent)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = if (isSelected) colors.primaryAccent else colors.cardBorder,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_check),
+                                    contentDescription = "Selected",
+                                    tint = colors.background,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
-            }
-            // Header overlay translucent - list scrolls behind, no hard clip, continuous rounded surface
-            Column(
-                modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().background(colors.cardElevated.copy(alpha = 0.82f), RoundedCornerShape(12.dp)).padding(10.dp)
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Bottom Action Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = onCancel,
+                modifier = Modifier.weight(1f).height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.card,
+                    contentColor = colors.primaryText
+                )
             ) {
-                if (playlist != null) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        XvoxPlaylistCover(
-                            songs = playlistSongs.ifEmpty { songs.filter { it.id in playlist.songIds } },
-                            coverSongIds = playlist.coverSongIds,
-                            customCoverUri = playlist.customCoverUri,
-                            requestSize = 128,
-                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp))
-                        )
-                        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(text = playlist.name, color = colors.primaryText, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(text = "${playlist.songIds.size} songs", color = colors.secondaryText, fontSize = 11.sp)
-                        }
+                Text(text = "Cancel", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Button(
+                onClick = {
+                    val selected = songs.filter { it.id in selectedSongIds }
+                    if (selected.isNotEmpty()) {
+                        onAddMultiple(selected)
                     }
-                    androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
-                }
-                Text(text = "Add songs", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 36.dp))
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp).background(colors.card, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Icon(painter = painterResource(R.drawable.ic_xvox_search), contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
-                        BasicTextField(
-                            value = query, onValueChange = { query = it }, singleLine = true,
-                            textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
-                            cursorBrush = SolidColor(colors.primaryText),
-                            modifier = Modifier.weight(1f).padding(start = 8.dp),
-                            decorationBox = { inner -> if (query.isEmpty()) Text(text = "Search songs", color = colors.mutedText, fontSize = 13.sp); inner() }
-                        )
-                        if (query.isNotEmpty()) {
-                            Icon(painter = painterResource(R.drawable.ic_xvox_close), contentDescription = "Clear", tint = colors.secondaryText, modifier = Modifier.size(16.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { query = "" })
-                        }
-                    }
-                }
+                },
+                enabled = selectedSongIds.isNotEmpty(),
+                modifier = Modifier.weight(1.5f).height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primaryAccent,
+                    contentColor = colors.background,
+                    disabledContainerColor = colors.cardElevated,
+                    disabledContentColor = colors.mutedText
+                )
+            ) {
+                Text(
+                    text = if (selectedSongIds.isEmpty()) "Select Songs" else "Add (${selectedSongIds.size}) Songs",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
