@@ -2,18 +2,14 @@ package com.xvox.music.core.ui.haptics
 
 import android.content.Context
 import android.os.Build
-import android.os.CombinedVibration
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.view.HapticFeedbackConstants
-import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 
 enum class HapticStrength {
     OFF,
@@ -27,12 +23,14 @@ class XvoxHaptics(
     var enabled: Boolean = true,
     var strength: HapticStrength = HapticStrength.MEDIUM
 ) {
-    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-        manager?.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    private val vibrator: Vibrator? by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            manager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
     }
 
     fun tap() {
@@ -62,12 +60,13 @@ class XvoxHaptics(
 
     fun success() {
         if (!enabled || strength == HapticStrength.OFF) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator?.hasAmplitudeControl() == true) {
+        val vib = vibrator ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vib.hasAmplitudeControl()) {
             val timings = longArrayOf(0, 18, 50, 22)
             val amp = getAmplitude(60, 120, 220)
             val amplitudes = intArrayOf(0, amp, 0, (amp * 1.2f).toInt().coerceAtMost(255))
             runCatching {
-                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                vib.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
             }
         } else {
             vibrate(30L, 120)
@@ -89,14 +88,15 @@ class XvoxHaptics(
     }
 
     private fun vibrate(duration: Long, amplitude: Int) {
-        if (vibrator == null || !vibrator.hasVibrator()) return
+        val vib = vibrator ?: return
+        if (!vib.hasVibrator()) return
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val amp = if (vibrator.hasAmplitudeControl()) amplitude.coerceIn(1, 255) else VibrationEffect.DEFAULT_AMPLITUDE
-                vibrator.vibrate(VibrationEffect.createOneShot(duration, amp))
+                val amp = if (vib.hasAmplitudeControl()) amplitude.coerceIn(1, 255) else VibrationEffect.DEFAULT_AMPLITUDE
+                vib.vibrate(VibrationEffect.createOneShot(duration, amp))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(duration)
+                vib.vibrate(duration)
             }
         }
     }

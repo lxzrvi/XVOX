@@ -254,7 +254,7 @@ fun XvoxNowPlaying(
     ) {
         // Backdrop with dominant color
         XvoxNowPlayingBackdrop(
-            dominantColor = paletteState.color,
+            dominant = paletteState.color,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -308,14 +308,11 @@ fun XvoxNowPlaying(
                 if (showLyrics) {
                     XvoxArtworkLyrics(
                         state = lyricsState,
-                        song = song,
                         position = position,
-                        duration = duration,
-                        isPlaying = isPlaying,
                         onSeek = onSeek,
                         onAttach = lyricsViewModel::attach,
                         onDelete = lyricsViewModel::removeCustom,
-                        onArtworkTap = { showLyrics = false },
+                        onClose = { showLyrics = false },
                         onFullscreen = lyricsViewModel::openFullscreen,
                         modifier = Modifier
                             .fillMaxSize()

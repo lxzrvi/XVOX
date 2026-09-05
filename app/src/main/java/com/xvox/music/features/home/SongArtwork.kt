@@ -63,10 +63,9 @@ fun SongArtwork(
 
     val request = remember(artwork, requestSize) {
         ImageRequest.Builder(context)
-            .data(artwork)
+            .data(artwork as Any)
             .size(requestSize, requestSize)
             .precision(Precision.INEXACT)
-            .crossfade(false)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)

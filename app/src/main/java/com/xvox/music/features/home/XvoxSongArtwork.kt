@@ -67,10 +67,9 @@ fun XvoxSongArtwork(
 
     val request = remember(artwork, requestSize) {
         ImageRequest.Builder(context)
-            .data(artwork)
+            .data(artwork as Any)
             .size(requestSize, requestSize)
             .precision(Precision.INEXACT)
-            .crossfade(false)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)
@@ -83,7 +82,6 @@ fun XvoxSongArtwork(
         contentScale = ContentScale.Crop,
         onSuccess = { successResult ->
             val drawable = successResult.result.image
-            // Cache loaded bitmap in high-speed memory cache for zero-lag subsequent access
             if (drawable is coil3.BitmapImage) {
                 XvoxArtworkCache.put(cacheKey, drawable.bitmap)
             }
