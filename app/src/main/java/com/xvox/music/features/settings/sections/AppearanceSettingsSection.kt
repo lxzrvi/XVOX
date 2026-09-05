@@ -128,7 +128,7 @@ fun AppearanceSettingsSection(
             title = "Live Blur (iOS Glass)",
             subtitle = "Real-time frosted glass backdrop effect",
             checked = state.liveBlur,
-            onCheckedChange = viewModel::setLiveBlur
+            onChange = viewModel::setLiveBlur
         )
 
         Spacer(modifier = Modifier.height(14.dp))
