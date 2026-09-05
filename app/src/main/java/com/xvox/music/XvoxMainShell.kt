@@ -1360,6 +1360,7 @@ fun XvoxMainShell(
             }
         }
     }
+    }
 
     fun showTimerSheet() {
         overlays.showL {
@@ -2200,7 +2201,6 @@ fun XvoxMainShell(
             )
         }
     }
-}
 }
 
 @Composable
