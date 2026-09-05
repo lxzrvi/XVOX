@@ -138,10 +138,9 @@ class XvoxPlaybackService : MediaSessionService() {
                 id = mediaItem.mediaId.toLongOrNull() ?: 0L,
                 title = metadata.title?.toString() ?: "Unknown Title",
                 artist = metadata.artist?.toString() ?: "Unknown Artist",
-                album = metadata.albumTitle?.toString() ?: "",
-                duration = player.duration.coerceAtLeast(0L),
                 contentUri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY,
-                artworkUri = metadata.artworkUri
+                artworkUri = metadata.artworkUri,
+                duration = player.duration.coerceAtLeast(0L)
             )
         } else null
 

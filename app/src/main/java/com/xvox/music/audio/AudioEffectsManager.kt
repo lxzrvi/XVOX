@@ -12,7 +12,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object AudioEffectsManager {
@@ -80,48 +79,70 @@ object AudioEffectsManager {
         val prefs = UserPreferencesRepository(context)
 
         syncJob = scope.launch {
-            combine(
-                prefs.equalizerEnabled,
-                prefs.eqPreset,
-                prefs.eqBands,
-                prefs.bassBoost,
-                prefs.bassBoostStrength,
-                prefs.virtualizerEnabled,
-                prefs.virtualizerStrength,
-                prefs.loudnessEnhancer,
-                prefs.loudnessGainMb
-            ) { eqEnabled, preset, bands, bbEnabled, bbStrength, virtEnabled, virtStrength, leEnabled, leGain ->
-                AudioEffectParams(
-                    eqEnabled = eqEnabled,
-                    preset = preset,
-                    bands = bands,
-                    bbEnabled = bbEnabled,
-                    bbStrength = bbStrength,
-                    virtEnabled = virtEnabled,
-                    virtStrength = virtStrength,
-                    leEnabled = leEnabled,
-                    leGain = leGain
-                )
-            }.collect { params ->
-                applyParams(params)
+            // Equalizer observer
+            launch {
+                combine(
+                    prefs.equalizerEnabled,
+                    prefs.eqPreset,
+                    prefs.eqBands
+                ) { enabled, preset, bands ->
+                    Triple(enabled, preset, bands)
+                }.collect { (enabled, preset, bands) ->
+                    applyEqualizer(enabled, preset, bands)
+                }
+            }
+
+            // Bass Boost observer
+            launch {
+                combine(
+                    prefs.bassBoost,
+                    prefs.bassBoostStrength
+                ) { enabled, strength ->
+                    Pair(enabled, strength)
+                }.collect { (enabled, strength) ->
+                    applyBassBoost(enabled, strength)
+                }
+            }
+
+            // Virtualizer observer
+            launch {
+                combine(
+                    prefs.virtualizerEnabled,
+                    prefs.virtualizerStrength
+                ) { enabled, strength ->
+                    Pair(enabled, strength)
+                }.collect { (enabled, strength) ->
+                    applyVirtualizer(enabled, strength)
+                }
+            }
+
+            // Loudness Enhancer observer
+            launch {
+                combine(
+                    prefs.loudnessEnhancer,
+                    prefs.loudnessGainMb
+                ) { enabled, gain ->
+                    Pair(enabled, gain)
+                }.collect { (enabled, gain) ->
+                    applyLoudnessEnhancer(enabled, gain)
+                }
             }
         }
     }
 
-    private fun applyParams(params: AudioEffectParams) {
-        // Equalizer
+    private fun applyEqualizer(enabled: Boolean, preset: String, bands: List<Int>) {
         equalizer?.let { eq ->
             runCatching {
-                eq.enabled = params.eqEnabled
-                if (params.eqEnabled) {
-                    val targetBands = if (params.preset != "Custom" && PRESETS.containsKey(params.preset)) {
-                        PRESETS[params.preset] ?: params.bands
+                eq.enabled = enabled
+                if (enabled) {
+                    val targetBands = if (preset != "Custom" && PRESETS.containsKey(preset)) {
+                        PRESETS[preset] ?: bands
                     } else {
-                        params.bands
+                        bands
                     }
 
                     val numBands = eq.numberOfBands.toInt()
-                    val range = eq.bandLevelRange // shortArray [min, max]
+                    val range = eq.bandLevelRange
                     val minLevel = range?.getOrNull(0) ?: -1500
                     val maxLevel = range?.getOrNull(1) ?: 1500
 
@@ -133,33 +154,36 @@ object AudioEffectsManager {
                 }
             }.onFailure { Log.w(TAG, "Error applying Equalizer: ${it.message}") }
         }
+    }
 
-        // Bass Boost
+    private fun applyBassBoost(enabled: Boolean, strength: Int) {
         bassBoost?.let { bb ->
             runCatching {
-                bb.enabled = params.bbEnabled
-                if (params.bbEnabled && bb.strengthSupported) {
-                    bb.setStrength(params.bbStrength.coerceIn(0, 1000).toShort())
+                bb.enabled = enabled
+                if (enabled && bb.strengthSupported) {
+                    bb.setStrength(strength.coerceIn(0, 1000).toShort())
                 }
             }.onFailure { Log.w(TAG, "Error applying BassBoost: ${it.message}") }
         }
+    }
 
-        // Virtualizer
+    private fun applyVirtualizer(enabled: Boolean, strength: Int) {
         virtualizer?.let { virt ->
             runCatching {
-                virt.enabled = params.virtEnabled
-                if (params.virtEnabled && virt.strengthSupported) {
-                    virt.setStrength(params.virtStrength.coerceIn(0, 1000).toShort())
+                virt.enabled = enabled
+                if (enabled && virt.strengthSupported) {
+                    virt.setStrength(strength.coerceIn(0, 1000).toShort())
                 }
             }.onFailure { Log.w(TAG, "Error applying Virtualizer: ${it.message}") }
         }
+    }
 
-        // Loudness Enhancer
+    private fun applyLoudnessEnhancer(enabled: Boolean, gainMb: Int) {
         loudnessEnhancer?.let { le ->
             runCatching {
-                le.enabled = params.leEnabled
-                if (params.leEnabled) {
-                    le.setTargetGain(params.leGain.coerceIn(0, 2000))
+                le.enabled = enabled
+                if (enabled) {
+                    le.setTargetGain(gainMb.coerceIn(0, 2000))
                 }
             }.onFailure { Log.w(TAG, "Error applying LoudnessEnhancer: ${it.message}") }
         }
@@ -183,16 +207,4 @@ object AudioEffectsManager {
 
         currentSessionId = 0
     }
-
-    private data class AudioEffectParams(
-        val eqEnabled: Boolean,
-        val preset: String,
-        val bands: List<Int>,
-        val bbEnabled: Boolean,
-        val bbStrength: Int,
-        val virtEnabled: Boolean,
-        val virtStrength: Int,
-        val leEnabled: Boolean,
-        val leGain: Int
-    )
 }

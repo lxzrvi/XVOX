@@ -135,7 +135,7 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
                     widgetScope.launch {
                         val libPrefs = XvoxLibraryPreferences(context)
                         val isLiked = libPrefs.likedSongIds.first().contains(current.id)
-                        libPrefs.setLiked(!isLiked, current.id)
+                        libPrefs.setLiked(current.id, !isLiked)
                         notifyWidgetUpdate(context)
                     }
                 }
