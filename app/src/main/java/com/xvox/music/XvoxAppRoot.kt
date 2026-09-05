@@ -1,5 +1,10 @@
 package com.xvox.music
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -14,6 +19,7 @@ import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
+import com.xvox.music.core.ui.XvoxStartupLoadingScreen
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
@@ -53,10 +59,25 @@ fun XvoxAppRoot(
             LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                when (state) {
-                    AppUiState.Loading -> Unit
-                    AppUiState.Setup -> { SetupScreen(onSetupComplete = {}) }
-                    AppUiState.Home -> { XvoxMainShell() }
+                AnimatedContent(
+                    targetState = state,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(320)) togetherWith fadeOut(animationSpec = tween(220))
+                    },
+                    label = "app_root_state_transition",
+                    modifier = Modifier.fillMaxSize()
+                ) { targetState ->
+                    when (targetState) {
+                        AppUiState.Loading -> {
+                            XvoxStartupLoadingScreen()
+                        }
+                        AppUiState.Setup -> {
+                            SetupScreen(onSetupComplete = {})
+                        }
+                        AppUiState.Home -> {
+                            XvoxMainShell()
+                        }
+                    }
                 }
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }

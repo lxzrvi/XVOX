@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,12 +46,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.HomeFooter
+import com.xvox.music.features.home.HomeGreeting
+import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongOptionsSheet
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.library.PlaylistCard
@@ -121,15 +128,68 @@ fun SearchScreen(
         scope.launch { prefs.addRecentSearch(q) }
     }
 
+    fun showProfileEditor() {
+        overlays.showB {
+            ProfileEditorBox(
+                profile = homeState.profile,
+                onCancel = { overlays.hideB() },
+                onSave = { name, pfp, uri ->
+                    homeViewModel.saveProfile(name, pfp, uri)
+                    overlays.hideB()
+                    overlays.showP("Profile updated")
+                }
+            )
+        }
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background)
             .imePadding()
     ) {
+        // Top Header matching Home (Profile avatar + greeting, NO right pill filters)
+        item(key = "search_header") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.background.copy(alpha = 0.85f))
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(bottom = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 14.dp)
+                        .height(54.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HomeProfileAvatar(
+                        profile = homeState.profile,
+                        modifier = Modifier.size(42.dp),
+                        onClick = {
+                            haptics.tap()
+                            showProfileEditor()
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = homeState.profile.username,
+                            color = colors.primaryText,
+                            fontFamily = XvoxPersonalFont,
+                            fontSize = 18.sp,
+                            lineHeight = 19.sp,
+                            maxLines = 1
+                        )
+                        HomeGreeting()
+                    }
+                }
+            }
+        }
+
         // Search Bar
         item(key = "search_bar") {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,7 +248,7 @@ fun SearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -245,7 +305,7 @@ fun SearchScreen(
                         color = colors.primaryText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
                 }
 
@@ -291,7 +351,7 @@ fun SearchScreen(
                         color = colors.primaryText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
                 }
                 items(filteredSongs, key = { it.id }) { song ->

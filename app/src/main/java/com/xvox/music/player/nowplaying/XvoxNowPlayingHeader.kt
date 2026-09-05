@@ -34,8 +34,6 @@ fun XvoxNowPlayingHeader(
     onShare: () -> Unit,
     onMore: () -> Unit,
     modifier: Modifier = Modifier,
-    onLyrics: (() -> Unit)? = null,
-    showLyricsButton: Boolean = false,
     playingSource: String = "All Songs"
 ) {
     val colors = XvoxTheme.colors
@@ -43,62 +41,40 @@ fun XvoxNowPlayingHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(
-                WindowInsets.statusBars
-            )
-            .padding(
-                start = 14.dp,
-                top = 10.dp,
-                end = 14.dp
-            )
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(start = 14.dp, top = 10.dp, end = 14.dp)
             .height(48.dp)
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .size(42.dp)
-                .background(
-                    colors.card.copy(
-                        alpha = 0.34f
-                    ),
-                    CircleShape
-                )
+                .background(colors.card.copy(alpha = 0.34f), CircleShape)
                 .clickable(
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onClose
                 ),
-            contentAlignment =
-                Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter =
-                    painterResource(
-                        R.drawable.ic_xvox_collapse
-                    ),
-                contentDescription =
-                    "Close player",
+                painter = painterResource(R.drawable.ic_xvox_collapse),
+                contentDescription = "Close player",
                 tint = colors.primaryText,
                 modifier = Modifier.size(21.dp)
             )
         }
 
         Column(
-            modifier =
-                Modifier.align(Alignment.Center),
-            horizontalAlignment =
-                Alignment.CenterHorizontally
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "PLAYING FROM",
                 color = colors.primaryText,
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
-                fontWeight =
-                    FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold
             )
 
             Text(
@@ -111,34 +87,17 @@ fun XvoxNowPlayingHeader(
             )
         }
 
+        // Top right pill with Share & More (Lyrics icon removed as requested)
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .height(42.dp)
-                .background(
-                    colors.card.copy(
-                        alpha = 0.34f
-                    ),
-                    RoundedCornerShape(22.dp)
-                )
-                .padding(horizontal = 3.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+                .background(colors.card.copy(alpha = 0.34f), RoundedCornerShape(22.dp))
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (showLyricsButton && onLyrics != null) {
-                HeaderAction(
-                    R.drawable.ic_xvox_lyrics,
-                    onLyrics
-                )
-            }
-            HeaderAction(
-                R.drawable.ic_xvox_share,
-                onShare
-            )
-            HeaderAction(
-                R.drawable.ic_xvox_more,
-                onMore
-            )
+            HeaderAction(R.drawable.ic_xvox_share, onShare)
+            HeaderAction(R.drawable.ic_xvox_more, onMore)
         }
     }
 }
@@ -154,19 +113,14 @@ private fun HeaderAction(
         modifier = Modifier
             .size(36.dp)
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(18.dp)

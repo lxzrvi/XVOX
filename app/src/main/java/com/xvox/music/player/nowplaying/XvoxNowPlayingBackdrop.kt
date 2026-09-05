@@ -15,79 +15,56 @@ fun XvoxNowPlayingBackdrop(
     dominant: Color,
     modifier: Modifier = Modifier
 ) {
-    val dark =
-        lerp(
-            dominant,
-            Color.Black,
-            if (dominant.luminance() > 0.45f) 0.30f else 0.18f
-        )
+    val dark = lerp(dominant, Color.Black, 0.45f)
+    val deep = lerp(dominant, Color.Black, 0.72f)
+    val glow = lerp(dominant, Color.White, 0.22f)
+    val midGlow = lerp(dominant, Color.White, 0.08f)
 
-    val deep =
-        lerp(
-            dominant,
-            Color.Black,
-            0.48f
-        )
-
-    val glow =
-        lerp(
-            dominant,
-            Color.White,
-            0.13f
-        )
-
-    Canvas(
-        modifier = modifier.fillMaxSize()
-    ) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        // Base dark vertical gradient
         drawRect(
             brush = Brush.verticalGradient(
-                0f to glow,
-                0.38f to dominant,
-                1f to deep
+                0f to dark.copy(alpha = 0.95f),
+                0.40f to deep,
+                1f to Color(0xFF08080A)
             )
         )
 
+        // Top-left lush ambient glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    glow.copy(alpha = 0.88f),
+                    glow.copy(alpha = 0.85f),
                     dominant.copy(alpha = 0.45f),
                     Color.Transparent
                 ),
-                center = Offset(
-                    size.width * 0.18f,
-                    size.height * 0.17f
-                ),
-                radius = size.maxDimension * 0.82f
+                center = Offset(size.width * 0.22f, size.height * 0.20f),
+                radius = size.maxDimension * 0.75f
             )
         )
 
+        // Center-right vibrant radiant glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    dominant.copy(alpha = 0.82f),
-                    dark.copy(alpha = 0.34f),
+                    midGlow.copy(alpha = 0.75f),
+                    dominant.copy(alpha = 0.35f),
                     Color.Transparent
                 ),
-                center = Offset(
-                    size.width * 0.86f,
-                    size.height * 0.58f
-                ),
-                radius = size.maxDimension * 0.92f
+                center = Offset(size.width * 0.80f, size.height * 0.45f),
+                radius = size.maxDimension * 0.80f
             )
         )
 
+        // Bottom subtle soft glow
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    dominant.copy(alpha = 0.58f),
+                    dominant.copy(alpha = 0.30f),
                     Color.Transparent
                 ),
-                center = Offset(
-                    size.width * 0.42f,
-                    size.height * 0.92f
-                ),
-                radius = size.maxDimension * 0.72f
+                center = Offset(size.width * 0.50f, size.height * 0.85f),
+                radius = size.maxDimension * 0.65f
             )
         )
     }

@@ -1,27 +1,46 @@
 package com.xvox.music
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -29,130 +48,76 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.zIndex
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.ime
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
+import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
-import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.features.home.CreatePlaylistBox
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.PlaylistPickerBox
-import com.xvox.music.features.home.CreatePlaylistBox
+import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.features.player.styles.PlayerStyleSheetContent
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
+import com.xvox.music.player.mini.XvoxMiniPlayer
+import com.xvox.music.player.mini.XvoxMiniPlayerPlacement
+import com.xvox.music.player.nowplaying.TimerSheetContent
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
-import com.xvox.music.player.playback.RepeatMode
-import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private val MainEase = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+
 @Composable
 fun XvoxMainShell(
-    playerViewModel: MainPlayerViewModel =
-        viewModel(),
     homeViewModel: HomeViewModel = viewModel(),
+    playerViewModel: MainPlayerViewModel = viewModel(),
 ) {
-    val colors =
-        XvoxTheme.colors
-
-    val player by
-        playerViewModel
-            .state
-            .collectAsState()
-
-    val homeState by homeViewModel.state.collectAsState()
+    val colors = XvoxTheme.colors
+    val haptics = rememberXvoxHaptics()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
-    val prefs = remember { UserPreferencesRepository(context) }
-    val hapticEnabled by prefs.hapticFeedback.collectAsState(initial = true)
-    val hapticStrength by prefs.hapticStrength.collectAsState(initial = "Medium")
-    val haptics = rememberXvoxHaptics(enabled = hapticEnabled, strength = hapticStrength)
 
-    // Full app close from background when timer with closeApp ends
-    androidx.compose.runtime.LaunchedEffect(player.sleepTimerShouldCloseApp) {
-        if (player.sleepTimerShouldCloseApp) {
-            playerViewModel.consumeCloseApp()
-            // Close full app from background
-            (context as? android.app.Activity)?.finishAffinity()
-            kotlin.system.exitProcess(0)
-        }
-    }
+    var destination by remember { mutableStateOf(XvoxDestination.HOME) }
+    var homeResetKey by remember { mutableIntStateOf(0) }
+    var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
 
-    var destination by
-        remember {
-            mutableStateOf(
-                XvoxDestination.HOME,
-            )
-        }
-
-    // 9 – Back navigation: Search/Settings → Home, Home → system exit
-    BackHandler(enabled = destination != XvoxDestination.HOME) {
-        destination = XvoxDestination.HOME
-    }
-
-    var homeResetKey by
-        remember {
-            mutableLongStateOf(0L)
-        }
-
-    // Hoisted playlist selection to survive tab switches - preserves liked/playlist section
-    // First home tap after tab change returns to same section, second tap resets to All Songs via homeResetKey
-    var hoistedSelectedPlaylistId by remember {
-        mutableStateOf<String?>(null)
-    }
+    val homeState by homeViewModel.state.collectAsState()
+    val player by playerViewModel.state.collectAsState()
 
     val currentSong =
-        player.queue
-            .getOrNull(
-                player.currentIndex,
-            )
-            ?: player.currentSongId
-                ?.let { id ->
-
-                    player.queue
-                        .firstOrNull {
-                            it.id == id
-                        }
-                }
+        player.currentSongId?.let { id ->
+            player.queue.firstOrNull { it.id == id }
+                ?: homeState.songs.firstOrNull { it.id == id }
+        }
 
     // Helper to show playlist picker for miniplayer add button and now playing star
-    fun showPlaylistPickerForSong(song: com.xvox.music.core.model.Song) {
+    fun showPlaylistPickerForSong(song: Song) {
         overlays.showB {
             PlaylistPickerBox(
                 song = song,
@@ -190,7 +155,7 @@ fun XvoxMainShell(
                     }
                 },
                 songs = homeState.songs,
-                songsFor = homeViewModel::playlistSongs,
+                songsFor = { pl -> homeViewModel.playlistSongs(pl) }
             )
         }
     }
@@ -202,27 +167,41 @@ fun XvoxMainShell(
 
     fun showQueueSheet() {
         overlays.showB {
-            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
-            // Free drag: original stays lifted finger-attached, gap smooth, move only on release
             var draggingOriginal by remember { mutableStateOf<Int?>(null) }
             var draggingIndex by remember { mutableStateOf<Int?>(null) }
-            var dragOffset by remember { mutableStateOf(0f) }
+            var dragOffset by remember { mutableFloatStateOf(0f) }
             var targetIndex by remember { mutableStateOf<Int?>(null) }
-            val density = androidx.compose.ui.platform.LocalDensity.current
-            val itemHeightPx = with(density) { 60.dp.toPx() }
-            // Header approx 52dp functional (36 header + 16 source), no extra outer padding - use available area
-            val headerTopPadding = 52.dp
-            Box(modifier = Modifier.fillMaxWidth()) {
+            val density = LocalDensity.current
+            val itemHeightPx = with(density) { 62.dp.toPx() }
+
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Playing Queue (${player.queue.size})",
+                        color = colors.primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.heightIn(max = 520.dp).animateContentSize(animationSpec = tween(220)),
-                    contentPadding = PaddingValues(top = headerTopPadding, bottom = 12.dp)
+                    modifier = Modifier.heightIn(max = 480.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
-                    itemsIndexed(player.queue, key = { _, s -> s.id }) { idx, s ->
+                    itemsIndexed(player.queue, key = { _, s -> "q_${s.id}" }) { idx, s ->
                         val isCurrent = idx == player.currentIndex
                         val isDragging = draggingIndex == idx
-                        // Compute gap shift for smooth animated space
+
                         val gapShift = when {
                             draggingOriginal == null || targetIndex == null -> 0f
                             isDragging -> 0f
@@ -230,50 +209,68 @@ fun XvoxMainShell(
                             draggingOriginal!! > targetIndex!! && idx in targetIndex!! until draggingOriginal!! -> itemHeightPx
                             else -> 0f
                         }
-                        val animGap by androidx.compose.animation.core.animateFloatAsState(targetValue = gapShift, animationSpec = tween(220), label = "gap")
+                        val animGap by animateFloatAsState(targetValue = gapShift, animationSpec = tween(180), label = "gap")
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isCurrent) colors.card.copy(alpha = 0.97f) else colors.background)
+                                .padding(vertical = 3.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isCurrent) colors.card.copy(alpha = 0.95f) else colors.cardElevated.copy(alpha = 0.40f))
                                 .graphicsLayer {
                                     translationY = if (isDragging) dragOffset else animGap
-                                    shadowElevation = if (isDragging) 16f else 0f
+                                    shadowElevation = if (isDragging) 18f else 0f
                                 }
-                                .zIndex(if (isDragging) 2f else 0f)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
+                                .zIndex(if (isDragging) 4f else 0f)
+                                .clickable {
                                     if (draggingIndex == null) {
                                         playerViewModel.playQueueIndex(idx)
                                         overlays.hideB()
                                     }
                                 }
-                                .padding(8.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             XvoxSongArtwork(
                                 artwork = s.artworkUri,
                                 requestSize = 96,
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp))
+                                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
                             )
-                            Column(modifier = Modifier.weight(1f).padding(start = 10.dp, end = 4.dp)) {
-                                Text(s.title, color = if (isCurrent) colors.primaryAccent else colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(s.artist, color = colors.secondaryText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Column(modifier = Modifier.weight(1f).padding(start = 10.dp, end = 6.dp)) {
+                                Text(
+                                    text = s.title,
+                                    color = if (isCurrent) colors.primaryAccent else colors.primaryText,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = s.artist,
+                                    color = colors.secondaryText,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                             if (isCurrent && player.isPlaying) {
-                                Icon(painter = painterResource(R.drawable.ic_xvox_equalizer), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(16.dp))
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_equalizer),
+                                    contentDescription = null,
+                                    tint = colors.primaryAccent,
+                                    modifier = Modifier.size(16.dp).padding(end = 6.dp)
+                                )
                             }
-                            // 6 dot long-hold handle – finger follows vertically, full card gap, auto-scroll
+
+                            // Tactile Drag Handle
                             Box(
                                 modifier = Modifier
-                                    .size(28.dp)
+                                    .size(34.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .pointerInput(idx, player.queue.size) {
                                         detectDragGesturesAfterLongPress(
-                                            onDragStart = { _: androidx.compose.ui.geometry.Offset ->
+                                            onDragStart = {
+                                                haptics.heavy()
                                                 draggingOriginal = idx
                                                 draggingIndex = idx
                                                 targetIndex = idx
@@ -287,9 +284,8 @@ fun XvoxMainShell(
                                                 targetIndex = null
                                                 dragOffset = 0f
                                                 if (from != null && to != null && from != to) {
-                                                    // smooth settle: delay a frame then move
                                                     scope.launch {
-                                                        delay(80)
+                                                        delay(50)
                                                         playerViewModel.moveQueueItem(from, to)
                                                     }
                                                 }
@@ -307,61 +303,20 @@ fun XvoxMainShell(
                                                 val offsetIndex = kotlin.math.round(dragOffset / itemHeightPx).toInt()
                                                 val target = (orig + offsetIndex).coerceIn(0, player.queue.lastIndex)
                                                 targetIndex = target
-                                                // Auto-scroll at edges: check viewport
-                                                val layout = listState.layoutInfo
-                                                val visible = layout.visibleItemsInfo
-                                                if (visible.isNotEmpty()) {
-                                                    val first = visible.first().index
-                                                    val last = visible.last().index
-                                                    // near top edge
-                                                    if (target <= first + 1 && dragOffset < -10f) {
-                                                        scope.launch { listState.animateScrollBy(-itemHeightPx) }
-                                                    } else if (target >= last - 1 && dragOffset > 10f) {
-                                                        scope.launch { listState.animateScrollBy(itemHeightPx) }
-                                                    }
-                                                }
                                             }
                                         )
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // 6 dots (2 columns x 3 rows)
-                                Column(
-                                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    repeat(3) {
-                                        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
-                                            repeat(2) {
-                                                Box(modifier = Modifier.size(3.dp).background(colors.mutedText.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape))
-                                            }
-                                        }
-                                    }
-                                }
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_queue),
+                                    contentDescription = "Reorder",
+                                    tint = colors.secondaryText,
+                                    modifier = Modifier.size(17.dp)
+                                )
                             }
                         }
                     }
-                }
-                // Header overlay translucent behind scroll, readable, subtle visibility of scrolled items beneath
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .background(colors.cardElevated.copy(alpha = 0.82f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp).padding(end = 36.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Queue", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    }
-                    Text(
-                        text = player.playingSource,
-                        color = colors.secondaryText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 0.2.sp,
-                        maxLines = 1,
-                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp, end = 16.dp)
-                    )
                 }
             }
         }
@@ -415,12 +370,9 @@ fun XvoxMainShell(
 
     CompositionLocalProvider(LocalXvoxHaptics provides haptics) {
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        colors.background,
-                    ),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
         ) {
             AnimatedContent(
                 targetState = destination,
@@ -434,20 +386,14 @@ fun XvoxMainShell(
                 when (targetDest) {
                     XvoxDestination.HOME -> {
                         HomeScreen(
-                            currentSongId =
-                                player.currentSongId,
-                            isPlaying =
-                                player.isPlaying,
-                            homeResetKey =
-                            homeResetKey,
+                            currentSongId = player.currentSongId,
+                            isPlaying = player.isPlaying,
+                            homeResetKey = homeResetKey,
                             selectedPlaylistId = hoistedSelectedPlaylistId,
                             onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                            onQueueReady =
-                                playerViewModel::setQueue,
-                            onPlay =
-                                playerViewModel::play,
-                            playerViewModel =
-                            playerViewModel,
+                            onQueueReady = playerViewModel::setQueue,
+                            onPlay = playerViewModel::play,
+                            playerViewModel = playerViewModel,
                         )
                     }
 
@@ -468,42 +414,33 @@ fun XvoxMainShell(
                 }
             }
 
-            val currentSongId =
-                player.currentSongId
-
-            // 2 + 14 – MiniPlayer keyboard aware + Settings slide out
-            val miniVisibleBase =
-                player.miniPlayerVisible &&
+            val currentSongId = player.currentSongId
+            val miniVisibleBase = player.miniPlayerVisible &&
                 !player.nowPlayingVisible &&
                 currentSongId != null &&
                 player.queue.isNotEmpty()
             val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
 
+            // Keyboard-smooth miniplayer placement: stays perfectly at resting spot on keyboard close
+            val targetBottom = if (isKeyboardOpen) 8.dp else XvoxMiniPlayerPlacement.miniPlayerBottom
+            val animatedBottom by animateDpAsState(targetValue = targetBottom, animationSpec = tween(180), label = "mini_bottom")
+
             AnimatedVisibility(
                 visible = miniVisible,
-                enter = slideInVertically(tween(260)) { it } + fadeIn(tween(260)),
-                exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(260)),
+                enter = slideInVertically(tween(260, easing = MainEase)) { it } + fadeIn(tween(240)),
+                exit = slideOutVertically(tween(240, easing = MainEase)) { it } + fadeOut(tween(200)),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 val visSongId = if (miniVisibleBase) currentSongId else null
                 if (visSongId != null) {
-                    val miniModifier = if (isKeyboardOpen) {
-                        Modifier
-                            .imePadding()
-                            .padding(
-                                start = XvoxMiniPlayerPlacement.horizontalEdge,
-                                end = XvoxMiniPlayerPlacement.horizontalEdge,
-                                bottom = 8.dp,
-                            )
-                    } else {
-                        Modifier
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(
-                                start = XvoxMiniPlayerPlacement.horizontalEdge,
-                                end = XvoxMiniPlayerPlacement.horizontalEdge,
-                                bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
-                            )
-                    }
+                    val miniModifier = Modifier
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(
+                            start = XvoxMiniPlayerPlacement.horizontalEdge,
+                            end = XvoxMiniPlayerPlacement.horizontalEdge,
+                            bottom = animatedBottom,
+                        )
 
                     XvoxMiniPlayer(
                         queue = player.queue,
@@ -550,341 +487,75 @@ fun XvoxMainShell(
 
             if (!isKeyboardOpen) {
                 XvoxBottomBar(
-                    selected =
-                    destination,
+                    selected = destination,
                     onSelected = { selected ->
                         haptics.tap()
-                        if (
-                            selected ==
-                            XvoxDestination.HOME &&
-                            destination ==
-                            XvoxDestination.HOME
-                        ) {
+                        if (selected == XvoxDestination.HOME && destination == XvoxDestination.HOME) {
                             homeResetKey++
                             hoistedSelectedPlaylistId = null
                         } else {
-                            destination =
-                                selected
+                            destination = selected
                         }
                     },
-                    modifier =
-                        Modifier
-                            .align(
-                                Alignment
-                                    .BottomCenter,
-                            ).windowInsetsPadding(
-                                WindowInsets
-                                    .navigationBars,
-                            ).padding(
-                                bottom =
-                                    XvoxMiniPlayerPlacement
-                                        .navigationHostBottom,
-                            ),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(bottom = XvoxMiniPlayerPlacement.navigationHostBottom),
                 )
             }
 
-        if (
-            player.nowPlayingVisible &&
-            currentSong != null
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .pointerInput(
-                            Unit,
-                        ) {
-                            detectTapGestures(
-                                onTap = {},
-                            )
+            // NowPlaying Presentation with silky smooth slide transition
+            AnimatedVisibility(
+                visible = player.nowPlayingVisible && currentSong != null,
+                enter = slideInVertically(tween(300, easing = MainEase)) { it } + fadeIn(tween(220)),
+                exit = slideOutVertically(tween(260, easing = MainEase)) { it } + fadeOut(tween(200)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (currentSong != null) {
+                    XvoxNowPlaying(
+                        song = currentSong,
+                        queue = player.queue,
+                        currentIndex = player.currentIndex,
+                        isPlaying = player.isPlaying,
+                        position = player.position,
+                        duration = player.duration,
+                        onClose = playerViewModel::closeNowPlaying,
+                        onTogglePlay = playerViewModel::togglePlay,
+                        onPrevious = playerViewModel::playPrevious,
+                        onNext = playerViewModel::playNext,
+                        onPlayQueueIndex = playerViewModel::playQueueIndex,
+                        onSeek = playerViewModel::seekTo,
+                        isLiked = currentSong.id in homeState.likedSongIds,
+                        onToggleLiked = {
+                            val wasLiked = currentSong.id in homeState.likedSongIds
+                            homeViewModel.toggleLiked(currentSong)
+                            overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                         },
-            )
-
-            XvoxNowPlaying(
-                song =
-                currentSong,
-                queue =
-                    player.queue,
-                currentIndex =
-                    player.currentIndex,
-                isPlaying =
-                    player.isPlaying,
-                position =
-                    player.position,
-                duration =
-                    player.duration,
-                onClose =
-                    playerViewModel::closeNowPlaying,
-                onTogglePlay =
-                    playerViewModel::togglePlay,
-                onPrevious =
-                    playerViewModel::playPrevious,
-                onNext =
-                    playerViewModel::playNext,
-                onPlayQueueIndex =
-                    playerViewModel::playQueueIndex,
-                onSeek =
-                    playerViewModel::seekTo,
-                isLiked = currentSong.id in homeState.likedSongIds,
-                onToggleLiked = {
-                    val wasLiked = currentSong.id in homeState.likedSongIds
-                    homeViewModel.toggleLiked(currentSong)
-                    overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
-                },
-                onTimer = { showTimerSheet() },
-                onQueue = { showQueueSheet() },
-                onInfo = {
-                    homeViewModel.loadInfo(currentSong) { info ->
-                        overlays.showB {
-                            com.xvox.music.features.home.SongInfoBox(info)
-                        }
-                    }
-                },
-                onShare = {
-                    com.xvox.music.features.home.XvoxSongActions.share(context, currentSong)
-                },
-                onMore = { showPlayerStyleSheet() },
-                onStarPlaylist = {
-                    showPlaylistPickerForSong(currentSong)
-                },
-                isShuffleEnabled = player.isShuffleEnabled,
-                repeatMode = player.repeatMode,
-                onToggleShuffle = {
-                    playerViewModel.toggleShuffle()
-                    overlays.showP(if (!player.isShuffleEnabled) "Shuffle on" else "Shuffle off")
-                },
-                onToggleRepeat = {
-                    playerViewModel.toggleRepeat()
-                    val mode = player.repeatMode
-                    // after toggle, show next mode
-                    val msg = when (mode) {
-                        RepeatMode.OFF -> "Repeat: All"
-                        RepeatMode.ALL -> "Repeat: One"
-                        RepeatMode.ONE -> "Repeat: Off"
-                    }
-                    overlays.showP(msg)
-                },
-                playerStyle = player.playerStyle,
-                sleepTimerProgress = player.sleepTimerProgress,
-                playingSource = player.playingSource,
-                modifier =
-                    Modifier
-                        .fillMaxSize(),
-            )
-        }
-    }
-}
-}
-
-@Composable
-private fun TimerSheetContent(
-    currentMinutes: Int?,
-    onSetMinutes: (Int) -> Unit,
-    onCustom: (Int, Int, Boolean, Boolean) -> Unit,
-    onCancel: () -> Unit
-) {
-    val colors = XvoxTheme.colors
-    var showCustom by androidx.compose.runtime.remember { mutableStateOf(false) }
-    var minText by androidx.compose.runtime.remember { mutableStateOf("") }
-    var secText by androidx.compose.runtime.remember { mutableStateOf("") }
-    var pauseMusic by androidx.compose.runtime.remember { mutableStateOf(true) }
-    var closeApp by androidx.compose.runtime.remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier.fillMaxWidth().imePadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Header row 36dp to align with XvoxB global X (top 14dp)
-        Row(modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Sleep Timer", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        }
-        androidx.compose.foundation.layout.Spacer(Modifier.size(4.dp))
-        Text(
-            if (currentMinutes != null) "Active: $currentMinutes min" else "Off",
-            color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.fillMaxWidth()
-        )
-        androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
-        val options = listOf(10, 20, 30, 60)
-        options.forEach { mins ->
-            val selected = currentMinutes == mins
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) colors.primaryAccent.copy(alpha = 0.15f) else colors.card.copy(alpha = 0.97f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onSetMinutes(mins) }
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("$mins minutes", color = if (selected) colors.primaryAccent else colors.primaryText, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                if (selected) Icon(painter = painterResource(R.drawable.ic_xvox_check), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(16.dp))
-            }
-        }
-        // Custom option - header surface near-opaque, lightly transparent
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (showCustom) colors.primaryAccent.copy(alpha = 0.10f) else colors.card.copy(alpha = 0.97f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { showCustom = !showCustom }
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Custom", color = colors.primaryText, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            Icon(
-                painter = painterResource(if (showCustom) R.drawable.ic_xvox_collapse else R.drawable.ic_xvox_add),
-                contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(16.dp)
-            )
-        }
-        if (showCustom) {
-            androidx.compose.foundation.layout.Spacer(Modifier.size(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
-            ) {
-                // Min box - small boxes
-                androidx.compose.material3.OutlinedTextField(
-                    value = minText,
-                    onValueChange = { v -> if (v.length <= 3 && v.all { it.isDigit() }) minText = v },
-                    label = { Text("Min", fontSize = 11.sp) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                androidx.compose.material3.OutlinedTextField(
-                    value = secText,
-                    onValueChange = { v -> if (v.length <= 2 && v.all { it.isDigit() }) secText = v },
-                    label = { Text("Sec", fontSize = 11.sp) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
-            // Exclusive selection: ya toh pause music ya close full app
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        pauseMusic = true
-                        closeApp = false
-                    }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                androidx.compose.material3.RadioButton(selected = pauseMusic, onClick = { pauseMusic = true; closeApp = false })
-                Text("Pause music", color = colors.primaryText, fontSize = 13.sp)
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        closeApp = true
-                        pauseMusic = false
-                    }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                androidx.compose.material3.RadioButton(selected = closeApp, onClick = { closeApp = true; pauseMusic = false })
-                Text("Close full app", color = colors.primaryText, fontSize = 13.sp)
-            }
-            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.primaryAccent)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        val m = minText.toIntOrNull() ?: 0
-                        val s = secText.toIntOrNull() ?: 0
-                        if (m == 0 && s == 0) return@clickable
-                        onCustom(m, s, pauseMusic, closeApp)
-                    }
-                    .padding(vertical = 14.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
-            ) {
-                Text("Start custom timer", color = colors.background, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        // Cancel Timer: only when active, red text, lightly transparent background like other options, no heavy solid
-        if (currentMinutes != null) {
-            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card.copy(alpha = 0.97f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onCancel() }
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Cancel Timer", color = androidx.compose.ui.graphics.Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            }
-        }
-        // End directly, no extra blank space behind button - XvoxB rounded border after this
-    }
-}
-
-@Composable
-private fun PlayerStyleSheetContent(
-    currentStyle: com.xvox.music.features.player.styles.XvoxPlayerStyle,
-    onSelect: (com.xvox.music.features.player.styles.XvoxPlayerStyle) -> Unit
-) {
-    val colors = XvoxTheme.colors
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Player Style", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        }
-        androidx.compose.foundation.layout.Spacer(Modifier.size(4.dp))
-        Text("Choose artwork style", color = colors.secondaryText, fontSize = 12.sp)
-        androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
-        val items = listOf(
-            Triple(com.xvox.music.features.player.styles.XvoxPlayerStyle.NORMAL, "Normal", "Square + backdrop palette"),
-            Triple(com.xvox.music.features.player.styles.XvoxPlayerStyle.FULL_ART, "Full Art", "Fullscreen cover")
-        )
-        items.forEach { (style, name, desc) ->
-            val selected = currentStyle == style
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) colors.primaryAccent.copy(alpha = 0.15f) else colors.card.copy(alpha = 0.97f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onSelect(style) }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(name, color = if (selected) colors.primaryAccent else colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(desc, color = colors.secondaryText, fontSize = 11.sp)
+                        onTimer = { showTimerSheet() },
+                        onQueue = { showQueueSheet() },
+                        onInfo = {
+                            homeViewModel.loadInfo(currentSong) { info ->
+                                overlays.showB {
+                                    com.xvox.music.features.home.SongInfoBox(info)
+                                }
+                            }
+                        },
+                        onShare = {
+                            com.xvox.music.features.home.XvoxSongActions.share(context, currentSong)
+                        },
+                        onMore = { showPlayerStyleSheet() },
+                        onStarPlaylist = {
+                            showPlaylistPickerForSong(currentSong)
+                        },
+                        isShuffleEnabled = player.isShuffleEnabled,
+                        repeatMode = player.repeatMode,
+                        onToggleShuffle = playerViewModel::toggleShuffle,
+                        onToggleRepeat = playerViewModel::cycleRepeatMode,
+                        playerStyle = player.playerStyle,
+                        sleepTimerProgress = player.sleepTimerProgress,
+                        playingSource = player.playingSource,
+                    )
                 }
-                if (selected) Icon(painter = painterResource(R.drawable.ic_xvox_check), contentDescription = null, tint = colors.primaryAccent, modifier = Modifier.size(16.dp))
-                else Icon(painter = painterResource(R.drawable.ic_xvox_check), contentDescription = null, tint = colors.mutedText.copy(alpha = 0.35f), modifier = Modifier.size(16.dp))
             }
         }
     }

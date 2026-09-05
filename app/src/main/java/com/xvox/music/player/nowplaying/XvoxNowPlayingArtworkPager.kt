@@ -49,7 +49,6 @@ fun XvoxNowPlayingArtworkPager(
         pageCount = { queue.size }
     )
 
-    // Sync external index changes smoothly without resetting or flashing
     LaunchedEffect(currentIndex, queue.size) {
         if (queue.isNotEmpty() && currentIndex in queue.indices) {
             if (!pagerState.isScrollInProgress && pagerState.currentPage != currentIndex) {
@@ -115,11 +114,12 @@ fun XvoxNowPlayingArtworkPager(
     ) {
         HorizontalPager(
             state = pagerState,
+            key = { page -> queue.getOrNull(page)?.id ?: page },
             modifier = Modifier
                 .requiredWidth(screenWidth)
                 .fillMaxSize(),
             pageSize = PageSize.Fill,
-            pageSpacing = 14.dp,
+            pageSpacing = 0.dp, // No gap between pages so next cover never peeks
             beyondViewportPageCount = 1,
             verticalAlignment = Alignment.CenterVertically
         ) { page ->
@@ -128,8 +128,8 @@ fun XvoxNowPlayingArtworkPager(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 14.dp)
-                        .clip(RoundedCornerShape(22.dp)),
+                        .padding(horizontal = 14.dp) // Matches All Songs card sides gap
+                        .clip(RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxSongArtwork(

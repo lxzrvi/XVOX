@@ -2,6 +2,7 @@ package com.xvox.music.core.ui.overlay
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -29,9 +30,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,14 +48,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.animation.animateContentSize
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val XvoxBEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
-private val XvoxBEasingOut = CubicBezierEasing(0.4f, 0f, 1f, 1f)
+val XvoxBEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
 
 @Composable
 fun XvoxB(
@@ -72,7 +71,7 @@ fun XvoxB(
         closing = true
         visible = false
         scope.launch {
-            delay(280L)
+            delay(260L)
             onDismiss()
         }
     }
@@ -83,7 +82,7 @@ fun XvoxB(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Transparent)
+            .background(Color.Transparent) // Clean transparent backdrop
             .pointerInput(Unit) { detectTapGestures(onPress = { tryAwaitRelease() }) }
             .imePadding()
             .navigationBarsPadding(),
@@ -98,24 +97,21 @@ fun XvoxB(
 
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(tween(220, easing = XvoxBEasing)) +
-                scaleIn(initialScale = 0.90f, animationSpec = tween(280, easing = XvoxBEasing)) +
-                slideInVertically(initialOffsetY = { it / 14 }, animationSpec = tween(280, easing = XvoxBEasing)) +
-                expandVertically(expandFrom = Alignment.Top, animationSpec = tween(280, easing = XvoxBEasing)),
-            exit = fadeOut(tween(280, easing = XvoxBEasing)) +
-                scaleOut(targetScale = 0.90f, animationSpec = tween(280, easing = XvoxBEasing)) +
-                slideOutVertically(targetOffsetY = { it / 14 }, animationSpec = tween(280, easing = XvoxBEasing)) +
-                shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(280, easing = XvoxBEasing)),
+            enter = fadeIn(tween(240, easing = XvoxBEasing)) +
+                scaleIn(initialScale = 0.92f, animationSpec = tween(280, easing = XvoxBEasing)) +
+                slideInVertically(initialOffsetY = { it / 16 }, animationSpec = tween(280, easing = XvoxBEasing)),
+            exit = fadeOut(tween(220, easing = XvoxBEasing)) +
+                scaleOut(targetScale = 0.92f, animationSpec = tween(240, easing = XvoxBEasing)) +
+                slideOutVertically(targetOffsetY = { it / 16 }, animationSpec = tween(240, easing = XvoxBEasing))
         ) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                // IME-aware max height: outer imePadding already shrinks maxHeight, ensure top/bottom fully visible - reduced padding to use available area
-                val maxH = (maxHeight - 24.dp).coerceAtLeast(120.dp)
-                val shape = RoundedCornerShape(24.dp)
+                val maxH = (maxHeight - 24.dp).coerceAtLeast(140.dp)
+                val cardShape = RoundedCornerShape(24.dp)
 
                 Box(
                     modifier = Modifier
@@ -123,41 +119,30 @@ fun XvoxB(
                         .wrapContentHeight()
                         .heightIn(max = maxH)
                         .animateContentSize(animationSpec = tween(240, easing = XvoxBEasing))
-                        .background(colors.cardElevated.copy(alpha = 0.96f), shape)
-                        .clip(shape)
+                        .clip(cardShape)
+                        .background(colors.cardElevated.copy(alpha = 0.98f))
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), cardShape)
                         .pointerInput(Unit) { detectTapGestures(onPress = { tryAwaitRelease() }) },
                 ) {
-                    // Scrollable content – outer remains edge-to-edge clip, inner content handles own LEFT/RIGHT margin only (13)
                     val scrollState = rememberScrollState()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(scrollState)
-                            .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .wrapContentHeight(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                content()
-                            }
-                        }
+                        content()
                     }
 
-                    // Global X – aligned with header row (top 8dp matches reduced content top padding + row center)
+                    // Top-right Close Button with clean inset padding
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 8.dp)
-                            .size(36.dp)
-                            .background(colors.card.copy(alpha = 0.98f), CircleShape)
+                            .padding(top = 12.dp, end = 12.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.card.copy(alpha = 0.94f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -169,7 +154,7 @@ fun XvoxB(
                             painter = painterResource(R.drawable.ic_xvox_close),
                             contentDescription = "Close",
                             tint = colors.primaryText,
-                            modifier = Modifier.size(17.dp),
+                            modifier = Modifier.size(15.dp),
                         )
                     }
                 }

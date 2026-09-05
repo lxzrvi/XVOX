@@ -102,7 +102,7 @@ object XvoxWidgetHelper {
 
         // 1. Load artwork
         val targetArtSize = when (layoutType) {
-            WidgetLayoutType.SQUARE -> 250
+            WidgetLayoutType.SQUARE -> 300
             WidgetLayoutType.HORIZONTAL -> 160
             WidgetLayoutType.COMPACT -> 140
             WidgetLayoutType.STANDARD -> 200
@@ -134,7 +134,7 @@ object XvoxWidgetHelper {
             accentColor = Color.parseColor("#000000")
         } else {
             primaryTextColor = Color.parseColor("#FFFFFF")
-            secondaryTextColor = Color.parseColor("#A3A3A3")
+            secondaryTextColor = Color.parseColor("#D0D0D0")
             accentColor = Color.parseColor("#FFFFFF")
         }
 
@@ -143,10 +143,11 @@ object XvoxWidgetHelper {
         views.setImageViewBitmap(R.id.widget_bg, bgBitmap)
         runCatching { views.setImageViewBitmap(R.id.widget_background, bgBitmap) }
 
-        // 4. Bind Cover Artwork
+        // 4. Bind Cover Artwork with proper corner radius
         if (artworkBitmap != null) {
-            val cornerRad = if (layoutType == WidgetLayoutType.SQUARE) 16f else 12f
-            val roundedArt = getRoundedBitmap(artworkBitmap, cornerRad)
+            val density = context.resources.displayMetrics.density
+            val cornerRadPx = if (layoutType == WidgetLayoutType.SQUARE) state.cornerRadiusDp * density else 12f * density
+            val roundedArt = getRoundedBitmap(artworkBitmap, cornerRadPx)
             views.setImageViewBitmap(R.id.widget_cover, roundedArt)
             views.setViewVisibility(R.id.widget_cover, View.VISIBLE)
             views.setViewVisibility(R.id.widget_fallback_logo, View.GONE)
@@ -157,13 +158,13 @@ object XvoxWidgetHelper {
             runCatching { views.setImageViewResource(R.id.widget_artwork, R.drawable.ic_xvox_music_note) }
         }
 
-        // 5. Cinzel XVOX Logo
+        // 5. Cinzel X Logo
         if (state.showLogo) {
             val logoBitmap = XvoxWidgetFontRenderer.createLogoBitmap(
                 context = context,
-                text = "XVOX",
+                text = "X",
                 textColor = primaryTextColor,
-                textSizePx = 28f
+                textSizePx = 30f
             )
             views.setImageViewBitmap(R.id.widget_logo_cinzel, logoBitmap)
             views.setViewVisibility(R.id.widget_logo_cinzel, View.VISIBLE)
@@ -284,7 +285,7 @@ object XvoxWidgetHelper {
         }.getOrNull()
     }
 
-    private fun getRoundedBitmap(bitmap: Bitmap, cornerRadiusDp: Float): Bitmap {
+    private fun getRoundedBitmap(bitmap: Bitmap, cornerRadiusPx: Float): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
         val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -295,7 +296,7 @@ object XvoxWidgetHelper {
         val rectF = RectF(rect)
 
         canvas.drawARGB(0, 0, 0, 0)
-        canvas.drawRoundRect(rectF, cornerRadiusDp, cornerRadiusDp, paint)
+        canvas.drawRoundRect(rectF, cornerRadiusPx, cornerRadiusPx, paint)
 
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(bitmap, rect, rect, paint)

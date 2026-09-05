@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -59,7 +60,7 @@ fun PlaylistPickerBox(
     val haptics = LocalXvoxHaptics.current
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
@@ -130,11 +131,12 @@ fun PlaylistPickerBox(
                 )
             }
         } else {
+            val safePlaylists = remember(playlists) { playlists.distinctBy { it.id } }
             LazyColumn(
                 modifier = Modifier.heightIn(max = 340.dp),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
-                items(items = playlists, key = { it.id }) { playlist ->
+                items(items = safePlaylists, key = { "pl_${it.id}" }) { playlist ->
                     val contains = song.id in playlist.songIds
                     Row(
                         modifier = Modifier
@@ -206,6 +208,8 @@ fun CreatePlaylistBox(
     val haptics = LocalXvoxHaptics.current
 
     var name by remember { mutableStateOf("") }
+    val safeSongs = remember(songs) { songs.distinctBy { it.id } }
+
     val selected = remember(initialSong?.id) {
         mutableStateListOf<Long>().apply {
             initialSong?.let { add(it.id) }
@@ -215,9 +219,9 @@ fun CreatePlaylistBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 360.dp, max = 500.dp)
+            .heightIn(min = 380.dp, max = 520.dp)
             .imePadding()
-            .padding(horizontal = 6.dp, vertical = 6.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         // Header
         Text(
@@ -225,7 +229,7 @@ fun CreatePlaylistBox(
             color = colors.primaryText,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
         )
 
         Spacer(Modifier.height(10.dp))
@@ -265,19 +269,19 @@ fun CreatePlaylistBox(
             color = colors.secondaryText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
         )
 
         Spacer(Modifier.height(6.dp))
 
-        // Songs list
+        // Songs list with distinct items and keys
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 6.dp)
         ) {
-            items(items = songs, key = { it.id }) { song ->
+            items(items = safeSongs, key = { "create_pl_${it.id}" }) { song ->
                 val checked = song.id in selected
                 Row(
                     modifier = Modifier
@@ -287,7 +291,7 @@ fun CreatePlaylistBox(
                             haptics.tap()
                             if (checked) selected.remove(song.id) else selected.add(song.id)
                         }
-                        .padding(horizontal = 6.dp, vertical = 5.dp),
+                        .padding(horizontal = 4.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     XvoxSongArtwork(
@@ -340,31 +344,33 @@ fun CreatePlaylistBox(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // Compact Create Button with bottom margin
+        // Compact Create Button with text-according width and bottom margin
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .width(180.dp)
-                .height(42.dp)
-                .clip(RoundedCornerShape(21.dp))
+                .wrapContentWidth()
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
                 .background(if (name.isNotBlank()) colors.primaryAccent else colors.cardElevated)
                 .clickable(enabled = name.isNotBlank()) {
-                    haptics.success()
-                    onCreate(name.trim(), selected.toSet())
+                    runCatching {
+                        haptics.success()
+                        onCreate(name.trim(), selected.toSet())
+                    }
                 }
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 28.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Create Playlist",
+                text = "Create",
                 color = if (name.isNotBlank()) colors.background else colors.mutedText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
     }
 }

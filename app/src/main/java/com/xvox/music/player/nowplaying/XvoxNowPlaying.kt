@@ -3,35 +3,41 @@ package com.xvox.music.player.nowplaying
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -70,12 +76,17 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
+import com.xvox.music.features.settings.XvoxThinLineSlider
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxFullscreenLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+
+private val NowPlayingEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
 
 @Composable
 fun XvoxNowPlaying(
@@ -117,15 +128,9 @@ fun XvoxNowPlaying(
 
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val prefs = remember { UserPreferencesRepository(context) }
-
     val screenHeight = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
 
-    // Preserve screen position across theme and configuration changes without sliding in again
     var screenY by rememberSaveable { mutableFloatStateOf(0f) }
-    var hasAnimatedIn by rememberSaveable { mutableStateOf(false) }
-
     var showLyrics by remember { mutableStateOf(false) }
     var showQuickSettingsSheet by remember { mutableStateOf(false) }
     var dismissing by remember { mutableStateOf(false) }
@@ -146,7 +151,7 @@ fun XvoxNowPlaying(
             val animation = Animatable(start)
             animation.animateTo(
                 target,
-                tween(durationMillis = durationMs, easing = XvoxNowPlayingMotion.easing)
+                tween(durationMillis = durationMs, easing = NowPlayingEasing)
             ) {
                 screenY = value
             }
@@ -162,17 +167,14 @@ fun XvoxNowPlaying(
         haptics.tap()
         animateScreen(
             target = screenHeight,
-            durationMs = XvoxNowPlayingMotion.exitDuration(screenY, screenHeight),
+            durationMs = 240,
             finished = onClose
         )
     }
 
     fun returnToRest() {
         val fraction = if (screenHeight > 0f) (screenY / screenHeight).coerceIn(0f, 1f) else 1f
-        animateScreen(
-            0f,
-            (XvoxNowPlayingMotion.FullDuration * fraction).toInt().coerceAtLeast(120)
-        )
+        animateScreen(0f, (240 * fraction).toInt().coerceAtLeast(120))
     }
 
     fun requestPrevious() {
@@ -203,15 +205,6 @@ fun XvoxNowPlaying(
 
     LaunchedEffect(song.id) {
         lyricsViewModel.load(song)
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasAnimatedIn) {
-            screenY = screenHeight
-            animateScreen(0f, XvoxNowPlayingMotion.FullDuration) {
-                hasAnimatedIn = true
-            }
-        }
     }
 
     BackHandler {
@@ -252,7 +245,7 @@ fun XvoxNowPlaying(
                 clip = dismissProgress > 0f
             }
     ) {
-        // Backdrop with dominant color
+        // Vibrant dominant glow gradient backdrop
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
             modifier = Modifier.fillMaxSize()
@@ -278,7 +271,7 @@ fun XvoxNowPlaying(
                     )
                 }
         ) {
-            // Header
+            // Header (Lyrics icon removed from top right pill)
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
                 onShare = {
@@ -289,11 +282,6 @@ fun XvoxNowPlaying(
                     haptics.tap()
                     showQuickSettingsSheet = true
                 },
-                onLyrics = {
-                    haptics.tap()
-                    showLyrics = !showLyrics
-                },
-                showLyricsButton = true,
                 playingSource = playingSource
             )
 
@@ -302,7 +290,7 @@ fun XvoxNowPlaying(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (showLyrics) {
@@ -312,10 +300,14 @@ fun XvoxNowPlaying(
                         onSeek = onSeek,
                         onAttach = lyricsViewModel::attach,
                         onDelete = lyricsViewModel::removeCustom,
-                        onClose = { showLyrics = false },
+                        onClose = {
+                            haptics.tap()
+                            showLyrics = false // ONLY closes lyrics, does NOT change songs or close player
+                        },
                         onFullscreen = lyricsViewModel::openFullscreen,
                         modifier = Modifier
                             .fillMaxSize()
+                            .padding(horizontal = 14.dp)
                             .clip(RoundedCornerShape(20.dp))
                     )
                 } else {
@@ -371,7 +363,7 @@ fun XvoxNowPlaying(
                     timerProgress = sleepTimerProgress,
                 )
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(18.dp))
 
                 Text(
                     text = song.title,
@@ -444,9 +436,9 @@ fun XvoxNowPlaying(
             }
         }
 
-        // Quick Settings Sheet from Three Dots
+        // Height-Adjustable Quick Settings, Equalizer & Playback Bottom Sheet with transparent backdrop
         if (showQuickSettingsSheet) {
-            NowPlayingQuickSettingsSheet(
+            NowPlayingOptionsSheet(
                 onDismiss = { showQuickSettingsSheet = false },
                 onTimer = onTimer,
                 onInfo = onInfo,
@@ -458,7 +450,7 @@ fun XvoxNowPlaying(
 }
 
 @Composable
-private fun NowPlayingQuickSettingsSheet(
+private fun NowPlayingOptionsSheet(
     onDismiss: () -> Unit,
     onTimer: (() -> Unit)? = null,
     onInfo: (() -> Unit)? = null,
@@ -473,124 +465,359 @@ private fun NowPlayingQuickSettingsSheet(
 
     val eqEnabled by prefs.equalizerEnabled.collectAsState(initial = false)
     val eqPreset by prefs.eqPreset.collectAsState(initial = "Flat")
+    val eqBands by prefs.eqBands.collectAsState(initial = listOf(0, 0, 0, 0, 0))
     val gapless by prefs.gaplessPlayback.collectAsState(initial = true)
     val crossfade by prefs.crossfade.collectAsState(initial = false)
+    val crossfadeDuration by prefs.crossfadeDuration.collectAsState(initial = 3)
+    val fadeIn by prefs.fadeIn.collectAsState(initial = false)
+    val fadeOut by prefs.fadeOut.collectAsState(initial = false)
+    val skipSilence by prefs.skipSilence.collectAsState(initial = false)
 
-    Box(
+    var visible by remember { mutableStateOf(false) }
+    var closing by remember { mutableStateOf(false) }
+    var sheetDragOffset by remember { mutableFloatStateOf(0f) }
+
+    fun close() {
+        if (closing) return
+        closing = true
+        visible = false
+        scope.launch {
+            delay(240L)
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) { visible = true }
+    BackHandler { close() }
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.6f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() },
-        contentAlignment = Alignment.BottomCenter
+            .background(Color.Transparent) // Matches XvoxB transparent backdrop
+            .pointerInput(Unit) { detectTapGestures { close() } }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(colors.card)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(20.dp)
+        val maxSheetHeight = (maxHeight * 0.85f).coerceAtLeast(280.dp)
+
+        AnimatedVisibility(
+            visible = visible,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(280, easing = NowPlayingEasing)
+            ) + fadeIn(tween(220, easing = NowPlayingEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(240, easing = NowPlayingEasing)
+            ) + fadeOut(tween(180, easing = NowPlayingEasing))
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxSheetHeight)
+                    .graphicsLayer {
+                        translationY = sheetDragOffset.coerceAtLeast(0f)
+                    }
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(colors.cardElevated.copy(alpha = 0.98f))
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .pointerInput(Unit) { detectTapGestures(onPress = { tryAwaitRelease() }) }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                sheetDragOffset = (sheetDragOffset + dragAmount).coerceAtLeast(0f)
+                            },
+                            onDragEnd = {
+                                if (sheetDragOffset > 90f) {
+                                    close()
+                                } else {
+                                    sheetDragOffset = 0f
+                                }
+                            },
+                            onDragCancel = { sheetDragOffset = 0f }
+                        )
+                    }
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = "Quick Audio Settings",
-                    color = colors.primaryText,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+                // Top Drag Handle Indicator
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(colors.cardElevated)
-                        .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 8.dp)
+                        .width(44.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(colors.cardBorder)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_close),
-                        contentDescription = "Close",
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(15.dp)
+                    Text(
+                        text = "Audio & Playback Controls",
+                        color = colors.primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Equalizer Quick Switch
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Equalizer Engine", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Preset: $eqPreset", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = eqEnabled,
-                    onCheckedChange = {
-                        haptics.toggle()
-                        scope.launch { prefs.setEqualizerEnabled(it) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primaryAccent
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Crossfade Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Crossfade Tracks", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Seamless beat sync blend", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = crossfade,
-                    onCheckedChange = {
-                        haptics.toggle()
-                        scope.launch { prefs.setCrossfade(it) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primaryAccent
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            // Quick Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (onTimer != null) {
-                    QuickOptionButton("Sleep Timer", R.drawable.ic_xvox_timer, Modifier.weight(1f)) {
-                        onDismiss()
-                        onTimer()
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.card.copy(alpha = 0.94f))
+                            .clickable { close() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_close),
+                            contentDescription = "Close",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(15.dp)
+                        )
                     }
                 }
-                if (onInfo != null) {
-                    QuickOptionButton("Song Info", R.drawable.ic_xvox_info, Modifier.weight(1f)) {
-                        onDismiss()
-                        onInfo()
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Quick Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (onTimer != null) {
+                            QuickOptionButton("Sleep Timer", R.drawable.ic_xvox_timer, Modifier.weight(1f)) {
+                                close()
+                                onTimer()
+                            }
+                        }
+                        if (onInfo != null) {
+                            QuickOptionButton("Song Info", R.drawable.ic_xvox_info, Modifier.weight(1f)) {
+                                close()
+                                onInfo()
+                            }
+                        }
+                        if (onStarPlaylist != null) {
+                            QuickOptionButton("Add Playlist", R.drawable.ic_xvox_playlist, Modifier.weight(1f)) {
+                                close()
+                                onStarPlaylist()
+                            }
+                        }
                     }
-                }
-                if (onStarPlaylist != null) {
-                    QuickOptionButton("Add Playlist", R.drawable.ic_xvox_playlist, Modifier.weight(1f)) {
-                        onDismiss()
-                        onStarPlaylist()
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Section 1: Equalizer
+                    Text(text = "Equalizer & DSP", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Master Equalizer", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text("Preset: $eqPreset", color = colors.secondaryText, fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = eqEnabled,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setEqualizerEnabled(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
+                    }
+
+                    if (eqEnabled) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val presets = listOf("Flat", "Bass Boost", "Treble", "Rock", "Pop", "Jazz", "Electronic", "Vocal", "Custom")
+                            presets.forEach { p ->
+                                val isSelected = eqPreset == p
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                        .clickable {
+                                            haptics.tap()
+                                            scope.launch {
+                                                prefs.setEqPreset(p)
+                                                if (p != "Custom" && AudioEffectsManager.PRESETS.containsKey(p)) {
+                                                    val bandVals = AudioEffectsManager.PRESETS[p] ?: listOf(0, 0, 0, 0, 0)
+                                                    prefs.setEqBands(bandVals)
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = p,
+                                        color = if (isSelected) colors.background else colors.primaryText,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        val bandLabels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
+                        bandLabels.forEachIndexed { index, label ->
+                            val currentVal = eqBands.getOrElse(index) { 0 }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = label, color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
+                                XvoxThinLineSlider(
+                                    value = currentVal.toFloat(),
+                                    onValueChange = { newVal ->
+                                        haptics.sliderTick()
+                                        val updated = eqBands.toMutableList()
+                                        while (updated.size <= index) updated.add(0)
+                                        updated[index] = newVal.roundToInt()
+                                        scope.launch {
+                                            prefs.setEqBands(updated)
+                                            prefs.setEqPreset("Custom")
+                                        }
+                                    },
+                                    valueRange = -15f..15f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "${if (currentVal > 0) "+" else ""}$currentVal dB",
+                                    color = colors.primaryText,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.width(44.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Section 2: Playback Options
+                    Text(text = "Playback Settings", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Gapless Playback", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = gapless,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setGaplessPlayback(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Crossfade Tracks", color = colors.primaryText, fontSize = 13.sp)
+                            if (crossfade) Text("${crossfadeDuration}s duration", color = colors.secondaryText, fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = crossfade,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setCrossfade(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
+                    }
+
+                    if (crossfade) {
+                        XvoxThinLineSlider(
+                            value = crossfadeDuration.toFloat(),
+                            onValueChange = {
+                                haptics.sliderTick()
+                                scope.launch { prefs.setCrossfadeDuration(it.roundToInt()) }
+                            },
+                            valueRange = 1f..12f,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Fade In on Start", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = fadeIn,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setFadeIn(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Fade Out on Pause", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = fadeOut,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setFadeOut(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Skip Silence", color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = skipSilence,
+                            onCheckedChange = {
+                                haptics.toggle()
+                                scope.launch { prefs.setSkipSilence(it) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.background,
+                                checkedTrackColor = colors.primaryAccent
+                            )
+                        )
                     }
                 }
             }
@@ -610,12 +837,12 @@ private fun QuickOptionButton(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(colors.cardElevated)
+            .background(colors.card)
             .clickable {
                 haptics.tap()
                 onClick()
             }
-            .padding(vertical = 10.dp, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
