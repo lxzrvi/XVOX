@@ -93,8 +93,9 @@ object XvoxWidgetHelper {
         val layoutId = if (isCompact) R.layout.widget_xvox_player_compact else R.layout.widget_xvox_player
         val views = RemoteViews(context.packageName, layoutId)
 
-        // 1. Artwork loading
-        val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, 160)
+        // 1. Artwork loading (Scales nicely)
+        val targetArtSize = if (isCompact) 140 else 200
+        val artworkBitmap = loadArtworkBitmap(context, state.artworkUri, targetArtSize)
         if (artworkBitmap != null) {
             val roundedArt = getRoundedBitmap(artworkBitmap, 18f)
             views.setImageViewBitmap(R.id.widget_artwork, roundedArt)
@@ -141,7 +142,7 @@ object XvoxWidgetHelper {
         val bgBitmap = createRoundedBackgroundBitmap(context, bgColor, state.cornerRadiusDp)
         views.setImageViewBitmap(R.id.widget_background, bgBitmap)
 
-        // 4. "XVOX" Branding in custom font
+        // 4. "XVOX" Branding in custom Cinzel font
         if (state.showLogo) {
             val logoBitmap = XvoxWidgetFontRenderer.createLogoBitmap(
                 context = context,
@@ -168,13 +169,13 @@ object XvoxWidgetHelper {
         views.setInt(R.id.widget_btn_prev, "setColorFilter", primaryTextColor)
         views.setInt(R.id.widget_btn_next, "setColorFilter", primaryTextColor)
 
-        // 7. Like Heart button (in full layout)
-        if (!isCompact) {
-            val heartRes = if (state.isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline
-            views.setImageViewResource(R.id.widget_btn_like, heartRes)
-            views.setInt(R.id.widget_btn_like, "setColorFilter", if (state.isLiked) Color.parseColor("#FF453A") else secondaryTextColor)
+        // 7. Like Heart button
+        val heartRes = if (state.isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline
+        views.setImageViewResource(R.id.widget_btn_like, heartRes)
+        views.setInt(R.id.widget_btn_like, "setColorFilter", if (state.isLiked) Color.parseColor("#FF453A") else secondaryTextColor)
 
-            // Progress bar
+        // Progress bar (only in full layout)
+        if (!isCompact) {
             val progress = if (state.duration > 0) {
                 ((state.currentPosition.toFloat() / state.duration) * 1000).toInt().coerceIn(0, 1000)
             } else 0
@@ -182,24 +183,28 @@ object XvoxWidgetHelper {
         }
 
         // 8. Pending Intents for interactive controls
+        // Play/Pause
         views.setOnClickPendingIntent(
             R.id.widget_btn_play_pause,
             createBroadcastPendingIntent(context, ACTION_PLAY_PAUSE, 101)
         )
+        // Previous
         views.setOnClickPendingIntent(
             R.id.widget_btn_prev,
             createBroadcastPendingIntent(context, ACTION_PREVIOUS, 102)
         )
+        // Next
         views.setOnClickPendingIntent(
             R.id.widget_btn_next,
             createBroadcastPendingIntent(context, ACTION_NEXT, 103)
         )
-        if (!isCompact) {
-            views.setOnClickPendingIntent(
-                R.id.widget_btn_like,
-                createBroadcastPendingIntent(context, ACTION_TOGGLE_LIKE, 104)
-            )
-        }
+        // Like Toggle
+        views.setOnClickPendingIntent(
+            R.id.widget_btn_like,
+            createBroadcastPendingIntent(context, ACTION_TOGGLE_LIKE, 104)
+        )
+
+        // Click on Info / Background opens MainActivity
         val openAppPendingIntent = createActivityPendingIntent(context, 105)
         views.setOnClickPendingIntent(R.id.widget_artwork, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.widget_song_title, openAppPendingIntent)

@@ -37,6 +37,10 @@ data class PlaybackState(
 class PlaybackController(
     context: Context
 ) {
+    companion object {
+        var activeInstance: PlaybackController? = null
+    }
+
     private val appContext =
         context.applicationContext
 
@@ -120,6 +124,7 @@ class PlaybackController(
         }
 
     init {
+        activeInstance = this
         connect()
     }
 

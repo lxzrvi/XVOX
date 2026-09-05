@@ -11,6 +11,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxLibraryPreferences
+import com.xvox.music.player.playback.PlaybackController
 import com.xvox.music.player.session.XvoxPlaybackService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +56,7 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
                     val options = appWidgetManager.getAppWidgetOptions(widgetId)
                     val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) ?: 0
                     val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
-                    val isCompact = minWidth in 1..210 || minHeight in 1..95
+                    val isCompact = minWidth in 1..210 || minHeight in 1..110
 
                     val remoteViews = XvoxWidgetHelper.buildRemoteViews(context, state, isCompact)
                     appWidgetManager.updateAppWidget(widgetId, remoteViews)
@@ -86,7 +87,7 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         val minWidth = newOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
         val minHeight = newOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        val isCompact = minWidth in 1..210 || minHeight in 1..95
+        val isCompact = minWidth in 1..210 || minHeight in 1..110
 
         widgetScope.launch {
             val state = XvoxWidgetHelper.loadCurrentWidgetState(
@@ -103,29 +104,47 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
 
         when (action) {
             XvoxWidgetHelper.ACTION_PLAY_PAUSE -> {
-                sendMediaCommand(context) { controller ->
-                    if (controller.isPlaying) {
-                        controller.pause()
-                        lastIsPlaying = false
-                    } else {
-                        controller.play()
-                        lastIsPlaying = true
-                    }
+                val active = PlaybackController.activeInstance
+                if (active != null) {
+                    active.togglePlay()
                     notifyWidgetUpdate(context)
+                } else {
+                    sendMediaCommand(context) { controller ->
+                        if (controller.isPlaying) {
+                            controller.pause()
+                            lastIsPlaying = false
+                        } else {
+                            controller.play()
+                            lastIsPlaying = true
+                        }
+                        notifyWidgetUpdate(context)
+                    }
                 }
             }
 
             XvoxWidgetHelper.ACTION_PREVIOUS -> {
-                sendMediaCommand(context) { controller ->
-                    controller.seekToPreviousMediaItem()
+                val active = PlaybackController.activeInstance
+                if (active != null) {
+                    active.playPrevious()
                     notifyWidgetUpdate(context)
+                } else {
+                    sendMediaCommand(context) { controller ->
+                        controller.seekToPreviousMediaItem()
+                        notifyWidgetUpdate(context)
+                    }
                 }
             }
 
             XvoxWidgetHelper.ACTION_NEXT -> {
-                sendMediaCommand(context) { controller ->
-                    controller.seekToNextMediaItem()
+                val active = PlaybackController.activeInstance
+                if (active != null) {
+                    active.playNext()
                     notifyWidgetUpdate(context)
+                } else {
+                    sendMediaCommand(context) { controller ->
+                        controller.seekToNextMediaItem()
+                        notifyWidgetUpdate(context)
+                    }
                 }
             }
 

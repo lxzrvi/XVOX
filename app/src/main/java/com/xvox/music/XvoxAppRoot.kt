@@ -9,6 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
@@ -28,6 +30,7 @@ fun XvoxAppRoot(
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
     val accentStr by prefs.accentColor.collectAsState(initial = "Default")
+    val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
 
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
@@ -36,8 +39,19 @@ fun XvoxAppRoot(
         else -> XvoxThemeMode.SYSTEM
     }
 
+    val currentDensity = LocalDensity.current
+    val customDensity = remember(currentDensity.density, fontScale) {
+        Density(
+            density = currentDensity.density,
+            fontScale = fontScale
+        )
+    }
+
     XvoxTheme(mode = mode, accent = accentStr) {
-        CompositionLocalProvider(LocalXvoxOverlayController provides overlays) {
+        CompositionLocalProvider(
+            LocalDensity provides customDensity,
+            LocalXvoxOverlayController provides overlays
+        ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 when (state) {
                     AppUiState.Loading -> Unit

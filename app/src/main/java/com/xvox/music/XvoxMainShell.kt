@@ -45,7 +45,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.zIndex
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -395,6 +400,9 @@ fun XvoxMainShell(
         }
     }
 
+    val density = LocalDensity.current
+    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
+
     Box(
         modifier =
             Modifier
@@ -403,39 +411,49 @@ fun XvoxMainShell(
                     colors.background,
                 ),
     ) {
-        when (destination) {
-            XvoxDestination.HOME -> {
-                HomeScreen(
-                    currentSongId =
-                        player.currentSongId,
-                    isPlaying =
-                        player.isPlaying,
-                    homeResetKey =
-                    homeResetKey,
-                    selectedPlaylistId = hoistedSelectedPlaylistId,
-                    onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                    onQueueReady =
-                        playerViewModel::setQueue,
-                    onPlay =
-                        playerViewModel::play,
-                    playerViewModel =
-                    playerViewModel,
-                )
-            }
+        AnimatedContent(
+            targetState = destination,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(220)) + slideInHorizontally(animationSpec = tween(220)) { if (targetState.ordinal > initialState.ordinal) 50 else -50 })
+                    .togetherWith(fadeOut(animationSpec = tween(160)))
+            },
+            label = "tab_switch_transition",
+            modifier = Modifier.fillMaxSize()
+        ) { targetDest ->
+            when (targetDest) {
+                XvoxDestination.HOME -> {
+                    HomeScreen(
+                        currentSongId =
+                            player.currentSongId,
+                        isPlaying =
+                            player.isPlaying,
+                        homeResetKey =
+                        homeResetKey,
+                        selectedPlaylistId = hoistedSelectedPlaylistId,
+                        onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
+                        onQueueReady =
+                            playerViewModel::setQueue,
+                        onPlay =
+                            playerViewModel::play,
+                        playerViewModel =
+                        playerViewModel,
+                    )
+                }
 
-            XvoxDestination.SEARCH -> {
-                SearchScreen(
-                    homeViewModel = homeViewModel,
-                    playerViewModel = playerViewModel,
-                    onPlaylistSelected = { playlistId ->
-                        hoistedSelectedPlaylistId = playlistId
-                        destination = XvoxDestination.HOME
-                    }
-                )
-            }
+                XvoxDestination.SEARCH -> {
+                    SearchScreen(
+                        homeViewModel = homeViewModel,
+                        playerViewModel = playerViewModel,
+                        onPlaylistSelected = { playlistId ->
+                            hoistedSelectedPlaylistId = playlistId
+                            destination = XvoxDestination.HOME
+                        }
+                    )
+                }
 
-            XvoxDestination.SETTINGS -> {
-                SettingsScreen(homeViewModel = homeViewModel)
+                XvoxDestination.SETTINGS -> {
+                    SettingsScreen(homeViewModel = homeViewModel)
+                }
             }
         }
 
@@ -456,9 +474,26 @@ fun XvoxMainShell(
             exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(260)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            // Ensure we have current data when animating out, keep last visible
             val visSongId = if (miniVisibleBase) currentSongId else null
             if (visSongId != null) {
+                val miniModifier = if (isImeVisible) {
+                    Modifier
+                        .imePadding()
+                        .padding(
+                            start = XvoxMiniPlayerPlacement.horizontalEdge,
+                            end = XvoxMiniPlayerPlacement.horizontalEdge,
+                            bottom = 8.dp,
+                        )
+                } else {
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(
+                            start = XvoxMiniPlayerPlacement.horizontalEdge,
+                            end = XvoxMiniPlayerPlacement.horizontalEdge,
+                            bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
+                        )
+                }
+
                 XvoxMiniPlayer(
                     queue = player.queue,
                     currentSongId = visSongId,
@@ -479,54 +514,47 @@ fun XvoxMainShell(
                         }
                     },
                     onAdd = { showMiniPlayerPlaylistPicker() },
-                    modifier = Modifier
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .imePadding()
-                        .padding(
-                            start = XvoxMiniPlayerPlacement.horizontalEdge,
-                            end = XvoxMiniPlayerPlacement.horizontalEdge,
-                            bottom = XvoxMiniPlayerPlacement.miniPlayerBottom,
-                        ),
+                    modifier = miniModifier,
                 )
             } else {
-                // keep placeholder while exiting to allow animation
                 Box(Modifier.fillMaxWidth().heightIn(min = 1.dp))
             }
         }
 
-        XvoxBottomBar(
-            selected =
-            destination,
-            onSelected = { selected ->
+        if (!isImeVisible) {
+            XvoxBottomBar(
+                selected =
+                destination,
+                onSelected = { selected ->
 
-                if (
-                    selected ==
-                    XvoxDestination.HOME &&
-                    destination ==
-                    XvoxDestination.HOME
-                ) {
-                    // Second tap on Home resets to All Songs (clears playlist detail and liked/playlist mode)
-                    homeResetKey++
-                    hoistedSelectedPlaylistId = null
-                } else {
-                    destination =
-                        selected
-                }
-            },
-            modifier =
-                Modifier
-                    .align(
-                        Alignment
-                            .BottomCenter,
-                    ).windowInsetsPadding(
-                        WindowInsets
-                            .navigationBars,
-                    ).padding(
-                        bottom =
-                            XvoxMiniPlayerPlacement
-                                .navigationHostBottom,
-                    ),
-        )
+                    if (
+                        selected ==
+                        XvoxDestination.HOME &&
+                        destination ==
+                        XvoxDestination.HOME
+                    ) {
+                        homeResetKey++
+                        hoistedSelectedPlaylistId = null
+                    } else {
+                        destination =
+                            selected
+                    }
+                },
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment
+                                .BottomCenter,
+                        ).windowInsetsPadding(
+                            WindowInsets
+                                .navigationBars,
+                        ).padding(
+                            bottom =
+                                XvoxMiniPlayerPlacement
+                                    .navigationHostBottom,
+                        ),
+            )
+        }
 
         if (
             player.nowPlayingVisible &&
