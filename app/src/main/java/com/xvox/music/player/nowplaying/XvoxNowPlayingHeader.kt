@@ -126,7 +126,7 @@ fun XvoxNowPlayingHeader(
                     tint = colors.primaryText,
                     modifier = Modifier
                         .size(36.dp)
-                        .xvoxPressScale(0.90f) {
+                        .xvoxPressScale(pressedScale = 0.90f) {
                             haptics.tap()
                             onShare()
                         }
@@ -141,7 +141,7 @@ fun XvoxNowPlayingHeader(
                     tint = colors.primaryText,
                     modifier = Modifier
                         .size(36.dp)
-                        .xvoxPressScale(0.90f) {
+                        .xvoxPressScale(pressedScale = 0.90f) {
                             haptics.tap()
                             onMore()
                         }
