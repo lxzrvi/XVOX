@@ -67,8 +67,8 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(60.dp)
             .clip(cardShape)
-            .background(colors.surface)
-            .border(0.7.dp, colors.cardBorder, cardShape)
+            .background(colors.surface.copy(alpha = 0.88f))
+            .border(0.7.dp, colors.cardBorder.copy(alpha = 0.62f), cardShape)
     ) {
         Row(
             modifier = Modifier
@@ -160,8 +160,8 @@ fun XvoxMiniPlayerCard(
                 .padding(end = 7.dp)
                 .size(38.dp)
                 .clip(CircleShape)
-                .background(colors.cardElevated)
-                .border(0.7.dp, colors.cardBorder, CircleShape)
+                .background(colors.cardElevated.copy(alpha = 0.68f))
+                .border(0.7.dp, colors.cardBorder.copy(alpha = 0.72f), CircleShape)
                 .clickable(
                     interactionSource = controlInteraction,
                     indication = null,

@@ -28,7 +28,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.SettingsToggle
 
 @Composable
 fun AppearanceSettingsSection(
@@ -121,15 +120,6 @@ fun AppearanceSettingsSection(
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        SettingsToggle(
-            title = "Cover Background",
-            subtitle = "Show blurry cover art as background across all screens",
-            checked = state.coverBackground,
-            onChange = viewModel::setCoverBackground
-        )
 
         Spacer(modifier = Modifier.height(14.dp))
 

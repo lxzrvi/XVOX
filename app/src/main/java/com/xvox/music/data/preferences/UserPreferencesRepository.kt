@@ -68,7 +68,6 @@ class UserPreferencesRepository(
 
         val theme = stringPreferencesKey("theme")
         val accentColor = stringPreferencesKey("accent_color")
-        val coverBackground = booleanPreferencesKey("cover_background")
         val miniPlayerLayout = stringPreferencesKey("mini_player_layout")
         val fullPlayerLayout = stringPreferencesKey("full_player_layout")
         val homeLayout = stringPreferencesKey("home_layout")
@@ -142,7 +141,6 @@ class UserPreferencesRepository(
 
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }
     val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }
-    val coverBackground: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.coverBackground] ?: false }
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }
     val hapticFeedback: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedback] ?: true }
     val hapticStrength: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticStrength] ?: "Medium" }
@@ -191,7 +189,6 @@ class UserPreferencesRepository(
 
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
-    suspend fun setCoverBackground(v: Boolean) { context.xvoxDataStore.edit { it[Keys.coverBackground] = v } }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setHapticFeedback(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedback] = v } }
     suspend fun setHapticStrength(v: String) { context.xvoxDataStore.edit { it[Keys.hapticStrength] = v } }

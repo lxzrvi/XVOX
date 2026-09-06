@@ -7,14 +7,14 @@ import androidx.compose.animation.core.tween
 
 object XvoxPlayerTransitionMotion {
 
-    const val Duration = 320
+    const val Duration = 360
 
     val easing: Easing =
         CubicBezierEasing(
-            0.20f,
-            0.90f,
+            0.25f,
             0.10f,
-            1f
+            0.25f,
+            1.0f
         )
 
     val spec: AnimationSpec<Float>

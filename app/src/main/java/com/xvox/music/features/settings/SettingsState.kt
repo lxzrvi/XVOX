@@ -3,7 +3,6 @@ package com.xvox.music.features.settings
 data class SettingsState(
     val theme: String = "System",
     val accentColor: String = "Default",
-    val coverBackground: Boolean = false,
     val fontSizeScale: Float = 1.0f,
     val hapticFeedback: Boolean = true,
     val hapticStrength: String = "Medium",

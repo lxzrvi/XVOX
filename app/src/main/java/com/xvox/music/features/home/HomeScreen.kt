@@ -8,14 +8,14 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,6 +56,7 @@ fun HomeScreen(
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    val listState = rememberLazyListState()
 
     var internalSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
     val effectiveSelectedPlaylistId = if (onSelectedPlaylistIdChange != null) selectedPlaylistId else internalSelectedPlaylistId
@@ -99,6 +100,10 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(effectiveSelectedPlaylistId, state.libraryMode) {
+        listState.scrollToItem(0)
+    }
+
     BackHandler(enabled = selectedPlaylist != null) {
         setSelectedPlaylistId(null)
     }
@@ -128,6 +133,7 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 4.dp)
         ) {
@@ -135,8 +141,8 @@ fun HomeScreen(
                 AnimatedContent(
                     targetState = effectiveSelectedPlaylistId ?: state.libraryMode,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
-                            .togetherWith(fadeOut(animationSpec = tween(160)))
+                        (fadeIn(animationSpec = tween(260)) + slideInVertically(animationSpec = tween(260)) { -it / 7 })
+                            .togetherWith(fadeOut(animationSpec = tween(180)))
                     },
                     label = "home_library_mode_switch"
                 ) { _ ->

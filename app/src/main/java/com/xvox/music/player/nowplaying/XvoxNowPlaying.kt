@@ -205,11 +205,11 @@ fun XvoxNowPlaying(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .background(Color(0xFF08080A))
             .graphicsLayer { translationY = screenY }
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
-            song = song,
             modifier = Modifier.fillMaxSize()
         )
 

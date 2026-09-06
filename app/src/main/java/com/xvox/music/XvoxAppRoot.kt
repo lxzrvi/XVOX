@@ -20,7 +20,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
-import com.xvox.music.core.ui.effects.LocalCoverBackgroundEnabled
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
@@ -37,7 +36,6 @@ fun XvoxAppRoot(
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
     val accentStr by prefs.accentColor.collectAsState(initial = "Default")
-    val coverBackground by prefs.coverBackground.collectAsState(initial = false)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
 
     val mode = when (themeStr) {
@@ -58,8 +56,7 @@ fun XvoxAppRoot(
     XvoxTheme(mode = mode, accent = accentStr) {
         CompositionLocalProvider(
             LocalDensity provides customDensity,
-            LocalXvoxOverlayController provides overlays,
-            LocalCoverBackgroundEnabled provides coverBackground
+            LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedContent(

@@ -22,7 +22,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
-            launch { prefs.coverBackground.collect { v -> _state.update { it.copy(coverBackground = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
             launch { prefs.hapticFeedback.collect { v -> _state.update { it.copy(hapticFeedback = v) } } }
             launch { prefs.hapticStrength.collect { v -> _state.update { it.copy(hapticStrength = v) } } }
@@ -68,7 +67,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
     fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }
-    fun setCoverBackground(enabled: Boolean) = viewModelScope.launch { prefs.setCoverBackground(enabled) }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setHapticFeedback(enabled: Boolean) = viewModelScope.launch { prefs.setHapticFeedback(enabled) }
     fun setHapticStrength(strength: String) = viewModelScope.launch { prefs.setHapticStrength(strength) }

@@ -44,13 +44,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-val XvoxLEasing =
-    CubicBezierEasing(
-        0.2f,
-        0.9f,
-        0.1f,
-        1f
-    )
+val XvoxLEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
 @Composable
 fun XvoxL(
@@ -62,17 +56,11 @@ fun XvoxL(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
-    var visible by remember {
-        mutableStateOf(false)
-    }
-
-    var closing by remember {
-        mutableStateOf(false)
-    }
+    var visible by remember { mutableStateOf(false) }
+    var closing by remember { mutableStateOf(false) }
 
     fun close() {
         if (closing) return
-
         closing = true
         visible = false
 
@@ -100,64 +88,28 @@ fun XvoxL(
                 }
             }
     ) {
-        val screenHeightPx =
-            with(density) {
-                maxHeight.toPx()
-            }
+        val screenHeightPx = with(density) { maxHeight.toPx() }
+        val minimumOpenPx = screenHeightPx * 0.25f
+        val maximumHeightPx = screenHeightPx * 0.94f
 
-        val minimumOpenPx =
-            screenHeightPx * 0.25f
-
-        val maximumHeightPx =
-            screenHeightPx * 0.94f
-
-        var sheetHeightPx by remember(
-            screenHeightPx
-        ) {
-            mutableFloatStateOf(
-                screenHeightPx * 0.72f
-            )
+        var sheetHeightPx by remember(screenHeightPx) {
+            mutableFloatStateOf(screenHeightPx * 0.72f)
         }
 
-        var contentMeasured by remember {
-            mutableStateOf(false)
-        }
+        var contentMeasured by remember { mutableStateOf(false) }
 
         AnimatedVisibility(
             visible = visible,
-            modifier = Modifier.align(
-                Alignment.BottomCenter
-            ),
-            enter =
-                slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(
-                        300,
-                        easing = XvoxLEasing
-                    )
-                ) +
-                    fadeIn(
-                        tween(
-                            300,
-                            easing = XvoxLEasing
-                        )
-                    ),
-            exit =
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(
-                        300,
-                        easing = XvoxLEasing
-                    )
-                ) +
-                    fadeOut(
-                        tween(
-                            300,
-                            easing = XvoxLEasing
-                        )
-                    )
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(300, easing = XvoxLEasing)
+            ) + fadeIn(tween(300, easing = XvoxLEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(300, easing = XvoxLEasing)
+            ) + fadeOut(tween(300, easing = XvoxLEasing))
         ) {
-            
             val sheetCornerShape = RoundedCornerShape(
                 topStart = 26.dp,
                 topEnd = 26.dp
@@ -170,108 +122,58 @@ fun XvoxL(
                         with(density) {
                             Modifier.size(
                                 width = maxWidth,
-                                height =
-                                    sheetHeightPx
-                                        .coerceIn(
-                                            minimumOpenPx,
-                                            maximumHeightPx
-                                        )
-                                        .toDp()
+                                height = sheetHeightPx.coerceIn(minimumOpenPx, maximumHeightPx).toDp()
                             )
                         }
                     )
                     .clip(sheetCornerShape)
-                    .background(colors.cardElevated)
+                    .background(colors.cardElevated.copy(alpha = 0.94f))
                     .border(
                         width = 0.8.dp,
-                        color = colors.cardBorder,
+                        color = colors.cardBorder.copy(alpha = 0.72f),
                         shape = sheetCornerShape
                     )
                     .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                tryAwaitRelease()
-                            }
-                        )
+                        detectTapGestures(onPress = { tryAwaitRelease() })
                     }
             ) {
-                
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            top = 10.dp,
-                            bottom = 8.dp
-                        )
-                        .pointerInput(
-                            screenHeightPx
-                        ) {
-                            var rawHeight =
-                                sheetHeightPx
+                        .padding(top = 10.dp, bottom = 8.dp)
+                        .pointerInput(screenHeightPx) {
+                            var rawHeight = sheetHeightPx
 
                             detectVerticalDragGestures(
                                 onDragStart = {
-                                    rawHeight =
-                                        sheetHeightPx
+                                    rawHeight = sheetHeightPx
                                 },
-                                onVerticalDrag = {
-                                        change,
-                                        dragAmount ->
-
+                                onVerticalDrag = { change, dragAmount ->
                                     change.consume()
-
-                                    rawHeight -=
-                                        dragAmount
-
-                                    sheetHeightPx =
-                                        rawHeight
-                                            .coerceIn(
-                                                0f,
-                                                maximumHeightPx
-                                            )
+                                    rawHeight -= dragAmount
+                                    sheetHeightPx = rawHeight.coerceIn(0f, maximumHeightPx)
                                 },
                                 onDragEnd = {
-                                    if (
-                                        sheetHeightPx <
-                                        minimumOpenPx
-                                    ) {
+                                    if (sheetHeightPx < minimumOpenPx) {
                                         close()
                                     } else {
-                                        sheetHeightPx =
-                                            sheetHeightPx
-                                                .coerceAtMost(
-                                                    maximumHeightPx
-                                                )
+                                        sheetHeightPx = sheetHeightPx.coerceAtMost(maximumHeightPx)
                                     }
                                 },
                                 onDragCancel = {
-                                    if (
-                                        sheetHeightPx <
-                                        minimumOpenPx
-                                    ) {
-                                        sheetHeightPx =
-                                            minimumOpenPx
+                                    if (sheetHeightPx < minimumOpenPx) {
+                                        sheetHeightPx = minimumOpenPx
                                     }
                                 }
                             )
                         },
-                    contentAlignment =
-                        Alignment.Center
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(
-                                width = 44.dp,
-                                height = 4.dp
-                            )
-                            .clip(
-                                RoundedCornerShape(
-                                    2.dp
-                                )
-                            )
-                            .background(
-                                colors.cardBorder
-                            )
+                            .size(width = 44.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(colors.cardBorder)
                     )
                 }
 
@@ -279,17 +181,10 @@ fun XvoxL(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .windowInsetsPadding(
-                            WindowInsets.navigationBars
-                        )
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .imePadding()
-                        .padding(
-                            start = 14.dp,
-                            end = 14.dp,
-                            bottom = 8.dp
-                        )
+                        .padding(start = 14.dp, end = 14.dp, bottom = 8.dp)
                         .onSizeChanged {
-                            
                             if (!contentMeasured) {
                                 contentMeasured = true
                             }

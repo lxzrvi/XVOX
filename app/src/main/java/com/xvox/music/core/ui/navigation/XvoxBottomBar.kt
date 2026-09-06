@@ -56,8 +56,12 @@ fun XvoxBottomBar(
                 .offset(y = XvoxNavigationGeometry.hostOverflow)
                 .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight)
                 .clip(parentShape)
-                .background(colors.surface)
-                .border(0.7.dp, colors.cardBorder, parentShape)
+                .background(colors.surface.copy(alpha = 0.88f))
+                .border(
+                    width = XvoxNavigationGeometry.barBorderWidth,
+                    color = colors.cardBorder.copy(alpha = 0.62f),
+                    shape = parentShape
+                )
         )
 
         Box(
@@ -73,7 +77,12 @@ fun XvoxBottomBar(
                 }
                 .size(XvoxNavigationGeometry.selectorRestWidth, XvoxNavigationGeometry.selectorRestHeight)
                 .clip(selectorShape)
-                .background(colors.cardElevated)
+                .background(colors.cardElevated.copy(alpha = 0.42f))
+                .border(
+                    width = XvoxNavigationGeometry.selectorBorderWidth,
+                    color = colors.cardBorder.copy(alpha = 0.72f),
+                    shape = selectorShape
+                )
         )
 
         Row(
