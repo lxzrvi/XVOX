@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -73,15 +72,18 @@ fun XvoxAddPlaylistSongsBox(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
+            .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.Transparent)
-                .padding(bottom = 8.dp)
+                .padding(bottom = 6.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -174,8 +176,8 @@ fun XvoxAddPlaylistSongsBox(
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f, fill = false)
-                    .heightIn(max = 320.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp, max = 280.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(availableSongs, key = { it.id }) { song ->
@@ -229,11 +231,11 @@ fun XvoxAddPlaylistSongsBox(
 
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(26.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) colors.primaryAccent else Color.Transparent)
+                                .background(if (isSelected) colors.primaryAccent else colors.card)
                                 .border(
-                                    width = 1.5.dp,
+                                    width = 1.dp,
                                     color = if (isSelected) colors.primaryAccent else colors.cardBorder,
                                     shape = CircleShape
                                 ),
@@ -244,7 +246,14 @@ fun XvoxAddPlaylistSongsBox(
                                     painter = painterResource(R.drawable.ic_xvox_check),
                                     contentDescription = "Selected",
                                     tint = colors.background,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_plus),
+                                    contentDescription = "Add",
+                                    tint = colors.primaryText,
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
                         }

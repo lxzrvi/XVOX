@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -70,27 +71,22 @@ fun XvoxQueueSheetContent(
         if (draggingSongId == null || autoScrollDirection == 0) return@LaunchedEffect
 
         while (draggingSongId != null && autoScrollDirection != 0) {
-            val amount = 12f * autoScrollDirection
+            val amount = 10f * autoScrollDirection
             val consumed = listState.scrollBy(amount)
-            dragOffsetY -= consumed
 
             val songId = draggingSongId ?: break
             var from = localQueue.indexOfFirst { it.id == songId }
             if (from < 0) break
 
-            while (dragOffsetY > slotHeightPx / 2f && from < localQueue.lastIndex) {
+            if (dragOffsetY > slotHeightPx * 0.7f && from < localQueue.lastIndex) {
                 val moving = localQueue.removeAt(from)
                 localQueue.add(from + 1, moving)
                 onMoveItem(from, from + 1)
-                from++
                 dragOffsetY -= slotHeightPx
-            }
-
-            while (dragOffsetY < -slotHeightPx / 2f && from > 0) {
+            } else if (dragOffsetY < -slotHeightPx * 0.7f && from > 0) {
                 val moving = localQueue.removeAt(from)
                 localQueue.add(from - 1, moving)
                 onMoveItem(from, from - 1)
-                from--
                 dragOffsetY += slotHeightPx
             }
 
@@ -130,7 +126,7 @@ fun XvoxQueueSheetContent(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .heightIn(min = 260.dp, max = 460.dp),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             itemsIndexed(items = localQueue, key = { _, song -> song.id }) { _, song ->
@@ -144,9 +140,9 @@ fun XvoxQueueSheetContent(
                         .zIndex(if (isDragging) 100f else 0f)
                         .graphicsLayer {
                             translationY = if (isDragging) dragOffsetY else 0f
-                            scaleX = if (isDragging) 1.025f else 1f
-                            scaleY = if (isDragging) 1.025f else 1f
-                            shadowElevation = if (isDragging) 16.dp.toPx() else 0f
+                            scaleX = if (isDragging) 1.02f else 1f
+                            scaleY = if (isDragging) 1.02f else 1f
+                            shadowElevation = if (isDragging) 12.dp.toPx() else 0f
                         }
                         .clip(RoundedCornerShape(12.dp))
                         .background(
@@ -168,32 +164,29 @@ fun XvoxQueueSheetContent(
                                     dragOffsetY += amount.y
 
                                     var from = localQueue.indexOfFirst { it.id == song.id }
-                                    if (from < 0) return@detectDragGesturesAfterLongPress
-
-                                    while (dragOffsetY > slotHeightPx / 2f && from < localQueue.lastIndex) {
-                                        val moving = localQueue.removeAt(from)
-                                        localQueue.add(from + 1, moving)
-                                        onMoveItem(from, from + 1)
-                                        from++
-                                        dragOffsetY -= slotHeightPx
-                                    }
-
-                                    while (dragOffsetY < -slotHeightPx / 2f && from > 0) {
-                                        val moving = localQueue.removeAt(from)
-                                        localQueue.add(from - 1, moving)
-                                        onMoveItem(from, from - 1)
-                                        from--
-                                        dragOffsetY += slotHeightPx
+                                    if (from >= 0) {
+                                        if (dragOffsetY > slotHeightPx * 0.7f && from < localQueue.lastIndex) {
+                                            val moving = localQueue.removeAt(from)
+                                            localQueue.add(from + 1, moving)
+                                            onMoveItem(from, from + 1)
+                                            dragOffsetY -= slotHeightPx
+                                        } else if (dragOffsetY < -slotHeightPx * 0.7f && from > 0) {
+                                            val moving = localQueue.removeAt(from)
+                                            localQueue.add(from - 1, moving)
+                                            onMoveItem(from, from - 1)
+                                            dragOffsetY += slotHeightPx
+                                        }
                                     }
 
                                     val layout = listState.layoutInfo
-                                    val draggedInfo = layout.visibleItemsInfo.firstOrNull { it.index == from }
+                                    val currentPos = localQueue.indexOfFirst { it.id == song.id }
+                                    val draggedInfo = layout.visibleItemsInfo.firstOrNull { it.index == currentPos }
                                     if (draggedInfo == null) {
                                         autoScrollDirection = 0
                                     } else {
                                         val top = draggedInfo.offset + dragOffsetY
                                         val bottom = top + draggedInfo.size
-                                        val edgeZone = slotHeightPx * 1.35f
+                                        val edgeZone = slotHeightPx * 1.2f
                                         autoScrollDirection = when {
                                             top < layout.viewportStartOffset + edgeZone -> -1
                                             bottom > layout.viewportEndOffset - edgeZone -> 1

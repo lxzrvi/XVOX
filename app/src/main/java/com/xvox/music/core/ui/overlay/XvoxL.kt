@@ -18,11 +18,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -65,7 +66,7 @@ fun XvoxL(
         visible = false
 
         scope.launch {
-            delay(300L)
+            delay(280L)
             onDismiss()
         }
     }
@@ -89,43 +90,35 @@ fun XvoxL(
             }
     ) {
         val screenHeightPx = with(density) { maxHeight.toPx() }
-        val minimumOpenPx = screenHeightPx * 0.25f
-        val maximumHeightPx = screenHeightPx * 0.94f
+        val minimumOpenPx = screenHeightPx * 0.20f
+        val maximumHeightPx = screenHeightPx * 0.92f
 
-        var sheetHeightPx by remember(screenHeightPx) {
-            mutableFloatStateOf(screenHeightPx * 0.72f)
-        }
-
-        var contentMeasured by remember { mutableStateOf(false) }
+        var dragDeltaPx by remember { mutableFloatStateOf(0f) }
 
         AnimatedVisibility(
             visible = visible,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding(),
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = tween(300, easing = XvoxLEasing)
-            ) + fadeIn(tween(300, easing = XvoxLEasing)),
+                animationSpec = tween(280, easing = XvoxLEasing)
+            ) + fadeIn(tween(280, easing = XvoxLEasing)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = tween(300, easing = XvoxLEasing)
-            ) + fadeOut(tween(300, easing = XvoxLEasing))
+                animationSpec = tween(280, easing = XvoxLEasing)
+            ) + fadeOut(tween(280, easing = XvoxLEasing))
         ) {
             val sheetCornerShape = RoundedCornerShape(
-                topStart = 26.dp,
-                topEnd = 26.dp
+                topStart = 24.dp,
+                topEnd = 24.dp
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        with(density) {
-                            Modifier.size(
-                                width = maxWidth,
-                                height = sheetHeightPx.coerceIn(minimumOpenPx, maximumHeightPx).toDp()
-                            )
-                        }
-                    )
+                    .wrapContentHeight()
+                    .heightIn(max = with(density) { maximumHeightPx.toDp() })
                     .clip(sheetCornerShape)
                     .background(colors.cardElevated.copy(alpha = 0.94f))
                     .border(
@@ -140,30 +133,27 @@ fun XvoxL(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 8.dp)
+                        .padding(top = 10.dp, bottom = 6.dp)
                         .pointerInput(screenHeightPx) {
-                            var rawHeight = sheetHeightPx
-
                             detectVerticalDragGestures(
                                 onDragStart = {
-                                    rawHeight = sheetHeightPx
+                                    dragDeltaPx = 0f
                                 },
                                 onVerticalDrag = { change, dragAmount ->
                                     change.consume()
-                                    rawHeight -= dragAmount
-                                    sheetHeightPx = rawHeight.coerceIn(0f, maximumHeightPx)
+                                    dragDeltaPx += dragAmount
+                                    if (dragDeltaPx > screenHeightPx * 0.15f) {
+                                        close()
+                                    }
                                 },
                                 onDragEnd = {
-                                    if (sheetHeightPx < minimumOpenPx) {
+                                    if (dragDeltaPx > screenHeightPx * 0.15f) {
                                         close()
-                                    } else {
-                                        sheetHeightPx = sheetHeightPx.coerceAtMost(maximumHeightPx)
                                     }
+                                    dragDeltaPx = 0f
                                 },
                                 onDragCancel = {
-                                    if (sheetHeightPx < minimumOpenPx) {
-                                        sheetHeightPx = minimumOpenPx
-                                    }
+                                    dragDeltaPx = 0f
                                 }
                             )
                         },
@@ -179,16 +169,10 @@ fun XvoxL(
 
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
+                        .wrapContentHeight()
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .imePadding()
                         .padding(start = 14.dp, end = 14.dp, bottom = 8.dp)
-                        .onSizeChanged {
-                            if (!contentMeasured) {
-                                contentMeasured = true
-                            }
-                        }
                 ) {
                     content()
                 }

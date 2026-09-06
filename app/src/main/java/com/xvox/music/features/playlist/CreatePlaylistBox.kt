@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -40,7 +39,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -50,7 +48,6 @@ fun CreatePlaylistBox(
     onCreate: (String, Set<Long>) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
 
     var name by remember { mutableStateOf("") }
     val safeSongs = remember(songs) { songs.distinctBy { it.id } }
@@ -64,19 +61,34 @@ fun CreatePlaylistBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 380.dp, max = 520.dp)
+            .heightIn(min = 340.dp, max = 480.dp)
             .imePadding()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
-        Text(
-            text = "Create Playlist",
-            color = colors.primaryText,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_plus),
+                contentDescription = null,
+                tint = colors.primaryAccent,
+                modifier = Modifier
+                    .size(20.dp)
+                    .padding(end = 4.dp)
+            )
 
-        Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Create Playlist",
+                color = colors.primaryText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         BasicTextField(
             value = name,
@@ -105,7 +117,7 @@ fun CreatePlaylistBox(
             }
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
 
         Text(
             text = "Select Songs (${selected.size} selected)",
@@ -115,7 +127,7 @@ fun CreatePlaylistBox(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
         LazyColumn(
             modifier = Modifier
@@ -130,7 +142,6 @@ fun CreatePlaylistBox(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .clickable {
-                            haptics.tap()
                             if (checked) selected.remove(song.id) else selected.add(song.id)
                         }
                         .padding(horizontal = 4.dp, vertical = 5.dp),
@@ -168,9 +179,9 @@ fun CreatePlaylistBox(
 
                     Box(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(22.dp)
                             .clip(CircleShape)
-                            .background(if (checked) colors.primaryAccent else colors.cardElevated),
+                            .background(if (checked) colors.primaryAccent else colors.card),
                         contentAlignment = Alignment.Center
                     ) {
                         if (checked) {
@@ -178,7 +189,14 @@ fun CreatePlaylistBox(
                                 painter = painterResource(R.drawable.ic_xvox_check),
                                 contentDescription = null,
                                 tint = colors.background,
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(13.dp)
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_plus),
+                                contentDescription = null,
+                                tint = colors.mutedText,
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }
@@ -186,32 +204,25 @@ fun CreatePlaylistBox(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
         Box(
             modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .wrapContentWidth()
-                .height(40.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .fillMaxWidth()
+                .height(44.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .background(if (name.isNotBlank()) colors.primaryAccent else colors.cardElevated)
                 .clickable(enabled = name.isNotBlank()) {
-                    runCatching {
-                        haptics.success()
-                        onCreate(name.trim(), selected.toSet())
-                    }
-                }
-                .padding(horizontal = 28.dp),
+                    onCreate(name.trim(), selected.toSet())
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "Create",
                 color = if (name.isNotBlank()) colors.background else colors.mutedText,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
         }
-
-        Spacer(Modifier.height(10.dp))
     }
 }

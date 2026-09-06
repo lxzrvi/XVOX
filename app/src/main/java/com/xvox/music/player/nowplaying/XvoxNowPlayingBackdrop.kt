@@ -15,8 +15,9 @@ fun XvoxNowPlayingBackdrop(
     dominant: Color,
     modifier: Modifier = Modifier
 ) {
-    val dark = lerp(dominant, Color.Black, 0.55f)
-    val deep = lerp(dominant, Color.Black, 0.82f)
+    val topColor = lerp(dominant, Color.Black, 0.20f)
+    val midColor = lerp(dominant, Color.Black, 0.55f)
+    val botColor = lerp(dominant, Color(0xFF08080A), 0.85f)
 
     Box(
         modifier = modifier
@@ -26,9 +27,9 @@ fun XvoxNowPlayingBackdrop(
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.verticalGradient(
-                    0f to dark,
-                    0.45f to deep,
-                    1f to Color(0xFF08080A)
+                    0.0f to topColor,
+                    0.45f to midColor,
+                    1.0f to botColor
                 )
             )
         }

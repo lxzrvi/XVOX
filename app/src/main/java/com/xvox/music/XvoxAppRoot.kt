@@ -1,10 +1,9 @@
 package com.xvox.music
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -59,26 +58,21 @@ fun XvoxAppRoot(
             LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                AnimatedContent(
-                    targetState = state,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(320)) togetherWith fadeOut(animationSpec = tween(220))
-                    },
-                    label = "app_root_state_transition",
-                    modifier = Modifier.fillMaxSize()
-                ) { targetState ->
-                    when (targetState) {
-                        AppUiState.Loading -> {
-                            XvoxStartupLoadingScreen()
-                        }
-                        AppUiState.Setup -> {
-                            SetupScreen(onSetupComplete = {})
-                        }
-                        AppUiState.Home -> {
-                            XvoxMainShell()
-                        }
-                    }
+                if (state == AppUiState.Setup) {
+                    SetupScreen(onSetupComplete = {})
+                } else {
+                    XvoxMainShell()
                 }
+
+                AnimatedVisibility(
+                    visible = state == AppUiState.Loading,
+                    enter = fadeIn(tween(200)),
+                    exit = fadeOut(tween(350)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    XvoxStartupLoadingScreen()
+                }
+
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }
         }

@@ -61,7 +61,11 @@ fun XvoxPlaylistPickerSheetContent(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 2.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -169,7 +173,9 @@ fun XvoxPlaylistPickerSheetContent(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 320.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp, max = 280.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(items = filteredPlaylists, key = { it.id }) { playlist ->
@@ -214,17 +220,17 @@ fun XvoxPlaylistPickerSheetContent(
 
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(28.dp)
                                 .clip(CircleShape)
                                 .background(
                                     when {
                                         alreadyAdded -> colors.cardElevated
                                         selected -> colors.primaryAccent
-                                        else -> Color.Transparent
+                                        else -> colors.card
                                     }
                                 )
                                 .border(
-                                    width = 1.5.dp,
+                                    width = 1.dp,
                                     color = when {
                                         selected -> colors.primaryAccent
                                         alreadyAdded -> colors.mutedText
@@ -234,11 +240,18 @@ fun XvoxPlaylistPickerSheetContent(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (selected || alreadyAdded) {
+                            if (selected) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_xvox_check),
-                                    contentDescription = null,
-                                    tint = if (selected) colors.background else colors.mutedText,
+                                    contentDescription = "Selected",
+                                    tint = colors.background,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            } else if (!alreadyAdded) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_plus),
+                                    contentDescription = "Add",
+                                    tint = colors.primaryText,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }

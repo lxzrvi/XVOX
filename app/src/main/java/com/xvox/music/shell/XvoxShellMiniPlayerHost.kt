@@ -80,7 +80,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
             }
 
             val animatedBottomPadding by animateDpAsState(
-                targetValue = if (keyboardOpen) effectiveImeDp + 24.dp else 106.dp,
+                targetValue = if (keyboardOpen) effectiveImeDp + 12.dp else 106.dp,
                 animationSpec = tween(durationMillis = 280, easing = MainEase),
                 label = "miniPlayerBottomGap"
             )

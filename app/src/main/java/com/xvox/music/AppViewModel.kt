@@ -10,20 +10,13 @@ import kotlinx.coroutines.launch
 
 class AppViewModel : ViewModel() {
 
-    private val _state =
-        MutableStateFlow<AppUiState>(
-            AppUiState.Loading,
-        )
-
-    val state: StateFlow<AppUiState> =
-        _state.asStateFlow()
+    private val _state = MutableStateFlow<AppUiState>(AppUiState.Loading)
+    val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
             delay(5000L)
-
-            _state.value =
-                AppUiState.Home
+            _state.value = AppUiState.Home
         }
     }
 }

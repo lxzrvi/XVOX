@@ -108,10 +108,10 @@ fun XvoxShellTopHeader(
                     modifier = Modifier
                         .height(42.dp)
                         .clip(actionShape)
-                        .background(colors.card)
+                        .background(colors.card.copy(alpha = 0.88f))
                         .border(
                             width = 0.7.dp,
-                            color = colors.cardBorder,
+                            color = colors.cardBorder.copy(alpha = 0.62f),
                             shape = actionShape
                         )
                         .padding(horizontal = 2.dp),
