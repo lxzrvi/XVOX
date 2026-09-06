@@ -2,11 +2,14 @@ package com.xvox.music.core.design.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.text.TextStyle
 
 enum class XvoxThemeMode {
     SYSTEM,
@@ -78,14 +81,20 @@ fun XvoxTheme(
             )
         }
 
-    androidx.compose.runtime.CompositionLocalProvider(
+    CompositionLocalProvider(
         LocalXvoxPalette provides palette
     ) {
         MaterialTheme(
             colorScheme = materialColors,
             typography = XvoxTypography,
-            shapes = XvoxShapes,
-            content = content
-        )
+            shapes = XvoxShapes
+        ) {
+            ProvideTextStyle(
+                value = TextStyle(
+                    fontFamily = XvoxUiFont
+                ),
+                content = content
+            )
+        }
     }
 }

@@ -1,0 +1,62 @@
+name: XVOX - Import Inter Fonts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-fonts:
+    name: Import Official Inter Fonts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout XVOX
+        uses: actions/checkout@v4
+        with:
+          ref: xvox
+          fetch-depth: 1
+
+      - name: Download and Install Inter Fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/src/main/res/font
+          mkdir -p /tmp/xvox-font-download
+
+          echo "Downloading official Inter release from rsms/inter..."
+          curl -sL "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip" -o /tmp/xvox-font-download/Inter-4.1.zip
+
+          echo "Extracting Inter TTFs..."
+          unzip -p /tmp/xvox-font-download/Inter-4.1.zip extras/ttf/Inter-Regular.ttf > app/src/main/res/font/xvox_inter_regular.ttf
+          unzip -p /tmp/xvox-font-download/Inter-4.1.zip extras/ttf/Inter-Medium.ttf > app/src/main/res/font/xvox_inter_medium.ttf
+          unzip -p /tmp/xvox-font-download/Inter-4.1.zip extras/ttf/Inter-SemiBold.ttf > app/src/main/res/font/xvox_inter_semibold.ttf
+          unzip -p /tmp/xvox-font-download/Inter-4.1.zip extras/ttf/Inter-Bold.ttf > app/src/main/res/font/xvox_inter_bold.ttf
+
+          echo "Downloading Cinzel Decorative and Nothing You Could Do..."
+          curl -sL "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzeldecorative/CinzelDecorative-Regular.ttf" -o app/src/main/res/font/xvoxcinzeldecorative.ttf
+          curl -sL "https://raw.githubusercontent.com/google/fonts/main/ofl/nothingyoucoulddo/NothingYouCouldDo-Regular.ttf" -o app/src/main/res/font/xvoxnothingyoucoulddo.ttf || true
+
+          # Clean up any obsolete Jakarta font files
+          rm -f app/src/main/res/font/xvoxplusjakartasans.ttf
+          rm -f app/src/main/res/font/xvoxplusjakartasansitalic.ttf
+
+          echo "Verifying font files:"
+          ls -lh app/src/main/res/font/
+
+      - name: Commit and Push Fonts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add app/src/main/res/font/
+
+          if git diff --staged --quiet; then
+            echo "No font changes to commit."
+          else
+            git commit -m "chore(fonts): import official Inter TTF fonts into app/src/main/res/font"
+            git push origin xvox
+          fi
