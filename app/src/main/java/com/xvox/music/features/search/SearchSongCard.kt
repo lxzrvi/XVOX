@@ -81,7 +81,7 @@ fun SearchSongCard(
                 color = colors.primaryText,
                 fontSize = 13.sp,
                 lineHeight = 16.sp,
-                fontWeight = if (current) FontWeight.Bold else FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -91,6 +91,7 @@ fun SearchSongCard(
                 color = colors.secondaryText,
                 fontSize = 10.sp,
                 lineHeight = 13.sp,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

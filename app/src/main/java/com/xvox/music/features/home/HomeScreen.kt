@@ -220,8 +220,12 @@ fun HomeScreen(
                         isPlaying = isPlaying,
                         transition = state.recentTransition,
                         onSongClick = { song ->
-                            viewModel.recordPlayedFromRecent(song, currentSongId)
-                            playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
+                            if (song.id == currentSongId) {
+                                playerViewModel.togglePlayPause()
+                            } else {
+                                viewModel.recordPlayedFromRecent(song, currentSongId)
+                                playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
+                            }
                         },
                         onSongOptions = { song -> openSongOptions(song = song, recent = true) }
                     )

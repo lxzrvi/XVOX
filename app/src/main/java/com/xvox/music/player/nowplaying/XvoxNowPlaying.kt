@@ -312,7 +312,7 @@ fun XvoxNowPlaying(
                     color = colors.secondaryText,
                     fontSize = 13.sp,
                     lineHeight = 17.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

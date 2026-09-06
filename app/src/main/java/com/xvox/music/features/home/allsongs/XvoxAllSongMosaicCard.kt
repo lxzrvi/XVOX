@@ -95,7 +95,7 @@ fun XvoxAllSongMosaicCard(
             color = colors.primaryText,
             fontSize = if (widthUnits >= 2f) 12.sp else 10.sp,
             lineHeight = if (widthUnits >= 2f) 14.sp else 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 5.dp)
@@ -105,6 +105,7 @@ fun XvoxAllSongMosaicCard(
             text = song.artist,
             color = colors.secondaryText,
             fontSize = if (widthUnits >= 2f) 9.sp else 8.sp,
+            fontWeight = FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

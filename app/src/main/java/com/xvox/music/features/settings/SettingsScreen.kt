@@ -63,7 +63,7 @@ fun SettingsScreen(
                     color = colors.primaryAccent,
                     fontSize = 16.sp,
                     lineHeight = 19.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

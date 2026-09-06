@@ -35,19 +35,12 @@ fun XvoxRecentlyPlayedSection(
                 ),
     ) {
         Text(
-            text =
-                "Recently Played",
-            color =
-                colors.primaryAccent,
+            text = "Recently Played",
+            color = colors.primaryAccent,
             fontSize = 16.sp,
             lineHeight = 19.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-            modifier =
-                Modifier.padding(
-                    horizontal =
-                        12.dp,
-                ),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 12.dp)
         )
 
         Spacer(

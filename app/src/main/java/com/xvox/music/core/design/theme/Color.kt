@@ -18,9 +18,9 @@ data class XvoxPalette(
 ) {
     fun withAccent(accentName: String): XvoxPalette {
         val accentColor = when (accentName) {
-            "XVOX Red", "Red" -> Color(0xFFFA2D48) // Apple Music style vivid Red
-            "XVOX Blue", "Blue" -> Color(0xFF007AFF) // iOS System Blue
-            else -> return this // Default monochrome accent
+            "XVOX Red", "Red" -> Color(0xFFFA2D48)
+            "XVOX Blue", "Blue" -> Color(0xFF007AFF)
+            else -> return this
         }
         return this.copy(
             primaryAccent = accentColor,
@@ -37,8 +37,8 @@ val XvoxWhitePalette = XvoxPalette(
     cardElevated = Color(0xFFF2F2F2),
     cardBorder = Color(0xFFE2E2E2),
     primaryText = Color(0xFF111111),
-    secondaryText = Color(0xFF666666),
-    mutedText = Color(0xFF999999),
+    secondaryText = Color(0xFF2E2E2E),
+    mutedText = Color(0xFF555555),
     primaryAccent = Color(0xFF171717),
     accentSoft = Color(0xFFE8E8E8),
     progressTrack = Color(0xFFD9D9D9),
@@ -51,13 +51,13 @@ val XvoxDarkPalette = XvoxPalette(
     card = Color(0xFF171717),
     cardElevated = Color(0xFF1E1E1E),
     cardBorder = Color(0xFF292929),
-    primaryText = Color(0xFFF5F5F5),
-    secondaryText = Color(0xFFA3A3A3),
-    mutedText = Color(0xFF666666),
-    primaryAccent = Color(0xFFF5F5F5),
+    primaryText = Color(0xFFFFFFFF),
+    secondaryText = Color(0xFFEDEDED),
+    mutedText = Color(0xFFCCCCCC),
+    primaryAccent = Color(0xFFFFFFFF),
     accentSoft = Color(0xFF292929),
     progressTrack = Color(0xFF363636),
-    progressActive = Color(0xFFF5F5F5)
+    progressActive = Color(0xFFFFFFFF)
 )
 
 val XvoxAmoledPalette = XvoxPalette(
@@ -67,8 +67,8 @@ val XvoxAmoledPalette = XvoxPalette(
     cardElevated = Color(0xFF121212),
     cardBorder = Color(0xFF202020),
     primaryText = Color(0xFFFFFFFF),
-    secondaryText = Color(0xFFA1A1A1),
-    mutedText = Color(0xFF5F5F5F),
+    secondaryText = Color(0xFFEDEDED),
+    mutedText = Color(0xFFCCCCCC),
     primaryAccent = Color(0xFFFFFFFF),
     accentSoft = Color(0xFF181818),
     progressTrack = Color(0xFF303030),

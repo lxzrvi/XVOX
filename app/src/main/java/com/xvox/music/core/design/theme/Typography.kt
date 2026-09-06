@@ -4,7 +4,6 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
@@ -24,18 +23,9 @@ val XvoxPersonalFont = FontFamily(
 )
 
 val XvoxUiFont = FontFamily(
-    Font(
-        resId = R.font.xvoxplusjakartasans,
-        weight = FontWeight.Normal
-    )
-)
-
-val XvoxItalicFont = FontFamily(
-    Font(
-        resId = R.font.xvoxplusjakartasansitalic,
-        weight = FontWeight.Normal,
-        style = FontStyle.Italic
-    )
+    Font(resId = R.font.xvox_inter_regular, weight = FontWeight.Normal),
+    Font(resId = R.font.xvox_inter_semibold, weight = FontWeight.SemiBold),
+    Font(resId = R.font.xvox_inter_bold, weight = FontWeight.Bold)
 )
 
 val XvoxTypography = Typography(
@@ -53,19 +43,19 @@ val XvoxTypography = Typography(
     ),
     headlineMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 23.sp,
         lineHeight = 30.sp
     ),
     titleLarge = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 27.sp
     ),
     titleMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 16.sp,
         lineHeight = 22.sp
     ),
@@ -89,12 +79,12 @@ val XvoxTypography = Typography(
     ),
     labelLarge = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp
     ),
     labelMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         fontSize = 12.sp
     )
 )

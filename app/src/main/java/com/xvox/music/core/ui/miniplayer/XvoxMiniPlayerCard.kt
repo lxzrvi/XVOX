@@ -135,7 +135,7 @@ fun XvoxMiniPlayerCard(
                             color = colors.primaryText,
                             fontSize = 12.sp,
                             lineHeight = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -145,6 +145,7 @@ fun XvoxMiniPlayerCard(
                             color = colors.secondaryText,
                             fontSize = 9.sp,
                             lineHeight = 11.sp,
+                            fontWeight = FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

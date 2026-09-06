@@ -3,6 +3,7 @@ package com.xvox.music.features.home.recent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -43,9 +44,7 @@ import com.xvox.music.features.home.PlaybackIconType
 import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxRecentArtwork(
     song: Song,
@@ -56,212 +55,119 @@ fun XvoxRecentArtwork(
     animateEntrance: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val cardInteraction = remember { MutableInteractionSource() }
+    val controlInteraction = remember { MutableInteractionSource() }
 
-    val cardInteraction =
-        remember {
-            MutableInteractionSource()
-        }
+    val pressed by cardInteraction.collectIsPressedAsState()
 
-    val controlInteraction =
-        remember {
-            MutableInteractionSource()
-        }
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.86f,
+            stiffness = 1400f
+        ),
+        label = "recentPress"
+    )
 
-    val pressed by
-        cardInteraction
-            .collectIsPressedAsState()
-
-    val scale by
-        androidx.compose.animation.core
-            .animateFloatAsState(
-                targetValue =
-                    if (pressed) {
-                        0.985f
-                    } else {
-                        1f
-                    },
-                animationSpec =
-                    spring(
-                        dampingRatio = 0.86f,
-                        stiffness = 1400f
-                    ),
-                label =
-                    "recentPress"
-            )
-
-    val shape =
-        RoundedCornerShape(
-            3.dp
-        )
+    val shape = RoundedCornerShape(3.dp)
 
     Box(
-        modifier =
-            modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(shape)
-                .background(
-                    colors.cardElevated
-                )
-                .border(
-                    width = 0.7.dp,
-                    color =
-                        colors.cardBorder,
-                    shape = shape
-                )
-                .combinedClickable(
-                    interactionSource =
-                        cardInteraction,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick =
-                        onLongClick
-                )
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(colors.cardElevated)
+            .border(
+                width = 0.7.dp,
+                color = colors.cardBorder,
+                shape = shape
+            )
+            .combinedClickable(
+                interactionSource = cardInteraction,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         XvoxSongArtwork(
-            artwork =
-                song.artworkUri,
-            requestSize =
-                XvoxRecentArtworkSize,
-            modifier =
-                Modifier.fillMaxSize()
+            artwork = song.artworkUri,
+            requestSize = XvoxRecentArtworkSize,
+            modifier = Modifier.fillMaxSize()
         )
 
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush
-                            .verticalGradient(
-                                listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(
-                                        alpha = 0.78f
-                                    )
-                                )
-                            )
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.78f)
+                        )
                     )
+                )
         )
 
         Text(
             text = song.title,
             color = Color.White,
             fontSize = 14.sp,
-            fontWeight =
-                FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis,
-            modifier =
-                Modifier
-                    .align(
-                        Alignment
-                            .BottomStart
-                    )
-                    .fillMaxWidth(
-                        0.72f
-                    )
-                    .padding(
-                        start = 12.dp,
-                        end = 8.dp,
-                        bottom = 10.dp
-                    )
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.72f)
+                .padding(start = 12.dp, end = 8.dp, bottom = 10.dp)
         )
 
         Row(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopEnd
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(9.dp)
+                .height(30.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = 700f
                     )
-                    .padding(9.dp)
-                    .height(30.dp)
-                    .clip(
-                        CircleShape
-                    )
-                    .background(
-                        if (current && playing) {
-                            colors.primaryAccent
-                        } else {
-                            Color.Black.copy(
-                                alpha = 0.58f
-                            )
-                        }
-                    )
-                    .animateContentSize(
-                        animationSpec =
-                            spring(
-                                dampingRatio =
-                                    0.88f,
-                                stiffness =
-                                    700f
-                            )
-                    )
-                    .combinedClickable(
-                        interactionSource =
-                            controlInteraction,
-                        indication = null,
-                        onClick = onClick,
-                        onLongClick =
-                            onLongClick
-                    )
-                    .padding(
-                        horizontal = 8.dp
-                    ),
-            verticalAlignment =
-                Alignment.CenterVertically,
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    5.dp
                 )
+                .combinedClickable(
+                    interactionSource = controlInteraction,
+                    indication = null,
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             AnimatedContent(
-                targetState =
-                    current &&
-                        playing,
+                targetState = current && playing,
                 transitionSpec = {
-                    fadeIn() togetherWith
-                        fadeOut()
+                    fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
                 },
-                label =
-                    "recentPlayState"
-            ) {
-                active ->
-
+                label = "recentPlayState"
+            ) { active ->
                 PlaybackIcon(
-                    type =
-                        if (active) {
-                            PlaybackIconType
-                                .PAUSE
-                        } else {
-                            PlaybackIconType
-                                .PLAY
-                        },
-                    color =
-                        if (active) colors.primaryAccent else Color.White,
-                    modifier =
-                        Modifier.size(
-                            14.dp
-                        )
+                    type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
+                    color = Color.White,
+                    modifier = Modifier.size(14.dp)
                 )
             }
 
-            if (
-                current &&
-                playing
-            ) {
+            if (current && playing) {
                 Text(
-                    text =
-                        "Playing",
-                    color =
-                        Color.White,
-                    fontSize = 9.sp
+                    text = "Playing",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
         }

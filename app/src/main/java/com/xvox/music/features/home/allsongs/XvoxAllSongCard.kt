@@ -97,7 +97,7 @@ fun XvoxAllSongCard(
                 color = colors.primaryText,
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -107,6 +107,7 @@ fun XvoxAllSongCard(
                 color = colors.secondaryText,
                 fontSize = 8.sp,
                 lineHeight = 9.sp,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
