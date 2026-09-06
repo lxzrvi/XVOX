@@ -16,11 +16,9 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.xvox.music.MainActivity
-import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.audio.StereoBalanceAudioProcessor
 import com.xvox.music.core.model.Song
@@ -83,13 +81,6 @@ class XvoxPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-
-        runCatching {
-            val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
-                .setSmallIcon(R.drawable.ic_xvox_music_note)
-                .build()
-            setMediaNotificationProvider(notificationProvider)
-        }
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
