@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +46,7 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
+import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsSheet
@@ -90,6 +92,7 @@ fun XvoxNowPlaying(
     lyricsViewModel: XvoxLyricsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
+    val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     val density = LocalDensity.current

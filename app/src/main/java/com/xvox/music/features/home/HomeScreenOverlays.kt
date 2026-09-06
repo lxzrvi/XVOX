@@ -74,7 +74,7 @@ fun showDeleteOverlay(
     playerViewModel: MainPlayerViewModel,
     viewModel: HomeViewModel,
     deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
-    onPendingDelete: (Song?) -> Unit
+    onPendingDelete: (Song) -> Unit
 ) {
     overlays.showL {
         DeleteSongBox(
@@ -129,7 +129,7 @@ fun showSongOptionsOverlay(
     playlists: List<XvoxPlaylist>,
     songs: List<Song>,
     deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
-    onPendingDelete: (Song?) -> Unit
+    onPendingDelete: (Song) -> Unit
 ) {
     overlays.showL {
         SongOptionsSheet(

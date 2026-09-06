@@ -121,7 +121,7 @@ fun HomeScreen(
             playlists = state.playlists,
             songs = state.songs,
             deleteLauncher = deleteLauncher,
-            onPendingDelete = { pendingDeleteSongs = listOf(it) }
+            onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) }
         )
     }
 
