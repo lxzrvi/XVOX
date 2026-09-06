@@ -11,10 +11,13 @@ import kotlin.math.sin
 class StereoBalanceAudioProcessor : BaseAudioProcessor() {
 
     @Volatile
-    var balance: Float = 0f // -1.0f (Left only) .. 0.0f (Center) .. 1.0f (Right only)
+    var balance: Float = 0f
 
     @Volatile
     var surround3dEnabled: Boolean = false
+
+    @Volatile
+    var surroundPanPeriodSec: Float = 6.0f
 
     private var surroundPhase: Double = 0.0
 
@@ -39,7 +42,8 @@ class StereoBalanceAudioProcessor : BaseAudioProcessor() {
 
         val sampleRate = if (inputAudioFormat.sampleRate > 0) inputAudioFormat.sampleRate else 44100
         val is3d = surround3dEnabled
-        val phaseStep = (2.0 * Math.PI) / (sampleRate * 8.0) // complete 8-second slow spatial orbit
+        val period = surroundPanPeriodSec.coerceIn(2.0f, 10.0f).toDouble()
+        val phaseStep = (2.0 * Math.PI) / (sampleRate * period)
 
         var currentPhase = surroundPhase
 

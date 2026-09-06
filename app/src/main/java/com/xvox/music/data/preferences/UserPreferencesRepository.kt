@@ -40,6 +40,7 @@ class UserPreferencesRepository(
         val eqBands = stringPreferencesKey("eq_bands")
         val balance = floatPreferencesKey("balance_l_r")
         val stereoWidening = booleanPreferencesKey("stereo_widening")
+        val surroundPanSpeed = intPreferencesKey("surround_pan_speed")
 
         val appVolume = floatPreferencesKey("app_volume")
         val volumeLimit = floatPreferencesKey("volume_limit")
@@ -48,6 +49,11 @@ class UserPreferencesRepository(
         val accentColor = stringPreferencesKey("accent_color")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
         val fourRowsGrid = booleanPreferencesKey("four_rows_grid")
+
+        val homeLayoutStyle = stringPreferencesKey("home_layout_style")
+        val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
+        val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
+        val hideRecentlyPlayed = booleanPreferencesKey("hide_recently_played")
 
         val widgetTransparency = floatPreferencesKey("widget_transparency")
         val widgetTheme = stringPreferencesKey("widget_theme")
@@ -87,6 +93,7 @@ class UserPreferencesRepository(
     val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { decodeBands(it[Keys.eqBands].orEmpty()) }
     val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }
     val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }
+    val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }
 
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }
@@ -95,6 +102,11 @@ class UserPreferencesRepository(
     val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }
+
+    val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeLayoutStyle] ?: "mosaic" }
+    val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }
+    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }
+    val hideRecentlyPlayed: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideRecentlyPlayed] ?: false }
 
     val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }
     val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }
@@ -112,6 +124,7 @@ class UserPreferencesRepository(
     suspend fun setEqBands(bands: List<Int>) { context.xvoxDataStore.edit { it[Keys.eqBands] = bands.joinToString(",") } }
     suspend fun setBalance(v: Float) { context.xvoxDataStore.edit { it[Keys.balance] = v } }
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
+    suspend fun setSurroundPanSpeed(v: Int) { context.xvoxDataStore.edit { it[Keys.surroundPanSpeed] = v.coerceIn(2, 10) } }
 
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
@@ -120,6 +133,11 @@ class UserPreferencesRepository(
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
+
+    suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = style } }
+    suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
+    suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
+    suspend fun setHideRecentlyPlayed(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.hideRecentlyPlayed] = hide } }
 
     suspend fun setWidgetTransparency(v: Float) { context.xvoxDataStore.edit { it[Keys.widgetTransparency] = v } }
     suspend fun setWidgetTheme(v: String) { context.xvoxDataStore.edit { it[Keys.widgetTheme] = v } }

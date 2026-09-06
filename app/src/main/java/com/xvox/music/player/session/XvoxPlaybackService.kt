@@ -233,6 +233,12 @@ class XvoxPlaybackService : MediaSessionService() {
                     balanceAudioProcessor.surround3dEnabled = is3d
                 }
             }
+
+            launch {
+                prefs.surroundPanSpeed.collect { speedSec ->
+                    balanceAudioProcessor.surroundPanPeriodSec = speedSec.toFloat()
+                }
+            }
         }
     }
 

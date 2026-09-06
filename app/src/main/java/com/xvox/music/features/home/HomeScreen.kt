@@ -85,6 +85,8 @@ fun HomeScreen(
     }
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val prefs = remember { UserPreferencesRepository(context) }
+    val hideRecents by prefs.hideRecentlyPlayed.collectAsState(initial = false)
 
     LaunchedEffect(state.songs) {
         if (state.songs.isNotEmpty()) {
@@ -216,7 +218,7 @@ fun HomeScreen(
                 }
             }
 
-            if (effectiveSelectedPlaylistId == null && state.libraryMode == XvoxHomeLibraryMode.ALL_SONGS) {
+            if (!hideRecents && effectiveSelectedPlaylistId == null && state.libraryMode == XvoxHomeLibraryMode.ALL_SONGS) {
                 item(key = "recent") {
                     XvoxRecentlyPlayedSection(
                         songs = state.recentlyPlayed,

@@ -2,6 +2,7 @@ package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -145,6 +151,26 @@ fun EqualizerSettingsSection(
             onChange = viewModel::setStereoWidening
         )
 
+        if (state.stereoWidening) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "3D Orbit Pan Interval: ${state.surroundPanSpeed} seconds",
+                color = colors.secondaryText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            XvoxThinLineSlider(
+                value = state.surroundPanSpeed.toFloat(),
+                onValueChange = { viewModel.setSurroundPanSpeed(it.roundToInt()) },
+                valueRange = 2f..10f,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
@@ -198,7 +224,10 @@ fun VerticalEqBandSlider(
     val colors = XvoxTheme.colors
     val minDb = -12
     val maxDb = 12
-    val fraction = ((value - minDb).toFloat() / (maxDb - minDb).toFloat()).coerceIn(0f, 1f)
+    var localValue by remember(value) { mutableIntStateOf(value) }
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+
+    val fraction = ((localValue - minDb).toFloat() / (maxDb - minDb).toFloat()).coerceIn(0f, 1f)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -209,7 +238,7 @@ fun VerticalEqBandSlider(
             .padding(vertical = 4.dp)
     ) {
         Text(
-            text = "${if (value > 0) "+" else ""}$value",
+            text = "${if (localValue > 0) "+" else ""}$localValue",
             color = colors.primaryAccent,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold
@@ -217,15 +246,28 @@ fun VerticalEqBandSlider(
 
         Box(
             modifier = Modifier
-                .width(28.dp)
+                .width(32.dp)
                 .height(120.dp)
-                .pointerInput(minDb, maxDb) {
-                    detectVerticalDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaDb = -(dragAmount / 5f).roundToInt()
-                        val newDb = (value + deltaDb).coerceIn(minDb, maxDb)
-                        onValueChange(newDb)
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)
+                        val newDb = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                        localValue = newDb
+                        currentOnValueChange(newDb)
                     }
+                }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, _ ->
+                            change.consume()
+                            val f = (1f - (change.position.y / size.height)).coerceIn(0f, 1f)
+                            val newDb = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                            if (newDb != localValue) {
+                                localValue = newDb
+                                currentOnValueChange(newDb)
+                            }
+                        }
+                    )
                 },
             contentAlignment = Alignment.Center
         ) {
@@ -249,7 +291,7 @@ fun VerticalEqBandSlider(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = (100 * fraction).dp)
+                    .padding(bottom = (98 * fraction).dp)
                     .size(16.dp)
                     .clip(CircleShape)
                     .background(colors.primaryAccent)

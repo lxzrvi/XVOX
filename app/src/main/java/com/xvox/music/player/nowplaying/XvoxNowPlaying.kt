@@ -207,7 +207,7 @@ fun XvoxNowPlaying(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer { translationY = screenY }
-            .background(Color(0xFF08080A))
+            .background(paletteState.color)
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,

@@ -94,22 +94,25 @@ class PlaybackTrackTransitionHelper(
         val mediaController = getController() ?: return
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            val steps = 10
-            val stepDelay = durationMs / (steps * 2)
             val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
+            val halfDuration = (durationMs / 2).coerceAtLeast(400L)
+            val stepTime = 50L
+            val fadeOutSteps = (halfDuration / stepTime).toInt().coerceAtLeast(5)
 
-            for (i in (steps - 1) downTo 2) {
-                val fraction = i.toFloat() / steps.toFloat()
+            for (step in fadeOutSteps downTo 0) {
+                val fraction = step.toFloat() / fadeOutSteps.toFloat()
                 mediaController.volume = (masterVol * fraction).coerceIn(0f, 1f)
-                delay(stepDelay)
+                delay(stepTime)
             }
 
             playQueueIndex(targetIndex, true)
+            mediaController.volume = 0f
 
-            for (i in 2..steps) {
-                val fraction = i.toFloat() / steps.toFloat()
+            val fadeInSteps = (halfDuration / stepTime).toInt().coerceAtLeast(5)
+            for (step in 0..fadeInSteps) {
+                val fraction = step.toFloat() / fadeInSteps.toFloat()
                 mediaController.volume = (masterVol * fraction).coerceIn(0f, 1f)
-                delay(stepDelay)
+                delay(stepTime)
             }
             mediaController.volume = masterVol
         }

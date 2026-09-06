@@ -8,6 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +30,10 @@ fun XvoxThinLineSlider(
 ) {
     val colors = XvoxTheme.colors
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
-    val fraction = ((value - valueRange.start) / totalSpan).coerceIn(0f, 1f)
+    var localValue by remember(value) { mutableFloatStateOf(value) }
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+
+    val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
     val snapThreshold = totalSpan * 0.045f
 
     val defaultFraction = if (defaultValue != null) {
@@ -35,7 +43,7 @@ fun XvoxThinLineSlider(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(30.dp)
             .pointerInput(valueRange, defaultValue) {
                 detectTapGestures { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
@@ -43,17 +51,22 @@ fun XvoxThinLineSlider(
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
                     }
-                    onValueChange(newValue)
+                    localValue = newValue
+                    currentOnValueChange(newValue)
                 }
             }
             .pointerInput(valueRange, defaultValue) {
                 detectDragGestures { change, _ ->
+                    change.consume()
                     val newFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
                     }
-                    onValueChange(newValue)
+                    if (newValue != localValue) {
+                        localValue = newValue
+                        currentOnValueChange(newValue)
+                    }
                 }
             },
         contentAlignment = Alignment.CenterStart

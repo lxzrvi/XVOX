@@ -23,6 +23,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
             launch { prefs.fourRowsGrid.collect { v -> _state.update { it.copy(fourRowsGrid = v) } } }
 
+            launch { prefs.homeLayoutStyle.collect { v -> _state.update { it.copy(homeLayoutStyle = v) } } }
+            launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
+            launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
+            launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
+
             launch { prefs.crossfade.collect { v -> _state.update { it.copy(crossfade = v) } } }
             launch { prefs.crossfadeDuration.collect { v -> _state.update { it.copy(crossfadeDuration = v) } } }
             launch { prefs.pauseOnHeadphoneDisconnect.collect { v -> _state.update { it.copy(pauseOnHeadphoneDisconnect = v) } } }
@@ -33,6 +38,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.eqBands.collect { v -> _state.update { it.copy(eqBands = v) } } }
             launch { prefs.balance.collect { v -> _state.update { it.copy(balance = v) } } }
             launch { prefs.stereoWidening.collect { v -> _state.update { it.copy(stereoWidening = v) } } }
+            launch { prefs.surroundPanSpeed.collect { v -> _state.update { it.copy(surroundPanSpeed = v) } } }
 
             launch { prefs.appVolume.collect { v -> _state.update { it.copy(appVolume = v) } } }
             launch { prefs.volumeLimit.collect { v -> _state.update { it.copy(volumeLimit = v) } } }
@@ -50,6 +56,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setFourRowsGrid(enabled: Boolean) = viewModelScope.launch { prefs.setFourRowsGrid(enabled) }
 
+    fun setHomeLayoutStyle(style: String) = viewModelScope.launch { prefs.setHomeLayoutStyle(style) }
+    fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
+    fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
+    fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
+
     fun setCrossfade(enabled: Boolean) = viewModelScope.launch { prefs.setCrossfade(enabled) }
     fun setCrossfadeDuration(duration: Int) = viewModelScope.launch { prefs.setCrossfadeDuration(duration) }
     fun setPauseOnHeadphoneDisconnect(enabled: Boolean) = viewModelScope.launch { prefs.setPauseOnHeadphoneDisconnect(enabled) }
@@ -60,6 +71,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setEqBands(bands: List<Int>) = viewModelScope.launch { prefs.setEqBands(bands) }
     fun setBalance(balance: Float) = viewModelScope.launch { prefs.setBalance(balance) }
     fun setStereoWidening(enabled: Boolean) = viewModelScope.launch { prefs.setStereoWidening(enabled) }
+    fun setSurroundPanSpeed(speed: Int) = viewModelScope.launch { prefs.setSurroundPanSpeed(speed) }
 
     fun setAppVolume(volume: Float) = viewModelScope.launch { prefs.setAppVolume(volume) }
     fun setVolumeLimit(limit: Float) = viewModelScope.launch { prefs.setVolumeLimit(limit) }

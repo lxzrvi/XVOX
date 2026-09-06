@@ -15,7 +15,7 @@ data class MosaicPage(
     val tiles: List<MosaicTile>
 )
 
-private data class Spec(
+data class Spec(
     val x: Float,
     val y: Float,
     val width: Float,
@@ -24,22 +24,29 @@ private data class Spec(
 
 private val processMosaicSeed = System.currentTimeMillis() xor (System.nanoTime().shl(16))
 
-fun buildMosaicPagePlans(songs: List<Song>, fourRows: Boolean = true): List<XvoxMosaicPagePlan> {
+fun buildMosaicPagePlans(
+    songs: List<Song>,
+    rows: Int = 4,
+    isUniform: Boolean = false
+): List<XvoxMosaicPagePlan> {
     if (songs.isEmpty()) return emptyList()
 
     val seed = songs.fold(processMosaicSeed) { value, song -> value * 31L + song.id }
     val random = Random(seed)
-    val plans = ArrayList<XvoxMosaicPagePlan>(songs.size / 10 + 1)
+    val plans = ArrayList<XvoxMosaicPagePlan>(songs.size / (rows * 3).coerceAtLeast(1) + 1)
     var index = 0
 
-    val maxPerPage = if (fourRows) 16 else 12
+    val maxPerPage = 4 * rows.coerceIn(3, 8)
 
     while (index < songs.size) {
         val remaining = songs.size - index
         val count = when {
             remaining <= maxPerPage -> remaining
-            fourRows -> listOf(12, 13, 14, 15, 16).random(random)
-            else -> listOf(9, 10, 11, 12).random(random)
+            isUniform -> maxPerPage
+            else -> {
+                val minCount = (maxPerPage - 4).coerceAtLeast(maxPerPage / 2)
+                (minCount..maxPerPage).random(random)
+            }
         }
 
         plans += XvoxMosaicPagePlan(
@@ -53,7 +60,12 @@ fun buildMosaicPagePlans(songs: List<Song>, fourRows: Boolean = true): List<Xvox
     return plans
 }
 
-fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, fourRows: Boolean = true): MosaicPage {
+fun buildMosaicPage(
+    songs: List<Song>,
+    plan: XvoxMosaicPagePlan,
+    rows: Int = 4,
+    isUniform: Boolean = false
+): MosaicPage {
     if (plan.songCount <= 0 || plan.startIndex !in songs.indices) {
         return MosaicPage(emptyList())
     }
@@ -61,13 +73,19 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, fourRows: Boole
     val end = (plan.startIndex + plan.songCount).coerceAtMost(songs.size)
     val pageSongs = songs.subList(plan.startIndex, end)
     val random = Random(plan.layoutSeed)
-    val specs = if (fourRows) specsFor4Rows(pageSongs.size, random) else specsFor3Rows(pageSongs.size, random)
+    val safeRows = rows.coerceIn(3, 8)
 
-    require(specs.size == pageSongs.size)
+    val specs = if (isUniform) {
+        regularSpecs(4, pageSongs.size)
+    } else {
+        generateMosaicSpecs(4, safeRows, pageSongs.size, random)
+    }
 
     return MosaicPage(
         pageSongs.mapIndexed { index, song ->
-            val spec = specs[index]
+            val spec = specs.getOrElse(index) {
+                Spec((index % 4).toFloat(), (index / 4).toFloat(), 1f, 1f)
+            }
             MosaicTile(
                 song = song,
                 x = spec.x,
@@ -79,132 +97,79 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, fourRows: Boole
     )
 }
 
-private fun specsFor4Rows(count: Int, random: Random): List<Spec> = when (count) {
-    1 -> listOf(Spec(0f, 0f, 4f, 4f))
-    2 -> listOf(Spec(0f, 0f, 4f, 2f), Spec(0f, 2f, 4f, 2f))
-    3 -> listOf(Spec(0f, 0f, 4f, 2f), Spec(0f, 2f, 2f, 2f), Spec(2f, 2f, 2f, 2f))
-    4 -> listOf(
-        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 2f),
-        Spec(0f, 2f, 2f, 2f), Spec(2f, 2f, 2f, 2f)
-    )
-    5 -> listOf(
-        Spec(0f, 0f, 4f, 2f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    6 -> listOf(
-        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 2f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    7 -> listOf(
-        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f),
-        Spec(0f, 3f, 4f, 1f)
-    )
-    8 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    9 -> listOf(
-        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    10 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f),
-        Spec(0f, 3f, 4f, 1f)
-    )
-    11 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 4f, 1f)
-    )
-    12 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    13 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    14 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 1f, 1f), Spec(1f, 3f, 1f, 1f), Spec(2f, 3f, 2f, 1f)
-    )
-    15 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
-        Spec(0f, 3f, 1f, 1f), Spec(1f, 3f, 1f, 1f), Spec(2f, 3f, 1f, 1f), Spec(3f, 3f, 1f, 1f)
-    )
-    else -> regularSpecs(count)
-}
-
-private fun specsFor3Rows(count: Int, random: Random): List<Spec> = when (count) {
-    1 -> listOf(Spec(0f, 0f, 4f, 3f))
-    2 -> listOf(Spec(0f, 0f, 4f, 1.5f), Spec(0f, 1.5f, 4f, 1.5f))
-    3 -> if (random.nextBoolean()) {
-        listOf(Spec(0f, 0f, 4f, 1.5f), Spec(0f, 1.5f, 2f, 1.5f), Spec(2f, 1.5f, 2f, 1.5f))
-    } else {
-        listOf(Spec(0f, 0f, 2f, 1.5f), Spec(2f, 0f, 2f, 1.5f), Spec(0f, 1.5f, 4f, 1.5f))
+fun generateMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<Spec> {
+    if (count <= 0) return emptyList()
+    val totalSlots = cols * rows
+    if (count >= totalSlots) {
+        return regularSpecs(cols, count)
     }
-    4 -> listOf(
-        Spec(0f, 0f, 2f, 1.5f), Spec(2f, 0f, 2f, 1.5f),
-        Spec(0f, 1.5f, 2f, 1.5f), Spec(2f, 1.5f, 2f, 1.5f)
-    )
-    5 -> listOf(
-        Spec(0f, 0f, 4f, 1f),
-        Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    6 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    7 -> listOf(
-        Spec(0f, 0f, 4f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    8 -> listOf(
-        Spec(0f, 0f, 1f, 1.5f), Spec(1f, 0f, 1f, 1.5f), Spec(2f, 0f, 1f, 1.5f), Spec(3f, 0f, 1f, 1.5f),
-        Spec(0f, 1.5f, 1f, 1.5f), Spec(1f, 1.5f, 1f, 1.5f), Spec(2f, 1.5f, 1f, 1.5f), Spec(3f, 1.5f, 1f, 1.5f)
-    )
-    9 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    10 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    11 -> listOf(
-        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f)
-    )
-    else -> regularSpecs(count)
+
+    val neededReduction = totalSlots - count
+
+    for (attempt in 0 until 50) {
+        val grid = Array(rows) { BooleanArray(cols) { false } }
+        val curSpecs = mutableListOf<Spec>()
+        var curReduction = 0
+
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                if (grid[r][c]) continue
+                val remRed = neededReduction - curReduction
+                var placed = false
+
+                if (remRed >= 3 && r + 1 < rows && c + 1 < cols &&
+                    !grid[r][c + 1] && !grid[r + 1][c] && !grid[r + 1][c + 1]
+                ) {
+                    if (random.nextFloat() < 0.4f || remRed >= 3 * (rows - r)) {
+                        grid[r][c] = true
+                        grid[r][c + 1] = true
+                        grid[r + 1][c] = true
+                        grid[r + 1][c + 1] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 2f, 2f))
+                        curReduction += 3
+                        placed = true
+                    }
+                }
+
+                if (!placed && remRed >= 1 && c + 1 < cols && !grid[r][c + 1]) {
+                    if (random.nextFloat() < 0.5f || remRed >= 1) {
+                        grid[r][c] = true
+                        grid[r][c + 1] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 2f, 1f))
+                        curReduction += 1
+                        placed = true
+                    }
+                }
+
+                if (!placed && remRed >= 1 && r + 1 < rows && !grid[r + 1][c]) {
+                    if (random.nextFloat() < 0.5f || remRed >= 1) {
+                        grid[r][c] = true
+                        grid[r + 1][c] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 1f, 2f))
+                        curReduction += 1
+                        placed = true
+                    }
+                }
+
+                if (!placed) {
+                    grid[r][c] = true
+                    curSpecs.add(Spec(c.toFloat(), r.toFloat(), 1f, 1f))
+                }
+            }
+        }
+
+        if (curSpecs.size == count) {
+            return curSpecs
+        }
+    }
+
+    return regularSpecs(cols, count)
 }
 
-private fun regularSpecs(count: Int): List<Spec> = List(count) { index ->
+fun regularSpecs(cols: Int, count: Int): List<Spec> = List(count) { index ->
     Spec(
-        x = (index % 4).toFloat(),
-        y = (index / 4).toFloat(),
+        x = (index % cols).toFloat(),
+        y = (index / cols).toFloat(),
         width = 1f,
         height = 1f
     )

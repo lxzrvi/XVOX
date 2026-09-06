@@ -47,12 +47,14 @@ import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.settings.sections.AppearanceSettingsSection
 import com.xvox.music.features.settings.sections.BatteryOptimizationSection
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
+import com.xvox.music.features.settings.sections.HomeSettingsSection
 import com.xvox.music.features.settings.sections.PlaybackSettingsSection
 import com.xvox.music.features.settings.sections.WidgetSettingsSection
 
 enum class SettingsSubPage {
     MAIN,
     APPEARANCE,
+    HOME_SETTINGS,
     XVOX_MIX,
     PLAYBACK,
     BATTERY_OPT,
@@ -112,9 +114,18 @@ fun SettingsScreen(
                 item(key = "menu_appearance") {
                     SettingsMenuCard(
                         title = "Appearance",
-                        subtitle = "Themes, accent colors, grid layout & font size",
+                        subtitle = "Themes, accent colors & font scale",
                         iconRes = R.drawable.ic_xvox_sparkle,
                         onClick = { currentPage = SettingsSubPage.APPEARANCE }
+                    )
+                }
+
+                item(key = "menu_home_settings") {
+                    SettingsMenuCard(
+                        title = "Home Settings",
+                        subtitle = "Card style (One Size / Mosaic), direction & grid size",
+                        iconRes = R.drawable.ic_xvox_home,
+                        onClick = { currentPage = SettingsSubPage.HOME_SETTINGS }
                     )
                 }
 
@@ -204,6 +215,7 @@ fun SettingsScreen(
                         Text(
                             text = when (targetPage) {
                                 SettingsSubPage.APPEARANCE -> "Appearance"
+                                SettingsSubPage.HOME_SETTINGS -> "Home Settings"
                                 SettingsSubPage.XVOX_MIX -> "XvoxMix"
                                 SettingsSubPage.PLAYBACK -> "Playback"
                                 SettingsSubPage.BATTERY_OPT -> "Don't Kill App"
@@ -222,6 +234,7 @@ fun SettingsScreen(
                     Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                         when (targetPage) {
                             SettingsSubPage.APPEARANCE -> AppearanceSettingsSection(state = state, viewModel = settingsViewModel)
+                            SettingsSubPage.HOME_SETTINGS -> HomeSettingsSection(state = state, viewModel = settingsViewModel)
                             SettingsSubPage.XVOX_MIX -> EqualizerSettingsSection(state = state, viewModel = settingsViewModel)
                             SettingsSubPage.PLAYBACK -> PlaybackSettingsSection(state = state, viewModel = settingsViewModel)
                             SettingsSubPage.BATTERY_OPT -> BatteryOptimizationSection()

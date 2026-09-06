@@ -46,15 +46,27 @@ fun XvoxAllSongsSection(
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context) }
-    val fourRows by prefs.fourRowsGrid.collectAsState(initial = true)
 
-    val plans = remember(songs, fourRows) {
-        buildMosaicPagePlans(songs, fourRows)
+    val layoutStyle by prefs.homeLayoutStyle.collectAsState(initial = "mosaic")
+    val scrollDirection by prefs.homeScrollDirection.collectAsState(initial = "horizontal")
+    val horizontalRows by prefs.homeHorizontalRows.collectAsState(initial = 4)
+
+    val isUniform = layoutStyle == "uniform"
+    val isVertical = scrollDirection == "vertical"
+    val rowCount = horizontalRows.coerceIn(3, 8)
+
+    val plans = remember(songs, rowCount, isUniform, isVertical) {
+        if (isVertical) {
+            emptyList()
+        } else {
+            buildMosaicPagePlans(songs, rows = rowCount, isUniform = isUniform)
+        }
     }
 
     val state = rememberLazyListState()
 
     LaunchedEffect(state, plans) {
+        if (isVertical) return@LaunchedEffect
         delay(300L)
         snapshotFlow { state.firstVisibleItemIndex }
             .distinctUntilChanged()
@@ -101,57 +113,90 @@ fun XvoxAllSongsSection(
             val contentWidth = maxWidth - edge * 2
             val unitWidth = (contentWidth - gap * 3) / 4
             val unitHeight = unitWidth + 38.dp
-            val rowCount = if (fourRows) 4 else 3
-            val pageHeight = unitHeight * rowCount + gap * (rowCount - 1)
 
-            LazyRow(
-                state = state,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(pageHeight),
-                contentPadding = PaddingValues(horizontal = edge),
-                horizontalArrangement = Arrangement.spacedBy(gap)
-            ) {
-                itemsIndexed(
-                    items = plans,
-                    key = { _, plan -> plan.startIndex },
-                    contentType = { _, _ -> "mosaic_page" }
-                ) { _, plan ->
-                    val page = remember(songs, plan, fourRows) {
-                        buildMosaicPage(songs, plan, fourRows)
-                    }
-
-                    Box(
-                        modifier = Modifier.size(width = contentWidth, height = pageHeight)
-                    ) {
-                        page.tiles.forEach { tile ->
-                            val tileWidth = unitWidth * tile.width + gap * (tile.width - 1f)
-                            val tileHeight = unitHeight * tile.height + gap * (tile.height - 1f)
-                            val x = (unitWidth + gap) * tile.x
-                            val y = (unitHeight + gap) * tile.y
-
-                            val tileModifier = Modifier
-                                .offset(x = x, y = y)
-                                .size(width = tileWidth, height = tileHeight)
-
-                            if (tile.width == 1f && tile.height == 1f) {
+            if (isVertical) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = edge),
+                    verticalArrangement = Arrangement.spacedBy(gap)
+                ) {
+                    val chunked = remember(songs) { songs.chunked(4) }
+                    chunked.forEach { rowSongs ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(gap)
+                        ) {
+                            rowSongs.forEach { song ->
                                 XvoxAllSongCard(
-                                    song = tile.song,
-                                    current = currentSongId == tile.song.id,
-                                    playing = currentSongId == tile.song.id && isPlaying,
-                                    onClick = { onSongClick(tile.song) },
-                                    onLongClick = { onSongLongClick(tile.song) },
-                                    modifier = tileModifier
+                                    song = song,
+                                    current = currentSongId == song.id,
+                                    playing = currentSongId == song.id && isPlaying,
+                                    onClick = { onSongClick(song) },
+                                    onLongClick = { onSongLongClick(song) },
+                                    modifier = Modifier.size(width = unitWidth, height = unitHeight)
                                 )
-                            } else {
-                                XvoxAllSongMosaicCard(
-                                    song = tile.song,
-                                    widthUnits = tile.width,
-                                    heightUnits = tile.height,
-                                    onClick = { onSongClick(tile.song) },
-                                    onLongClick = { onSongLongClick(tile.song) },
-                                    modifier = tileModifier
-                                )
+                            }
+                            if (rowSongs.size < 4) {
+                                repeat(4 - rowSongs.size) {
+                                    Box(modifier = Modifier.size(width = unitWidth, height = unitHeight))
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                val pageHeight = unitHeight * rowCount + gap * (rowCount - 1)
+
+                LazyRow(
+                    state = state,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(pageHeight),
+                    contentPadding = PaddingValues(horizontal = edge),
+                    horizontalArrangement = Arrangement.spacedBy(gap)
+                ) {
+                    itemsIndexed(
+                        items = plans,
+                        key = { _, plan -> plan.startIndex },
+                        contentType = { _, _ -> "mosaic_page" }
+                    ) { _, plan ->
+                        val page = remember(songs, plan, rowCount, isUniform) {
+                            buildMosaicPage(songs, plan, rows = rowCount, isUniform = isUniform)
+                        }
+
+                        Box(
+                            modifier = Modifier.size(width = contentWidth, height = pageHeight)
+                        ) {
+                            page.tiles.forEach { tile ->
+                                val tileWidth = unitWidth * tile.width + gap * (tile.width - 1f)
+                                val tileHeight = unitHeight * tile.height + gap * (tile.height - 1f)
+                                val x = (unitWidth + gap) * tile.x
+                                val y = (unitHeight + gap) * tile.y
+
+                                val tileModifier = Modifier
+                                    .offset(x = x, y = y)
+                                    .size(width = tileWidth, height = tileHeight)
+
+                                if (tile.width == 1f && tile.height == 1f) {
+                                    XvoxAllSongCard(
+                                        song = tile.song,
+                                        current = currentSongId == tile.song.id,
+                                        playing = currentSongId == tile.song.id && isPlaying,
+                                        onClick = { onSongClick(tile.song) },
+                                        onLongClick = { onSongLongClick(tile.song) },
+                                        modifier = tileModifier
+                                    )
+                                } else {
+                                    XvoxAllSongMosaicCard(
+                                        song = tile.song,
+                                        widthUnits = tile.width,
+                                        heightUnits = tile.height,
+                                        onClick = { onSongClick(tile.song) },
+                                        onLongClick = { onSongLongClick(tile.song) },
+                                        modifier = tileModifier
+                                    )
+                                }
                             }
                         }
                     }

@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +27,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
@@ -133,15 +131,6 @@ fun AppearanceSettingsSection(
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        SettingsToggle(
-            title = "4 Rows Grid",
-            subtitle = "Show 4x4 songs per page in All Songs view",
-            checked = state.fourRowsGrid,
-            onChange = viewModel::setFourRowsGrid
-        )
 
         Spacer(modifier = Modifier.height(14.dp))
 
