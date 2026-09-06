@@ -59,7 +59,7 @@ fun XvoxAppRoot(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (state == AppUiState.Setup) {
-                    SetupScreen(onSetupComplete = {})
+                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                 } else {
                     XvoxMainShell()
                 }
