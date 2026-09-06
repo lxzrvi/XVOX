@@ -37,6 +37,7 @@ import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
+import com.xvox.music.features.home.showCreatePlaylistOverlay
 import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
@@ -119,6 +120,10 @@ fun XvoxMainShell(
                         }
                     }
                 },
+                onCreatePlaylist = {
+                    overlays.hideL()
+                    showCreatePlaylistOverlay(overlays, homeViewModel, homeState.songs, song)
+                },
                 onCancel = overlays::hideL
             )
         }
@@ -196,10 +201,7 @@ fun XvoxMainShell(
                 AnimatedContent(
                     targetState = destination,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(220)) +
-                            slideInHorizontally(animationSpec = tween(220)) {
-                                if (targetState.ordinal > initialState.ordinal) 50 else -50
-                            }).togetherWith(fadeOut(animationSpec = tween(160)))
+                        fadeIn(animationSpec = tween(120)) togetherWith fadeOut(animationSpec = tween(90))
                     },
                     label = "tab_switch_transition",
                     modifier = Modifier.fillMaxSize()

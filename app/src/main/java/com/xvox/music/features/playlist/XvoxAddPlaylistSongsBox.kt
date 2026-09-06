@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -27,16 +26,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,108 +52,53 @@ fun XvoxAddPlaylistSongsBox(
     playlistSongs: List<Song> = emptyList(),
 ) {
     val colors = XvoxTheme.colors
-    var query by remember { mutableStateOf("") }
     val selectedSongIds = remember { mutableStateListOf<Long>() }
 
-    val availableSongs = remember(songs, existingSongIds, query) {
-        val filtered = songs.filterNot { it.id in existingSongIds }
-        if (query.isBlank()) filtered
-        else filtered.filter {
-            it.title.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true)
-        }
+    val availableSongs = remember(songs, existingSongIds) {
+        songs.filterNot { it.id in existingSongIds }
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 360.dp, max = 520.dp)
             .imePadding()
             .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.Transparent)
-                .padding(bottom = 6.dp)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Add Songs to Playlist",
+                    color = colors.primaryText,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (playlist != null) {
                     Text(
-                        text = "Add Songs",
-                        color = colors.primaryText,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (playlist != null) {
-                        Text(
-                            text = "To ${playlist.name}",
-                            color = colors.secondaryText,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                if (selectedSongIds.isNotEmpty()) {
-                    Text(
-                        text = "${selectedSongIds.size} selected",
-                        color = colors.primaryAccent,
+                        text = "To ${playlist.name}",
+                        color = colors.secondaryText,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(colors.card)
-                    .padding(horizontal = 10.dp, vertical = 9.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_search),
-                        contentDescription = null,
-                        tint = colors.secondaryText,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    BasicTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        singleLine = true,
-                        textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
-                        cursorBrush = SolidColor(colors.primaryAccent),
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        decorationBox = { inner ->
-                            if (query.isEmpty()) {
-                                Text(text = "Search songs to add...", color = colors.mutedText, fontSize = 13.sp)
-                            }
-                            inner()
-                        }
-                    )
-                    if (query.isNotEmpty()) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_close),
-                            contentDescription = "Clear",
-                            tint = colors.secondaryText,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) { query = "" }
-                        )
-                    }
-                }
+            if (selectedSongIds.isNotEmpty()) {
+                Text(
+                    text = "${selectedSongIds.size} selected",
+                    color = colors.primaryAccent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
+
+        Spacer(Modifier.height(8.dp))
 
         if (availableSongs.isEmpty()) {
             Box(
@@ -168,7 +108,7 @@ fun XvoxAddPlaylistSongsBox(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (query.isNotBlank()) "No matching songs found" else "All songs are already in this playlist",
+                    text = "All songs are already in this playlist",
                     color = colors.mutedText,
                     fontSize = 13.sp
                 )
@@ -176,8 +116,8 @@ fun XvoxAddPlaylistSongsBox(
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 140.dp, max = 280.dp),
+                    .weight(1f)
+                    .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(availableSongs, key = { it.id }) { song ->

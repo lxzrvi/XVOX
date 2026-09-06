@@ -5,13 +5,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -28,6 +28,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsSectionCard
+import com.xvox.music.features.settings.components.SettingsToggle
+import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
 fun AppearanceSettingsSection(
@@ -36,34 +38,42 @@ fun AppearanceSettingsSection(
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsSectionCard(title = "Themes & Appearance", iconRes = R.drawable.ic_xvox_settings) {
+    SettingsSectionCard(
+        title = "Appearance",
+        iconRes = R.drawable.ic_xvox_sparkle
+    ) {
         Text(
-            text = "App Theme: ${state.theme}",
+            text = "Theme",
             color = colors.secondaryText,
             fontSize = 12.sp,
-            modifier = Modifier.padding(bottom = 6.dp)
+            fontWeight = FontWeight.Medium
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("System", "Light", "Dark", "AMOLED").forEach { t ->
-                val isSel = state.theme == t
+            val themes = listOf("System", "Dark", "AMOLED", "Light")
+            themes.forEach { themeName ->
+                val isSelected = state.theme == themeName
+                val shape = RoundedCornerShape(10.dp)
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSel) colors.primaryAccent else colors.cardElevated)
-                        .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(10.dp))
-                        .clickable { viewModel.setTheme(t) }
-                        .padding(vertical = 8.dp),
+                        .height(38.dp)
+                        .clip(shape)
+                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                        .clickable { viewModel.setTheme(themeName) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = t,
-                        color = if (isSel) colors.background else colors.primaryText,
+                        text = themeName,
+                        color = if (isSelected) colors.background else colors.primaryText,
                         fontSize = 12.sp,
-                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
@@ -72,54 +82,66 @@ fun AppearanceSettingsSection(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "Accent Color: ${state.accentColor}",
+            text = "Accent Color",
             color = colors.secondaryText,
             fontSize = 12.sp,
-            modifier = Modifier.padding(bottom = 6.dp)
+            fontWeight = FontWeight.Medium
         )
-        val accentOptions = listOf(
-            "Default" to Color(0xFFF5F5F5),
-            "XVOX Red" to Color(0xFFFA2D48),
-            "XVOX Blue" to Color(0xFF007AFF)
-        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            accentOptions.forEach { (name, colorVal) ->
-                val isSel = state.accentColor == name
-                Box(
+            val accents = listOf(
+                "Default" to Color(0xFFF5F5F5),
+                "XVOX Red" to Color(0xFFFA2D48),
+                "XVOX Blue" to Color(0xFF007AFF)
+            )
+
+            accents.forEach { (name, color) ->
+                val isSelected = state.accentColor == name
+                Row(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(colors.cardElevated)
                         .border(
-                            width = if (isSel) 2.dp else 1.dp,
-                            color = if (isSel) colorVal else colors.cardBorder,
-                            shape = RoundedCornerShape(12.dp)
+                            width = if (isSelected) 1.5.dp else 0.dp,
+                            color = if (isSelected) colors.primaryAccent else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
                         )
                         .clickable { viewModel.setAccentColor(name) }
-                        .padding(vertical = 10.dp, horizontal = 6.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clip(CircleShape)
-                                .background(colorVal)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = name,
-                            color = if (isSel) colors.primaryText else colors.secondaryText,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(color, CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                    )
+                    Text(
+                        text = name.replace("XVOX ", ""),
+                        color = colors.primaryText,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        SettingsToggle(
+            title = "4 Rows Grid",
+            subtitle = "Show 4x4 songs per page in All Songs view",
+            checked = state.fourRowsGrid,
+            onChange = viewModel::setFourRowsGrid
+        )
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -127,32 +149,16 @@ fun AppearanceSettingsSection(
             text = "Font Scale: ${state.fontSizeScale}x",
             color = colors.secondaryText,
             fontSize = 12.sp,
-            modifier = Modifier.padding(bottom = 6.dp)
+            fontWeight = FontWeight.Medium
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            listOf(0.85f to "Small", 1.0f to "Normal", 1.15f to "Large", 1.25f to "XL").forEach { (scale, label) ->
-                val isSel = state.fontSizeScale == scale
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSel) colors.primaryAccent else colors.cardElevated)
-                        .border(1.dp, if (isSel) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(8.dp))
-                        .clickable { viewModel.setFontSizeScale(scale) }
-                        .padding(vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = if (isSel) colors.background else colors.primaryText,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            }
-        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        XvoxThinLineSlider(
+            value = state.fontSizeScale,
+            onValueChange = viewModel::setFontSizeScale,
+            valueRange = 0.85f..1.25f,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

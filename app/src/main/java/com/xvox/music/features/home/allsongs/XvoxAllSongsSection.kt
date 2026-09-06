@@ -17,16 +17,20 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.core.model.Song
+import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.home.HomeGeometry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -39,261 +43,117 @@ fun XvoxAllSongsSection(
     onSongLongClick: (Song) -> Unit,
     onPrefetch: (Int) -> Unit,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val context = LocalContext.current
+    val prefs = remember { UserPreferencesRepository(context) }
+    val fourRows by prefs.fourRowsGrid.collectAsState(initial = true)
 
-    val plans =
-        remember(songs) {
-            buildMosaicPagePlans(
-                songs,
-            )
-        }
+    val plans = remember(songs, fourRows) {
+        buildMosaicPagePlans(songs, fourRows)
+    }
 
-    val state =
-        rememberLazyListState()
+    val state = rememberLazyListState()
 
-    LaunchedEffect(
-        state,
-        plans,
-    ) {
+    LaunchedEffect(state, plans) {
         delay(300L)
-
-        snapshotFlow {
-            state.firstVisibleItemIndex
-        }.distinctUntilChanged()
+        snapshotFlow { state.firstVisibleItemIndex }
+            .distinctUntilChanged()
             .collect { pageIndex ->
-
-                val target =
-                    plans.getOrNull(
-                        pageIndex + 1,
-                    )
-                        ?: return@collect
-
-                onPrefetch(
-                    target.startIndex,
-                )
+                val target = plans.getOrNull(pageIndex + 1) ?: return@collect
+                onPrefetch(target.startIndex)
             }
     }
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 12.dp,
-                        end = 12.dp,
-                        bottom =
-                            HomeGeometry
-                                .sectionGap,
-                    ),
-            horizontalArrangement =
-                Arrangement.SpaceBetween,
-            verticalAlignment =
-                Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = HomeGeometry.sectionGap
+                ),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "All Songs",
                 color = colors.primaryAccent,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Bold
             )
 
             Text(
-                text =
-                    "Total ${songs.size} songs",
-                color =
-                    colors.mutedText,
-                fontSize = 9.sp,
+                text = "Total ${songs.size} songs",
+                color = colors.mutedText,
+                fontSize = 9.sp
             )
         }
 
         BoxWithConstraints(
-            modifier =
-                Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            val edge =
-                6.dp
-
-            val gap =
-                6.dp
-
-            val contentWidth =
-                maxWidth - edge * 2
-
-            val unitWidth =
-                (
-                    contentWidth -
-                        gap * 3
-                ) / 4
-
-            val unitHeight =
-                unitWidth +
-                    38.dp
-
-            val pageHeight =
-                unitHeight * 3 +
-                    gap * 2
+            val edge = 6.dp
+            val gap = 6.dp
+            val contentWidth = maxWidth - edge * 2
+            val unitWidth = (contentWidth - gap * 3) / 4
+            val unitHeight = unitWidth + 38.dp
+            val rowCount = if (fourRows) 4 else 3
+            val pageHeight = unitHeight * rowCount + gap * (rowCount - 1)
 
             LazyRow(
                 state = state,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(
-                            pageHeight,
-                        ),
-                contentPadding =
-                    PaddingValues(
-                        horizontal = edge,
-                    ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(gap),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(pageHeight),
+                contentPadding = PaddingValues(horizontal = edge),
+                horizontalArrangement = Arrangement.spacedBy(gap)
             ) {
                 itemsIndexed(
                     items = plans,
-                    key = {
-                        _,
-                        plan,
-                        ->
-
-                        plan.startIndex
-                    },
-                    contentType = {
-                        _,
-                        _,
-                        ->
-
-                        "mosaic_page"
-                    },
-                ) {
-                    _,
-                    plan,
-                    ->
-
-                    val page =
-                        remember(
-                            songs,
-                            plan,
-                        ) {
-                            buildMosaicPage(
-                                songs,
-                                plan,
-                            )
-                        }
+                    key = { _, plan -> plan.startIndex },
+                    contentType = { _, _ -> "mosaic_page" }
+                ) { _, plan ->
+                    val page = remember(songs, plan, fourRows) {
+                        buildMosaicPage(songs, plan, fourRows)
+                    }
 
                     Box(
-                        modifier =
-                            Modifier.size(
-                                width =
-                                contentWidth,
-                                height =
-                                pageHeight,
-                            ),
+                        modifier = Modifier.size(width = contentWidth, height = pageHeight)
                     ) {
-                        page.tiles
-                            .forEach { tile ->
+                        page.tiles.forEach { tile ->
+                            val tileWidth = unitWidth * tile.width + gap * (tile.width - 1f)
+                            val tileHeight = unitHeight * tile.height + gap * (tile.height - 1f)
+                            val x = (unitWidth + gap) * tile.x
+                            val y = (unitHeight + gap) * tile.y
 
-                                val tileWidth =
-                                    unitWidth *
-                                        tile.width +
-                                        gap *
-                                        (
-                                            tile.width -
-                                                1f
-                                        )
+                            val tileModifier = Modifier
+                                .offset(x = x, y = y)
+                                .size(width = tileWidth, height = tileHeight)
 
-                                val tileHeight =
-                                    unitHeight *
-                                        tile.height +
-                                        gap *
-                                        (
-                                            tile.height -
-                                                1f
-                                        )
-
-                                val x =
-                                    (
-                                        unitWidth +
-                                            gap
-                                    ) *
-                                        tile.x
-
-                                val y =
-                                    (
-                                        unitHeight +
-                                            gap
-                                    ) *
-                                        tile.y
-
-                                val tileModifier =
-                                    Modifier
-                                        .offset(
-                                            x = x,
-                                            y = y,
-                                        ).size(
-                                            width =
-                                            tileWidth,
-                                            height =
-                                            tileHeight,
-                                        )
-
-                                if (
-                                    tile.width ==
-                                    1f &&
-                                    tile.height ==
-                                    1f
-                                ) {
-                                    XvoxAllSongCard(
-                                        song =
-                                            tile.song,
-                                        current =
-                                            currentSongId ==
-                                                tile.song.id,
-                                        playing =
-                                            currentSongId ==
-                                                tile.song.id &&
-                                                isPlaying,
-                                        onClick = {
-                                            onSongClick(
-                                                tile.song,
-                                            )
-                                        },
-                                        onLongClick = {
-                                            onSongLongClick(
-                                                tile.song,
-                                            )
-                                        },
-                                        modifier =
-                                        tileModifier,
-                                    )
-                                } else {
-                                    XvoxAllSongMosaicCard(
-                                        song =
-                                            tile.song,
-                                        widthUnits =
-                                            tile.width,
-                                        heightUnits =
-                                            tile.height,
-                                        onClick = {
-                                            onSongClick(
-                                                tile.song,
-                                            )
-                                        },
-                                        onLongClick = {
-                                            onSongLongClick(
-                                                tile.song,
-                                            )
-                                        },
-                                        modifier =
-                                        tileModifier,
-                                    )
-                                }
+                            if (tile.width == 1f && tile.height == 1f) {
+                                XvoxAllSongCard(
+                                    song = tile.song,
+                                    current = currentSongId == tile.song.id,
+                                    playing = currentSongId == tile.song.id && isPlaying,
+                                    onClick = { onSongClick(tile.song) },
+                                    onLongClick = { onSongLongClick(tile.song) },
+                                    modifier = tileModifier
+                                )
+                            } else {
+                                XvoxAllSongMosaicCard(
+                                    song = tile.song,
+                                    widthUnits = tile.width,
+                                    heightUnits = tile.height,
+                                    onClick = { onSongClick(tile.song) },
+                                    onLongClick = { onSongLongClick(tile.song) },
+                                    modifier = tileModifier
+                                )
                             }
+                        }
                     }
                 }
             }

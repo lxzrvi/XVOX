@@ -30,50 +30,24 @@ class UserPreferencesRepository(
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val recentSearches = stringPreferencesKey("recent_searches")
 
-        val gaplessPlayback = booleanPreferencesKey("gapless_playback")
         val crossfade = booleanPreferencesKey("crossfade")
         val crossfadeDuration = intPreferencesKey("crossfade_duration")
-        val fadeIn = booleanPreferencesKey("fade_in")
-        val fadeOut = booleanPreferencesKey("fade_out")
-        val replayGain = booleanPreferencesKey("replay_gain")
-        val loudnessNormalization = booleanPreferencesKey("loudness_normalization")
-        val skipSilence = booleanPreferencesKey("skip_silence")
-        val pitchControl = booleanPreferencesKey("pitch_control")
-        val audioFocus = booleanPreferencesKey("audio_focus")
         val pauseOnHeadphoneDisconnect = booleanPreferencesKey("pause_on_headphone_disconnect")
-        val clearQueueAfterPlayback = booleanPreferencesKey("clear_queue_after_playback")
-        val rememberQueue = booleanPreferencesKey("remember_queue")
-        val savedQueueIds = stringPreferencesKey("saved_queue_ids")
         val playOnHeadsetConnect = booleanPreferencesKey("play_on_headset_connect")
 
         val equalizerEnabled = booleanPreferencesKey("equalizer_enabled")
         val eqPreset = stringPreferencesKey("eq_preset")
         val eqBands = stringPreferencesKey("eq_bands")
-        val eqPreamp = floatPreferencesKey("eq_preamp")
-        val bassBoost = booleanPreferencesKey("bass_boost")
-        val bassBoostStrength = intPreferencesKey("bass_boost_strength")
-        val virtualizerEnabled = booleanPreferencesKey("virtualizer_enabled")
-        val virtualizerStrength = intPreferencesKey("virtualizer_strength")
-        val loudnessEnhancer = booleanPreferencesKey("loudness_enhancer")
-        val loudnessGainMb = intPreferencesKey("loudness_gain_mb")
         val balance = floatPreferencesKey("balance_l_r")
-        val monoAudio = booleanPreferencesKey("mono_audio")
         val stereoWidening = booleanPreferencesKey("stereo_widening")
-        val volumeNormalization = booleanPreferencesKey("volume_normalization")
 
-        val mediaNotification = booleanPreferencesKey("media_notification")
         val appVolume = floatPreferencesKey("app_volume")
-        val rememberVolume = booleanPreferencesKey("remember_volume")
         val volumeLimit = floatPreferencesKey("volume_limit")
 
         val theme = stringPreferencesKey("theme")
         val accentColor = stringPreferencesKey("accent_color")
-        val miniPlayerLayout = stringPreferencesKey("mini_player_layout")
-        val fullPlayerLayout = stringPreferencesKey("full_player_layout")
-        val homeLayout = stringPreferencesKey("home_layout")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
-        val hapticFeedback = booleanPreferencesKey("haptic_feedback")
-        val hapticStrength = stringPreferencesKey("haptic_strength")
+        val fourRowsGrid = booleanPreferencesKey("four_rows_grid")
 
         val widgetTransparency = floatPreferencesKey("widget_transparency")
         val widgetTheme = stringPreferencesKey("widget_theme")
@@ -103,47 +77,24 @@ class UserPreferencesRepository(
         decodeRecentSearches(prefs[Keys.recentSearches].orEmpty())
     }
 
-    val gaplessPlayback: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.gaplessPlayback] ?: true }
     val crossfade: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfade] ?: false }
     val crossfadeDuration: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.crossfadeDuration] ?: 3 }
-    val fadeIn: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fadeIn] ?: false }
-    val fadeOut: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fadeOut] ?: false }
-    val replayGain: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.replayGain] ?: false }
-    val loudnessNormalization: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.loudnessNormalization] ?: false }
-    val skipSilence: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.skipSilence] ?: false }
-    val pitchControl: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pitchControl] ?: false }
-    val audioFocus: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.audioFocus] ?: true }
     val pauseOnHeadphoneDisconnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pauseOnHeadphoneDisconnect] ?: true }
-    val clearQueueAfterPlayback: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.clearQueueAfterPlayback] ?: false }
-    val rememberQueue: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.rememberQueue] ?: true }
-    val savedQueueIds: Flow<List<Long>> = context.xvoxDataStore.data.map { decodeRecentIds(it[Keys.savedQueueIds].orEmpty()) }
     val playOnHeadsetConnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.playOnHeadsetConnect] ?: false }
 
     val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }
     val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }
     val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { decodeBands(it[Keys.eqBands].orEmpty()) }
-    val eqPreamp: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.eqPreamp] ?: 0f }
-    val bassBoost: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.bassBoost] ?: false }
-    val bassBoostStrength: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.bassBoostStrength] ?: 0 }
-    val virtualizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.virtualizerEnabled] ?: false }
-    val virtualizerStrength: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.virtualizerStrength] ?: 0 }
-    val loudnessEnhancer: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.loudnessEnhancer] ?: false }
-    val loudnessGainMb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.loudnessGainMb] ?: 0 }
     val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }
-    val monoAudio: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.monoAudio] ?: false }
     val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }
-    val volumeNormalization: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.volumeNormalization] ?: false }
 
-    val mediaNotification: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.mediaNotification] ?: true }
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }
-    val rememberVolume: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.rememberVolume] ?: true }
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }
 
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }
     val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }
-    val hapticFeedback: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedback] ?: true }
-    val hapticStrength: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticStrength] ?: "Medium" }
+    val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }
 
     val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }
     val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }
@@ -151,47 +102,24 @@ class UserPreferencesRepository(
     val widgetShowLogo: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.widgetShowLogo] ?: true }
     val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }
 
-    suspend fun setGaplessPlayback(v: Boolean) { context.xvoxDataStore.edit { it[Keys.gaplessPlayback] = v } }
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
     suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v } }
-    suspend fun setFadeIn(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fadeIn] = v } }
-    suspend fun setFadeOut(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fadeOut] = v } }
-    suspend fun setReplayGain(v: Boolean) { context.xvoxDataStore.edit { it[Keys.replayGain] = v } }
-    suspend fun setLoudnessNormalization(v: Boolean) { context.xvoxDataStore.edit { it[Keys.loudnessNormalization] = v } }
-    suspend fun setSkipSilence(v: Boolean) { context.xvoxDataStore.edit { it[Keys.skipSilence] = v } }
-    suspend fun setPitchControl(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pitchControl] = v } }
-    suspend fun setAudioFocus(v: Boolean) { context.xvoxDataStore.edit { it[Keys.audioFocus] = v } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
-    suspend fun setClearQueueAfterPlayback(v: Boolean) { context.xvoxDataStore.edit { it[Keys.clearQueueAfterPlayback] = v } }
-    suspend fun setRememberQueue(v: Boolean) { context.xvoxDataStore.edit { it[Keys.rememberQueue] = v } }
-    suspend fun setSavedQueue(ids: List<Long>) { context.xvoxDataStore.edit { it[Keys.savedQueueIds] = ids.joinToString(",") } }
     suspend fun setPlayOnHeadsetConnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.playOnHeadsetConnect] = v } }
 
     suspend fun setEqualizerEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.equalizerEnabled] = v } }
     suspend fun setEqPreset(preset: String) { context.xvoxDataStore.edit { it[Keys.eqPreset] = preset } }
     suspend fun setEqBands(bands: List<Int>) { context.xvoxDataStore.edit { it[Keys.eqBands] = bands.joinToString(",") } }
-    suspend fun setEqPreamp(gain: Float) { context.xvoxDataStore.edit { it[Keys.eqPreamp] = gain } }
-    suspend fun setBassBoost(v: Boolean) { context.xvoxDataStore.edit { it[Keys.bassBoost] = v } }
-    suspend fun setBassBoostStrength(strength: Int) { context.xvoxDataStore.edit { it[Keys.bassBoostStrength] = strength } }
-    suspend fun setVirtualizer(v: Boolean) { context.xvoxDataStore.edit { it[Keys.virtualizerEnabled] = v } }
-    suspend fun setVirtualizerStrength(strength: Int) { context.xvoxDataStore.edit { it[Keys.virtualizerStrength] = strength } }
-    suspend fun setLoudnessEnhancer(v: Boolean) { context.xvoxDataStore.edit { it[Keys.loudnessEnhancer] = v } }
-    suspend fun setLoudnessGainMb(gainMb: Int) { context.xvoxDataStore.edit { it[Keys.loudnessGainMb] = gainMb } }
     suspend fun setBalance(v: Float) { context.xvoxDataStore.edit { it[Keys.balance] = v } }
-    suspend fun setMonoAudio(v: Boolean) { context.xvoxDataStore.edit { it[Keys.monoAudio] = v } }
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
-    suspend fun setVolumeNormalization(v: Boolean) { context.xvoxDataStore.edit { it[Keys.volumeNormalization] = v } }
 
-    suspend fun setMediaNotification(v: Boolean) { context.xvoxDataStore.edit { it[Keys.mediaNotification] = v } }
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v } }
-    suspend fun setRememberVolume(v: Boolean) { context.xvoxDataStore.edit { it[Keys.rememberVolume] = v } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
-    suspend fun setHapticFeedback(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedback] = v } }
-    suspend fun setHapticStrength(v: String) { context.xvoxDataStore.edit { it[Keys.hapticStrength] = v } }
+    suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
     suspend fun setWidgetTransparency(v: Float) { context.xvoxDataStore.edit { it[Keys.widgetTransparency] = v } }
     suspend fun setWidgetTheme(v: String) { context.xvoxDataStore.edit { it[Keys.widgetTheme] = v } }

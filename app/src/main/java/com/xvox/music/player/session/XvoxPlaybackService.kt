@@ -16,9 +16,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.xvox.music.MainActivity
+import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.audio.StereoBalanceAudioProcessor
 import com.xvox.music.core.model.Song
@@ -61,7 +63,10 @@ class XvoxPlaybackService : MediaSessionService() {
     private val headsetReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
-            if (action == Intent.ACTION_HEADSET_PLUG || action == BluetoothDevice.ACTION_ACL_CONNECTED) {
+            val isHeadsetPlug = action == Intent.ACTION_HEADSET_PLUG && intent.getIntExtra("state", -1) == 1
+            val isBtConnect = action == BluetoothDevice.ACTION_ACL_CONNECTED || action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED"
+
+            if (isHeadsetPlug || isBtConnect) {
                 serviceScope.launch {
                     val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
                     if (prefs.playOnHeadsetConnect.first()) {
@@ -78,6 +83,13 @@ class XvoxPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        runCatching {
+            val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+                .setSmallIcon(R.drawable.ic_xvox_music_note)
+                .build()
+            setMediaNotificationProvider(notificationProvider)
+        }
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -197,6 +209,7 @@ class XvoxPlaybackService : MediaSessionService() {
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_HEADSET_PLUG)
                 addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
             }
             registerReceiver(headsetReceiver, filter)
             headsetReceiverRegistered = true
@@ -207,22 +220,6 @@ class XvoxPlaybackService : MediaSessionService() {
         val prefs = UserPreferencesRepository(this)
         prefsSyncJob?.cancel()
         prefsSyncJob = serviceScope.launch {
-            launch {
-                prefs.skipSilence.collect { skip ->
-                    exoPlayer.skipSilenceEnabled = skip
-                }
-            }
-
-            launch {
-                prefs.audioFocus.collect { focus ->
-                    val attrs = AudioAttributes.Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .build()
-                    exoPlayer.setAudioAttributes(attrs, focus)
-                }
-            }
-
             launch {
                 combine(
                     prefs.appVolume,
@@ -241,8 +238,8 @@ class XvoxPlaybackService : MediaSessionService() {
             }
 
             launch {
-                prefs.pitchControl.collect { enabled ->
-                    exoPlayer.setPlaybackSpeed(1.0f)
+                prefs.stereoWidening.collect { is3d ->
+                    balanceAudioProcessor.surround3dEnabled = is3d
                 }
             }
         }

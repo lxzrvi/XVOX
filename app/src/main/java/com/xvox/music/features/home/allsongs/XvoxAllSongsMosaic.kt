@@ -22,9 +22,9 @@ private data class Spec(
     val height: Float
 )
 
-private val processMosaicSeed = System.nanoTime() xor System.identityHashCode(Any()).toLong()
+private val processMosaicSeed = System.currentTimeMillis() xor (System.nanoTime().shl(16))
 
-fun buildMosaicPagePlans(songs: List<Song>): List<XvoxMosaicPagePlan> {
+fun buildMosaicPagePlans(songs: List<Song>, fourRows: Boolean = true): List<XvoxMosaicPagePlan> {
     if (songs.isEmpty()) return emptyList()
 
     val seed = songs.fold(processMosaicSeed) { value, song -> value * 31L + song.id }
@@ -32,11 +32,13 @@ fun buildMosaicPagePlans(songs: List<Song>): List<XvoxMosaicPagePlan> {
     val plans = ArrayList<XvoxMosaicPagePlan>(songs.size / 10 + 1)
     var index = 0
 
+    val maxPerPage = if (fourRows) 16 else 12
+
     while (index < songs.size) {
         val remaining = songs.size - index
         val count = when {
-            remaining <= 12 -> remaining
-            remaining <= 16 -> 12
+            remaining <= maxPerPage -> remaining
+            fourRows -> listOf(12, 13, 14, 15, 16).random(random)
             else -> listOf(9, 10, 11, 12).random(random)
         }
 
@@ -51,7 +53,7 @@ fun buildMosaicPagePlans(songs: List<Song>): List<XvoxMosaicPagePlan> {
     return plans
 }
 
-fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan): MosaicPage {
+fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, fourRows: Boolean = true): MosaicPage {
     if (plan.songCount <= 0 || plan.startIndex !in songs.indices) {
         return MosaicPage(emptyList())
     }
@@ -59,7 +61,7 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan): MosaicPage {
     val end = (plan.startIndex + plan.songCount).coerceAtMost(songs.size)
     val pageSongs = songs.subList(plan.startIndex, end)
     val random = Random(plan.layoutSeed)
-    val specs = specsFor(pageSongs.size, random)
+    val specs = if (fourRows) specsFor4Rows(pageSongs.size, random) else specsFor3Rows(pageSongs.size, random)
 
     require(specs.size == pageSongs.size)
 
@@ -77,7 +79,80 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan): MosaicPage {
     )
 }
 
-private fun specsFor(count: Int, random: Random): List<Spec> = when (count) {
+private fun specsFor4Rows(count: Int, random: Random): List<Spec> = when (count) {
+    1 -> listOf(Spec(0f, 0f, 4f, 4f))
+    2 -> listOf(Spec(0f, 0f, 4f, 2f), Spec(0f, 2f, 4f, 2f))
+    3 -> listOf(Spec(0f, 0f, 4f, 2f), Spec(0f, 2f, 2f, 2f), Spec(2f, 2f, 2f, 2f))
+    4 -> listOf(
+        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 2f),
+        Spec(0f, 2f, 2f, 2f), Spec(2f, 2f, 2f, 2f)
+    )
+    5 -> listOf(
+        Spec(0f, 0f, 4f, 2f),
+        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    6 -> listOf(
+        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 2f),
+        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    7 -> listOf(
+        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f),
+        Spec(0f, 3f, 4f, 1f)
+    )
+    8 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
+        Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
+        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    9 -> listOf(
+        Spec(0f, 0f, 2f, 2f), Spec(2f, 0f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    10 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f),
+        Spec(0f, 3f, 4f, 1f)
+    )
+    11 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 4f, 1f)
+    )
+    12 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    13 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 2f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    14 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 1f, 1f), Spec(1f, 3f, 1f, 1f), Spec(2f, 3f, 2f, 1f)
+    )
+    15 -> listOf(
+        Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f),
+        Spec(0f, 3f, 1f, 1f), Spec(1f, 3f, 1f, 1f), Spec(2f, 3f, 1f, 1f), Spec(3f, 3f, 1f, 1f)
+    )
+    else -> regularSpecs(count)
+}
+
+private fun specsFor3Rows(count: Int, random: Random): List<Spec> = when (count) {
     1 -> listOf(Spec(0f, 0f, 4f, 3f))
     2 -> listOf(Spec(0f, 0f, 4f, 1.5f), Spec(0f, 1.5f, 4f, 1.5f))
     3 -> if (random.nextBoolean()) {
@@ -89,128 +164,41 @@ private fun specsFor(count: Int, random: Random): List<Spec> = when (count) {
         Spec(0f, 0f, 2f, 1.5f), Spec(2f, 0f, 2f, 1.5f),
         Spec(0f, 1.5f, 2f, 1.5f), Spec(2f, 1.5f, 2f, 1.5f)
     )
-    5 -> fiveSpecs(random)
-    6 -> sixSpecs()
-    7 -> sevenSpecs(random)
-    8 -> eightSpecs()
-    9 -> nineSpecs(random.nextInt(4))
-    10 -> tenSpecs(random.nextInt(4))
-    11 -> elevenSpecs(random.nextInt(6))
-    12 -> regularSpecs(12)
-    else -> regularSpecs(count)
-}
-
-private fun fiveSpecs(random: Random): List<Spec> = if (random.nextBoolean()) {
-    listOf(
+    5 -> listOf(
         Spec(0f, 0f, 4f, 1f),
         Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
         Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
     )
-} else {
-    listOf(
+    6 -> listOf(
         Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 4f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-}
-
-private fun sixSpecs(): List<Spec> = listOf(
-    Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
-    Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-    Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-)
-
-private fun sevenSpecs(random: Random): List<Spec> = when (random.nextInt(3)) {
-    0 -> listOf(
-        Spec(0f, 0f, 4f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    1 -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 4f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    else -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
         Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 2f, 1f),
-        Spec(0f, 2f, 4f, 1f)
+        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
     )
-}
-
-private fun eightSpecs(): List<Spec> = listOf(
-    Spec(0f, 0f, 1f, 1.5f), Spec(1f, 0f, 1f, 1.5f), Spec(2f, 0f, 1f, 1.5f), Spec(3f, 0f, 1f, 1.5f),
-    Spec(0f, 1.5f, 1f, 1.5f), Spec(1f, 1.5f, 1f, 1.5f), Spec(2f, 1.5f, 1f, 1.5f), Spec(3f, 1.5f, 1f, 1.5f)
-)
-
-private fun nineSpecs(variant: Int): List<Spec> = when (variant) {
-    0 -> listOf(
+    7 -> listOf(
+        Spec(0f, 0f, 4f, 1f),
+        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
+        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
+    )
+    8 -> listOf(
+        Spec(0f, 0f, 1f, 1.5f), Spec(1f, 0f, 1f, 1.5f), Spec(2f, 0f, 1f, 1.5f), Spec(3f, 0f, 1f, 1.5f),
+        Spec(0f, 1.5f, 1f, 1.5f), Spec(1f, 1.5f, 1f, 1.5f), Spec(2f, 1.5f, 1f, 1.5f), Spec(3f, 1.5f, 1f, 1.5f)
+    )
+    9 -> listOf(
         Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
         Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
         Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f)
     )
-    1 -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 2f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-    2 -> listOf(
-        Spec(0f, 0f, 4f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f)
-    )
-    else -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 4f, 1f)
-    )
-}
-
-private fun tenSpecs(variant: Int): List<Spec> = when (variant) {
-    0 -> listOf(
+    10 -> listOf(
         Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
         Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
         Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 2f, 1f)
     )
-    1 -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 2f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f)
-    )
-    2 -> listOf(
+    11 -> listOf(
         Spec(0f, 0f, 2f, 1f), Spec(2f, 0f, 2f, 1f),
         Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
         Spec(0f, 2f, 1f, 1f), Spec(1f, 2f, 1f, 1f), Spec(2f, 2f, 1f, 1f), Spec(3f, 2f, 1f, 1f)
     )
-    else -> listOf(
-        Spec(0f, 0f, 1f, 1f), Spec(1f, 0f, 1f, 1f), Spec(2f, 0f, 1f, 1f), Spec(3f, 0f, 1f, 1f),
-        Spec(0f, 1f, 1f, 1f), Spec(1f, 1f, 1f, 1f), Spec(2f, 1f, 1f, 1f), Spec(3f, 1f, 1f, 1f),
-        Spec(0f, 2f, 2f, 1f), Spec(2f, 2f, 2f, 1f)
-    )
-}
-
-private fun elevenSpecs(variant: Int): List<Spec> {
-    val wideRow = when (variant) {
-        0, 1 -> 0
-        2, 3 -> 1
-        else -> 2
-    }
-    val wideColumn = if (variant % 2 == 0) 0 else 2
-    val result = ArrayList<Spec>(11)
-
-    for (row in 0..2) {
-        var column = 0
-        while (column < 4) {
-            if (row == wideRow && column == wideColumn) {
-                result += Spec(column.toFloat(), row.toFloat(), 2f, 1f)
-                column += 2
-            } else {
-                result += Spec(column.toFloat(), row.toFloat(), 1f, 1f)
-                column++
-            }
-        }
-    }
-    return result
+    else -> regularSpecs(count)
 }
 
 private fun regularSpecs(count: Int): List<Spec> = List(count) { index ->

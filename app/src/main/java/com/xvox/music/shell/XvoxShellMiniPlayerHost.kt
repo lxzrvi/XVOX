@@ -1,13 +1,11 @@
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -24,8 +21,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
-
-private val MainEase = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
@@ -79,18 +74,14 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 (imeBottomPx - navBottomPx).coerceAtLeast(0).toDp()
             }
 
-            val animatedBottomPadding by animateDpAsState(
-                targetValue = if (keyboardOpen) effectiveImeDp + 12.dp else 106.dp,
-                animationSpec = tween(durationMillis = 280, easing = MainEase),
-                label = "miniPlayerBottomGap"
-            )
+            val currentBottomPadding = if (keyboardOpen) effectiveImeDp + 12.dp else 106.dp
 
             val miniModifier = Modifier
                 .navigationBarsPadding()
                 .padding(
                     start = XvoxMiniPlayerPlacement.horizontalEdge,
                     end = XvoxMiniPlayerPlacement.horizontalEdge,
-                    bottom = animatedBottomPadding
+                    bottom = currentBottomPadding
                 )
 
             XvoxMiniPlayer(

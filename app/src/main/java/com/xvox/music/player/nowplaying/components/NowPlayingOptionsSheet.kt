@@ -54,10 +54,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
-import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.sections.EqualizerSettingsSection
+import com.xvox.music.features.settings.sections.PlaybackSettingsSection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -67,22 +70,12 @@ fun NowPlayingOptionsSheet(
     onTimer: (() -> Unit)? = null,
     onInfo: (() -> Unit)? = null,
     onStarPlaylist: (() -> Unit)? = null,
-    onShare: (() -> Unit)? = null
+    onShare: (() -> Unit)? = null,
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val context = LocalContext.current
-    val prefs = remember { UserPreferencesRepository(context) }
+    val state by settingsViewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
-
-    val eqEnabled by prefs.equalizerEnabled.collectAsState(initial = false)
-    val eqPreset by prefs.eqPreset.collectAsState(initial = "Flat")
-    val eqBands by prefs.eqBands.collectAsState(initial = listOf(0, 0, 0, 0, 0))
-    val gapless by prefs.gaplessPlayback.collectAsState(initial = true)
-    val crossfade by prefs.crossfade.collectAsState(initial = false)
-    val crossfadeDuration by prefs.crossfadeDuration.collectAsState(initial = 3)
-    val fadeInEnabled by prefs.fadeIn.collectAsState(initial = false)
-    val fadeOutEnabled by prefs.fadeOut.collectAsState(initial = false)
-    val skipSilence by prefs.skipSilence.collectAsState(initial = false)
 
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
@@ -115,7 +108,7 @@ fun NowPlayingOptionsSheet(
                 detectTapGestures { close() }
             }
     ) {
-        val maxSheetHeight = (maxHeight * 0.85f).coerceAtLeast(280.dp)
+        val maxSheetHeight = (maxHeight * 0.88f).coerceAtLeast(300.dp)
 
         AnimatedVisibility(
             visible = visible,
@@ -174,7 +167,7 @@ fun NowPlayingOptionsSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Audio & Playback Controls",
+                        text = "Options & XvoxMix",
                         color = colors.primaryText,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
@@ -228,38 +221,21 @@ fun NowPlayingOptionsSheet(
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
-
-                    NowPlayingEqualizerSection(
-                        eqEnabled = eqEnabled,
-                        eqPreset = eqPreset,
-                        eqBands = eqBands,
-                        onToggleEq = { scope.launch { prefs.setEqualizerEnabled(it) } },
-                        onSelectPreset = { scope.launch { prefs.setEqPreset(it) } },
-                        onBandsChange = { bands ->
-                            scope.launch {
-                                prefs.setEqBands(bands)
-                                prefs.setEqPreset("Custom")
-                            }
-                        }
-                    )
-
                     Spacer(Modifier.height(14.dp))
 
-                    NowPlayingPlaybackSettingsSection(
-                        gapless = gapless,
-                        crossfade = crossfade,
-                        crossfadeDuration = crossfadeDuration,
-                        fadeInEnabled = fadeInEnabled,
-                        fadeOutEnabled = fadeOutEnabled,
-                        skipSilence = skipSilence,
-                        onToggleGapless = { scope.launch { prefs.setGaplessPlayback(it) } },
-                        onToggleCrossfade = { scope.launch { prefs.setCrossfade(it) } },
-                        onCrossfadeDurationChange = { scope.launch { prefs.setCrossfadeDuration(it) } },
-                        onToggleFadeIn = { scope.launch { prefs.setFadeIn(it) } },
-                        onToggleFadeOut = { scope.launch { prefs.setFadeOut(it) } },
-                        onToggleSkipSilence = { scope.launch { prefs.setSkipSilence(it) } }
+                    EqualizerSettingsSection(
+                        state = state,
+                        viewModel = settingsViewModel
                     )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    PlaybackSettingsSection(
+                        state = state,
+                        viewModel = settingsViewModel
+                    )
+
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         }

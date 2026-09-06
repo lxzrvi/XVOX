@@ -19,7 +19,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -205,8 +204,7 @@ class PlaybackController(
         }
 
         scope.launch {
-            val isGapless = prefs.gaplessPlayback.first()
-            if (isGapless && queue.size > 1) {
+            if (queue.size > 1) {
                 val mediaItems = queue.map { it.toMediaItem() }
                 mediaController.setMediaItems(mediaItems, index, 0L)
             } else {
@@ -243,8 +241,7 @@ class PlaybackController(
         expectedPlayingUntil = System.currentTimeMillis() + 1800
 
         scope.launch {
-            val isGapless = prefs.gaplessPlayback.first()
-            if (isGapless && queue.size > 1) {
+            if (queue.size > 1) {
                 val mediaItems = queue.map { it.toMediaItem() }
                 mediaController.setMediaItems(mediaItems, index, 0L)
             } else {

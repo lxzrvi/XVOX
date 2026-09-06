@@ -2,6 +2,7 @@ package com.xvox.music.features.playlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -58,10 +60,14 @@ fun CreatePlaylistBox(
         }
     }
 
+    val selectedSongs = remember(selected.toList(), safeSongs) {
+        safeSongs.filter { it.id in selected }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 340.dp, max = 480.dp)
+            .heightIn(min = 360.dp, max = 520.dp)
             .imePadding()
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
@@ -90,34 +96,59 @@ fun CreatePlaylistBox(
 
         Spacer(Modifier.height(8.dp))
 
-        BasicTextField(
-            value = name,
-            onValueChange = { name = it },
-            singleLine = true,
-            textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-            cursorBrush = SolidColor(colors.primaryAccent),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.card),
-            decorationBox = { field ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selectedSongs.isNotEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (name.isEmpty()) {
-                        Text(text = "Playlist name", color = colors.secondaryText, fontSize = 13.sp)
-                    }
-                    field()
+                    XvoxPlaylistCover(
+                        songs = selectedSongs,
+                        coverSongIds = selected.take(4),
+                        customCoverUri = null,
+                        requestSize = 128,
+                        modifier = Modifier.size(54.dp)
+                    )
                 }
-            }
-        )
 
-        Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.width(10.dp))
+            }
+
+            BasicTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+                cursorBrush = SolidColor(colors.primaryAccent),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card),
+                decorationBox = { field ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (name.isEmpty()) {
+                            Text(text = "Playlist name", color = colors.secondaryText, fontSize = 13.sp)
+                        }
+                        field()
+                    }
+                }
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         Text(
             text = "Select Songs (${selected.size} selected)",

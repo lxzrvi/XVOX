@@ -48,14 +48,7 @@ class PlaybackTrackTransitionHelper(
                 if (queue.isNotEmpty() && currentIndex >= 0 && currentIndex < queue.lastIndex) {
                     playQueueIndex(currentIndex + 1, true)
                 } else {
-                    scope.launch {
-                        val shouldClear = prefs.clearQueueAfterPlayback.first()
-                        if (shouldClear) {
-                            stop()
-                        } else {
-                            onExpectedPlaying(false, 800L)
-                        }
-                    }
+                    onExpectedPlaying(false, 800L)
                 }
             }
         }
@@ -75,7 +68,7 @@ class PlaybackTrackTransitionHelper(
         scope.launch {
             val isCrossfade = prefs.crossfade.first()
             val crossfadeDurationSec = prefs.crossfadeDuration.first()
-            val crossfadeThreshold = (crossfadeDurationSec * 1000L).coerceIn(1500L, 12000L)
+            val crossfadeThreshold = (crossfadeDurationSec * 1000L).coerceIn(1000L, 12000L)
 
             if (isCrossfade && remainingMs <= crossfadeThreshold && crossfadeTriggeredForSongId != currentId) {
                 crossfadeTriggeredForSongId = currentId
@@ -101,7 +94,7 @@ class PlaybackTrackTransitionHelper(
         val mediaController = getController() ?: return
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            val steps = 12
+            val steps = 10
             val stepDelay = durationMs / (steps * 2)
             val masterVol = (prefs.appVolume.first() * prefs.volumeLimit.first()).coerceIn(0.1f, 1f)
 

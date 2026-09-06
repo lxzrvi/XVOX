@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,9 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,19 +44,11 @@ fun XvoxPlaylistPickerSheetContent(
     song: Song,
     playlists: List<XvoxPlaylist>,
     onAddToPlaylist: (String) -> Unit,
+    onCreatePlaylist: () -> Unit,
     onCancel: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    var query by remember { mutableStateOf("") }
     var selectedPlaylistId by remember { mutableStateOf<String?>(null) }
-
-    val filteredPlaylists = remember(playlists, query) {
-        if (query.isBlank()) {
-            playlists
-        } else {
-            playlists.filter { it.name.contains(query, ignoreCase = true) }
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -88,97 +77,46 @@ fun XvoxPlaylistPickerSheetContent(
                 )
             }
 
-            if (selectedPlaylistId != null) {
-                Text(
-                    text = "1 selected",
-                    color = colors.primaryAccent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.card)
-                .padding(horizontal = 10.dp, vertical = 9.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(colors.card)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCreatePlaylist
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_xvox_search),
-                    contentDescription = null,
-                    tint = colors.secondaryText,
-                    modifier = Modifier.size(16.dp)
+                    painter = painterResource(R.drawable.ic_xvox_plus),
+                    contentDescription = "Create playlist",
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(17.dp)
                 )
-
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
-                    cursorBrush = SolidColor(colors.primaryAccent),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp),
-                    decorationBox = { inner ->
-                        if (query.isEmpty()) {
-                            Text(text = "Search playlists...", color = colors.mutedText, fontSize = 13.sp)
-                        }
-                        inner()
-                    }
-                )
-
-                if (query.isNotEmpty()) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_close),
-                        contentDescription = "Clear",
-                        tint = colors.secondaryText,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { query = "" }
-                    )
-                }
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
 
         if (playlists.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp),
+                    .height(140.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "No playlists yet", color = colors.mutedText, fontSize = 13.sp)
-            }
-        } else if (filteredPlaylists.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(130.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "No matching playlists", color = colors.mutedText, fontSize = 13.sp)
+                Text(text = "No playlists created yet", color = colors.mutedText, fontSize = 13.sp)
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 140.dp, max = 280.dp),
+                    .heightIn(min = 140.dp, max = 340.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(items = filteredPlaylists, key = { it.id }) { playlist ->
+                items(items = playlists, key = { it.id }) { playlist ->
                     val alreadyAdded = song.id in playlist.songIds
                     val selected = selectedPlaylistId == playlist.id
 

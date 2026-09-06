@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -141,8 +140,7 @@ fun HomeScreen(
                 AnimatedContent(
                     targetState = effectiveSelectedPlaylistId ?: state.libraryMode,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(260)) + slideInVertically(animationSpec = tween(260)) { -it / 7 })
-                            .togetherWith(fadeOut(animationSpec = tween(180)))
+                        fadeIn(animationSpec = tween(90)) togetherWith fadeOut(animationSpec = tween(70))
                     },
                     label = "home_library_mode_switch"
                 ) { _ ->

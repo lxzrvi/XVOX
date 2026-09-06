@@ -57,7 +57,7 @@ fun XvoxQueueSheetContent(
     val colors = XvoxTheme.colors
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    val slotHeightPx = with(density) { 58.dp.toPx() }
+    val slotHeightPx = with(density) { 56.dp.toPx() }
 
     val localQueue = remember(queue) {
         mutableStateListOf<Song>().apply { addAll(queue) }
@@ -71,19 +71,20 @@ fun XvoxQueueSheetContent(
         if (draggingSongId == null || autoScrollDirection == 0) return@LaunchedEffect
 
         while (draggingSongId != null && autoScrollDirection != 0) {
-            val amount = 10f * autoScrollDirection
-            val consumed = listState.scrollBy(amount)
+            val step = if (autoScrollDirection > 0) 14f else -14f
+            val consumed = listState.scrollBy(step)
+            dragOffsetY += consumed
 
             val songId = draggingSongId ?: break
             var from = localQueue.indexOfFirst { it.id == songId }
             if (from < 0) break
 
-            if (dragOffsetY > slotHeightPx * 0.7f && from < localQueue.lastIndex) {
+            if (dragOffsetY > slotHeightPx * 0.5f && from < localQueue.lastIndex) {
                 val moving = localQueue.removeAt(from)
                 localQueue.add(from + 1, moving)
                 onMoveItem(from, from + 1)
                 dragOffsetY -= slotHeightPx
-            } else if (dragOffsetY < -slotHeightPx * 0.7f && from > 0) {
+            } else if (dragOffsetY < -slotHeightPx * 0.5f && from > 0) {
                 val moving = localQueue.removeAt(from)
                 localQueue.add(from - 1, moving)
                 onMoveItem(from, from - 1)
@@ -114,7 +115,7 @@ fun XvoxQueueSheetContent(
             )
 
             Text(
-                text = "Long press & drag",
+                text = "Hold & drag to reorder",
                 color = colors.mutedText,
                 fontSize = 11.sp
             )
@@ -126,7 +127,7 @@ fun XvoxQueueSheetContent(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 260.dp, max = 460.dp),
+                .heightIn(min = 280.dp, max = 500.dp),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             itemsIndexed(items = localQueue, key = { _, song -> song.id }) { _, song ->
@@ -142,7 +143,7 @@ fun XvoxQueueSheetContent(
                             translationY = if (isDragging) dragOffsetY else 0f
                             scaleX = if (isDragging) 1.02f else 1f
                             scaleY = if (isDragging) 1.02f else 1f
-                            shadowElevation = if (isDragging) 12.dp.toPx() else 0f
+                            shadowElevation = if (isDragging) 16.dp.toPx() else 0f
                         }
                         .clip(RoundedCornerShape(12.dp))
                         .background(
@@ -165,12 +166,12 @@ fun XvoxQueueSheetContent(
 
                                     var from = localQueue.indexOfFirst { it.id == song.id }
                                     if (from >= 0) {
-                                        if (dragOffsetY > slotHeightPx * 0.7f && from < localQueue.lastIndex) {
+                                        if (dragOffsetY > slotHeightPx * 0.5f && from < localQueue.lastIndex) {
                                             val moving = localQueue.removeAt(from)
                                             localQueue.add(from + 1, moving)
                                             onMoveItem(from, from + 1)
                                             dragOffsetY -= slotHeightPx
-                                        } else if (dragOffsetY < -slotHeightPx * 0.7f && from > 0) {
+                                        } else if (dragOffsetY < -slotHeightPx * 0.5f && from > 0) {
                                             val moving = localQueue.removeAt(from)
                                             localQueue.add(from - 1, moving)
                                             onMoveItem(from, from - 1)
@@ -186,10 +187,10 @@ fun XvoxQueueSheetContent(
                                     } else {
                                         val top = draggedInfo.offset + dragOffsetY
                                         val bottom = top + draggedInfo.size
-                                        val edgeZone = slotHeightPx * 1.2f
+                                        val edgeThreshold = slotHeightPx * 1.5f
                                         autoScrollDirection = when {
-                                            top < layout.viewportStartOffset + edgeZone -> -1
-                                            bottom > layout.viewportEndOffset - edgeZone -> 1
+                                            top < layout.viewportStartOffset + edgeThreshold -> -1
+                                            bottom > layout.viewportEndOffset - edgeThreshold -> 1
                                             else -> 0
                                         }
                                     }
