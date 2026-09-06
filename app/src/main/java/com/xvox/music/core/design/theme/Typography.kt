@@ -28,6 +28,8 @@ val XvoxUiFont = FontFamily(
     Font(resId = R.font.xvox_inter_bold, weight = FontWeight.Bold)
 )
 
+val XvoxItalicFont = XvoxUiFont
+
 val XvoxTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = XvoxUiFont,

@@ -50,8 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.xvox.music.core.design.theme.XvoxItalicFont
 import com.xvox.music.core.design.theme.XvoxLogoFont
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.max
 
@@ -152,7 +152,7 @@ fun SetupScreen(
                 Text(
                     text = "Personalize your xvox",
                     color = colors.primaryText,
-                    fontFamily = XvoxItalicFont,
+                    fontFamily = XvoxPersonalFont,
                     fontSize = 23.sp,
                     textAlign = TextAlign.Center
                 )
