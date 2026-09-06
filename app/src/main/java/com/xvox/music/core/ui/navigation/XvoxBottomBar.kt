@@ -1,5 +1,7 @@
 package com.xvox.music.core.ui.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -18,9 +20,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxGlass
 
 @Composable
 fun XvoxBottomBar(
@@ -52,11 +55,9 @@ fun XvoxBottomBar(
                 .align(Alignment.TopCenter)
                 .offset(y = XvoxNavigationGeometry.hostOverflow)
                 .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight)
-                .xvoxGlass(
-                    shape = parentShape,
-                    tint = colors.surface.copy(alpha = 0.84f),
-                    solidFallback = colors.surface
-                )
+                .clip(parentShape)
+                .background(colors.surface)
+                .border(0.7.dp, colors.cardBorder, parentShape)
         )
 
         Box(
@@ -71,11 +72,8 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .size(XvoxNavigationGeometry.selectorRestWidth, XvoxNavigationGeometry.selectorRestHeight)
-                .xvoxGlass(
-                    shape = selectorShape,
-                    tint = colors.cardElevated.copy(alpha = 0.50f),
-                    solidFallback = colors.cardElevated
-                )
+                .clip(selectorShape)
+                .background(colors.cardElevated)
         )
 
         Row(

@@ -1,6 +1,8 @@
 package com.xvox.music.features.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -28,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -49,10 +50,11 @@ fun SearchSongCard(
             .fillMaxWidth()
             .height(64.dp)
             .clip(shape)
-            .xvoxGlass(
-                shape = shape,
-                tint = colors.card.copy(alpha = 0.65f),
-                solidFallback = colors.card
+            .background(colors.card)
+            .border(
+                width = 0.7.dp,
+                color = colors.cardBorder,
+                shape = shape
             )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -97,11 +99,7 @@ fun SearchSongCard(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .xvoxGlass(
-                    shape = CircleShape,
-                    tint = colors.cardElevated.copy(alpha = 0.75f),
-                    solidFallback = colors.cardElevated
-                )
+                .background(colors.cardElevated, CircleShape)
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

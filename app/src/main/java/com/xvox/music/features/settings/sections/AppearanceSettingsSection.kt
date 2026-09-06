@@ -125,10 +125,10 @@ fun AppearanceSettingsSection(
         Spacer(modifier = Modifier.height(14.dp))
 
         SettingsToggle(
-            title = "Live Blur (iOS Glass)",
-            subtitle = "Real-time frosted glass backdrop effect",
-            checked = state.liveBlur,
-            onChange = viewModel::setLiveBlur
+            title = "Cover Background",
+            subtitle = "Show blurry cover art as background across all screens",
+            checked = state.coverBackground,
+            onChange = viewModel::setCoverBackground
         )
 
         Spacer(modifier = Modifier.height(14.dp))

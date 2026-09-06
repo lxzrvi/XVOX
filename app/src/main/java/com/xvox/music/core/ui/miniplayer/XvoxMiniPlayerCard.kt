@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -65,11 +66,9 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            .xvoxGlass(
-                shape = cardShape,
-                tint = colors.surface.copy(alpha = 0.82f),
-                solidFallback = colors.surface
-            )
+            .clip(cardShape)
+            .background(colors.surface)
+            .border(0.7.dp, colors.cardBorder, cardShape)
     ) {
         Row(
             modifier = Modifier
@@ -159,11 +158,9 @@ fun XvoxMiniPlayerCard(
                 .align(Alignment.CenterEnd)
                 .padding(end = 7.dp)
                 .size(38.dp)
-                .xvoxGlass(
-                    shape = CircleShape,
-                    tint = colors.cardElevated.copy(alpha = 0.68f),
-                    solidFallback = colors.cardElevated
-                )
+                .clip(CircleShape)
+                .background(colors.cardElevated)
+                .border(0.7.dp, colors.cardBorder, CircleShape)
                 .clickable(
                     interactionSource = controlInteraction,
                     indication = null,

@@ -41,7 +41,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxGlass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -181,12 +180,12 @@ fun XvoxL(
                             )
                         }
                     )
-                    .xvoxGlass(
-                        shape = sheetCornerShape,
-                        tint = colors.cardElevated.copy(alpha = 0.94f),
-                        solidFallback = colors.cardElevated,
-                        borderWidth = 0.8.dp,
-                        borderColor = Color.White.copy(alpha = 0.12f)
+                    .clip(sheetCornerShape)
+                    .background(colors.cardElevated)
+                    .border(
+                        width = 0.8.dp,
+                        color = colors.cardBorder,
+                        shape = sheetCornerShape
                     )
                     .pointerInput(Unit) {
                         detectTapGestures(

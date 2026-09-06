@@ -3,6 +3,8 @@ package com.xvox.music.features.home.allsongs
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -23,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -66,10 +67,11 @@ fun XvoxAllSongMosaicCard(
                 scaleY = scale
             }
             .clip(shape)
-            .xvoxGlass(
-                shape = shape,
-                tint = colors.card.copy(alpha = 0.65f),
-                solidFallback = colors.card
+            .background(colors.card)
+            .border(
+                width = 0.7.dp,
+                color = colors.cardBorder,
+                shape = shape
             )
             .combinedClickable(
                 interactionSource = interaction,

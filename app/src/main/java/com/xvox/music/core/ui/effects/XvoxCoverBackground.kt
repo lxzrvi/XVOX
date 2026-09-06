@@ -10,9 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -20,12 +20,14 @@ import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 
+val LocalCoverBackgroundEnabled = compositionLocalOf { false }
+
 @Composable
-fun XvoxAmbientBlurryBackdrop(
+fun XvoxCoverBackground(
     song: Song?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = LocalCoverBackgroundEnabled.current
 ) {
-    val liveBlur = LocalLiveBlurEnabled.current
     val colors = XvoxTheme.colors
 
     Box(
@@ -33,14 +35,14 @@ fun XvoxAmbientBlurryBackdrop(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        if (liveBlur && song?.artworkUri != null) {
+        if (enabled && song?.artworkUri != null) {
             AnimatedContent(
                 targetState = song.artworkUri,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(400))
+                    fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(300))
                 },
                 modifier = Modifier.fillMaxSize(),
-                label = "ambient_artwork_fade"
+                label = "cover_bg_crossfade"
             ) { uri ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     AsyncImage(
@@ -51,7 +53,7 @@ fun XvoxAmbientBlurryBackdrop(
                             .fillMaxSize()
                             .then(
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    Modifier.blur(64.dp)
+                                    Modifier.blur(48.dp)
                                 } else {
                                     Modifier.blur(25.dp)
                                 }
@@ -63,15 +65,7 @@ fun XvoxAmbientBlurryBackdrop(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.52f),
-                                Color.Black.copy(alpha = 0.76f),
-                                colors.background.copy(alpha = 0.94f)
-                            )
-                        )
-                    )
+                    .background(Color.Black.copy(alpha = 0.50f))
             )
         }
     }

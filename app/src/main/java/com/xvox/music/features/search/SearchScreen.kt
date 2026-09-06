@@ -47,7 +47,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -171,11 +170,8 @@ fun SearchScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
                     .clip(searchBarShape)
-                    .xvoxGlass(
-                        shape = searchBarShape,
-                        tint = colors.card.copy(alpha = 0.65f),
-                        solidFallback = colors.card
-                    )
+                    .background(colors.card)
+                    .border(0.7.dp, colors.cardBorder, searchBarShape)
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -253,11 +249,8 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 3.dp)
                             .clip(recentShape)
-                            .xvoxGlass(
-                                shape = recentShape,
-                                tint = colors.card.copy(alpha = 0.5f),
-                                solidFallback = colors.card
-                            )
+                            .background(colors.card)
+                            .border(0.7.dp, colors.cardBorder, recentShape)
                             .clickable { query = item }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically

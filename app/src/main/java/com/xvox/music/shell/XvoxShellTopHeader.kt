@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxGlass
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.data.preferences.UserPreferences
@@ -106,10 +107,12 @@ fun XvoxShellTopHeader(
                 Row(
                     modifier = Modifier
                         .height(42.dp)
-                        .xvoxGlass(
-                            shape = actionShape,
-                            tint = colors.card.copy(alpha = 0.68f),
-                            solidFallback = colors.card
+                        .clip(actionShape)
+                        .background(colors.card)
+                        .border(
+                            width = 0.7.dp,
+                            color = colors.cardBorder,
+                            shape = actionShape
                         )
                         .padding(horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically

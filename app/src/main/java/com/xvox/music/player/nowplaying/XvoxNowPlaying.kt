@@ -209,6 +209,7 @@ fun XvoxNowPlaying(
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
+            song = song,
             modifier = Modifier.fillMaxSize()
         )
 
