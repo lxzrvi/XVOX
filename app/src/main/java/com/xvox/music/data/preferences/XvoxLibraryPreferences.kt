@@ -46,6 +46,16 @@ class XvoxLibraryPreferences(
         }
     }
 
+    suspend fun setAllLiked(ids: Set<Long>) {
+        context.xvoxDataStore.edit { prefs ->
+            prefs[Keys.liked] = ids.joinToString(",")
+        }
+    }
+
+    suspend fun savePlaylist(playlist: XvoxPlaylist): XvoxPlaylist? {
+        return updatePlaylist(playlist.id) { playlist }
+    }
+
     suspend fun hideSong(songId: Long) {
         context.xvoxDataStore.edit { prefs ->
             val ids = decodeIds(prefs[Keys.hidden].orEmpty()).toMutableSet()

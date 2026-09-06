@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
@@ -24,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,7 +45,7 @@ fun XvoxP(
 
     LaunchedEffect(message.id) {
         visible = true
-        delay(2600L)
+        delay(3600L)
         visible = false
         delay(220L)
         onFinished()
@@ -71,10 +69,9 @@ fun XvoxP(
     ) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(22.dp))
-                .background(colors.cardElevated.copy(alpha = 0.96f))
-                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
-                .padding(horizontal = 18.dp, vertical = 9.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(colors.cardElevated.copy(alpha = 0.88f))
+                .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {
             Text(
                 text = message.text,

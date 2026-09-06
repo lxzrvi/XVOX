@@ -33,12 +33,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
@@ -50,13 +48,10 @@ fun EqualizerSettingsSection(
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsSectionCard(
-        title = "XvoxMix (Equalizer)",
-        iconRes = R.drawable.ic_xvox_equalizer
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         SettingsToggle(
             title = "XvoxMix Master",
-            subtitle = "Enable audio equalizer & hardware DSP engine",
+            subtitle = "Enable hardware DSP & 5-band equalizer engine",
             checked = state.equalizerEnabled,
             onChange = viewModel::setEqualizerEnabled
         )
@@ -275,8 +270,8 @@ fun VerticalEqBandSlider(
                 modifier = Modifier
                     .width(4.dp)
                     .height(110.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(colors.cardBorder)
+                .clip(RoundedCornerShape(2.dp))
+                .background(colors.cardBorder)
             )
 
             Box(

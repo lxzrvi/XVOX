@@ -22,11 +22,14 @@ fun XvoxLikedSongsSection(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
+    selectedSongIds: Set<Long> = emptySet(),
     onPlay: (Song) -> Unit,
     onOptions: (Song) -> Unit,
+    onLongClick: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = XvoxTheme.colors
+    val isSelectionMode = selectedSongIds.isNotEmpty()
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -34,15 +37,11 @@ fun XvoxLikedSongsSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    bottom = HomeGeometry.sectionGap,
-                ),
+                .padding(start = 12.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Liked Songs",
+                text = if (isSelectionMode) "${selectedSongIds.size} Selected" else "Liked Songs",
                 color = colors.primaryAccent,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
@@ -61,24 +60,25 @@ fun XvoxLikedSongsSection(
                 text = "No liked songs",
                 color = colors.mutedText,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 24.dp,
-                ),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 24.dp),
             )
         } else {
-            Column(
-                modifier = Modifier.padding(
-                    horizontal = 6.dp,
-                ),
-            ) {
+            Column(modifier = Modifier.padding(horizontal = 6.dp)) {
                 songs.forEach { song ->
+                    val isSelected = song.id in selectedSongIds
                     XvoxLikedSongRow(
                         song = song,
                         current = currentSongId == song.id,
                         playing = currentSongId == song.id && isPlaying,
+                        selected = isSelected,
                         onClick = { onPlay(song) },
-                        onOptions = { onOptions(song) },
+                        onOptions = {
+                            if (onLongClick != null && isSelectionMode) {
+                                onLongClick(song)
+                            } else {
+                                onOptions(song)
+                            }
+                        },
                     )
 
                     Spacer(Modifier.height(6.dp))

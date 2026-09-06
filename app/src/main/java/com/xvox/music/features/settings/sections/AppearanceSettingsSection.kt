@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
 fun AppearanceSettingsSection(
@@ -36,10 +34,7 @@ fun AppearanceSettingsSection(
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsSectionCard(
-        title = "Appearance",
-        iconRes = R.drawable.ic_xvox_sparkle
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Theme",
             color = colors.secondaryText,
@@ -77,7 +72,7 @@ fun AppearanceSettingsSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Accent Color",
@@ -132,22 +127,48 @@ fun AppearanceSettingsSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Font Scale: ${state.fontSizeScale}x",
+            text = "Font Scale",
             color = colors.secondaryText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        XvoxThinLineSlider(
-            value = state.fontSizeScale,
-            onValueChange = viewModel::setFontSizeScale,
-            valueRange = 0.85f..1.25f,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val scales = listOf(
+                0.75f to "0.75x",
+                0.85f to "0.85x",
+                1.0f to "1.0x",
+                1.15f to "1.15x",
+                1.25f to "1.25x"
+            )
+
+            scales.forEach { (scaleValue, scaleLabel) ->
+                val isSelected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.04f
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                        .clickable { viewModel.setFontSizeScale(scaleValue) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = scaleLabel,
+                        color = if (isSelected) colors.background else colors.primaryText,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
     }
 }

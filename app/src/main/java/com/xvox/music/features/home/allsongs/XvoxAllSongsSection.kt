@@ -39,6 +39,7 @@ fun XvoxAllSongsSection(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
+    selectedSongIds: Set<Long> = emptySet(),
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
     onPrefetch: (Int) -> Unit,
@@ -54,13 +55,10 @@ fun XvoxAllSongsSection(
     val isUniform = layoutStyle == "uniform"
     val isVertical = scrollDirection == "vertical"
     val rowCount = horizontalRows.coerceIn(3, 8)
+    val isSelectionMode = selectedSongIds.isNotEmpty()
 
     val plans = remember(songs, rowCount, isUniform, isVertical) {
-        if (isVertical) {
-            emptyList()
-        } else {
-            buildMosaicPagePlans(songs, rows = rowCount, isUniform = isUniform)
-        }
+        buildMosaicPagePlans(songs, rows = rowCount, isUniform = isUniform)
     }
 
     val state = rememberLazyListState()
@@ -82,16 +80,12 @@ fun XvoxAllSongsSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    bottom = HomeGeometry.sectionGap
-                ),
+                .padding(start = 12.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "All Songs",
+                text = if (isSelectionMode) "${selectedSongIds.size} Selected" else "All Songs",
                 color = colors.primaryAccent,
                 fontSize = 16.sp,
                 lineHeight = 19.sp,
@@ -121,25 +115,71 @@ fun XvoxAllSongsSection(
                         .padding(horizontal = edge),
                     verticalArrangement = Arrangement.spacedBy(gap)
                 ) {
-                    val chunked = remember(songs) { songs.chunked(4) }
-                    chunked.forEach { rowSongs ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(gap)
-                        ) {
-                            rowSongs.forEach { song ->
-                                XvoxAllSongCard(
-                                    song = song,
-                                    current = currentSongId == song.id,
-                                    playing = currentSongId == song.id && isPlaying,
-                                    onClick = { onSongClick(song) },
-                                    onLongClick = { onSongLongClick(song) },
-                                    modifier = Modifier.size(width = unitWidth, height = unitHeight)
-                                )
+                    if (isUniform) {
+                        val chunked = remember(songs) { songs.chunked(4) }
+                        chunked.forEach { rowSongs ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(gap)
+                            ) {
+                                rowSongs.forEach { song ->
+                                    val isSelected = song.id in selectedSongIds
+                                    XvoxAllSongCard(
+                                        song = song,
+                                        current = currentSongId == song.id,
+                                        playing = currentSongId == song.id && isPlaying,
+                                        selected = isSelected,
+                                        onClick = { onSongClick(song) },
+                                        onLongClick = { onSongLongClick(song) },
+                                        modifier = Modifier.size(width = unitWidth, height = unitHeight)
+                                    )
+                                }
+                                if (rowSongs.size < 4) {
+                                    repeat(4 - rowSongs.size) {
+                                        Box(modifier = Modifier.size(width = unitWidth, height = unitHeight))
+                                    }
+                                }
                             }
-                            if (rowSongs.size < 4) {
-                                repeat(4 - rowSongs.size) {
-                                    Box(modifier = Modifier.size(width = unitWidth, height = unitHeight))
+                        }
+                    } else {
+                        // Vertical Mosaic Blocks
+                        plans.forEach { plan ->
+                            val page = remember(songs, plan, rowCount, isUniform) {
+                                buildMosaicPage(songs, plan, rows = rowCount, isUniform = false)
+                            }
+                            val blockHeight = unitHeight * rowCount + gap * (rowCount - 1)
+                            Box(modifier = Modifier.size(width = contentWidth, height = blockHeight)) {
+                                page.tiles.forEach { tile ->
+                                    val tileWidth = unitWidth * tile.width + gap * (tile.width - 1f)
+                                    val tileHeight = unitHeight * tile.height + gap * (tile.height - 1f)
+                                    val x = (unitWidth + gap) * tile.x
+                                    val y = (unitHeight + gap) * tile.y
+                                    val isSelected = tile.song.id in selectedSongIds
+                                    val tileModifier = Modifier
+                                        .offset(x = x, y = y)
+                                        .size(width = tileWidth, height = tileHeight)
+
+                                    if (tile.width == 1f && tile.height == 1f) {
+                                        XvoxAllSongCard(
+                                            song = tile.song,
+                                            current = currentSongId == tile.song.id,
+                                            playing = currentSongId == tile.song.id && isPlaying,
+                                            selected = isSelected,
+                                            onClick = { onSongClick(tile.song) },
+                                            onLongClick = { onSongLongClick(tile.song) },
+                                            modifier = tileModifier
+                                        )
+                                    } else {
+                                        XvoxAllSongMosaicCard(
+                                            song = tile.song,
+                                            widthUnits = tile.width,
+                                            heightUnits = tile.height,
+                                            selected = isSelected,
+                                            onClick = { onSongClick(tile.song) },
+                                            onLongClick = { onSongLongClick(tile.song) },
+                                            modifier = tileModifier
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -173,6 +213,7 @@ fun XvoxAllSongsSection(
                                 val tileHeight = unitHeight * tile.height + gap * (tile.height - 1f)
                                 val x = (unitWidth + gap) * tile.x
                                 val y = (unitHeight + gap) * tile.y
+                                val isSelected = tile.song.id in selectedSongIds
 
                                 val tileModifier = Modifier
                                     .offset(x = x, y = y)
@@ -183,6 +224,7 @@ fun XvoxAllSongsSection(
                                         song = tile.song,
                                         current = currentSongId == tile.song.id,
                                         playing = currentSongId == tile.song.id && isPlaying,
+                                        selected = isSelected,
                                         onClick = { onSongClick(tile.song) },
                                         onLongClick = { onSongLongClick(tile.song) },
                                         modifier = tileModifier
@@ -192,6 +234,7 @@ fun XvoxAllSongsSection(
                                         song = tile.song,
                                         widthUnits = tile.width,
                                         heightUnits = tile.height,
+                                        selected = isSelected,
                                         onClick = { onSongClick(tile.song) },
                                         onLongClick = { onSongLongClick(tile.song) },
                                         modifier = tileModifier

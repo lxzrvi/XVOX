@@ -1,9 +1,11 @@
 package com.xvox.music.features.home
 
+import android.net.Uri
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.PlaylistInfoBox
+import com.xvox.music.features.playlist.PlaylistPickerBox
 import com.xvox.music.features.playlist.XvoxAddPlaylistSongsBox
 import com.xvox.music.features.playlist.XvoxPlaylistActionsBox
 import com.xvox.music.features.playlist.XvoxPlaylistCoverEditor
@@ -15,12 +17,7 @@ fun showPlaylistActions(
     onDeleted: () -> Unit
 ) {
     overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+        val current = viewModel.state.value.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxPlaylistActionsBox(
             playlist = current,
@@ -69,12 +66,7 @@ fun showPlaylistCoverEditor(
     playlist: XvoxPlaylist
 ) {
     overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+        val current = viewModel.state.value.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxPlaylistCoverEditor(
             playlist = current,
@@ -102,12 +94,7 @@ fun showAddPlaylistSongs(
     playlist: XvoxPlaylist
 ) {
     overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+        val current = viewModel.state.value.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxAddPlaylistSongsBox(
             songs = viewModel.state.value.songs,
@@ -122,6 +109,39 @@ fun showAddPlaylistSongs(
                 overlays.showP("Added ${selectedSongs.size} songs to ${current.name}")
             },
             onCancel = { overlays.hideL() }
+        )
+    }
+}
+
+fun showMultiAddToPlaylistOverlay(
+    overlays: XvoxOverlayController,
+    viewModel: HomeViewModel,
+    songs: List<Song>,
+    onDone: () -> Unit
+) {
+    overlays.showL {
+        val playlists = viewModel.state.value.playlists
+        PlaylistPickerBox(
+            song = songs.firstOrNull() ?: Song(0L, "", "", Uri.EMPTY, null),
+            playlists = playlists,
+            onCreate = {
+                showCreatePlaylistOverlay(overlays, viewModel, viewModel.state.value.songs)
+            },
+            onAdd = { pl ->
+                viewModel.addMultipleToPlaylist(pl.id, songs) {
+                    overlays.hideL()
+                    overlays.showP("${songs.size} songs added to ${pl.name}")
+                    onDone()
+                }
+            },
+            onRemove = { pl ->
+                viewModel.removeMultipleFromPlaylist(pl.id, songs) {
+                    overlays.hideL()
+                    overlays.showP("${songs.size} songs removed from ${pl.name}")
+                    onDone()
+                }
+            },
+            songs = viewModel.state.value.songs
         )
     }
 }

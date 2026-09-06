@@ -235,7 +235,7 @@ fun XvoxNowPlaying(
         ) {
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
-                onShare = { onShare?.invoke() },
+                onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
                 onMore = { showQuickSettingsSheet = true },
                 playingSource = playingSource
             )
@@ -363,7 +363,7 @@ fun XvoxNowPlaying(
                 onTimer = onTimer,
                 onInfo = onInfo,
                 onStarPlaylist = onStarPlaylist,
-                onShare = onShare
+                onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) }
             )
         }
     }

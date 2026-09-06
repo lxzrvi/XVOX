@@ -8,24 +8,33 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.XvoxGridArtworkSize
+import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -36,78 +45,99 @@ fun XvoxAllSongMosaicCard(
     heightUnits: Float,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.965f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.84f,
-            stiffness = 1400f
-        ),
-        label = "mosaicPress"
+        targetValue = if (pressed) 0.955f else 1f,
+        animationSpec = spring(dampingRatio = 0.84f, stiffness = 1500f),
+        label = "mosaicCardPress"
     )
 
-    val shape = RoundedCornerShape(11.dp)
+    val cardShape = RoundedCornerShape(12.dp)
+    val artworkShape = RoundedCornerShape(8.dp)
 
-    val requestSize = when {
-        widthUnits >= 4f || heightUnits >= 2f -> 384
-        widthUnits >= 2f || heightUnits > 1f -> 256
-        else -> XvoxGridArtworkSize
-    }
+    val borderWidth = if (selected) 2.dp else 0.7.dp
+    val borderColor = if (selected) colors.primaryAccent else colors.cardBorder
 
     Column(
         modifier = modifier
-            .fillMaxSize()
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(shape)
-            .background(colors.card)
-            .border(
-                width = 0.7.dp,
-                color = colors.cardBorder,
-                shape = shape
-            )
+            .clip(cardShape)
+            .background(if (selected) colors.cardElevated else colors.card)
+            .border(width = borderWidth, color = borderColor, shape = cardShape)
             .combinedClickable(
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(5.dp)
+            .padding(6.dp)
     ) {
-        XvoxSongArtwork(
-            artwork = song.artworkUri,
-            requestSize = requestSize,
+        Box(
             modifier = Modifier
+                .fillMaxWidth()
                 .weight(1f)
-                .fillMaxSize()
-                .clip(RoundedCornerShape(7.dp))
-        )
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = XvoxRecentArtworkSize,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(artworkShape)
+            )
 
-        Text(
-            text = song.title,
-            color = colors.primaryText,
-            fontSize = if (widthUnits >= 2f) 12.sp else 10.sp,
-            lineHeight = if (widthUnits >= 2f) 14.sp else 11.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 5.dp)
-        )
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(20.dp)
+                        .background(colors.primaryAccent, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_check),
+                        contentDescription = "Selected",
+                        tint = colors.background,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+        }
 
-        Text(
-            text = song.artist,
-            color = colors.secondaryText,
-            fontSize = if (widthUnits >= 2f) 9.sp else 8.sp,
-            fontWeight = FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = song.title,
+                color = colors.primaryText,
+                fontSize = if (widthUnits >= 2f) 12.sp else 10.sp,
+                lineHeight = if (widthUnits >= 2f) 14.sp else 11.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = song.artist,
+                color = colors.secondaryText,
+                fontSize = if (widthUnits >= 2f) 10.sp else 8.sp,
+                lineHeight = if (widthUnits >= 2f) 12.sp else 9.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

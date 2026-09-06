@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,11 +21,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
 import com.xvox.music.features.settings.components.SettingsToggle
 
 @Composable
@@ -34,10 +33,7 @@ fun HomeSettingsSection(
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsSectionCard(
-        title = "Home Settings",
-        iconRes = R.drawable.ic_xvox_home
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Home Style",
             color = colors.secondaryText,
@@ -163,9 +159,46 @@ fun HomeSettingsSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        Text(
+            text = "Song Sort Order",
+            color = colors.secondaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val sortOptions = listOf("A-Z", "Z-A", "Random")
+            sortOptions.forEach { opt ->
+                val isSelected = state.sortOrder == opt
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                        .clickable { viewModel.setSortOrder(opt) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = opt,
+                        color = if (isSelected) colors.background else colors.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         SettingsToggle(
             title = "Hide Recents",
-            subtitle = "Hide Recently Played section and only show All Songs on Home",
+            subtitle = "Hide Recently Played section and only display All Songs on Home",
             checked = state.hideRecentlyPlayed,
             onChange = viewModel::setHideRecentlyPlayed
         )

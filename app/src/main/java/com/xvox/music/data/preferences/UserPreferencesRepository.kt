@@ -34,6 +34,8 @@ class UserPreferencesRepository(
         val crossfadeDuration = intPreferencesKey("crossfade_duration")
         val pauseOnHeadphoneDisconnect = booleanPreferencesKey("pause_on_headphone_disconnect")
         val playOnHeadsetConnect = booleanPreferencesKey("play_on_headset_connect")
+        val btDisconnectAction = stringPreferencesKey("bt_disconnect_action")
+        val btConnectAction = stringPreferencesKey("bt_connect_action")
 
         val equalizerEnabled = booleanPreferencesKey("equalizer_enabled")
         val eqPreset = stringPreferencesKey("eq_preset")
@@ -54,6 +56,11 @@ class UserPreferencesRepository(
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
         val hideRecentlyPlayed = booleanPreferencesKey("hide_recently_played")
+        val sortOrder = stringPreferencesKey("sort_order")
+
+        val ignoreBelowSec = intPreferencesKey("ignore_below_sec")
+        val ignoreBelowKb = intPreferencesKey("ignore_below_kb")
+        val ignoredFolders = stringPreferencesKey("ignored_folders")
 
         val widgetTransparency = floatPreferencesKey("widget_transparency")
         val widgetTheme = stringPreferencesKey("widget_theme")
@@ -87,6 +94,8 @@ class UserPreferencesRepository(
     val crossfadeDuration: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.crossfadeDuration] ?: 3 }
     val pauseOnHeadphoneDisconnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pauseOnHeadphoneDisconnect] ?: true }
     val playOnHeadsetConnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.playOnHeadsetConnect] ?: false }
+    val btDisconnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btDisconnectAction] ?: "pause" }
+    val btConnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btConnectAction] ?: "none" }
 
     val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }
     val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }
@@ -107,6 +116,13 @@ class UserPreferencesRepository(
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }
     val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }
     val hideRecentlyPlayed: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideRecentlyPlayed] ?: false }
+    val sortOrder: Flow<String> = context.xvoxDataStore.data.map { it[Keys.sortOrder] ?: "A-Z" }
+
+    val ignoreBelowSec: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowSec] ?: 0 }
+    val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }
+    val ignoredFolders: Flow<Set<String>> = context.xvoxDataStore.data.map {
+        it[Keys.ignoredFolders].orEmpty().split("\n").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
+    }
 
     val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }
     val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }
@@ -118,6 +134,8 @@ class UserPreferencesRepository(
     suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
     suspend fun setPlayOnHeadsetConnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.playOnHeadsetConnect] = v } }
+    suspend fun setBtDisconnectAction(v: String) { context.xvoxDataStore.edit { it[Keys.btDisconnectAction] = v } }
+    suspend fun setBtConnectAction(v: String) { context.xvoxDataStore.edit { it[Keys.btConnectAction] = v } }
 
     suspend fun setEqualizerEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.equalizerEnabled] = v } }
     suspend fun setEqPreset(preset: String) { context.xvoxDataStore.edit { it[Keys.eqPreset] = preset } }
@@ -138,6 +156,21 @@ class UserPreferencesRepository(
     suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
     suspend fun setHideRecentlyPlayed(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.hideRecentlyPlayed] = hide } }
+    suspend fun setSortOrder(order: String) { context.xvoxDataStore.edit { it[Keys.sortOrder] = order } }
+
+    suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec } }
+    suspend fun setIgnoreBelowKb(kb: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowKb] = kb } }
+    suspend fun toggleIgnoredFolder(folder: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val current = prefs[Keys.ignoredFolders].orEmpty().split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+            if (current.contains(folder)) {
+                current.remove(folder)
+            } else {
+                current.add(folder)
+            }
+            prefs[Keys.ignoredFolders] = current.joinToString("\n")
+        }
+    }
 
     suspend fun setWidgetTransparency(v: Float) { context.xvoxDataStore.edit { it[Keys.widgetTransparency] = v } }
     suspend fun setWidgetTheme(v: String) { context.xvoxDataStore.edit { it[Keys.widgetTheme] = v } }

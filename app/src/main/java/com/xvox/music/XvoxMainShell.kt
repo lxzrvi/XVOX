@@ -201,7 +201,7 @@ fun XvoxMainShell(
                 AnimatedContent(
                     targetState = destination,
                     transitionSpec = {
-                        fadeIn(animationSpec = tween(120)) togetherWith fadeOut(animationSpec = tween(90))
+                        androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                     },
                     label = "tab_switch_transition",
                     modifier = Modifier.fillMaxSize()

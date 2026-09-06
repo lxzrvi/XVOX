@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -52,7 +50,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.HomeFooter
 import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.showPlaylistActions
@@ -106,7 +103,6 @@ fun SearchScreen(
     val recentSearches by prefs.recentSearches.collectAsState(initial = emptyList())
     val overlays = LocalXvoxOverlayController.current
     val scope = rememberCoroutineScope()
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     var pendingDelete by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(
@@ -297,7 +293,7 @@ fun SearchScreen(
                                 songs = coverSongs,
                                 onClick = {
                                     addRecent(query)
-                                    if (onPlaylistSelected != null) onPlaylistSelected(playlist.id)
+                                    onPlaylistSelected?.invoke(playlist.id)
                                 },
                                 onLongClick = {
                                     showPlaylistActions(overlays, homeViewModel, playlist) {}
@@ -364,15 +360,8 @@ fun SearchScreen(
             }
         }
 
-        item(key = "search_footer") {
-            HomeFooter(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = screenHeight)
-                    .padding(bottom = 20.dp)
-            )
+        item(key = "search_bottom_spacer") {
+            Spacer(Modifier.height(130.dp))
         }
-
-        item(key = "search_bottom_inset") { Spacer(Modifier.height(80.dp)) }
     }
 }

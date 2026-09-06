@@ -27,11 +27,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
+            launch { prefs.sortOrder.collect { v -> _state.update { it.copy(sortOrder = v) } } }
+
+            launch { prefs.ignoreBelowSec.collect { v -> _state.update { it.copy(ignoreBelowSec = v) } } }
+            launch { prefs.ignoreBelowKb.collect { v -> _state.update { it.copy(ignoreBelowKb = v) } } }
+            launch { prefs.ignoredFolders.collect { v -> _state.update { it.copy(ignoredFolders = v) } } }
 
             launch { prefs.crossfade.collect { v -> _state.update { it.copy(crossfade = v) } } }
             launch { prefs.crossfadeDuration.collect { v -> _state.update { it.copy(crossfadeDuration = v) } } }
             launch { prefs.pauseOnHeadphoneDisconnect.collect { v -> _state.update { it.copy(pauseOnHeadphoneDisconnect = v) } } }
             launch { prefs.playOnHeadsetConnect.collect { v -> _state.update { it.copy(playOnHeadsetConnect = v) } } }
+            launch { prefs.btDisconnectAction.collect { v -> _state.update { it.copy(btDisconnectAction = v) } } }
+            launch { prefs.btConnectAction.collect { v -> _state.update { it.copy(btConnectAction = v) } } }
 
             launch { prefs.equalizerEnabled.collect { v -> _state.update { it.copy(equalizerEnabled = v) } } }
             launch { prefs.eqPreset.collect { v -> _state.update { it.copy(eqPreset = v) } } }
@@ -60,11 +67,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
+    fun setSortOrder(order: String) = viewModelScope.launch { prefs.setSortOrder(order) }
+
+    fun setIgnoreBelowSec(sec: Int) = viewModelScope.launch { prefs.setIgnoreBelowSec(sec) }
+    fun setIgnoreBelowKb(kb: Int) = viewModelScope.launch { prefs.setIgnoreBelowKb(kb) }
+    fun toggleIgnoredFolder(folder: String) = viewModelScope.launch { prefs.toggleIgnoredFolder(folder) }
 
     fun setCrossfade(enabled: Boolean) = viewModelScope.launch { prefs.setCrossfade(enabled) }
     fun setCrossfadeDuration(duration: Int) = viewModelScope.launch { prefs.setCrossfadeDuration(duration) }
     fun setPauseOnHeadphoneDisconnect(enabled: Boolean) = viewModelScope.launch { prefs.setPauseOnHeadphoneDisconnect(enabled) }
     fun setPlayOnHeadsetConnect(enabled: Boolean) = viewModelScope.launch { prefs.setPlayOnHeadsetConnect(enabled) }
+    fun setBtDisconnectAction(action: String) = viewModelScope.launch { prefs.setBtDisconnectAction(action) }
+    fun setBtConnectAction(action: String) = viewModelScope.launch { prefs.setBtConnectAction(action) }
 
     fun setEqualizerEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setEqualizerEnabled(enabled) }
     fun setEqPreset(preset: String) = viewModelScope.launch { prefs.setEqPreset(preset) }

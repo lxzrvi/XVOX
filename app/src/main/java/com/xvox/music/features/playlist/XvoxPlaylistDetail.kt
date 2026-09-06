@@ -46,65 +46,41 @@ fun XvoxPlaylistDetail(
     songs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
+    selectedSongIds: Set<Long> = emptySet(),
     onPlay: (Song) -> Unit,
     onOptions: (Song) -> Unit,
+    onLongClick: ((Song) -> Unit)? = null,
     onAddSongs: () -> Unit,
     onClosed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val scope = rememberCoroutineScope()
+    val isSelectionMode = selectedSongIds.isNotEmpty()
 
-    val scope =
-        rememberCoroutineScope()
+    var expanded by remember(playlist.id) { mutableStateOf(false) }
 
-    var expanded by remember(
-        playlist.id,
-    ) {
-        mutableStateOf(false)
-    }
+    val scale by animateFloatAsState(
+        targetValue = if (expanded) 1f else 0.94f,
+        animationSpec = tween(220),
+        label = "playlistDetailScale",
+    )
 
-    val scale by
-        animateFloatAsState(
-            targetValue =
-                if (expanded) {
-                    1f
-                } else {
-                    0.94f
-                },
-            animationSpec =
-                tween(220),
-            label =
-                "playlistDetailScale",
-        )
-
-    val alpha by
-        animateFloatAsState(
-            targetValue =
-                if (expanded) {
-                    1f
-                } else {
-                    0f
-                },
-            animationSpec =
-                tween(180),
-            label =
-                "playlistDetailAlpha",
-        )
+    val alpha by animateFloatAsState(
+        targetValue = if (expanded) 1f else 0f,
+        animationSpec = tween(180),
+        label = "playlistDetailAlpha",
+    )
 
     fun close() {
         scope.launch {
             expanded = false
-
             delay(210L)
-
             onClosed()
         }
     }
 
-    LaunchedEffect(
-        playlist.id,
-    ) {
+    LaunchedEffect(playlist.id) {
         expanded = true
     }
 
@@ -113,138 +89,84 @@ fun XvoxPlaylistDetail(
     }
 
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    this.alpha = alpha
-                },
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                this.alpha = alpha
+            },
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 12.dp,
-                        top = 2.dp,
-                        end = 12.dp,
-                        bottom = HomeGeometry.sectionGap,
-                    ),
-            verticalAlignment =
-                Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, top = 2.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                modifier =
-                    Modifier.weight(
-                        1f,
-                    ),
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text =
-                        playlist.name,
-                    color =
-                        colors.primaryText,
-                    fontSize = 22.sp,
-                    fontWeight =
-                        FontWeight.Bold,
+                    text = if (isSelectionMode) "${selectedSongIds.size} Selected" else playlist.name,
+                    color = colors.primaryText,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Text(
-                    text =
-                        "${songs.size} songs",
-                    color =
-                        colors.secondaryText,
+                    text = "${songs.size} songs",
+                    color = colors.secondaryText,
                     fontSize = 11.sp,
                 )
             }
 
             Box(
-                modifier =
-                    Modifier
-                        .size(
-                            38.dp,
-                        ).background(
-                            colors.card,
-                            CircleShape,
-                        ).clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
-                            indication = null,
-                            onClick =
-                            onAddSongs,
-                        ),
-                contentAlignment =
-                    Alignment.Center,
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(colors.card, CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onAddSongs,
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter =
-                        painterResource(
-                            R.drawable
-                                .ic_xvox_plus,
-                        ),
-                    contentDescription =
-                        "Add songs",
-                    tint =
-                        colors.primaryText,
-                    modifier =
-                        Modifier.size(
-                            18.dp,
-                        ),
+                    painter = painterResource(R.drawable.ic_xvox_plus),
+                    contentDescription = "Add songs",
+                    tint = colors.primaryText,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
 
         if (songs.isEmpty()) {
             Text(
-                text =
-                    "No songs in this playlist",
-                color =
-                    colors.mutedText,
+                text = "No songs in this playlist",
+                color = colors.mutedText,
                 fontSize = 12.sp,
-                modifier =
-                    Modifier.padding(
-                        12.dp,
-                    ),
+                modifier = Modifier.padding(12.dp),
             )
         } else {
-            Column(
-                modifier =
-                    Modifier.padding(
-                        horizontal =
-                            6.dp,
-                    ),
-            ) {
+            Column(modifier = Modifier.padding(horizontal = 6.dp)) {
                 songs.forEach { song ->
-
+                    val isSelected = song.id in selectedSongIds
                     XvoxLikedSongRow(
                         song = song,
-                        current =
-                            currentSongId ==
-                                song.id,
-                        playing =
-                            currentSongId ==
-                                song.id &&
-                                isPlaying,
-                        onClick = {
-                            onPlay(song)
-                        },
+                        current = currentSongId == song.id,
+                        playing = currentSongId == song.id && isPlaying,
+                        selected = isSelected,
+                        onClick = { onPlay(song) },
                         onOptions = {
-                            onOptions(song)
+                            if (onLongClick != null && isSelectionMode) {
+                                onLongClick(song)
+                            } else {
+                                onOptions(song)
+                            }
                         },
                     )
 
-                    Spacer(
-                        Modifier.height(
-                            6.dp,
-                        ),
-                    )
+                    Spacer(Modifier.height(6.dp))
                 }
             }
         }

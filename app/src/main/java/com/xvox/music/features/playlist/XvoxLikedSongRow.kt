@@ -40,22 +40,21 @@ fun XvoxLikedSongRow(
     playing: Boolean,
     onClick: () -> Unit,
     onOptions: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(14.dp)
+    val borderWidth = if (selected) 2.dp else 0.7.dp
+    val borderColor = if (selected) colors.primaryAccent else colors.cardBorder
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(64.dp)
             .clip(shape)
-            .background(colors.card)
-            .border(
-                width = 0.7.dp,
-                color = colors.cardBorder,
-                shape = shape
-            )
+            .background(if (selected) colors.cardElevated else colors.card)
+            .border(width = borderWidth, color = borderColor, shape = shape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -65,13 +64,35 @@ fun XvoxLikedSongRow(
             .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        XvoxSongArtwork(
-            artwork = song.artworkUri,
-            requestSize = 112,
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(9.dp))
-        )
+        Box(
+            modifier = Modifier.size(52.dp)
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 112,
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(9.dp))
+            )
+
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(2.dp)
+                        .size(16.dp)
+                        .background(colors.primaryAccent, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_check),
+                        contentDescription = "Selected",
+                        tint = colors.background,
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.size(10.dp))
 
