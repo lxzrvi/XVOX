@@ -11,6 +11,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import com.xvox.music.features.home.HomePresentation
+import com.xvox.music.features.home.HomeSections
+import com.xvox.music.features.home.normalizeHomeStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -30,6 +34,12 @@ class UserPreferencesRepository(
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val recentSearches = stringPreferencesKey("recent_searches")
 
+        val homeMerge = booleanPreferencesKey("home_merge")
+        val homeSectionOrder = stringPreferencesKey("home_section_order")
+        val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
+        val crossfadeBeatSync = booleanPreferencesKey("crossfade_beat_sync")
+        val widgetPaddingX = intPreferencesKey("widget_padding_x")
+        val widgetPaddingY = intPreferencesKey("widget_padding_y")
         val crossfade = booleanPreferencesKey("crossfade")
         val crossfadeDuration = intPreferencesKey("crossfade_duration")
         val pauseOnHeadphoneDisconnect = booleanPreferencesKey("pause_on_headphone_disconnect")
@@ -79,48 +89,71 @@ class UserPreferencesRepository(
             selectedPfp = prefs[Keys.selectedPfp] ?: "DEFAULT",
             customPfpUri = prefs[Keys.customPfpUri]
         )
-    }
+    }.distinctUntilChanged()
 
     val recentSongIds: Flow<List<Long>> = context.xvoxDataStore.data.map { prefs ->
         decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
-    }
+    }.distinctUntilChanged()
 
     val lastPlayedSongId: Flow<Long?> = context.xvoxDataStore.data.map { prefs ->
         prefs[Keys.lastPlayedSongId]
-    }
+    }.distinctUntilChanged()
 
     val recentSearches: Flow<List<String>> = context.xvoxDataStore.data.map { prefs ->
         decodeRecentSearches(prefs[Keys.recentSearches].orEmpty())
-    }
+    }.distinctUntilChanged()
 
-    val crossfade: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfade] ?: false }
-    val crossfadeDuration: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.crossfadeDuration] ?: 3 }
-    val pauseOnHeadphoneDisconnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pauseOnHeadphoneDisconnect] ?: true }
-    val playOnHeadsetConnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.playOnHeadsetConnect] ?: false }
-    val btDisconnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btDisconnectAction] ?: "pause" }
-    val btConnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btConnectAction] ?: "none" }
+    val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()
+    val homeSectionOrder: Flow<List<String>> = context.xvoxDataStore.data.map {
+        val raw = it[Keys.homeSectionOrder]
+        if (raw.isNullOrBlank()) HomeSections.placeRecent(HomeSections.defaultOrder, it[Keys.recentsPlacement] ?: "bottom")
+        else HomeSections.normalize(raw.split(","))
+    }.distinctUntilChanged()
+    val homeHiddenSections: Flow<Set<String>> = context.xvoxDataStore.data.map {
+        it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
+    }.distinctUntilChanged()
+    val homePresentation: Flow<HomePresentation> = context.xvoxDataStore.data.map {
+        val placement = it[Keys.recentsPlacement] ?: "bottom"
+        HomePresentation(
+            style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "horizontal",
+            rows = (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8), hideRecents = it[Keys.hideRecentlyPlayed] ?: false,
+            recentsPlacement = placement, merge = it[Keys.homeMerge] ?: false,
+            order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
+                ?: HomeSections.placeRecent(HomeSections.defaultOrder, placement),
+            hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
+        )
+    }.distinctUntilChanged()
+    val crossfadeBeatSync: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfadeBeatSync] ?: true }.distinctUntilChanged()
+    val widgetPaddingX: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32) }.distinctUntilChanged()
+    val widgetPaddingY: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28) }.distinctUntilChanged()
+    val crossfade: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfade] ?: false }.distinctUntilChanged()
+    val crossfadeDuration: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.crossfadeDuration] ?: 3 }.distinctUntilChanged()
+    val pauseOnHeadphoneDisconnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pauseOnHeadphoneDisconnect] ?: true }.distinctUntilChanged()
+    val playOnHeadsetConnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.playOnHeadsetConnect] ?: false }.distinctUntilChanged()
+    val btDisconnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btDisconnectAction] ?: "pause" }.distinctUntilChanged()
+    val btConnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btConnectAction] ?: "none" }.distinctUntilChanged()
 
-    val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }
-    val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }
-    val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { decodeBands(it[Keys.eqBands].orEmpty()) }
-    val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }
-    val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }
-    val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }
+    val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }.distinctUntilChanged()
+    val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }.distinctUntilChanged()
+    val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { decodeBands(it[Keys.eqBands].orEmpty()) }.distinctUntilChanged()
+    val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }.distinctUntilChanged()
+    val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }.distinctUntilChanged()
+    val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }.distinctUntilChanged()
 
-    val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }
-    val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }
+    val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }.distinctUntilChanged()
+    val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
-    val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }
-    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }
-    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }
-    val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }
+    val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }.distinctUntilChanged()
+    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }.distinctUntilChanged()
+    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }.distinctUntilChanged()
+    val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
-    val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeLayoutStyle] ?: "mosaic" }
-    val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }
-    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }
-    val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }
-    val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f) }
-    val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }
+    val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
+    val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
+    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }.distinctUntilChanged()
+    val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
+    val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f) }.distinctUntilChanged()
+    val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
     // Read audio settings atomically, so a preset never passes through a half-updated state.
     val audioDspSettings: Flow<com.xvox.music.audio.AudioDspSettings> = context.xvoxDataStore.data.map {
@@ -136,23 +169,47 @@ class UserPreferencesRepository(
             orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(2f, 10f),
             masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f)
         )
-    }
+    }.distinctUntilChanged()
 
-    val hideRecentlyPlayed: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideRecentlyPlayed] ?: false }
-    val sortOrder: Flow<String> = context.xvoxDataStore.data.map { it[Keys.sortOrder] ?: "A-Z" }
+    val hideRecentlyPlayed: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideRecentlyPlayed] ?: false }.distinctUntilChanged()
+    val sortOrder: Flow<String> = context.xvoxDataStore.data.map { it[Keys.sortOrder] ?: "A-Z" }.distinctUntilChanged()
 
-    val ignoreBelowSec: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowSec] ?: 0 }
-    val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }
+    val ignoreBelowSec: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowSec] ?: 0 }.distinctUntilChanged()
+    val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }.distinctUntilChanged()
     val ignoredFolders: Flow<Set<String>> = context.xvoxDataStore.data.map {
         it[Keys.ignoredFolders].orEmpty().split("\n").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
+    }.distinctUntilChanged()
+
+    val widgetStyle: Flow<com.xvox.music.widget.WidgetStyle> = context.xvoxDataStore.data.map {
+        com.xvox.music.widget.WidgetStyle(it[Keys.widgetTransparency] ?: .25f, it[Keys.widgetTheme] ?: "Dark",
+            it[Keys.widgetCustomColor] ?: "#000000", it[Keys.widgetShowLogo] ?: true, it[Keys.widgetCornerRadius] ?: 16,
+            (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32), (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28))
+    }.distinctUntilChanged()
+    val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }.distinctUntilChanged()
+    val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }.distinctUntilChanged()
+    val widgetCustomColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetCustomColor] ?: "#000000" }.distinctUntilChanged()
+    val widgetShowLogo: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.widgetShowLogo] ?: true }.distinctUntilChanged()
+    val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }.distinctUntilChanged()
+
+    suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
+    suspend fun setHomeSectionOrder(order: List<String>) {
+        context.xvoxDataStore.edit {
+            val normalized = HomeSections.normalize(order)
+            it[Keys.homeSectionOrder] = normalized.joinToString(",")
+            it[Keys.recentsPlacement] = if (normalized.indexOf(HomeSections.RECENT) < normalized.indexOf(HomeSections.ALL)) "top" else "bottom"
+        }
     }
-
-    val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }
-    val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }
-    val widgetCustomColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetCustomColor] ?: "#000000" }
-    val widgetShowLogo: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.widgetShowLogo] ?: true }
-    val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }
-
+    suspend fun setHomeSectionVisible(id: String, visible: Boolean) {
+        if (id !in HomeSections.defaultOrder) return
+        context.xvoxDataStore.edit {
+            val hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { key -> key in HomeSections.defaultOrder }.toSet()
+            it[Keys.homeHiddenSections] = (if (visible) hidden - id else hidden + id).joinToString(",")
+            if (id == HomeSections.RECENT) it[Keys.hideRecentlyPlayed] = !visible
+        }
+    }
+    suspend fun setCrossfadeBeatSync(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfadeBeatSync] = enabled } }
+    suspend fun setWidgetPaddingX(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingX] = value.coerceIn(0, 32) } }
+    suspend fun setWidgetPaddingY(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingY] = value.coerceIn(0, 28) } }
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
     suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v.coerceIn(1, 12) } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
@@ -175,20 +232,48 @@ class UserPreferencesRepository(
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
-    suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = style } }
+    suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = normalizeHomeStyle(style) } }
     suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
-    suspend fun setRecentsPlacement(value: String) { context.xvoxDataStore.edit { it[Keys.recentsPlacement] = if (value == "top") "top" else "bottom" } }
+    suspend fun setRecentsPlacement(value: String) {
+        context.xvoxDataStore.edit {
+            val placement = if (value == "top") "top" else "bottom"
+            it[Keys.recentsPlacement] = placement
+            val order = it[Keys.homeSectionOrder]?.split(",") ?: HomeSections.defaultOrder
+            it[Keys.homeSectionOrder] = HomeSections.placeRecent(order, placement).joinToString(",")
+        }
+    }
     suspend fun setEqHeadroomDb(value: Float) { context.xvoxDataStore.edit { it[Keys.eqHeadroomDb] = value.coerceIn(0f, 18f) } }
     suspend fun setSurroundDepth(value: Float) { context.xvoxDataStore.edit { it[Keys.surroundDepth] = value.coerceIn(0f, 1f) } }
     suspend fun setIgnoredFolders(folders: Set<String>) { context.xvoxDataStore.edit { it[Keys.ignoredFolders] = folders.joinToString("\n") } }
+    suspend fun setAudioState(state: com.xvox.music.audio.LiveEqState) {
+        context.xvoxDataStore.edit {
+            it[Keys.equalizerEnabled] = state.enabled
+            it[Keys.eqPreset] = state.preset
+            it[Keys.eqBands] = state.bands.joinToString(",")
+            it[Keys.eqHeadroomDb] = state.headroomDb.coerceIn(0f, 18f)
+            it[Keys.balance] = state.balance.coerceIn(-1f, 1f)
+            it[Keys.stereoWidening] = state.surroundEnabled
+            it[Keys.surroundDepth] = state.surroundDepth.coerceIn(0f, 1f)
+            it[Keys.surroundPanSpeed] = state.orbitSeconds.coerceIn(2, 10)
+            it[Keys.appVolume] = state.appVolume.coerceIn(0f, 1f)
+            it[Keys.volumeLimit] = state.volumeLimit.coerceIn(0f, 1f)
+        }
+    }
+    suspend fun setEqState(enabled: Boolean, preset: String, bands: List<Int>) {
+        context.xvoxDataStore.edit {
+            it[Keys.equalizerEnabled] = enabled
+            it[Keys.eqPreset] = preset
+            it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+        }
+    }
     suspend fun setEqConfiguration(preset: String, bands: List<Int>) {
         context.xvoxDataStore.edit {
             it[Keys.eqPreset] = preset
             it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
         }
     }
-    suspend fun setHideRecentlyPlayed(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.hideRecentlyPlayed] = hide } }
+    suspend fun setHideRecentlyPlayed(hide: Boolean) { setHomeSectionVisible(HomeSections.RECENT, !hide) }
     suspend fun setSortOrder(order: String) { context.xvoxDataStore.edit { it[Keys.sortOrder] = order } }
 
     suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec.coerceIn(0, 86400) } }
@@ -309,7 +394,7 @@ class UserPreferencesRepository(
 
     fun lyricsUri(songId: Long): Flow<String?> = context.xvoxDataStore.data.map { prefs ->
         decodeLyricsUris(prefs[Keys.lyricsUris].orEmpty())[songId]
-    }
+    }.distinctUntilChanged()
 
     suspend fun setLyricsUri(songId: Long, uri: String?) {
         context.xvoxDataStore.edit { prefs ->

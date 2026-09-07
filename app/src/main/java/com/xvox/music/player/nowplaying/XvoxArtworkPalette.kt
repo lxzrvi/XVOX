@@ -22,7 +22,9 @@ class XvoxArtworkPaletteLoader(
     context: Context
 ) {
     private val appContext = context.applicationContext
-    companion object { private val cache = android.util.LruCache<String, Color>(256) }
+    companion object {
+        private val cache = android.util.LruCache<String, Color>(256)
+    }
 
     suspend fun load(uri: Uri?): Color {
         if (uri == null) return fallback()

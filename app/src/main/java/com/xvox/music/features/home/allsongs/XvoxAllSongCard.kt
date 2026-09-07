@@ -55,7 +55,7 @@ fun XvoxAllSongCard(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
-    val artworkShape = RoundedCornerShape(7.dp)
+    val artworkShape = RoundedCornerShape(6.dp)
 
     val borderWidth = if (selected) 2.dp else 0.7.dp
     val borderColor = if (selected) colors.primaryAccent else colors.cardBorder
@@ -80,15 +80,6 @@ fun XvoxAllSongCard(
                     .fillMaxSize()
                     .clip(artworkShape)
             )
-
-            if (!selected) {
-                Box(Modifier.align(Alignment.TopEnd).size(30.dp)
-                    .background(colors.surface.copy(alpha = 0.80f), CircleShape)
-                    .clickable(onClick = onLongClick), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.ic_xvox_more), "Song options",
-                        tint = colors.primaryText, modifier = Modifier.size(16.dp))
-                }
-            }
 
             if (selected) {
                 Box(

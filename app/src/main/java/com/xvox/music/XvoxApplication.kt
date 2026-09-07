@@ -16,6 +16,8 @@ class XvoxApplication : Application() {
 
         SingletonImageLoader.setSafe { context ->
             ImageLoader.Builder(context)
+                .decoderCoroutineContext(com.xvox.music.artwork.XvoxImageWork.decoderContext)
+                .fetcherCoroutineContext(com.xvox.music.artwork.XvoxImageWork.fetchContext)
                 .memoryCache {
                     MemoryCache.Builder()
                         .maxSizePercent(

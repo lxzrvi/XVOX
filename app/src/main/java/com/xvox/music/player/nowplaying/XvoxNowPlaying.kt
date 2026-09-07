@@ -362,11 +362,7 @@ fun XvoxNowPlaying(
 
         if (showQuickSettingsSheet) {
             NowPlayingOptionsBox(
-                onDismiss = { showQuickSettingsSheet = false },
-                onTimer = onTimer,
-                onInfo = onInfo,
-                onStarPlaylist = onStarPlaylist,
-                onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) }
+                onDismiss = { showQuickSettingsSheet = false }
             )
         }
     }

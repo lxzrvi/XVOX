@@ -37,9 +37,7 @@ private fun LibraryRefreshContent(
 
     var result by
         remember {
-            mutableStateOf<
-                LibraryRefreshResult?,
-            >(null)
+            mutableStateOf<LibraryRefreshResult?>(null)
         }
 
     val scope = rememberCoroutineScope()

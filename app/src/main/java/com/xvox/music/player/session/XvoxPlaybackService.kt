@@ -17,8 +17,12 @@ import com.xvox.music.MainActivity
 import com.xvox.music.R
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.player.playback.PlaybackLibraryLoader
+import com.xvox.music.player.playback.toMediaItem
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.*
+import com.xvox.music.audio.AudioEffectsManager
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 
@@ -28,23 +32,53 @@ class XvoxPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var receiverRegistered = false
+    private var routes: XvoxAudioRouteObserver? = null
+    private var connectJob: Job? = null
+    private var disconnectJob: Job? = null
+
+    private fun onHeadsetConnected() {
+        disconnectJob?.cancel()
+        if (connectJob?.isActive == true) return
+        connectJob = serviceScope.launch {
+            delay(350) // Let HFP/A2DP or BLE route negotiation settle; coalesce duplicate callbacks.
+            val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
+            if (!prefs.playOnHeadsetConnect.first() || routes?.hasHeadphoneOutput() != true) return@launch
+            val p = engine?.player ?: return@launch
+            if (p.playWhenReady && p.playbackState != Player.STATE_ENDED) return@launch
+            if (p.mediaItemCount == 0) {
+                val library = PlaybackLibraryLoader.load(this@XvoxPlaybackService) ?: return@launch
+                if (routes?.hasHeadphoneOutput() != true || p.mediaItemCount > 0 || p.playWhenReady) return@launch
+                p.setMediaItems(library.songs.map { it.toMediaItem() }, library.startIndex, 0)
+            }
+            if (p.playbackState == Player.STATE_ENDED) p.seekToDefaultPosition()
+            p.prepare()
+            p.play()
+        }
+    }
+    private fun onHeadsetDisconnected() {
+        connectJob?.cancel()
+        disconnectJob?.cancel()
+        disconnectJob = serviceScope.launch {
+            delay(250)
+            if (routes?.hasHeadphoneOutput() == false && UserPreferencesRepository(this@XvoxPlaybackService).pauseOnHeadphoneDisconnect.first()) {
+                engine?.player?.pause()
+            }
+        }
+    }
 
     private val audioReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
             serviceScope.launch {
                 val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
-                val player = engine?.player ?: return@launch
                 if (action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && prefs.pauseOnHeadphoneDisconnect.first()) {
-                    player.pause()
+                    engine?.player?.pause()
                 }
                 val connected = (action == Intent.ACTION_HEADSET_PLUG && intent.getIntExtra("state", -1) == 1) ||
-                    (action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" &&
+                    ((action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" ||
+                        action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") &&
                         intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
-                if (connected && prefs.playOnHeadsetConnect.first() && player.mediaItemCount > 0) {
-                    if (player.playbackState == Player.STATE_IDLE) player.prepare()
-                    player.play()
-                }
+                if (connected) onHeadsetConnected()
             }
         }
     }
@@ -68,11 +102,27 @@ class XvoxPlaybackService : MediaSessionService() {
             addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
             addAction(Intent.ACTION_HEADSET_PLUG)
             addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
+            addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
         }
         ContextCompat.registerReceiver(this, audioReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
         receiverRegistered = true
+        routes = XvoxAudioRouteObserver(this, ::onHeadsetConnected, ::onHeadsetDisconnected).also { it.start() }
         val prefs = UserPreferencesRepository(this)
-        serviceScope.launch { prefs.audioDspSettings.distinctUntilChanged().collect(playback::updateSettings) }
+        serviceScope.launch {
+            combine(prefs.audioDspSettings, AudioEffectsManager.liveEq) { saved, live ->
+                saved to (live?.applyTo(saved) ?: saved)
+            }.collect { (saved, effective) ->
+                playback.updateSettings(effective)
+                AudioEffectsManager.clearIfPersisted(saved)
+            }
+        }
+        serviceScope.launch {
+            while (isActive) {
+                engine?.player?.let(::syncWidgetState)
+                delay(1000) // Progress still updates when the Activity is gone; renderer uses tiny partial updates.
+            }
+        }
+        serviceScope.launch { prefs.crossfadeBeatSync.collect { playback.beatSyncEnabled = it } }
         serviceScope.launch { prefs.crossfade.distinctUntilChanged().collect { playback.crossfadeEnabled = it } }
         serviceScope.launch { prefs.crossfadeDuration.distinctUntilChanged().collect { playback.crossfadeSeconds = it.coerceIn(1, 12) } }
     }
@@ -97,6 +147,8 @@ class XvoxPlaybackService : MediaSessionService() {
         super.onTaskRemoved(rootIntent)
     }
     override fun onDestroy() {
+        routes?.stop(); routes = null
+        connectJob?.cancel(); disconnectJob?.cancel()
         if (receiverRegistered) { unregisterReceiver(audioReceiver); receiverRegistered = false }
         serviceScope.cancel()
         session?.release(); session = null

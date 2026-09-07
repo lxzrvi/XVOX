@@ -71,6 +71,8 @@ fun XvoxMainShell(
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
+    val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
+    val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
     LaunchedEffect(homeState.songs, homeState.loading) {
@@ -80,6 +82,10 @@ fun XvoxMainShell(
     var destination by remember { mutableStateOf(XvoxDestination.HOME) }
     var homeResetKey by remember { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(mergedHome) {
+        hoistedSelectedPlaylistId = null
+        homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+    }
 
     val currentSong = remember(player.queue, player.currentSongId) {
         player.queue.firstOrNull { it.id == player.currentSongId }
@@ -267,6 +273,7 @@ fun XvoxMainShell(
                 profile = homeState.profile,
                 destination = destination,
                 libraryMode = homeState.libraryMode,
+                mergedHome = mergedHome,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
                 onLikedClick = {

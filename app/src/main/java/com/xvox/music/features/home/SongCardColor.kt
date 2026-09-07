@@ -16,14 +16,14 @@ fun rememberSongCardColor(song: Song, current: Boolean, selected: Boolean = fals
     val colors = XvoxTheme.colors
     val context = LocalContext.current.applicationContext
     val loader = remember(context) { XvoxArtworkPaletteLoader(context) }
-    var dominant by remember(song.artworkUri) { mutableStateOf(colors.primaryAccent) }
+    var dominant by remember(song.artworkUri) { mutableStateOf<Color?>(null) }
     LaunchedEffect(current, song.artworkUri) {
         if (current) dominant = loader.load(song.artworkUri)
     }
     val target = when {
         selected -> colors.primaryAccent.copy(alpha = 0.22f).compositeOver(colors.card)
-        current -> dominant.copy(alpha = 0.24f).compositeOver(colors.card)
+        current && dominant != null -> dominant!!.copy(alpha = 0.24f).compositeOver(colors.card)
         else -> colors.card
     }
-    return animateColorAsState(target, tween(220), label = "coverTint").value
+    return animateColorAsState(target, tween(480, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "coverTint").value
 }

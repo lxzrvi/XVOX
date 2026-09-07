@@ -44,7 +44,7 @@ fun HowToUseSettingsSection() {
         GuideTipItem(
             iconRes = R.drawable.ic_xvox_equalizer,
             title = "XvoxMix Audio DSP",
-            description = "Five smoothly ramped EQ bands shape your music. Boost protection adds headroom; raise it if bass strains your speaker. Try the ear-delay and head-shadow orbit with headphones, then adjust depth and speed."
+            description = "Five smoothly ramped EQ bands shape your music. Boost protection adds headroom; raise it if bass strains your speaker. Try the ear-delay, rear pinna cues and early-reflection orbit with headphones, then adjust depth and speed."
         )
 
         GuideTipItem(

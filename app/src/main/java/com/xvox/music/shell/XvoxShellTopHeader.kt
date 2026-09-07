@@ -53,7 +53,9 @@ fun XvoxShellTopHeader(
     onProfileClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onLikedClick: () -> Unit,
-    onPlaylistClick: () -> Unit
+    onPlaylistClick: () -> Unit,
+    mergedHome: Boolean = false,
+    useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
 
@@ -61,7 +63,7 @@ fun XvoxShellTopHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surface.copy(alpha = com.xvox.music.core.ui.navigation.XvoxChrome.GlassAlpha))
-            .windowInsetsPadding(WindowInsets.statusBars)
+            .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(bottom = 6.dp)
     ) {
         Row(
@@ -127,6 +129,7 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
+                    if (!mergedHome) {
                     Icon(
                         painter = painterResource(R.drawable.ic_xvox_heart),
                         contentDescription = "Liked Songs",
@@ -152,6 +155,7 @@ fun XvoxShellTopHeader(
                             .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
                             .padding(8.dp)
                     )
+                    }
                 }
             }
         }

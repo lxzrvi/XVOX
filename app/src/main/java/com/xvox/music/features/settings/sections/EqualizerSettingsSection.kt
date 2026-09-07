@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -52,18 +53,20 @@ fun EqualizerSettingsSection(
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
+    val saveError by AudioEffectsManager.persistenceError.collectAsState()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        com.xvox.music.features.settings.components.EqSettingsPreview(state)
-        Spacer(Modifier.height(12.dp))
+        saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
         SettingsToggle(
             title = "XvoxMix Master",
-            subtitle = "Smooth 5-band DSP; changes ramp without resetting audio",
+            subtitle = "Fixed-filter EQ with smoothed gains; no filter rebuild on slider moves",
             checked = state.equalizerEnabled,
             onChange = viewModel::setEqualizerEnabled
         )
 
         if (state.equalizerEnabled) {
+            com.xvox.music.features.settings.components.EqSettingsPreview(state)
+            Spacer(Modifier.height(12.dp))
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
@@ -139,7 +142,7 @@ fun EqualizerSettingsSection(
 
         Spacer(Modifier.height(16.dp))
         Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB headroom", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Text("Raise this if boosted bass sounds strained. Adds pre-EQ headroom; the peak guard stays on at every setting.",
+        Text("Raise this if boosted bass sounds strained. Reserves room for boosted bands; the peak guard stays on at every setting.",
             color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
         XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 3f)
 

@@ -102,7 +102,7 @@ fun SettingsScreen(
         item(key = "accordion_home") {
             SettingsAccordionItem(
                 title = "Home",
-                subtitle = "Generated mosaics, free pan & Recents placement",
+                subtitle = "Mosaic 1 / 2, merged library, section order & previews",
                 iconRes = R.drawable.ic_xvox_home,
                 expanded = expandedKey == SettingsAccordionKey.HOME,
                 onToggle = { toggle(SettingsAccordionKey.HOME) }

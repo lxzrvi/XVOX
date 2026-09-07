@@ -61,7 +61,7 @@ fun XvoxAddPlaylistSongsBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 360.dp, max = 520.dp)
+            .heightIn(max = 660.dp)
             .imePadding()
             .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
@@ -104,7 +104,7 @@ fun XvoxAddPlaylistSongsBox(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp),
+                    .heightIn(min = 64.dp, max = 96.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -116,7 +116,7 @@ fun XvoxAddPlaylistSongsBox(
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1f, fill = false)
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {

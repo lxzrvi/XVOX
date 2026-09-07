@@ -3,6 +3,7 @@ package com.xvox.music.data.preferences
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
@@ -26,17 +27,12 @@ class XvoxLibraryPreferences(
         val playlists = stringPreferencesKey("library_playlists_json")
     }
 
-    val likedSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map {
-        decodeIds(it[Keys.liked].orEmpty())
-    }
-
-    val hiddenSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map {
-        decodeIds(it[Keys.hidden].orEmpty())
-    }
-
-    val playlists: Flow<List<XvoxPlaylist>> = context.xvoxDataStore.data.map {
-        decodePlaylists(it[Keys.playlists].orEmpty())
-    }
+    val likedSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map { it[Keys.liked].orEmpty() }
+        .distinctUntilChanged().map(::decodeIds)
+    val hiddenSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map { it[Keys.hidden].orEmpty() }
+        .distinctUntilChanged().map(::decodeIds)
+    val playlists: Flow<List<XvoxPlaylist>> = context.xvoxDataStore.data.map { it[Keys.playlists].orEmpty() }
+        .distinctUntilChanged().map(::decodePlaylists)
 
     suspend fun setLiked(songId: Long, liked: Boolean) {
         context.xvoxDataStore.edit { prefs ->

@@ -6,6 +6,14 @@ import org.junit.Test
 import kotlin.random.Random
 
 class MosaicLayoutTest {
+    @Test fun classicMosaicRetainsOnlyItsOriginalTileShapes() {
+        repeat(100) { seed ->
+            val tiles = com.xvox.music.features.home.allsongs.generateClassicMosaicSpecs(4, 4, 12, Random(seed))
+            assertEquals(12, tiles.size)
+            tiles.forEach { assertTrue((it.width to it.height) in setOf(1f to 1f, 2f to 1f, 1f to 2f, 2f to 2f)) }
+        }
+    }
+
     @Test fun generatedPagesHaveNoOverlapsGapsOrMissingTiles() {
         for (rows in 1..8) for (cols in 1..6) for (count in 1..rows * cols) repeat(8) { seed ->
             val tiles = generateMosaicSpecs(cols, rows, count, Random(seed))

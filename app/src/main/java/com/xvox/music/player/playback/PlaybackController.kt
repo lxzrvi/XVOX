@@ -34,7 +34,7 @@ class PlaybackController(
     context: Context
 ) {
     companion object {
-        var activeInstance: PlaybackController? = null
+        @Volatile var activeInstance: PlaybackController? = null
     }
 
     private val appContext = context.applicationContext

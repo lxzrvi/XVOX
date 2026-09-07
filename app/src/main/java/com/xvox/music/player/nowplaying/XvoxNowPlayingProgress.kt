@@ -125,6 +125,7 @@ fun XvoxNowPlayingProgress(
                 },
             contentAlignment = Alignment.Center
         ) {
+            XvoxBlendZones(duration, Modifier.fillMaxWidth().height(6.dp))
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,6 +176,7 @@ fun XvoxNowPlayingProgress(
                 fontSize = 10.sp
             )
         }
+        XvoxBlendStatus()
     }
 }
 

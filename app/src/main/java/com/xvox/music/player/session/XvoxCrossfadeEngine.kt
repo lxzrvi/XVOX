@@ -15,6 +15,13 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import com.xvox.music.audio.AudioDspSettings
 import com.xvox.music.audio.StereoBalanceAudioProcessor
 import com.xvox.music.player.playback.CrossfadeMath
+import com.xvox.music.player.playback.BeatGrid
+import com.xvox.music.player.playback.BeatAlignment
+import com.xvox.music.player.playback.BeatBlendPlan
+import com.xvox.music.player.playback.XvoxBeatAnalyzer
+import com.xvox.music.player.playback.XvoxBlendMonitor
+import com.xvox.music.player.playback.BlendVisualState
+import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -29,16 +36,25 @@ import kotlinx.coroutines.launch
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class XvoxCrossfadeEngine(
     private val context: Context,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val onActivePlayerChanged: (ExoPlayer) -> Unit,
     private val onStateChanged: (Player) -> Unit
 ) {
     private class Deck(val player: ExoPlayer, val processor: StereoBalanceAudioProcessor, val listener: Player.Listener, var gain: Float)
-    private data class Prepared(val deck: Deck, val fromId: String, val nextIndex: Int, var started: Boolean = false)
-    private data class Overlap(val outgoing: Deck, val startPosition: Long, val duration: Long)
+    private data class Prepared(val deck: Deck, val fromId: String, val nextIndex: Int, var started: Boolean = false, var plan: BeatBlendPlan? = null)
+    private data class Overlap(val outgoing: Deck, val startPosition: Long, val duration: Long, val beatAligned: Boolean)
 
     var crossfadeEnabled = false
+        set(value) { field = value; XvoxBlendMonitor.configure(value, crossfadeSeconds) }
     var crossfadeSeconds = 3
+        set(value) { field = value.coerceIn(1, 12); XvoxBlendMonitor.configure(crossfadeEnabled, field) }
+    var beatSyncEnabled = true
+    private val analyzer = XvoxBeatAnalyzer(context)
+    private var analysisKey: String? = null
+    private var analysisJob: Job? = null
+    private var outgoingBeats: BeatGrid? = null
+    private var incomingBeats: BeatGrid? = null
+    private var lastVisualUpdate = 0L
     private var parameters = AudioDspSettings()
     private var prepared: Prepared? = null
     private var failedForId: String? = null
@@ -124,9 +140,11 @@ class XvoxCrossfadeEngine(
     }
 
     fun updateSettings(settings: AudioDspSettings) {
+        if (parameters == settings) return
         parameters = settings
         decks().forEach {
-            it.processor.engine.settings = settings.copy(masterVolume = 1f)
+            val dsp = settings.copy(masterVolume = 1f)
+            if (it.processor.engine.settings != dsp) it.processor.engine.settings = dsp
             applyOutputVolume(it)
         }
     }
@@ -146,6 +164,7 @@ class XvoxCrossfadeEngine(
             val gains = CrossfadeMath.gains(progress)
             setGain(mixing.outgoing, gains.outgoing)
             setGain(active, gains.incoming)
+            publishBlend(mixing, progress)
             if (progress >= 1f) finishOverlap()
             return
         }
@@ -155,8 +174,11 @@ class XvoxCrossfadeEngine(
         if (nextIndex == C.INDEX_UNSET || nextIndex !in 0 until player.mediaItemCount) { discardPrepared(); return }
         val remaining = player.duration - player.currentPosition
         val window = CrossfadeMath.windowMs(crossfadeSeconds, player.duration)
-        if (window == 0L || remaining > window + 5000) return
+        if (window == 0L) return
         val id = player.currentMediaItem?.mediaId ?: return
+        if (beatSyncEnabled && remaining in (window + 3000)..30000L) startBeatAnalysis(nextIndex)
+        if (!beatSyncEnabled) cancelAnalysis()
+        if (remaining > window + 5000) return
         if (id == failedForId) return
         if (prepared?.let { it.fromId != id || it.nextIndex != nextIndex } == true) discardPrepared()
         if (prepared == null) {
@@ -171,9 +193,12 @@ class XvoxCrossfadeEngine(
         if (ready.deck.player.playerError != null) { failedForId = id; discardPrepared(); return }
         if (ready.deck.player.playbackState != Player.STATE_READY) return
         val nextDuration = ready.deck.player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        if (!beatSyncEnabled) ready.plan = null
         val actualWindow = CrossfadeMath.windowMs(crossfadeSeconds, player.duration, nextDuration)
         if (actualWindow == 0L || remaining > actualWindow || remaining < 50) return
         if (!ready.started) {
+            if (beatSyncEnabled && ready.plan == null) ready.plan = BeatAlignment.plan(player.duration, actualWindow, outgoingBeats, incomingBeats)
+            if (ready.plan?.let { player.currentPosition < it.startPositionMs } == true) return
             ready.started = true
             ready.deck.player.play()
             return // Wait for actual playback readiness; don't fade away a still-playing old track.
@@ -183,14 +208,52 @@ class XvoxCrossfadeEngine(
         outgoing.player.pauseAtEndOfMediaItems = true
         active = ready.deck
         prepared = null
-        overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50))
+        overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50), ready.plan != null)
+        cancelAnalysis()
+        publishBlend(overlap!!, 0f, force = true)
         onActivePlayerChanged(player) // Retains the preloaded next track's position and buffers.
         onStateChanged(player)
+    }
+
+    private fun startBeatAnalysis(nextIndex: Int) {
+        val current = player.currentMediaItem ?: return
+        val next = player.getMediaItemAt(nextIndex)
+        val fromUri = current.localConfiguration?.uri ?: return
+        val toUri = next.localConfiguration?.uri ?: return
+        val key = "${current.mediaId}:${next.mediaId}:${player.duration}"
+        if (analysisKey == key) return
+        cancelAnalysis()
+        analysisKey = key
+        val tailStart = (player.duration - 16000L).coerceAtLeast(0)
+        analysisJob = scope.launch {
+            val out = analyzer.analyze(fromUri, tailStart)
+            val incoming = analyzer.analyze(toUri, 0)
+            if (analysisKey == key) { outgoingBeats = out; incomingBeats = incoming }
+        }
+    }
+    private fun cancelAnalysis() {
+        analysisJob?.cancel(); analysisJob = null; analysisKey = null
+        outgoingBeats = null; incomingBeats = null
+    }
+    private fun publishBlend(mix: Overlap, progress: Float, force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastVisualUpdate < 80L) return
+        lastVisualUpdate = now
+        val old = mix.outgoing.player
+        XvoxBlendMonitor.publish(BlendVisualState(
+            enabled = crossfadeEnabled, configuredSeconds = crossfadeSeconds, active = true,
+            outgoingId = old.currentMediaItem?.mediaId?.toLongOrNull(), incomingId = player.currentMediaItem?.mediaId?.toLongOrNull(),
+            outgoingTitle = old.mediaMetadata.title?.toString().orEmpty(), incomingTitle = player.mediaMetadata.title?.toString().orEmpty(),
+            outgoingPosition = old.currentPosition, outgoingDuration = old.duration.coerceAtLeast(0),
+            incomingPosition = player.currentPosition, incomingDuration = player.duration.coerceAtLeast(0),
+            windowMs = mix.duration, progress = progress, beatAligned = mix.beatAligned
+        ))
     }
 
     private fun finishOverlap() {
         val old = overlap?.outgoing
         overlap = null
+        XvoxBlendMonitor.end()
         setGain(active, 1f)
         old?.let(::releaseDeck)
     }
@@ -201,6 +264,7 @@ class XvoxCrossfadeEngine(
         deck.player.volume = (deck.gain * duck * parameters.masterVolume).coerceIn(0f, 1f)
     }
     private fun discardPrepared() {
+        cancelAnalysis()
         val old = prepared?.deck
         prepared = null
         old?.let(::releaseDeck)

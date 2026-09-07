@@ -15,13 +15,18 @@ object XvoxMosaicSession {
     fun begin() { seed = System.nanoTime() xor System.currentTimeMillis() }
 }
 
-fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false): List<XvoxMosaicPagePlan> {
+fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false): List<XvoxMosaicPagePlan> {
     val random = Random(songs.fold(XvoxMosaicSession.seed) { seed, song -> seed * 31 + song.id })
     val capacity = 4 * rows.coerceIn(3, 8)
     return buildList {
         var index = 0
         while (index < songs.size) {
-            val count = if (isUniform) capacity else random.nextInt((capacity / 3).coerceAtLeast(5), capacity - 1)
+            val count = when {
+                mosaicOne && songs.size - index <= capacity -> songs.size - index
+                isUniform -> capacity
+                mosaicOne -> random.nextInt((capacity - 4).coerceAtLeast(capacity / 2), capacity + 1)
+                else -> random.nextInt((capacity / 3).coerceAtLeast(5), capacity - 1)
+            }
             val take = count.coerceAtMost(songs.size - index)
             add(XvoxMosaicPagePlan(index, take, random.nextLong()))
             index += take
@@ -29,16 +34,19 @@ fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = 
     }
 }
 
-fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4, isUniform: Boolean = false): MosaicPage {
+fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false): MosaicPage {
     if (plan.songCount <= 0 || plan.startIndex !in songs.indices) return MosaicPage(emptyList())
     val page = songs.subList(plan.startIndex, (plan.startIndex + plan.songCount).coerceAtMost(songs.size))
     val random = Random(plan.layoutSeed)
     val compactRows = minOf(rows.coerceIn(3, 8), ceil(page.size / 2.5).toInt().coerceAtLeast(1))
-    val specs = if (isUniform || page.size <= 4) regularSpecs(4, page.size)
-        else generateMosaicSpecs(4, compactRows, page.size, random)
+    val specs = when {
+        isUniform || page.size <= 4 -> regularSpecs(4, page.size)
+        mosaicOne -> generateClassicMosaicSpecs(4, rows.coerceIn(3, 8), page.size, random)
+        else -> generateMosaicSpecs(4, compactRows, page.size, random)
+    }
     return MosaicPage(page.mapIndexed { i, song ->
         val s = specs[i]
-        MosaicTile(song, s.x, s.y, s.width, s.height, random.nextInt(24))
+        MosaicTile(song, s.x, s.y, s.width, s.height, if (mosaicOne) 0 else random.nextInt(24))
     })
 }
 
@@ -74,4 +82,74 @@ fun generateMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<
 
 fun regularSpecs(cols: Int, count: Int): List<Spec> = List(count.coerceAtLeast(0)) { i ->
     Spec((i % cols.coerceAtLeast(1)).toFloat(), (i / cols.coerceAtLeast(1)).toFloat(), 1f, 1f)
+}
+
+/** Original xvox Mosaic 1 tiling, retained without changing its proportions. */
+fun generateClassicMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<Spec> {
+    if (count <= 0) return emptyList()
+    val totalSlots = cols * rows
+    if (count >= totalSlots) {
+        return regularSpecs(cols, count)
+    }
+
+    val neededReduction = totalSlots - count
+
+    for (attempt in 0 until 50) {
+        val grid = Array(rows) { BooleanArray(cols) { false } }
+        val curSpecs = mutableListOf<Spec>()
+        var curReduction = 0
+
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                if (grid[r][c]) continue
+                val remRed = neededReduction - curReduction
+                var placed = false
+
+                if (remRed >= 3 && r + 1 < rows && c + 1 < cols &&
+                    !grid[r][c + 1] && !grid[r + 1][c] && !grid[r + 1][c + 1]
+                ) {
+                    if (random.nextFloat() < 0.4f || remRed >= 3 * (rows - r)) {
+                        grid[r][c] = true
+                        grid[r][c + 1] = true
+                        grid[r + 1][c] = true
+                        grid[r + 1][c + 1] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 2f, 2f))
+                        curReduction += 3
+                        placed = true
+                    }
+                }
+
+                if (!placed && remRed >= 1 && c + 1 < cols && !grid[r][c + 1]) {
+                    if (random.nextFloat() < 0.5f || remRed >= 1) {
+                        grid[r][c] = true
+                        grid[r][c + 1] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 2f, 1f))
+                        curReduction += 1
+                        placed = true
+                    }
+                }
+
+                if (!placed && remRed >= 1 && r + 1 < rows && !grid[r + 1][c]) {
+                    if (random.nextFloat() < 0.5f || remRed >= 1) {
+                        grid[r][c] = true
+                        grid[r + 1][c] = true
+                        curSpecs.add(Spec(c.toFloat(), r.toFloat(), 1f, 2f))
+                        curReduction += 1
+                        placed = true
+                    }
+                }
+
+                if (!placed) {
+                    grid[r][c] = true
+                    curSpecs.add(Spec(c.toFloat(), r.toFloat(), 1f, 1f))
+                }
+            }
+        }
+
+        if (curSpecs.size == count) {
+            return curSpecs
+        }
+    }
+
+    return regularSpecs(cols, count)
 }

@@ -42,6 +42,8 @@ fun PlaybackSettingsSection(
         )
 
         if (state.crossfade) {
+            SettingsToggle("Beat alignment", "Align the incoming first beat when rhythms are confidently detected and tempos fit. Never skips the intro or waits for analysis.",
+                state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(

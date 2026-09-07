@@ -57,38 +57,6 @@ fun SettingsPreviewFrame(label: String, content: @Composable ColumnScope.() -> U
 }
 
 @Composable
-fun HomeSettingsPreview(state: SettingsState) {
-    val colors = XvoxTheme.colors
-    var sample by remember { mutableIntStateOf(17) }
-    val rows = state.homeHorizontalRows.coerceIn(3, 8)
-    val tiles = remember(state.homeLayoutStyle, rows, sample) {
-        if (state.homeLayoutStyle == "uniform") regularSpecs(4, rows * 4)
-        else generateMosaicSpecs(4, rows, rows * 2 + 1, Random(sample))
-    }
-    SettingsPreviewFrame("Home · live layout preview") {
-        Canvas(Modifier.fillMaxWidth().height(148.dp)) {
-            val gap = 4.dp.toPx()
-            val recentHeight = if (state.hideRecentlyPlayed) 0f else 24.dp.toPx()
-            val start = if (state.recentsPlacement == "top") recentHeight else 0f
-            val unitW = (size.width - gap * 3) / 4
-            val unitH = (size.height - recentHeight - gap * (rows - 1)) / rows
-            tiles.forEachIndexed { i, tile ->
-                drawRoundRect(colors.primaryAccent.copy(alpha = .16f + (i % 4) * .09f),
-                    Offset((unitW + gap) * tile.x, start + (unitH + gap) * tile.y),
-                    Size(unitW * tile.width + gap * (tile.width - 1), unitH * tile.height + gap * (tile.height - 1)),
-                    CornerRadius(if (state.homeLayoutStyle == "uniform") 5.dp.toPx() else (4 + i % 5 * 2).dp.toPx()))
-            }
-            if (!state.hideRecentlyPlayed) drawRoundRect(colors.secondaryText.copy(alpha = .25f),
-                Offset(0f, if (state.recentsPlacement == "top") 0f else size.height - recentHeight + gap),
-                Size(size.width, recentHeight - gap), CornerRadius(6.dp.toPx()))
-        }
-        Text(if (state.hideRecentlyPlayed) "Recents hidden" else "Recents ${state.recentsPlacement} · ${state.sortOrder}", color = colors.secondaryText, fontSize = 11.sp)
-        if (state.homeLayoutStyle == "mosaic") Text("Try another mosaic ↗", color = colors.primaryAccent, fontSize = 12.sp,
-            modifier = Modifier.xvoxPressScale { sample++ }.padding(vertical = 4.dp))
-    }
-}
-
-@Composable
 fun EqSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     SettingsPreviewFrame("XvoxMix · band contour") {
@@ -122,7 +90,7 @@ fun SurroundSettingsPreview(state: SettingsState) {
             val amount = if (state.stereoWidening) state.surroundDepth else 0f
             drawCircle(colors.primaryAccent, 5.dp.toPx(), center + Offset(sin(phase) * radius * amount, -cos(phase) * radius * amount))
         }
-        Text("Delay + head shadow + stereo crossfeed, not just left/right volume", color = colors.secondaryText, fontSize = 10.sp)
+        Text("Ear delay + rear pinna cues + early reflections; not just volume panning", color = colors.secondaryText, fontSize = 10.sp)
     }
 }
 

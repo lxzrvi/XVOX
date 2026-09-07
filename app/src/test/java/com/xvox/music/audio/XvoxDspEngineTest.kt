@@ -5,6 +5,23 @@ import org.junit.Test
 import kotlin.math.*
 
 class XvoxDspEngineTest {
+    @Test fun disablingBoostDoesNotReleaseHeadroomAheadOfTheRampedBands() {
+        val dsp = XvoxDspEngine().apply {
+            settings = AudioDspSettings(equalizerEnabled = true, bands = List(5) { 12f }, headroomDb = 3f)
+            configure(48000)
+        }
+        var previous = 0f
+        var maxJump = 0f
+        repeat(144000) { i ->
+            if (i == 48000) dsp.settings = dsp.settings.copy(equalizerEnabled = false)
+            if (i == 96000) dsp.settings = dsp.settings.copy(equalizerEnabled = true)
+            val sample = (sin(2 * PI * 230 * i / 48000) * .35).toFloat()
+            dsp.process(sample, sample)
+            maxJump = max(maxJump, abs(dsp.left - previous))
+            previous = dsp.left
+        }
+        assertTrue("Toggle produced an impulse: $maxJump", maxJump < .08f)
+    }
     @Test fun flatPipelinePreservesLowLevelStereo() {
         val dsp = XvoxDspEngine().apply { settings = AudioDspSettings(headroomDb = 0f); configure(48000) }
         repeat(48000) { i ->
@@ -68,7 +85,7 @@ class XvoxDspEngineTest {
         }
         assertTrue(difference / 96000 > .01)
     }
-    @Test fun extraHeadroomReducesOutputBeforeEQ() {
+    @Test fun extraHeadroomReducesOutputWithoutResettingTheFilters() {
         fun output(db: Float): Float {
             val dsp = XvoxDspEngine().apply { settings = AudioDspSettings(headroomDb = db); configure(48000) }
             repeat(4800) { dsp.process(.25f, .25f) }

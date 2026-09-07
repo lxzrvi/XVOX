@@ -54,8 +54,15 @@ fun XvoxPlaylistCoverEditor(
     onApply: (List<Long>, Uri?) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val selected = remember(playlist.id) { mutableStateListOf<Long>() }
-    var customUri by remember(playlist.id) { mutableStateOf<Uri?>(null) }
+    val selected = remember(playlist.id) {
+        mutableStateListOf<Long>().apply {
+            val available = songs.mapTo(HashSet()) { it.id }
+            addAll(playlist.coverSongIds.filter { it in available }.ifEmpty {
+                songs.take(if (songs.size >= 4) 4 else 1).map { it.id }
+            })
+        }
+    }
+    var customUri by remember(playlist.id) { mutableStateOf(playlist.customCoverUri?.let(Uri::parse)) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -68,7 +75,7 @@ fun XvoxPlaylistCoverEditor(
 
     val canApply = (selected.size == 1 || selected.size == 4) || customUri != null
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().heightIn(max = 660.dp)) {
         Text(
             text = "Playlist cover",
             color = colors.primaryText,
@@ -87,8 +94,9 @@ fun XvoxPlaylistCoverEditor(
             columns = GridCells.Fixed(4),
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f, fill = false)
                 .padding(top = 14.dp)
-                .heightIn(max = 280.dp),
+                .heightIn(max = 540.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {

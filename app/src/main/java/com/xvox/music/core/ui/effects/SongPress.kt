@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -28,8 +29,9 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     var held by remember { mutableStateOf(false) }
+    var tapJob by remember { mutableStateOf<Job?>(null) }
     var pulse by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (held || pulse) 0.955f else 1f,
+    val scale by animateFloatAsState(if (held || pulse) 0.94f else 1f,
         spring(dampingRatio = 0.8f, stiffness = 1500f), label = "songPress")
     graphicsLayer { scaleX = scale; scaleY = scale }
         .pointerInput(Unit) {
@@ -44,8 +46,14 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
             indication = null,
             onClick = {
                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                scope.launch { pulse = true; delay(90); pulse = false }
-                click()
+                tapJob?.cancel()
+                tapJob = scope.launch {
+                    pulse = true
+                    delay(55) // One small push, then the action, even on a very quick tap.
+                    click()
+                    delay(55)
+                    pulse = false
+                }
             },
             onLongClick = if (onLongClick != null) ({ longClick?.invoke() }) else null
         )

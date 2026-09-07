@@ -76,7 +76,7 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository.recentSongIds.collect { ids ->
                 recentIds = ids
-                publishFilteredSongs()
+                _state.update { current -> current.copy(recentlyPlayed = resolveRecent(current.songs, ids)) }
             }
         }
     }
