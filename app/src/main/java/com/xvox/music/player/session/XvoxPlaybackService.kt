@@ -1,79 +1,49 @@
 package com.xvox.music.player.session
 
 import android.app.PendingIntent
-import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.net.Uri
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
+import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.xvox.music.MainActivity
-import com.xvox.music.audio.AudioEffectsManager
-import com.xvox.music.audio.StereoBalanceAudioProcessor
+import com.xvox.music.R
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.widget.XvoxAppWidgetProvider
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class XvoxPlaybackService : MediaSessionService() {
-
-    private var player: ExoPlayer? = null
+    private var engine: XvoxCrossfadeEngine? = null
     private var session: MediaSession? = null
-    private val balanceAudioProcessor = StereoBalanceAudioProcessor()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var receiverRegistered = false
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var prefsSyncJob: Job? = null
-
-    private var noisyReceiverRegistered = false
-    private var headsetReceiverRegistered = false
-
-    private val noisyReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                serviceScope.launch {
-                    val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
-                    if (prefs.pauseOnHeadphoneDisconnect.first()) {
-                        player?.pause()
-                    }
-                }
-            }
-        }
-    }
-
-    private val headsetReceiver = object : BroadcastReceiver() {
+    private val audioReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
-            val isHeadsetPlug = action == Intent.ACTION_HEADSET_PLUG && intent.getIntExtra("state", -1) == 1
-            val isBtConnect = action == BluetoothDevice.ACTION_ACL_CONNECTED || action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED"
-
-            if (isHeadsetPlug || isBtConnect) {
-                serviceScope.launch {
-                    val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
-                    if (prefs.playOnHeadsetConnect.first()) {
-                        player?.let { p ->
-                            if (p.playbackState != Player.STATE_IDLE && p.playbackState != Player.STATE_ENDED && !p.isPlaying) {
-                                p.play()
-                            }
-                        }
-                    }
+            serviceScope.launch {
+                val prefs = UserPreferencesRepository(this@XvoxPlaybackService)
+                val player = engine?.player ?: return@launch
+                if (action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && prefs.pauseOnHeadphoneDisconnect.first()) {
+                    player.pause()
+                }
+                val connected = (action == Intent.ACTION_HEADSET_PLUG && intent.getIntExtra("state", -1) == 1) ||
+                    (action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" &&
+                        intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
+                if (connected && prefs.playOnHeadsetConnect.first() && player.mediaItemCount > 0) {
+                    if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                    player.play()
                 }
             }
         }
@@ -81,205 +51,56 @@ class XvoxPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .build()
-
-        val audioSink = DefaultAudioSink.Builder(this)
-            .setAudioProcessors(arrayOf(balanceAudioProcessor))
-            .build()
-
-        val renderersFactory = object : DefaultRenderersFactory(this) {
-            override fun buildAudioSink(
-                context: Context,
-                enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean
-            ): AudioSink {
-                return audioSink
-            }
-        }
-
-        val exoPlayer = ExoPlayer.Builder(this, renderersFactory)
-            .build()
-            .apply {
-                setAudioAttributes(audioAttributes, true)
-                repeatMode = Player.REPEAT_MODE_OFF
-            }
-
-        player = exoPlayer
-
-        val sessionId = exoPlayer.audioSessionId
-        if (sessionId > 0) {
-            AudioEffectsManager.attachAudioSession(sessionId, this)
-        }
-
-        val sessionActivityPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
+        // Explicit monochrome XVOX small icon for the status bar / media notification.
+        setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply {
+            setSmallIcon(R.drawable.ic_notification)
+        })
+        val playback = XvoxCrossfadeEngine(this, serviceScope,
+            onActivePlayerChanged = { next -> session?.setPlayer(next) },
+            onStateChanged = ::syncWidgetState)
+        engine = playback
+        val openApp = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        session = MediaSession.Builder(this, exoPlayer)
-            .setSessionActivity(sessionActivityPendingIntent)
-            .build()
-
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onEvents(player: Player, events: Player.Events) {
-                val sid = exoPlayer.audioSessionId
-                if (sid > 0) {
-                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
-                }
-                syncWidgetState(player)
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                val sid = exoPlayer.audioSessionId
-                if (sid > 0) {
-                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
-                }
-                syncWidgetState(exoPlayer)
-            }
-
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                val sid = exoPlayer.audioSessionId
-                if (sid > 0) {
-                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
-                }
-                syncWidgetState(exoPlayer)
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                val sid = exoPlayer.audioSessionId
-                if (sid > 0) {
-                    AudioEffectsManager.attachAudioSession(sid, this@XvoxPlaybackService)
-                }
-                syncWidgetState(exoPlayer)
-            }
-        })
-
-        registerAudioReceivers()
-
-        observePreferences(exoPlayer)
+            }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        session = MediaSession.Builder(this, playback.player).setSessionActivity(openApp).build()
+        val filter = IntentFilter().apply {
+            addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            addAction(Intent.ACTION_HEADSET_PLUG)
+            addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
+        }
+        ContextCompat.registerReceiver(this, audioReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        receiverRegistered = true
+        val prefs = UserPreferencesRepository(this)
+        serviceScope.launch { prefs.audioDspSettings.distinctUntilChanged().collect(playback::updateSettings) }
+        serviceScope.launch { prefs.crossfade.distinctUntilChanged().collect { playback.crossfadeEnabled = it } }
+        serviceScope.launch { prefs.crossfadeDuration.distinctUntilChanged().collect { playback.crossfadeSeconds = it.coerceIn(1, 12) } }
     }
 
     private fun syncWidgetState(player: Player) {
-        val mediaItem = player.currentMediaItem
-        val song = if (mediaItem != null) {
-            val metadata = mediaItem.mediaMetadata
-            Song(
-                id = mediaItem.mediaId.toLongOrNull() ?: 0L,
-                title = metadata.title?.toString() ?: "Unknown Title",
-                artist = metadata.artist?.toString() ?: "Unknown Artist",
-                contentUri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY,
-                artworkUri = metadata.artworkUri,
-                duration = player.duration.coerceAtLeast(0L)
-            )
-        } else null
-
-        XvoxAppWidgetProvider.updateAllWidgets(
-            context = this,
-            song = song,
-            isPlaying = player.isPlaying,
-            position = player.currentPosition.coerceAtLeast(0L),
-            duration = player.duration.coerceAtLeast(0L)
-        )
-    }
-
-    private fun registerAudioReceivers() {
-        runCatching {
-            registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
-            noisyReceiverRegistered = true
+        val item = player.currentMediaItem
+        val song = item?.let {
+            Song(id = it.mediaId.toLongOrNull() ?: 0L,
+                title = it.mediaMetadata.title?.toString() ?: "Unknown title",
+                artist = it.mediaMetadata.artist?.toString() ?: "Unknown artist",
+                contentUri = it.localConfiguration?.uri ?: Uri.EMPTY,
+                artworkUri = it.mediaMetadata.artworkUri, duration = player.duration.coerceAtLeast(0L))
         }
-
-        runCatching {
-            val filter = IntentFilter().apply {
-                addAction(Intent.ACTION_HEADSET_PLUG)
-                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
-                addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
-            }
-            registerReceiver(headsetReceiver, filter)
-            headsetReceiverRegistered = true
-        }
+        XvoxAppWidgetProvider.updateAllWidgets(this, song, player.isPlaying,
+            player.currentPosition.coerceAtLeast(0L), player.duration.coerceAtLeast(0L))
     }
 
-    private fun observePreferences(exoPlayer: ExoPlayer) {
-        val prefs = UserPreferencesRepository(this)
-        prefsSyncJob?.cancel()
-        prefsSyncJob = serviceScope.launch {
-            launch {
-                combine(
-                    prefs.appVolume,
-                    prefs.volumeLimit
-                ) { vol, limit ->
-                    (vol * limit).coerceIn(0f, 1f)
-                }.collect { effectiveVol ->
-                    exoPlayer.volume = effectiveVol
-                }
-            }
-
-            launch {
-                prefs.balance.collect { bal ->
-                    balanceAudioProcessor.balance = bal
-                }
-            }
-
-            launch {
-                prefs.stereoWidening.collect { is3d ->
-                    balanceAudioProcessor.surround3dEnabled = is3d
-                }
-            }
-
-            launch {
-                prefs.surroundPanSpeed.collect { speedSec ->
-                    balanceAudioProcessor.surroundPanPeriodSec = speedSec.toFloat()
-                }
-            }
-        }
-    }
-
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
-        return session
-    }
-
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
-        try {
-            player?.stop()
-            player?.clearMediaItems()
-            session?.release()
-            session = null
-            player?.release()
-            player = null
-        } catch (_: Exception) {}
+        engine?.stop()
         stopSelf()
         super.onTaskRemoved(rootIntent)
     }
-
     override fun onDestroy() {
-        if (noisyReceiverRegistered) {
-            runCatching { unregisterReceiver(noisyReceiver) }
-            noisyReceiverRegistered = false
-        }
-        if (headsetReceiverRegistered) {
-            runCatching { unregisterReceiver(headsetReceiver) }
-            headsetReceiverRegistered = false
-        }
-
-        prefsSyncJob?.cancel()
+        if (receiverRegistered) { unregisterReceiver(audioReceiver); receiverRegistered = false }
         serviceScope.cancel()
-
-        AudioEffectsManager.releaseEffects()
-
-        session?.release()
-        session = null
-
-        player?.release()
-        player = null
-
+        session?.release(); session = null
+        engine?.release(); engine = null
         super.onDestroy()
     }
 }

@@ -35,6 +35,15 @@ fun AppearanceSettingsSection(
     val colors = XvoxTheme.colors
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        com.xvox.music.features.settings.components.SettingsPreviewFrame("Appearance · live preview") {
+            Text("Made for your music", color = colors.primaryAccent, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text("${state.theme} · ${state.accentColor} · ${(state.fontSizeScale * 100).toInt()}% text",
+                color = colors.primaryText, fontSize = 12.sp)
+            Text("Scrolling content remains visible behind the glass header, navigation and mini player.",
+                color = colors.secondaryText, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(14.dp))
+
         Text(
             text = "Theme",
             color = colors.secondaryText,

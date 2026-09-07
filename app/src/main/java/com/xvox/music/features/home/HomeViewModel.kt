@@ -27,7 +27,8 @@ import kotlinx.coroutines.withContext
 data class FolderInfo(
     val name: String,
     val songCount: Int,
-    val songs: List<Song>
+    val songs: List<Song>,
+    val path: String = name
 )
 
 class HomeViewModel(

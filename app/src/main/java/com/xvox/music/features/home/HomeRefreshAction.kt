@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,7 +15,7 @@ fun showLibraryRefresh(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
 ) {
-    overlays.showL {
+    overlays.showBox("Refresh library") {
         LibraryRefreshContent(
             overlays =
             overlays,
@@ -42,17 +43,17 @@ private fun LibraryRefreshContent(
         }
 
     val scope = rememberCoroutineScope()
+    val liveState by viewModel.state.collectAsState()
 
     LibraryRefreshBox(
         currentTotal =
-            viewModel.state.value
-                .songs.size,
+            liveState.songs.size,
         scanning =
         scanning,
         result =
         result,
         onCancel =
-            overlays::hideL,
+            overlays::hideBox,
         onScan = {
             if (!scanning) {
                 scanning = true

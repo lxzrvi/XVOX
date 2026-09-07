@@ -1,5 +1,7 @@
 package com.xvox.music.features.playlist
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +30,7 @@ fun PlaylistInfoBox(
         "Unknown"
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         Text(
             text = "Playlist info",
             color = colors.primaryText,

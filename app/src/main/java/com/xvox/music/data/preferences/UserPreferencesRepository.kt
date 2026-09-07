@@ -55,6 +55,9 @@ class UserPreferencesRepository(
         val homeLayoutStyle = stringPreferencesKey("home_layout_style")
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
+        val recentsPlacement = stringPreferencesKey("recents_placement")
+        val eqHeadroomDb = floatPreferencesKey("eq_headroom_db")
+        val surroundDepth = floatPreferencesKey("surround_depth")
         val hideRecentlyPlayed = booleanPreferencesKey("hide_recently_played")
         val sortOrder = stringPreferencesKey("sort_order")
 
@@ -115,6 +118,26 @@ class UserPreferencesRepository(
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeLayoutStyle] ?: "mosaic" }
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }
     val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }
+    val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }
+    val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f) }
+    val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }
+
+    // Read audio settings atomically, so a preset never passes through a half-updated state.
+    val audioDspSettings: Flow<com.xvox.music.audio.AudioDspSettings> = context.xvoxDataStore.data.map {
+        val preset = it[Keys.eqPreset] ?: "Flat"
+        val bands = com.xvox.music.audio.AudioEffectsManager.PRESETS[preset] ?: decodeBands(it[Keys.eqBands].orEmpty())
+        com.xvox.music.audio.AudioDspSettings(
+            equalizerEnabled = it[Keys.equalizerEnabled] ?: false,
+            bands = List(5) { i -> (bands.getOrElse(i) { 0 }).toFloat().coerceIn(-12f, 12f) },
+            headroomDb = (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f),
+            balance = (it[Keys.balance] ?: 0f).coerceIn(-1f, 1f),
+            surroundEnabled = it[Keys.stereoWidening] ?: false,
+            surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
+            orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(2f, 10f),
+            masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f)
+        )
+    }
+
     val hideRecentlyPlayed: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideRecentlyPlayed] ?: false }
     val sortOrder: Flow<String> = context.xvoxDataStore.data.map { it[Keys.sortOrder] ?: "A-Z" }
 
@@ -131,7 +154,7 @@ class UserPreferencesRepository(
     val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }
 
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
-    suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v } }
+    suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v.coerceIn(1, 12) } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
     suspend fun setPlayOnHeadsetConnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.playOnHeadsetConnect] = v } }
     suspend fun setBtDisconnectAction(v: String) { context.xvoxDataStore.edit { it[Keys.btDisconnectAction] = v } }
@@ -155,11 +178,21 @@ class UserPreferencesRepository(
     suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = style } }
     suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
+    suspend fun setRecentsPlacement(value: String) { context.xvoxDataStore.edit { it[Keys.recentsPlacement] = if (value == "top") "top" else "bottom" } }
+    suspend fun setEqHeadroomDb(value: Float) { context.xvoxDataStore.edit { it[Keys.eqHeadroomDb] = value.coerceIn(0f, 18f) } }
+    suspend fun setSurroundDepth(value: Float) { context.xvoxDataStore.edit { it[Keys.surroundDepth] = value.coerceIn(0f, 1f) } }
+    suspend fun setIgnoredFolders(folders: Set<String>) { context.xvoxDataStore.edit { it[Keys.ignoredFolders] = folders.joinToString("\n") } }
+    suspend fun setEqConfiguration(preset: String, bands: List<Int>) {
+        context.xvoxDataStore.edit {
+            it[Keys.eqPreset] = preset
+            it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+        }
+    }
     suspend fun setHideRecentlyPlayed(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.hideRecentlyPlayed] = hide } }
     suspend fun setSortOrder(order: String) { context.xvoxDataStore.edit { it[Keys.sortOrder] = order } }
 
-    suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec } }
-    suspend fun setIgnoreBelowKb(kb: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowKb] = kb } }
+    suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec.coerceIn(0, 86400) } }
+    suspend fun setIgnoreBelowKb(kb: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowKb] = kb.coerceIn(0, 10485760) } }
     suspend fun toggleIgnoredFolder(folder: String) {
         context.xvoxDataStore.edit { prefs ->
             val current = prefs[Keys.ignoredFolders].orEmpty().split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()

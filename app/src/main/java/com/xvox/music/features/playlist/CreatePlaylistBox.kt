@@ -86,12 +86,7 @@ fun CreatePlaylistBox(
                     .padding(end = 4.dp)
             )
 
-            Text(
-                text = "Create Playlist",
-                color = colors.primaryText,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Name your mix", color = colors.secondaryText, fontSize = 12.sp)
         }
 
         Spacer(Modifier.height(8.dp))

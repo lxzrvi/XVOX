@@ -8,6 +8,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -84,9 +91,11 @@ fun HomeScreen(
 
     val prefs = remember { UserPreferencesRepository(context) }
     val hideRecents by prefs.hideRecentlyPlayed.collectAsState(initial = false)
+    val recentsPlacement by prefs.recentsPlacement.collectAsState(initial = "bottom")
 
     LaunchedEffect(state.songs) {
-        if (state.songs.isNotEmpty()) onQueueReady(state.songs)
+        selectedSongIds = selectedSongIds.intersect(state.songs.mapTo(HashSet()) { it.id })
+        if (!state.loading) onQueueReady(state.songs)
     }
 
     LaunchedEffect(homeResetKey) {
@@ -121,7 +130,8 @@ fun HomeScreen(
             playlists = state.playlists,
             songs = state.songs,
             deleteLauncher = deleteLauncher,
-            onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) }
+            onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
+            onSelect = { selectedSongIds = selectedSongIds + song.id }
         )
     }
 
@@ -144,40 +154,80 @@ fun HomeScreen(
         state.songs.filter { it.id in selectedSongIds }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
+        if (!hideRecents && effectiveSelectedPlaylistId == null && state.libraryMode == XvoxHomeLibraryMode.ALL_SONGS && !isSelectionMode) {
+                item(key = "recent") {
+                    XvoxRecentlyPlayedSection(
+                        songs = state.recentlyPlayed,
+                        currentSongId = currentSongId,
+                        isPlaying = isPlaying,
+                        transition = state.recentTransition,
+                        onSongClick = { song ->
+                            if (song.id == currentSongId) playerViewModel.togglePlay()
+                            else {
+                                viewModel.recordPlayedFromRecent(song, currentSongId)
+                                playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
+                            }
+                        },
+                        onSongOptions = { song -> openSingleSongOptions(song = song, recent = true) }
+                    )
+                }
+            }
+
+    }
+
+    val topInset = LocalXvoxTopInset.current
+    val bottomInset = LocalXvoxBottomInset.current
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (isSelectionMode) Spacer(Modifier.height(topInset))
+        if (isSelectionMode && selectedSongsList.isNotEmpty()) {
+            HomeMultiSelectBar(
+                selectedSongs = selectedSongsList,
+                selectedPlaylist = selectedPlaylist,
+                libraryMode = state.libraryMode,
+                viewModel = viewModel,
+                overlays = overlays,
+                context = context,
+                onClearSelection = { selectedSongIds = emptySet() },
+                modifier = Modifier
+            )
+        }
+
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 4.dp)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = if (isSelectionMode) 4.dp else topInset + 4.dp, bottom = bottomInset)
         ) {
+            if (recentsPlacement == "top") recentSection()
             item(key = "library") {
                 AnimatedContent(
                     targetState = effectiveSelectedPlaylistId ?: state.libraryMode,
-                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
+                    transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(140))).using(null) },
                     label = "home_library_mode_switch"
-                ) { _ ->
-                    if (selectedPlaylist != null) {
-                        val plSongs = viewModel.playlistSongs(selectedPlaylist)
+                ) { target ->
+                    val targetPlaylist = (target as? String)?.let { id -> state.playlists.firstOrNull { it.id == id } }
+                    if (targetPlaylist != null) {
+                        val plSongs = viewModel.playlistSongs(targetPlaylist)
                         XvoxPlaylistDetail(
-                            playlist = selectedPlaylist,
+                            playlist = targetPlaylist,
                             songs = plSongs,
                             currentSongId = currentSongId,
                             isPlaying = isPlaying,
                             selectedSongIds = selectedSongIds,
-                            onPlay = { song -> handleSongClick(song, plSongs, selectedPlaylist.name) },
+                            onPlay = { song -> handleSongClick(song, plSongs, targetPlaylist.name) },
                             onOptions = { song ->
-                                if (isSelectionMode) handleSongClick(song, plSongs, selectedPlaylist.name)
-                                else openSingleSongOptions(song, selectedPlaylist)
+                                if (isSelectionMode) handleSongClick(song, plSongs, targetPlaylist.name)
+                                else openSingleSongOptions(song, targetPlaylist)
                             },
                             onLongClick = ::handleSongLongClick,
-                            onAddSongs = { showAddPlaylistSongs(overlays, viewModel, selectedPlaylist) },
+                            onAddSongs = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) },
                             onClosed = {
                                 selectedSongIds = emptySet()
                                 setSelectedPlaylistId(null)
                             }
                         )
                     } else {
-                        when (state.libraryMode) {
+                        when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                             XvoxHomeLibraryMode.ALL_SONGS -> {
                                 XvoxAllSongsSection(
                                     songs = state.songs,
@@ -185,7 +235,7 @@ fun HomeScreen(
                                     isPlaying = isPlaying,
                                     selectedSongIds = selectedSongIds,
                                     onSongClick = { song -> handleSongClick(song, state.songs, "All Songs") },
-                                    onSongLongClick = ::handleSongLongClick,
+                                    onSongLongClick = { song -> if (isSelectionMode) handleSongLongClick(song) else openSingleSongOptions(song) },
                                     onPrefetch = viewModel::prefetchFrom
                                 )
                             }
@@ -222,39 +272,10 @@ fun HomeScreen(
                 }
             }
 
-            if (!hideRecents && effectiveSelectedPlaylistId == null && state.libraryMode == XvoxHomeLibraryMode.ALL_SONGS && !isSelectionMode) {
-                item(key = "recent") {
-                    XvoxRecentlyPlayedSection(
-                        songs = state.recentlyPlayed,
-                        currentSongId = currentSongId,
-                        isPlaying = isPlaying,
-                        transition = state.recentTransition,
-                        onSongClick = { song ->
-                            if (song.id == currentSongId) playerViewModel.togglePlay()
-                            else {
-                                viewModel.recordPlayedFromRecent(song, currentSongId)
-                                playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
-                            }
-                        },
-                        onSongOptions = { song -> openSingleSongOptions(song = song, recent = true) }
-                    )
-                }
-            }
+            if (recentsPlacement != "top") recentSection()
 
-            item(key = "home_bottom_spacer") { Spacer(Modifier.height(130.dp)) }
+            item(key = "home_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
         }
 
-        if (isSelectionMode && selectedSongsList.isNotEmpty()) {
-            HomeMultiSelectBar(
-                selectedSongs = selectedSongsList,
-                selectedPlaylist = selectedPlaylist,
-                libraryMode = state.libraryMode,
-                viewModel = viewModel,
-                overlays = overlays,
-                context = context,
-                onClearSelection = { selectedSongIds = emptySet() },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
-        }
     }
 }

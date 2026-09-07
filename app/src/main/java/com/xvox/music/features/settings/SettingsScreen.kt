@@ -66,7 +66,8 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 4.dp),
+        contentPadding = PaddingValues(top = com.xvox.music.core.ui.navigation.LocalXvoxTopInset.current + 4.dp,
+            bottom = com.xvox.music.core.ui.navigation.LocalXvoxBottomInset.current),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "settings_header_title") {
@@ -101,7 +102,7 @@ fun SettingsScreen(
         item(key = "accordion_home") {
             SettingsAccordionItem(
                 title = "Home",
-                subtitle = "Card style (One Size / Mosaic), direction & sort order",
+                subtitle = "Generated mosaics, free pan & Recents placement",
                 iconRes = R.drawable.ic_xvox_home,
                 expanded = expandedKey == SettingsAccordionKey.HOME,
                 onToggle = { toggle(SettingsAccordionKey.HOME) }
@@ -113,7 +114,7 @@ fun SettingsScreen(
         item(key = "accordion_xvoxmix") {
             SettingsAccordionItem(
                 title = "XvoxMix",
-                subtitle = "Hardware EQ, vertical bands, 3D surround & balance",
+                subtitle = "Smooth EQ, boost protection & spatial orbit",
                 iconRes = R.drawable.ic_xvox_equalizer,
                 expanded = expandedKey == SettingsAccordionKey.XVOX_MIX,
                 onToggle = { toggle(SettingsAccordionKey.XVOX_MIX) }
@@ -125,7 +126,7 @@ fun SettingsScreen(
         item(key = "accordion_playback") {
             SettingsAccordionItem(
                 title = "Playback",
-                subtitle = "Crossfade transition & Bluetooth connect / disconnect",
+                subtitle = "Two-track blend & headset behaviour",
                 iconRes = R.drawable.ic_xvox_disc,
                 expanded = expandedKey == SettingsAccordionKey.PLAYBACK,
                 onToggle = { toggle(SettingsAccordionKey.PLAYBACK) }
@@ -189,7 +190,7 @@ fun SettingsScreen(
         item(key = "accordion_about") {
             SettingsAccordionItem(
                 title = "About XVOX",
-                subtitle = "Modern lossless local music engine v1.0",
+                subtitle = "Local music, made personal",
                 iconRes = R.drawable.ic_xvox_info,
                 expanded = expandedKey == SettingsAccordionKey.ABOUT,
                 onToggle = { toggle(SettingsAccordionKey.ABOUT) }
@@ -199,7 +200,7 @@ fun SettingsScreen(
         }
 
         item(key = "settings_bottom_spacing") {
-            Spacer(Modifier.height(130.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

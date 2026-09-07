@@ -25,7 +25,7 @@ object HomeLibraryFilterHelper {
             song.id !in hiddenSongIds &&
                 song.duration >= minDurationMs &&
                 (minSizeBytes <= 0L || song.sizeBytes >= minSizeBytes) &&
-                song.folderName !in config.ignored
+                !FolderPaths.isExcluded(song.folderPath, song.folderName, config.ignored)
         }
 
         return when (config.sort) {
@@ -36,8 +36,8 @@ object HomeLibraryFilterHelper {
     }
 
     fun groupFolders(songs: List<Song>): List<FolderInfo> {
-        return songs.groupBy { it.folderName }.map { (name, list) ->
-            FolderInfo(name = name, songCount = list.size, songs = list)
+        return songs.groupBy { it.folderPath }.map { (path, list) ->
+            FolderInfo(name = list.first().folderName, songCount = list.size, songs = list, path = path)
         }.sortedBy { it.name.lowercase() }
     }
 }

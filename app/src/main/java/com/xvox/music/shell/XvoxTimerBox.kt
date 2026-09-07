@@ -1,5 +1,7 @@
 package com.xvox.music.shell
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,7 +40,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 
 @Composable
-fun TimerSheetContent(
+fun XvoxTimerBoxContent(
     currentMinutes: Int?,
     onSetMinutes: (Int) -> Unit,
     onCustom: (Int, Int, Boolean, Boolean) -> Unit,
@@ -53,7 +55,7 @@ fun TimerSheetContent(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth().verticalScroll(rememberScrollState())
             .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Row(

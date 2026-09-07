@@ -20,6 +20,11 @@ class XvoxOverlayController {
     var listKey by mutableLongStateOf(0L)
         private set
 
+    internal var boxTitle by mutableStateOf("XVOX")
+        private set
+
+    val isBoxVisible: Boolean get() = listContent != null
+
     internal var listContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
@@ -28,12 +33,13 @@ class XvoxOverlayController {
 
     private var popupId by mutableLongStateOf(0L)
 
-    fun showL(content: @Composable () -> Unit) {
+    fun showBox(title: String = "XVOX", content: @Composable () -> Unit) {
+        boxTitle = title
         listKey++
         listContent = content
     }
 
-    fun hideL() {
+    fun hideBox() {
         listContent = null
     }
 

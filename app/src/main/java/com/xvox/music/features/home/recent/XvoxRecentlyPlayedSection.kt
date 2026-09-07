@@ -31,7 +31,7 @@ fun XvoxRecentlyPlayedSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 40.dp),
+            .padding(top = 16.dp, bottom = 16.dp),
     ) {
         Row(
             modifier = Modifier

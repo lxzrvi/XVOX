@@ -1,5 +1,8 @@
 package com.xvox.music.features.search
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,9 +43,11 @@ fun SearchSongCard(
     playing: Boolean,
     onClick: () -> Unit,
     onOptions: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
+    val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
 
     Row(
@@ -50,18 +55,13 @@ fun SearchSongCard(
             .fillMaxWidth()
             .height(64.dp)
             .clip(shape)
-            .background(colors.card)
+            .background(cardColor)
             .border(
-                width = 0.7.dp,
-                color = colors.cardBorder,
+                width = if (selected) 2.dp else 0.7.dp,
+                color = if (selected) colors.primaryAccent else colors.cardBorder,
                 shape = shape
             )
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-                onLongClick = onOptions
-            )
+            .xvoxSongPress(onClick = onClick, onLongClick = onOptions)
             .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

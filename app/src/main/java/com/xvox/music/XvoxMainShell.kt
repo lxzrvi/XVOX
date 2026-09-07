@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -14,6 +16,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.shell.ExitMusicBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,9 +57,9 @@ import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
-import com.xvox.music.shell.TimerSheetContent
-import com.xvox.music.shell.XvoxPlaylistPickerSheetContent
-import com.xvox.music.shell.XvoxQueueSheetContent
+import com.xvox.music.shell.XvoxTimerBoxContent
+import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
+import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
 
@@ -59,6 +73,9 @@ fun XvoxMainShell(
     val player by playerViewModel.state.collectAsState()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    LaunchedEffect(homeState.songs, homeState.loading) {
+        if (!homeState.loading) playerViewModel.setQueue(homeState.songs)
+    }
 
     var destination by remember { mutableStateOf(XvoxDestination.HOME) }
     var homeResetKey by remember { mutableLongStateOf(0L) }
@@ -82,20 +99,38 @@ fun XvoxMainShell(
         }
     }
 
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(destination) {
-        if (destination == XvoxDestination.HOME) {
-            hoistedSelectedPlaylistId = null
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
+    // More-specific Home / now-playing handlers are composed after this root handler.
+    BackHandler(enabled = !player.nowPlayingVisible) {
+        if (destination != XvoxDestination.HOME) {
+            destination = XvoxDestination.HOME
+        } else {
+            overlays.showBox("Leaving so soon?") {
+                ExitMusicBox(
+                    onNo = overlays::hideBox,
+                    onYes = {
+                        playerViewModel.stopPlayback()
+                        overlays.hideBox()
+                        (context as? android.app.Activity)?.finishAffinity()
+                    }
+                )
+            }
         }
     }
 
     fun showProfileEditor() {
-        overlays.showL {
+        overlays.showBox("Edit profile") {
             ProfileEditorBox(
                 profile = homeState.profile,
-                onCancel = overlays::hideL,
+                onCancel = overlays::hideBox,
                 onSave = { name, pfp, uri ->
                     homeViewModel.saveProfile(name, pfp, uri) {
-                        overlays.hideL()
+                        overlays.hideBox()
                         overlays.showP("Profile updated")
                     }
                 }
@@ -108,35 +143,36 @@ fun XvoxMainShell(
     }
 
     fun showAddCurrentSongToPlaylist(song: Song) {
-        overlays.showL {
-            XvoxPlaylistPickerSheetContent(
+        overlays.showBox("Add to playlist") {
+            XvoxPlaylistPickerBoxContent(
                 song = song,
                 playlists = homeState.playlists,
                 onAddToPlaylist = { playlistId ->
                     homeViewModel.addToPlaylist(playlistId, song) { updated ->
                         if (updated != null) {
-                            overlays.hideL()
+                            overlays.hideBox()
                             overlays.showP("Added to ${updated.name}")
                         }
                     }
                 },
                 onCreatePlaylist = {
-                    overlays.hideL()
+                    overlays.hideBox()
                     showCreatePlaylistOverlay(overlays, homeViewModel, homeState.songs, song)
                 },
-                onCancel = overlays::hideL
+                onCancel = overlays::hideBox
             )
         }
     }
 
-    fun showQueueSheet() {
-        overlays.showL {
-            XvoxQueueSheetContent(
-                queue = player.queue,
-                currentSongId = player.currentSongId,
+    fun showQueueBox() {
+        overlays.showBox("Playing queue") {
+            val livePlayer by playerViewModel.state.collectAsState()
+            XvoxQueueBoxContent(
+                queue = livePlayer.queue,
+                currentSongId = livePlayer.currentSongId,
                 onPlayIndex = { index ->
-                    playerViewModel.playQueueIndex(index)
-                    overlays.hideL()
+                    playerViewModel.playQueueIndex(index, keepPlayingState = false)
+                    overlays.hideBox()
                 },
                 onMoveItem = { from, to ->
                     playerViewModel.moveQueueItem(from, to)
@@ -145,18 +181,18 @@ fun XvoxMainShell(
         }
     }
 
-    fun showTimerSheet() {
-        overlays.showL {
-            TimerSheetContent(
+    fun showTimerBox() {
+        overlays.showBox("Sleep timer") {
+            XvoxTimerBoxContent(
                 currentMinutes = player.sleepTimerMinutes,
                 onSetMinutes = { minutes ->
                     playerViewModel.setSleepTimer(minutes)
-                    overlays.hideL()
+                    overlays.hideBox()
                     overlays.showP("Timer set $minutes min")
                 },
                 onCustom = { minutes, seconds, pause, closeApp ->
                     playerViewModel.setCustomSleepTimer(minutes, seconds, pause, closeApp)
-                    overlays.hideL()
+                    overlays.hideBox()
                     val total = minutes * 60 + seconds
                     if (total > 0) {
                         overlays.showP("Custom timer ${minutes}m ${seconds}s")
@@ -164,7 +200,7 @@ fun XvoxMainShell(
                 },
                 onCancel = {
                     playerViewModel.cancelSleepTimer()
-                    overlays.hideL()
+                    overlays.hideBox()
                     overlays.showP("Timer off")
                 }
             )
@@ -176,36 +212,26 @@ fun XvoxMainShell(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            XvoxShellTopHeader(
-                profile = homeState.profile,
-                destination = destination,
-                libraryMode = homeState.libraryMode,
-                onProfileClick = ::showProfileEditor,
-                onRefreshClick = ::showRefreshOverlay,
-                onLikedClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.toggleLikedMode()
+        val density = LocalDensity.current
+        val topInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 60.dp
+        val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
+            if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) 180.dp else 104.dp
+        val tabState = rememberSaveableStateHolder()
+        CompositionLocalProvider(LocalXvoxTopInset provides topInset, LocalXvoxBottomInset provides bottomInset) {
+            AnimatedContent(
+                targetState = destination,
+                transitionSpec = {
+                    val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                    ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
+                        togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
+                        .using(null)
                 },
-                onPlaylistClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.togglePlaylistMode()
-                }
-            )
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                AnimatedContent(
-                    targetState = destination,
-                    transitionSpec = {
-                        androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
-                    },
-                    label = "tab_switch_transition",
-                    modifier = Modifier.fillMaxSize()
-                ) { targetDestination ->
+                label = "directionalTabs",
+                modifier = Modifier.fillMaxSize()
+            ) { targetDestination ->
+                tabState.SaveableStateProvider(targetDestination.name) {
+                    // Opaque isolated page surfaces prevent outgoing Settings becoming Home's backdrop.
+                    Box(Modifier.fillMaxSize().background(colors.background)) {
                     when (targetDestination) {
                         XvoxDestination.HOME -> {
                             HomeScreen(
@@ -233,9 +259,25 @@ fun XvoxMainShell(
                             SettingsScreen(homeViewModel = homeViewModel)
                         }
                     }
+                    }
                 }
             }
         }
+            XvoxShellTopHeader(
+                profile = homeState.profile,
+                destination = destination,
+                libraryMode = homeState.libraryMode,
+                onProfileClick = ::showProfileEditor,
+                onRefreshClick = ::showRefreshOverlay,
+                onLikedClick = {
+                    hoistedSelectedPlaylistId = null
+                    homeViewModel.toggleLikedMode()
+                },
+                onPlaylistClick = {
+                    hoistedSelectedPlaylistId = null
+                    homeViewModel.togglePlaylistMode()
+                }
+            )
 
         val currentSongId = player.currentSongId
         val miniVisibleBase = player.miniPlayerVisible && !player.nowPlayingVisible && currentSongId != null && player.queue.isNotEmpty()
@@ -270,7 +312,7 @@ fun XvoxMainShell(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 10.dp)
+                .padding(bottom = XvoxMiniPlayerPlacement.navigationHostBottom)
         ) {
             XvoxBottomBar(
                 selected = destination,
@@ -322,12 +364,12 @@ fun XvoxMainShell(
                     homeViewModel.toggleLiked(playingSong)
                     overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                 },
-                onTimer = ::showTimerSheet,
-                onQueue = ::showQueueSheet,
+                onTimer = ::showTimerBox,
+                onQueue = ::showQueueBox,
                 onStarPlaylist = { showAddCurrentSongToPlaylist(playingSong) },
                 onInfo = {
                     homeViewModel.loadInfo(playingSong) { info ->
-                        overlays.showL { SongInfoBox(info = info) }
+                        overlays.showBox("Song info") { SongInfoBox(info = info) }
                     }
                 },
                 isShuffleEnabled = player.isShuffleEnabled,

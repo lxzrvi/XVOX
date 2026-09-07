@@ -32,7 +32,7 @@ fun HowToUseSettingsSection() {
         GuideTipItem(
             iconRes = R.drawable.ic_xvox_home,
             title = "Multi-Select & Bulk Actions",
-            description = "Long press any song in All Songs, Liked, or Playlists to enter Multi-Select Mode. Tap songs to toggle selection, then use the bottom action bar to add to playlist, favorite, share, or delete."
+            description = "Tap a song once to play. Open ⋯ or hold it for options, then choose Select. Tap more songs and use the toolbar directly below the header for playlist, like/unlike, remove or share actions."
         )
 
         GuideTipItem(
@@ -44,7 +44,7 @@ fun HowToUseSettingsSection() {
         GuideTipItem(
             iconRes = R.drawable.ic_xvox_equalizer,
             title = "XvoxMix Audio DSP",
-            description = "Adjust 5 vertical independent EQ sliders with zero cross-band interference. Enable 3D Surround Sound for continuous smooth L/R spatial orbit audio panning with customizable speed."
+            description = "Five smoothly ramped EQ bands shape your music. Boost protection adds headroom; raise it if bass strains your speaker. Try the ear-delay and head-shadow orbit with headphones, then adjust depth and speed."
         )
 
         GuideTipItem(
@@ -56,7 +56,7 @@ fun HowToUseSettingsSection() {
         GuideTipItem(
             iconRes = R.drawable.ic_xvox_queue,
             title = "Queue Reordering",
-            description = "Open the queue sheet and drag songs up or down. The list smoothly auto-scrolls when dragging near the edges to effortlessly reposition tracks."
+            description = "Open the queue box and drag songs up or down. The list smoothly auto-scrolls when dragging near the edges to effortlessly reposition tracks."
         )
     }
 }

@@ -74,8 +74,8 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 (imeBottomPx - navBottomPx).coerceAtLeast(0).toDp()
             }
 
-            val restingBottomPadding = 86.dp
-            val currentBottomPadding = max(restingBottomPadding, effectiveImeDp + 12.dp)
+            val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom
+            val currentBottomPadding = max(restingBottomPadding, effectiveImeDp + XvoxMiniPlayerPlacement.controlGap)
 
             val miniModifier = Modifier
                 .navigationBarsPadding()

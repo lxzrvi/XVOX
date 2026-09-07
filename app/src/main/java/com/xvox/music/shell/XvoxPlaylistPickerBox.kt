@@ -40,7 +40,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 
 @Composable
-fun XvoxPlaylistPickerSheetContent(
+fun XvoxPlaylistPickerBoxContent(
     song: Song,
     playlists: List<XvoxPlaylist>,
     onAddToPlaylist: (String) -> Unit,

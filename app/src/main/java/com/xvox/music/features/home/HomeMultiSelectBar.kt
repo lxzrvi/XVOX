@@ -48,8 +48,7 @@ fun HomeMultiSelectBar(
 
     Box(
         modifier = modifier
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(bottom = 86.dp, start = 16.dp, end = 16.dp)
+            .padding(top = 4.dp, bottom = 8.dp, start = 12.dp, end = 12.dp)
     ) {
         Row(
             modifier = Modifier

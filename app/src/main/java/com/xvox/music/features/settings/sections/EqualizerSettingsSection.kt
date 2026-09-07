@@ -26,6 +26,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,9 +54,11 @@ fun EqualizerSettingsSection(
     val colors = XvoxTheme.colors
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        com.xvox.music.features.settings.components.EqSettingsPreview(state)
+        Spacer(Modifier.height(12.dp))
         SettingsToggle(
             title = "XvoxMix Master",
-            subtitle = "Enable hardware DSP & 5-band equalizer engine",
+            subtitle = "Smooth 5-band DSP; changes ramp without resetting audio",
             checked = state.equalizerEnabled,
             onChange = viewModel::setEqualizerEnabled
         )
@@ -83,9 +90,6 @@ fun EqualizerSettingsSection(
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                             .clickable {
                                 viewModel.setEqPreset(preset)
-                                if (preset != "Custom" && AudioEffectsManager.PRESETS.containsKey(preset)) {
-                                    viewModel.setEqBands(AudioEffectsManager.PRESETS[preset] ?: listOf(0, 0, 0, 0, 0))
-                                }
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
@@ -126,27 +130,33 @@ fun EqualizerSettingsSection(
                         label = label,
                         value = value,
                         onValueChange = { newValue ->
-                            val updated = state.eqBands.toMutableList()
-                            while (updated.size <= index) updated.add(0)
-                            updated[index] = newValue
-                            viewModel.setEqBands(updated)
-                            viewModel.setEqPreset("Custom")
+                            viewModel.setEqBand(index, newValue)
                         }
                     )
                 }
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+        Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB headroom", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text("Raise this if boosted bass sounds strained. Adds pre-EQ headroom; the peak guard stays on at every setting.",
+            color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
+        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 3f)
+
         Spacer(modifier = Modifier.height(16.dp))
 
         SettingsToggle(
             title = "3D Surround Sound",
-            subtitle = "Smooth real-time L/R spatial orbit panning for immersive listening",
+            subtitle = "Binaural-style orbit with ear delay, head shadow and gentle crossfeed",
             checked = state.stereoWidening,
             onChange = viewModel::setStereoWidening
         )
 
+        com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
         if (state.stereoWidening) {
+            Text("Orbit depth: ${(state.surroundDepth * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 12.dp))
+            XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = 0.65f)
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
@@ -185,6 +195,10 @@ fun EqualizerSettingsSection(
         )
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        Text("Output ceiling: ${(state.volumeLimit * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+        XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
+        Spacer(Modifier.height(14.dp))
 
         val balanceLabel = when {
             state.balance < -0.05f -> "L ${(-state.balance * 100).roundToInt()}%"
@@ -243,6 +257,15 @@ fun VerticalEqBandSlider(
             modifier = Modifier
                 .width(32.dp)
                 .height(120.dp)
+                .semantics {
+                    contentDescription = "$label equalizer band"
+                    progressBarRangeInfo = ProgressBarRangeInfo(localValue.toFloat(), -12f..12f, 23)
+                    setProgress { requested ->
+                        localValue = requested.roundToInt().coerceIn(minDb, maxDb)
+                        currentOnValueChange(localValue)
+                        true
+                    }
+                }
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)

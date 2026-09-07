@@ -1,5 +1,7 @@
 package com.xvox.music.features.home.recent
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
@@ -56,41 +58,20 @@ fun XvoxRecentArtwork(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val cardInteraction = remember { MutableInteractionSource() }
-    val controlInteraction = remember { MutableInteractionSource() }
-
-    val pressed by cardInteraction.collectIsPressedAsState()
-
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (pressed) 0.985f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.86f,
-            stiffness = 1400f
-        ),
-        label = "recentPress"
-    )
+    val cardColor = rememberSongCardColor(song, current)
 
     val shape = RoundedCornerShape(3.dp)
 
     Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .clip(shape)
-            .background(colors.cardElevated)
+            .background(cardColor)
             .border(
                 width = 0.7.dp,
                 color = colors.cardBorder,
                 shape = shape
             )
-            .combinedClickable(
-                interactionSource = cardInteraction,
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .xvoxSongPress(onClick, onLongClick)
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
@@ -138,12 +119,7 @@ fun XvoxRecentArtwork(
                         stiffness = 700f
                     )
                 )
-                .combinedClickable(
-                    interactionSource = controlInteraction,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                )
+                .xvoxSongPress(onClick, onLongClick)
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)

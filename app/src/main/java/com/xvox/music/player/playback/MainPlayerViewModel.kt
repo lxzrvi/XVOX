@@ -43,6 +43,9 @@ class MainPlayerViewModel(
 
         viewModelScope.launch {
             controller.state.collect { playback ->
+                if (playback.isPlaying && playback.currentSongId != null && playback.currentSongId != savedSongId) {
+                    persistSong(playback.currentSongId)
+                }
                 _state.update {
                     it.copy(
                         connected = playback.connected,
@@ -65,9 +68,17 @@ class MainPlayerViewModel(
         libraryQueueSignature = signature
 
         val current = _state.value
-        if (current.playingSource != "All Songs" && current.queue.isNotEmpty() && current.currentSongId != null) {
+        if (current.playingSource != "All Songs" && current.queue.isNotEmpty()) {
+            val available = songs.mapTo(HashSet()) { it.id }
+            val retained = current.queue.filter { it.id in available }
+            if (retained != current.queue) {
+                if (current.currentSongId != null && current.currentSongId !in available) stopPlayback()
+                controller.setQueue(retained)
+                _state.update { it.copy(queue = retained) }
+            }
             return
         }
+        if (current.currentSongId != null && songs.none { it.id == current.currentSongId }) stopPlayback()
 
         if (current.currentSongId == null || current.queue.isEmpty()) {
             controller.setQueue(songs)
@@ -203,10 +214,10 @@ class MainPlayerViewModel(
         }
     }
 
-    fun playQueueIndex(index: Int) {
+    fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = _state.value.queue.getOrNull(index) ?: return
         persistSong(song.id)
-        controller.playQueueIndex(index = index, keepPlayingState = true)
+        controller.playQueueIndex(index = index, keepPlayingState = keepPlayingState)
     }
 
     fun playPrevious() {

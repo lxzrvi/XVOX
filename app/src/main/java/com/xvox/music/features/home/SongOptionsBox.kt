@@ -38,7 +38,7 @@ data class SongOption(
 )
 
 @Composable
-fun SongOptionsSheet(
+fun SongOptionsBox(
     song: Song,
     liked: Boolean,
     playlistName: String? = null,
@@ -51,7 +51,8 @@ fun SongOptionsSheet(
     onDelete: () -> Unit,
     onInfo: () -> Unit,
     onRingtone: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    onSelect: (() -> Unit)? = null
 ) {
     val colors =
         XvoxTheme.colors
@@ -76,6 +77,7 @@ fun SongOptionsSheet(
 
     val options =
         buildList {
+            onSelect?.let { add(SongOption("Select", R.drawable.ic_xvox_check, it)) }
             add(
                 SongOption(
                     "Play next",

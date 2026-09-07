@@ -7,7 +7,6 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.xvox.music.core.model.Song
-import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.player.session.XvoxPlaybackService
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +38,6 @@ class PlaybackController(
     }
 
     private val appContext = context.applicationContext
-    private val prefs = UserPreferencesRepository(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var controller: MediaController? = null
@@ -55,34 +53,15 @@ class PlaybackController(
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
-    private val transitionHelper = PlaybackTrackTransitionHelper(
-        scope = scope,
-        prefs = prefs,
-        getController = { controller },
-        getQueue = { queue },
-        getRepeatMode = { repeatMode },
-        playQueueIndex = { idx, keep -> playQueueIndex(idx, keep) },
-        onExpectedPlaying = { playing, duration ->
-            expectedPlaying = playing
-            expectedPlayingUntil = System.currentTimeMillis() + duration
-            publishState()
-        },
-        stop = { stop() }
-    )
+    private var pendingPlay: Song? = null
+    private var released = false
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             publishState()
         }
 
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED) {
-                transitionHelper.handleTrackEnded(_state.value.currentIndex)
-            }
-        }
-
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-            transitionHelper.crossfadeTriggeredForSongId = null
             publishState()
         }
     }
@@ -99,18 +78,21 @@ class PlaybackController(
         future.addListener(
             {
                 runCatching { future.get() }.onSuccess { mediaController ->
+                    if (released) {
+                        mediaController.release()
+                        return@onSuccess
+                    }
                     controller = mediaController
                     mediaController.addListener(listener)
-                    publishState()
+                    setRepeatMode(repeatMode)
+                    val pending = pendingPlay
+                    pendingPlay = null
+                    if (pending != null) play(pending) else publishState()
 
                     progressJob = scope.launch {
                         while (isActive) {
                             publishState()
-                            transitionHelper.checkCrossfadeAndAdvance(
-                                _state.value.currentSongId,
-                                _state.value.currentIndex
-                            )
-                            delay(350L)
+                            delay(250L)
                         }
                     }
                 }
@@ -121,18 +103,27 @@ class PlaybackController(
 
     fun setRepeatMode(mode: RepeatMode) {
         repeatMode = mode
-        controller?.repeatMode = Player.REPEAT_MODE_OFF
+        controller?.repeatMode = when (mode) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        }
         publishState()
     }
 
     fun setQueue(songs: List<Song>) {
-        queue = songs
-        val mediaController = controller
-        if (mediaController != null && songs.isNotEmpty()) {
-            val curId = _state.value.currentSongId
-            val curIndex = songs.indexOfFirst { it.id == curId }.coerceAtLeast(0)
-            val mediaItems = songs.map { it.toMediaItem() }
-            mediaController.setMediaItems(mediaItems, curIndex, mediaController.currentPosition)
+        val unique = songs.distinctBy { it.id }
+        if (queue == unique) return
+        queue = unique
+        val p = controller
+        // A queue update must not prepare/start the first track before a restored song or first tap.
+        if (p != null && p.mediaItemCount > 0) {
+            queue.forEachIndexed { index, song ->
+                val existing = (0 until p.mediaItemCount).firstOrNull { p.getMediaItemAt(it).mediaId == song.id.toString() }
+                if (existing == null) p.addMediaItem(index, song.toMediaItem())
+                else if (existing != index) p.moveMediaItem(existing, index)
+            }
+            if (p.mediaItemCount > queue.size) p.removeMediaItems(queue.size, p.mediaItemCount)
         }
         publishState()
     }
@@ -147,21 +138,18 @@ class PlaybackController(
         val insert = if (updatedCurrent >= 0) updatedCurrent + 1 else if (currentPosition >= 0) currentPosition.coerceAtMost(without.size) else 0
 
         without.add(insert.coerceIn(0, without.size), song)
-        queue = without
-        publishState()
+        setQueue(without)
         return queue
     }
 
     fun addToQueue(song: Song): List<Song> {
         if (queue.any { it.id == song.id }) return queue
-        queue = queue + song
-        publishState()
+        setQueue(queue + song)
         return queue
     }
 
     fun removeFromQueue(songId: Long): List<Song> {
-        queue = queue.filterNot { it.id == songId }
-        publishState()
+        setQueue(queue.filterNot { it.id == songId })
         return queue
     }
 
@@ -193,73 +181,35 @@ class PlaybackController(
     }
 
     fun play(song: Song) {
-        val mediaController = controller ?: return
-        restoredSongId = null
-        transitionHelper.reset()
-
-        var index = queue.indexOfFirst { it.id == song.id }
-        if (index < 0) {
-            queue = queue + song
-            index = queue.lastIndex
+        if (queue.none { it.id == song.id }) queue = queue + song
+        val p = controller
+        if (p == null) {
+            pendingPlay = song
+            _state.value = _state.value.copy(currentSongId = song.id, currentIndex = queue.indexOf(song), duration = song.duration)
+            return
         }
-
-        scope.launch {
-            if (queue.size > 1) {
-                val mediaItems = queue.map { it.toMediaItem() }
-                mediaController.setMediaItems(mediaItems, index, 0L)
-            } else {
-                mediaController.setMediaItem(song.toMediaItem())
-            }
-            mediaController.prepare()
-            PlaybackVolumeFadeHelper.applyFadeIn(mediaController, prefs, steps = 10)
-        }
-
-        expectedPlaying = true
-        expectedPlayingUntil = System.currentTimeMillis() + 1800
-
-        _state.value = _state.value.copy(
-            connected = true,
-            currentSongId = song.id,
-            currentIndex = index,
-            isPlaying = true,
-            position = 0L,
-            duration = song.duration
-        )
-
-        XvoxAppWidgetProvider.updateAllWidgets(appContext, song, true, 0L, song.duration)
+        startAt(queue.indexOfFirst { it.id == song.id }, shouldPlay = true)
     }
 
     fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = queue.getOrNull(index) ?: return
-        val mediaController = controller ?: return
+        val p = controller
+        if (p == null) { pendingPlay = song; return }
+        val shouldPlay = restoredSongId != null || !keepPlayingState || p.playWhenReady || _state.value.isPlaying
+        startAt(index, shouldPlay)
+    }
 
-        val shouldPlay = if (restoredSongId != null) true else if (keepPlayingState) _state.value.isPlaying || mediaController.isPlaying || mediaController.playWhenReady else true
-
+    private fun startAt(index: Int, shouldPlay: Boolean) {
+        val p = controller ?: return
+        val song = queue.getOrNull(index) ?: return
         restoredSongId = null
-        transitionHelper.reset()
         expectedPlaying = shouldPlay
         expectedPlayingUntil = System.currentTimeMillis() + 1800
-
-        scope.launch {
-            if (queue.size > 1) {
-                val mediaItems = queue.map { it.toMediaItem() }
-                mediaController.setMediaItems(mediaItems, index, 0L)
-            } else {
-                mediaController.setMediaItem(song.toMediaItem())
-            }
-            mediaController.prepare()
-            if (shouldPlay) mediaController.play() else mediaController.pause()
-        }
-
-        _state.value = _state.value.copy(
-            connected = true,
-            currentSongId = song.id,
-            currentIndex = index,
-            isPlaying = shouldPlay,
-            position = 0L,
-            duration = song.duration
-        )
-
+        val sameQueue = p.mediaItemCount == queue.size && queue.indices.all { p.getMediaItemAt(it).mediaId == queue[it].id.toString() }
+        if (sameQueue) p.seekTo(index, 0L) else p.setMediaItems(queue.map { it.toMediaItem() }, index, 0L)
+        p.prepare()
+        if (shouldPlay) p.play() else p.pause()
+        _state.value = PlaybackState(true, song.id, index, shouldPlay, 0L, song.duration)
         XvoxAppWidgetProvider.updateAllWidgets(appContext, song, shouldPlay, 0L, song.duration)
     }
 
@@ -301,11 +251,12 @@ class PlaybackController(
         if (mediaController.currentMediaItem == null) return
 
         if (mediaController.isPlaying) {
-            scope.launch { PlaybackVolumeFadeHelper.applyFadeOutAndPause(mediaController, prefs) }
+            mediaController.pause()
             expectedPlaying = false
             expectedPlayingUntil = System.currentTimeMillis() + 400
         } else {
-            scope.launch { PlaybackVolumeFadeHelper.applyFadeIn(mediaController, prefs) }
+            if (mediaController.playbackState == Player.STATE_ENDED) mediaController.seekToDefaultPosition()
+            mediaController.play()
             expectedPlaying = true
             expectedPlayingUntil = System.currentTimeMillis() + 800
         }
@@ -314,7 +265,7 @@ class PlaybackController(
 
     fun stop() {
         restoredSongId = null
-        transitionHelper.reset()
+        pendingPlay = null
 
         controller?.let {
             it.stop()
@@ -385,8 +336,10 @@ class PlaybackController(
     }
 
     fun release() {
+        released = true
+        if (activeInstance === this) activeInstance = null
         progressJob?.cancel()
-        transitionHelper.reset()
+        pendingPlay = null
         controller?.removeListener(listener)
         controller?.release()
         controller = null

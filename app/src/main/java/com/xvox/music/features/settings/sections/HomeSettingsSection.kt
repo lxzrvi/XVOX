@@ -34,6 +34,8 @@ fun HomeSettingsSection(
     val colors = XvoxTheme.colors
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        com.xvox.music.features.settings.components.HomeSettingsPreview(state)
+        Spacer(Modifier.height(16.dp))
         Text(
             text = "Home Style",
             color = colors.secondaryText,
@@ -73,10 +75,15 @@ fun HomeSettingsSection(
             }
         }
 
+        if (state.homeLayoutStyle == "mosaic") {
+            Spacer(Modifier.height(8.dp))
+            Text("24 card treatments + thousands of generated layouts. Fresh on every app restart; stable while you browse.",
+                color = colors.secondaryText, fontSize = 11.sp)
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Scroll Direction",
+            text = "All Songs navigation",
             color = colors.secondaryText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
@@ -89,7 +96,7 @@ fun HomeSettingsSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val directions = listOf(
-                "horizontal" to "Horizontal",
+                "horizontal" to "Free pan ↗",
                 "vertical" to "Vertical"
             )
 
@@ -118,7 +125,7 @@ fun HomeSettingsSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Horizontal Grid Size",
+                text = "Canvas rows (drag to explore)",
                 color = colors.secondaryText,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
@@ -202,5 +209,11 @@ fun HomeSettingsSection(
             checked = state.hideRecentlyPlayed,
             onChange = viewModel::setHideRecentlyPlayed
         )
+        Spacer(Modifier.height(14.dp))
+        Text("Recents placement", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text("Top: above All Songs. Bottom: below All Songs.", color = colors.secondaryText, fontSize = 11.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+        com.xvox.music.features.settings.components.SettingsChoiceRow(
+            listOf("top" to "Top", "bottom" to "Bottom"), state.recentsPlacement, viewModel::setRecentsPlacement)
     }
 }

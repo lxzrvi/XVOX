@@ -55,47 +55,12 @@ fun XvoxPlaylistDetail(
     modifier: Modifier = Modifier,
 ) {
     val colors = XvoxTheme.colors
-    val scope = rememberCoroutineScope()
     val isSelectionMode = selectedSongIds.isNotEmpty()
-
-    var expanded by remember(playlist.id) { mutableStateOf(false) }
-
-    val scale by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0.94f,
-        animationSpec = tween(220),
-        label = "playlistDetailScale",
-    )
-
-    val alpha by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = tween(180),
-        label = "playlistDetailAlpha",
-    )
-
-    fun close() {
-        scope.launch {
-            expanded = false
-            delay(210L)
-            onClosed()
-        }
-    }
-
-    LaunchedEffect(playlist.id) {
-        expanded = true
-    }
-
-    BackHandler {
-        close()
-    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                this.alpha = alpha
-            },
+,
     ) {
         Row(
             modifier = Modifier

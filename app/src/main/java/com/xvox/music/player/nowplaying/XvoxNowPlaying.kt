@@ -49,7 +49,7 @@ import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
-import com.xvox.music.player.nowplaying.components.NowPlayingOptionsSheet
+import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxFullscreenLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
@@ -361,7 +361,7 @@ fun XvoxNowPlaying(
         }
 
         if (showQuickSettingsSheet) {
-            NowPlayingOptionsSheet(
+            NowPlayingOptionsBox(
                 onDismiss = { showQuickSettingsSheet = false },
                 onTimer = onTimer,
                 onInfo = onInfo,

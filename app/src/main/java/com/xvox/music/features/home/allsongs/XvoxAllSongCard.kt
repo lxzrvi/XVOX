@@ -1,5 +1,8 @@
 package com.xvox.music.features.home.allsongs
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -50,15 +53,7 @@ fun XvoxAllSongCard(
     selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.945f else 1f,
-        animationSpec = spring(dampingRatio = 0.84f, stiffness = 1500f),
-        label = "songCardPress"
-    )
-
+    val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
     val artworkShape = RoundedCornerShape(7.dp)
 
@@ -67,19 +62,10 @@ fun XvoxAllSongCard(
 
     Column(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .clip(cardShape)
-            .background(if (selected) colors.cardElevated else colors.card)
+            .background(cardColor)
             .border(width = borderWidth, color = borderColor, shape = cardShape)
-            .combinedClickable(
-                interactionSource = interaction,
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
             .padding(5.dp)
     ) {
         Box(
@@ -94,6 +80,15 @@ fun XvoxAllSongCard(
                     .fillMaxSize()
                     .clip(artworkShape)
             )
+
+            if (!selected) {
+                Box(Modifier.align(Alignment.TopEnd).size(30.dp)
+                    .background(colors.surface.copy(alpha = 0.80f), CircleShape)
+                    .clickable(onClick = onLongClick), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_xvox_more), "Song options",
+                        tint = colors.primaryText, modifier = Modifier.size(16.dp))
+                }
+            }
 
             if (selected) {
                 Box(

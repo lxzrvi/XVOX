@@ -17,7 +17,7 @@ class MediaStoreSongRepository(
     suspend fun loadSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songs = ArrayList<Song>()
 
-        val projection = arrayOf(
+        val projection = mutableListOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
@@ -25,7 +25,12 @@ class MediaStoreSongRepository(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.SIZE,
             MediaStore.Audio.Media.DATA
-        )
+        ).apply {
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                add(MediaStore.Audio.Media.RELATIVE_PATH)
+                add(MediaStore.Audio.Media.VOLUME_NAME)
+            }
+        }.toTypedArray()
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
@@ -44,6 +49,8 @@ class MediaStoreSongRepository(
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val sizeColumn = cursor.getColumnIndex(MediaStore.Audio.Media.SIZE)
             val dataColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+            val relativeColumn = if (android.os.Build.VERSION.SDK_INT >= 29) cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) else -1
+            val volumeColumn = if (android.os.Build.VERSION.SDK_INT >= 29) cursor.getColumnIndex(MediaStore.Audio.Media.VOLUME_NAME) else -1
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -55,10 +62,14 @@ class MediaStoreSongRepository(
 
                 val sizeBytes = if (sizeColumn >= 0) cursor.getLong(sizeColumn) else 0L
                 val dataPath = if (dataColumn >= 0) cursor.getString(dataColumn) else null
+                val relativePath = if (relativeColumn >= 0) cursor.getString(relativeColumn).orEmpty().trim('/') else ""
+                val volume = if (volumeColumn >= 0) cursor.getString(volumeColumn).orEmpty() else "external_primary"
+                val storageRoot = if (volume == "external_primary" || volume == "external") "/storage/emulated/0" else "/storage/$volume"
+                val folderPath = dataPath?.let { File(it).parent } ?: "$storageRoot/$relativePath"
                 val folderName = if (!dataPath.isNullOrBlank()) {
                     runCatching { File(dataPath).parentFile?.name }.getOrNull() ?: "Music"
                 } else {
-                    "Music"
+                    relativePath.substringAfterLast('/').ifBlank { "Music" }
                 }
 
                 val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
@@ -77,7 +88,8 @@ class MediaStoreSongRepository(
                         artworkUri = artworkUri,
                         duration = duration,
                         sizeBytes = sizeBytes,
-                        folderName = folderName
+                        folderName = folderName,
+                        folderPath = com.xvox.music.features.home.FolderPaths.normalize(folderPath)
                     )
                 )
             }

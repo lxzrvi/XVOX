@@ -1,262 +1,117 @@
 package com.xvox.music.core.ui.overlay
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
+/** One app-wide modal: a floating, centred box, never a draggable bottom sheet. */
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    title: String? = null,
+    title: String = "XVOX",
     onAddClick: (() -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-
+    val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
-
     fun close() {
         if (closing) return
         closing = true
         visible = false
-
-        scope.launch {
-            delay(280L)
-            onDismiss()
-        }
+        scope.launch { delay(180); dismiss() }
     }
+    LaunchedEffect(Unit) { visible = true }
 
-    LaunchedEffect(Unit) {
-        visible = true
-    }
-
-    BackHandler {
-        close()
-    }
-
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-            .pointerInput(Unit) {
-                detectTapGestures { close() }
-            }
+    Dialog(
+        onDismissRequest = ::close,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        val screenHeightPx = with(density) { maxHeight.toPx() }
-        val maximumHeightPx = screenHeightPx * 0.92f
-        var dragDeltaPx by remember { mutableFloatStateOf(0f) }
-
-        AnimatedVisibility(
-            visible = visible,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .imePadding(),
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(280, easing = XvoxBoxEasing)
-            ) + fadeIn(tween(280, easing = XvoxBoxEasing)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(280, easing = XvoxBoxEasing)
-            ) + fadeOut(tween(280, easing = XvoxBoxEasing))
-        ) {
-            val sheetCornerShape = RoundedCornerShape(
-                topStart = 24.dp,
-                topEnd = 24.dp,
-                bottomStart = 0.dp,
-                bottomEnd = 0.dp
+        Box(modifier.fillMaxSize()) {
+            Box(
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f))
+                    .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .heightIn(max = with(density) { maximumHeightPx.toDp() })
-                    .clip(sheetCornerShape)
-                    .background(colors.cardElevated.copy(alpha = 0.96f))
-                    .pointerInput(Unit) {
-                        detectTapGestures(onPress = { tryAwaitRelease() })
-                    }
+            BoxWithConstraints(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)
+                    .imePadding().padding(horizontal = 20.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // Drag handle
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 4.dp)
-                        .pointerInput(screenHeightPx) {
-                            detectVerticalDragGestures(
-                                onDragStart = { dragDeltaPx = 0f },
-                                onVerticalDrag = { change, dragAmount ->
-                                    change.consume()
-                                    dragDeltaPx += dragAmount
-                                    if (dragDeltaPx > screenHeightPx * 0.15f) {
-                                        close()
-                                    }
-                                },
-                                onDragEnd = {
-                                    if (dragDeltaPx > screenHeightPx * 0.15f) {
-                                        close()
-                                    }
-                                    dragDeltaPx = 0f
-                                },
-                                onDragCancel = { dragDeltaPx = 0f }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
+                val availableHeight = maxHeight
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(180)) + scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.96f),
+                    exit = fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.97f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 44.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(colors.cardBorder)
-                    )
-                }
-
-                // Transparent Top Header
-                if (title != null || onAddClick != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    val shape = RoundedCornerShape(26.dp)
+                    Column(
+                        Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = availableHeight)
+                            .clip(shape).background(colors.cardElevated)
+                            .border(0.8.dp, colors.cardBorder, shape)
+                            .semantics { paneTitle = title }
                     ) {
-                        Text(
-                            text = title.orEmpty(),
-                            color = colors.primaryText,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text(title, color = colors.primaryText, fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f))
                             if (onAddClick != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.card)
-                                        .clickable { onAddClick() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_xvox_add),
-                                        contentDescription = "Add",
-                                        tint = colors.primaryAccent,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                                Icon(painterResource(R.drawable.ic_xvox_add), "Add", tint = colors.primaryAccent,
+                                    modifier = Modifier.size(48.dp).xvoxPressScale(onClick = onAddClick).padding(14.dp))
                             }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.card)
-                                    .clickable { close() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_close),
-                                    contentDescription = "Close",
-                                    tint = colors.primaryText,
-                                    modifier = Modifier.size(15.dp)
-                                )
+                            Box(Modifier.size(48.dp).clip(CircleShape).xvoxPressScale { close() },
+                                contentAlignment = Alignment.Center) {
+                                Icon(painterResource(R.drawable.ic_xvox_close), "Close $title",
+                                    tint = colors.primaryText, modifier = Modifier.size(20.dp))
                             }
                         }
+                        Box(Modifier.fillMaxWidth().height(0.7.dp).background(colors.cardBorder.copy(alpha = 0.55f)))
+                        // Bounded content keeps the header / X visible even for long queues or the keyboard.
+                        Box(Modifier.weight(1f, fill = false).fillMaxWidth().padding(14.dp)) { content() }
+                        if (bottomAction != null) {
+                            Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { bottomAction() }
+                        }
                     }
-                }
-
-                // Main Scrollable / Dynamic Content
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .padding(horizontal = 14.dp, vertical = 4.dp)
-                ) {
-                    content()
-                }
-
-                // Floating Bottom Action Button
-                if (bottomAction != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                    ) {
-                        bottomAction()
-                    }
-                } else {
-                    Spacer(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .height(8.dp)
-                    )
                 }
             }
         }

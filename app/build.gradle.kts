@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.xvox.music"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.xvox.music"
@@ -28,6 +28,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
     implementation(composeBom)
 

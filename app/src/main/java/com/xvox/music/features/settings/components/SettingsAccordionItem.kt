@@ -57,8 +57,8 @@ fun SettingsAccordionItem(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (expanded) colors.cardElevated else colors.card)
             .padding(vertical = 4.dp)
     ) {
         Row(

@@ -32,9 +32,11 @@ fun PlaybackSettingsSection(
     val colors = XvoxTheme.colors
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
+        Spacer(Modifier.height(12.dp))
         SettingsToggle(
             title = "Crossfade",
-            subtitle = "Seamless linear volume crossfade between consecutive tracks",
+            subtitle = "Overlap current + next at equal power, including background playback",
             checked = state.crossfade,
             onChange = viewModel::setCrossfade
         )
@@ -51,6 +53,9 @@ fun PlaybackSettingsSection(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            com.xvox.music.features.settings.components.XvoxThinLineSlider(
+                value = state.crossfadeDuration.toFloat(), valueRange = 1f..12f,
+                onValueChange = { viewModel.setCrossfadeDuration(kotlin.math.round(it).toInt()) })
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)

@@ -1,7 +1,13 @@
 package com.xvox.music.features.settings.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,7 +49,15 @@ fun XvoxThinLineSlider(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(30.dp)
+            .height(44.dp)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(localValue.coerceIn(valueRange), valueRange)
+                setProgress { requested ->
+                    localValue = requested.coerceIn(valueRange)
+                    currentOnValueChange(localValue)
+                    true
+                }
+            }
             .pointerInput(valueRange, defaultValue) {
                 detectTapGestures { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
@@ -56,7 +70,7 @@ fun XvoxThinLineSlider(
                 }
             }
             .pointerInput(valueRange, defaultValue) {
-                detectDragGestures { change, _ ->
+                detectHorizontalDragGestures { change, _ ->
                     change.consume()
                     val newFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
@@ -102,5 +116,9 @@ fun XvoxThinLineSlider(
                 .clip(RoundedCornerShape(2.dp))
                 .background(colors.primaryAccent)
         )
+        Canvas(Modifier.fillMaxWidth().height(30.dp)) {
+            drawCircle(colors.primaryAccent, 6.dp.toPx(), Offset(size.width * fraction, size.height / 2))
+            drawCircle(colors.background, 2.dp.toPx(), Offset(size.width * fraction, size.height / 2))
+        }
     }
 }

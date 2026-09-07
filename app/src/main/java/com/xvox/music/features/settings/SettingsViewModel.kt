@@ -27,6 +27,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
+            launch { prefs.recentsPlacement.collect { v -> _state.update { it.copy(recentsPlacement = v) } } }
+            launch { prefs.eqHeadroomDb.collect { v -> _state.update { it.copy(eqHeadroomDb = v) } } }
+            launch { prefs.surroundDepth.collect { v -> _state.update { it.copy(surroundDepth = v) } } }
             launch { prefs.sortOrder.collect { v -> _state.update { it.copy(sortOrder = v) } } }
 
             launch { prefs.ignoreBelowSec.collect { v -> _state.update { it.copy(ignoreBelowSec = v) } } }
@@ -67,6 +70,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
+    fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }
+    fun setEqHeadroomDb(value: Float) = viewModelScope.launch { prefs.setEqHeadroomDb(value) }
+    fun setSurroundDepth(value: Float) = viewModelScope.launch { prefs.setSurroundDepth(value) }
+    fun setIgnoredFolders(folders: Set<String>) = viewModelScope.launch { prefs.setIgnoredFolders(folders) }
     fun setSortOrder(order: String) = viewModelScope.launch { prefs.setSortOrder(order) }
 
     fun setIgnoreBelowSec(sec: Int) = viewModelScope.launch { prefs.setIgnoreBelowSec(sec) }
@@ -81,8 +88,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBtConnectAction(action: String) = viewModelScope.launch { prefs.setBtConnectAction(action) }
 
     fun setEqualizerEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setEqualizerEnabled(enabled) }
-    fun setEqPreset(preset: String) = viewModelScope.launch { prefs.setEqPreset(preset) }
-    fun setEqBands(bands: List<Int>) = viewModelScope.launch { prefs.setEqBands(bands) }
+    fun setEqPreset(preset: String) = viewModelScope.launch {
+        val bands = com.xvox.music.audio.AudioEffectsManager.PRESETS[preset] ?: _state.value.eqBands
+        _state.update { it.copy(eqPreset = preset, eqBands = bands) }
+        prefs.setEqConfiguration(preset, bands)
+    }
+    fun setEqBands(bands: List<Int>) = viewModelScope.launch {
+        _state.update { it.copy(eqPreset = "Custom", eqBands = bands) }
+        prefs.setEqConfiguration("Custom", bands)
+    }
+    fun setEqBand(index: Int, value: Int) {
+        val bands = _state.value.eqBands.toMutableList()
+        while (bands.size < 5) bands.add(0)
+        if (index !in bands.indices) return
+        bands[index] = value.coerceIn(-12, 12)
+        _state.update { it.copy(eqPreset = "Custom", eqBands = bands.toList()) }
+        viewModelScope.launch { prefs.setEqConfiguration("Custom", bands) }
+    }
     fun setBalance(balance: Float) = viewModelScope.launch { prefs.setBalance(balance) }
     fun setStereoWidening(enabled: Boolean) = viewModelScope.launch { prefs.setStereoWidening(enabled) }
     fun setSurroundPanSpeed(speed: Int) = viewModelScope.launch { prefs.setSurroundPanSpeed(speed) }

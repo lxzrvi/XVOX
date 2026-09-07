@@ -22,7 +22,7 @@ class XvoxArtworkPaletteLoader(
     context: Context
 ) {
     private val appContext = context.applicationContext
-    private val cache = ConcurrentHashMap<String, Color>()
+    companion object { private val cache = android.util.LruCache<String, Color>(256) }
 
     suspend fun load(uri: Uri?): Color {
         if (uri == null) return fallback()
@@ -47,7 +47,7 @@ class XvoxArtworkPaletteLoader(
             } ?: fallback()
         }
 
-        cache[key] = result
+        cache.put(key, result)
         return result
     }
 
@@ -77,66 +77,27 @@ class XvoxArtworkPaletteLoader(
         val height = bitmap.height
         if (width <= 0 || height <= 0) return fallback()
 
-        val sampleStep = max(1, min(width, height) / 32)
-        val hsv = FloatArray(3)
-        var maxScore = -1f
-        var bestColor = 0
-
-        for (y in 0 until height step sampleStep) {
-            for (x in 0 until width step sampleStep) {
-                val pixel = bitmap.getPixel(x, y)
-                val alpha = android.graphics.Color.alpha(pixel)
-                if (alpha < 128) continue
-
-                android.graphics.Color.colorToHSV(pixel, hsv)
-                val hue = hsv[0]
-                val saturation = hsv[1]
-                val value = hsv[2]
-
-                if (value in 0.15f..0.92f && saturation >= 0.20f) {
-                    val score = saturation * 1.6f + (1.0f - abs(value - 0.55f)) * 1.1f
-                    if (score > maxScore) {
-                        maxScore = score
-                        bestColor = pixel
-                    }
-                }
-            }
+        val sampleStep = max(1, min(width, height) / 48)
+        val counts = IntArray(4096)
+        val red = LongArray(4096)
+        val green = LongArray(4096)
+        val blue = LongArray(4096)
+        for (y in 0 until height step sampleStep) for (x in 0 until width step sampleStep) {
+            val pixel = bitmap.getPixel(x, y)
+            if (android.graphics.Color.alpha(pixel) < 128) continue
+            val r = android.graphics.Color.red(pixel)
+            val g = android.graphics.Color.green(pixel)
+            val b = android.graphics.Color.blue(pixel)
+            // Ignore borders / white labels, not large muted areas of real artwork.
+            val value = max(r, max(g, b))
+            if (value < 18 || min(r, min(g, b)) > 242) continue
+            val bin = ((r shr 4) shl 8) or ((g shr 4) shl 4) or (b shr 4)
+            counts[bin]++; red[bin] += r.toLong(); green[bin] += g.toLong(); blue[bin] += b.toLong()
         }
-
-        if (bestColor == 0) {
-            var totalR = 0L
-            var totalG = 0L
-            var totalB = 0L
-            var count = 0
-            for (y in 0 until height step sampleStep) {
-                for (x in 0 until width step sampleStep) {
-                    val pixel = bitmap.getPixel(x, y)
-                    val r = android.graphics.Color.red(pixel)
-                    val g = android.graphics.Color.green(pixel)
-                    val b = android.graphics.Color.blue(pixel)
-                    val lum = (r + g + b) / 3
-                    if (lum in 20..235) {
-                        totalR += r
-                        totalG += g
-                        totalB += b
-                        count++
-                    }
-                }
-            }
-            if (count > 0) {
-                val avgR = (totalR / count).toInt()
-                val avgG = (totalG / count).toInt()
-                val avgB = (totalB / count).toInt()
-                return normalize(Color(avgR, avgG, avgB))
-            }
-            return fallback()
-        }
-
-        val r = android.graphics.Color.red(bestColor)
-        val g = android.graphics.Color.green(bestColor)
-        val b = android.graphics.Color.blue(bestColor)
-
-        return normalize(Color(r, g, b))
+        val best = counts.indices.maxByOrNull { counts[it] } ?: return fallback()
+        val count = counts[best]
+        if (count == 0) return fallback()
+        return normalize(Color((red[best] / count).toInt(), (green[best] / count).toInt(), (blue[best] / count).toInt()))
     }
 
     private fun normalize(source: Color): Color {

@@ -1,5 +1,12 @@
 package com.xvox.music.features.search
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.LaunchedEffect
+import com.xvox.music.features.home.HomeMultiSelectBar
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -104,6 +111,14 @@ fun SearchScreen(
     val overlays = LocalXvoxOverlayController.current
     val scope = rememberCoroutineScope()
 
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val selectedSongs = homeState.songs.filter { it.id in selectedIds }
+    val selecting = selectedIds.isNotEmpty()
+    val topInset = LocalXvoxTopInset.current
+    val bottomInset = LocalXvoxBottomInset.current
+    BackHandler(selecting) { selectedIds = emptySet() }
+    LaunchedEffect(query) { selectedIds = emptySet() }
+    LaunchedEffect(homeState.songs) { selectedIds = selectedIds.intersect(homeState.songs.mapTo(HashSet()) { it.id }) }
     var pendingDelete by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -138,12 +153,16 @@ fun SearchScreen(
         }
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .imePadding(),
-        contentPadding = PaddingValues(top = 4.dp)
-    ) {
+    Column(modifier.fillMaxSize().imePadding()) {
+        if (selecting) {
+            Spacer(Modifier.height(topInset))
+            HomeMultiSelectBar(selectedSongs, null, XvoxHomeLibraryMode.ALL_SONGS, homeViewModel,
+                overlays, context, onClearSelection = { selectedIds = emptySet() })
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = if (selecting) 4.dp else topInset + 4.dp, bottom = bottomInset)
+        ) {
         item(key = "search_header_title") {
             Row(
                 modifier = Modifier
@@ -326,9 +345,14 @@ fun SearchScreen(
                         song = song,
                         current = isCurrent,
                         playing = isPlaying,
+                        selected = song.id in selectedIds,
                         onClick = {
-                            addRecent(query)
-                            playerViewModel.playFromSource(song, filteredSongs, "Search")
+                            if (selecting) selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
+                            else {
+                                addRecent(query)
+                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId)
+                                playerViewModel.playFromSource(song, filteredSongs, "Search")
+                            }
                         },
                         onOptions = {
                             showSongOptionsOverlay(
@@ -343,7 +367,8 @@ fun SearchScreen(
                                 playlists = homeState.playlists,
                                 songs = homeState.songs,
                                 deleteLauncher = deleteLauncher,
-                                onPendingDelete = { pendingDelete = it }
+                                onPendingDelete = { pendingDelete = it },
+                                onSelect = { selectedIds = selectedIds + song.id }
                             )
                         },
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
@@ -361,7 +386,9 @@ fun SearchScreen(
         }
 
         item(key = "search_bottom_spacer") {
-            Spacer(Modifier.height(130.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
+}
+
 }

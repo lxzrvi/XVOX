@@ -17,13 +17,13 @@ fun showCreatePlaylistOverlay(
     songs: List<Song>,
     initialSong: Song? = null
 ) {
-    overlays.showL {
+    overlays.showBox("Create playlist") {
         CreatePlaylistBox(
             songs = songs,
             initialSong = initialSong,
             onCreate = { name, ids ->
                 viewModel.createPlaylist(name, ids) { playlist ->
-                    overlays.hideL()
+                    overlays.hideBox()
                     if (playlist != null) {
                         overlays.showP("Playlist created")
                     }
@@ -40,7 +40,7 @@ fun showPlaylistPickerOverlay(
     playlists: List<XvoxPlaylist>,
     songs: List<Song>
 ) {
-    overlays.showL {
+    overlays.showBox("Add to playlist") {
         PlaylistPickerBox(
             song = song,
             playlists = playlists,
@@ -48,7 +48,7 @@ fun showPlaylistPickerOverlay(
             onAdd = { playlist ->
                 viewModel.addToPlaylist(playlist.id, song) { updated ->
                     if (updated != null) {
-                        overlays.hideL()
+                        overlays.hideBox()
                         overlays.showP("Added to ${updated.name}")
                     }
                 }
@@ -56,7 +56,7 @@ fun showPlaylistPickerOverlay(
             onRemove = { playlist ->
                 viewModel.removeFromPlaylist(playlist.id, song) { updated ->
                     if (updated != null) {
-                        overlays.hideL()
+                        overlays.hideBox()
                         overlays.showP("Removed from ${updated.name}")
                     }
                 }
@@ -76,33 +76,33 @@ fun showDeleteOverlay(
     deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
     onPendingDelete: (Song) -> Unit
 ) {
-    overlays.showL {
+    overlays.showBox("Remove song") {
         DeleteSongBox(
             song = song,
             onRemoveApp = {
                 playerViewModel.removeFromQueue(song.id)
                 viewModel.hideSong(song)
-                overlays.hideL()
+                overlays.hideBox()
                 overlays.showP("Removed from XVOX")
             },
             onDeleteDevice = {
-                overlays.showL {
+                overlays.showBox("Delete from device?") {
                     ConfirmDeviceDeleteBox(
                         song = song,
-                        onCancel = overlays::hideL,
+                        onCancel = overlays::hideBox,
                         onDelete = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 val pending = XvoxSongActions.deletePendingIntent(context, song)
                                 if (pending != null) {
                                     onPendingDelete(song)
-                                    overlays.hideL()
+                                    overlays.hideBox()
                                     deleteLauncher.launch(
                                         IntentSenderRequest.Builder(pending.intentSender).build()
                                     )
                                 }
                             } else {
                                 val deleted = XvoxSongActions.deleteLegacy(context, song)
-                                overlays.hideL()
+                                overlays.hideBox()
                                 if (deleted) {
                                     playerViewModel.removeFromQueue(song.id)
                                     viewModel.refresh()
@@ -129,31 +129,33 @@ fun showSongOptionsOverlay(
     playlists: List<XvoxPlaylist>,
     songs: List<Song>,
     deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
-    onPendingDelete: (Song) -> Unit
+    onPendingDelete: (Song) -> Unit,
+    onSelect: (() -> Unit)? = null
 ) {
-    overlays.showL {
-        SongOptionsSheet(
+    overlays.showBox("Song options") {
+        SongOptionsBox(
             song = song,
             liked = isLiked,
+            onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
             playlistName = playlist?.name,
             onPlayNext = {
                 playerViewModel.playNextInQueue(song)
-                overlays.hideL()
+                overlays.hideBox()
                 overlays.showP("Playing next")
             },
             onAddQueue = {
                 playerViewModel.addToQueue(song)
-                overlays.hideL()
+                overlays.hideBox()
                 overlays.showP("Added to queue")
             },
             onPlaylist = {
-                overlays.hideL()
+                overlays.hideBox()
                 showPlaylistPickerOverlay(overlays, viewModel, song, playlists, songs)
             },
             onRemovePlaylist = playlist?.let { target ->
                 {
                     viewModel.removeFromPlaylist(target.id, song) {
-                        overlays.hideL()
+                        overlays.hideBox()
                         overlays.showP("Removed from ${target.name}")
                     }
                 }
@@ -161,27 +163,27 @@ fun showSongOptionsOverlay(
             onRemoveRecent = if (recent) {
                 {
                     viewModel.removeFromRecent(song)
-                    overlays.hideL()
+                    overlays.hideBox()
                     overlays.showP("Removed from recent")
                 }
             } else null,
             onLiked = {
                 viewModel.toggleLiked(song)
-                overlays.hideL()
+                overlays.hideBox()
                 overlays.showP(if (isLiked) "Removed from liked" else "Added to liked")
             },
             onDelete = {
-                overlays.hideL()
+                overlays.hideBox()
                 showDeleteOverlay(overlays, context, song, playerViewModel, viewModel, deleteLauncher, onPendingDelete)
             },
             onInfo = {
-                overlays.hideL()
+                overlays.hideBox()
                 viewModel.loadInfo(song) { info ->
-                    overlays.showL { SongInfoBox(info) }
+                    overlays.showBox("Song info") { SongInfoBox(info) }
                 }
             },
             onRingtone = {
-                overlays.hideL()
+                overlays.hideBox()
                 if (XvoxSongActions.canWriteSettings(context)) {
                     val success = XvoxSongActions.setRingtone(context, song)
                     overlays.showP(if (success) "Ringtone set" else "Couldn't set ringtone")
@@ -191,7 +193,7 @@ fun showSongOptionsOverlay(
                 }
             },
             onShare = {
-                overlays.hideL()
+                overlays.hideBox()
                 XvoxSongActions.share(context, song)
             }
         )

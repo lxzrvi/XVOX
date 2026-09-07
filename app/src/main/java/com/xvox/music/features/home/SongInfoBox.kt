@@ -1,5 +1,7 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,7 +25,7 @@ fun SongInfoBox(
 
     Column(
         modifier =
-            Modifier.fillMaxWidth()
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "Song info",

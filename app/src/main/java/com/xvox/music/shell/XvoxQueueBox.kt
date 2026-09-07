@@ -1,5 +1,7 @@
 package com.xvox.music.shell
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -48,7 +50,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.delay
 
 @Composable
-fun XvoxQueueSheetContent(
+fun XvoxQueueBoxContent(
     queue: List<Song>,
     currentSongId: Long?,
     onPlayIndex: (Int) -> Unit,
@@ -59,13 +61,17 @@ fun XvoxQueueSheetContent(
     val density = LocalDensity.current
     val slotHeightPx = with(density) { 56.dp.toPx() }
 
-    val localQueue = remember(queue) {
+    val localQueue = remember {
         mutableStateListOf<Song>().apply { addAll(queue) }
     }
 
     var draggingSongId by remember { mutableStateOf<Long?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var autoScrollDirection by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(queue, draggingSongId) {
+        if (draggingSongId == null && localQueue.toList() != queue) { localQueue.clear(); localQueue.addAll(queue) }
+    }
 
     LaunchedEffect(draggingSongId, autoScrollDirection) {
         if (draggingSongId == null || autoScrollDirection == 0) return@LaunchedEffect
@@ -107,7 +113,7 @@ fun XvoxQueueSheetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Playing Queue (${localQueue.size})",
+                text = "${localQueue.size} songs",
                 color = colors.primaryText,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
@@ -133,6 +139,7 @@ fun XvoxQueueSheetContent(
             itemsIndexed(items = localQueue, key = { _, song -> song.id }) { _, song ->
                 val isCurrent = song.id == currentSongId
                 val isDragging = song.id == draggingSongId
+                val cardColor = rememberSongCardColor(song, isCurrent)
 
                 Row(
                     modifier = Modifier
@@ -149,7 +156,7 @@ fun XvoxQueueSheetContent(
                         .background(
                             when {
                                 isDragging -> colors.cardElevated
-                                isCurrent -> colors.card.copy(alpha = 0.95f)
+                                isCurrent -> cardColor
                                 else -> colors.cardElevated.copy(alpha = 0.40f)
                             }
                         )
@@ -207,16 +214,10 @@ fun XvoxQueueSheetContent(
                                 }
                             )
                         }
-                        .clickable(
-                            enabled = draggingSongId == null,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
+                        .xvoxSongPress(onClick = {
                             val index = localQueue.indexOfFirst { it.id == song.id }
-                            if (index >= 0) {
-                                onPlayIndex(index)
-                            }
-                        }
+                            if (index >= 0 && draggingSongId == null) onPlayIndex(index)
+                        })
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

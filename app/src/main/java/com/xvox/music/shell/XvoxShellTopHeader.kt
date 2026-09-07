@@ -60,7 +60,7 @@ fun XvoxShellTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Transparent)
+            .background(colors.surface.copy(alpha = com.xvox.music.core.ui.navigation.XvoxChrome.GlassAlpha))
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(bottom = 6.dp)
     ) {
