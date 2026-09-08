@@ -18,7 +18,13 @@ data class EnergyEnvelope(val startMs: Long, val hopMs: Long, val levels: List<F
     }
 }
 data class TrackBlendProfile(val beats: BeatGrid?, val energy: EnergyEnvelope)
-data class EnergyBlendPlan(val startPositionMs: Long, val overlapMs: Long, val handoff: Float = .5f, val beatAligned: Boolean = false)
+data class EnergyBlendPlan(
+    val startPositionMs: Long, val overlapMs: Long, val handoff: Float = .5f, val beatAligned: Boolean = false,
+    /** Silence to skip at the head of the incoming track, so a quiet intro never becomes a hole. */
+    val leadInMs: Long = 0,
+    /** Level match applied to the incoming deck during the blend. 1 = no correction. */
+    val incomingTrim: Float = 1f
+)
 
 /** Match quiet/high-energy regions locally, then hand the bass from one track to the other. */
 object EnergyBlendPlanner {
@@ -52,7 +58,41 @@ object EnergyBlendPlanner {
             val cost = collision / 48 + quiet * .16 + (start - normalStart).toDouble() / window * .22 - if (beatAligned) .12 else 0.0
             if (cost < bestCost) { bestCost = cost; best = EnergyBlendPlan(start, length, handoff, beatAligned) }
         }
-        return best
+        // Two touches that make the join read as one continuous song rather than two tracks:
+        // skip the incoming track's silent head, and match its level to the outgoing tail.
+        return best?.let { plan ->
+            val lead = leadIn(incoming)
+            plan.copy(leadInMs = lead, incomingTrim = levelTrim(out, incoming, plan, lead))
+        }
+    }
+
+    /**
+     * Perceived-level match.
+     *
+     * Without this, a quiet outro followed by a loud intro produces an obvious step even though
+     * the gain curve is mathematically constant power. Comparing the two envelopes across the
+     * overlap and trimming the incoming deck removes that step.
+     */
+    fun levelTrim(out: TrackBlendProfile, incoming: TrackBlendProfile, plan: EnergyBlendPlan, leadInMs: Long = 0): Float {
+        val samples = 24
+        var outgoingSum = 0f
+        var incomingSum = 0f
+        repeat(samples) { i ->
+            val t = (i + 1f) / (samples + 1f)
+            outgoingSum += out.energy.at(plan.startPositionMs + (plan.overlapMs * t).toLong())
+            incomingSum += incoming.energy.at(leadInMs + (plan.overlapMs * t).toLong())
+        }
+        if (outgoingSum <= .3f || incomingSum <= .3f) return 1f
+        return (outgoingSum / incomingSum).coerceIn(.7f, 1.45f)
+    }
+
+    /** Where the incoming track actually becomes audible, capped so a slow fade-in is kept. */
+    fun leadIn(incoming: TrackBlendProfile, limitMs: Long = 2500): Long {
+        val hop = incoming.energy.hopMs.coerceAtLeast(1)
+        val maxSamples = (limitMs / hop).toInt().coerceAtMost(incoming.energy.levels.size)
+        if (maxSamples <= 1) return 0
+        val index = incoming.energy.levels.subList(0, maxSamples).indexOfFirst { it > .04f }
+        return if (index <= 1) 0 else ((index - 1) * hop).coerceAtLeast(0)
     }
     fun gains(progress: Float, handoff: Float, smart: Boolean): CrossfadeGains {
         val p = progress.coerceIn(0f, 1f)

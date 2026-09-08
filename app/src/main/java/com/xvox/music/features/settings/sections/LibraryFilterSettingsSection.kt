@@ -42,10 +42,10 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPreviewFrame("Library preview") {
             Text("${library.songs.size} visible songs", color = colors.primaryAccent, fontWeight = FontWeight.Bold)
-            Text("${folders.sumOf { it.songCount } - library.songs.size} hidden by filters / app exclusions",
+            Text("${folders.sumOf { it.songCount } - library.songs.size} filtered out",
                 color = colors.secondaryText, fontSize = 12.sp)
         }
-        Text("Ignore audio shorter than", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
+        Text("Minimum length", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
         SettingsChoiceRow(listOf("0" to "Off", "15" to "15s", "30" to "30s", "60" to "1m", "custom" to "Custom"),
             if (state.ignoreBelowSec in listOf(0, 15, 30, 60)) state.ignoreBelowSec.toString() else "custom") { value ->
             if (value == "custom") overlays.showBox("Custom minimum duration") {
@@ -54,8 +54,7 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
                 }
             } else viewModel.setIgnoreBelowSec(value.toInt())
         }
-        Text("Current minimum: ${state.ignoreBelowSec} seconds", color = colors.secondaryText, fontSize = 11.sp)
-        Text("Ignore files smaller than", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
+        Text("Minimum size", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
         SettingsChoiceRow(listOf("0" to "Off", "100" to "100 KB", "500" to "500 KB", "1024" to "1 MB", "custom" to "Custom"),
             if (state.ignoreBelowKb in listOf(0, 100, 500, 1024)) state.ignoreBelowKb.toString() else "custom") { value ->
             if (value == "custom") overlays.showBox("Custom minimum file size") {
@@ -64,8 +63,6 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
                 }
             } else viewModel.setIgnoreBelowKb(value.toInt())
         }
-        Text("Current minimum: ${state.ignoreBelowKb} KB · Exactly equal values are kept",
-            color = colors.secondaryText, fontSize = 11.sp)
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.card)
             .xvoxPressScale {
                 overlays.showBox("Exclude folders") {
@@ -79,8 +76,8 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
             }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_xvox_folder), null, tint = colors.primaryAccent, modifier = Modifier.size(24.dp))
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text("Browse device audio folders", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("${state.ignoredFolders.size} excluded · Check folders to hide their songs", color = colors.secondaryText, fontSize = 11.sp)
+                Text("Folders", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("${state.ignoredFolders.size} excluded", color = colors.secondaryText, fontSize = 11.sp)
             }
             Icon(painterResource(R.drawable.ic_xvox_caret_right), "Open folder browser", tint = colors.secondaryText, modifier = Modifier.size(18.dp))
         }

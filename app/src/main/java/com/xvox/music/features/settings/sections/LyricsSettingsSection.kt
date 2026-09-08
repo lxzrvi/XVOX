@@ -1,7 +1,10 @@
 package com.xvox.music.features.settings.sections
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,51 +13,102 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.*
-import com.xvox.music.player.nowplaying.lyrics.LyricPresentationLine
-import com.xvox.music.player.nowplaying.lyrics.lyricsEdgeFade
 import kotlin.math.roundToInt
 
+/**
+ * Lyrics settings with a full-screen preview: the whole lyrics view at the phone's real
+ * proportions, scaled to fit, so fade zones, sizes and the chosen animation are seen in context
+ * rather than through a small window.
+ */
 @Composable
 fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
+    val configuration = LocalConfiguration.current
     val loop = rememberInfiniteTransition(label = "lyricsLayoutDemo")
     val time by loop.animateFloat(0f, 12000f, infiniteRepeatable(tween(12000, easing = LinearEasing)), label = "demoTime")
-    val active = (((time - settings.offsetMs + 9000) % 9000) / 3000).toInt().coerceIn(0, 2)
+
     PinnedSettingsEditor(preview = {
-        SettingsPreviewFrame("Lyrics · layout sample") {
-            val demo = remember { com.xvox.music.player.nowplaying.lyrics.XvoxLyrics(
-                (0..4).map { com.xvox.music.player.nowplaying.lyrics.XvoxLyricLine(it * 2400L, "Line ${'A' + it}") },
-                true, com.xvox.music.player.nowplaying.lyrics.XvoxLyricsSource.USER_TEXT) }
-            Box(Modifier.fillMaxWidth().height(205.dp).clip(RoundedCornerShape(14.dp)).background(colors.background)) {
-                com.xvox.music.player.nowplaying.lyrics.XvoxSyncedLyrics(demo, time.toLong(), {},
-                    settingsOverride = settings, preview = true, textColor = colors.primaryText)
+        SettingsPreviewFrame("Lyrics · full screen") {
+            val demo = remember {
+                com.xvox.music.player.nowplaying.lyrics.XvoxLyrics(
+                    (0..6).map { com.xvox.music.player.nowplaying.lyrics.XvoxLyricLine(it * 2400L, "Lyric line ${it + 1}") },
+                    true, com.xvox.music.player.nowplaying.lyrics.XvoxLyricsSource.USER_TEXT
+                )
             }
-            Text("Five placeholder rows demonstrate the real fade zones and centre motion.", color = colors.secondaryText, fontSize = 10.sp)
+            UniformPreview(
+                configuration.screenWidthDp.dp, configuration.screenHeightDp.dp,
+                Modifier.fillMaxWidth().heightIn(max = 250.dp)
+            ) {
+                Column(Modifier.fillMaxSize().background(colors.background)) {
+                    // Header band, matching the Now Playing chrome above the lyrics.
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 34.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(21.dp)).background(colors.card))
+                        Spacer(Modifier.weight(1f))
+                        Box(Modifier.size(width = 84.dp, height = 42.dp).clip(RoundedCornerShape(21.dp)).background(colors.card))
+                    }
+                    Box(
+                        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(20.dp)).background(colors.card.copy(alpha = .35f))
+                    ) {
+                        com.xvox.music.player.nowplaying.lyrics.XvoxSyncedLyrics(
+                            demo, time.toLong(), {},
+                            settingsOverride = settings, preview = true, textColor = colors.primaryText
+                        )
+                    }
+                    // Controls block underneath, so the fade zones are judged against real chrome.
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                            .background(colors.background.copy(alpha = .35f)).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(Modifier.fillMaxWidth(.6f).height(20.dp).clip(RoundedCornerShape(6.dp)).background(colors.card))
+                        Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(colors.card))
+                        Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(colors.card))
+                    }
+                }
+            }
         }
     }, controls = {
-        Text("Timing: ${if (settings.offsetMs == 0) "Original" else if (settings.offsetMs > 0) "Delay +${settings.offsetMs} ms" else "Advance ${-settings.offsetMs} ms"}", color = colors.primaryText, fontSize = 12.sp)
+        Label(if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms")
         XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = (v / 50).roundToInt() * 50) } }, -5000f..5000f, defaultValue = 0f)
-        Text("Positive values display lyrics later. Negative values show them earlier. Applies to all songs.", color = colors.secondaryText, fontSize = 10.sp)
-        Text("Current line: ${settings.currentSize} sp", color = colors.primaryText, fontSize = 12.sp)
+
+        Label("Current line ${settings.currentSize}")
         XvoxThinLineSlider(settings.currentSize.toFloat(), { v -> viewModel.updateLyrics { it.copy(currentSize = v.roundToInt()) } }, 16f..42f)
-        Text("Other lines: ${settings.otherSize} sp", color = colors.primaryText, fontSize = 12.sp)
+
+        Label("Other lines ${settings.otherSize}")
         XvoxThinLineSlider(settings.otherSize.toFloat(), { v -> viewModel.updateLyrics { it.copy(otherSize = v.roundToInt()) } }, 10f..30f)
-        Text("Fade from top: ${(settings.fadeTop * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+
+        Label("Top fade ${(settings.fadeTop * 100).roundToInt()}%")
         XvoxThinLineSlider(settings.fadeTop, { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
-        Text("Fade from bottom: ${(settings.fadeBottom * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+
+        Label("Bottom fade ${(settings.fadeBottom * 100).roundToInt()}%")
         XvoxThinLineSlider(settings.fadeBottom, { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
-        SettingsChoiceRow(listOf("fade" to "Soft fade", "slide" to "Slide", "focus" to "Focus zoom", "glide" to "Glide", "spring" to "Spring"), settings.animation) { value ->
-            viewModel.updateLyrics { it.copy(animation = value) }
-        }
-        SettingsChoiceRow(listOf("reset" to "Reset lyrics settings", "timing" to "Reset timing"), "") {
-            key -> viewModel.updateLyrics { if (key == "timing") it.copy(offsetMs = 0) else com.xvox.music.data.preferences.LyricsSettings() }
+
+        Label("Animation")
+        SettingsChoiceRow(
+            listOf("fade" to "Fade", "slide" to "Slide", "focus" to "Zoom", "glide" to "Glide", "spring" to "Spring"),
+            settings.animation
+        ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
+
+        SettingsChoiceRow(listOf("reset" to "Reset all", "timing" to "Reset timing"), "") { key ->
+            viewModel.updateLyrics { if (key == "timing") it.copy(offsetMs = 0) else com.xvox.music.data.preferences.LyricsSettings() }
         }
     })
+}
+
+@Composable
+private fun Label(text: String) {
+    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }

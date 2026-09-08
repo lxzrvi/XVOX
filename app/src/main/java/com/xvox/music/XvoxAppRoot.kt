@@ -11,7 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -25,6 +28,7 @@ import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.SetupScreen
+import kotlinx.coroutines.delay
 
 @Composable
 fun XvoxAppRoot(
@@ -32,15 +36,46 @@ fun XvoxAppRoot(
 ) {
     val state by viewModel.state.collectAsState()
     val minimumReady by viewModel.minimumReady.collectAsState()
+    val progress by viewModel.progress.collectAsState()
+    val stage by viewModel.stage.collectAsState()
     val splitCatalogue by com.xvox.music.split.XvoxSplitRepository.state.collectAsState()
     val preparing = state == AppUiState.Preparing || state == AppUiState.Home
     val homeVm: com.xvox.music.features.home.HomeViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val library = homeVm?.state?.collectAsState()?.value
     val player = playerVm?.state?.collectAsState()?.value
-    LaunchedEffect(minimumReady, library?.startupReady, player?.connected, splitCatalogue.initialized) {
-        if (minimumReady && library?.startupReady == true && player?.connected == true && splitCatalogue.initialized) viewModel.onHomeReady()
+
+    // Report each real milestone so the bar advances for a reason, not on a timer.
+    LaunchedEffect(library?.songs?.isNotEmpty()) {
+        if (library?.songs?.isNotEmpty() == true) viewModel.report(0.42f, "Sorting your songs")
     }
+    LaunchedEffect(library?.startupReady) {
+        if (library?.startupReady == true) viewModel.report(0.68f, "Warming up artwork")
+    }
+    LaunchedEffect(player?.connected) {
+        if (player?.connected == true) viewModel.report(0.80f, "Connecting playback")
+    }
+    LaunchedEffect(splitCatalogue.initialized) {
+        if (splitCatalogue.initialized) viewModel.report(0.86f, "Loading XvoxSplit catalogue")
+    }
+
+    val dataReady = minimumReady && library?.startupReady == true &&
+        player?.connected == true && splitCatalogue.initialized
+
+    // Mount the shell UNDER the loading screen first. Loading only lifts once the real layout
+    // has actually been measured and drawn, so Home is never revealed half-built.
+    var shellMounted by remember { mutableStateOf(false) }
+    LaunchedEffect(dataReady) { if (dataReady) shellMounted = true }
+    LaunchedEffect(shellMounted) {
+        if (!shellMounted) return@LaunchedEffect
+        viewModel.report(0.93f, "Building your Home")
+        // Three frames: compose, measure/place, first draw of the mosaic pages.
+        repeat(3) { withFrameNanos { } }
+        delay(60)
+        viewModel.report(1f, "Ready")
+        viewModel.onHomeReady()
+    }
+
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
@@ -69,10 +104,20 @@ fun XvoxAppRoot(
             LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                when {
-                    !minimumReady || state == AppUiState.Loading || state == AppUiState.Preparing -> XvoxStartupLoadingScreen()
-                    state == AppUiState.Setup -> SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                    state == AppUiState.Home && homeVm != null && playerVm != null -> XvoxMainShell(homeVm, playerVm)
+                if (state == AppUiState.Setup) {
+                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                } else {
+                    if (shellMounted && homeVm != null && playerVm != null) {
+                        XvoxMainShell(homeVm, playerVm)
+                    }
+
+                    AnimatedVisibility(
+                        visible = state != AppUiState.Home,
+                        enter = fadeIn(tween(120)),
+                        exit = fadeOut(tween(260))
+                    ) {
+                        XvoxStartupLoadingScreen(progress = progress, stage = stage)
+                    }
                 }
 
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())

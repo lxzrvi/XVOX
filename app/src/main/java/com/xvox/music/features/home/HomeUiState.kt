@@ -15,6 +15,8 @@ data class HomeUiState(
         emptyList(),
     val recentlyPlayed: List<Song> =
         emptyList(),
+    /** songId -> where it was started from ("Liked Songs", a playlist name, "All Songs", "XvoxSplit"). */
+    val recentSources: Map<Long, String> = emptyMap(),
     val profile: UserPreferences =
         UserPreferences(),
     val libraryMode:

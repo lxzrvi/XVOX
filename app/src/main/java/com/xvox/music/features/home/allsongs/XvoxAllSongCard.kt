@@ -108,7 +108,8 @@ fun XvoxAllSongCard(
         ) {
             Text(
                 text = song.title,
-                color = colors.primaryText,
+                // The card of the song that is currently playing wears the accent colour.
+                color = if (current) colors.primaryAccent else colors.primaryText,
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
                 fontWeight = FontWeight.Bold,

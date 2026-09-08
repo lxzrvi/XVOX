@@ -55,6 +55,8 @@ fun XvoxRecentArtwork(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     animateEntrance: Boolean = false,
+    source: String? = null,
+    onSourceClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -92,6 +94,15 @@ fun XvoxRecentArtwork(
                     )
                 )
         )
+
+        // Origin badge, top-left: tapping it names the collection in the XVOX pill.
+        if (onSourceClick != null) {
+            RecentSourceBadge(
+                source = source,
+                onClick = onSourceClick,
+                modifier = Modifier.align(Alignment.TopStart).padding(9.dp)
+            )
+        }
 
         Text(
             text = song.title,

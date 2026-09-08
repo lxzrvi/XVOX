@@ -26,6 +26,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.splitShowPill.collect { v -> _state.update { it.copy(splitShowPill = v) } } }
             launch { prefs.splitHideCollection.collect { v -> _state.update { it.copy(splitHideCollection = v) } } }
             launch { prefs.playlistStyle.collect { v -> _state.update { it.copy(playlistStyle = v) } } }
+            launch { prefs.playlistLongHeight.collect { v -> _state.update { it.copy(playlistLongHeight = v) } } }
             launch { prefs.homeMerge.collect { v -> _state.update { it.copy(homeMerge = v) } } }
             launch { prefs.homeSectionOrder.collect { v -> _state.update { it.copy(homeSectionOrder = v) } } }
             launch { prefs.homeHiddenSections.collect { v -> _state.update { it.copy(homeHiddenSections = v) } } }
@@ -95,6 +96,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSplitShowPill(v: Boolean) = viewModelScope.launch { prefs.setSplitShowPill(v) }
     fun setSplitHideCollection(v: Boolean) = viewModelScope.launch { prefs.setSplitHideCollection(v) }
     fun setPlaylistStyle(v: String) = viewModelScope.launch { prefs.setPlaylistStyle(v) }
+    fun setPlaylistLongHeight(v: Int) = viewModelScope.launch { prefs.setPlaylistLongHeight(v) }
     fun setHomeMerge(value: Boolean) = viewModelScope.launch { prefs.setHomeMerge(value) }
     fun moveHomeSection(from: Int, to: Int) = viewModelScope.launch {
         val order = _state.value.homeSectionOrder.toMutableList()

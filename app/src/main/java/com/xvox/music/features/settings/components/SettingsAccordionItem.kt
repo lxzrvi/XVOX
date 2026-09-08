@@ -1,15 +1,16 @@
 package com.xvox.music.features.settings.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,11 +36,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 
+private val XvoxSettingsEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
+
+/**
+ * A settings row is a label and a chevron — nothing else.
+ *
+ * Descriptions were removed on purpose: the control below the label already explains itself, and
+ * a wall of grey text is what made this screen feel heavy.
+ */
 @Composable
 fun SettingsAccordionItem(
     title: String,
-    subtitle: String,
     iconRes: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
@@ -49,8 +58,18 @@ fun SettingsAccordionItem(
     val colors = XvoxTheme.colors
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(220),
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
         label = "accordion_chevron"
+    )
+    val surface by animateColorAsState(
+        targetValue = if (expanded) colors.cardElevated else colors.card,
+        animationSpec = tween(220, easing = XvoxSettingsEasing),
+        label = "accordion_surface"
+    )
+    val accent by animateColorAsState(
+        targetValue = if (expanded) colors.primaryAccent else colors.primaryText,
+        animationSpec = tween(220, easing = XvoxSettingsEasing),
+        label = "accordion_accent"
     )
 
     Column(
@@ -58,19 +77,19 @@ fun SettingsAccordionItem(
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(if (expanded) colors.cardElevated else colors.card)
+            .background(surface)
             .padding(vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onToggle() }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .xvoxPressScale(pressedScale = 0.985f, onClick = onToggle)
+                .padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(if (expanded) colors.primaryAccent.copy(alpha = 0.15f) else colors.cardElevated),
                 contentAlignment = Alignment.Center
@@ -78,30 +97,20 @@ fun SettingsAccordionItem(
                 Icon(
                     painter = painterResource(iconRes),
                     contentDescription = null,
-                    tint = if (expanded) colors.primaryAccent else colors.primaryText,
-                    modifier = Modifier.size(18.dp)
+                    tint = accent,
+                    modifier = Modifier.size(17.dp)
                 )
             }
 
             Spacer(Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = if (expanded) colors.primaryAccent else colors.primaryText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (subtitle.isNotEmpty()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = subtitle,
-                        color = colors.secondaryText,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp
-                    )
-                }
-            }
+            Text(
+                text = title,
+                color = accent,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
 
             Icon(
                 painter = painterResource(R.drawable.ic_xvox_caret_right),
@@ -115,13 +124,13 @@ fun SettingsAccordionItem(
 
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(tween(240)) + fadeIn(tween(200)),
-            exit = shrinkVertically(tween(200)) + fadeOut(tween(160))
+            enter = expandVertically(tween(260, easing = XvoxSettingsEasing)) + fadeIn(tween(200, delayMillis = 60)),
+            exit = shrinkVertically(tween(200, easing = XvoxSettingsEasing)) + fadeOut(tween(120))
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp, top = 4.dp)
+                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp, top = 2.dp)
             ) {
                 Box(
                     modifier = Modifier

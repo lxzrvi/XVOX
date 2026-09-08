@@ -80,17 +80,31 @@ fun showDeleteOverlay(
         DeleteSongBox(
             song = song,
             onRemoveApp = {
-                playerViewModel.removeFromQueue(song.id)
-                viewModel.hideSong(song)
-                overlays.hideBox()
-                overlays.showP("Removed from XVOX")
+                // Same confirmation shape as leaving the app.
+                overlays.showBox("Delete from XVOX?") {
+                    com.xvox.music.shell.XvoxConfirmBox(
+                        question = "Delete \"${song.title}\" from XVOX?",
+                        detail = "It moves to Settings › Deleted songs. The file stays on your device.",
+                        confirmLabel = "Delete",
+                        onConfirm = {
+                            playerViewModel.removeFromQueue(song.id)
+                            viewModel.hideSong(song)
+                            overlays.hideBox()
+                            overlays.showP("Moved to Deleted songs")
+                        },
+                        onCancel = overlays::hideBox
+                    )
+                }
             },
             onDeleteDevice = {
                 overlays.showBox("Delete from device?") {
-                    ConfirmDeviceDeleteBox(
-                        song = song,
+                    com.xvox.music.shell.XvoxConfirmBox(
+                        question = "Permanently delete \"${song.title}\"?",
+                        detail = "The file is removed from storage. This cannot be undone.",
+                        confirmLabel = "Delete",
+                        danger = true,
                         onCancel = overlays::hideBox,
-                        onDelete = {
+                        onConfirm = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 val pending = XvoxSongActions.deletePendingIntent(context, song)
                                 if (pending != null) {

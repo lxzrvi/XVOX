@@ -10,12 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.HomePresentation
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.roundToInt
 
 @Composable
 fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
@@ -33,11 +35,11 @@ fun LazyListScope.allSongsItems(
     currentSongId: Long?, isPlaying: Boolean, selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit, onSongLongClick: (Song) -> Unit, onPrefetch: (Int) -> Unit
 ) {
-    item(key = "all_header") { AllSongsHeader(songs.size, selectedSongIds.size) }
+    item(key = "all_header", contentType = "all_header") { AllSongsHeader(songs.size, selectedSongIds.size) }
     if (songs.isEmpty()) item(key = "all_empty") {
         Text("No songs match your library filters", color = XvoxTheme.colors.secondaryText,
             fontSize = 13.sp, modifier = Modifier.padding(16.dp))
-    } else if (config.direction == "horizontal") item(key = "all_horizontal") {
+    } else if (config.direction == "horizontal") item(key = "all_horizontal", contentType = "mosaic_pager") {
         HorizontalSongPages(songs, plans, config, currentSongId, isPlaying, selectedSongIds,
             onSongClick, onSongLongClick, onPrefetch)
     } else items(plans, key = { "all_page_${it.startIndex}" }, contentType = { "mosaic_page" }) { plan ->
@@ -62,10 +64,14 @@ fun HorizontalSongPages(
         }
     }
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val renderConfig = if (config.style == "mosaic2") config.copy(rows = mosaicRows(songs.size, config.rows)) else config
+        // Row count is fixed for the pager, so every page — including the last — fills the frame.
+        val rows = remember(songs.size, config.rows, config.style) {
+            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(3, 8)
+        }
+        val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp
         val unitHeight = (pageWidth - 18.dp) / 4 + 38.dp
-        val pageHeight = unitHeight * renderConfig.rows + 6.dp * (renderConfig.rows - 1)
+        val pageHeight = unitHeight * rows + 6.dp * (rows - 1)
         // Original native horizontal scrolling. No diagonal/free-pan gesture interceptor.
         LazyRow(state = state, modifier = Modifier.fillMaxWidth().height(pageHeight),
             contentPadding = PaddingValues(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -87,31 +93,52 @@ fun XvoxSongGridPage(
 ) {
     val uniform = config.style == "uniform"
     val classic = config.style == "mosaic1"
-    val page = remember(songs, plan, config.rows, uniform, classic) {
-        buildMosaicPage(songs, plan, config.rows, uniform, classic)
+    // Paged mode fills the whole grid; flowing mode lets a short page claim fewer rows.
+    val page = remember(songs, plan, config.rows, uniform, classic, compact) {
+        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = !compact)
     }
+    val usedRows = remember(page, compact, config.rows) {
+        if (compact) page.tiles.maxOfOrNull { it.y + it.height } ?: 0f else config.rows.toFloat()
+    }
+    // Click handlers are hoisted once per page so a scroll never rebuilds every card's lambda.
+    val click by rememberUpdatedState(onSongClick)
+    val longClick by rememberUpdatedState(onSongLongClick)
+
     BoxWithConstraints(modifier) {
         val gap = 6.dp
         val unitWidth = (maxWidth - gap * 3) / 4
         val unitHeight = unitWidth + 38.dp
-        val usedRows = if (compact) page.tiles.maxOfOrNull { it.y + it.height } ?: 0f else config.rows.toFloat()
         val height = unitHeight * usedRows + gap * (usedRows - 1).coerceAtLeast(0f)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val stepX = with(density) { (unitWidth + gap).toPx() }
+        val stepY = with(density) { (unitHeight + gap).toPx() }
+
         Box(Modifier.fillMaxWidth().height(height)) {
-            page.tiles.forEach { tile -> key(tile.song.id) {
-                val tileModifier = Modifier.offset((unitWidth + gap) * tile.x, (unitHeight + gap) * tile.y)
-                    .size(unitWidth * tile.width + gap * (tile.width - 1), unitHeight * tile.height + gap * (tile.height - 1))
-                if (uniform || (classic && tile.width == 1f && tile.height == 1f)) {
-                    XvoxAllSongCard(tile.song, currentSongId == tile.song.id, currentSongId == tile.song.id && isPlaying,
-                        onClick = { onSongClick(tile.song) }, onLongClick = { onSongLongClick(tile.song) },
-                        modifier = tileModifier, selected = tile.song.id in selectedSongIds)
-                } else {
-                    XvoxAllSongMosaicCard(tile.song, tile.width, tile.height,
-                        onClick = { onSongClick(tile.song) }, onLongClick = { onSongLongClick(tile.song) },
-                        modifier = tileModifier, current = currentSongId == tile.song.id,
-                        playing = currentSongId == tile.song.id && isPlaying,
-                        selected = tile.song.id in selectedSongIds, styleIndex = tile.style, classic = classic)
+            page.tiles.forEach { tile ->
+                key(tile.song.id) {
+                    // Offsets are applied in the layout phase, so scrolling never triggers a
+                    // recomposition of the card itself — this is what removes the grid jitter.
+                    val tileModifier = Modifier
+                        .offset { IntOffset((stepX * tile.x).roundToInt(), (stepY * tile.y).roundToInt()) }
+                        .size(
+                            unitWidth * tile.width + gap * (tile.width - 1),
+                            unitHeight * tile.height + gap * (tile.height - 1)
+                        )
+                    val song = tile.song
+                    val isCurrent = currentSongId == song.id
+                    if (uniform || (classic && tile.width == 1f && tile.height == 1f)) {
+                        XvoxAllSongCard(song, isCurrent, isCurrent && isPlaying,
+                            onClick = { click(song) }, onLongClick = { longClick(song) },
+                            modifier = tileModifier, selected = song.id in selectedSongIds)
+                    } else {
+                        XvoxAllSongMosaicCard(song, tile.width, tile.height,
+                            onClick = { click(song) }, onLongClick = { longClick(song) },
+                            modifier = tileModifier, current = isCurrent,
+                            playing = isCurrent && isPlaying,
+                            selected = song.id in selectedSongIds, styleIndex = tile.style, classic = classic)
+                    }
                 }
-            } }
+            }
         }
     }
 }

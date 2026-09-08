@@ -180,6 +180,11 @@ fun XvoxMainShell(
                     overlays.hideBox()
                     showCreatePlaylistOverlay(overlays, homeViewModel, homeState.songs, song)
                 },
+                onRemoveFromPlaylist = { playlistId ->
+                    homeViewModel.removeFromPlaylist(playlistId, song) { updated ->
+                        if (updated != null) overlays.showP("Removed from ${updated.name}")
+                    }
+                },
                 onCancel = overlays::hideBox
             )
         }

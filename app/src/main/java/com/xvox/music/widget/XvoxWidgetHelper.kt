@@ -88,7 +88,8 @@ object XvoxWidgetHelper {
             color(c.borderColor, ColorUtils.setAlphaComponent(fg, 50)), c.borderWidth, density,
             photo = if (full) art else null, shade = if (full) c.fullCoverShade else 0f,
             photoKey = state.artworkUri?.toString().orEmpty(), photoOpacity = if (full) 1 - state.transparency else 1f,
-            photoInsetX = if (full) c.coverMarginX + c.coverPaddingX else 0, photoInsetY = if (full) c.coverMarginY + c.coverPaddingY else 0))
+            photoInsetX = if (full) (c.coverMarginX + c.coverPaddingX).coerceAtLeast(0) else 0,
+            photoInsetY = if (full) (c.coverMarginY + c.coverPaddingY).coerceAtLeast(0) else 0))
         val slots = listOf(R.id.widget_top_left, R.id.widget_top_center, R.id.widget_top_right, R.id.widget_bottom_left,
             R.id.widget_bottom_center, R.id.widget_bottom_right, R.id.widget_inline_left, R.id.widget_inline_center,
             R.id.widget_inline_right, R.id.widget_cover_left, R.id.widget_cover_right, R.id.widget_cover_top,
@@ -137,19 +138,24 @@ object XvoxWidgetHelper {
             val child = RemoteViews(context.packageName, imageLayout(coverSide))
             val radius = if (c.coverRadius < 0) (spec.radius - minOf(spec.paddingX, spec.paddingY)).coerceAtLeast(0f) else c.coverRadius.toFloat()
             val paddingX = c.coverPaddingX.coerceAtMost(coverSide / 3); val paddingY = c.coverPaddingY.coerceAtMost(coverSide / 3)
-            val artSide = (coverSide - 2 * maxOf(paddingX, paddingY)).coerceAtLeast(4)
+            val artSide = (coverSide - 2 * maxOf(paddingX, 0) - 2 * maxOf(paddingY, 0) + 2 * minOf(paddingX, paddingY).coerceAtMost(0)).coerceAtLeast(4)
             child.setImageViewBitmap(R.id.widget_item_bg, surface(coverSide, coverSide, radius, background,
                 color(c.coverBorderColor, fg), c.coverBorderWidth, density))
             child.setImageViewBitmap(R.id.widget_item_image, surface(artSide, artSide, (radius - minOf(paddingX, paddingY)).coerceAtLeast(0f), Color.TRANSPARENT,
                 Color.TRANSPARENT, 0f, density, photo = art, photoKey = state.artworkUri.toString()))
-            child.setViewPadding(R.id.widget_item_image, px(paddingX), px(paddingY), px(paddingX), px(paddingY))
+            // Positive values inset the artwork; negative values push it out past the card edge.
+            child.setViewPadding(R.id.widget_item_image, px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)),
+                px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)))
+            applyOffset(child, R.id.widget_item_image, minOf(paddingX, 0), minOf(paddingY, 0))
             if (art == null) {
                 child.setImageViewResource(R.id.widget_item_image, R.drawable.ic_xvox_music_note)
                 child.setInt(R.id.widget_item_image, "setColorFilter", fg)
                 child.setViewPadding(R.id.widget_item_image, px(6), px(6), px(6), px(6))
             }
             val coverSlot = when (coverAt) { "right" -> R.id.widget_cover_right; "top" -> R.id.widget_cover_top; "bottom" -> R.id.widget_cover_bottom; else -> R.id.widget_cover_left }
-            views.setViewPadding(coverSlot, px(c.coverMarginX), px(c.coverMarginY), px(c.coverMarginX), px(c.coverMarginY))
+            views.setViewPadding(coverSlot, px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)),
+                px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)))
+            applyOffset(views, coverSlot, minOf(c.coverMarginX, 0), minOf(c.coverMarginY, 0))
             views.addView(coverSlot, child)
         }
         fun side(id: String): String {
@@ -177,6 +183,7 @@ object XvoxWidgetHelper {
             if (!show) continue
             val text = when (id) { "title" -> state.songTitle; "artist" -> state.songArtist; else -> "X" }
             val child = label(context, style, text, textWidth, fg, density)
+            applyOffset(child, R.id.widget_label_text, style.offsetX, style.offsetY)
             views.addView(when (labelsAt) { "top" -> R.id.widget_labels_top; "bottom" -> R.id.widget_labels_bottom; else -> R.id.widget_meta }, child)
         }
         for (id in visible) {
@@ -211,6 +218,21 @@ object XvoxWidgetHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         views
     }
+    /**
+     * Nudges a view by a dp amount that may be negative.
+     *
+     * View padding clamps at zero, so anything that needs to escape its box has to use a layout
+     * margin. `setViewLayoutMargin` exists from API 31; below that the nudge is simply skipped.
+     */
+    private fun applyOffset(views: RemoteViews, viewId: Int, dx: Int, dy: Int) {
+        if (dx == 0 && dy == 0) return
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_START, dx.toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_END, (-dx).toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_TOP, dy.toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_BOTTOM, (-dy).toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+    }
+
     private fun buttonSlot(row: String, side: String): Int = when (row) {
         "overlay" -> when (side) { "left" -> R.id.widget_overlay_left; "right" -> R.id.widget_overlay_right; else -> R.id.widget_overlay_center }
         "top" -> when (side) { "left" -> R.id.widget_top_left; "center" -> R.id.widget_top_center; else -> R.id.widget_top_right }

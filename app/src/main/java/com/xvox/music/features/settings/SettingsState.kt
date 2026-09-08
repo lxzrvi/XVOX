@@ -16,6 +16,7 @@ data class SettingsState(
     val splitShowPill: Boolean = true,
     val splitHideCollection: Boolean = false,
     val playlistStyle: String = "long",
+    val playlistLongHeight: Int = 0,
     val homeMerge: Boolean = false,
     val homeSectionOrder: List<String> = com.xvox.music.features.home.HomeSections.defaultOrder,
     val homeHiddenSections: Set<String> = emptySet(),

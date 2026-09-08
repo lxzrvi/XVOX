@@ -79,15 +79,29 @@ object XvoxSplitRepository {
                 gateIds = ids.take(2), normalIds = emptySet(), tracks = fresh + old.tracks.filter { it.id !in ids && it.saved }, stage = "Preparing first ${minOf(2, ids.size)} tracks"))
         }
         persist()
-        runCatching {
+        // Prefer the foreground service; if Android refuses it, run the identical pipeline inside
+        // the app instead of failing outright. XvoxSplit no longer depends on the service starting.
+        val started = runCatching {
             ContextCompat.startForegroundService(context, Intent(context, XvoxSplitService::class.java).setAction(XvoxSplitService.START).putExtra("run", run))
-        }.onFailure { stop("Android did not allow background preparation. Open XVOX and try again.") }
+        }.isSuccess
+        if (!started) {
+            notice("Running XvoxSplit inside XVOX; keep the app open")
+            XvoxSplitPipeline.runInProcess(context, run)
+        }
+    }
+
+    /** Fetch the separation model on its own, with no service and no queue involved. */
+    fun downloadModel(context: Context, allowMobile: Boolean) {
+        initialize(context)
+        allowMeteredDownload = allowMobile
+        XvoxSplitPipeline.downloadModel(context, allowMobile)
     }
     fun stop(message: String = "XvoxSplit off; prepared versions are kept") {
         generation.incrementAndGet()
         _state.update { old -> recompute(old.copy(requested = false, running = false, active = false, processingId = null, stage = "Paused",
             tracks = old.tracks.map { if (it.status in setOf(SplitStatus.QUEUED, SplitStatus.DECODING, SplitStatus.SEPARATING)) it.copy(status = SplitStatus.CANCELLED) else it })) }
-        app?.stopService(Intent(app, XvoxSplitService::class.java))
+        XvoxSplitPipeline.cancelInProcess()
+        app?.let { runCatching { it.stopService(Intent(it, XvoxSplitService::class.java)) } }
         notice(message); persist()
     }
     fun onTrackChanged(id: Long?, manual: Boolean) {

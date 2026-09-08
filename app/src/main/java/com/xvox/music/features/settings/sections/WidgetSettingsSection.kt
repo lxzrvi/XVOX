@@ -48,8 +48,8 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
         current.copy(buttons = current.buttons.mapValues { (id, value) -> if (buttonId == "all" || id == buttonId) change(value) else value })
     }
     PinnedSettingsEditor(preview = {
-        SettingsPreviewFrame("Widget · actual layout") {
-            Text("Columns × rows: $columns × $rows", color = colors.primaryText, fontSize = 12.sp)
+        SettingsPreviewFrame("Widget · actual size") {
+            Text("$columns × $rows", color = colors.primaryText, fontSize = 12.sp)
             key(columns, rows) {
                 val views by produceState<RemoteViews?>(null, display) {
                     value = XvoxWidgetHelper.buildRemoteViews(context, display, width, height, interactive = false)
@@ -62,83 +62,96 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                     }
                 }
             }
-            Text("36 preview sizes. Launcher cell sizes vary; small widgets clamp cover/button dimensions to fit. No progress bar.", color = colors.secondaryText, fontSize = 10.sp)
         }
     }, controls = {
-            SettingsChoiceRow((1..6).map { "$it" to "$it columns" }, columns.toString()) { columns = it.toInt() }
-            SettingsChoiceRow((1..6).map { "$it" to "$it rows" }, rows.toString()) { rows = it.toInt() }
+        // Ordered the way the widget is actually built up: size → surface → cover → text →
+        // buttons → install. Each panel only shows what belongs to it.
+        Group("Preview size")
+        SettingsChoiceRow((1..6).map { "$it" to "$it col" }, columns.toString()) { columns = it.toInt() }
+        SettingsChoiceRow((1..6).map { "$it" to "$it row" }, rows.toString()) { rows = it.toInt() }
 
-        SettingsChoiceRow(listOf("general" to "Widget", "cover" to "Cover", "labels" to "Text", "buttons" to "Buttons"), panel) { panel = it }
+        SettingsChoiceRow(listOf("general" to "Surface", "cover" to "Cover", "labels" to "Text", "buttons" to "Buttons"), panel) { panel = it }
+
         when (panel) {
             "general" -> {
+                Group("Theme")
+                SettingsChoiceRow(listOf("Dynamic", "Dark", "AMOLED", "Light", "Glass", "Custom").map { it to it }, state.widgetTheme, viewModel::setWidgetTheme)
+                if (state.widgetTheme == "Custom") WidgetColourEditor("Colour", state.widgetCustomColor, viewModel::setWidgetCustomColor)
+                WidgetSlider("Transparency", state.widgetTransparency * 100, 0f..100f, "%") { viewModel.setWidgetTransparency(it / 100) }
+                WidgetSlider("Corners", state.widgetCornerRadius.toFloat(), 0f..48f, "dp") { viewModel.setWidgetCornerRadius(it.roundToInt()) }
+
+                Group("Spacing")
                 WidgetSlider("Margin X", c.marginX.toFloat(), 0f..32f, "dp") { v -> viewModel.updateWidget { it.copy(marginX = v.roundToInt()) } }
                 WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..32f, "dp") { v -> viewModel.updateWidget { it.copy(marginY = v.roundToInt()) } }
                 WidgetSlider("Padding X", state.widgetPaddingX.toFloat(), 0f..32f, "dp") { viewModel.setWidgetPaddingX(it.roundToInt()) }
                 WidgetSlider("Padding Y", state.widgetPaddingY.toFloat(), 0f..28f, "dp") { viewModel.setWidgetPaddingY(it.roundToInt()) }
-                Text("Content alignment", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf("left", "center", "right").map { it to it }, c.alignment) { value -> viewModel.updateWidget { it.copy(alignment = value) } }
-                Text("Vertical alignment", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf("top", "center", "bottom").map { it to it }, c.verticalAlignment) { value -> viewModel.updateWidget { it.copy(verticalAlignment = value) } }
-                WidgetSlider("Corner radius", state.widgetCornerRadius.toFloat(), 0f..48f, "dp") { viewModel.setWidgetCornerRadius(it.roundToInt()) }
-                WidgetSlider("Widget border", c.borderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Border colour", c.borderColor) { value -> viewModel.updateWidget { it.copy(borderColor = value) } }
-                WidgetSlider("Transparency", state.widgetTransparency * 100, 0f..100f, "%") { viewModel.setWidgetTransparency(it / 100) }
-                SettingsChoiceRow(listOf("Dynamic", "Dark", "AMOLED", "Light", "Glass", "Custom").map { it to it }, state.widgetTheme, viewModel::setWidgetTheme)
-                if (state.widgetTheme == "Custom") WidgetColourEditor("Widget colour", state.widgetCustomColor, viewModel::setWidgetCustomColor)
+
+                Group("Alignment")
+                SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), c.alignment) { value -> viewModel.updateWidget { it.copy(alignment = value) } }
+                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.verticalAlignment) { value -> viewModel.updateWidget { it.copy(verticalAlignment = value) } }
+
+                Group("Border")
+                WidgetSlider("Width", c.borderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Colour", c.borderColor) { value -> viewModel.updateWidget { it.copy(borderColor = value) } }
             }
+
             "cover" -> {
-                SettingsToggle("Full cover", "Fill the widget background with the cover; labels and every button remain editable.", c.fullCover) { enabled -> viewModel.updateWidget { it.copy(fullCover = enabled) } }
-                if (c.fullCover) WidgetSlider("Cover shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> viewModel.updateWidget { it.copy(fullCoverShade = v / 100) } }
-                Text("Separate cover placement", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf("auto", "left", "right", "top", "bottom", "hidden").map { it to it }, c.coverPlacement) { value -> viewModel.updateWidget { it.copy(coverPlacement = value) } }
-                WidgetSlider("Cover margin X", c.coverMarginX.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginX = v.roundToInt()) } }
-                WidgetSlider("Cover margin Y", c.coverMarginY.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginY = v.roundToInt()) } }
-                WidgetSlider("Cover padding X", c.coverPaddingX.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingX = v.roundToInt()) } }
-                WidgetSlider("Cover padding Y", c.coverPaddingY.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingY = v.roundToInt()) } }
-                Text("Cover size", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf(0, 24, 32, 40, 48, 56, 64, 80, 96, 120, 144, 160).map { "$it" to if (it == 0) "Auto" else "$it dp" }, c.coverSize.toString()) { value -> viewModel.updateWidget { it.copy(coverSize = value.toInt()) } }
-                Text("Cover sizes above 48 dp work in taller widgets. A one-row widget still cannot fit a cover taller than its usable height; reduce spacing or select more preview rows.", color = colors.secondaryText, fontSize = 10.sp)
-                SettingsToggle("Follow widget corners", "Use matching inset artwork corners", c.coverRadius < 0) { value -> viewModel.updateWidget { it.copy(coverRadius = if (value) -1 else 12) } }
-                if (c.coverRadius >= 0) WidgetSlider("Cover radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> viewModel.updateWidget { it.copy(coverRadius = v.roundToInt()) } }
-                WidgetSlider("Cover border", c.coverBorderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Cover border colour", c.coverBorderColor) { value -> viewModel.updateWidget { it.copy(coverBorderColor = value) } }
-                if (c.fullCover) Text("Cover margin/padding also inset full-cover artwork. Separate cover size/placement are kept for card mode.", color = colors.secondaryText, fontSize = 10.sp)
+                Group("Mode")
+                SettingsToggle("Full cover", null, c.fullCover) { enabled -> viewModel.updateWidget { it.copy(fullCover = enabled) } }
+                if (c.fullCover) WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> viewModel.updateWidget { it.copy(fullCoverShade = v / 100) } }
+
+                Group("Placement")
+                SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> viewModel.updateWidget { it.copy(coverPlacement = value) } }
+                SettingsChoiceRow(listOf(0, 24, 32, 40, 48, 56, 64, 80, 96, 120, 144, 160).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> viewModel.updateWidget { it.copy(coverSize = value.toInt()) } }
+
+                // Negative values are intentional: the cover may sit outside the widget box.
+                Group("Offset · negative allowed")
+                WidgetSlider("Margin X", c.coverMarginX.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginX = v.roundToInt()) } }
+                WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginY = v.roundToInt()) } }
+                WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingX = v.roundToInt()) } }
+                WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingY = v.roundToInt()) } }
+
+                Group("Shape")
+                SettingsToggle("Match widget corners", null, c.coverRadius < 0) { value -> viewModel.updateWidget { it.copy(coverRadius = if (value) -1 else 12) } }
+                if (c.coverRadius >= 0) WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> viewModel.updateWidget { it.copy(coverRadius = v.roundToInt()) } }
+                WidgetSlider("Border", c.coverBorderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Border colour", c.coverBorderColor) { value -> viewModel.updateWidget { it.copy(coverBorderColor = value) } }
             }
+
             "labels" -> {
-                Text("Text placement", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf("top", "center", "bottom").map { it to it }, c.labelPlacement) { value -> viewModel.updateWidget { it.copy(labelPlacement = value) } }
+                Group("Which text")
                 SettingsChoiceRow(listOf("title" to "Song", "artist" to "Artist", "logo" to "Logo"), labelId) { labelId = it }
                 val l = c.label(labelId)
                 SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Show", "hide" to "Hide"), l.visibility) { value -> label { it.copy(visibility = value) } }
-                WidgetSlider("Font size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
-                SettingsChoiceRow(listOf("inter" to "Inter", "cinzel" to "Cinzel", "hand" to "Handwritten"), l.font) { value -> label { it.copy(font = value) } }
-                SettingsChoiceRow(listOf("left", "center", "right").map { it to it }, l.alignment) { value -> label { it.copy(alignment = value) } }
-                WidgetColourEditor("Text colour", l.color) { value -> label { it.copy(color = value) } }
-                WidgetColourEditor("Text background", l.background) { value -> label { it.copy(background = value) } }
-                WidgetSlider("Text border", l.borderWidth, 0f..4f, "dp") { v -> label { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Text border colour", l.borderColor) { value -> label { it.copy(borderColor = value) } }
-                WidgetSlider("Text box radius", l.radius.toFloat(), 0f..48f, "dp") { v -> label { it.copy(radius = v.roundToInt()) } }
+
+                Group("Position")
+                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.labelPlacement) { value -> viewModel.updateWidget { it.copy(labelPlacement = value) } }
+                SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), l.alignment) { value -> label { it.copy(alignment = value) } }
+                // Cover text is allowed to leave the box, so these go negative too.
+                WidgetSlider("Nudge X", l.offsetX.toFloat(), -48f..48f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
+                WidgetSlider("Nudge Y", l.offsetY.toFloat(), -48f..48f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
+
+                Group("Type")
+                WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
+                SettingsChoiceRow(listOf("inter" to "Inter", "cinzel" to "Cinzel", "hand" to "Hand"), l.font) { value -> label { it.copy(font = value) } }
+                WidgetColourEditor("Colour", l.color) { value -> label { it.copy(color = value) } }
+
+                Group("Box")
+                WidgetColourEditor("Background", l.background) { value -> label { it.copy(background = value) } }
+                WidgetSlider("Border", l.borderWidth, 0f..4f, "dp") { v -> label { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Border colour", l.borderColor) { value -> label { it.copy(borderColor = value) } }
+                WidgetSlider("Radius", l.radius.toFloat(), 0f..48f, "dp") { v -> label { it.copy(radius = v.roundToInt()) } }
             }
+
             else -> {
-                Text("Controls placement", color = colors.primaryText, fontSize = 12.sp)
-                SettingsChoiceRow(listOf("auto", "inline", "top", "bottom").map { it to it }, c.buttonsPlacement) { value -> viewModel.updateWidget { it.copy(buttonsPlacement = value) } }
-                SettingsChoiceRow(listOf("all" to "All", "prev" to "Previous", "play" to "Play", "next" to "Next", "like" to "Like"), buttonId) { buttonId = it }
+                Group("Which button")
+                SettingsChoiceRow(listOf("all" to "All", "prev" to "Prev", "play" to "Play", "next" to "Next", "like" to "Like"), buttonId) { buttonId = it }
                 val b = c.button(if (buttonId == "all") "play" else buttonId)
-                SettingsChoiceRow(listOf("auto", "left", "center", "right", "hidden").map { it to it }, b.position) { value -> button { it.copy(position = value) } }
-                SettingsChoiceRow(listOf(0, 16, 20, 24, 28, 32, 36, 40, 44, 48).map { "$it" to if (it == 0) "Auto size" else "$it dp" }, b.size.toString()) { value -> button { it.copy(size = value.toInt()) } }
-                SettingsToggle("Button label", "Show or hide the caption for this button", b.showLabel) { value -> button { it.copy(showLabel = value) } }
-                if (b.showLabel) {
-                    WidgetSlider("Button label size", b.labelSize.toFloat(), 6f..14f, "sp") { v -> button { it.copy(labelSize = v.roundToInt()) } }
-                    WidgetColourEditor("Button label colour", b.labelColor) { value -> button { it.copy(labelColor = value) } }
-                }
-                WidgetSlider("Button inner padding", b.padding.toFloat(), 0f..14f, "dp") { v -> button { it.copy(padding = v.roundToInt()) } }
-                WidgetColourEditor("Icon colour", b.color) { value -> button { it.copy(color = value) } }
-                WidgetColourEditor("Button background", b.background) { value -> button { it.copy(background = value) } }
-                WidgetSlider("Button radius", b.radius.toFloat(), 0f..48f, "dp") { v -> button { it.copy(radius = v.roundToInt()) } }
-                WidgetSlider("Button border", b.borderWidth, 0f..4f, "dp") { v -> button { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Button border colour", b.borderColor) { value -> button { it.copy(borderColor = value) } }
+
+                Group("Position")
+                SettingsChoiceRow(listOf("auto" to "Auto", "inline" to "Inline", "top" to "Top", "bottom" to "Bottom"), c.buttonsPlacement) { value -> viewModel.updateWidget { it.copy(buttonsPlacement = value) } }
+                SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Centre", "right" to "Right", "hidden" to "Hidden"), b.position) { value -> button { it.copy(position = value) } }
                 if (buttonId != "all") {
-                    Text("Order: ${c.buttonOrder.joinToString(" · ")}", color = colors.secondaryText, fontSize = 10.sp)
                     Row {
                         for (direction in listOf(-1, 1)) TextButton(onClick = {
                             viewModel.updateWidget { old ->
@@ -146,22 +159,51 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                                 if (index >= 0 && to in order.indices) order.add(to, order.removeAt(index))
                                 old.copy(buttonOrder = order)
                             }
-                        }) { Text(if (direction < 0) "Move earlier" else "Move later", fontSize = 11.sp) }
+                        }) { Text(if (direction < 0) "Move left" else "Move right", fontSize = 11.sp) }
                     }
                 }
-                Text("Top/bottom controls use left/centre/right zones. Inline controls sit around the cover and text. Explicitly hidden buttons stay hidden.", color = colors.secondaryText, fontSize = 10.sp)
+
+                Group("Shape")
+                SettingsChoiceRow(listOf(0, 16, 20, 24, 28, 32, 36, 40, 44, 48).map { "$it" to if (it == 0) "Auto" else "$it" }, b.size.toString()) { value -> button { it.copy(size = value.toInt()) } }
+                WidgetSlider("Inner padding", b.padding.toFloat(), 0f..14f, "dp") { v -> button { it.copy(padding = v.roundToInt()) } }
+                WidgetSlider("Radius", b.radius.toFloat(), 0f..48f, "dp") { v -> button { it.copy(radius = v.roundToInt()) } }
+
+                Group("Colour")
+                WidgetColourEditor("Icon", b.color) { value -> button { it.copy(color = value) } }
+                WidgetColourEditor("Background", b.background) { value -> button { it.copy(background = value) } }
+                WidgetSlider("Border", b.borderWidth, 0f..4f, "dp") { v -> button { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Border colour", b.borderColor) { value -> button { it.copy(borderColor = value) } }
+
+                Group("Caption")
+                SettingsToggle("Show caption", null, b.showLabel) { value -> button { it.copy(showLabel = value) } }
+                if (b.showLabel) {
+                    WidgetSlider("Caption size", b.labelSize.toFloat(), 6f..14f, "sp") { v -> button { it.copy(labelSize = v.roundToInt()) } }
+                    WidgetColourEditor("Caption colour", b.labelColor) { value -> button { it.copy(labelColor = value) } }
+                }
             }
         }
+
+        Group("Install")
         Button(onClick = {
             val manager = AppWidgetManager.getInstance(context)
             if (manager.isRequestPinAppWidgetSupported) manager.requestPinAppWidget(ComponentName(context, XvoxAppWidgetProvider::class.java), null, null)
             else Toast.makeText(context, "Add XVOX from your launcher widget picker", Toast.LENGTH_LONG).show()
         }, modifier = Modifier.fillMaxWidth()) { Text("Add widget") }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { XvoxAppWidgetProvider.notifyWidgetUpdate(context) }) { Text("Refresh widgets") }
-            TextButton(onClick = { viewModel.updateWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset layout") }
+            TextButton(onClick = { XvoxAppWidgetProvider.notifyWidgetUpdate(context) }) { Text("Refresh") }
+            TextButton(onClick = { viewModel.updateWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset") }
         }
     })
+}
+
+/** Small group heading; the only text left in the widget editor. */
+@Composable
+private fun Group(title: String) {
+    Text(
+        title.uppercase(), color = XvoxTheme.colors.secondaryText, fontSize = 9.sp,
+        letterSpacing = 1.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+        modifier = Modifier.padding(top = 6.dp)
+    )
 }
 
 @Composable

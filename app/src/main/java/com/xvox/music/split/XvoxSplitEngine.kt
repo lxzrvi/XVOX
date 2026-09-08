@@ -68,6 +68,18 @@ class XvoxSplitEngine(model: File) : AutoCloseable {
     override fun close() { session.close(); options.close() }
 
     companion object {
+        /**
+         * Download + verify the separation model.
+         *
+         * Rewritten because the original download quietly failed on common setups:
+         *  - `HttpURLConnection` refuses to follow a redirect that changes protocol, and the
+         *    GitHub release URL redirects to a different host, so the transfer could stall;
+         *  - a truncated transfer raised "Unexpected model size" and left nothing to resume from;
+         *  - real network errors were replaced with a generic message.
+         *
+         * Redirects are now followed manually, the transfer is retried, and failures report what
+         * actually went wrong.
+         */
         suspend fun ensureModel(context: Context, allowMetered: Boolean, valid: () -> Boolean): File = withContext(Dispatchers.IO) {
             val target = XvoxSplitRepository.modelFile()
             fun digest(file: File): String {
@@ -80,29 +92,87 @@ class XvoxSplitEngine(model: File) : AutoCloseable {
             }
             if (target.length() == SplitModel.BYTES && digest(target) == SplitModel.SHA256) return@withContext target
             XvoxSplitRepository.modelNeedsDownload()
+
             val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            check(allowMetered || !connectivity.isActiveNetworkMetered) { "Connect to Wi-Fi or allow mobile data for the 28.3 MB model download" }
-            val temporary = File(target.parentFile, target.name + ".${System.nanoTime()}.part")
-            val connection = URL(SplitModel.URL).openConnection() as HttpURLConnection
-            connection.connectTimeout = 20000; connection.readTimeout = 20000; connection.instanceFollowRedirects = true
-            try {
-                check(connection.responseCode in 200..299) { "Model download failed: HTTP ${connection.responseCode}" }
-                var bytes = 0L
-                connection.inputStream.use { input -> temporary.outputStream().buffered().use { output ->
-                    val block = ByteArray(128 * 1024); var last = 0L
-                    while (true) {
-                        coroutineContext.ensureActive(); if (!valid()) throw CancellationException()
-                        val n = input.read(block); if (n < 0) break
-                        bytes += n; check(bytes <= SplitModel.BYTES) { "Unexpected model size" }
-                        output.write(block, 0, n)
-                        val now = android.os.SystemClock.elapsedRealtime()
-                        if (now - last > 150) { last = now; XvoxSplitRepository.modelProgress(bytes.toFloat() / SplitModel.BYTES, "Downloading separation model") }
+            val network = connectivity.activeNetwork
+            check(network != null) { "No internet connection. Connect to Wi-Fi and try again." }
+            check(allowMetered || !connectivity.isActiveNetworkMetered) {
+                "Connect to Wi-Fi, or allow mobile data, for the 28.3 MB model download"
+            }
+
+            val temporary = File(target.parentFile, target.name + ".part")
+            var lastError: String? = null
+            repeat(3) { attempt ->
+                if (!valid()) throw CancellationException()
+                try {
+                    temporary.delete()
+                    val connection = open(SplitModel.URL)
+                    try {
+                        var bytes = 0L
+                        connection.inputStream.use { input ->
+                            temporary.outputStream().buffered().use { output ->
+                                val block = ByteArray(128 * 1024); var last = 0L
+                                while (true) {
+                                    coroutineContext.ensureActive(); if (!valid()) throw CancellationException()
+                                    val n = input.read(block); if (n < 0) break
+                                    bytes += n
+                                    output.write(block, 0, n)
+                                    val now = android.os.SystemClock.elapsedRealtime()
+                                    if (now - last > 150) {
+                                        last = now
+                                        XvoxSplitRepository.modelProgress(
+                                            (bytes.toFloat() / SplitModel.BYTES).coerceIn(0f, 1f),
+                                            "Downloading separation model"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        check(temporary.length() == SplitModel.BYTES) {
+                            "Download incomplete (${temporary.length() / 1024} KB of ${SplitModel.BYTES / 1024} KB)"
+                        }
+                        check(digest(temporary) == SplitModel.SHA256) { "Model checksum mismatch; download rejected" }
+                        check(temporary.renameTo(target)) { "Could not install model" }
+                    } finally {
+                        connection.disconnect()
                     }
-                } }
-                check(temporary.length() == SplitModel.BYTES && digest(temporary) == SplitModel.SHA256) { "Model checksum mismatch; download rejected" }
-                check(temporary.renameTo(target)) { "Could not install model" }
-                target
-            } finally { connection.disconnect(); temporary.delete() }
+                    XvoxSplitRepository.modelProgress(1f, "Separation model ready")
+                    return@withContext target
+                } catch (cancelled: CancellationException) {
+                    temporary.delete(); throw cancelled
+                } catch (error: Exception) {
+                    lastError = error.message ?: error.javaClass.simpleName
+                    temporary.delete()
+                    XvoxSplitRepository.modelProgress(0f, "Retrying model download (${attempt + 2}/3)")
+                    delay(1200L * (attempt + 1))
+                }
+            }
+            error("Model download failed: ${lastError ?: "unknown error"}")
+        }
+
+        /** Follows redirects by hand, including cross-protocol ones that the JDK client drops. */
+        private fun open(url: String): HttpURLConnection {
+            var current = url
+            repeat(6) {
+                val connection = (URL(current).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 20000
+                    readTimeout = 30000
+                    instanceFollowRedirects = false
+                    setRequestProperty("User-Agent", "XVOX")
+                    setRequestProperty("Accept", "*/*")
+                }
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    val next = connection.getHeaderField("Location")
+                    connection.disconnect()
+                    check(!next.isNullOrBlank()) { "Model download failed: redirect without a target" }
+                    current = URL(URL(current), next).toString()
+                    return@repeat
+                }
+                check(code in 200..299) { "Model download failed: HTTP $code" }
+                return connection
+            }
+            error("Model download failed: too many redirects")
         }
     }
 }

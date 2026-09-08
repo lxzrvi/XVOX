@@ -11,7 +11,9 @@ data class HomePresentation(
     val order: List<String> = HomeSections.defaultOrder,
     val hidden: Set<String> = emptySet(),
     val playlistStyle: String = "long",
-    val hideSplit: Boolean = false
+    val hideSplit: Boolean = false,
+    /** Long playlist card height in dp; 0 keeps the original proportional height. */
+    val playlistLongHeight: Int = 0
 )
 
 object HomeSections {

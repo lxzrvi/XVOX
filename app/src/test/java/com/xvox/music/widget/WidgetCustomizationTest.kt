@@ -20,4 +20,29 @@ class WidgetCustomizationTest {
         assertEquals(14, value.button("play").labelSize)
         assertEquals(4, value.buttonOrder.size)
     }
+
+    /** Cover offsets and text nudges may be negative, so artwork and text can leave the box. */
+    @Test fun coverAndTextMayBePushedOutsideTheWidgetBox() {
+        val value = WidgetCustomization(
+            coverMarginX = -20, coverMarginY = -99, coverPaddingX = -8, coverPaddingY = 40,
+            labels = WidgetCustomization.defaultLabels() + ("title" to WidgetLabelStyle(offsetX = -30, offsetY = 99))
+        ).sanitized()
+        assertEquals(-20, value.coverMarginX)
+        assertEquals(-32, value.coverMarginY)
+        assertEquals(-8, value.coverPaddingX)
+        assertEquals(24, value.coverPaddingY)
+        assertEquals(-30, value.label("title").offsetX)
+        assertEquals(48, value.label("title").offsetY)
+    }
+
+    @Test fun negativeOffsetsSurviveEncodeAndDecode() {
+        val value = WidgetCustomization(
+            coverMarginX = -18,
+            labels = WidgetCustomization.defaultLabels() + ("artist" to WidgetLabelStyle(offsetX = -12, offsetY = -7))
+        ).sanitized()
+        val restored = WidgetCustomization.decode(value.encode())
+        assertEquals(-18, restored.coverMarginX)
+        assertEquals(-12, restored.label("artist").offsetX)
+        assertEquals(-7, restored.label("artist").offsetY)
+    }
 }

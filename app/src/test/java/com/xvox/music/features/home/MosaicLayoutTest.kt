@@ -1,6 +1,9 @@
 package com.xvox.music.features.home
 
+import com.xvox.music.features.home.allsongs.generateClassicMosaicSpecs
 import com.xvox.music.features.home.allsongs.generateMosaicSpecs
+import com.xvox.music.features.home.allsongs.mosaicPageRows
+import com.xvox.music.features.home.allsongs.mosaicRowsForPage
 import org.junit.Assert.*
 import org.junit.Test
 import kotlin.random.Random
@@ -15,11 +18,30 @@ class MosaicLayoutTest {
         }
     }
 
-    @Test fun classicMosaicRetainsOnlyItsOriginalTileShapes() {
-        repeat(100) { seed ->
-            val tiles = com.xvox.music.features.home.allsongs.generateClassicMosaicSpecs(4, 4, 12, Random(seed))
-            assertEquals(12, tiles.size)
-            tiles.forEach { assertTrue((it.width to it.height) in setOf(1f to 1f, 2f to 1f, 1f to 2f, 2f to 2f)) }
+    /** Mosaic 1 now speaks a wider shape language: long, short and wide, not just four presets. */
+    @Test fun classicMosaicUsesLongShortAndWideShapes() {
+        val seen = mutableSetOf<Pair<Float, Float>>()
+        repeat(120) { seed ->
+            generateClassicMosaicSpecs(4, 5, 13, Random(seed)).forEach { seen.add(it.width to it.height) }
+        }
+        assertTrue("Only ${seen.size} shapes: $seen", seen.size >= 6)
+        assertTrue("No wide tiles", seen.any { it.first >= 3f && it.second == 1f })
+        assertTrue("No tall tiles", seen.any { it.second >= 2f && it.first == 1f })
+        assertTrue("No large tiles", seen.any { it.first >= 2f && it.second >= 2f })
+    }
+
+    /** The mosaic rule: a page is never allowed to leave a hole, on any page including the last. */
+    @Test fun everyMosaicOnePageIsFullyCoveredExactlyOnce() {
+        for (rows in 1..8) for (count in 1..rows * 4) repeat(4) { seed ->
+            val tiles = generateClassicMosaicSpecs(4, rows, count, Random(seed * 31 + count))
+            assertEquals(count, tiles.size)
+            val covered = Array(rows) { IntArray(4) }
+            tiles.forEach { t ->
+                assertTrue(t.x >= 0 && t.y >= 0 && t.x + t.width <= 4 && t.y + t.height <= rows)
+                for (y in t.y.toInt() until (t.y + t.height).toInt())
+                    for (x in t.x.toInt() until (t.x + t.width).toInt()) covered[y][x]++
+            }
+            covered.forEach { row -> row.forEach { assertEquals(1, it) } }
         }
     }
 
@@ -37,13 +59,28 @@ class MosaicLayoutTest {
             covered.forEach { row -> row.forEach { assertEquals(1, it) } }
         }
     }
+
+    /** A page never claims more rows than it can fill, and a paged page always claims them all. */
+    @Test fun pageRowsNeverLeaveAnEmptyBand() {
+        for (requested in 3..8) for (count in 1..requested * 4) {
+            val flowing = mosaicPageRows(count, requested)
+            assertTrue(flowing in 1..requested)
+            assertTrue("$count tiles cannot fit in 4 x $flowing", count <= 4 * flowing)
+            val paged = mosaicRowsForPage(count, requested, fill = true)
+            if (count >= requested) assertEquals(requested, paged)
+            assertTrue(count <= 4 * paged)
+        }
+    }
+
     @Test fun varietyIsNotLimitedToSixPresets() {
         val layouts = (0..399).map { generateMosaicSpecs(4, 6, 12, Random(it)) }.toSet()
         assertTrue("Only ${layouts.size} layouts", layouts.size > 300)
     }
+
     @Test fun identicalSeedGivesStableLayoutWhileBrowsing() {
         assertEquals(generateMosaicSpecs(4, 4, 9, Random(42)), generateMosaicSpecs(4, 4, 9, Random(42)))
     }
+
     @Test fun emptyInputsAreSafe() {
         assertTrue(generateMosaicSpecs(4, 4, 0, Random(1)).isEmpty())
         assertTrue(generateMosaicSpecs(0, 4, 10, Random(1)).isEmpty())

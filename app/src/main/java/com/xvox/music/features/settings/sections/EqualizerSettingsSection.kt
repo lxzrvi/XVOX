@@ -50,6 +50,8 @@ import kotlin.math.roundToInt
 @Composable
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
+    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
+    val split by com.xvox.music.split.XvoxSplitRepository.state.collectAsState()
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
     var previewMode by remember { androidx.compose.runtime.mutableStateOf("eq") }
     com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = {
@@ -58,11 +60,11 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         when {
             state.stereoWidening && (previewMode == "space" || !state.equalizerEnabled) -> com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
             state.equalizerEnabled -> com.xvox.music.features.settings.components.EqSettingsPreview(state)
-            else -> Text("Enable EQ or 3D to preview it", color = colors.secondaryText, fontSize = 12.sp)
+            else -> Text("Turn on EQ or 3D to preview", color = colors.secondaryText, fontSize = 12.sp)
         }
     }, controls = {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
-        SettingsToggle("XvoxMix Equalizer", "Band boosts no longer turn down the entire track automatically.", state.equalizerEnabled, viewModel::setEqualizerEnabled)
+        SettingsToggle("Equalizer", null, state.equalizerEnabled, viewModel::setEqualizerEnabled)
         if (state.equalizerEnabled) {
             com.xvox.music.features.settings.components.SettingsChoiceRow(listOf("5" to "5 bands", "10" to "10 bands"), state.eqBandCount.toString()) {
                 viewModel.setEqBandCount(it.toInt())
@@ -80,31 +82,53 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             }
         }
         Spacer(Modifier.height(14.dp))
-        Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Text("0 dB keeps your level. Increase only if boosted peaks sound strained; this control intentionally lowers gain. Peak limiting stays on.",
-            color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
+        EqLabel("Boost protection ${state.eqHeadroomDb.roundToInt()} dB")
         XvoxThinLineSlider(state.eqHeadroomDb, { previewMode = "eq"; viewModel.setEqHeadroomDb(it) }, 0f..18f, defaultValue = 0f)
-        Text("Noise reduction: ${(state.noiseReduction * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+        EqLabel("Noise reduction ${(state.noiseReduction * 100).roundToInt()}%")
         XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
-        Text("Gentle low-level hiss reduction—not voice separation. High values can soften quiet tails.", color = colors.secondaryText, fontSize = 10.sp)
-        Spacer(Modifier.height(10.dp))
-        Text("Soften sharp highs: ${(state.softenHighs * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+        EqLabel("Soften highs ${(state.softenHighs * 100).roundToInt()}%")
         XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
+
         Spacer(Modifier.height(12.dp))
-        SettingsToggle("3D Headphone Sound", "Ear delay, rear cues and reflections, with a steadier low end.", state.stereoWidening, { previewMode = "space"; viewModel.setStereoWidening(it) })
+        SettingsToggle("3D sound", null, state.stereoWidening, { previewMode = "space"; viewModel.setStereoWidening(it) })
         if (state.stereoWidening) {
-            Text("Depth: ${(state.surroundDepth * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+            EqLabel("Depth ${(state.surroundDepth * 100).roundToInt()}%")
             XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
-            Text("Orbit: ${state.surroundPanSpeed} seconds", color = colors.secondaryText, fontSize = 12.sp)
+            EqLabel("Orbit ${state.surroundPanSpeed}s")
             XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f)
+
+            // XvoxSplit is a 3D option: the beat goes left, the vocal goes right, and the 3D
+            // stage then moves that separated pair around you.
+            Spacer(Modifier.height(6.dp))
+            EqLabel("XvoxSplit")
+            Text("Beat left · vocal right, then placed in 3D", color = colors.secondaryText, fontSize = 11.sp)
+            androidx.compose.material3.OutlinedButton(
+                onClick = { overlays.showBox("XvoxSplit") { com.xvox.music.split.XvoxSplitPanel() } },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    when {
+                        split.active -> "XvoxSplit on · ${split.ready}/${split.total} ready"
+                        split.running -> "Preparing · ${split.ready}/${split.total}"
+                        split.modelReady -> "Set up XvoxSplit"
+                        else -> "Set up XvoxSplit"
+                    }
+                )
+            }
         }
-        Text("App volume: ${(state.appVolume * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+
+        EqLabel("App volume ${(state.appVolume * 100).roundToInt()}%")
         XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
-        Text("Output ceiling: ${(state.volumeLimit * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+        EqLabel("Output ceiling ${(state.volumeLimit * 100).roundToInt()}%")
         XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
-        Text("Balance: ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}", color = colors.secondaryText, fontSize = 12.sp)
+        EqLabel("Balance ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}")
         XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
     })
+}
+
+@Composable
+private fun EqLabel(text: String) {
+    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable

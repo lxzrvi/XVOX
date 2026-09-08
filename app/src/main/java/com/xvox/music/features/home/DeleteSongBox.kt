@@ -57,8 +57,8 @@ fun DeleteSongBox(
         Spacer(Modifier.height(16.dp))
 
         DeleteChoice(
-            title = "Remove from XVOX",
-            subtitle = "Keep the audio file on this device",
+            title = "Delete from XVOX",
+            subtitle = "Moves to Deleted songs",
             onClick = {
                 haptics.heavy()
                 onRemoveApp()
@@ -68,82 +68,14 @@ fun DeleteSongBox(
         Spacer(Modifier.height(8.dp))
 
         DeleteChoice(
-            title = "Delete from Device",
-            subtitle = "Permanently delete file from storage",
+            title = "Delete from device",
+            subtitle = "Removes the file",
             isDanger = true,
             onClick = {
                 haptics.heavy()
                 onDeleteDevice()
             }
         )
-    }
-}
-
-@Composable
-fun ConfirmDeviceDeleteBox(
-    song: Song,
-    onCancel: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
-
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = "Delete permanently?",
-            color = colors.primaryText,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = "\"${song.title}\" will be permanently removed from storage.",
-            color = colors.secondaryText,
-            fontSize = 12.sp
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(110.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(19.dp))
-                    .background(colors.cardElevated)
-                    .clickable {
-                        haptics.tap()
-                        onCancel()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "Cancel", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .width(110.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(19.dp))
-                    .background(Color(0xFFEF4444))
-                    .clickable {
-                        haptics.heavy()
-                        onDelete()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "Delete", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
 

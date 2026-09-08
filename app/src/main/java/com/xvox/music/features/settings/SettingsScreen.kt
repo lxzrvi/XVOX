@@ -1,5 +1,6 @@
 package com.xvox.music.features.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +37,6 @@ import com.xvox.music.features.settings.sections.EqualizerSettingsSection
 import com.xvox.music.features.settings.sections.HomeSettingsSection
 import com.xvox.music.features.settings.sections.HowToUseSettingsSection
 import com.xvox.music.features.settings.sections.LibraryFilterSettingsSection
-import com.xvox.music.features.settings.sections.PlaybackSettingsSection
 import com.xvox.music.features.settings.sections.WidgetSettingsSection
 
 enum class SettingsAccordionKey {
@@ -52,6 +54,14 @@ enum class SettingsAccordionKey {
     HIDDEN_SONGS
 }
 
+/**
+ * Settings: short labels, no paragraphs.
+ *
+ * Two navigation rules the app now keeps:
+ *  - Back collapses whatever is open before it ever leaves Settings.
+ *  - Opening the tab always shows the top of the list with every row collapsed, regardless of
+ *    where the previous visit was left.
+ */
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -62,13 +72,24 @@ fun SettingsScreen(
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
     var expandedKey by remember { mutableStateOf(SettingsAccordionKey.NONE) }
+    val listState = rememberLazyListState()
+
+    // Entering the tab always lands on the top of the list, fully collapsed.
+    LaunchedEffect(Unit) {
+        expandedKey = SettingsAccordionKey.NONE
+        listState.scrollToItem(0)
+    }
+
+    // Back closes the open row first; only a collapsed Settings hands Back to the shell.
+    BackHandler(enabled = expandedKey != SettingsAccordionKey.NONE) {
+        expandedKey = SettingsAccordionKey.NONE
+    }
 
     fun openEditor(title: String) {
         overlays.showBox(title) {
             val live by settingsViewModel.state.collectAsState()
             when (title) {
                 "Home" -> HomeSettingsSection(live, settingsViewModel)
-                "Playlists" -> com.xvox.music.features.settings.sections.PlaylistSettingsSection(live, settingsViewModel)
                 "Lyrics" -> com.xvox.music.features.settings.sections.LyricsSettingsSection(live, settingsViewModel)
                 "XvoxMix" -> EqualizerSettingsSection(live, settingsViewModel)
                 "Playback" -> com.xvox.music.features.settings.sections.PlaybackSettingsEditor(live, settingsViewModel)
@@ -82,6 +103,7 @@ fun SettingsScreen(
     }
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = com.xvox.music.core.ui.navigation.LocalXvoxTopInset.current + 4.dp,
             bottom = com.xvox.music.core.ui.navigation.LocalXvoxBottomInset.current),
@@ -107,7 +129,6 @@ fun SettingsScreen(
         item(key = "accordion_appearance") {
             SettingsAccordionItem(
                 title = "Appearance",
-                subtitle = "Themes, accent colors & font scale",
                 iconRes = R.drawable.ic_xvox_sparkle,
                 expanded = expandedKey == SettingsAccordionKey.APPEARANCE,
                 onToggle = { toggle(SettingsAccordionKey.APPEARANCE) }
@@ -116,29 +137,30 @@ fun SettingsScreen(
             }
         }
 
+        // Playlists now live inside Home, where their layout actually applies.
         item(key = "accordion_home") {
-            SettingsAccordionItem("Home", "Mosaic layouts, order and merged sections", R.drawable.ic_xvox_home, false, { openEditor("Home") }) { }
-        }
-
-        item(key = "playlist_editor") {
-            SettingsAccordionItem("Playlists", "Original or full-width stacked cards", R.drawable.ic_xvox_playlist, false, { openEditor("Playlists") }) { }
+            SettingsAccordionItem("Home", R.drawable.ic_xvox_home, false, { openEditor("Home") }) { }
         }
 
         item(key = "accordion_lyrics") {
-            SettingsAccordionItem("Lyrics", "Timing, strong edge fades and five smooth animations", R.drawable.ic_xvox_lyrics, false, { openEditor("Lyrics") }) { }
+            SettingsAccordionItem("Lyrics", R.drawable.ic_xvox_lyrics, false, { openEditor("Lyrics") }) { }
         }
+
         item(key = "accordion_xvoxmix") {
-            SettingsAccordionItem("XvoxMix", "Equalizer, protection and headphone spatial controls", R.drawable.ic_xvox_equalizer, false, { openEditor("XvoxMix") }) { }
+            SettingsAccordionItem("XvoxMix", R.drawable.ic_xvox_equalizer, false, { openEditor("XvoxMix") }) { }
         }
 
         item(key = "accordion_playback") {
-            SettingsAccordionItem("Playback", "Crossfade, XvoxSplit and headset behaviour", R.drawable.ic_xvox_disc, false, { openEditor("Playback") }) { }
+            SettingsAccordionItem("Playback", R.drawable.ic_xvox_disc, false, { openEditor("Playback") }) { }
+        }
+
+        item(key = "accordion_widget") {
+            SettingsAccordionItem("Widget", R.drawable.ic_xvox_settings, false, { openEditor("Widgets") }) { }
         }
 
         item(key = "accordion_filter") {
             SettingsAccordionItem(
-                title = "Library Filter",
-                subtitle = "Ignore short audio, small files & exclude folders",
+                title = "Library filter",
                 iconRes = R.drawable.ic_xvox_folder,
                 expanded = expandedKey == SettingsAccordionKey.FILTER,
                 onToggle = { toggle(SettingsAccordionKey.FILTER) }
@@ -151,10 +173,16 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "accordion_hidden_songs") {
+            SettingsAccordionItem("Deleted songs", R.drawable.ic_xvox_music_note,
+                expandedKey == SettingsAccordionKey.HIDDEN_SONGS, { toggle(SettingsAccordionKey.HIDDEN_SONGS) }) {
+                com.xvox.music.features.settings.sections.HiddenSongsSettingsSection(homeViewModel)
+            }
+        }
+
         item(key = "accordion_battery") {
             SettingsAccordionItem(
-                title = "Don't Kill App",
-                subtitle = "Background playback & battery optimization exemption",
+                title = "Don't kill app",
                 iconRes = R.drawable.ic_xvox_timer,
                 expanded = expandedKey == SettingsAccordionKey.BATTERY,
                 onToggle = { toggle(SettingsAccordionKey.BATTERY) }
@@ -163,14 +191,9 @@ fun SettingsScreen(
             }
         }
 
-        item(key = "accordion_widget") {
-            SettingsAccordionItem("Widgets", "Pinned preview and per-element editing", R.drawable.ic_xvox_settings, false, { openEditor("Widgets") }) { }
-        }
-
         item(key = "accordion_how_to_use") {
             SettingsAccordionItem(
-                title = "How To Use",
-                subtitle = "Gestures, shortcuts, multi-select & feature guide",
+                title = "How to use",
                 iconRes = R.drawable.ic_xvox_info,
                 expanded = expandedKey == SettingsAccordionKey.HOW_TO_USE,
                 onToggle = { toggle(SettingsAccordionKey.HOW_TO_USE) }
@@ -181,8 +204,7 @@ fun SettingsScreen(
 
         item(key = "accordion_about") {
             SettingsAccordionItem(
-                title = "About XVOX",
-                subtitle = "Local music, made personal",
+                title = "About",
                 iconRes = R.drawable.ic_xvox_info,
                 expanded = expandedKey == SettingsAccordionKey.ABOUT,
                 onToggle = { toggle(SettingsAccordionKey.ABOUT) }
@@ -191,12 +213,6 @@ fun SettingsScreen(
             }
         }
 
-        item(key = "accordion_hidden_songs") {
-            SettingsAccordionItem("Hidden Songs", "Restore songs removed from XVOX", R.drawable.ic_xvox_music_note,
-                expandedKey == SettingsAccordionKey.HIDDEN_SONGS, { toggle(SettingsAccordionKey.HIDDEN_SONGS) }) {
-                com.xvox.music.features.settings.sections.HiddenSongsSettingsSection(homeViewModel)
-            }
-        }
         item(key = "settings_bottom_spacing") {
             Spacer(Modifier.height(8.dp))
         }

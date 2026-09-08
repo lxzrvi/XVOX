@@ -16,6 +16,7 @@ import com.xvox.music.features.home.HomePresentation
 import com.xvox.music.features.home.HomeSections
 import com.xvox.music.features.home.normalizeHomeStyle
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -29,7 +30,10 @@ class UserPreferencesRepository(
         val username = stringPreferencesKey("username")
         val selectedPfp = stringPreferencesKey("selected_pfp")
         val customPfpUri = stringPreferencesKey("custom_pfp_uri")
+        val customPfpUris = stringPreferencesKey("custom_pfp_uris")
+        val customCoverUris = stringPreferencesKey("custom_cover_uris")
         val recentSongIds = stringPreferencesKey("recent_song_ids")
+        val recentSongSources = stringPreferencesKey("recent_song_sources")
         val lyricsUris = stringPreferencesKey("lyrics_uris")
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val recentSearches = stringPreferencesKey("recent_searches")
@@ -38,6 +42,7 @@ class UserPreferencesRepository(
         val splitShowPill = booleanPreferencesKey("split_show_pill")
         val splitHideCollection = booleanPreferencesKey("split_hide_collection")
         val playlistStyle = stringPreferencesKey("home_playlist_style")
+        val playlistLongHeight = intPreferencesKey("home_playlist_long_height")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
@@ -97,12 +102,26 @@ class UserPreferencesRepository(
             setupCompleted = prefs[Keys.setupCompleted] ?: false,
             username = prefs[Keys.username].orEmpty(),
             selectedPfp = prefs[Keys.selectedPfp] ?: "DEFAULT",
-            customPfpUri = prefs[Keys.customPfpUri]
+            customPfpUri = prefs[Keys.customPfpUri],
+            customPfpUris = decodeUriList(prefs[Keys.customPfpUris].orEmpty())
         )
     }.distinctUntilChanged()
 
+    /** Every custom profile picture the user has kept; they stack next to the built-in ones. */
+    val customPfpUris: Flow<List<String>> = context.xvoxDataStore.data
+        .map { decodeUriList(it[Keys.customPfpUris].orEmpty()) }.distinctUntilChanged()
+
+    /** Every custom playlist cover the user has kept, reusable across playlists. */
+    val customCoverUris: Flow<List<String>> = context.xvoxDataStore.data
+        .map { decodeUriList(it[Keys.customCoverUris].orEmpty()) }.distinctUntilChanged()
+
     val recentSongIds: Flow<List<Long>> = context.xvoxDataStore.data.map { prefs ->
         decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
+    }.distinctUntilChanged()
+
+    /** Where each recent song was started from: Liked, a playlist name, All Songs, XvoxSplit… */
+    val recentSongSources: Flow<Map<Long, String>> = context.xvoxDataStore.data.map { prefs ->
+        decodeRecentSources(prefs[Keys.recentSongSources].orEmpty())
     }.distinctUntilChanged()
 
     val lastPlayedSongId: Flow<Long?> = context.xvoxDataStore.data.map { prefs ->
@@ -117,6 +136,8 @@ class UserPreferencesRepository(
     val splitShowPill: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitShowPill] ?: true }.distinctUntilChanged()
     val splitHideCollection: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitHideCollection] ?: false }.distinctUntilChanged()
     val playlistStyle: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.playlistStyle] == "cards") "cards" else "long" }.distinctUntilChanged()
+    /** 0 = original proportional height; otherwise an explicit dp height for long playlist cards. */
+    val playlistLongHeight: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260) }.distinctUntilChanged()
     val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()
     val homeSectionOrder: Flow<List<String>> = context.xvoxDataStore.data.map {
         val raw = it[Keys.homeSectionOrder]
@@ -135,6 +156,7 @@ class UserPreferencesRepository(
             order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
                 ?: HomeSections.placeRecent(HomeSections.defaultOrder, placement),
             playlistStyle = if (it[Keys.playlistStyle] == "cards") "cards" else "long", hideSplit = it[Keys.splitHideCollection] ?: false,
+            playlistLongHeight = (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260),
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
     }.distinctUntilChanged()
@@ -222,6 +244,7 @@ class UserPreferencesRepository(
     suspend fun setSplitShowPill(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitShowPill] = v } }
     suspend fun setSplitHideCollection(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitHideCollection] = v } }
     suspend fun setPlaylistStyle(value: String) { context.xvoxDataStore.edit { it[Keys.playlistStyle] = if (value == "cards") "cards" else "long" } }
+    suspend fun setPlaylistLongHeight(value: Int) { context.xvoxDataStore.edit { it[Keys.playlistLongHeight] = value.coerceIn(0, 260) } }
     suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {
@@ -408,13 +431,19 @@ class UserPreferencesRepository(
         cleanupProfileImages(persistedPfp)
     }
 
-    suspend fun recordRecentSong(songId: Long) {
+    suspend fun recordRecentSong(songId: Long, source: String? = null) {
         context.xvoxDataStore.edit { prefs ->
             val current = decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
-            prefs[Keys.recentSongIds] = buildList {
+            val updated = buildList {
                 add(songId)
                 addAll(current.filterNot { it == songId })
-            }.take(20).joinToString(",")
+            }.take(20)
+            prefs[Keys.recentSongIds] = updated.joinToString(",")
+            // Remember the origin alongside the id, and drop entries that fell off the list.
+            val sources = decodeRecentSources(prefs[Keys.recentSongSources].orEmpty()).toMutableMap()
+            if (!source.isNullOrBlank()) sources[songId] = source.take(48)
+            sources.keys.retainAll(updated.toSet())
+            prefs[Keys.recentSongSources] = encodeRecentSources(sources)
         }
     }
 
@@ -444,6 +473,21 @@ class UserPreferencesRepository(
             prefs[Keys.lyricsUris] = map.entries.joinToString("\n") { "${it.key}\t${it.value}" }
         }
     }
+
+    private fun decodeRecentSources(raw: String): Map<Long, String> {
+        if (raw.isBlank()) return emptyMap()
+        return buildMap {
+            raw.lineSequence().forEach { line ->
+                val separator = line.indexOf('\t')
+                if (separator <= 0 || separator >= line.lastIndex) return@forEach
+                val id = line.substring(0, separator).toLongOrNull() ?: return@forEach
+                put(id, line.substring(separator + 1))
+            }
+        }
+    }
+
+    private fun encodeRecentSources(sources: Map<Long, String>): String =
+        sources.entries.joinToString("\n") { "${it.key}\t${it.value}" }
 
     private fun decodeRecentIds(raw: String): List<Long> =
         raw.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct().take(50)
@@ -479,18 +523,97 @@ class UserPreferencesRepository(
         }
     }
 
+    /**
+     * Only orphans are reclaimed.
+     *
+     * The old behaviour deleted every profile image except the selected one, which is exactly why
+     * a second custom picture could never be kept. Files that are still listed in the gallery are
+     * now preserved; the user removes them with the delete badge instead.
+     */
     private suspend fun cleanupProfileImages(retainedUri: String?) {
+        val kept = context.xvoxDataStore.data.map { decodeUriList(it[Keys.customPfpUris].orEmpty()) }.first()
         withContext(Dispatchers.IO) {
-            val retained = retainedUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
-            if (retained?.scheme != "file") return@withContext
-            val retainedPath = retained.path ?: return@withContext
+            val protectedPaths = (kept + listOfNotNull(retainedUri)).mapNotNull {
+                runCatching { Uri.parse(it) }.getOrNull()?.takeIf { uri -> uri.scheme == "file" }?.path
+            }.toSet()
+            if (protectedPaths.isEmpty()) return@withContext
             File(context.filesDir, "profile").listFiles()?.forEach { file ->
-                if (file.path != retainedPath) {
-                    file.delete()
-                }
+                if (file.path !in protectedPaths) file.delete()
             }
         }
     }
+
+    /** Copies a picked image into app storage and stacks it in the profile gallery. */
+    suspend fun addCustomPfp(source: String): String? {
+        val persisted = persistProfileImage(source) ?: return null
+        context.xvoxDataStore.edit { prefs ->
+            val current = decodeUriList(prefs[Keys.customPfpUris].orEmpty())
+            prefs[Keys.customPfpUris] = encodeUriList(listOf(persisted) + current.filterNot { it == persisted })
+        }
+        return persisted
+    }
+
+    /** Removes a stacked profile picture and its file; falls back to the default if it was in use. */
+    suspend fun removeCustomPfp(uri: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val remaining = decodeUriList(prefs[Keys.customPfpUris].orEmpty()).filterNot { it == uri }
+            if (remaining.isEmpty()) prefs.remove(Keys.customPfpUris) else prefs[Keys.customPfpUris] = encodeUriList(remaining)
+            if (prefs[Keys.customPfpUri] == uri) {
+                prefs.remove(Keys.customPfpUri)
+                if (prefs[Keys.selectedPfp] == "CUSTOM") prefs[Keys.selectedPfp] = "DEFAULT"
+            }
+        }
+        deleteAppFile(uri)
+    }
+
+    /** Copies a picked image into app storage and stacks it in the playlist-cover gallery. */
+    suspend fun addCustomCover(source: String): String? {
+        val persisted = persistGalleryImage(source, "cover_gallery") ?: return null
+        context.xvoxDataStore.edit { prefs ->
+            val current = decodeUriList(prefs[Keys.customCoverUris].orEmpty())
+            prefs[Keys.customCoverUris] = encodeUriList(listOf(persisted) + current.filterNot { it == persisted })
+        }
+        return persisted
+    }
+
+    suspend fun removeCustomCover(uri: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val remaining = decodeUriList(prefs[Keys.customCoverUris].orEmpty()).filterNot { it == uri }
+            if (remaining.isEmpty()) prefs.remove(Keys.customCoverUris) else prefs[Keys.customCoverUris] = encodeUriList(remaining)
+        }
+        deleteAppFile(uri)
+    }
+
+    private suspend fun deleteAppFile(uri: String) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val parsed = Uri.parse(uri)
+                if (parsed.scheme == "file") parsed.path?.let { File(it).delete() }
+            }
+        }
+    }
+
+    private suspend fun persistGalleryImage(value: String, folder: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val uri = Uri.parse(value)
+            val directory = File(context.filesDir, folder).apply { mkdirs() }
+            val existing = if (uri.scheme == "file") uri.path?.let(::File) else null
+            if (existing != null && existing.exists() &&
+                runCatching { existing.parentFile?.canonicalPath == directory.canonicalPath }.getOrDefault(false)
+            ) return@runCatching value
+            val target = File(directory, "img_${System.nanoTime()}.img")
+            val copied = context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+                true
+            } ?: false
+            if (!copied) { target.delete(); null } else Uri.fromFile(target).toString()
+        }.getOrNull()
+    }
+
+    private fun decodeUriList(raw: String): List<String> =
+        if (raw.isBlank()) emptyList() else raw.lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+    private fun encodeUriList(values: List<String>): String = values.distinct().take(24).joinToString("\n")
 
     private fun decodeLyricsUris(raw: String): Map<Long, String> {
         if (raw.isBlank()) return emptyMap()

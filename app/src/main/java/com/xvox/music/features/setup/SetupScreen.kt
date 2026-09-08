@@ -159,14 +159,18 @@ fun SetupScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                PfpCarousel(
-                    selected = state.selectedPfp,
+                XvoxAvatarPicker(
                     username = state.name,
-                    customPfpUri = state.customPfpUri,
-                    onSelected = viewModel::selectPfp,
-                    onAddClick = {
+                    selectedType = state.selectedPfp,
+                    selectedCustomUri = state.customPfpUri?.toString(),
+                    customUris = state.customPfpUris,
+                    onSelectBuiltIn = viewModel::selectPfp,
+                    onSelectCustom = viewModel::selectCustomPfp,
+                    onAddCustom = {
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
+                    },
+                    onDeleteCustom = viewModel::deleteCustomPfp,
+                    size = 76.dp
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

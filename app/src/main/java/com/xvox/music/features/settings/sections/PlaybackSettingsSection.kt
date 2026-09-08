@@ -1,7 +1,9 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,10 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,10 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsToggle
 
+/**
+ * Playback. XvoxSplit is no longer here — it now lives under XvoxMix › 3D sound, where it
+ * belongs as a spatial option.
+ */
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsState,
@@ -31,159 +38,85 @@ fun PlaybackSettingsSection(
     showPreview: Boolean = true
 ) {
     val colors = XvoxTheme.colors
-    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        androidx.compose.material3.OutlinedButton(onClick = { overlays.showBox("XvoxSplit") { com.xvox.music.split.XvoxSplitPanel() } }, modifier = Modifier.fillMaxWidth()) {
-            Text("XvoxSplit · vocals / instruments")
-        }
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
-        Spacer(Modifier.height(12.dp))
-        SettingsToggle(
-            title = "Crossfade",
-            subtitle = "Overlap current + next at equal power, including background playback",
-            checked = state.crossfade,
-            onChange = viewModel::setCrossfade
-        )
+
+        SettingsToggle("Crossfade", null, state.crossfade, viewModel::setCrossfade)
 
         if (state.crossfade) {
-            SettingsToggle("Smart energy blend", "Compare the outgoing tail and incoming intro graphs; prefer calmer hand-off points without skipping the intro.",
-                state.crossfadeSmart, viewModel::setCrossfadeSmart)
+            SettingsToggle("Seamless blend", null, state.crossfadeSmart, viewModel::setCrossfadeSmart)
             if (state.crossfadeSmart) {
-                Text("Beat-clash control: ${(state.crossfadeClashControl * 100).toInt()}%", color = colors.secondaryText, fontSize = 12.sp)
-                com.xvox.music.features.settings.components.XvoxThinLineSlider(state.crossfadeClashControl, viewModel::setCrossfadeClashControl, 0f..1f)
-                Text("Stronger control hands the low end to one track at a time. No forced tempo/pitch changes.", color = colors.secondaryText, fontSize = 10.sp)
+                Label("Bass hand-off ${(state.crossfadeClashControl * 100).toInt()}%")
+                com.xvox.music.features.settings.components.XvoxThinLineSlider(
+                    state.crossfadeClashControl, viewModel::setCrossfadeClashControl, 0f..1f
+                )
             }
-            SettingsToggle("Beat alignment", "Align the incoming first beat when rhythms are confidently detected and tempos fit. Never skips the intro or waits for analysis.",
-                state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
-            Spacer(modifier = Modifier.height(12.dp))
+            SettingsToggle("Beat align", null, state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
 
-            Text(
-                text = "Crossfade Duration",
-                color = colors.secondaryText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
+            Spacer(Modifier.height(12.dp))
+            Label("Length")
+            Spacer(Modifier.height(8.dp))
             com.xvox.music.features.settings.components.XvoxThinLineSlider(
                 value = state.crossfadeDuration.toFloat(), valueRange = 1f..12f,
                 onValueChange = { viewModel.setCrossfadeDuration(kotlin.math.round(it).toInt()) })
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val durations = listOf(2, 3, 5, 7, 10, 12)
-                durations.forEach { sec ->
-                    val isSelected = state.crossfadeDuration == sec
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(36.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .clickable { viewModel.setCrossfadeDuration(sec) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${sec}s",
-                            color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(2, 3, 5, 7, 10, 12).forEach { sec ->
+                    Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                        viewModel.setCrossfadeDuration(sec)
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "When Headset / Bluetooth Disconnected",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val disconnectActions = listOf(
-                "pause" to "Pause Playback",
-                "keep" to "Keep Playing"
-            )
-
-            disconnectActions.forEach { (key, label) ->
-                val isSelected = state.btDisconnectAction == key
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                        .clickable {
-                            viewModel.setBtDisconnectAction(key)
-                            viewModel.setPauseOnHeadphoneDisconnect(key == "pause")
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = if (isSelected) colors.background else colors.primaryText,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
+        Spacer(Modifier.height(16.dp))
+        Label("Headset unplugged")
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("pause" to "Pause", "keep" to "Keep playing").forEach { (key, label) ->
+                Choice(label, state.btDisconnectAction == key, Modifier.weight(1f)) {
+                    viewModel.setBtDisconnectAction(key)
+                    viewModel.setPauseOnHeadphoneDisconnect(key == "pause")
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "When Headset / Bluetooth Connected",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val connectActions = listOf(
-                "none" to "Do Nothing",
-                "play" to "Auto Play"
-            )
-
-            connectActions.forEach { (key, label) ->
-                val isSelected = state.btConnectAction == key
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                        .clickable {
-                            viewModel.setBtConnectAction(key)
-                            viewModel.setPlayOnHeadsetConnect(key == "play")
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = if (isSelected) colors.background else colors.primaryText,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
+        Spacer(Modifier.height(16.dp))
+        Label("Headset connected")
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("none" to "Nothing", "play" to "Play").forEach { (key, label) ->
+                Choice(label, state.btConnectAction == key, Modifier.weight(1f)) {
+                    viewModel.setBtConnectAction(key)
+                    viewModel.setPlayOnHeadsetConnect(key == "play")
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun Label(text: String) {
+    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+}
+
+/** Outlined in both states so the unselected option is never invisible. */
+@Composable
+private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    val fill by animateColorAsState(if (selected) colors.primaryAccent else colors.cardElevated, tween(180), label = "fill")
+    val border by animateColorAsState(if (selected) colors.primaryAccent else colors.cardBorder, tween(180), label = "border")
+    Box(
+        modifier = modifier.height(38.dp).clip(shape).background(fill)
+            .border(if (selected) 1.6.dp else 0.9.dp, border, shape)
+            .xvoxPressScale(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label, color = if (selected) colors.background else colors.primaryText,
+            fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 

@@ -87,6 +87,11 @@ class HomeViewModel(
                 _state.update { current -> current.copy(recentlyPlayed = resolveRecent(current.songs, ids)) }
             }
         }
+        viewModelScope.launch {
+            preferencesRepository.recentSongSources.collect { sources ->
+                _state.update { it.copy(recentSources = sources) }
+            }
+        }
     }
 
     private fun observeLibraryPreferences() {
@@ -301,28 +306,31 @@ class HomeViewModel(
         onLoaded(info)
     }
 
-    fun recordPlayedFromLibrary(song: Song, currentSongId: Long?) {
+    /** [source] is the collection the song was started from; it is what the badge reports later. */
+    fun recordPlayedFromLibrary(song: Song, currentSongId: Long?, source: String? = null) {
         if (song.id == currentSongId) return
         transitionId++
-        promote(song, RecentTransitionRequest(id = transitionId, songId = song.id, mode = RecentTransitionMode.LIBRARY))
+        promote(song, RecentTransitionRequest(id = transitionId, songId = song.id, mode = RecentTransitionMode.LIBRARY), source)
     }
 
     fun recordPlayedFromRecent(song: Song, currentSongId: Long?) {
         if (song.id == currentSongId) return
-        promote(song, RecentTransitionRequest(id = _state.value.recentTransition.id, songId = null, mode = RecentTransitionMode.NONE))
+        promote(song, RecentTransitionRequest(id = _state.value.recentTransition.id, songId = null, mode = RecentTransitionMode.NONE),
+            _state.value.recentSources[song.id])
     }
 
-    private fun promote(song: Song, transition: RecentTransitionRequest) {
+    private fun promote(song: Song, transition: RecentTransitionRequest, source: String?) {
         _state.update { current ->
             current.copy(
                 recentlyPlayed = buildList {
                     add(song)
                     addAll(current.recentlyPlayed.filterNot { it.id == song.id })
                 }.take(20),
+                recentSources = if (source.isNullOrBlank()) current.recentSources else current.recentSources + (song.id to source),
                 recentTransition = transition
             )
         }
-        viewModelScope.launch { preferencesRepository.recordRecentSong(song.id) }
+        viewModelScope.launch { preferencesRepository.recordRecentSong(song.id, source) }
     }
 
     fun prefetchFrom(sourceIndex: Int) {
@@ -337,9 +345,16 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Recents stack from every source, not just All Songs: a track that has been filtered out of
+     * the main library, or that only exists as a prepared XvoxSplit stem, is still resolved here.
+     */
     private fun resolveRecent(songs: List<Song>, ids: List<Long>): List<Song> {
-        if (songs.isEmpty() || ids.isEmpty()) return emptyList()
-        val byId = songs.associateBy { it.id }
+        if (ids.isEmpty()) return emptyList()
+        val byId = HashMap<Long, Song>(songs.size + 16)
+        songs.forEach { byId[it.id] = it }
+        allRawSongs.forEach { byId.putIfAbsent(it.id, it) }
+        com.xvox.music.split.XvoxSplitRepository.state.value.savedTracks.forEach { byId.putIfAbsent(it.id, it.song()) }
         return ids.mapNotNull { byId[it] }
     }
 

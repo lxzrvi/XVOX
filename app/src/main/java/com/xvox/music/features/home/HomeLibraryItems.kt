@@ -55,7 +55,7 @@ fun LazyListScope.librarySongItems(
 fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
-    layoutStyle: String = "long"
+    layoutStyle: String = "long", longCardHeight: Int = 0
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
@@ -65,7 +65,8 @@ fun LazyListScope.playlistCollectionItems(
     if (layoutStyle == "long") {
         items(playlists, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
             BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
-                val oldCardHeight = (maxWidth - 6.dp) / 2 + 35.dp
+                // 0 keeps the original proportional height; any other value is the chosen dp height.
+                val oldCardHeight = if (longCardHeight > 0) longCardHeight.dp else (maxWidth - 6.dp) / 2 + 35.dp
                 XvoxPlaylistCard(playlist, songsFor(playlist), { onOpen(playlist) }, { onOptions(playlist) },
                     Modifier.fillMaxWidth().height(oldCardHeight), longCard = true)
             }

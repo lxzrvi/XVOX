@@ -45,10 +45,22 @@ fun showPlaylistActions(
                 }
             },
             onDelete = {
-                viewModel.deletePlaylist(current.id) {
-                    overlays.hideBox()
-                    onDeleted()
-                    overlays.showP("Playlist deleted")
+                // Deleting a playlist now asks first, exactly like exit and song deletion.
+                overlays.showBox("Delete playlist?") {
+                    com.xvox.music.shell.XvoxConfirmBox(
+                        question = "Delete \"${current.name}\"?",
+                        detail = "The songs themselves stay in your library.",
+                        confirmLabel = "Delete",
+                        danger = true,
+                        onCancel = overlays::hideBox,
+                        onConfirm = {
+                            viewModel.deletePlaylist(current.id) {
+                                overlays.hideBox()
+                                onDeleted()
+                                overlays.showP("Playlist deleted")
+                            }
+                        }
+                    )
                 }
             },
             onInfo = {

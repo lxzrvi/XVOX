@@ -59,7 +59,13 @@ fun XvoxAllSongMosaicCard(
     @Composable
     fun Labels(onArt: Boolean = false, modifier: Modifier = Modifier) {
         Column(modifier) {
-            Text(song.title, color = if (onArt) Color.White else colors.primaryText,
+            Text(song.title,
+                // Currently playing song keeps the accent colour, on art or on card.
+                color = when {
+                    current -> colors.primaryAccent
+                    onArt -> Color.White
+                    else -> colors.primaryText
+                },
                 fontSize = if (widthUnits >= 2) 12.sp else 10.sp,
                 lineHeight = if (widthUnits >= 2) 14.sp else 12.sp,
                 fontWeight = FontWeight.Bold, maxLines = if (heightUnits >= 2) 2 else 1,

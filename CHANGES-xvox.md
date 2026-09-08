@@ -1,3 +1,84 @@
+# XVOX revision 5 — built source update
+
+Branch: **xvox**. Working-tree edits only; nothing pushed.
+
+## What changed in this pass
+
+### Startup
+- The hard-coded five-second wait is gone. `AppViewModel` now drives a **determinate** startup bar from real milestones (library read → sorted → artwork warm → player connected → split catalogue → Home laid out) with a slow creep between them, so it never looks frozen.
+- `XvoxAppRoot` mounts the shell **underneath** the loading screen and only lifts it after three frames plus a settle, so Home is never revealed half-built.
+- A 9-second ceiling releases the UI even if one stage never reports back. The loading screen can no longer hang.
+- The startup screen now shows the real XVOX mark instead of a text logo.
+
+### Mosaic / All Songs
+- New shared exact-cover engine (`mergeToExactCover`): tiles are merged out of a full unit grid, so a page can never contain a gap, an overlap or an unused corner — **including the last page**. Verified exhaustively for every 4 × 1…8 grid and every tile count.
+- **Mosaic 1** gained a real shape vocabulary: 1×1, 2×1, 1×2, 2×2, 3×1, 1×3, 3×2 and 4×1 — long, short and wide — instead of four presets, with ~399 distinct layouts per 400 seeds.
+- Page counts are balanced so the final page is a real page, never a leftover strip. Paged (horizontal) mode fills every row; flowing (vertical) mode claims fewer rows rather than padding itself out.
+- Grid jitter fixed: tile offsets moved to the layout phase (`Modifier.offset { }`), click lambdas hoisted per page, page geometry memoised.
+
+### Touch feedback
+- `xvoxSongPress` / `xvoxPressScale` now animate an `Animatable` read only inside `graphicsLayer`, driven from the pointer **Initial** pass. A press no longer recomposes the card, so the **first** tap always registers even while the library is still settling.
+
+### Queue
+- Rows carry a single **six-dot drag handle**; the old trailing icon is gone.
+- Drag-to-edge auto-scroll fixed. The target index is computed arithmetically from a uniform row stride instead of a one-frame-stale layout snapshot, and the player is told about the move **once**, on release, instead of dozens of times per second. That removes both the repeated-song glitch and the failure to actually scroll.
+
+### Accent on the playing song
+- In **All Songs**, the card of the song that is currently playing shows its **title in the accent colour** (both the uniform card and the mosaic card, including titles drawn over artwork). Now Playing keeps its normal title colour.
+
+### Settings
+- Every accordion row is a **label and a chevron**. All descriptive subtitles removed; sections rewritten with short labels only (Appearance, Home, Playback, XvoxMix, Widget, Library filter, How to use, About, Don't kill app).
+- **Back collapses** the open row before it ever leaves Settings; opening the tab always lands on the top of the list with everything collapsed.
+- **Appearance**: every option is outlined, so unselected choices are visible; selection animates fill + border weight.
+- **Playlists moved into Home settings**, where they belong, with a new **long-card height** option (Auto / 90–220 dp).
+- **Home preview** is now the whole screen — header, every enabled section in order, the real mosaic geometry, playlists at their chosen style/height, bottom bar — laid out at the phone's real size and scaled to fit. No scrolling.
+- **Lyrics** gained the same kind of full-screen preview.
+- Preview panes no longer scroll; only the controls below them do.
+
+### XvoxSplit
+- Moved under **XvoxMix › 3D sound** as a spatial option (beat left / vocal right, then placed in 3D). Removed from Playback.
+- **The "Android blocked something" failure is fixed.** The pipeline was extracted into `XvoxSplitPipeline`, so it no longer depends on a foreground service being allowed to start: if the service is refused — background-start restrictions, notification permission, OEM policy — the identical work runs in the app process instead, and the service also falls back on `startForeground` failure and on the FGS timeout.
+- **The model download is fixed and independent.** It has its own button and runs with no service involved. Redirects are followed manually (the JDK client silently drops cross-host redirects, which is what stalled the GitHub release URL), transfers retry three times, and failures now report the real error instead of a generic message.
+
+### Crossfade
+- Two songs now read as one. The incoming track's level is matched to the outgoing tail across the blend and relaxed back to its own level by the end, so there is no step; its silent intro is skipped so the join has no dead air.
+
+### Widget
+- Settings reorganised into ordered groups that follow how the widget is built: size → surface → cover → text → buttons → install.
+- **Negative margin and padding** for the cover, and negative nudges for cover text, so artwork and text can sit outside the box. Implemented with `setViewLayoutMargin` (API 31+), because Android clamps view padding at zero.
+
+### Playlists / add-to-playlist
+- A playlist the song is already in shows a **check**, not a plus, and tapping it **removes** the song.
+- "Select playlist" keeps a light surface and a border in its disabled state; rows are outlined too.
+
+### Recently played
+- Each recent card carries a small round **source badge** in its left corner. Tapping it names the origin in the XVOX pill: *From Liked*, *From <playlist>*, *From All Songs*, *From XvoxSplit*.
+- Origins are persisted alongside the recent list, and recents now resolve from **every** source — not only All Songs.
+
+### Profile pictures and playlist covers
+- Custom pictures **stack**: each one the user keeps sits beside the built-in avatars, the add button always stays, and every custom picture carries its own delete badge. Persisted across restarts.
+- The destructive cleanup that deleted every profile image except the selected one — the reason a second picture could never be kept — now only reclaims true orphans.
+- The same stacking gallery applies to playlist custom covers, and the setup screen uses the identical picker.
+
+### Confirmations
+- The sad-face circle is gone. One shared `XvoxConfirmBox` covers exit, song deletion and playlist deletion.
+- "Delete from XVOX" now asks first and moves the song to **Deleted songs** (renamed from Hidden Songs).
+
+### Icons
+- Notification icons at every density are regenerated from the real XVOX mark: white, transparent, correctly padded for the status bar.
+- Adaptive launcher icon now uses a properly scaled foreground (the old one drew the mark at ~27 % of the canvas) and gains a monochrome layer for themed icons.
+- `drawable/xvox_mark.png` added for in-app use.
+
+## Verification note
+
+No Android SDK is available in this environment, so the project was not compiled here. The
+highest-risk new logic — the mosaic exact-cover engine — was ported and exhaustively checked for
+tile count, bounds, overlap and full coverage across every grid and count; unit tests were updated
+to assert the same invariants, plus the new crossfade level-match/lead-in behaviour and the
+negative widget offsets.
+
+---
+
 # XVOX revision 4 — built source update
 
 Branch: **xvox**, based on `aae1e67966bf8a54f81b0f6357163fd16b0713fc`.

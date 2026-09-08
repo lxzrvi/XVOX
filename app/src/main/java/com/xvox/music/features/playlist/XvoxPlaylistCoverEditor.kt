@@ -30,6 +30,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.platform.LocalContext
+import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.data.preferences.UserPreferencesRepository
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,12 +71,20 @@ fun XvoxPlaylistCoverEditor(
     }
     var customUri by remember(playlist.id) { mutableStateOf(playlist.customCoverUri?.let(Uri::parse)) }
 
+    // Custom covers stack and persist, exactly like custom profile pictures.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
+    val savedCovers by prefs.customCoverUris.collectAsState(initial = emptyList())
+
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null) {
-            selected.clear()
-            customUri = uri
+        if (uri != null) scope.launch {
+            prefs.addCustomCover(uri.toString())?.let { stored ->
+                selected.clear()
+                customUri = Uri.parse(stored)
+            }
         }
     }
 
@@ -158,46 +173,73 @@ fun XvoxPlaylistCoverEditor(
                 }
             }
 
+            // Every kept cover stays available, each with its own delete badge.
+            items(items = savedCovers, key = { "saved_$it" }) { stored ->
+                val shape = RoundedCornerShape(10.dp)
+                val active = customUri?.toString() == stored
+                Box(Modifier.aspectRatio(1f), contentAlignment = Alignment.TopEnd) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(shape)
+                            .background(colors.card)
+                            .border(
+                                width = if (active) 2.dp else 0.6.dp,
+                                color = if (active) colors.primaryAccent else colors.cardBorder,
+                                shape = shape
+                            )
+                            .xvoxPressScale { selected.clear(); customUri = Uri.parse(stored) }
+                    ) {
+                        AsyncImage(
+                            model = Uri.parse(stored),
+                            contentDescription = "Saved cover",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .size(20.dp)
+                            .background(colors.background, CircleShape)
+                            .border(0.8.dp, colors.cardBorder, CircleShape)
+                            .xvoxPressScale(pressedScale = 0.85f) {
+                                if (customUri?.toString() == stored) customUri = null
+                                scope.launch { prefs.removeCustomCover(stored) }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_close),
+                            contentDescription = "Remove this cover",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            // The add button always stays at the end of the stack.
             item(key = "custom_cover") {
                 val shape = RoundedCornerShape(10.dp)
-
                 Box(
                     modifier = Modifier
                         .aspectRatio(1f)
                         .clip(shape)
                         .background(colors.card)
-                        .border(
-                            width = if (customUri != null) 2.dp else 0.6.dp,
-                            color = if (customUri != null) colors.primaryAccent else colors.cardBorder,
-                            shape = shape
-                        )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            picker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
+                        .border(0.6.dp, colors.cardBorder, shape)
+                        .xvoxPressScale {
+                            picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (customUri != null) {
-                        AsyncImage(
-                            model = customUri,
-                            contentDescription = "Custom playlist cover",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_plus),
-                            contentDescription = "Custom cover",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(21.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_plus),
+                        contentDescription = "Add a cover",
+                        tint = colors.primaryText,
+                        modifier = Modifier.size(21.dp)
+                    )
                 }
             }
         }

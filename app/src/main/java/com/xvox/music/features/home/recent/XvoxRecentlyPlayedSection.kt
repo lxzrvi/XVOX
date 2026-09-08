@@ -25,6 +25,8 @@ fun XvoxRecentlyPlayedSection(
     transition: RecentTransitionRequest,
     onSongClick: (Song) -> Unit,
     onSongOptions: (Song) -> Unit,
+    sources: Map<Long, String> = emptyMap(),
+    onSourceClick: (Song) -> Unit = {},
 ) {
     val colors = XvoxTheme.colors
 
@@ -64,6 +66,8 @@ fun XvoxRecentlyPlayedSection(
             transition = transition,
             onSongClick = onSongClick,
             onSongOptions = onSongOptions,
+            sources = sources,
+            onSourceClick = onSourceClick,
         )
     }
 }

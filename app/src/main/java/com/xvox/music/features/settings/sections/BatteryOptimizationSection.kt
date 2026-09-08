@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.features.settings.components.SettingsSectionCard
 
 @Composable
 fun BatteryOptimizationSection() {
@@ -73,62 +72,34 @@ fun BatteryOptimizationSection() {
         }
     }
 
-    SettingsSectionCard(
-        title = "Don't Kill App",
-        iconRes = R.drawable.ic_xvox_timer
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Background Playback Protection",
-            color = colors.primaryText,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Background playback", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = if (isIgnoring) "Unrestricted" else "Restricted",
+                color = if (isIgnoring) colors.primaryAccent else colors.secondaryText,
+                fontSize = 12.sp
+            )
+        }
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = "Grant battery optimization exemption so Android does not kill music playback in the background or when the screen is locked.",
-            color = colors.secondaryText,
-            fontSize = 11.sp,
-            lineHeight = 15.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isIgnoring) colors.cardElevated else colors.primaryAccent)
+                .clickable { openBatterySettings() }
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Current Status",
-                    color = colors.secondaryText,
-                    fontSize = 11.sp
-                )
-                Text(
-                    text = if (isIgnoring) "Unrestricted (Safe)" else "Battery Optimized (May be killed)",
-                    color = if (isIgnoring) colors.primaryAccent else colors.primaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isIgnoring) colors.cardElevated else colors.primaryAccent)
-                    .clickable { openBatterySettings() }
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isIgnoring) "Recheck" else "Disable Optimization",
-                    color = if (isIgnoring) colors.primaryText else colors.background,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = if (isIgnoring) "Recheck" else "Allow",
+                color = if (isIgnoring) colors.primaryText else colors.background,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

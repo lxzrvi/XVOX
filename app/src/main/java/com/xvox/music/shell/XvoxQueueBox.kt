@@ -1,5 +1,6 @@
 package com.xvox.music.shell
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
@@ -9,18 +10,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
@@ -36,43 +37,78 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** The gesture belongs to the list, NOT to a recycled row; an overlay follows the finger at the edges. */
+private val RowHeight = 54.dp
+private val RowSpacing = 4.dp
+
+/**
+ * Queue reordering.
+ *
+ * The gesture belongs to the list, not to a recycled row, and an overlay follows the finger.
+ *
+ * Two things used to break dragging to the very top or bottom:
+ *  - the target row was resolved from `visibleItemsInfo`, which is one layout pass stale while
+ *    the list is auto-scrolling, so rows appeared to duplicate and jump;
+ *  - every intermediate position was pushed straight into the player queue, restarting the
+ *    media items dozens of times per second.
+ *
+ * Both are gone: the target index is now computed arithmetically from a uniform row stride
+ * (so it is always correct mid-scroll), and the player is told about the move exactly once,
+ * when the finger is lifted.
+ */
 @Composable
 fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (Int) -> Unit, onMoveItem: (Int, Int) -> Unit) {
     val colors = XvoxTheme.colors
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     val move by rememberUpdatedState(onMoveItem)
     val play by rememberUpdatedState(onPlayIndex)
     val local = remember { mutableStateListOf<Song>().apply { addAll(queue) } }
     var draggedId by remember { mutableStateOf<Long?>(null) }
+    var dragStartIndex by remember { mutableIntStateOf(-1) }
     var pointerY by remember { mutableFloatStateOf(0f) }
     var grabOffset by remember { mutableFloatStateOf(0f) }
-    var draggedHeight by remember { mutableFloatStateOf(54f) }
     var viewportHeight by remember { mutableIntStateOf(0) }
-    val overlayY = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - draggedHeight).coerceAtLeast(0f))
+    val rowHeightPx = with(density) { RowHeight.toPx() }
+    val stridePx = with(density) { (RowHeight + RowSpacing).toPx() }
+    val overlayY = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - rowHeightPx).coerceAtLeast(0f))
 
     LaunchedEffect(queue, draggedId) {
         if (draggedId != null && queue.none { it.id == draggedId }) draggedId = null
         if (draggedId == null && local.toList() != queue) { local.clear(); local.addAll(queue) }
     }
+
+    /**
+     * Index under the finger, derived from the uniform row stride rather than from a layout
+     * snapshot — correct even on the frame the list is being scrolled.
+     */
+    fun targetIndex(): Int {
+        val anchor = listState.layoutInfo.visibleItemsInfo.firstOrNull() ?: return -1
+        val center = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - rowHeightPx).coerceAtLeast(0f)) + rowHeightPx / 2f
+        val steps = floor((center - anchor.offset) / stridePx).toInt()
+        return (anchor.index + steps).coerceIn(0, local.lastIndex)
+    }
+
     fun reorderAtPointer() {
         val id = draggedId ?: return
         val from = local.indexOfFirst { it.id == id }
-        if (from < 0) return
-        val top = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - draggedHeight).coerceAtLeast(0f))
-        val center = top + draggedHeight / 2
-        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-            it.key != id && center >= it.offset && center < it.offset + it.size
-        } ?: return
-        val to = local.indexOfFirst { it.id == target.key }
-        if (to >= 0 && to != from) {
-            local.add(to, local.removeAt(from))
-            move(from, to)
-        }
+        val to = targetIndex()
+        if (from >= 0 && to >= 0 && to != from) local.add(to, local.removeAt(from))
     }
+
+    fun finishDrag(commit: Boolean) {
+        val id = draggedId
+        draggedId = null
+        if (!commit || id == null) return
+        val to = local.indexOfFirst { it.id == id }
+        // One authoritative move instead of a move per frame.
+        if (dragStartIndex >= 0 && to >= 0 && to != dragStartIndex) move(dragStartIndex, to)
+        dragStartIndex = -1
+    }
+
     LaunchedEffect(draggedId) {
         if (draggedId == null) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }
@@ -80,7 +116,7 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
             val frame = withFrameNanos { it }
             val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, .05f)
             previousFrame = frame
-            val edge = (draggedHeight * 1.5f).coerceAtMost(viewportHeight / 3f)
+            val edge = (rowHeightPx * 1.5f).coerceAtMost(viewportHeight / 3f)
             val strength = when {
                 edge <= 0 -> 0f
                 pointerY < edge -> -((edge - pointerY) / edge).coerceIn(0f, 1f)
@@ -88,27 +124,32 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                 else -> 0f
             }
             if (strength != 0f) {
-                listState.scrollBy(strength * draggedHeight * 10f * seconds)
-                reorderAtPointer()
+                // Eased ramp: a gentle nudge near the edge, a steady glide right at it.
+                val speed = strength * strength * (if (strength < 0) -1f else 1f)
+                val consumed = listState.scrollBy(speed * rowHeightPx * 14f * seconds)
+                if (consumed != 0f) reorderAtPointer()
             }
         }
     }
+
     Column(Modifier.fillMaxWidth()) {
-        Text("${local.size} songs · Hold and drag to reorder", color = colors.secondaryText, fontSize = 11.sp,
+        Text("${local.size} songs · Hold the dots to reorder", color = colors.secondaryText, fontSize = 11.sp,
             modifier = Modifier.padding(bottom = 10.dp))
         if (local.isEmpty()) {
             Text("Your queue is empty", color = colors.mutedText, modifier = Modifier.padding(20.dp))
         } else Box(Modifier.fillMaxWidth().heightIn(max = 600.dp)) {
             LazyColumn(state = listState, userScrollEnabled = draggedId == null,
-                contentPadding = PaddingValues(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(RowSpacing),
                 modifier = Modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }
-                    .pointerInput(local, listState) {
+                    .pointerInput(listState) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = { point ->
                                 val row = listState.layoutInfo.visibleItemsInfo.firstOrNull { point.y >= it.offset && point.y < it.offset + it.size }
                                 draggedId = row?.key as? Long
                                 if (row != null) {
-                                    pointerY = point.y; grabOffset = point.y - row.offset; draggedHeight = row.size.toFloat()
+                                    pointerY = point.y
+                                    grabOffset = point.y - row.offset
+                                    dragStartIndex = local.indexOfFirst { it.id == row.key }
                                     scope.launch { listState.stopScroll() }
                                 }
                             },
@@ -117,15 +158,17 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                                     change.consume(); pointerY = change.position.y; reorderAtPointer()
                                 }
                             },
-                            onDragEnd = { draggedId = null },
-                            onDragCancel = { draggedId = null }
+                            onDragEnd = { finishDrag(commit = true) },
+                            onDragCancel = { finishDrag(commit = false) }
                         )
                     }) {
                 items(local, key = { it.id }, contentType = { "queue_row" }) { song ->
                     QueueRow(song, song.id == currentSongId, onClick = {
                         val index = local.indexOfFirst { it.id == song.id }
                         if (draggedId == null && index >= 0) play(index)
-                    }, modifier = Modifier.graphicsLayer { alpha = if (draggedId == song.id) 0f else 1f }
+                    }, modifier = Modifier
+                        .animateItem()
+                        .graphicsLayer { alpha = if (draggedId == song.id) 0f else 1f }
                         .semantics {
                             customActions = listOf(
                                 CustomAccessibilityAction("Move up") {
@@ -152,7 +195,7 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
 private fun QueueRow(song: Song, current: Boolean, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
     val color = rememberSongCardColor(song, current)
-    Row(modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(14.dp)).background(color)
+    Row(modifier.fillMaxWidth().height(RowHeight).clip(RoundedCornerShape(14.dp)).background(color)
         .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
         .padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         XvoxSongArtwork(song.artworkUri, requestSize = 96, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp)))
@@ -161,6 +204,22 @@ private fun QueueRow(song: Song, current: Boolean, onClick: (() -> Unit)?, modif
                 fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artist, color = colors.secondaryText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(painterResource(R.drawable.ic_xvox_queue), "Reorder ${song.title}", tint = colors.mutedText, modifier = Modifier.size(20.dp))
+        XvoxDragDots(modifier = Modifier.semantics { contentDescription = "Reorder ${song.title}" })
+    }
+}
+
+/** The only affordance on a queue row: a plain six-dot drag handle. */
+@Composable
+private fun XvoxDragDots(modifier: Modifier = Modifier) {
+    val tint = XvoxTheme.colors.mutedText
+    Canvas(modifier.size(width = 18.dp, height = 20.dp)) {
+        val radius = 1.6.dp.toPx()
+        val columnGap = 6.dp.toPx()
+        val rowGap = 6.dp.toPx()
+        val startX = (size.width - columnGap) / 2f
+        val startY = (size.height - rowGap * 2) / 2f
+        for (column in 0..1) for (row in 0..2) {
+            drawCircle(tint, radius, Offset(startX + column * columnGap, startY + row * rowGap))
+        }
     }
 }

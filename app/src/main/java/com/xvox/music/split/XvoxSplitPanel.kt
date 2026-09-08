@@ -42,28 +42,43 @@ fun XvoxSplitPanel(playerViewModel: MainPlayerViewModel = viewModel(), settingsV
     var consent by remember { mutableStateOf(false) }
     var mobile by remember { mutableStateOf(false) }
     PinnedSettingsEditor(preview = {
-        SettingsPreviewFrame("XvoxSplit · real vocal / instrumental stems") {
-            Text("${split.ready}/${split.total} ready · ${split.busy} processing", color = colors.primaryAccent, fontWeight = FontWeight.Bold)
-            Text(when { split.autoPaused -> "Paused after rapid skips"; split.active && split.currentId != null && (split.currentId !in split.readyTracks || split.currentId in split.normalIds) -> "This track is playing normally; prepared tracks remain available"
-                split.active -> "Ready tracks: instrumental ↔ vocals"; split.running -> "Normal playback until the first ${split.gateIds.size} tracks are ready"; else -> split.stage },
-                color = colors.primaryText, fontSize = 12.sp)
-            if (split.running && !split.modelReady) LinearProgressIndicator(progress = { split.modelProgress }, modifier = Modifier.fillMaxWidth())
-            Text("True AI separation can contain leakage/artifacts. ‘Beat’ means accompaniment, not a drum-only stem.", color = colors.secondaryText, fontSize = 10.sp)
+        SettingsPreviewFrame("XvoxSplit · beat left, vocal right") {
+            Text("${split.ready}/${split.total} ready · ${split.busy} working", color = colors.primaryAccent, fontWeight = FontWeight.Bold)
+            Text(
+                when {
+                    split.autoPaused -> "Paused after rapid skips"
+                    split.active -> "On for ready tracks"
+                    split.running -> "Preparing"
+                    else -> split.stage
+                },
+                color = colors.primaryText, fontSize = 12.sp
+            )
+            if (!split.modelReady) LinearProgressIndicator(progress = { split.modelProgress }, modifier = Modifier.fillMaxWidth())
         }
     }, controls = {
-        Text("Battery & storage warning", color = colors.primaryText, fontWeight = FontWeight.Bold)
-        Text("Initial setup downloads a 28.3 MB model. Processing can take minutes and uses substantial CPU, memory and battery. Prepared audio uses about 10 MB per minute plus temporary decoding space. Prefer Wi-Fi and charging; normal playback remains available.", color = colors.secondaryText, fontSize = 12.sp)
-        Text("First up to two queued tracks are prepared, then the queue continues in the background. A slower phone may run out of ready tracks; that song stays normal until ready. Three rapid manual track changes within four seconds switch XvoxSplit off automatically.", color = colors.secondaryText, fontSize = 11.sp)
-        SettingsToggle("I understand the processing cost", null, consent) { consent = it }
-        if (!split.modelReady) SettingsToggle("Allow mobile data for model download", "No music is uploaded", mobile) { mobile = it }
+        // Step 1 — the model. Kept separate from the queue so a blocked background service can
+        // never be the reason the download does not happen.
+        if (!split.modelReady) {
+            Text("Separation model · 28.3 MB", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
+            SettingsToggle("Allow mobile data", null, mobile) { mobile = it }
+            Button(onClick = { XvoxSplitRepository.downloadModel(context, mobile) }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (split.modelProgress > 0f) "Downloading ${(split.modelProgress * 100).toInt()}%" else "Download model")
+            }
+        }
+
+        Text("Uses noticeable CPU, battery and storage.", color = colors.secondaryText, fontSize = 12.sp)
+        SettingsToggle("I understand", null, consent) { consent = it }
+
         Button(enabled = consent && split.initialized && !split.running && player.queue.isNotEmpty(), modifier = Modifier.fillMaxWidth(), onClick = {
             XvoxSplitRepository.start(context, player.queue, player.currentSongId, mobile)
-        }) { Text(if (split.modelReady) "Prepare queue & enable XvoxSplit" else "Download model & prepare first tracks") }
-        if (split.running || split.requested) OutlinedButton(onClick = { XvoxSplitRepository.stop() }, modifier = Modifier.fillMaxWidth()) { Text("Stop preparation · back to normal") }
-        SettingsToggle("Show progress pill", "Before the star in Now Playing", settings.splitShowPill, settingsViewModel::setSplitShowPill)
-        SettingsToggle("Hide XvoxSplit collection", "Hide it from Home and the Liked/Split cycle", settings.splitHideCollection, settingsViewModel::setSplitHideCollection)
-        Text("Queue / prepared tracks", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
-        Text("Tap a pending/working row to cancel it. Hold a ready row for Normal, XvoxSplit, Save/Add or removal options.", color = colors.secondaryText, fontSize = 10.sp)
+        }) { Text("Prepare queue") }
+
+        if (split.running || split.requested) OutlinedButton(onClick = { XvoxSplitRepository.stop() }, modifier = Modifier.fillMaxWidth()) { Text("Stop") }
+
+        SettingsToggle("Progress pill", null, settings.splitShowPill, settingsViewModel::setSplitShowPill)
+        SettingsToggle("Hide collection", null, settings.splitHideCollection, settingsViewModel::setSplitHideCollection)
+
+        Text("Tracks", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
             items(split.tracks, key = { it.id }) { track ->
                 val working = track.status in setOf(SplitStatus.QUEUED, SplitStatus.DECODING, SplitStatus.SEPARATING)
@@ -80,7 +95,7 @@ fun XvoxSplitPanel(playerViewModel: MainPlayerViewModel = viewModel(), settingsV
                 }
             }
         }
-        Text("Model: UVR MDX-Net 9482, credited to UVR/Anjok07 and contributors, Kuielab and the sherpa-onnx distribution. Model downloaded on demand and checksum verified. Separation runs on-device; originals are not modified.", color = colors.mutedText, fontSize = 10.sp)
+        Text("Model: UVR MDX-Net 9482 · on-device, originals untouched.", color = colors.mutedText, fontSize = 10.sp)
     })
 }
 

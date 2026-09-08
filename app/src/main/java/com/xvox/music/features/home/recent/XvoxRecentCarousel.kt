@@ -20,12 +20,14 @@ import com.xvox.music.features.home.HomeGeometry
 @Composable
 fun XvoxRecentCarousel(
     songs: List<Song>, currentSongId: Long?, isPlaying: Boolean, transition: RecentTransitionRequest,
-    onSongClick: (Song) -> Unit, onSongOptions: (Song) -> Unit
+    onSongClick: (Song) -> Unit, onSongOptions: (Song) -> Unit,
+    sources: Map<Long, String> = emptyMap(), onSourceClick: (Song) -> Unit = {}
 ) {
     val state = rememberLazyListState()
     val fling = rememberSnapFlingBehavior(state)
     val click by rememberUpdatedState(onSongClick)
     val options by rememberUpdatedState(onSongOptions)
+    val sourceClick by rememberUpdatedState(onSourceClick)
     LaunchedEffect(transition.id) {
         if (transition.id != 0L && transition.mode == RecentTransitionMode.LIBRARY && !state.isScrollInProgress) {
             val index = songs.indexOfFirst { it.id == transition.songId }
@@ -43,6 +45,7 @@ fun XvoxRecentCarousel(
                 items(songs, key = { it.id }, contentType = { "recent_song" }) { song ->
                     XvoxRecentArtwork(song, song.id == currentSongId, song.id == currentSongId && isPlaying,
                         onClick = { click(song) }, onLongClick = { options(song) },
+                        source = sources[song.id], onSourceClick = { sourceClick(song) },
                         modifier = Modifier.width(itemWidth).height(122.dp)
                             .animateItem(fadeInSpec = tween(160), placementSpec = tween(200), fadeOutSpec = tween(120)))
                 }

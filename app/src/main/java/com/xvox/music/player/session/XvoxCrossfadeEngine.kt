@@ -44,7 +44,10 @@ class XvoxCrossfadeEngine(
 ) {
     private class Deck(val player: ExoPlayer, val processor: StereoBalanceAudioProcessor, val listener: Player.Listener, var gain: Float)
     private data class Prepared(val deck: Deck, val fromId: String, val nextIndex: Int, var started: Boolean = false, var plan: EnergyBlendPlan? = null)
-    private data class Overlap(val outgoing: Deck, val startPosition: Long, val duration: Long, val beatAligned: Boolean, val handoff: Float)
+    private data class Overlap(
+        val outgoing: Deck, val startPosition: Long, val duration: Long, val beatAligned: Boolean,
+        val handoff: Float, val incomingTrim: Float = 1f
+    )
 
     var crossfadeEnabled = false
         set(value) { field = value; XvoxBlendMonitor.configure(value, crossfadeSeconds); refreshZones() }
@@ -64,6 +67,8 @@ class XvoxCrossfadeEngine(
     private var prepared: Prepared? = null
     private var failedForId: String? = null
     private var overlap: Overlap? = null
+    /** Live level-match factor; eased back to 1 after a blend so the trim is never permanent. */
+    private var incomingTrim = 1f
     private var released = false
     private var internalFocusChange = false
     private var focusGranted = false
@@ -187,8 +192,11 @@ class XvoxCrossfadeEngine(
                 else com.xvox.music.player.playback.CrossfadeGains(1f, 1f)
             mixing.outgoing.processor.engine.transitionBassGain = bass.outgoing
             active.processor.engine.transitionBassGain = bass.incoming
+            // Level matching is strongest at the join and relaxes towards the end of the blend,
+            // so the incoming track arrives at its own natural level without an audible step.
+            incomingTrim = 1f + (mixing.incomingTrim - 1f) * (1f - progress * progress)
             setGain(mixing.outgoing, gains.outgoing)
-            setGain(active, gains.incoming)
+            setGain(active, gains.incoming * incomingTrim)
             publishBlend(mixing, progress)
             if (progress >= 1f) finishOverlap()
             return
@@ -231,6 +239,10 @@ class XvoxCrossfadeEngine(
             }
             if (ready.plan?.let { player.currentPosition < it.startPositionMs } == true) return
             ready.started = true
+            // Skip a silent intro so the two tracks butt up against each other with no dead air.
+            ready.plan?.leadInMs?.takeIf { it > 60 }?.let { lead ->
+                runCatching { ready.deck.player.seekTo(ready.nextIndex, lead) }
+            }
             ready.deck.player.play()
             return // Wait for actual playback readiness; don't fade away a still-playing old track.
         }
@@ -239,7 +251,8 @@ class XvoxCrossfadeEngine(
         outgoing.player.pauseAtEndOfMediaItems = true
         active = ready.deck
         prepared = null
-        overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50), ready.plan?.beatAligned == true, ready.plan?.handoff ?: .5f)
+        overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50),
+            ready.plan?.beatAligned == true, ready.plan?.handoff ?: .5f, ready.plan?.incomingTrim ?: 1f)
         cancelAnalysis()
         XvoxBlendMonitor.markIncoming(player.currentMediaItem?.mediaId?.toLongOrNull(), remaining)
         publishBlend(overlap!!, 0f, force = true)
@@ -286,6 +299,7 @@ class XvoxCrossfadeEngine(
         val old = overlap?.outgoing
         overlap = null
         XvoxBlendMonitor.end()
+        incomingTrim = 1f
         active.processor.engine.transitionBassGain = 1f
         setGain(active, 1f)
         old?.let(::releaseDeck)

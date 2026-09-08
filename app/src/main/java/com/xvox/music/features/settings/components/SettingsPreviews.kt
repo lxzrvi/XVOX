@@ -76,7 +76,7 @@ fun EqSettingsPreview(state: SettingsState) {
             val noiseHeight = 10.dp.toPx() * (1 - state.noiseReduction)
             drawRect(colors.secondaryText.copy(alpha = .15f), Offset(0f, size.height - noiseHeight), Size(size.width, noiseHeight))
         }
-        Text("Protection −${state.eqHeadroomDb.toInt()} dB · high softening ${(state.softenHighs * 100).toInt()}% · noise reduction ${(state.noiseReduction * 100).toInt()}%",
+        Text("−${state.eqHeadroomDb.toInt()} dB · highs ${(state.softenHighs * 100).toInt()}% · noise ${(state.noiseReduction * 100).toInt()}%",
             color = colors.secondaryText, fontSize = 10.sp)
     }
 }
@@ -102,7 +102,7 @@ fun SurroundSettingsPreview(state: SettingsState) {
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(8.dp.toPx(), size.height * (1 - left) / 2), Size(5.dp.toPx(), size.height * left), CornerRadius(3.dp.toPx()))
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(size.width - 13.dp.toPx(), size.height * (1 - right) / 2), Size(5.dp.toPx(), size.height * right), CornerRadius(3.dp.toPx()))
         }
-        Text("Depth changes travel; speed changes rotation; balance, app volume and ceiling change ear levels.", color = colors.secondaryText, fontSize = 10.sp)
+        Text("Depth ${(state.surroundDepth * 100).toInt()}% · orbit ${state.surroundPanSpeed}s", color = colors.secondaryText, fontSize = 10.sp)
     }
 }
 
@@ -131,7 +131,7 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
             drawPath(out, Color(0xFFE6AB6C), style = Stroke(2.dp.toPx()))
             drawPath(incoming, Color(0xFF62CDBD), style = Stroke(2.dp.toPx()))
         }
-        Text(if (!state.crossfade) "Crossfade off" else "${state.crossfadeDuration}s · ${if (state.crossfadeSmart) "Energy matching" else "Equal power"} · ${if (state.crossfadeBeatSync) "Beat alignment when compatible" else "No beat alignment"}",
+        Text(if (!state.crossfade) "Off" else "${state.crossfadeDuration}s · ${if (state.crossfadeSmart) "Seamless" else "Equal power"}${if (state.crossfadeBeatSync) " · beat aligned" else ""}",
             color = colors.secondaryText, fontSize = 10.sp)
     }
 }

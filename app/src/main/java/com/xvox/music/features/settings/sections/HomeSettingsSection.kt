@@ -16,52 +16,70 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.home.HomeSections
-import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.HomeSettingsPreview
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.player.playback.MainPlayerViewModel
 
+/**
+ * Home settings — including Playlists, which belong here because they are a Home section.
+ * Labels only: the preview above shows what each choice does.
+ */
 @Composable
 fun HomeSettingsSection(
     state: SettingsState, viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
     com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = { HomeSettingsPreview(state) }, controls = {
-        Text("Card style", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        SettingsChoiceRow(listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One Size"),
+        Label("Card style")
+        SettingsChoiceRow(listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One size"),
             state.homeLayoutStyle, viewModel::setHomeLayoutStyle)
-        Text(when (state.homeLayoutStyle) {
-            "mosaic1" -> "The original XVOX mosaic: familiar squares, portraits and wide cards."
-            "mosaic2" -> "The new varied mosaic. Covers follow their cards—no discs, holes or overflow buttons."
-            else -> "Equal-size artwork cards with consistent spacing."
-        }, color = colors.secondaryText, fontSize = 11.sp)
-        Text("Scroll direction", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+
+        Label("Scroll")
         SettingsChoiceRow(listOf("horizontal" to "Horizontal", "vertical" to "Vertical"),
             state.homeScrollDirection, viewModel::setHomeScrollDirection)
+
         if (state.homeScrollDirection == "horizontal") {
-            Text("Grid rows", color = colors.secondaryText, fontSize = 12.sp)
+            Label("Grid")
             SettingsChoiceRow((3..8).map { it.toString() to "4 × $it" }, state.homeHorizontalRows.toString()) {
                 viewModel.setHomeHorizontalRows(it.toInt())
             }
         }
+
+        Label("Sort")
         SettingsChoiceRow(listOf("A-Z", "Z-A", "Random").map { it to it }, state.sortOrder, viewModel::setSortOrder)
-        SettingsToggle("Hide Recents", "Remove Recently Played from Home", state.hideRecentlyPlayed, viewModel::setHideRecentlyPlayed)
-        Text("Recents placement", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+
+        Label("Playlist cards")
+        SettingsChoiceRow(listOf("cards" to "Grid", "long" to "Long"), state.playlistStyle, viewModel::setPlaylistStyle)
+
+        if (state.playlistStyle == "long") {
+            Label("Long card height")
+            SettingsChoiceRow(
+                listOf(0 to "Auto", 90 to "90", 110 to "110", 130 to "130", 160 to "160", 190 to "190", 220 to "220")
+                    .map { (value, label) -> value.toString() to label },
+                state.playlistLongHeight.toString()
+            ) { viewModel.setPlaylistLongHeight(it.toInt()) }
+        }
+
+        SettingsToggle("Hide recents", null, state.hideRecentlyPlayed, viewModel::setHideRecentlyPlayed)
+
+        Label("Recents position")
         SettingsChoiceRow(listOf("top" to "Top", "bottom" to "Bottom"), state.recentsPlacement, viewModel::setRecentsPlacement)
-        Text("Top = before All Songs. Bottom = after All Songs.", color = colors.secondaryText, fontSize = 11.sp)
-        SettingsToggle("Merge", "Bring Liked Songs and Playlists onto Home. Only Refresh remains in the top-right pill.",
-            state.homeMerge, viewModel::setHomeMerge)
+
+        SettingsToggle("Merge sections", null, state.homeMerge, viewModel::setHomeMerge)
+
         if (state.homeMerge) {
-            Text("Home order & visibility", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text("Checked sections are shown. Use the arrows to reorder them; the preview uses this exact order.",
-                color = colors.secondaryText, fontSize = 11.sp)
+            Label("Order")
             state.homeSectionOrder.forEachIndexed { index, section ->
-                val visible = section !in state.homeHiddenSections && (section != HomeSections.RECENT || !state.hideRecentlyPlayed) && (section != HomeSections.SPLIT || !state.splitHideCollection)
+                val visible = section !in state.homeHiddenSections &&
+                    (section != HomeSections.RECENT || !state.hideRecentlyPlayed) &&
+                    (section != HomeSections.SPLIT || !state.splitHideCollection)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(visible, onCheckedChange = { viewModel.setHomeSectionVisible(section, it); if (section == HomeSections.SPLIT) viewModel.setSplitHideCollection(!it) })
+                    Checkbox(visible, onCheckedChange = {
+                        viewModel.setHomeSectionVisible(section, it)
+                        if (section == HomeSections.SPLIT) viewModel.setSplitHideCollection(!it)
+                    })
                     Text(HomeSections.label(section), color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Move ${HomeSections.label(section)} up",
                         tint = if (index > 0) colors.primaryAccent else colors.mutedText,
@@ -75,6 +93,12 @@ fun HomeSettingsSection(
                 }
             }
         }
-        SettingsToggle("Show XvoxSplit progress pill", "Show/hide it before the star in Now Playing", state.splitShowPill, viewModel::setSplitShowPill)
+
+        SettingsToggle("XvoxSplit pill", null, state.splitShowPill, viewModel::setSplitShowPill)
     })
+}
+
+@Composable
+private fun Label(text: String) {
+    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }

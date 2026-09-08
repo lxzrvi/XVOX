@@ -5,7 +5,9 @@ import org.json.JSONObject
 data class WidgetLabelStyle(
     val visibility: String = "auto", val size: Int = 13, val alignment: String = "left", val font: String = "inter",
     val color: String = "Auto", val background: String = "Transparent", val borderColor: String = "Auto",
-    val borderWidth: Float = 0f, val radius: Int = 6
+    val borderWidth: Float = 0f, val radius: Int = 6,
+    /** Nudge in dp. Negative values are allowed, so cover text can sit outside the box. */
+    val offsetX: Int = 0, val offsetY: Int = 0
 )
 data class WidgetButtonStyle(
     val position: String = "auto", val size: Int = 0, val color: String = "Auto",
@@ -27,8 +29,10 @@ data class WidgetCustomization(
 ) {
     fun label(id: String) = labels[id] ?: defaultLabels().getValue(id)
     fun button(id: String) = buttons[id] ?: WidgetButtonStyle()
-    fun sanitized() = copy(coverMarginX = coverMarginX.coerceIn(0, 24), coverMarginY = coverMarginY.coerceIn(0, 24),
-        coverPaddingX = coverPaddingX.coerceIn(0, 24), coverPaddingY = coverPaddingY.coerceIn(0, 24),marginX = marginX.coerceIn(0, 32), marginY = marginY.coerceIn(0, 32),
+    // Cover margin/padding accept negative values on purpose: the artwork and its text are
+    // allowed to bleed outside the widget box.
+    fun sanitized() = copy(coverMarginX = coverMarginX.coerceIn(-32, 24), coverMarginY = coverMarginY.coerceIn(-32, 24),
+        coverPaddingX = coverPaddingX.coerceIn(-32, 24), coverPaddingY = coverPaddingY.coerceIn(-32, 24),marginX = marginX.coerceIn(0, 32), marginY = marginY.coerceIn(0, 32),
         verticalAlignment = verticalAlignment.takeIf { it in setOf("top", "center", "bottom") } ?: "center",
         alignment = alignment.takeIf { it in setOf("left", "center", "right") } ?: "center",
         coverPlacement = coverPlacement.takeIf { it in setOf("auto", "left", "right", "top", "bottom", "hidden") } ?: "auto",
@@ -42,6 +46,7 @@ data class WidgetCustomization(
             visibility = it.visibility.takeIf { v -> v in setOf("auto", "show", "hide") } ?: "auto",
             size = it.size.coerceIn(8, 28), radius = it.radius.coerceIn(0, 48), borderWidth = (it.borderWidth.takeIf { value -> value.isFinite() } ?: 0f).coerceIn(0f, 4f),
             alignment = it.alignment.takeIf { v -> v in setOf("left", "center", "right") } ?: "left",
+            offsetX = it.offsetX.coerceIn(-48, 48), offsetY = it.offsetY.coerceIn(-48, 48),
             font = it.font.takeIf { v -> v in setOf("inter", "cinzel", "hand") } ?: fallback.font) } },
         buttons = defaultButtons().mapValues { (id, _) -> button(id).let { it.copy(
             position = it.position.takeIf { v -> v in setOf("auto", "left", "center", "right", "hidden") } ?: "auto",
@@ -56,7 +61,8 @@ data class WidgetCustomization(
         j.put("order", buttonOrder.joinToString(",")).put("vertical", verticalAlignment).put("cmx", coverMarginX).put("cmy", coverMarginY).put("cpx", coverPaddingX).put("cpy", coverPaddingY)
         val ls = JSONObject(); labels.forEach { (id, s) -> ls.put(id, JSONObject().put("visible", s.visibility).put("size", s.size)
             .put("align", s.alignment).put("font", s.font).put("color", s.color).put("bg", s.background)
-            .put("borderColor", s.borderColor).put("border", s.borderWidth.toDouble()).put("radius", s.radius)) }
+            .put("borderColor", s.borderColor).put("border", s.borderWidth.toDouble()).put("radius", s.radius)
+            .put("ox", s.offsetX).put("oy", s.offsetY)) }
         val bs = JSONObject(); buttons.forEach { (id, s) -> bs.put(id, JSONObject().put("position", s.position).put("size", s.size)
             .put("color", s.color).put("bg", s.background).put("borderColor", s.borderColor)
             .put("border", s.borderWidth.toDouble()).put("radius", s.radius).put("label", s.showLabel)
@@ -74,7 +80,8 @@ data class WidgetCustomization(
                 val s = j.optJSONObject("labels")?.optJSONObject(id) ?: JSONObject()
                 WidgetLabelStyle(s.optString("visible", d.visibility), s.optInt("size", d.size), s.optString("align", d.alignment),
                     s.optString("font", d.font), s.optString("color", d.color), s.optString("bg", d.background),
-                    s.optString("borderColor", d.borderColor), s.optDouble("border", d.borderWidth.toDouble()).toFloat(), s.optInt("radius", d.radius))
+                    s.optString("borderColor", d.borderColor), s.optDouble("border", d.borderWidth.toDouble()).toFloat(), s.optInt("radius", d.radius),
+                    s.optInt("ox", 0), s.optInt("oy", 0))
             }
             val buttons = defaultButtons().mapValues { (id, d) ->
                 val s = j.optJSONObject("buttons")?.optJSONObject(id) ?: JSONObject()

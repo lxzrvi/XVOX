@@ -149,7 +149,8 @@ fun HomeScreen(
         if (isSelectionMode) {
             selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
         } else {
-            viewModel.recordPlayedFromLibrary(song, currentSongId)
+            // The origin travels with the play, so the recent badge can name it later.
+            viewModel.recordPlayedFromLibrary(song, currentSongId, sourceName)
             playerViewModel.playFromSource(song, list, sourceName)
         }
     }
@@ -177,7 +178,11 @@ fun HomeScreen(
                         playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
                     }
                 },
-                onSongOptions = { song -> openSingleSongOptions(song, recent = true) }
+                onSongOptions = { song -> openSingleSongOptions(song, recent = true) },
+                sources = state.recentSources,
+                onSourceClick = { song ->
+                    overlays.showP(com.xvox.music.features.home.recent.RecentSource.describe(state.recentSources[song.id]))
+                }
             )
         }
     }
@@ -194,7 +199,7 @@ fun HomeScreen(
     }
     fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
         playlistCollectionItems(state.playlists, { playlistContents[it.id].orEmpty() },
-            layoutStyle = config.playlistStyle,
+            layoutStyle = config.playlistStyle, longCardHeight = config.playlistLongHeight,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist -> showPlaylistActions(overlays, viewModel, playlist) {
