@@ -54,13 +54,23 @@ fun LazyListScope.librarySongItems(
 
 fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
-    onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit
+    onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
+    layoutStyle: String = "long"
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
         Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
+    if (layoutStyle == "long") {
+        items(playlists, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
+                val oldCardHeight = (maxWidth - 6.dp) / 2 + 35.dp
+                XvoxPlaylistCard(playlist, songsFor(playlist), { onOpen(playlist) }, { onOptions(playlist) },
+                    Modifier.fillMaxWidth().height(oldCardHeight), longCard = true)
+            }
+        }
+    } else {
     items(playlists.chunked(2), key = { "playlist_row_${it.first().id}" }, contentType = { "playlist_row" }) { row ->
         Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -71,4 +81,6 @@ fun LazyListScope.playlistCollectionItems(
             if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
+    }
+
 }

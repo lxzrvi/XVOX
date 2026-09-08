@@ -22,11 +22,13 @@ data class WidgetCustomization(
     val buttonOrder: List<String> = buttonIds,
     val labels: Map<String, WidgetLabelStyle> = defaultLabels(),
     val buttons: Map<String, WidgetButtonStyle> = defaultButtons(),
-    val verticalAlignment: String = "center"
+    val verticalAlignment: String = "center",
+    val coverMarginX: Int = 0, val coverMarginY: Int = 0, val coverPaddingX: Int = 0, val coverPaddingY: Int = 0
 ) {
     fun label(id: String) = labels[id] ?: defaultLabels().getValue(id)
     fun button(id: String) = buttons[id] ?: WidgetButtonStyle()
-    fun sanitized() = copy(marginX = marginX.coerceIn(0, 32), marginY = marginY.coerceIn(0, 32),
+    fun sanitized() = copy(coverMarginX = coverMarginX.coerceIn(0, 24), coverMarginY = coverMarginY.coerceIn(0, 24),
+        coverPaddingX = coverPaddingX.coerceIn(0, 24), coverPaddingY = coverPaddingY.coerceIn(0, 24),marginX = marginX.coerceIn(0, 32), marginY = marginY.coerceIn(0, 32),
         verticalAlignment = verticalAlignment.takeIf { it in setOf("top", "center", "bottom") } ?: "center",
         alignment = alignment.takeIf { it in setOf("left", "center", "right") } ?: "center",
         coverPlacement = coverPlacement.takeIf { it in setOf("auto", "left", "right", "top", "bottom", "hidden") } ?: "auto",
@@ -51,7 +53,7 @@ data class WidgetCustomization(
             .put("coverBorder", coverBorderWidth.toDouble()).put("coverBorderColor", coverBorderColor)
             .put("labelsAt", labelPlacement).put("buttonsAt", buttonsPlacement).put("full", fullCover)
             .put("shade", fullCoverShade.toDouble()).put("border", borderWidth.toDouble()).put("borderColor", borderColor)
-        j.put("order", buttonOrder.joinToString(",")).put("vertical", verticalAlignment)
+        j.put("order", buttonOrder.joinToString(",")).put("vertical", verticalAlignment).put("cmx", coverMarginX).put("cmy", coverMarginY).put("cpx", coverPaddingX).put("cpy", coverPaddingY)
         val ls = JSONObject(); labels.forEach { (id, s) -> ls.put(id, JSONObject().put("visible", s.visibility).put("size", s.size)
             .put("align", s.alignment).put("font", s.font).put("color", s.color).put("bg", s.background)
             .put("borderColor", s.borderColor).put("border", s.borderWidth.toDouble()).put("radius", s.radius)) }
@@ -83,7 +85,7 @@ data class WidgetCustomization(
             WidgetCustomization(j.optInt("mx"), j.optInt("my"), j.optString("align", "center"), j.optString("cover", "auto"),
                 j.optInt("coverSize"), j.optInt("coverRadius", -1), j.optDouble("coverBorder", 0.0).toFloat(), j.optString("coverBorderColor", "Auto"),
                 j.optString("labelsAt", "center"), j.optString("buttonsAt", "auto"), j.optBoolean("full"), j.optDouble("shade", .35).toFloat(),
-                j.optDouble("border", .7).toFloat(), j.optString("borderColor", "Auto"), j.optString("order", buttonIds.joinToString(",")).split(","), labels, buttons, j.optString("vertical", "center")).sanitized()
+                j.optDouble("border", .7).toFloat(), j.optString("borderColor", "Auto"), j.optString("order", buttonIds.joinToString(",")).split(","), labels, buttons, j.optString("vertical", "center"), j.optInt("cmx"), j.optInt("cmy"), j.optInt("cpx"), j.optInt("cpy")).sanitized()
         }.getOrDefault(WidgetCustomization())
     }
 }

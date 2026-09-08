@@ -62,14 +62,15 @@ fun HorizontalSongPages(
         }
     }
     BoxWithConstraints(modifier.fillMaxWidth()) {
+        val renderConfig = if (config.style == "mosaic2") config.copy(rows = mosaicRows(songs.size, config.rows)) else config
         val pageWidth = maxWidth - 12.dp
         val unitHeight = (pageWidth - 18.dp) / 4 + 38.dp
-        val pageHeight = unitHeight * config.rows + 6.dp * (config.rows - 1)
+        val pageHeight = unitHeight * renderConfig.rows + 6.dp * (renderConfig.rows - 1)
         // Original native horizontal scrolling. No diagonal/free-pan gesture interceptor.
         LazyRow(state = state, modifier = Modifier.fillMaxWidth().height(pageHeight),
             contentPadding = PaddingValues(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(plans, key = { it.startIndex }, contentType = { "mosaic_page" }) { plan ->
-                XvoxSongGridPage(songs, plan, config, currentSongId, isPlaying, selectedSongIds,
+                XvoxSongGridPage(songs, plan, renderConfig, currentSongId, isPlaying, selectedSongIds,
                     onSongClick, onSongLongClick, compact = false, modifier = Modifier.width(pageWidth))
             }
         }

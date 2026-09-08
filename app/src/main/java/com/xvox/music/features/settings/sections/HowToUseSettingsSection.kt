@@ -13,11 +13,11 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun HowToUseSettingsSection() {
     val colors = XvoxTheme.colors
     val tips = listOf(
-        "Start & permissions" to "Allow audio access so XVOX can read your device library. Allow notifications for convenient playback controls. The startup screen no longer waits for a fixed timer.",
+        "Start & permissions" to "Allow audio access so XVOX can read your device library. Allow notifications for convenient playback controls. The original five-second minimum intro is retained, and Home waits for the library, visible artwork warm-up and playback connection to be ready.",
         "Play a song" to "Tap once. The card gives a brief press pulse; it does not retain the cover's colour. A large source queue loads in small batches while the selected song starts.",
         "Song options" to "Hold an All Songs card. Liked, playlist and search rows also have an options action. Play next, add to queue, playlist, like, share, information and removal actions are here.",
         "Select several songs" to "Choose Select from song options, then tap more songs. Bulk actions stay below the header. Cancel or Back leaves selection mode.",
-        "Home layouts" to "One Size uses equal cards. Mosaic 1 is the original layout; Mosaic 2 uses varied tiles. Horizontal scroll moves between pages; vertical scroll uses lazy pages. The Home preview is a compact layout diagram.",
+        "Home layouts" to "One Size uses equal cards. Mosaic 1 is the original layout; Mosaic 2 uses varied tiles. Horizontal scroll moves between pages; vertical scroll uses lazy pages. Home, playlist, widget, lyrics and sound editors open in boxes with a pinned preview and scrolling controls.",
         "Recently Played" to "Swipe the Recent cards left or right. The carousel stays scrollable while a newly played song is added. Hide it or move it above/below All Songs in Home settings.",
         "Merge Home sections" to "Turn on Merge to show Liked Songs and Playlists on Home. Reorder or hide sections. Only Refresh remains in the header's right-hand pill.",
         "Refresh your library" to "Tap Refresh after adding or removing files. Duration, size, folder and hidden-song filters determine what appears; changing visual settings does not scan your music again.",
@@ -33,7 +33,7 @@ fun HowToUseSettingsSection() {
         "Crossfade display" to "Only the subdued seek track is tinted. A first/manual track does not get an intro-blend zone. During a real overlap, a small Crossfading pill appears—there are no extra song-name bars.",
         "Lyrics files" to "Open lyrics from the artwork, attach LRC for timing or a plain-text file, or use embedded lyrics when available. Full-screen lyrics use the same preferences.",
         "Lyrics timing" to "Settings → Lyrics: positive offset delays the words; negative offset advances them. Tap a timed lyric to seek with the offset applied. Reset timing to return to the file's original timestamps.",
-        "Lyrics appearance" to "Set the current and other-line sizes, independent top/bottom fade areas, and Soft Fade, Slide or Focus Zoom entry. The preview uses placeholder lines only. These controls are also inside Now Playing's three-dot box.",
+        "Lyrics appearance" to "Set the current and other-line sizes, independent top/bottom fade areas, and Soft Fade, Slide, Focus Zoom, Glide or Spring entry. The preview uses placeholder lines only. These controls are also inside Now Playing's three-dot box.",
         "Headset auto play" to "Enable Auto Play in Playback. XVOX watches actual wired, USB, A2DP and BLE output routes. It resumes the existing source or a permitted filtered library. Android force-stop/background restrictions still apply.",
         "Sleep timer" to "Set a preset or custom timer from the player. Choose the available pause/close behavior and cancel it when no longer needed.",
         "Library filters" to "Use presets or custom seconds/minutes and KB/MB thresholds. Checked folders in the browser are excluded, including descendants. Similar folder names on another volume are not automatically excluded.",
@@ -43,6 +43,9 @@ fun HowToUseSettingsSection() {
         "Widget text & buttons" to "Edit song, artist and logo labels separately: hide/show, font, size, colour, background and borders. Edit each button's position, order, size, padding, caption, colours and border—or apply a field to all buttons.",
         "Widget playback with app closed" to "Press Play on the widget. The playback service starts in the foreground before requesting audio focus, so an Activity/controller is not required. Another app's exclusive audio focus or muted system/app volume can still prevent audible output.",
         "Back & background" to "Settings/Search Back returns Home. Home's confirmation can stop playback and close the UI. Closing the Activity alone does not tear down an active player. Use Stop when you want music to end.",
+        "XvoxSplit setup" to "This optional feature uses a real on-device model to separate vocals from accompaniment. Read the battery/storage warning and allow the 28.3 MB model download. Up to two tracks are prepared first; normal playback continues while the queue is processed in the background.",
+        "XvoxSplit progress & safety" to "The pill before the star shows ready/total and the number processing. Tap it for tasks; tap a queued/working row to cancel that track. Three rapid manual track changes within four seconds turn the feature off. Enable again explicitly after settling on a queue.",
+        "Save separated versions" to "Hold a ready task: choose Normal, XvoxSplit, or Add/Save to XvoxSplit. The header cycles Liked → XvoxSplit → Home and uses a waveform icon for the split collection. Merge can show/hide this section; its progress pill has a separate visibility toggle.",
         "Appearance & privacy" to "Choose light, dark, AMOLED/system themes, accents and text scale. XVOX plays local files and stores its profile, playlists and preferences on your device; beat/energy analysis is on-device, not uploaded."
     )
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {

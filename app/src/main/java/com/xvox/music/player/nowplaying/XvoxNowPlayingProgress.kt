@@ -177,7 +177,6 @@ fun XvoxNowPlayingProgress(
                 fontSize = 10.sp
             )
         }
-        XvoxBlendStatus()
     }
 }
 

@@ -12,7 +12,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 @Immutable
 data class XvoxPopupMessage(
     val id: Long,
-    val text: String
+    val text: String,
+    val persistent: Boolean = false
 )
 
 @Stable
@@ -48,6 +49,12 @@ class XvoxOverlayController {
         popup = XvoxPopupMessage(id = popupId, text = text)
     }
 
+    fun showPersistentP(text: String): Long {
+        popupId++
+        popup = XvoxPopupMessage(popupId, text, persistent = true)
+        return popupId
+    }
+    fun dismissP(id: Long) { clearPopup(id) }
     internal fun clearPopup(id: Long) {
         if (popup?.id == id) {
             popup = null

@@ -51,7 +51,16 @@ import kotlin.math.roundToInt
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-    Column(Modifier.fillMaxWidth()) {
+    var previewMode by remember { androidx.compose.runtime.mutableStateOf("eq") }
+    com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = {
+        if (state.equalizerEnabled && state.stereoWidening) com.xvox.music.features.settings.components.SettingsChoiceRow(
+            listOf("eq" to "Equalizer", "space" to "3D"), previewMode) { previewMode = it }
+        when {
+            state.stereoWidening && (previewMode == "space" || !state.equalizerEnabled) -> com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
+            state.equalizerEnabled -> com.xvox.music.features.settings.components.EqSettingsPreview(state)
+            else -> Text("Enable EQ or 3D to preview it", color = colors.secondaryText, fontSize = 12.sp)
+        }
+    }, controls = {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
         SettingsToggle("XvoxMix Equalizer", "Band boosts no longer turn down the entire track automatically.", state.equalizerEnabled, viewModel::setEqualizerEnabled)
         if (state.equalizerEnabled) {
@@ -59,15 +68,13 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                 viewModel.setEqBandCount(it.toInt())
             }
             Spacer(Modifier.height(12.dp))
-            com.xvox.music.features.settings.components.EqSettingsPreview(state)
-            Spacer(Modifier.height(12.dp))
             com.xvox.music.features.settings.components.SettingsChoiceRow(
                 (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it }, state.eqPreset, viewModel::setEqPreset)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(180.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 com.xvox.music.audio.EqBands.frequencies(state.eqBandCount).forEachIndexed { index, frequency ->
                     VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
-                        viewModel.setEqBand(index, it)
+                        previewMode = "eq"; viewModel.setEqBand(index, it)
                     }
                 }
             }
@@ -76,7 +83,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Text("0 dB keeps your level. Increase only if boosted peaks sound strained; this control intentionally lowers gain. Peak limiting stays on.",
             color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
-        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
+        XvoxThinLineSlider(state.eqHeadroomDb, { previewMode = "eq"; viewModel.setEqHeadroomDb(it) }, 0f..18f, defaultValue = 0f)
         Text("Noise reduction: ${(state.noiseReduction * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
         XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
         Text("Gentle low-level hiss reduction—not voice separation. High values can soften quiet tails.", color = colors.secondaryText, fontSize = 10.sp)
@@ -84,9 +91,8 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         Text("Soften sharp highs: ${(state.softenHighs * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
         XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
         Spacer(Modifier.height(12.dp))
-        SettingsToggle("3D Headphone Sound", "Ear delay, rear cues and reflections, with a steadier low end.", state.stereoWidening, viewModel::setStereoWidening)
+        SettingsToggle("3D Headphone Sound", "Ear delay, rear cues and reflections, with a steadier low end.", state.stereoWidening, { previewMode = "space"; viewModel.setStereoWidening(it) })
         if (state.stereoWidening) {
-            com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
             Text("Depth: ${(state.surroundDepth * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
             XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
             Text("Orbit: ${state.surroundPanSpeed} seconds", color = colors.secondaryText, fontSize = 12.sp)
@@ -98,7 +104,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
         Text("Balance: ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}", color = colors.secondaryText, fontSize = 12.sp)
         XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
-    }
+    })
 }
 
 @Composable

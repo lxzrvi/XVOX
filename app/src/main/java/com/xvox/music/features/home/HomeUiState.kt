@@ -9,6 +9,7 @@ import com.xvox.music.features.home.recent.RecentTransitionMode
 
 data class HomeUiState(
     val loading: Boolean = true,
+    val startupReady: Boolean = false,
     val refreshing: Boolean = false,
     val songs: List<Song> =
         emptyList(),

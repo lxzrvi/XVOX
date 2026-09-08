@@ -131,9 +131,9 @@ fun XvoxShellTopHeader(
 
                     if (!mergedHome) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_xvox_heart),
-                        contentDescription = "Liked Songs",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
+                        painter = painterResource(if (libraryMode == XvoxHomeLibraryMode.SPLIT) R.drawable.ic_xvox_split else R.drawable.ic_xvox_heart),
+                        contentDescription = "Liked → XvoxSplit → Home",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED || libraryMode == XvoxHomeLibraryMode.SPLIT) colors.primaryAccent else colors.primaryText,
                         modifier = Modifier
                             .size(36.dp)
                             .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }

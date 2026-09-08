@@ -25,31 +25,20 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
     val loop = rememberInfiniteTransition(label = "lyricsLayoutDemo")
-    val time by loop.animateFloat(0f, 9000f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "demoTime")
+    val time by loop.animateFloat(0f, 12000f, infiniteRepeatable(tween(12000, easing = LinearEasing)), label = "demoTime")
     val active = (((time - settings.offsetMs + 9000) % 9000) / 3000).toInt().coerceIn(0, 2)
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    PinnedSettingsEditor(preview = {
         SettingsPreviewFrame("Lyrics · layout sample") {
-            Box(Modifier.fillMaxWidth().height(205.dp).clip(RoundedCornerShape(14.dp)).background(colors.background)
-                .lyricsEdgeFade(settings.fadeTop, settings.fadeBottom), contentAlignment = Alignment.Center) {
-                AnimatedContent(targetState = active, transitionSpec = {
-                    when (settings.animation) {
-                        "slide" -> (slideInVertically(tween(240)) { it / 3 } + fadeIn(tween(180))) togetherWith
-                            (slideOutVertically(tween(200)) { -it / 3 } + fadeOut(tween(140)))
-                        "focus" -> (scaleIn(tween(280), initialScale = .9f) + fadeIn(tween(200))) togetherWith
-                            (scaleOut(tween(180), targetScale = .96f) + fadeOut(tween(140)))
-                        else -> fadeIn(tween(200)) togetherWith fadeOut(tween(150))
-                    }
-                }, label = "lyricsCentrePreview") { centre ->
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        for (relative in -1..1) {
-                            val line = listOf("Line A", "Line B", "Line C")[(centre + relative + 3) % 3]
-                            LyricPresentationLine(line, relative == 0, relative, settings, color = colors.primaryText)
-                        }
-                    }
-                }
+            val demo = remember { com.xvox.music.player.nowplaying.lyrics.XvoxLyrics(
+                (0..4).map { com.xvox.music.player.nowplaying.lyrics.XvoxLyricLine(it * 2400L, "Line ${'A' + it}") },
+                true, com.xvox.music.player.nowplaying.lyrics.XvoxLyricsSource.USER_TEXT) }
+            Box(Modifier.fillMaxWidth().height(205.dp).clip(RoundedCornerShape(14.dp)).background(colors.background)) {
+                com.xvox.music.player.nowplaying.lyrics.XvoxSyncedLyrics(demo, time.toLong(), {},
+                    settingsOverride = settings, preview = true, textColor = colors.primaryText)
             }
-            Text("Placeholder lines only—no song's lyrics are used here.", color = colors.secondaryText, fontSize = 10.sp)
+            Text("Five placeholder rows demonstrate the real fade zones and centre motion.", color = colors.secondaryText, fontSize = 10.sp)
         }
+    }, controls = {
         Text("Timing: ${if (settings.offsetMs == 0) "Original" else if (settings.offsetMs > 0) "Delay +${settings.offsetMs} ms" else "Advance ${-settings.offsetMs} ms"}", color = colors.primaryText, fontSize = 12.sp)
         XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = (v / 50).roundToInt() * 50) } }, -5000f..5000f, defaultValue = 0f)
         Text("Positive values display lyrics later. Negative values show them earlier. Applies to all songs.", color = colors.secondaryText, fontSize = 10.sp)
@@ -61,11 +50,11 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         XvoxThinLineSlider(settings.fadeTop, { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
         Text("Fade from bottom: ${(settings.fadeBottom * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
         XvoxThinLineSlider(settings.fadeBottom, { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
-        SettingsChoiceRow(listOf("fade" to "Soft fade", "slide" to "Slide", "focus" to "Focus zoom"), settings.animation) { value ->
+        SettingsChoiceRow(listOf("fade" to "Soft fade", "slide" to "Slide", "focus" to "Focus zoom", "glide" to "Glide", "spring" to "Spring"), settings.animation) { value ->
             viewModel.updateLyrics { it.copy(animation = value) }
         }
         SettingsChoiceRow(listOf("reset" to "Reset lyrics settings", "timing" to "Reset timing"), "") {
             key -> viewModel.updateLyrics { if (key == "timing") it.copy(offsetMs = 0) else com.xvox.music.data.preferences.LyricsSettings() }
         }
-    }
+    })
 }

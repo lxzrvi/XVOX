@@ -12,7 +12,7 @@ data class LyricsSettings(
 ) {
     fun sanitized() = copy(offsetMs = offsetMs.coerceIn(-5000, 5000), currentSize = currentSize.coerceIn(16, 42),
         otherSize = otherSize.coerceIn(10, 30), fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f), fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        animation = animation.takeIf { it in setOf("fade", "slide", "focus") } ?: "focus")
+        animation = animation.takeIf { it in setOf("fade", "slide", "focus", "glide", "spring") } ?: "focus")
     fun position(playbackMs: Long): Long = (playbackMs - offsetMs).coerceAtLeast(0)
     fun seekPosition(lyricMs: Long): Long = (lyricMs + offsetMs).coerceAtLeast(0)
     fun encode(): String = JSONObject().put("offset", offsetMs).put("current", currentSize).put("other", otherSize)

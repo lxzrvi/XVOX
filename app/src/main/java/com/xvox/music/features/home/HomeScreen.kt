@@ -1,5 +1,7 @@
 package com.xvox.music.features.home
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -60,6 +62,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val savedSplits by remember { com.xvox.music.split.XvoxSplitRepository.state.map { it.savedTracks }.distinctUntilChanged() }.collectAsState(initial = emptyList())
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
 
@@ -183,8 +186,15 @@ fun HomeScreen(
             onPlay = { handleSongClick(it, likedSongs, "Liked Songs") },
             onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) })
     }
+    fun androidx.compose.foundation.lazy.LazyListScope.splitSection() {
+        val tracks = savedSplits.map { it.song() }
+        librarySongItems("split", "XvoxSplit", tracks, currentSongId, isPlaying, selectedSongIds,
+            onPlay = { song -> com.xvox.music.split.XvoxSplitRepository.useSplit(song.id); handleSongClick(song, tracks, "XvoxSplit") },
+            onOptions = { song -> com.xvox.music.split.showSplitTrackOptions(overlays, song.id) })
+    }
     fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
         playlistCollectionItems(state.playlists, { playlistContents[it.id].orEmpty() },
+            layoutStyle = config.playlistStyle,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist -> showPlaylistActions(overlays, viewModel, playlist) {
@@ -218,6 +228,7 @@ fun HomeScreen(
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) })
                 } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                     XvoxHomeLibraryMode.LIKED -> likedSection()
+                    XvoxHomeLibraryMode.SPLIT -> splitSection()
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection()
                     XvoxHomeLibraryMode.ALL_SONGS -> {
                         val sections = HomeSections.visible(config)
@@ -229,6 +240,7 @@ fun HomeScreen(
                                     onPrefetch = viewModel::prefetchFrom)
                                 HomeSections.RECENT -> recentSection()
                                 HomeSections.LIKED -> likedSection()
+                                HomeSections.SPLIT -> splitSection()
                                 HomeSections.PLAYLISTS -> playlistsSection()
                             }
                         }

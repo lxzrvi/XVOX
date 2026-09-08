@@ -24,6 +24,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -50,6 +60,9 @@ fun XvoxMiniPlayerCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val zones by remember(song.id) { com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
+        if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
+    }.distinctUntilChanged() }.collectAsState(initial = 0L to 0L)
 
     val cardShape = RoundedCornerShape(15.dp)
     val artworkShape = RoundedCornerShape(11.dp)
@@ -68,7 +81,23 @@ fun XvoxMiniPlayerCard(
             .height(60.dp)
             .clip(cardShape)
             .background(colors.surface.copy(alpha = 0.88f))
-            .border(0.7.dp, colors.cardBorder.copy(alpha = 0.62f), cardShape)
+            .drawWithContent {
+                drawContent()
+                val b = .7.dp.toPx(); val radius = 15.dp.toPx()
+                val inside = Path().apply { addRoundRect(RoundRect(b, b, size.width - b, size.height - b, CornerRadius((radius - b).coerceAtLeast(0f)))) }
+                clipPath(inside) {
+                    val barHeight = 3.dp.toPx()
+                    if (duration > 0) {
+                        val intro = (zones.first.toFloat() / duration).coerceIn(0f, .5f)
+                        val tail = (zones.second.toFloat() / duration).coerceIn(0f, .5f)
+                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendInColor.copy(alpha = .45f), Offset.Zero, Size(size.width * intro, barHeight))
+                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendOutColor.copy(alpha = .45f), Offset(size.width * (1 - tail), 0f), Size(size.width * tail, barHeight))
+                    }
+                    if (progress > 0) drawRect(colors.primaryAccent, Offset.Zero, Size(size.width * progress, barHeight))
+                }
+                drawRoundRect(colors.cardBorder.copy(alpha = .62f), Offset(b / 2, b / 2), Size(size.width - b, size.height - b),
+                    CornerRadius(radius - b / 2), style = Stroke(b))
+            }
     ) {
         Row(
             modifier = Modifier
@@ -176,25 +205,5 @@ fun XvoxMiniPlayerCard(
             )
         }
 
-        com.xvox.music.player.nowplaying.XvoxBlendZones(song.id, duration,
-            Modifier.fillMaxWidth().height(2.5.dp).align(Alignment.TopStart))
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.5.dp)
-                .align(Alignment.TopStart)
-        ) {
-            if (progress > 0f) {
-                drawRect(
-                    color = colors.primaryAccent,
-                    topLeft = Offset.Zero,
-                    size = Size(
-                        width = size.width * progress,
-                        height = size.height
-                    )
-                )
-            }
-        }
     }
 }

@@ -29,8 +29,7 @@ fun HomeSettingsSection(
     state: SettingsState, viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HomeSettingsPreview(state)
+    com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = { HomeSettingsPreview(state) }, controls = {
         Text("Card style", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         SettingsChoiceRow(listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One Size"),
             state.homeLayoutStyle, viewModel::setHomeLayoutStyle)
@@ -60,9 +59,9 @@ fun HomeSettingsSection(
             Text("Checked sections are shown. Use the arrows to reorder them; the preview uses this exact order.",
                 color = colors.secondaryText, fontSize = 11.sp)
             state.homeSectionOrder.forEachIndexed { index, section ->
-                val visible = section !in state.homeHiddenSections && (section != HomeSections.RECENT || !state.hideRecentlyPlayed)
+                val visible = section !in state.homeHiddenSections && (section != HomeSections.RECENT || !state.hideRecentlyPlayed) && (section != HomeSections.SPLIT || !state.splitHideCollection)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(visible, onCheckedChange = { viewModel.setHomeSectionVisible(section, it) })
+                    Checkbox(visible, onCheckedChange = { viewModel.setHomeSectionVisible(section, it); if (section == HomeSections.SPLIT) viewModel.setSplitHideCollection(!it) })
                     Text(HomeSections.label(section), color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Move ${HomeSections.label(section)} up",
                         tint = if (index > 0) colors.primaryAccent else colors.mutedText,
@@ -76,5 +75,6 @@ fun HomeSettingsSection(
                 }
             }
         }
-    }
+        SettingsToggle("Show XvoxSplit progress pill", "Show/hide it before the star in Now Playing", state.splitShowPill, viewModel::setSplitShowPill)
+    })
 }

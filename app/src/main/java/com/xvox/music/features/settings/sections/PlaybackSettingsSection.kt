@@ -27,12 +27,17 @@ import com.xvox.music.features.settings.components.SettingsToggle
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsState,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    showPreview: Boolean = true
 ) {
     val colors = XvoxTheme.colors
+    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
+        androidx.compose.material3.OutlinedButton(onClick = { overlays.showBox("XvoxSplit") { com.xvox.music.split.XvoxSplitPanel() } }, modifier = Modifier.fillMaxWidth()) {
+            Text("XvoxSplit · vocals / instruments")
+        }
+        if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
         Spacer(Modifier.height(12.dp))
         SettingsToggle(
             title = "Crossfade",
@@ -180,4 +185,11 @@ fun PlaybackSettingsSection(
             }
         }
     }
+}
+
+@Composable
+fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
+    com.xvox.music.features.settings.components.PinnedSettingsEditor(
+        preview = { com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state) },
+        controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) })
 }

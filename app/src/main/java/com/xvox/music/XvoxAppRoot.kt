@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -30,6 +31,16 @@ fun XvoxAppRoot(
     viewModel: AppViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val minimumReady by viewModel.minimumReady.collectAsState()
+    val splitCatalogue by com.xvox.music.split.XvoxSplitRepository.state.collectAsState()
+    val preparing = state == AppUiState.Preparing || state == AppUiState.Home
+    val homeVm: com.xvox.music.features.home.HomeViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
+    val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
+    val library = homeVm?.state?.collectAsState()?.value
+    val player = playerVm?.state?.collectAsState()?.value
+    LaunchedEffect(minimumReady, library?.startupReady, player?.connected, splitCatalogue.initialized) {
+        if (minimumReady && library?.startupReady == true && player?.connected == true && splitCatalogue.initialized) viewModel.onHomeReady()
+    }
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
@@ -58,10 +69,10 @@ fun XvoxAppRoot(
             LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                when (state) {
-                    AppUiState.Loading -> XvoxStartupLoadingScreen()
-                    AppUiState.Setup -> SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                    AppUiState.Home -> XvoxMainShell()
+                when {
+                    !minimumReady || state == AppUiState.Loading || state == AppUiState.Preparing -> XvoxStartupLoadingScreen()
+                    state == AppUiState.Setup -> SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                    state == AppUiState.Home && homeVm != null && playerVm != null -> XvoxMainShell(homeVm, playerVm)
                 }
 
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())

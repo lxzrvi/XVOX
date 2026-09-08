@@ -23,7 +23,7 @@ import kotlin.random.Random
 fun HomeSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     val config = HomePresentation(state.homeLayoutStyle, state.homeScrollDirection, state.homeHorizontalRows,
-        state.hideRecentlyPlayed, state.recentsPlacement, state.homeMerge, state.homeSectionOrder, state.homeHiddenSections)
+        state.hideRecentlyPlayed, state.recentsPlacement, state.homeMerge, state.homeSectionOrder, state.homeHiddenSections, state.playlistStyle, state.splitHideCollection)
     val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows) {
         when (state.homeLayoutStyle) {
             "uniform" -> regularSpecs(4, state.homeHorizontalRows * 4)

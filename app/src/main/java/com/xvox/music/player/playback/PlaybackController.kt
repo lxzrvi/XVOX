@@ -180,7 +180,7 @@ class PlaybackController(
             val id = item.mediaId.toLongOrNull() ?: -index.toLong() - 1
             knownSongs[id] ?: Song(id, item.mediaMetadata.title?.toString() ?: "Unknown song",
                 item.mediaMetadata.artist?.toString() ?: "Unknown artist",
-                item.localConfiguration?.uri ?: android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id),
+                item.mediaMetadata.extras?.getString("xvox_original_uri")?.let(android.net.Uri::parse) ?: item.localConfiguration?.uri ?: android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id),
                 item.mediaMetadata.artworkUri, if (index == p.currentMediaItemIndex) p.duration.coerceAtLeast(0) else 0)
         }
         queuePositions = queue.withIndex().associate { it.value.id to it.index }
@@ -287,6 +287,7 @@ class PlaybackController(
     }
 
     fun play(song: Song) {
+        com.xvox.music.split.XvoxSplitRepository.onTrackChanged(song.id, manual = true)
         QueuePopulationEpoch.invalidate()
         externalQueue = false
         if (indexOf(song.id) < 0) setQueue(queue + song)
@@ -301,6 +302,7 @@ class PlaybackController(
 
     fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = queue.getOrNull(index) ?: return
+        com.xvox.music.split.XvoxSplitRepository.onTrackChanged(song.id, manual = true)
         val p = controller
         if (p == null) { pendingPlay = song; return }
         val shouldPlay = restoredSongId != null || !keepPlayingState || p.playWhenReady || _state.value.isPlaying

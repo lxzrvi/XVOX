@@ -9,19 +9,23 @@ data class HomePresentation(
     val recentsPlacement: String = "bottom",
     val merge: Boolean = false,
     val order: List<String> = HomeSections.defaultOrder,
-    val hidden: Set<String> = emptySet()
+    val hidden: Set<String> = emptySet(),
+    val playlistStyle: String = "long",
+    val hideSplit: Boolean = false
 )
 
 object HomeSections {
     const val ALL = "all"
     const val RECENT = "recent"
     const val LIKED = "liked"
+    const val SPLIT = "split"
     const val PLAYLISTS = "playlists"
-    val defaultOrder = listOf(ALL, RECENT, LIKED, PLAYLISTS)
+    val defaultOrder = listOf(ALL, RECENT, LIKED, SPLIT, PLAYLISTS)
     fun label(id: String): String = when (id) {
         ALL -> "All Songs"
         RECENT -> "Recently Played"
         LIKED -> "Liked Songs"
+        SPLIT -> "XvoxSplit"
         else -> "Playlists"
     }
     fun normalize(order: List<String>): List<String> =
@@ -29,7 +33,7 @@ object HomeSections {
     fun visible(config: HomePresentation): List<String> {
         val order = if (config.merge) normalize(config.order) else
             if (config.recentsPlacement == "top") listOf(RECENT, ALL) else listOf(ALL, RECENT)
-        return order.filterNot { (it == RECENT && config.hideRecents) || (config.merge && it in config.hidden) }
+        return order.filterNot { (it == SPLIT && config.hideSplit) || (it == RECENT && config.hideRecents) || (config.merge && it in config.hidden) }
     }
     fun placeRecent(order: List<String>, placement: String): List<String> {
         val result = normalize(order).filterNot { it == RECENT }.toMutableList()

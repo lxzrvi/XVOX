@@ -58,9 +58,24 @@ fun SettingsScreen(
     homeViewModel: HomeViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
+    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
     var expandedKey by remember { mutableStateOf(SettingsAccordionKey.NONE) }
+
+    fun openEditor(title: String) {
+        overlays.showBox(title) {
+            val live by settingsViewModel.state.collectAsState()
+            when (title) {
+                "Home" -> HomeSettingsSection(live, settingsViewModel)
+                "Playlists" -> com.xvox.music.features.settings.sections.PlaylistSettingsSection(live, settingsViewModel)
+                "Lyrics" -> com.xvox.music.features.settings.sections.LyricsSettingsSection(live, settingsViewModel)
+                "XvoxMix" -> EqualizerSettingsSection(live, settingsViewModel)
+                "Playback" -> com.xvox.music.features.settings.sections.PlaybackSettingsEditor(live, settingsViewModel)
+                "Widgets" -> WidgetSettingsSection(live, settingsViewModel)
+            }
+        }
+    }
 
     fun toggle(key: SettingsAccordionKey) {
         expandedKey = if (expandedKey == key) SettingsAccordionKey.NONE else key
@@ -102,45 +117,22 @@ fun SettingsScreen(
         }
 
         item(key = "accordion_home") {
-            SettingsAccordionItem(
-                title = "Home",
-                subtitle = "Mosaic 1 / 2, merged library, section order & previews",
-                iconRes = R.drawable.ic_xvox_home,
-                expanded = expandedKey == SettingsAccordionKey.HOME,
-                onToggle = { toggle(SettingsAccordionKey.HOME) }
-            ) {
-                HomeSettingsSection(state = state, viewModel = settingsViewModel)
-            }
+            SettingsAccordionItem("Home", "Mosaic layouts, order and merged sections", R.drawable.ic_xvox_home, false, { openEditor("Home") }) { }
+        }
+
+        item(key = "playlist_editor") {
+            SettingsAccordionItem("Playlists", "Original or full-width stacked cards", R.drawable.ic_xvox_playlist, false, { openEditor("Playlists") }) { }
         }
 
         item(key = "accordion_lyrics") {
-            SettingsAccordionItem("Lyrics", "Timing, text sizes, edge fades & centre animation", R.drawable.ic_xvox_lyrics,
-                expandedKey == SettingsAccordionKey.LYRICS, { toggle(SettingsAccordionKey.LYRICS) }) {
-                com.xvox.music.features.settings.sections.LyricsSettingsSection(state, settingsViewModel)
-            }
+            SettingsAccordionItem("Lyrics", "Timing, strong edge fades and five smooth animations", R.drawable.ic_xvox_lyrics, false, { openEditor("Lyrics") }) { }
         }
         item(key = "accordion_xvoxmix") {
-            SettingsAccordionItem(
-                title = "XvoxMix",
-                subtitle = "Smooth EQ, boost protection & spatial orbit",
-                iconRes = R.drawable.ic_xvox_equalizer,
-                expanded = expandedKey == SettingsAccordionKey.XVOX_MIX,
-                onToggle = { toggle(SettingsAccordionKey.XVOX_MIX) }
-            ) {
-                EqualizerSettingsSection(state = state, viewModel = settingsViewModel)
-            }
+            SettingsAccordionItem("XvoxMix", "Equalizer, protection and headphone spatial controls", R.drawable.ic_xvox_equalizer, false, { openEditor("XvoxMix") }) { }
         }
 
         item(key = "accordion_playback") {
-            SettingsAccordionItem(
-                title = "Playback",
-                subtitle = "Two-track blend & headset behaviour",
-                iconRes = R.drawable.ic_xvox_disc,
-                expanded = expandedKey == SettingsAccordionKey.PLAYBACK,
-                onToggle = { toggle(SettingsAccordionKey.PLAYBACK) }
-            ) {
-                PlaybackSettingsSection(state = state, viewModel = settingsViewModel)
-            }
+            SettingsAccordionItem("Playback", "Crossfade, XvoxSplit and headset behaviour", R.drawable.ic_xvox_disc, false, { openEditor("Playback") }) { }
         }
 
         item(key = "accordion_filter") {
@@ -172,15 +164,7 @@ fun SettingsScreen(
         }
 
         item(key = "accordion_widget") {
-            SettingsAccordionItem(
-                title = "Widget Customizer",
-                subtitle = "Home screen widget styling, transparency & corners",
-                iconRes = R.drawable.ic_xvox_settings,
-                expanded = expandedKey == SettingsAccordionKey.WIDGET,
-                onToggle = { toggle(SettingsAccordionKey.WIDGET) }
-            ) {
-                WidgetSettingsSection(state = state, viewModel = settingsViewModel)
-            }
+            SettingsAccordionItem("Widgets", "Pinned preview and per-element editing", R.drawable.ic_xvox_settings, false, { openEditor("Widgets") }) { }
         }
 
         item(key = "accordion_how_to_use") {

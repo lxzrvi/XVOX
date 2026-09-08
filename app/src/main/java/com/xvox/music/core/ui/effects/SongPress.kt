@@ -42,10 +42,11 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
             }
         }
         .combinedClickable(
+                hapticFeedbackEnabled = false,
             interactionSource = interaction,
             indication = null,
             onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+
                 tapJob?.cancel()
                 click() // Dispatch immediately; the visual pulse must never delay audio.
                 tapJob = scope.launch {

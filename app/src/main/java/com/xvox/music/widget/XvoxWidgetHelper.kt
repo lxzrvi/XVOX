@@ -87,7 +87,8 @@ object XvoxWidgetHelper {
         views.setImageViewBitmap(R.id.widget_bg, surface(iw, ih, spec.radius, background,
             color(c.borderColor, ColorUtils.setAlphaComponent(fg, 50)), c.borderWidth, density,
             photo = if (full) art else null, shade = if (full) c.fullCoverShade else 0f,
-            photoKey = state.artworkUri?.toString().orEmpty(), photoOpacity = if (full) 1 - state.transparency else 1f))
+            photoKey = state.artworkUri?.toString().orEmpty(), photoOpacity = if (full) 1 - state.transparency else 1f,
+            photoInsetX = if (full) c.coverMarginX + c.coverPaddingX else 0, photoInsetY = if (full) c.coverMarginY + c.coverPaddingY else 0))
         val slots = listOf(R.id.widget_top_left, R.id.widget_top_center, R.id.widget_top_right, R.id.widget_bottom_left,
             R.id.widget_bottom_center, R.id.widget_bottom_right, R.id.widget_inline_left, R.id.widget_inline_center,
             R.id.widget_inline_right, R.id.widget_cover_left, R.id.widget_cover_right, R.id.widget_cover_top,
@@ -117,21 +118,39 @@ object XvoxWidgetHelper {
                 "prev" -> spec.showPrevious; "like" -> spec.showLike; "next" -> !tiny; else -> true
             })
         }
-        val initialCover = if (c.coverSize == 0) spec.coverSide else c.coverSize
-        val coverMaxW = if (placement == "inline") cw - visible.size * 16 - 36 else cw
-        val coverMaxH = if (coverAt == "top" || coverAt == "bottom") ch - (if (narrow) 84 else if (placement != "inline") 36 else 0) - 20 else ch
-        val coverSide = size(minOf(initialCover, coverMaxW.coerceAtLeast(12), coverMaxH.coerceAtLeast(12)))
+        val requestedButtons = visible.map { id -> c.button(id).size.takeIf { it > 0 } ?: if (id == "play") 36 else 32 }
+        val controlsHeight = if (placement in setOf("inline", "overlay")) 0 else
+            if (narrow) minOf(3, visible.size) * (requestedButtons.maxOrNull() ?: 0) else requestedButtons.maxOrNull() ?: 0
+        val labelReserve = if (c.labelPlacement != "center" || coverAt in setOf("top", "bottom")) {
+            WidgetCustomization.labelIds.sumOf { id ->
+                val st = c.label(id)
+                val show = st.visibility == "show" || (st.visibility == "auto" && when (id) { "title" -> spec.showTitle; "artist" -> spec.showArtist; else -> spec.showLogo })
+                if (show) (st.size * context.resources.configuration.fontScale * 1.25f + 2).roundToInt() else 0
+            }
+        } else 0
+        val coverMaxH = (ch - controlsHeight - labelReserve - c.coverMarginY * 2).coerceAtLeast(12)
+        val coverMaxW = (cw - c.coverMarginX * 2 - (if (placement == "inline") visible.size * 20 else 0) -
+            (if (coverAt in setOf("left", "right")) 36 else 0)).coerceAtLeast(12)
+        val initialCover = if (c.coverSize == 0) minOf(128, coverMaxH, coverMaxW) else c.coverSize
+        val coverSide = size(minOf(initialCover, coverMaxW, coverMaxH))
         if (coverAt != "hidden") {
             val child = RemoteViews(context.packageName, imageLayout(coverSide))
             val radius = if (c.coverRadius < 0) (spec.radius - minOf(spec.paddingX, spec.paddingY)).coerceAtLeast(0f) else c.coverRadius.toFloat()
-            child.setImageViewBitmap(R.id.widget_item_image, surface(coverSide, coverSide, radius.coerceAtMost(coverSide / 2f), background,
-                color(c.coverBorderColor, fg), c.coverBorderWidth, density, photo = art, photoKey = state.artworkUri.toString()))
+            val paddingX = c.coverPaddingX.coerceAtMost(coverSide / 3); val paddingY = c.coverPaddingY.coerceAtMost(coverSide / 3)
+            val artSide = (coverSide - 2 * maxOf(paddingX, paddingY)).coerceAtLeast(4)
+            child.setImageViewBitmap(R.id.widget_item_bg, surface(coverSide, coverSide, radius, background,
+                color(c.coverBorderColor, fg), c.coverBorderWidth, density))
+            child.setImageViewBitmap(R.id.widget_item_image, surface(artSide, artSide, (radius - minOf(paddingX, paddingY)).coerceAtLeast(0f), Color.TRANSPARENT,
+                Color.TRANSPARENT, 0f, density, photo = art, photoKey = state.artworkUri.toString()))
+            child.setViewPadding(R.id.widget_item_image, px(paddingX), px(paddingY), px(paddingX), px(paddingY))
             if (art == null) {
                 child.setImageViewResource(R.id.widget_item_image, R.drawable.ic_xvox_music_note)
                 child.setInt(R.id.widget_item_image, "setColorFilter", fg)
                 child.setViewPadding(R.id.widget_item_image, px(6), px(6), px(6), px(6))
             }
-            views.addView(when (coverAt) { "right" -> R.id.widget_cover_right; "top" -> R.id.widget_cover_top; "bottom" -> R.id.widget_cover_bottom; else -> R.id.widget_cover_left }, child)
+            val coverSlot = when (coverAt) { "right" -> R.id.widget_cover_right; "top" -> R.id.widget_cover_top; "bottom" -> R.id.widget_cover_bottom; else -> R.id.widget_cover_left }
+            views.setViewPadding(coverSlot, px(c.coverMarginX), px(c.coverMarginY), px(c.coverMarginX), px(c.coverMarginY))
+            views.addView(coverSlot, child)
         }
         fun side(id: String): String {
             val explicit = c.button(id).position
@@ -225,8 +244,8 @@ object XvoxWidgetHelper {
         else -> runCatching { Color.parseColor(c) }.getOrDefault(fallback)
     }
     private fun surface(w: Int, h: Int, radius: Float, fill: Int, border: Int, stroke: Float, density: Float,
-        photo: Bitmap? = null, shade: Float = 0f, photoKey: String = "", photoOpacity: Float = 1f): Bitmap {
-        val key = "$w:$h:$radius:$fill:$border:$stroke:$density:${if (photo != null) photoKey else ""}:$shade:$photoOpacity"
+        photo: Bitmap? = null, shade: Float = 0f, photoKey: String = "", photoOpacity: Float = 1f, photoInsetX: Int = 0, photoInsetY: Int = 0): Bitmap {
+        val key = "$w:$h:$radius:$fill:$border:$stroke:$density:${if (photo != null) photoKey else ""}:$shade:$photoOpacity:$photoInsetX:$photoInsetY"
         images.get(key)?.let { return it }
         val scale = minOf(1f, 512f / (maxOf(w, h) * density))
         val width = (w * density * scale).roundToInt().coerceAtLeast(1); val height = (h * density * scale).roundToInt().coerceAtLeast(1)
@@ -237,11 +256,15 @@ object XvoxWidgetHelper {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { color = if (photo != null) ColorUtils.setAlphaComponent(fill, 255) else fill }
         canvas.drawRoundRect(rect, rad, rad, paint)
         if (photo != null) {
-            val s = maxOf(width.toFloat() / photo.width, height.toFloat() / photo.height)
+            val ix = (photoInsetX * density * scale).coerceAtMost(width * .4f)
+            val iy = (photoInsetY * density * scale).coerceAtMost(height * .4f)
+            val photoRect = RectF(ix, iy, width - ix, height - iy)
+            val photoRadius = (rad - minOf(ix, iy)).coerceAtLeast(0f)
+            val s = maxOf(photoRect.width() / photo.width, photoRect.height() / photo.height)
             val shader = BitmapShader(photo, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
-            shader.setLocalMatrix(Matrix().apply { setScale(s, s); postTranslate((width - photo.width * s) / 2, (height - photo.height * s) / 2) })
-            paint.shader = shader; canvas.drawRoundRect(rect, rad, rad, paint); paint.shader = null
-            if (shade > 0) { paint.color = Color.argb((shade * 255).roundToInt(), 0, 0, 0); canvas.drawRoundRect(rect, rad, rad, paint) }
+            shader.setLocalMatrix(Matrix().apply { setScale(s, s); postTranslate(ix + (photoRect.width() - photo.width * s) / 2, iy + (photoRect.height() - photo.height * s) / 2) })
+            paint.shader = shader; canvas.drawRoundRect(photoRect, photoRadius, photoRadius, paint); paint.shader = null
+            if (shade > 0) { paint.color = Color.argb((shade * 255).roundToInt(), 0, 0, 0); canvas.drawRoundRect(photoRect, photoRadius, photoRadius, paint) }
         }
         if (layer >= 0) canvas.restoreToCount(layer)
         if (stroke > 0) {

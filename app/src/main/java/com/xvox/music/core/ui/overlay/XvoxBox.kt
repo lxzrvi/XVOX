@@ -45,6 +45,7 @@ fun XvoxBox(
     modifier: Modifier = Modifier,
     title: String = "XVOX",
     onAddClick: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -92,6 +93,10 @@ fun XvoxBox(
                             Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            onBack?.let { back ->
+                                Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryText,
+                                    modifier = Modifier.size(40.dp).xvoxPressScale(onClick = back).padding(10.dp))
+                            }
                             Text(title, color = colors.primaryText, fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f))

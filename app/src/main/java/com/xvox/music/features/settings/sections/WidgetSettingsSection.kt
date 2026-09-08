@@ -47,17 +47,15 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
     fun button(change: (WidgetButtonStyle) -> WidgetButtonStyle) = viewModel.updateWidget { current ->
         current.copy(buttons = current.buttons.mapValues { (id, value) -> if (buttonId == "all" || id == buttonId) change(value) else value })
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    PinnedSettingsEditor(preview = {
         SettingsPreviewFrame("Widget · actual layout") {
             Text("Columns × rows: $columns × $rows", color = colors.primaryText, fontSize = 12.sp)
-            SettingsChoiceRow((1..6).map { "$it" to "$it columns" }, columns.toString()) { columns = it.toInt() }
-            SettingsChoiceRow((1..6).map { "$it" to "$it rows" }, rows.toString()) { rows = it.toInt() }
             key(columns, rows) {
                 val views by produceState<RemoteViews?>(null, display) {
                     value = XvoxWidgetHelper.buildRemoteViews(context, display, width, height, interactive = false)
                 }
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    UniformPreview(width.dp, height.dp, Modifier.fillMaxWidth().heightIn(max = 310.dp)) {
+                    UniformPreview(width.dp, height.dp, Modifier.fillMaxWidth().heightIn(max = 170.dp)) {
                         AndroidView(factory = { FrameLayout(it) }, modifier = Modifier.fillMaxSize(), update = { host ->
                             views?.let { rv -> if (host.tag !== rv) { host.removeAllViews(); host.addView(rv.apply(context, host)); host.tag = rv } }
                         })
@@ -66,6 +64,10 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
             }
             Text("36 preview sizes. Launcher cell sizes vary; small widgets clamp cover/button dimensions to fit. No progress bar.", color = colors.secondaryText, fontSize = 10.sp)
         }
+    }, controls = {
+            SettingsChoiceRow((1..6).map { "$it" to "$it columns" }, columns.toString()) { columns = it.toInt() }
+            SettingsChoiceRow((1..6).map { "$it" to "$it rows" }, rows.toString()) { rows = it.toInt() }
+
         SettingsChoiceRow(listOf("general" to "Widget", "cover" to "Cover", "labels" to "Text", "buttons" to "Buttons"), panel) { panel = it }
         when (panel) {
             "general" -> {
@@ -89,13 +91,18 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                 if (c.fullCover) WidgetSlider("Cover shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> viewModel.updateWidget { it.copy(fullCoverShade = v / 100) } }
                 Text("Separate cover placement", color = colors.primaryText, fontSize = 12.sp)
                 SettingsChoiceRow(listOf("auto", "left", "right", "top", "bottom", "hidden").map { it to it }, c.coverPlacement) { value -> viewModel.updateWidget { it.copy(coverPlacement = value) } }
+                WidgetSlider("Cover margin X", c.coverMarginX.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginX = v.roundToInt()) } }
+                WidgetSlider("Cover margin Y", c.coverMarginY.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginY = v.roundToInt()) } }
+                WidgetSlider("Cover padding X", c.coverPaddingX.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingX = v.roundToInt()) } }
+                WidgetSlider("Cover padding Y", c.coverPaddingY.toFloat(), 0f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingY = v.roundToInt()) } }
                 Text("Cover size", color = colors.primaryText, fontSize = 12.sp)
                 SettingsChoiceRow(listOf(0, 24, 32, 40, 48, 56, 64, 80, 96, 120, 144, 160).map { "$it" to if (it == 0) "Auto" else "$it dp" }, c.coverSize.toString()) { value -> viewModel.updateWidget { it.copy(coverSize = value.toInt()) } }
+                Text("Cover sizes above 48 dp work in taller widgets. A one-row widget still cannot fit a cover taller than its usable height; reduce spacing or select more preview rows.", color = colors.secondaryText, fontSize = 10.sp)
                 SettingsToggle("Follow widget corners", "Use matching inset artwork corners", c.coverRadius < 0) { value -> viewModel.updateWidget { it.copy(coverRadius = if (value) -1 else 12) } }
                 if (c.coverRadius >= 0) WidgetSlider("Cover radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> viewModel.updateWidget { it.copy(coverRadius = v.roundToInt()) } }
                 WidgetSlider("Cover border", c.coverBorderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
                 WidgetColourEditor("Cover border colour", c.coverBorderColor) { value -> viewModel.updateWidget { it.copy(coverBorderColor = value) } }
-                if (c.fullCover) Text("Separate cover settings are kept for card mode. Full-cover mode uses the widget radius and border.", color = colors.secondaryText, fontSize = 10.sp)
+                if (c.fullCover) Text("Cover margin/padding also inset full-cover artwork. Separate cover size/placement are kept for card mode.", color = colors.secondaryText, fontSize = 10.sp)
             }
             "labels" -> {
                 Text("Text placement", color = colors.primaryText, fontSize = 12.sp)
@@ -154,7 +161,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
             TextButton(onClick = { XvoxAppWidgetProvider.notifyWidgetUpdate(context) }) { Text("Refresh widgets") }
             TextButton(onClick = { viewModel.updateWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset layout") }
         }
-    }
+    })
 }
 
 @Composable

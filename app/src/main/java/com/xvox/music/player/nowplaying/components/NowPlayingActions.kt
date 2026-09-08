@@ -65,6 +65,7 @@ fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
+        com.xvox.music.split.XvoxSplitPill()
         NowPlayingCircleAction(
             resource = R.drawable.ic_xvox_star,
             tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
@@ -91,7 +92,7 @@ fun NowPlayingActionIcon(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(36.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

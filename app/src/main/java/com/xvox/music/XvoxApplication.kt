@@ -13,6 +13,7 @@ class XvoxApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.xvox.music.split.XvoxSplitRepository.initialize(this)
 
         SingletonImageLoader.setSafe { context ->
             ImageLoader.Builder(context)

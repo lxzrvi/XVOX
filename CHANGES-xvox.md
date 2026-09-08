@@ -1,90 +1,79 @@
-# XVOX — revision 3 (source only)
+# XVOX revision 4 — built source update
 
-Branch: **xvox**. Base commit: `8dba0f043a19a59abffdb1ed95011d293c861d9c`.
+Branch: **xvox**, based on `aae1e67966bf8a54f81b0f6357163fd16b0713fc`.
 
-## Startup, tap response and Recents
+## Requested refinements
 
-- Removed the hard-coded five-second startup wait. Loading no longer constructs/scans the Home screen underneath the startup animation before the setup decision is known.
-- Song tap feedback no longer delays the playback callback. Cards give a short press pulse, without loading or retaining the artwork's dominant background colour.
-- Playback starts with the chosen track and a small successor window. Large timelines are materialized in cancellable batches instead of serializing the whole library on the tap path. Identity/index caches avoid repeated scans; an explicit source change invalidates stale background expansion.
-- Repeated taps on the active song resume/acknowledge it instead of seeking back to zero. Idle/error sessions are prepared before retrying.
-- The Recently Played **carousel** stays mounted during updates. Its old transition replaced the LazyRow with an inert card and could leave it stuck after cancellation. There is no such static transition state now.
-- Appearance preview removed. Home has a compact layout-only schematic, with proportionally drawn grid rows/section order—not a second full Home screen.
-- Now Playing uses a three-slot, song-identity-anchored artwork pager. Shuffle/reorder does not animate the current cover to a different numerical queue index.
+- Restored the original **five-second minimum loading period**. Home waits for the filtered library, initial artwork warm-up, split catalogue and playback connection. Sorting/grouping/warm-up run outside UI composition rather than constructing Home under the loading animation.
+- Notification/status icons now use a monochrome, transparent rendering of the actual XVOX mark in the repository, not a generic letter X. Android/OEM settings still determine status-bar visibility and placement next to the clock.
+- Mosaic 2 has balanced wide/square/portrait tiles, protected wide tiles, rebalanced page counts and no artificial short-page bottom rows. Small whole libraries shrink naturally; full pages fill their row budget.
+- Playlists default to full-width stacked **Long cards**, retaining the original card height/style. **Original cards** remains available in a dedicated Playlists editor.
+- Home, Playlists, Widgets, Lyrics, XvoxMix and Playback editors open in XvoxBox pages. Preview stays at the top; controls scroll below. Now Playing's three-dot menu uses the same boxed editor pages and Back navigation.
+- Crossfading is announced through a persistent **XvoxP** popup and dismissed when mixing ends/pauses. No bottom Crossfading popup is rendered.
+- Lyrics use stable maximum-size row geometry, transform-based text animation and drag-only browsing detection. Removed repeated end-of-scroll corrections. Edge fades are stronger and independently controlled. Five modes: Soft Fade, Slide, Focus Zoom, Glide and Spring. Preview uses the same renderer with placeholder lines only.
+- Cover margin X/Y and padding X/Y controls were added to widgets. They also inset full-cover artwork. Larger covers use the actual available body height rather than a fixed 48 dp auto size. One-row widgets still cannot fit artwork taller than their physical space; use more rows or reduce spacing.
+- Explicit app haptics are now restricted to navbar taps; song/playlist tap/long-press feedback is visual only.
+- Mini-player progress is drawn at the card's top inside a single clipped inner-border path. It cannot draw above/outside the rounded mini-player border.
 
-## XvoxMix
+## XvoxSplit — real source separation
 
-- A 5 / 10 bands selector, frequency-aware preset/custom-curve conversion and persistence.
-- Removed whole-preset automatic attenuation, so raising a band no longer silently lowers the master signal.
-- Boost Protection is an explicit manual gain reduction. Its effect appears in the contour. Existing stored protection values are preserved; the unset/default value is now 0 dB.
-- Stereo-linked, short look-ahead peak limiting replaces continuous heavy saturation. Its delay is drained at end of stream. Fixed EQ filters and gain ramps remain; filter histories are not reset by slider movement.
-- Low-level noise reduction and a Soften Highs control. The preview reflects the selected bands, manual protection, high-frequency shaping and noise setting.
-- 3D preview is shown only while enabled. Depth, speed, balance, app volume and output ceiling affect it. The headphone processor keeps more low-frequency energy centred while applying directional/rear cues and reflections.
+You chose actual vocal/instrument separation rather than a stereo approximation.
 
-## Crossfade and its display
+- Uses the verified **UVR MDX-Net 9482** neural model through ONNX Runtime Android 1.23.2. The APK does not bundle the weights: setup asks before downloading **29,704,738 bytes (~28.3 MiB)** from the pinned HTTPS release URL and verifies SHA-256.
+- Local mono/stereo decoding, windowed-sinc resampling to 44.1 kHz, centred periodic-Hann STFT, ONNX inference, inverse STFT and overlap stitching. Vocals are predicted by the model; accompaniment is the original mixture residual. These are real inferred stems, not centre/side EQ.
+- A prepared file stores separate mono accompaniment/vocal channels in an internal stem-pair WAV. Playback restores their level and moves them oppositely between left/right. The ordinary spatial effect is not stacked on top of this routing. Other selected audio processing still applies.
+- Normal playback continues until up to two initial queued tracks are prepared. Then the queue continues in one background worker. Ready tracks switch at the preserved playback position; paused music is not forcibly unpaused.
+- Foreground processing notification, explicit battery/storage consent, mobile-download opt-in, cancellable tasks, per-track failure handling, memory/storage checks and OS processing-timeout handling.
+- Progress pill before the star: ready/total plus processing count. Tap for tasks; tap queued/working items to stop them. Long-press prepared items for Normal, XvoxSplit, Add/Save or deletion of the prepared copy.
+- Three different manual track changes within four seconds disable processing/routing and restore normal playback. Prepared versions remain available. An explicit Use XvoxSplit action can resume after this guard.
+- Saved versions appear in the **XvoxSplit** collection. Header cycle: Liked → XvoxSplit → Home, with a matching waveform icon. Merge supports the collection; Home visibility and the Now Playing pill can be hidden separately.
+- Ready/saved/status lookups are indexed. Progress updates do not rebuild the full task catalogue. Unsaved cache is bounded to roughly 768 MiB, protecting current/next tracks; saved copies are not automatically evicted.
 
-- Smart blending analyses bounded, local RMS/energy envelopes of the outgoing tail and incoming intro. It selects calmer hand-off points and, when credible, compatible beat positions. Playback never waits for analysis.
-- Bass hand-off / clash control avoids having both low-frequency rhythms at full strength throughout the overlap. Queue mutations defer analysis to avoid decoder churn during large queue loading or dragging.
-- Duration, smart mode, beat option and clash strength affect the schematic preview.
-- The first/manual track does not get an intro zone. An intro zone is recorded only after a real fade-in. Only the subdued progress track is tinted, and a small **Crossfading** pill is shown while mixing. Extra intro/tail labels and song-name progress rows are removed.
-- This reduces collisions; it does **not** guarantee musically perfect transitions for every recording, and does not force time-stretching/pitch changes or skip an intro.
+### Limits to understand
 
-## Widget playback and editor
+Separation can have artifacts/leakage, and accompaniment is not a drums-only stem. Stereo is folded to one mono channel per stem for the requested spatial routing. Processing can take minutes and may run slower than playback on some devices; a two-track buffer cannot guarantee unlimited uninterrupted prepared playback. Unready/evicted tracks fall back to normal. Cancellation may wait for the current native inference chunk to return.
 
-- Widget actions start the playback service directly, not an Activity-bound controller. Foreground promotion precedes audio-focus acquisition, the MediaSession is explicitly registered, gain/duck state is restored, and focus retries are bounded.
-- The service survives closing an active playback UI. It buffers/restores a filtered queue, can resume without an Activity, and respects explicit Stop/new-source requests. A normal wake-lock permission supports screen-off playback. Legacy widget broadcasts forward to the new service path.
-- Widgets have **no progress bar** and no position-only redraw loop.
-- 1–6 columns × 1–6 rows provide 36 size previews; actual supported cells depend on the launcher.
-- General: margin X/Y, padding X/Y, horizontal/vertical alignment, shape radius, border width/colour, transparency and theme/custom colour.
-- Cover: auto/left/right/top/bottom/hidden, requested size, independent or matching corners, cover border, full-cover background and shade. Full-cover mode still allows editing text and controls.
-- Text: independent song/artist/logo visibility, placement, alignment, font family, font size, text/background/border colours, border width and radius.
-- Buttons: per-button or all-button editing; auto/left/centre/right/hidden, order, size, inner padding, icon colour, background colour, border width/colour/radius, and optional captions with size/colour.
-- Dynamic RemoteViews use small Android-8-compatible child layouts and clear old children before reapply. Previews inflate the same non-interactive layouts. Very small/overcrowded configurations clamp element dimensions; use a larger widget for more visible content.
-- Swiping away the UI and Android **Force stop** are different. Android can disable/cancel widgets or background starts for a force-stopped/restricted app; the app cannot override that policy.
+Prepared audio uses about 10 MiB/minute, plus temporary decoded audio. Large/high-rate files can need substantial free storage. Android force-stop, background restrictions, thermal limits and foreground-service time limits still apply. The model download and processing do not upload your music. See `THIRD_PARTY/XVOXSPLIT.md` and the bundled third-party notices.
 
-## Lyrics and library recovery
+## Validation performed
 
-- Lyrics settings appear immediately below Home in Settings and in Now Playing's three-dot box.
-- Global timing advance/delay, current-line size, other-line size, independent top/bottom fade areas, and Soft Fade / Slide / Focus Zoom entry styles.
-- The preview uses placeholder lines only. The actual artwork/full-screen lyrics share the same preferences and apply the timing offset to lyric seeking. Now Playing gets finer position updates for smoother lyric timing.
-- Hidden Songs is below About. Songs removed with **Remove from XVOX** can be restored individually or together. Likes and playlist membership are retained.
-- Device-deleted files are not recoverable here; unavailable files are labelled accordingly, and other library filters still apply after restoring.
-- How To Use expanded to 31 topics. About explains the local library, DSP, privacy and platform limits without a bit-perfect-output claim.
+After your explicit **Build + automated checks** approval:
 
-## Validation / manual run
+- `:app:compileDebugKotlin` — successful.
+- `:app:testDebugUnitTest` — **54 tests, zero failures/errors**. Includes FFT/STFT reconstruction, balanced mosaic coverage, existing DSP/lyrics/layout tests.
+- `:app:assembleDebug` — successful; signed universal debug APK produced.
+- Two real ONNX inference smoke checks on synthetic stereo inputs returned the expected finite `[1,4,2048,256]` output. These are contract/smoke checks, not a separation-quality benchmark or phone performance result.
+- APK signing/alignment checks were run. ONNX Runtime was upgraded to 1.23.2 after checking ARM64 native ELF load alignment; its native libraries use 16 KiB-compatible alignment. Native libraries are compressed in the APK and extracted on install to keep download size manageable.
+- Full lint was attempted but did **not complete** within this sandbox's resource/time limit; it was stopped. No clean-lint claim is made.
+- No Android device/emulator was attached. Real-phone UI/gesture, battery, source-separation quality, cold widget playback and long-queue processing still need device testing.
+- No GitHub push or workflow dispatch was performed for this revision.
 
-**No Gradle build, Kotlin compilation, test execution, device/audio test, workflow dispatch, commit or push was performed during source preparation.**
+## Deliverables / use
 
-Performed: static Kotlin parsing, Android resource-reference checks, XML/manifest checks, dynamic widget-slot validation, whitespace checks, archive byte verification and patch applicability checks. Static checks do not replace compilation or device testing.
+- `XVOX-xvox-revision4-debug.apk` — universal test build, locally debug-signed.
+- `XVOX-xvox-revision4.zip` — complete source tree; no SDK, build output, credential or model weights.
+- `XVOX-xvox-revision4.patch` — changes against the base commit above.
 
-There are **50 regression test methods provided as source**, including EQ mode/level behavior, limiter history, lyrics offsets, widget customization bounds and energy/blend properties. They have not been executed for this revision.
+A prior APK may use a different signing key. If Android reports a signature mismatch, build with your existing key; uninstalling can erase local playlists/settings, so do not uninstall without a backup you trust.
 
-### Highest-priority device checks
+### Manual device checklist
 
-1. Cold launch with a large library; tap songs quickly and switch sources while the remaining queue loads. Sound should start without waiting for the whole timeline. Stop/new-source selection must cancel stale expansion.
-2. At the bottom of Home, swipe Recent cards during new-song updates, fling, interrupt and reverse. The carousel must remain interactive.
-3. Shuffle in Now Playing while keeping the current song/position; verify the current cover stays anchored.
-4. With moderate system volume, test five/ten bands, presets, heavy boosts, manual protection, noise reduction and high softening. Check mono/stereo and different sample rates, as well as file endings.
-5. Test energy/beat/clash settings with similar/different rhythms, ambient/quiet intros, repeat one/all, short songs and seeks. Verify first-track cue zones and the Crossfading pill.
-6. Stop playback, swipe the Activity away, then press the widget Play button. Also test pause/resume, next/previous/like, screen-off playback, exclusive focus held by another app, media permission denial and empty/excluded libraries.
-7. Resize widgets, change every editor category and test full-cover mode. Check caption/icon contrast, margins, borders and overcrowded tiny sizes. No progress indicator should appear.
-8. Import LRC/plain text, change positive/negative offset, font sizes, edge fades and the three styles. Confirm the same settings work in artwork/full-screen lyrics and the player options box.
-9. Hide from Home/Liked/playlist/search, then restore from Hidden Songs; verify physically deleted or disconnected-storage files are not falsely reported as recovered.
+1. Cold launch: the loading time is not shortened, animation remains responsive, and Home appears after essential readiness.
+2. Check Mosaic 2 at 4×3/4×4/4×5/4×6/4×8, including last pages and small libraries, for wide tiles and no empty bottom rows.
+3. Switch original/long playlist cards and verify full-width stacking retains card height.
+4. Open each settings editor and Now Playing submenu; scroll controls while preview stays pinned. Test lyrics fades and all five animations.
+5. Confirm only navbar taps vibrate, and the mini-player progress stays within the top border.
+6. Try XvoxSplit with two short local songs first, on Wi-Fi and at moderate volume. Confirm model consent/checksum, background progress, Normal→prepared switch, cancellation, rapid-skip auto-off, Save/Add and collection visibility.
+7. Test with screen off, app backgrounded, limited storage, unavailable originals and different supported audio formats. Check that originals are not changed or removed.
+8. Check the actual logo in notification/status UI, XvoxP crossfade lifecycle, larger widget cover settings and cold widget playback.
 
-Digital limiting and generic spatial processing do not guarantee speaker/hearing safety or a specific listener's 3D perception. Start with moderate volume.
-
-## Apply to xvox
-
-The ZIP is the complete source tree, excluding .git, build outputs, APKs and machine-local SDK files.
-The separate patch applies on the base commit above:
+### Apply manually
 
 ```sh
 git switch xvox
-git apply --check /path/to/XVOX-xvox-revision3.patch
-git apply /path/to/XVOX-xvox-revision3.patch
+git apply --check /path/to/XVOX-xvox-revision4.patch
+git apply /path/to/XVOX-xvox-revision4.patch
 git add -A
-git commit -m "Improve XVOX startup, playback, widgets, lyrics and library recovery"
+git commit -m "Refine XVOX editors and layouts; add XvoxSplit background separation"
 git push origin xvox
 ```
-
-Then run your build/workflow manually. Existing JDK/SDK/Gradle versions are unchanged.

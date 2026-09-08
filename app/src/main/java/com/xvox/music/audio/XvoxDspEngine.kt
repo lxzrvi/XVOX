@@ -25,6 +25,9 @@ class XvoxDspEngine {
     @Volatile var settings = AudioDspSettings()
     @Volatile var mixGain = 1f
     @Volatile var duckGain = 1f
+    @Volatile var splitStems = false
+    private var lastStemFlag = false
+    private var splitPhase = 0.0
     @Volatile var transitionBassGain = 1f
     var left = 0f
         private set
@@ -98,7 +101,7 @@ class XvoxDspEngine {
         filters.forEach { it.reset() }; pinna.reset(); peakGuard.reset()
         currentBand.fill(0.0); targetBand.fill(0.0)
         delayLeft.fill(0.0); delayRight.fill(0.0)
-        cursor = 0; phase = 0.0; block = 0
+        cursor = 0; phase = 0.0; splitPhase = 0.0; block = 0
         shadowLeft = 0.0; shadowRight = 0.0
         softL = 0.0; softR = 0.0; bassL = 0.0; bassR = 0.0; spatialBassL = 0.0; spatialBassR = 0.0
         noiseEnvelope = 0.0; noiseGain = 1.0; currentNoise = 0.0; currentSoftHighs = 1.0
@@ -127,7 +130,7 @@ class XvoxDspEngine {
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = 10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
         targetNoise = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
-        targetDepth = if (s.surroundEnabled) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
+        targetDepth = if (s.surroundEnabled && !splitStems) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = s.orbitSeconds.toDouble().coerceIn(2.0, 10.0)
@@ -135,6 +138,7 @@ class XvoxDspEngine {
 
     fun process(inputLeft: Float, inputRight: Float) {
         if (block == 0) {
+            if (lastStemFlag != splitStems) { lastStemFlag = splitStems; lastSettings = null }
             updateTargets()
             // User-controlled headroom only: raising a band must not secretly turn the entire track down.
             targetPreamp = targetHeadroom
@@ -158,8 +162,19 @@ class XvoxDspEngine {
         phase += 2 * PI / (rate * currentPeriod)
         if (phase >= 2 * PI) phase -= 2 * PI
 
-        val dryL = inputLeft.toDouble()
-        val dryR = inputRight.toDouble()
+        var dryL = inputLeft.toDouble()
+        var dryR = inputRight.toDouble()
+        if (splitStems) {
+            val instrumental = dryL * 2.0
+            val vocal = dryR * 2.0
+            val vocalPan = cos(splitPhase)
+            val vocalAngle = (vocalPan + 1) * PI / 4
+            val musicAngle = (-vocalPan + 1) * PI / 4
+            dryL = instrumental * cos(musicAngle) + vocal * cos(vocalAngle)
+            dryR = instrumental * sin(musicAngle) + vocal * sin(vocalAngle)
+            splitPhase += 2 * PI / (rate * 12.0)
+            if (splitPhase > 2 * PI) splitPhase -= 2 * PI
+        }
         var l = dryL; var r = dryR
         for (i in filters.indices) {
             currentBand[i] += (targetBand[i] - currentBand[i]) * eqAlpha

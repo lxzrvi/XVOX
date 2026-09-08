@@ -31,6 +31,7 @@ fun XvoxBottomBar(
     onSelected: (XvoxDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val view = androidx.compose.ui.platform.LocalView.current
     val colors = XvoxTheme.colors
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
@@ -104,6 +105,7 @@ fun XvoxBottomBar(
                             indication = null
                         ) {
                             position = index.toFloat()
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                             onSelected(destination)
                         },
                     contentAlignment = Alignment.Center

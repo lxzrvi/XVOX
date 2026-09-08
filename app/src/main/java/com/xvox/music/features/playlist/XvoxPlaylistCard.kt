@@ -30,7 +30,8 @@ fun XvoxPlaylistCard(
     songs: List<Song>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    longCard: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(16.dp)
@@ -45,6 +46,7 @@ fun XvoxPlaylistCard(
                 shape = shape
             )
             .combinedClickable(
+                hapticFeedbackEnabled = false,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
@@ -59,7 +61,7 @@ fun XvoxPlaylistCard(
             requestSize = 192,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
                 .clip(RoundedCornerShape(11.dp))
         )
 

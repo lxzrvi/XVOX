@@ -35,6 +35,9 @@ class UserPreferencesRepository(
         val recentSearches = stringPreferencesKey("recent_searches")
 
         val lyricsSettings = stringPreferencesKey("lyrics_settings_v1")
+        val splitShowPill = booleanPreferencesKey("split_show_pill")
+        val splitHideCollection = booleanPreferencesKey("split_hide_collection")
+        val playlistStyle = stringPreferencesKey("home_playlist_style")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
@@ -111,6 +114,9 @@ class UserPreferencesRepository(
     }.distinctUntilChanged()
 
     val lyricsSettings: Flow<LyricsSettings> = context.xvoxDataStore.data.map { it[Keys.lyricsSettings].orEmpty() }.distinctUntilChanged().map { LyricsSettings.decode(it) }
+    val splitShowPill: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitShowPill] ?: true }.distinctUntilChanged()
+    val splitHideCollection: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitHideCollection] ?: false }.distinctUntilChanged()
+    val playlistStyle: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.playlistStyle] == "cards") "cards" else "long" }.distinctUntilChanged()
     val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()
     val homeSectionOrder: Flow<List<String>> = context.xvoxDataStore.data.map {
         val raw = it[Keys.homeSectionOrder]
@@ -128,6 +134,7 @@ class UserPreferencesRepository(
             recentsPlacement = placement, merge = it[Keys.homeMerge] ?: false,
             order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
                 ?: HomeSections.placeRecent(HomeSections.defaultOrder, placement),
+            playlistStyle = if (it[Keys.playlistStyle] == "cards") "cards" else "long", hideSplit = it[Keys.splitHideCollection] ?: false,
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
     }.distinctUntilChanged()
@@ -212,6 +219,9 @@ class UserPreferencesRepository(
     val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }.distinctUntilChanged()
 
     suspend fun setLyricsSettings(settings: LyricsSettings) { context.xvoxDataStore.edit { it[Keys.lyricsSettings] = settings.sanitized().encode() } }
+    suspend fun setSplitShowPill(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitShowPill] = v } }
+    suspend fun setSplitHideCollection(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitHideCollection] = v } }
+    suspend fun setPlaylistStyle(value: String) { context.xvoxDataStore.edit { it[Keys.playlistStyle] = if (value == "cards") "cards" else "long" } }
     suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {

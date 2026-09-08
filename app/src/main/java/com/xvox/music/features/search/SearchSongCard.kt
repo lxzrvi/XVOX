@@ -102,6 +102,7 @@ fun SearchSongCard(
                 .size(36.dp)
                 .background(colors.cardElevated, CircleShape)
                 .combinedClickable(
+                hapticFeedbackEnabled = false,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onOptions,

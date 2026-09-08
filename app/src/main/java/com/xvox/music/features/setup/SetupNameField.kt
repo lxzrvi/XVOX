@@ -115,10 +115,6 @@ fun SetupNameField(
                     } else {
                         showLimit = true
                         shakeTrigger += 1
-
-                        view.performHapticFeedback(
-                            HapticFeedbackConstants.REJECT
-                        )
                     }
                 },
                 modifier = Modifier.width(220.dp),

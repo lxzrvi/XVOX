@@ -45,6 +45,7 @@ fun XvoxP(
 
     LaunchedEffect(message.id) {
         visible = true
+        if (message.persistent) return@LaunchedEffect
         delay(3600L)
         visible = false
         delay(220L)

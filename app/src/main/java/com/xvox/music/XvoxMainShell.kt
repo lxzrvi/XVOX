@@ -28,6 +28,8 @@ import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.shell.ExitMusicBox
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -73,8 +75,21 @@ fun XvoxMainShell(
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
+    LaunchedEffect(player.queue) { com.xvox.music.split.XvoxSplitRepository.updateQueue(player.queue, player.currentSongId) }
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    LaunchedEffect(overlays, Unit) {
+        com.xvox.music.split.XvoxSplitRepository.state.map { it.noticeId to it.notice }.distinctUntilChanged().collect { (id, text) ->
+            if (id > 0 && text.isNotBlank()) overlays.showP(text)
+        }
+    }
+    LaunchedEffect(overlays) {
+        var popup: Long? = null
+        com.xvox.music.player.playback.XvoxBlendMonitor.state.map { it.enabled && it.active }.distinctUntilChanged().collect { active ->
+            if (active) popup = overlays.showPersistentP("Crossfading")
+            else { popup?.let(overlays::dismissP); popup = null }
+        }
+    }
     LaunchedEffect(homeState.songs, homeState.loading) {
         if (!homeState.loading) playerViewModel.setQueue(homeState.songs)
     }

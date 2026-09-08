@@ -6,6 +6,15 @@ import org.junit.Test
 import kotlin.random.Random
 
 class MosaicLayoutTest {
+    @Test fun mosaicTwoKeepsWideCardsAndFillsAllRows() {
+        for (rows in 3..8) repeat(30) { seed ->
+            val tiles = generateMosaicSpecs(4, rows, rows * 2, Random(seed))
+            assertTrue(tiles.count { it.width >= it.height * 1.3f } >= 2)
+            assertEquals((rows * 4).toFloat(), tiles.sumOf { (it.width * it.height).toDouble() }.toFloat(), .0001f)
+            assertEquals(rows.toFloat(), tiles.maxOf { it.y + it.height }, .0001f)
+        }
+    }
+
     @Test fun classicMosaicRetainsOnlyItsOriginalTileShapes() {
         repeat(100) { seed ->
             val tiles = com.xvox.music.features.home.allsongs.generateClassicMosaicSpecs(4, 4, 12, Random(seed))

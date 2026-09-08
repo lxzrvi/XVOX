@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 
 data class FolderInfo(
@@ -47,6 +48,12 @@ class HomeViewModel(
     private val _folders = MutableStateFlow<List<FolderInfo>>(emptyList())
     val folders: StateFlow<List<FolderInfo>> = _folders.asStateFlow()
 
+    private var rawReady = false
+    private var filterReady = false
+    private var hiddenReady = false
+    private var warmed = false
+    private var splitHidden = false
+    private var publishJob: Job? = null
     private var allRawSongs: List<Song> = emptyList()
     private var recentIds: List<Long> = emptyList()
     private var prefetchJob: Job? = null
@@ -57,6 +64,7 @@ class HomeViewModel(
     private val randomSeed = System.currentTimeMillis()
 
     init {
+        viewModelScope.launch { preferencesRepository.splitHideCollection.collect { splitHidden = it; if (it && _state.value.libraryMode == XvoxHomeLibraryMode.SPLIT) setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS) } }
         observeProfile()
         observeRecent()
         observeLibraryPreferences()
@@ -90,6 +98,7 @@ class HomeViewModel(
 
         viewModelScope.launch {
             libraryPreferences.hiddenSongIds.collect { ids ->
+                hiddenReady = true
                 _state.update { it.copy(hiddenSongIds = ids) }
                 publishFilteredSongs()
             }
@@ -113,24 +122,27 @@ class HomeViewModel(
                 LibraryFilterConfig(sort, sec, kb, ignored)
             }.collect { config ->
                 filterConfig = config
+                filterReady = true
                 publishFilteredSongs()
             }
         }
     }
 
     private fun publishFilteredSongs() {
-        val sorted = HomeLibraryFilterHelper.filterAndSort(
-            songs = allRawSongs,
-            hiddenSongIds = _state.value.hiddenSongIds,
-            config = filterConfig,
-            randomSeed = randomSeed
-        )
-        _state.update {
-            it.copy(
-                songs = sorted,
-                hiddenSongs = allRawSongs.filter { song -> song.id in it.hiddenSongIds },
-                recentlyPlayed = resolveRecent(sorted, recentIds)
-            )
+        if (!rawReady || !filterReady || !hiddenReady) return
+        val raw = allRawSongs; val hidden = _state.value.hiddenSongIds; val config = filterConfig; val recent = recentIds
+        publishJob?.cancel()
+        publishJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                val sorted = HomeLibraryFilterHelper.filterAndSort(raw, hidden, config, randomSeed)
+                Triple(sorted, raw.filter { it.id in hidden }, resolveRecent(sorted, recent))
+            }
+            _state.update { it.copy(songs = result.first, hiddenSongs = result.second, recentlyPlayed = result.third, loading = false) }
+            if (!warmed) {
+                withTimeoutOrNull(3500) { artworkPreloader.warmVisible(result.first) }
+                warmed = true
+            }
+            _state.update { it.copy(startupReady = true) }
         }
     }
 
@@ -138,9 +150,9 @@ class HomeViewModel(
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { runCatching { songRepository.loadSongs() }.getOrDefault(emptyList()) }
             allRawSongs = loaded
-            _folders.value = HomeLibraryFilterHelper.groupFolders(loaded)
+            rawReady = true
+            _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(loaded) }
             publishFilteredSongs()
-            _state.update { it.copy(loading = false) }
             prefetchFrom(0)
         }
     }
@@ -159,7 +171,7 @@ class HomeViewModel(
             )
 
             allRawSongs = refreshed
-            _folders.value = HomeLibraryFilterHelper.groupFolders(refreshed)
+            _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
             prefetchJob?.cancel()
             lastPrefetchStart = -1
             publishFilteredSongs()
@@ -185,7 +197,11 @@ class HomeViewModel(
 
     fun toggleLikedMode() {
         _state.update {
-            it.copy(libraryMode = if (it.libraryMode == XvoxHomeLibraryMode.LIKED) XvoxHomeLibraryMode.ALL_SONGS else XvoxHomeLibraryMode.LIKED)
+            it.copy(libraryMode = when (it.libraryMode) {
+                XvoxHomeLibraryMode.LIKED -> if (splitHidden) XvoxHomeLibraryMode.ALL_SONGS else XvoxHomeLibraryMode.SPLIT
+                XvoxHomeLibraryMode.SPLIT -> XvoxHomeLibraryMode.ALL_SONGS
+                else -> XvoxHomeLibraryMode.LIKED
+            })
         }
     }
 

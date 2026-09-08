@@ -18,6 +18,17 @@ object XvoxMosaicSession {
 fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false): List<XvoxMosaicPagePlan> {
     val random = Random(songs.fold(XvoxMosaicSession.seed) { seed, song -> seed * 31 + song.id })
     val capacity = 4 * rows.coerceIn(3, 8)
+    if (!isUniform && !mosaicOne && songs.isNotEmpty()) {
+        val minimum = rows.coerceIn(3, 8) + 2
+        val average = maxOf(minimum, (capacity * .62f).toInt())
+        var pages = ((songs.size + average - 1) / average).coerceAtLeast(1)
+        while (pages > 1 && songs.size / pages < minimum) pages--
+        var offset = 0
+        return List(pages) { page ->
+            val count = songs.size / pages + if (page < songs.size % pages) 1 else 0
+            XvoxMosaicPagePlan(offset, count, random.nextLong()).also { offset += count }
+        }
+    }
     return buildList {
         var index = 0
         while (index < songs.size) {
@@ -40,9 +51,9 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4, 
     val random = Random(plan.layoutSeed)
     val compactRows = minOf(rows.coerceIn(3, 8), ceil(page.size / 2.5).toInt().coerceAtLeast(1))
     val specs = when {
-        isUniform || page.size <= 4 -> regularSpecs(4, page.size)
+        isUniform || (mosaicOne && page.size <= 4) -> regularSpecs(4, page.size)
         mosaicOne -> generateClassicMosaicSpecs(4, rows.coerceIn(3, 8), page.size, random)
-        else -> generateMosaicSpecs(4, compactRows, page.size, random)
+        else -> generateMosaicSpecs(4, mosaicRows(songs.size, rows), page.size, random)
     }
     return MosaicPage(page.mapIndexed { i, song ->
         val s = specs[i]
@@ -55,7 +66,7 @@ fun buildMosaicPage(songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4, 
  * Each split conserves area, so every tile is non-overlapping and every song is placed exactly once.
  * Shapes include portrait strips, wide banners, squares and large artwork tiles up to 4 x 8 units.
  */
-fun generateMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<Spec> {
+private fun generateUnbiasedMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<Spec> {
     if (count <= 0 || cols <= 0 || rows <= 0) return emptyList()
     if (count >= cols * rows) return regularSpecs(cols, count)
     val result = mutableListOf(Spec(0f, 0f, cols.toFloat(), rows.toFloat()))
@@ -152,4 +163,59 @@ fun generateClassicMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random)
     }
 
     return regularSpecs(cols, count)
+}
+
+/** A small whole library shrinks naturally; full pages always fill their selected row budget. */
+fun mosaicRows(songCount: Int, requested: Int): Int = if (songCount < requested + 2)
+    minOf(requested, ((songCount + 2) / 3).coerceAtLeast(1)) else requested
+
+fun generateMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random): List<Spec> {
+    if (cols != 4 || rows < 2 || count < rows || count >= cols * rows) return generateUnbiasedMosaicSpecs(cols, rows, count, random)
+    data class Tile(val spec: Spec, val wideAnchor: Boolean = false)
+    repeat(24) {
+        val tiles = regularSpecs(cols, cols * rows).map { Tile(it) }.toMutableList()
+        if (cols * rows - count >= 2) {
+            val firstRow = random.nextInt(rows)
+            val secondRow = (firstRow + 1 + random.nextInt(rows - 1)) % rows
+            for ((row, col) in listOf(firstRow to 0, secondRow to 2)) {
+                val a = tiles.indexOfFirst { it.spec.x == col.toFloat() && it.spec.y == row.toFloat() }
+                val b = tiles.indexOfFirst { it.spec.x == (col + 1).toFloat() && it.spec.y == row.toFloat() }
+                tiles.removeAt(maxOf(a, b)); tiles.removeAt(minOf(a, b))
+                tiles.add(Tile(Spec(col.toFloat(), row.toFloat(), 2f, 1f), true))
+            }
+        }
+        while (tiles.size > count) {
+            data class Merge(val a: Int, val b: Int, val tile: Tile, val weight: Double)
+            val candidates = mutableListOf<Merge>()
+            for (a in tiles.indices) for (b in a + 1 until tiles.size) {
+                val x = tiles[a].spec; val y = tiles[b].spec
+                val horizontal = x.y == y.y && x.height == y.height && (x.x + x.width == y.x || y.x + y.width == x.x)
+                val vertical = x.x == y.x && x.width == y.width && (x.y + x.height == y.y || y.y + y.height == x.y)
+                if (!horizontal && !vertical) continue
+                val merged = if (horizontal) Spec(minOf(x.x, y.x), x.y, x.width + y.width, x.height)
+                    else Spec(x.x, minOf(x.y, y.y), x.width, x.height + y.height)
+                val anchored = tiles[a].wideAnchor || tiles[b].wideAnchor
+                if (anchored && merged.width < merged.height * 1.3f) continue
+                if (merged.width == 1f && merged.height > 2f) continue
+                val ratio = merged.width / merged.height
+                val weight = when { ratio >= 1.5f -> 2.5; ratio >= 1f -> 1.1; else -> .35 }
+                candidates.add(Merge(a, b, Tile(merged, anchored), weight))
+            }
+            if (candidates.isEmpty()) break
+            var pick = random.nextDouble() * candidates.sumOf { it.weight }
+            val chosen = candidates.firstOrNull { pick -= it.weight; pick <= 0 } ?: candidates.last()
+            tiles.removeAt(chosen.b); tiles.removeAt(chosen.a); tiles.add(chosen.tile)
+        }
+        if (tiles.size == count) return tiles.map { it.spec }.sortedWith(compareBy<Spec> { it.y }.thenBy { it.x })
+    }
+    // Guaranteed gap-free fallback, biased to wide horizontal strips rather than tall slivers.
+    val counts = IntArray(rows) { 1 }
+    repeat(count - rows) { counts[counts.indices.filter { counts[it] < cols }.random(random)]++ }
+    return buildList {
+        counts.forEachIndexed { row, n ->
+            val cuts = (1 until cols).shuffled(random).take(n - 1).sorted() + cols
+            var x = 0
+            cuts.forEach { end -> add(Spec(x.toFloat(), row.toFloat(), (end - x).toFloat(), 1f)); x = end }
+        }
+    }
 }
