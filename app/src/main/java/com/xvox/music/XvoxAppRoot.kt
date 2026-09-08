@@ -58,19 +58,10 @@ fun XvoxAppRoot(
             LocalXvoxOverlayController provides overlays
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (state == AppUiState.Setup) {
-                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                } else {
-                    XvoxMainShell()
-                }
-
-                AnimatedVisibility(
-                    visible = state == AppUiState.Loading,
-                    enter = fadeIn(tween(200)),
-                    exit = fadeOut(tween(350)),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    XvoxStartupLoadingScreen()
+                when (state) {
+                    AppUiState.Loading -> XvoxStartupLoadingScreen()
+                    AppUiState.Setup -> SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                    AppUiState.Home -> XvoxMainShell()
                 }
 
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())

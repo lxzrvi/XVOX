@@ -1,103 +1,67 @@
 package com.xvox.music.features.settings.components
 
-import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerCard
-import com.xvox.music.core.ui.navigation.XvoxBottomBar
-import com.xvox.music.core.ui.navigation.XvoxDestination
-import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
-import com.xvox.music.features.home.*
-import com.xvox.music.features.home.allsongs.allSongsItems
-import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
-import com.xvox.music.features.home.recent.RecentTransitionRequest
-import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
-import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.features.home.HomePresentation
+import com.xvox.music.features.home.HomeSections
+import com.xvox.music.features.home.allsongs.*
 import com.xvox.music.features.settings.SettingsState
-import com.xvox.music.player.playback.MainPlayerUiState
-import com.xvox.music.shell.XvoxShellTopHeader
+import kotlin.random.Random
 
+/** A compact schematic, not a second live Home screen or a source of playback work. */
 @Composable
-fun HomeSettingsPreview(state: SettingsState, library: HomeUiState, player: MainPlayerUiState) {
+fun HomeSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    val overlays = LocalXvoxOverlayController.current
-    val density = LocalDensity.current
-    val window = LocalWindowInfo.current.containerSize
-    val width = with(density) { window.width.toDp() }.coerceAtLeast(320.dp)
-    val height = with(density) { window.height.toDp() }.coerceAtLeast(600.dp)
-    SettingsPreviewFrame(if (library.songs.isEmpty()) "Home preview · sample library" else "Home preview · your library") {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            UniformPreview(width, height, Modifier.fillMaxWidth().height(380.dp)) {
-                HomePreviewSurface(state, library, player)
-            }
-        }
-        Text("Same Home cards, covers and spacing. Scaled evenly—not compressed. Scroll inside to see the section order.",
-            color = colors.secondaryText, fontSize = 11.sp)
-        Text("Open larger preview ↗", color = colors.primaryAccent, fontSize = 12.sp,
-            modifier = Modifier.xvoxPressScale {
-                overlays.showBox("Home preview") {
-                    UniformPreview(width, height, Modifier.fillMaxWidth().heightIn(max = 720.dp)) {
-                        HomePreviewSurface(state, library, player)
-                    }
-                }
-            }.padding(vertical = 6.dp))
-    }
-}
-
-@Composable
-private fun HomePreviewSurface(state: SettingsState, library: HomeUiState, player: MainPlayerUiState) {
-    val colors = XvoxTheme.colors
-    val context = LocalContext.current
-    val songs = remember(library.songs) {
-        library.songs.ifEmpty {
-            List(16) { i -> Song(-(i + 1L), listOf("Night drive", "Open sky", "Afterglow", "Golden hour")[i % 4],
-                "Preview artist", Uri.EMPTY, Uri.parse("android.resource://${context.packageName}/${R.drawable.xvox}"), 210000L) }
-        }
-    }
     val config = HomePresentation(state.homeLayoutStyle, state.homeScrollDirection, state.homeHorizontalRows,
         state.hideRecentlyPlayed, state.recentsPlacement, state.homeMerge, state.homeSectionOrder, state.homeHiddenSections)
-    val plans = remember(songs, config.style, config.rows) {
-        buildMosaicPagePlans(songs, config.rows, config.style == "uniform", config.style == "mosaic1")
-    }
-    val byId = remember(songs) { songs.associateBy { it.id } }
-    val current = player.currentSongId?.let(byId::get)
-    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(colors.background)
-        .border(.7.dp, colors.cardBorder, RoundedCornerShape(18.dp))) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 64.dp, bottom = if (current != null) 180.dp else 100.dp)) {
-            HomeSections.visible(config).forEach { section -> when (section) {
-                HomeSections.ALL -> allSongsItems(songs, plans, config, player.currentSongId, player.isPlaying, emptySet(), {}, {}, {})
-                HomeSections.RECENT -> item(key = "recent") {
-                    XvoxRecentlyPlayedSection(library.recentlyPlayed, player.currentSongId, player.isPlaying,
-                        RecentTransitionRequest(), {}, {})
-                }
-                HomeSections.LIKED -> librarySongItems("liked", "Liked Songs", songs.filter { it.id in library.likedSongIds },
-                    player.currentSongId, player.isPlaying, emptySet(), {}, {})
-                HomeSections.PLAYLISTS -> playlistCollectionItems(library.playlists,
-                    { playlist -> playlist.songIds.mapNotNull(byId::get) }, {}, {}, {})
-            } }
+    val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows) {
+        when (state.homeLayoutStyle) {
+            "uniform" -> regularSpecs(4, state.homeHorizontalRows * 4)
+            "mosaic2" -> generateMosaicSpecs(4, state.homeHorizontalRows, state.homeHorizontalRows * 2 + 1, Random(81))
+            else -> generateClassicMosaicSpecs(4, state.homeHorizontalRows, state.homeHorizontalRows * 3, Random(32))
         }
-        XvoxShellTopHeader(library.profile.copy(username = library.profile.username.ifBlank { "Your name" }),
-            XvoxDestination.HOME, XvoxHomeLibraryMode.ALL_SONGS, {}, {}, {}, {},
-            mergedHome = state.homeMerge, useSystemInsets = false)
-        if (current != null) XvoxMiniPlayerCard(current, player.isPlaying, player.position, player.duration, 0, {},
-            Modifier.align(Alignment.BottomCenter).padding(start = 6.dp, end = 6.dp, bottom = 96.dp))
-        XvoxBottomBar(XvoxDestination.HOME, {}, Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
+    }
+    SettingsPreviewFrame("Home · layout") {
+        Text("${if (state.homeScrollDirection == "horizontal") "Horizontal ↔" else "Vertical ↕"} · 4 × ${state.homeHorizontalRows} grid",
+            color = colors.secondaryText, fontSize = 11.sp)
+        HomeSections.visible(config).forEach { section ->
+            Text(HomeSections.label(section), color = colors.primaryText, fontSize = 10.sp)
+            if (section == HomeSections.ALL) {
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val gap = 4.dp
+                    val cell = (maxWidth - gap * 3) / 4
+                    val cellH = cell * 1.25f
+                    val naturalHeight = cellH * state.homeHorizontalRows + gap * (state.homeHorizontalRows - 1)
+                    val scale = minOf(1f, 240.dp / naturalHeight)
+                    Canvas(Modifier.fillMaxWidth().height(naturalHeight * scale)) {
+                        val gx = gap.toPx() * scale; val w = cell.toPx() * scale; val h = cellH.toPx() * scale
+                        val startX = (size.width - (w * 4 + gx * 3)) / 2
+                        for (tile in tiles) {
+                            val pos = Offset(startX + tile.x * (w + gx), tile.y * (h + gx))
+                            val area = Size(tile.width * w + (tile.width - 1) * gx, tile.height * h + (tile.height - 1) * gx)
+                            drawRoundRect(colors.primaryAccent.copy(alpha = .17f), pos, area, CornerRadius(7.dp.toPx() * scale))
+                            drawRoundRect(colors.primaryAccent.copy(alpha = .28f), pos + Offset(4.dp.toPx() * scale, 4.dp.toPx() * scale),
+                                Size((area.width - 8.dp.toPx() * scale).coerceAtLeast(1f), (area.height - 22.dp.toPx() * scale).coerceAtLeast(1f)), CornerRadius(4.dp.toPx() * scale))
+                        }
+                    }
+                }
+            } else Canvas(Modifier.fillMaxWidth().height(if (section == HomeSections.PLAYLISTS) 44.dp else 28.dp)) {
+                val count = if (section == HomeSections.PLAYLISTS) 2 else 1
+                val gap = 6.dp.toPx(); val width = (size.width - gap * (count - 1)) / count
+                repeat(count) { i -> drawRoundRect(colors.primaryAccent.copy(alpha = .16f), Offset(i * (width + gap), 0f),
+                    Size(width, size.height), CornerRadius(6.dp.toPx())) }
+            }
+        }
+        Text("Layout only; grid rows keep their proportions. No live songs or full-screen preview.", color = colors.mutedText, fontSize = 10.sp)
     }
 }

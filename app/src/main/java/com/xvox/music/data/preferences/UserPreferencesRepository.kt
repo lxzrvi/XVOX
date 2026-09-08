@@ -34,10 +34,14 @@ class UserPreferencesRepository(
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val recentSearches = stringPreferencesKey("recent_searches")
 
+        val lyricsSettings = stringPreferencesKey("lyrics_settings_v1")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
+        val crossfadeSmart = booleanPreferencesKey("crossfade_smart")
+        val crossfadeClashControl = floatPreferencesKey("crossfade_clash_control")
         val crossfadeBeatSync = booleanPreferencesKey("crossfade_beat_sync")
+        val widgetCustomization = stringPreferencesKey("widget_customization_v1")
         val widgetPaddingX = intPreferencesKey("widget_padding_x")
         val widgetPaddingY = intPreferencesKey("widget_padding_y")
         val crossfade = booleanPreferencesKey("crossfade")
@@ -49,6 +53,9 @@ class UserPreferencesRepository(
 
         val equalizerEnabled = booleanPreferencesKey("equalizer_enabled")
         val eqPreset = stringPreferencesKey("eq_preset")
+        val eqBandCount = intPreferencesKey("eq_band_count")
+        val noiseReduction = floatPreferencesKey("noise_reduction")
+        val softenHighs = floatPreferencesKey("soften_highs")
         val eqBands = stringPreferencesKey("eq_bands")
         val balance = floatPreferencesKey("balance_l_r")
         val stereoWidening = booleanPreferencesKey("stereo_widening")
@@ -103,6 +110,7 @@ class UserPreferencesRepository(
         decodeRecentSearches(prefs[Keys.recentSearches].orEmpty())
     }.distinctUntilChanged()
 
+    val lyricsSettings: Flow<LyricsSettings> = context.xvoxDataStore.data.map { it[Keys.lyricsSettings].orEmpty() }.distinctUntilChanged().map { LyricsSettings.decode(it) }
     val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()
     val homeSectionOrder: Flow<List<String>> = context.xvoxDataStore.data.map {
         val raw = it[Keys.homeSectionOrder]
@@ -123,6 +131,8 @@ class UserPreferencesRepository(
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
     }.distinctUntilChanged()
+    val crossfadeSmart: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfadeSmart] ?: true }.distinctUntilChanged()
+    val crossfadeClashControl: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.crossfadeClashControl] ?: .7f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val crossfadeBeatSync: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfadeBeatSync] ?: true }.distinctUntilChanged()
     val widgetPaddingX: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32) }.distinctUntilChanged()
     val widgetPaddingY: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28) }.distinctUntilChanged()
@@ -135,7 +145,12 @@ class UserPreferencesRepository(
 
     val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }.distinctUntilChanged()
     val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }.distinctUntilChanged()
-    val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { decodeBands(it[Keys.eqBands].orEmpty()) }.distinctUntilChanged()
+    val eqBandCount: Flow<Int> = context.xvoxDataStore.data.map { com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5) }.distinctUntilChanged()
+    val noiseReduction: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.noiseReduction] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val softenHighs: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.softenHighs] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map {
+        com.xvox.music.audio.EqBands.convert(decodeBands(it[Keys.eqBands].orEmpty()), com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5))
+    }.distinctUntilChanged()
     val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }.distinctUntilChanged()
     val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }.distinctUntilChanged()
     val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }.distinctUntilChanged()
@@ -152,17 +167,19 @@ class UserPreferencesRepository(
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
     val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }.distinctUntilChanged()
     val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
-    val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f) }.distinctUntilChanged()
+    val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f) }.distinctUntilChanged()
     val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
     // Read audio settings atomically, so a preset never passes through a half-updated state.
     val audioDspSettings: Flow<com.xvox.music.audio.AudioDspSettings> = context.xvoxDataStore.data.map {
         val preset = it[Keys.eqPreset] ?: "Flat"
-        val bands = com.xvox.music.audio.AudioEffectsManager.PRESETS[preset] ?: decodeBands(it[Keys.eqBands].orEmpty())
+        val count = com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5)
+        val bands = com.xvox.music.audio.EqBands.convert(com.xvox.music.audio.AudioEffectsManager.PRESETS[preset] ?: decodeBands(it[Keys.eqBands].orEmpty()), count)
         com.xvox.music.audio.AudioDspSettings(
             equalizerEnabled = it[Keys.equalizerEnabled] ?: false,
-            bands = List(5) { i -> (bands.getOrElse(i) { 0 }).toFloat().coerceIn(-12f, 12f) },
-            headroomDb = (it[Keys.eqHeadroomDb] ?: 3f).coerceIn(0f, 18f),
+            bands = bands.map { it.toFloat() }, bandCount = count,
+            noiseReduction = (it[Keys.noiseReduction] ?: 0f).coerceIn(0f, 1f), softenHighs = (it[Keys.softenHighs] ?: 0f).coerceIn(0f, 1f),
+            headroomDb = (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f),
             balance = (it[Keys.balance] ?: 0f).coerceIn(-1f, 1f),
             surroundEnabled = it[Keys.stereoWidening] ?: false,
             surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
@@ -180,10 +197,13 @@ class UserPreferencesRepository(
         it[Keys.ignoredFolders].orEmpty().split("\n").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
     }.distinctUntilChanged()
 
+    val widgetCustomization: Flow<com.xvox.music.widget.WidgetCustomization> = context.xvoxDataStore.data.map { it[Keys.widgetCustomization].orEmpty() }
+        .distinctUntilChanged().map { com.xvox.music.widget.WidgetCustomization.decode(it) }
     val widgetStyle: Flow<com.xvox.music.widget.WidgetStyle> = context.xvoxDataStore.data.map {
         com.xvox.music.widget.WidgetStyle(it[Keys.widgetTransparency] ?: .25f, it[Keys.widgetTheme] ?: "Dark",
             it[Keys.widgetCustomColor] ?: "#000000", it[Keys.widgetShowLogo] ?: true, it[Keys.widgetCornerRadius] ?: 16,
-            (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32), (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28))
+            (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32), (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28),
+            com.xvox.music.widget.WidgetCustomization.decode(it[Keys.widgetCustomization].orEmpty()))
     }.distinctUntilChanged()
     val widgetTransparency: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.widgetTransparency] ?: 0.25f }.distinctUntilChanged()
     val widgetTheme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.widgetTheme] ?: "Dark" }.distinctUntilChanged()
@@ -191,6 +211,7 @@ class UserPreferencesRepository(
     val widgetShowLogo: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.widgetShowLogo] ?: true }.distinctUntilChanged()
     val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }.distinctUntilChanged()
 
+    suspend fun setLyricsSettings(settings: LyricsSettings) { context.xvoxDataStore.edit { it[Keys.lyricsSettings] = settings.sanitized().encode() } }
     suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {
@@ -207,7 +228,10 @@ class UserPreferencesRepository(
             if (id == HomeSections.RECENT) it[Keys.hideRecentlyPlayed] = !visible
         }
     }
+    suspend fun setCrossfadeSmart(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfadeSmart] = v } }
+    suspend fun setCrossfadeClashControl(v: Float) { context.xvoxDataStore.edit { it[Keys.crossfadeClashControl] = v.coerceIn(0f, 1f) } }
     suspend fun setCrossfadeBeatSync(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfadeBeatSync] = enabled } }
+    suspend fun setWidgetCustomization(value: com.xvox.music.widget.WidgetCustomization) { context.xvoxDataStore.edit { it[Keys.widgetCustomization] = value.sanitized().encode() } }
     suspend fun setWidgetPaddingX(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingX] = value.coerceIn(0, 32) } }
     suspend fun setWidgetPaddingY(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingY] = value.coerceIn(0, 28) } }
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
@@ -251,6 +275,9 @@ class UserPreferencesRepository(
             it[Keys.equalizerEnabled] = state.enabled
             it[Keys.eqPreset] = state.preset
             it[Keys.eqBands] = state.bands.joinToString(",")
+            it[Keys.eqBandCount] = com.xvox.music.audio.EqBands.count(state.bandCount)
+            it[Keys.noiseReduction] = state.noiseReduction.coerceIn(0f, 1f)
+            it[Keys.softenHighs] = state.softenHighs.coerceIn(0f, 1f)
             it[Keys.eqHeadroomDb] = state.headroomDb.coerceIn(0f, 18f)
             it[Keys.balance] = state.balance.coerceIn(-1f, 1f)
             it[Keys.stereoWidening] = state.surroundEnabled

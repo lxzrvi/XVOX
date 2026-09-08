@@ -32,7 +32,8 @@ fun XvoxNowPlayingProgress(
     position: Long,
     duration: Long,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentSongId: Long? = null
 ) {
     val colors = XvoxTheme.colors
 
@@ -125,7 +126,7 @@ fun XvoxNowPlayingProgress(
                 },
             contentAlignment = Alignment.Center
         ) {
-            XvoxBlendZones(duration, Modifier.fillMaxWidth().height(6.dp))
+            XvoxBlendZones(currentSongId, duration, Modifier.fillMaxWidth().height(1.5.dp))
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()

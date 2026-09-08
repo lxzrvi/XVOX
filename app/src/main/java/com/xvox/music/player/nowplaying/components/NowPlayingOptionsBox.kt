@@ -20,6 +20,8 @@ fun NowPlayingOptionsBox(onDismiss: () -> Unit, settingsViewModel: SettingsViewM
             EqualizerSettingsSection(state, settingsViewModel)
             Spacer(Modifier.height(20.dp))
             PlaybackSettingsSection(state, settingsViewModel)
+            Spacer(Modifier.height(20.dp))
+            com.xvox.music.features.settings.sections.LyricsSettingsSection(state, settingsViewModel)
         }
     }
 }

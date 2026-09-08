@@ -41,13 +41,15 @@ enum class SettingsAccordionKey {
     NONE,
     APPEARANCE,
     HOME,
+    LYRICS,
     XVOX_MIX,
     PLAYBACK,
     FILTER,
     BATTERY,
     WIDGET,
     HOW_TO_USE,
-    ABOUT
+    ABOUT,
+    HIDDEN_SONGS
 }
 
 @Composable
@@ -111,6 +113,12 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "accordion_lyrics") {
+            SettingsAccordionItem("Lyrics", "Timing, text sizes, edge fades & centre animation", R.drawable.ic_xvox_lyrics,
+                expandedKey == SettingsAccordionKey.LYRICS, { toggle(SettingsAccordionKey.LYRICS) }) {
+                com.xvox.music.features.settings.sections.LyricsSettingsSection(state, settingsViewModel)
+            }
+        }
         item(key = "accordion_xvoxmix") {
             SettingsAccordionItem(
                 title = "XvoxMix",
@@ -199,6 +207,12 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "accordion_hidden_songs") {
+            SettingsAccordionItem("Hidden Songs", "Restore songs removed from XVOX", R.drawable.ic_xvox_music_note,
+                expandedKey == SettingsAccordionKey.HIDDEN_SONGS, { toggle(SettingsAccordionKey.HIDDEN_SONGS) }) {
+                com.xvox.music.features.settings.sections.HiddenSongsSettingsSection(homeViewModel)
+            }
+        }
         item(key = "settings_bottom_spacing") {
             Spacer(Modifier.height(8.dp))
         }

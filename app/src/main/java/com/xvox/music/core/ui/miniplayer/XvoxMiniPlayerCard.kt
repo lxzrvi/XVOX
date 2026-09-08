@@ -176,8 +176,8 @@ fun XvoxMiniPlayerCard(
             )
         }
 
-        com.xvox.music.player.nowplaying.XvoxBlendZones(duration,
-            Modifier.fillMaxWidth().height(3.dp).align(Alignment.TopStart))
+        com.xvox.music.player.nowplaying.XvoxBlendZones(song.id, duration,
+            Modifier.fillMaxWidth().height(2.5.dp).align(Alignment.TopStart))
 
         Canvas(
             modifier = Modifier

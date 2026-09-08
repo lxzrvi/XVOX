@@ -1,0 +1,28 @@
+package com.xvox.music.data.preferences
+
+import org.json.JSONObject
+
+data class LyricsSettings(
+    val offsetMs: Int = 0,
+    val currentSize: Int = 23,
+    val otherSize: Int = 15,
+    val fadeTop: Float = .22f,
+    val fadeBottom: Float = .22f,
+    val animation: String = "focus"
+) {
+    fun sanitized() = copy(offsetMs = offsetMs.coerceIn(-5000, 5000), currentSize = currentSize.coerceIn(16, 42),
+        otherSize = otherSize.coerceIn(10, 30), fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f), fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
+        animation = animation.takeIf { it in setOf("fade", "slide", "focus") } ?: "focus")
+    fun position(playbackMs: Long): Long = (playbackMs - offsetMs).coerceAtLeast(0)
+    fun seekPosition(lyricMs: Long): Long = (lyricMs + offsetMs).coerceAtLeast(0)
+    fun encode(): String = JSONObject().put("offset", offsetMs).put("current", currentSize).put("other", otherSize)
+        .put("top", fadeTop.toDouble()).put("bottom", fadeBottom.toDouble()).put("animation", animation).toString()
+    companion object {
+        fun decode(raw: String): LyricsSettings = runCatching {
+            val j = JSONObject(raw)
+            LyricsSettings(j.optInt("offset", 0), j.optInt("current", 23), j.optInt("other", 15),
+                j.optDouble("top", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
+                j.optDouble("bottom", .22).toFloat().takeIf { it.isFinite() } ?: .22f, j.optString("animation", "focus")).sanitized()
+        }.getOrDefault(LyricsSettings())
+    }
+}

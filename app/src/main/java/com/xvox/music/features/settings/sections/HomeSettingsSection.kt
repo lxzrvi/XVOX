@@ -26,15 +26,11 @@ import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
 fun HomeSettingsSection(
-    state: SettingsState, viewModel: SettingsViewModel,
-    homeViewModel: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    playerViewModel: MainPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    state: SettingsState, viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
-    val library by homeViewModel.state.collectAsState()
-    val player by playerViewModel.state.collectAsState()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HomeSettingsPreview(state, library, player)
+        HomeSettingsPreview(state)
         Text("Card style", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         SettingsChoiceRow(listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One Size"),
             state.homeLayoutStyle, viewModel::setHomeLayoutStyle)

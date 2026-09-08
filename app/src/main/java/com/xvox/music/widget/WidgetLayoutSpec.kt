@@ -66,5 +66,6 @@ data class WidgetLayoutSpec(
 
 data class WidgetStyle(
     val transparency: Float = .25f, val theme: String = "Dark", val customColor: String = "#000000",
-    val showLogo: Boolean = true, val radius: Int = 16, val paddingX: Int = 10, val paddingY: Int = 8
+    val showLogo: Boolean = true, val radius: Int = 16, val paddingX: Int = 10, val paddingY: Int = 8,
+    val customization: WidgetCustomization = WidgetCustomization()
 )

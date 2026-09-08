@@ -52,40 +52,10 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
         if (action == XvoxWidgetHelper.ACTION_UPDATE_WIDGET) { refreshReceiver(context); return }
         if (action !in setOf(XvoxWidgetHelper.ACTION_PLAY_PAUSE, XvoxWidgetHelper.ACTION_PREVIOUS,
                 XvoxWidgetHelper.ACTION_NEXT, XvoxWidgetHelper.ACTION_TOGGLE_LIKE)) return
-        val pending = goAsync()
-        scope.launch(Dispatchers.Main.immediate) {
-            var controller: MediaController? = null
-            try {
-                // A real session connection works even when the Activity/ViewModel is not alive.
-                val p = connect(context.applicationContext)
-                controller = p
-                when (action) {
-                    XvoxWidgetHelper.ACTION_PLAY_PAUSE -> {
-                        if (p.playWhenReady && p.playbackState != Player.STATE_ENDED) p.pause()
-                        else {
-                            if (p.mediaItemCount == 0) {
-                                val library = PlaybackLibraryLoader.load(context) ?: return@launch
-                                p.setMediaItems(library.songs.map { it.toMediaItem() }, library.startIndex, 0)
-                            }
-                            if (p.playbackState == Player.STATE_ENDED) p.seekToDefaultPosition()
-                            p.prepare(); p.play()
-                        }
-                    }
-                    XvoxWidgetHelper.ACTION_PREVIOUS -> if (p.hasPreviousMediaItem()) p.seekToPreviousMediaItem() else if (p.mediaItemCount > 0) p.seekTo(0)
-                    XvoxWidgetHelper.ACTION_NEXT -> if (p.hasNextMediaItem()) p.seekToNextMediaItem()
-                    XvoxWidgetHelper.ACTION_TOGGLE_LIKE -> p.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
-                        val preferences = XvoxLibraryPreferences(context.applicationContext)
-                        preferences.setLiked(id, id !in preferences.likedSongIds.first())
-                    }
-                }
-                delay(200)
-                notifyWidgetUpdate(context)
-            } catch (_: Exception) {
-                notifyWidgetUpdate(context)
-            } finally {
-                controller?.release()
-                pending.finish()
-            }
+        // Compatibility for widgets installed before direct service PendingIntents were introduced.
+        runCatching {
+            ContextCompat.startForegroundService(context,
+                Intent(context, XvoxPlaybackService::class.java).setAction(action))
         }
     }
 
@@ -106,16 +76,15 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
         private val dimensions = mutableMapOf<Int, List<SizeF>>()
 
         private data class Snapshot(val song: Song? = null, val playing: Boolean = false, val position: Long = 0, val duration: Long = 0) {
-            fun signature(): String = "${song?.id}:${song?.title}:${song?.artist}:${song?.artworkUri}:$playing:$duration"
+            fun signature(): String = "${song?.id}:${song?.title}:${song?.artist}:${song?.artworkUri}:$playing"
         }
         @Synchronized
         fun updateAllWidgets(context: Context, song: Song?, isPlaying: Boolean, position: Long, duration: Long) {
             val next = Snapshot(song, isPlaying, position, duration)
             val changed = next.signature() != snapshot.signature()
             snapshot = next
-            val now = SystemClock.elapsedRealtime()
-            if (!changed && now - lastRequest < 950) return
-            lastRequest = now
+            if (!changed) return
+            lastRequest = SystemClock.elapsedRealtime()
             enqueue(context, full = changed)
         }
         fun notifyWidgetUpdate(context: Context) { enqueue(context, full = true) }
@@ -151,18 +120,17 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
             val current = snapshot
             val signature = current.signature()
             val full = force || renderedState == null || signature != lastSignature
-            val state = if (full) XvoxWidgetHelper.loadCurrentWidgetState(context, current.song, current.playing, current.position, current.duration)
-                else renderedState!!.copy(currentPosition = current.position, duration = current.duration)
+            if (!full) return@withLock
+            val state = XvoxWidgetHelper.loadCurrentWidgetState(context, current.song, current.playing, current.position, current.duration)
             for (id in cachedIds) {
                 val sizes = if (full || id !in dimensions) sizes(context, manager.getAppWidgetOptions(id)).also { dimensions[id] = it }
                     else dimensions.getValue(id)
                 val views = LinkedHashMap<SizeF, RemoteViews>()
                 for (size in sizes) {
-                    views[size] = if (full) XvoxWidgetHelper.buildRemoteViews(context, state, size.width.roundToInt(), size.height.roundToInt())
-                        else XvoxWidgetHelper.progressRemoteViews(context, state, size.width.roundToInt(), size.height.roundToInt())
+                    views[size] = XvoxWidgetHelper.buildRemoteViews(context, state, size.width.roundToInt(), size.height.roundToInt())
                 }
                 val remote = if (Build.VERSION.SDK_INT >= 31 && views.size > 1) RemoteViews(views) else views.values.first()
-                if (full) manager.updateAppWidget(id, remote) else manager.partiallyUpdateAppWidget(id, remote)
+                manager.updateAppWidget(id, remote)
             }
             renderedState = state; lastSignature = signature
         }
@@ -180,16 +148,6 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
             val maxH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minH)
             return listOf(SizeF((if (landscape) maxW else minW).coerceAtLeast(40).toFloat(),
                 (if (landscape) minH else maxH).coerceAtLeast(40).toFloat()))
-        }
-        private suspend fun connect(context: Context): MediaController = suspendCancellableCoroutine { continuation ->
-            val future = MediaController.Builder(context, SessionToken(context, ComponentName(context, XvoxPlaybackService::class.java))).buildAsync()
-            future.addListener({
-                try {
-                    val value = future.get()
-                    if (continuation.isActive) continuation.resume(value) else value.release()
-                } catch (error: Exception) { if (continuation.isActive) continuation.resumeWithException(error) }
-            }, ContextCompat.getMainExecutor(context))
-            continuation.invokeOnCancellation { MediaController.releaseFuture(future) }
         }
     }
 }

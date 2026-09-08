@@ -8,6 +8,9 @@ data class BlendVisualState(
     val enabled: Boolean = false,
     val configuredSeconds: Int = 3,
     val active: Boolean = false,
+    val currentId: Long? = null,
+    val introZoneMs: Long = 0,
+    val tailZoneMs: Long = 0,
     val outgoingId: Long? = null,
     val incomingId: Long? = null,
     val outgoingTitle: String = "",
@@ -27,6 +30,13 @@ object XvoxBlendMonitor {
     val state = _state.asStateFlow()
     fun configure(enabled: Boolean, seconds: Int) {
         _state.update { it.copy(enabled = enabled, configuredSeconds = seconds.coerceIn(1, 12)) }
+    }
+    fun pauseVisual() { _state.update { it.copy(active = false) } }
+    fun newTrack(id: Long?) { _state.update { it.copy(currentId = id, introZoneMs = 0, active = false) } }
+    fun markIncoming(id: Long?, window: Long) { _state.update { it.copy(currentId = id, introZoneMs = window.coerceAtLeast(0)) } }
+    fun current(id: Long?, duration: Long, hasNext: Boolean) {
+        _state.update { it.copy(currentId = id, introZoneMs = if (it.currentId == id) it.introZoneMs else 0,
+            tailZoneMs = if (it.enabled && hasNext) CrossfadeMath.windowMs(it.configuredSeconds, duration) else 0) }
     }
     fun publish(visual: BlendVisualState) { _state.value = visual }
     fun end() { _state.update { it.copy(active = false, progress = 0f, beatAligned = false) } }

@@ -1,81 +1,90 @@
-# XVOX — revision 2 source update
+# XVOX — revision 3 (source only)
 
-Branch: **xvox**, not main. Base commit: `0e592ad599e40cbb040b4f3379af0a91fc12a2fe`.
+Branch: **xvox**. Base commit: `8dba0f043a19a59abffdb1ed95011d293c861d9c`.
 
-## Home and layouts
+## Startup, tap response and Recents
 
-- Horizontal mode uses the original native horizontal LazyRow again. Free/diagonal panning is removed.
-- **Mosaic 1** restores the original tiling/card style; **Mosaic 2** keeps the newer varied layouts. One Size remains available. The old `mosaic` preference migrates to Mosaic 1.
-- No disc-shaped/centre-hole covers in Mosaic 2. Artwork follows the card's corner geometry with an inset radius. Titles sit below, above, alongside or over artwork according to the tile proportions.
-- All Songs has no circular three-dot buttons. Hold opens options; a single tap gives a short push before playback. Cover-colour tint transitions over 480 ms.
-- Home previews render the same cards, header, sections, mini-player and navigation at real layout dimensions, uniformly scaled on both axes. They use the current library (labelled sample data only if empty) and can be opened larger.
-- **Merge** brings Liked Songs and Playlists onto Home, after Recents by default. Reorder or hide sections in Home settings. In merge mode, the top-right pill contains only Refresh.
-- All Songs pages, liked rows and playlist rows are emitted as separate lazy items. Cosmetic preference changes do not rebuild the playback queue.
+- Removed the hard-coded five-second startup wait. Loading no longer constructs/scans the Home screen underneath the startup animation before the setup decision is known.
+- Song tap feedback no longer delays the playback callback. Cards give a short press pulse, without loading or retaining the artwork's dominant background colour.
+- Playback starts with the chosen track and a small successor window. Large timelines are materialized in cancellable batches instead of serializing the whole library on the tap path. Identity/index caches avoid repeated scans; an explicit source change invalidates stale background expansion.
+- Repeated taps on the active song resume/acknowledge it instead of seeking back to zero. Idle/error sessions are prepared before retrying.
+- The Recently Played **carousel** stays mounted during updates. Its old transition replaced the LazyRow with an inert card and could leave it stuck after cancellation. There is no such static transition state now.
+- Appearance preview removed. Home has a compact layout-only schematic, with proportionally drawn grid rows/section order—not a second full Home screen.
+- Now Playing uses a three-slot, song-identity-anchored artwork pager. Shuffle/reorder does not animate the current cover to a different numerical queue index.
 
-## Audio and performance
+## XvoxMix
 
-- EQ preview appears only when EQ is enabled.
-- Replaced changing-feedback-coefficient EQ with warm fixed-pole filters and smoothed per-band gains. Audio controls update in memory immediately; disk persistence is coalesced after interaction.
-- Protection follows the **currently interpolated** EQ response, rather than releasing headroom early when disabling a boosted preset. A continuous soft knee replaces abrupt limiter gain jumps.
-- Headphone orbit adds fractional ear delays, equal-power directional cues, rear pinna filtering and subtle early reflections, with smoothly ramped depth.
-- Optional **Beat alignment** analyses bounded intro/tail windows locally on one background decoder. When confidence and tempos are compatible, the incoming first beat is aligned with an outgoing beat. It does not skip the intro or force tempo/pitch changes. Playback never waits for analysis; unsupported/uncertain tracks use the regular equal-power blend.
-- Teal intro / amber tail zones appear on player, mini-player and widget progress indicators. The player shows both tracks' progress during an active blend and labels a beat-aligned blend only when alignment was actually applied.
-- Preference streams are distinct by value; library JSON is decoded only when its own stored value changes. Recent-history updates no longer re-sort the full library.
-- Artwork decoding/fetching have shared concurrency limits. Prefetching is bounded, sequential and cancellable, and fills the same artwork cache used by cards.
+- A 5 / 10 bands selector, frequency-aware preset/custom-curve conversion and persistence.
+- Removed whole-preset automatic attenuation, so raising a band no longer silently lowers the master signal.
+- Boost Protection is an explicit manual gain reduction. Its effect appears in the contour. Existing stored protection values are preserved; the unset/default value is now 0 dB.
+- Stereo-linked, short look-ahead peak limiting replaces continuous heavy saturation. Its delay is drained at end of stream. Fixed EQ filters and gain ramps remain; filter histories are not reset by slider movement.
+- Low-level noise reduction and a Soften Highs control. The preview reflects the selected bands, manual protection, high-frequency shaping and noise setting.
+- 3D preview is shown only while enabled. Depth, speed, balance, app volume and output ceiling affect it. The headphone processor keeps more low-frequency energy centred while applying directional/rear cues and reflections.
 
-## Bluetooth / headset
+## Crossfade and its display
 
-- Detect actual audio output routes: A2DP, BLE, wired and USB headsets, with route-negotiation debounce and disconnect handling.
-- Auto Play resumes an existing queue or resolves a permitted, filtered local library and last song when the player has no items. An existing app queue/source is retained when available.
-- This works while Android allows the app/service to run; it does not bypass force-stop or background restrictions.
+- Smart blending analyses bounded, local RMS/energy envelopes of the outgoing tail and incoming intro. It selects calmer hand-off points and, when credible, compatible beat positions. Playback never waits for analysis.
+- Bass hand-off / clash control avoids having both low-frequency rhythms at full strength throughout the overlap. Queue mutations defer analysis to avoid decoder churn during large queue loading or dragging.
+- Duration, smart mode, beat option and clash strength affect the schematic preview.
+- The first/manual track does not get an intro zone. An intro zone is recorded only after a real fade-in. Only the subdued progress track is tinted, and a small **Crossfading** pill is shown while mixing. Extra intro/tail labels and song-name progress rows are removed.
+- This reduces collisions; it does **not** guarantee musically perfect transitions for every recording, and does not force time-stretching/pitch changes or skip an intro.
 
-## Widgets
+## Widget playback and editor
 
-- Independent **Padding X / Padding Y** settings, with safe caps for tiny sizes.
-- Backgrounds are drawn at the actual widget aspect ratio; they are no longer stretched from one fixed 320×180 shape. Artwork stays inset and uses matching inner corner radii.
-- Separate tiny, narrow/tall, square, compact, horizontal and standard layouts. Controls adapt to available space rather than overlap. Small sizes prioritize playback controls.
-- All six XML variants share the same IDs. Settings previews inflate the actual non-interactive RemoteViews, including 1×2, 1×3, 1×4 and wide variants.
-- Progress-only updates are throttled and send a tiny strip bitmap instead of repeatedly decoding covers/rebuilding full widgets. Full updates are coalesced. Responsive launcher sizes and portrait/landscape bounds are respected.
-- Widget buttons connect to the media session even without a live Activity/ViewModel; Like now updates the library preference.
+- Widget actions start the playback service directly, not an Activity-bound controller. Foreground promotion precedes audio-focus acquisition, the MediaSession is explicitly registered, gain/duck state is restored, and focus retries are bounded.
+- The service survives closing an active playback UI. It buffers/restores a filtered queue, can resume without an Activity, and respects explicit Stop/new-source requests. A normal wake-lock permission supports screen-off playback. Legacy widget broadcasts forward to the new service path.
+- Widgets have **no progress bar** and no position-only redraw loop.
+- 1–6 columns × 1–6 rows provide 36 size previews; actual supported cells depend on the launcher.
+- General: margin X/Y, padding X/Y, horizontal/vertical alignment, shape radius, border width/colour, transparency and theme/custom colour.
+- Cover: auto/left/right/top/bottom/hidden, requested size, independent or matching corners, cover border, full-cover background and shade. Full-cover mode still allows editing text and controls.
+- Text: independent song/artist/logo visibility, placement, alignment, font family, font size, text/background/border colours, border width and radius.
+- Buttons: per-button or all-button editing; auto/left/centre/right/hidden, order, size, inner padding, icon colour, background colour, border width/colour/radius, and optional captions with size/colour.
+- Dynamic RemoteViews use small Android-8-compatible child layouts and clear old children before reapply. Previews inflate the same non-interactive layouts. Very small/overcrowded configurations clamp element dimensions; use a larger widget for more visible content.
+- Swiping away the UI and Android **Force stop** are different. Android can disable/cancel widgets or background starts for a force-stopped/restricted app; the app cannot override that policy.
 
-## Queue and boxes
+## Lyrics and library recovery
 
-- Queue drag capture is owned by the LazyColumn, not by a recycled row. A floating row stays under the finger while proportional edge auto-scroll reorders the list. The original row remains as a placeholder.
-- Removed Sleep Timer, Song Info, Playlist and Share shortcuts from the top of the now-playing options box; XvoxMix and playback settings remain.
-- Add Songs and cover-picker boxes grow with content up to the available space (660 dp body cap), and stay compact for short lists. Long lists/grids remain scrollable; existing playlist covers are preselected.
+- Lyrics settings appear immediately below Home in Settings and in Now Playing's three-dot box.
+- Global timing advance/delay, current-line size, other-line size, independent top/bottom fade areas, and Soft Fade / Slide / Focus Zoom entry styles.
+- The preview uses placeholder lines only. The actual artwork/full-screen lyrics share the same preferences and apply the timing offset to lyric seeking. Now Playing gets finer position updates for smoother lyric timing.
+- Hidden Songs is below About. Songs removed with **Remove from XVOX** can be restored individually or together. Likes and playlist membership are retained.
+- Device-deleted files are not recoverable here; unavailable files are labelled accordingly, and other library filters still apply after restoring.
+- How To Use expanded to 31 topics. About explains the local library, DSP, privacy and platform limits without a bit-perfect-output claim.
 
-## Validation status
+## Validation / manual run
 
-**No app build, Kotlin compilation, Gradle test run, workflow dispatch or push was performed for this revision**, as requested for source-only work.
+**No Gradle build, Kotlin compilation, test execution, device/audio test, workflow dispatch, commit or push was performed during source preparation.**
 
-Performed: static Kotlin syntax parsing, local resource-reference checks, XML well-formedness/shared-widget-ID checks, whitespace checks, ZIP byte verification and patch applicability checks.
+Performed: static Kotlin parsing, Android resource-reference checks, XML/manifest checks, dynamic widget-slot validation, whitespace checks, archive byte verification and patch applicability checks. Static checks do not replace compilation or device testing.
 
-There are **38 regression test methods provided as source**, including beat fallback/alignment, original/new mosaics, EQ switching, section ordering and widget geometry. They have **not** been run on this revision. Static parsing is not a substitute for compilation or device testing.
+There are **50 regression test methods provided as source**, including EQ mode/level behavior, limiter history, lyrics offsets, widget customization bounds and energy/blend properties. They have not been executed for this revision.
 
-### Manual device checks
+### Highest-priority device checks
 
-1. Switch horizontal/vertical and Mosaic 1/2/One Size while audio plays. Confirm no diagonal grid panning, no disc holes/dots, smooth tint and no playback interruptions.
-2. Test Merge, all section orders/hide options, Recents Top/Bottom, and normal liked/playlist navigation. Compare the preview to Home.
-3. Sweep all EQ bands, presets, headroom, volume and depth while playing mono/stereo MP3, FLAC and WAV. Toggle heavily boosted EQ on/off. Start with moderate device volume.
-4. Listen to headphone orbit at different speeds/depths. Generic spatial cues and digital protection cannot guarantee a particular listener's 3D perception or prevent physical-speaker distortion at excessive system volume.
-5. Test 1/3/12-second crossfades with compatible steady beats, different tempos, silence/ambient intros, repeat one/all, short files, seek/skip and pause/resume. Confirm ordinary blending remains available when beat alignment cannot be trusted.
-6. Connect/disconnect A2DP/BLE/wired headphones with Auto Play on/off, with a paused queue and an empty player. Verify exclusions and last-song selection.
-7. Resize widgets in portrait/landscape and all shown shapes. Test X/Y padding, radius, artwork boundaries, controls, Like, and playback when the Activity is absent.
-8. Hold a queue row at both scroll edges, drag beyond the visible rows, reverse direction, and release. Also test TalkBack move actions.
-9. Check small/large playlist song and cover lists, large text, rotation and keyboard visibility. X and confirmation actions must remain usable.
+1. Cold launch with a large library; tap songs quickly and switch sources while the remaining queue loads. Sound should start without waiting for the whole timeline. Stop/new-source selection must cancel stale expansion.
+2. At the bottom of Home, swipe Recent cards during new-song updates, fling, interrupt and reverse. The carousel must remain interactive.
+3. Shuffle in Now Playing while keeping the current song/position; verify the current cover stays anchored.
+4. With moderate system volume, test five/ten bands, presets, heavy boosts, manual protection, noise reduction and high softening. Check mono/stereo and different sample rates, as well as file endings.
+5. Test energy/beat/clash settings with similar/different rhythms, ambient/quiet intros, repeat one/all, short songs and seeks. Verify first-track cue zones and the Crossfading pill.
+6. Stop playback, swipe the Activity away, then press the widget Play button. Also test pause/resume, next/previous/like, screen-off playback, exclusive focus held by another app, media permission denial and empty/excluded libraries.
+7. Resize widgets, change every editor category and test full-cover mode. Check caption/icon contrast, margins, borders and overcrowded tiny sizes. No progress indicator should appear.
+8. Import LRC/plain text, change positive/negative offset, font sizes, edge fades and the three styles. Confirm the same settings work in artwork/full-screen lyrics and the player options box.
+9. Hide from Home/Liked/playlist/search, then restore from Hidden Songs; verify physically deleted or disconnected-storage files are not falsely reported as recovered.
 
-## Apply / push manually
+Digital limiting and generic spatial processing do not guarantee speaker/hearing safety or a specific listener's 3D perception. Start with moderate volume.
 
-The archive is the complete updated source tree, without `.git`, APKs, build outputs or local SDK configuration.
+## Apply to xvox
+
+The ZIP is the complete source tree, excluding .git, build outputs, APKs and machine-local SDK files.
 The separate patch applies on the base commit above:
 
 ```sh
 git switch xvox
-git apply --check /path/to/XVOX-xvox-revision2.patch
-git apply /path/to/XVOX-xvox-revision2.patch
+git apply --check /path/to/XVOX-xvox-revision3.patch
+git apply /path/to/XVOX-xvox-revision3.patch
 git add -A
-git commit -m "Refine XVOX home, EQ, crossfade, widgets and queue gestures"
+git commit -m "Improve XVOX startup, playback, widgets, lyrics and library recovery"
 git push origin xvox
 ```
 
-Then run your build/workflow manually. JDK 17 / SDK 36 and the repository's existing pinned Gradle/dependencies are unchanged by this revision.
+Then run your build/workflow manually. Existing JDK/SDK/Gradle versions are unchanged.

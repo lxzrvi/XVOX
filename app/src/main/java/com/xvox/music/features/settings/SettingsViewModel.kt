@@ -1,5 +1,6 @@
 package com.xvox.music.features.settings
 
+import com.xvox.music.audio.EqBands
 import com.xvox.music.audio.LiveEqState
 import com.xvox.music.audio.AudioEffectsManager
 import android.app.Application
@@ -15,6 +16,8 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = UserPreferencesRepository(application)
+    private var pendingWidget: com.xvox.music.widget.WidgetCustomization? = null
+    private var pendingLyrics: com.xvox.music.data.preferences.LyricsSettings? = null
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
@@ -23,9 +26,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.homeMerge.collect { v -> _state.update { it.copy(homeMerge = v) } } }
             launch { prefs.homeSectionOrder.collect { v -> _state.update { it.copy(homeSectionOrder = v) } } }
             launch { prefs.homeHiddenSections.collect { v -> _state.update { it.copy(homeHiddenSections = v) } } }
+            launch { prefs.crossfadeSmart.collect { v -> _state.update { it.copy(crossfadeSmart = v) } } }
+            launch { prefs.crossfadeClashControl.collect { v -> _state.update { it.copy(crossfadeClashControl = v) } } }
             launch { prefs.crossfadeBeatSync.collect { v -> _state.update { it.copy(crossfadeBeatSync = v) } } }
+            launch { prefs.widgetCustomization.collect { value ->
+                if (pendingWidget == null || pendingWidget == value) {
+                    pendingWidget = null
+                    _state.update { it.copy(widgetCustomization = value) }
+                }
+            } }
             launch { prefs.widgetPaddingX.collect { v -> _state.update { it.copy(widgetPaddingX = v) } } }
             launch { prefs.widgetPaddingY.collect { v -> _state.update { it.copy(widgetPaddingY = v) } } }
+            launch { prefs.lyricsSettings.collect { value ->
+                if (pendingLyrics == null || pendingLyrics == value) {
+                    pendingLyrics = null
+                    _state.update { it.copy(lyrics = value) }
+                }
+            } }
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
@@ -53,6 +70,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
             launch { prefs.equalizerEnabled.collect { v -> _state.update { it.copy(equalizerEnabled = AudioEffectsManager.liveEq.value?.enabled ?: v) } } }
             launch { prefs.eqPreset.collect { v -> _state.update { it.copy(eqPreset = AudioEffectsManager.liveEq.value?.preset ?: v) } } }
+            launch { prefs.eqBandCount.collect { v -> _state.update { it.copy(eqBandCount = AudioEffectsManager.liveEq.value?.bandCount ?: v) } } }
+            launch { prefs.noiseReduction.collect { v -> _state.update { it.copy(noiseReduction = AudioEffectsManager.liveEq.value?.noiseReduction ?: v) } } }
+            launch { prefs.softenHighs.collect { v -> _state.update { it.copy(softenHighs = AudioEffectsManager.liveEq.value?.softenHighs ?: v) } } }
             launch { prefs.eqBands.collect { v -> _state.update { it.copy(eqBands = AudioEffectsManager.liveEq.value?.bands ?: v) } } }
             launch { prefs.balance.collect { v -> _state.update { it.copy(balance = AudioEffectsManager.liveEq.value?.balance ?: v) } } }
             launch { prefs.stereoWidening.collect { v -> _state.update { it.copy(stereoWidening = AudioEffectsManager.liveEq.value?.surroundEnabled ?: v) } } }
@@ -77,9 +97,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         prefs.setHomeSectionOrder(order)
     }
     fun setHomeSectionVisible(id: String, visible: Boolean) = viewModelScope.launch { prefs.setHomeSectionVisible(id, visible) }
+    fun setCrossfadeSmart(v: Boolean) = viewModelScope.launch { prefs.setCrossfadeSmart(v) }
+    fun setCrossfadeClashControl(v: Float) = viewModelScope.launch { prefs.setCrossfadeClashControl(v) }
     fun setCrossfadeBeatSync(value: Boolean) = viewModelScope.launch { prefs.setCrossfadeBeatSync(value) }
     fun setWidgetPaddingX(value: Int) = viewModelScope.launch { prefs.setWidgetPaddingX(value) }
     fun setWidgetPaddingY(value: Int) = viewModelScope.launch { prefs.setWidgetPaddingY(value) }
+    fun updateWidget(change: (com.xvox.music.widget.WidgetCustomization) -> com.xvox.music.widget.WidgetCustomization) {
+        val next = change(_state.value.widgetCustomization).sanitized()
+        pendingWidget = next
+        _state.update { it.copy(widgetCustomization = next) }
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("widget") { prefs.setWidgetCustomization(next) }
+    }
+    fun updateLyrics(change: (com.xvox.music.data.preferences.LyricsSettings) -> com.xvox.music.data.preferences.LyricsSettings) {
+        val next = change(_state.value.lyrics).sanitized()
+        pendingLyrics = next
+        _state.update { it.copy(lyrics = next) }
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("lyrics") { prefs.setLyricsSettings(next) }
+    }
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
     fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
@@ -111,10 +145,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val value = _state.value
         AudioEffectsManager.submit(getApplication<Application>(), LiveEqState(value.equalizerEnabled, value.eqPreset, value.eqBands,
             value.eqHeadroomDb, value.balance, value.stereoWidening, value.surroundDepth, value.surroundPanSpeed,
-            value.appVolume, value.volumeLimit))
+            value.appVolume, value.volumeLimit, value.eqBandCount, value.noiseReduction, value.softenHighs))
     }
     private fun applyEq(enabled: Boolean, preset: String, bands: List<Int>) {
-        val safe = List(5) { bands.getOrElse(it) { 0 }.coerceIn(-12, 12) }
+        val safe = EqBands.convert(bands, _state.value.eqBandCount)
         changeAudio { it.copy(equalizerEnabled = enabled, eqPreset = preset, eqBands = safe) }
     }
     fun setEqualizerEnabled(enabled: Boolean) = applyEq(enabled, _state.value.eqPreset, _state.value.eqBands)
@@ -122,12 +156,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         AudioEffectsManager.PRESETS[preset] ?: _state.value.eqBands)
     fun setEqBands(bands: List<Int>) = applyEq(_state.value.equalizerEnabled, "Custom", bands)
     fun setEqBand(index: Int, value: Int) {
-        if (index !in 0..4) return
+        if (index !in 0 until _state.value.eqBandCount) return
         val bands = _state.value.eqBands.toMutableList()
-        while (bands.size < 5) bands.add(0)
+        while (bands.size < _state.value.eqBandCount) bands.add(0)
         bands[index] = value.coerceIn(-12, 12)
         applyEq(_state.value.equalizerEnabled, "Custom", bands)
     }
+    fun setEqBandCount(count: Int) = changeAudio { it.copy(eqBandCount = EqBands.count(count), eqBands = EqBands.convert(it.eqBands, EqBands.count(count))) }
+    fun setNoiseReduction(value: Float) = changeAudio { it.copy(noiseReduction = value.coerceIn(0f, 1f)) }
+    fun setSoftenHighs(value: Float) = changeAudio { it.copy(softenHighs = value.coerceIn(0f, 1f)) }
     fun setBalance(balance: Float) = changeAudio { it.copy(balance = balance.coerceIn(-1f, 1f)) }
     fun setStereoWidening(enabled: Boolean) = changeAudio { it.copy(stereoWidening = enabled) }
     fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(2, 10)) }

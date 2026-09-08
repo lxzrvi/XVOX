@@ -47,11 +47,10 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
             onClick = {
                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 tapJob?.cancel()
+                click() // Dispatch immediately; the visual pulse must never delay audio.
                 tapJob = scope.launch {
                     pulse = true
-                    delay(55) // One small push, then the action, even on a very quick tap.
-                    click()
-                    delay(55)
+                    delay(100)
                     pulse = false
                 }
             },

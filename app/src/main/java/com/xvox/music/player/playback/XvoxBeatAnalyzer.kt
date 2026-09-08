@@ -19,11 +19,11 @@ import kotlin.math.exp
 class XvoxBeatAnalyzer(context: Context) {
     private val app = context.applicationContext
     private val dispatcher = Dispatchers.IO.limitedParallelism(1)
-    private val cache = object : LinkedHashMap<String, BeatGrid?>(64, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BeatGrid?>): Boolean = size > 96
+    private val cache = object : LinkedHashMap<String, TrackBlendProfile?>(64, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackBlendProfile?>): Boolean = size > 96
     }
 
-    suspend fun analyze(uri: Uri, startMs: Long, windowMs: Long = 16000): BeatGrid? = withContext(dispatcher) {
+    suspend fun analyze(uri: Uri, startMs: Long, windowMs: Long = 16000): TrackBlendProfile? = withContext(dispatcher) {
         val key = "$uri:$startMs:$windowMs"
         if (cache.containsKey(key)) return@withContext cache[key]
         val extractor = MediaExtractor()
@@ -95,7 +95,7 @@ class XvoxBeatAnalyzer(context: Context) {
                                 mono /= channels
                                 val positionUs = info.presentationTimeUs + frame * 1_000_000L / rate
                                 val bin = ((positionUs - startMs * 1000L) / 10000L).toInt()
-                                low += (mono - low) * alpha
+                                if (!mono.isFinite()) low = 0.0 else low += (mono - low) * alpha
                                 if (positionUs >= startMs * 1000L && bin in energies.indices && mono.isFinite()) {
                                     energies[bin] += .75 * low * low + .25 * mono * mono
                                     counts[bin]++
@@ -109,7 +109,7 @@ class XvoxBeatAnalyzer(context: Context) {
             }
             coroutineContext.ensureActive()
             val measured = DoubleArray(energies.size) { if (counts[it] > 0) energies[it] / counts[it] else 0.0 }
-            BeatAlignment.detect(measured, startMs).also { cache[key] = it }
+            TrackBlendProfile(BeatAlignment.detect(measured, startMs), EnergyEnvelope.fromEnergy(measured, startMs)).also { cache[key] = it }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (_: Exception) {

@@ -59,61 +59,79 @@ fun SettingsPreviewFrame(label: String, content: @Composable ColumnScope.() -> U
 @Composable
 fun EqSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    SettingsPreviewFrame("XvoxMix · band contour") {
-        Canvas(Modifier.fillMaxWidth().height(64.dp)) {
-            drawLine(colors.cardBorder, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
+    SettingsPreviewFrame("${state.eqBandCount}-band output contour") {
+        Canvas(Modifier.fillMaxWidth().height(92.dp)) {
+            val middle = size.height * .42f
+            drawLine(colors.cardBorder, Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
             val path = Path()
-            repeat(5) { i ->
-                val db = if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f
-                val point = Offset(size.width * i / 4, size.height * (.5f - db / 28f))
+            repeat(state.eqBandCount) { i ->
+                val f = i.toFloat() / (state.eqBandCount - 1)
+                val highCut = state.softenHighs * 9 * ((f - .60f) / .40f).coerceIn(0f, 1f)
+                val db = (if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f) - state.eqHeadroomDb - highCut
+                val point = Offset(size.width * f, (middle - db / 42f * size.height).coerceIn(2f, size.height - 2))
                 if (i == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
-                drawCircle(colors.primaryAccent, 3.dp.toPx(), point)
+                drawCircle(colors.primaryAccent, 2.5.dp.toPx(), point)
             }
             drawPath(path, colors.primaryAccent, style = Stroke(2.dp.toPx()))
+            val noiseHeight = 10.dp.toPx() * (1 - state.noiseReduction)
+            drawRect(colors.secondaryText.copy(alpha = .15f), Offset(0f, size.height - noiseHeight), Size(size.width, noiseHeight))
         }
-        Text("Smooth DSP · ${state.eqHeadroomDb.toInt()} dB extra headroom · Peak guard always on", color = colors.secondaryText, fontSize = 10.sp)
+        Text("Protection −${state.eqHeadroomDb.toInt()} dB · high softening ${(state.softenHighs * 100).toInt()}% · noise reduction ${(state.noiseReduction * 100).toInt()}%",
+            color = colors.secondaryText, fontSize = 10.sp)
     }
 }
 
 @Composable
 fun SurroundSettingsPreview(state: SettingsState) {
+    if (!state.stereoWidening) return
     val colors = XvoxTheme.colors
-    val phase = if (state.stereoWidening) {
-        val transition = rememberInfiniteTransition(label = "orbitPreview")
-        transition.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(state.surroundPanSpeed * 1000, easing = LinearEasing)), label = "orbit").value
-    } else 0f
-    SettingsPreviewFrame("Spatial preview · headphones recommended") {
-        Canvas(Modifier.fillMaxWidth().height(72.dp)) {
-            val radius = size.height * .42f
+    val transition = rememberInfiniteTransition(label = "orbitPreview")
+    val phase by transition.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(state.surroundPanSpeed * 1000, easing = LinearEasing)), label = "orbit")
+    val level = (state.appVolume * state.volumeLimit).coerceIn(0f, 1f)
+    SettingsPreviewFrame("3D · layout preview") {
+        Canvas(Modifier.fillMaxWidth().height(94.dp)) {
+            val radius = size.height * .38f
             drawCircle(colors.cardBorder, radius, center, style = Stroke(1.dp.toPx()))
-            drawCircle(colors.secondaryText.copy(alpha = .4f), 8.dp.toPx(), center)
-            val amount = if (state.stereoWidening) state.surroundDepth else 0f
-            drawCircle(colors.primaryAccent, 5.dp.toPx(), center + Offset(sin(phase) * radius * amount, -cos(phase) * radius * amount))
+            drawCircle(colors.secondaryText.copy(alpha = .45f), 8.dp.toPx(), center)
+            val shift = Offset(state.balance * radius * .3f, 0f)
+            drawCircle(colors.primaryAccent.copy(alpha = .2f + level * .8f), 5.dp.toPx(),
+                center + shift + Offset(sin(phase) * radius * state.surroundDepth, -cos(phase) * radius * state.surroundDepth))
+            val pan = sin(phase) * state.surroundDepth * .6f + state.balance
+            val left = (1 - pan.coerceAtLeast(0f)).coerceIn(0f, 1f) * level
+            val right = (1 + pan.coerceAtMost(0f)).coerceIn(0f, 1f) * level
+            drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(8.dp.toPx(), size.height * (1 - left) / 2), Size(5.dp.toPx(), size.height * left), CornerRadius(3.dp.toPx()))
+            drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(size.width - 13.dp.toPx(), size.height * (1 - right) / 2), Size(5.dp.toPx(), size.height * right), CornerRadius(3.dp.toPx()))
         }
-        Text("Ear delay + rear pinna cues + early reflections; not just volume panning", color = colors.secondaryText, fontSize = 10.sp)
+        Text("Depth changes travel; speed changes rotation; balance, app volume and ceiling change ear levels.", color = colors.secondaryText, fontSize = 10.sp)
     }
 }
 
 @Composable
 fun CrossfadeSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    SettingsPreviewFrame("Transition preview · ${state.crossfadeDuration}s overlap") {
-        Canvas(Modifier.fillMaxWidth().height(64.dp)) {
-            val outgoing = Path(); val incoming = Path()
+    SettingsPreviewFrame("Transition · schematic") {
+        Canvas(Modifier.fillMaxWidth().height(92.dp)) {
+            val out = Path(); val incoming = Path()
+            val handoff = if (state.crossfadeSmart) .43f else .5f
             for (i in 0..100) {
                 val t = i / 100f
-                val a = if (state.crossfade) cos(t * PI / 2).toFloat() else if (t < .5f) 1f else 0f
-                val b = if (state.crossfade) sin(t * PI / 2).toFloat() else if (t < .5f) 0f else 1f
-                val x = size.width * t
-                val y1 = size.height * (1 - a * .85f)
-                val y2 = size.height * (1 - b * .85f)
-                if (i == 0) { outgoing.moveTo(x, y1); incoming.moveTo(x, y2) }
-                else { outgoing.lineTo(x, y1); incoming.lineTo(x, y2) }
+                val gain = if (state.crossfade) com.xvox.music.player.playback.EnergyBlendPlanner.gains(t, handoff, state.crossfadeSmart)
+                    else com.xvox.music.player.playback.CrossfadeGains(if (t < .5f) 1f else 0f, if (t < .5f) 0f else 1f)
+                val cycles = state.crossfadeDuration * 1.6f
+                val bass = if (state.crossfadeSmart) com.xvox.music.player.playback.EnergyBlendPlanner.bassGains(t, handoff, state.crossfadeClashControl, gain)
+                    else com.xvox.music.player.playback.CrossfadeGains(1f, 1f)
+                val wave1 = .62f + .30f * kotlin.math.abs(sin(t * cycles * PI)).toFloat()
+                val phase = if (state.crossfadeBeatSync) 0f else .8f
+                val wave2 = .62f + .30f * kotlin.math.abs(sin(t * cycles * PI + phase)).toFloat()
+                val x = t * size.width
+                val y1 = size.height * (1 - gain.outgoing * wave1 * (.65f + .35f * bass.outgoing))
+                val y2 = size.height * (1 - gain.incoming * wave2 * (.65f + .35f * bass.incoming))
+                if (i == 0) { out.moveTo(x, y1); incoming.moveTo(x, y2) } else { out.lineTo(x, y1); incoming.lineTo(x, y2) }
             }
-            drawPath(outgoing, colors.secondaryText, style = Stroke(2.dp.toPx()))
-            drawPath(incoming, colors.primaryAccent, style = Stroke(2.dp.toPx()))
+            drawPath(out, Color(0xFFE6AB6C), style = Stroke(2.dp.toPx()))
+            drawPath(incoming, Color(0xFF62CDBD), style = Stroke(2.dp.toPx()))
         }
-        Text(if (state.crossfade) "Current + next play together. Equal-power blend, no fade-to-silence." else "Normal gapless queue playback",
-            color = colors.secondaryText, fontSize = 11.sp)
+        Text(if (!state.crossfade) "Crossfade off" else "${state.crossfadeDuration}s · ${if (state.crossfadeSmart) "Energy matching" else "Equal power"} · ${if (state.crossfadeBeatSync) "Beat alignment when compatible" else "No beat alignment"}",
+            color = colors.secondaryText, fontSize = 10.sp)
     }
 }

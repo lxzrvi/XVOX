@@ -48,182 +48,56 @@ import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
 @Composable
-fun EqualizerSettingsSection(
-    state: SettingsState,
-    viewModel: SettingsViewModel
-) {
+fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
-        SettingsToggle(
-            title = "XvoxMix Master",
-            subtitle = "Fixed-filter EQ with smoothed gains; no filter rebuild on slider moves",
-            checked = state.equalizerEnabled,
-            onChange = viewModel::setEqualizerEnabled
-        )
-
+        SettingsToggle("XvoxMix Equalizer", "Band boosts no longer turn down the entire track automatically.", state.equalizerEnabled, viewModel::setEqualizerEnabled)
         if (state.equalizerEnabled) {
+            com.xvox.music.features.settings.components.SettingsChoiceRow(listOf("5" to "5 bands", "10" to "10 bands"), state.eqBandCount.toString()) {
+                viewModel.setEqBandCount(it.toInt())
+            }
+            Spacer(Modifier.height(12.dp))
             com.xvox.music.features.settings.components.EqSettingsPreview(state)
             Spacer(Modifier.height(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Preset: ${state.eqPreset}",
-                color = colors.secondaryText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val presets = listOf("Flat", "Bass Boost", "Treble", "Rock", "Pop", "Jazz", "Electronic", "Vocal", "Custom")
-                presets.forEach { preset ->
-                    val isSelected = state.eqPreset == preset
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .clickable {
-                                viewModel.setEqPreset(preset)
-                            }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = preset,
-                            color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+            com.xvox.music.features.settings.components.SettingsChoiceRow(
+                (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it }, state.eqPreset, viewModel::setEqPreset)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(180.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.xvox.music.audio.EqBands.frequencies(state.eqBandCount).forEachIndexed { index, frequency ->
+                    VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
+                        viewModel.setEqBand(index, it)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Independent Equalizer Bands",
-                color = colors.primaryText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            val labels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                labels.forEachIndexed { index, label ->
-                    val value = state.eqBands.getOrElse(index) { 0 }
-                    VerticalEqBandSlider(
-                        label = label,
-                        value = value,
-                        onValueChange = { newValue ->
-                            viewModel.setEqBand(index, newValue)
-                        }
-                    )
-                }
-            }
         }
-
-        Spacer(Modifier.height(16.dp))
-        Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB headroom", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Text("Raise this if boosted bass sounds strained. Reserves room for boosted bands; the peak guard stays on at every setting.",
+        Spacer(Modifier.height(14.dp))
+        Text("Boost protection: ${state.eqHeadroomDb.roundToInt()} dB", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text("0 dB keeps your level. Increase only if boosted peaks sound strained; this control intentionally lowers gain. Peak limiting stays on.",
             color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
-        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 3f)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SettingsToggle(
-            title = "3D Surround Sound",
-            subtitle = "Binaural-style orbit with ear delay, head shadow and gentle crossfeed",
-            checked = state.stereoWidening,
-            onChange = viewModel::setStereoWidening
-        )
-
-        com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
+        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
+        Text("Noise reduction: ${(state.noiseReduction * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+        XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
+        Text("Gentle low-level hiss reduction—not voice separation. High values can soften quiet tails.", color = colors.secondaryText, fontSize = 10.sp)
+        Spacer(Modifier.height(10.dp))
+        Text("Soften sharp highs: ${(state.softenHighs * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp)
+        XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
+        Spacer(Modifier.height(12.dp))
+        SettingsToggle("3D Headphone Sound", "Ear delay, rear cues and reflections, with a steadier low end.", state.stereoWidening, viewModel::setStereoWidening)
         if (state.stereoWidening) {
-            Text("Orbit depth: ${(state.surroundDepth * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp,
-                modifier = Modifier.padding(top = 12.dp))
-            XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = 0.65f)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "3D Orbit Pan Interval: ${state.surroundPanSpeed} seconds",
-                color = colors.secondaryText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            XvoxThinLineSlider(
-                value = state.surroundPanSpeed.toFloat(),
-                onValueChange = { viewModel.setSurroundPanSpeed(it.roundToInt()) },
-                valueRange = 2f..10f,
-                modifier = Modifier.fillMaxWidth()
-            )
+            com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
+            Text("Depth: ${(state.surroundDepth * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+            XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
+            Text("Orbit: ${state.surroundPanSpeed} seconds", color = colors.secondaryText, fontSize = 12.sp)
+            XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f)
         }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-            text = "Master Volume: ${(state.appVolume * 100).roundToInt()}%",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        XvoxThinLineSlider(
-            value = state.appVolume,
-            onValueChange = viewModel::setAppVolume,
-            valueRange = 0f..1f,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
+        Text("App volume: ${(state.appVolume * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+        XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
         Text("Output ceiling: ${(state.volumeLimit * 100).roundToInt()}%", color = colors.secondaryText, fontSize = 12.sp)
         XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
-        Spacer(Modifier.height(14.dp))
-
-        val balanceLabel = when {
-            state.balance < -0.05f -> "L ${(-state.balance * 100).roundToInt()}%"
-            state.balance > 0.05f -> "R ${(state.balance * 100).roundToInt()}%"
-            else -> "Center"
-        }
-
-        Text(
-            text = "Output Balance: $balanceLabel",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        XvoxThinLineSlider(
-            value = state.balance,
-            onValueChange = viewModel::setBalance,
-            valueRange = -1f..1f,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Text("Balance: ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}", color = colors.secondaryText, fontSize = 12.sp)
+        XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
     }
 }
 

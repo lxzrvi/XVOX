@@ -17,6 +17,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.data.preferences.LyricsSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,9 +53,11 @@ fun XvoxSyncedLyrics(
 ) {
     if (lyrics.lines.isEmpty()) return
 
-    val activeIndex = if (lyrics.synchronized) {
-        lyrics.lines.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= position }.coerceAtLeast(0)
-    } else -1
+    val context = LocalContext.current
+    val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
+    val settings by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
+    val effectivePosition = settings.position(position)
+    val activeIndex = if (lyrics.synchronized) lyrics.lines.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= effectivePosition } else -1
 
     val listState = rememberLazyListState()
     var userBrowsing by remember { mutableStateOf(false) }
@@ -71,12 +77,12 @@ fun XvoxSyncedLyrics(
         }
     }
 
-    LaunchedEffect(activeIndex, userBrowsing, lyrics) {
+    LaunchedEffect(activeIndex, userBrowsing, lyrics, settings.currentSize, settings.otherSize, settings.animation) {
         if (!lyrics.synchronized || activeIndex < 0 || userBrowsing) return@LaunchedEffect
         autoFollowing = true
         try {
             withFrameNanos { }
-            centerLyricExactly(listState, activeIndex + 1)
+            centerLyricExactly(listState, activeIndex + 1, settings.animation)
         } finally {
             autoFollowing = false
         }
@@ -88,88 +94,24 @@ fun XvoxSyncedLyrics(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    val stops = if (strongEdgeFade) {
-                        arrayOf(
-                            0.00f to Color.Transparent,
-                            0.04f to Color.White.copy(alpha = 0.03f),
-                            0.10f to Color.White.copy(alpha = 0.10f),
-                            0.16f to Color.White.copy(alpha = 0.28f),
-                            0.21f to Color.White.copy(alpha = 0.60f),
-                            0.25f to Color.White,
-                            0.75f to Color.White,
-                            0.79f to Color.White.copy(alpha = 0.60f),
-                            0.84f to Color.White.copy(alpha = 0.28f),
-                            0.90f to Color.White.copy(alpha = 0.10f),
-                            0.96f to Color.White.copy(alpha = 0.03f),
-                            1.00f to Color.Transparent
-                        )
-                    } else {
-                        arrayOf(
-                            0.00f to Color.White.copy(alpha = 0.02f),
-                            0.06f to Color.White.copy(alpha = 0.06f),
-                            0.12f to Color.White.copy(alpha = 0.18f),
-                            0.19f to Color.White.copy(alpha = 0.36f),
-                            0.26f to Color.White.copy(alpha = 0.68f),
-                            0.33f to Color.White,
-                            0.67f to Color.White,
-                            0.74f to Color.White.copy(alpha = 0.68f),
-                            0.81f to Color.White.copy(alpha = 0.36f),
-                            0.88f to Color.White.copy(alpha = 0.18f),
-                            0.94f to Color.White.copy(alpha = 0.06f),
-                            1.00f to Color.White.copy(alpha = 0.02f)
-                        )
-                    }
-                    drawRect(brush = Brush.verticalGradient(colorStops = stops), blendMode = BlendMode.DstIn)
-                }
+                .lyricsEdgeFade(settings.fadeTop, settings.fadeBottom)
         ) {
             item(key = "lyrics-top") { Spacer(Modifier.height(boundarySpace)) }
             itemsIndexed(items = lyrics.lines, key = { index, line -> "$index-${line.timeMs}-${line.text}" }) { index, line ->
-                val distance = abs(index - activeIndex)
                 val isActive = lyrics.synchronized && index == activeIndex
-                val alpha = when (distance) {
-                    0 -> 1f
-                    1 -> 0.68f
-                    2 -> 0.36f
-                    else -> 0.16f
-                }
-                val fontSize = when {
-                    isActive && strongEdgeFade -> 23.sp
-                    isActive -> 21.sp
-                    strongEdgeFade -> 15.sp
-                    else -> 14.sp
-                }
-                val lineHeight = when {
-                    isActive && strongEdgeFade -> 30.sp
-                    isActive -> 27.sp
-                    else -> 21.sp
-                }
-                val lineColor by animateColorAsState(
-                    targetValue = if (isActive) Color.White else Color.White.copy(alpha = alpha),
-                    animationSpec = tween(110),
-                    label = "lyricColor$index"
-                )
-                Text(
-                    text = line.text.ifBlank { "♪" },
-                    color = lineColor,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = line.timeMs != null, interactionSource = remember { MutableInteractionSource() }, indication = null) { line.timeMs?.let(onSeek) }
-                        .padding(horizontal = 20.dp, vertical = if (isActive) 10.dp else 7.dp)
-                )
+                LyricPresentationLine(line.text, isActive, index - activeIndex, settings,
+                    synchronized = lyrics.synchronized,
+                    modifier = Modifier.clickable(enabled = line.timeMs != null,
+                        interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                        line.timeMs?.let { onSeek(settings.seekPosition(it)) }
+                    })
             }
             item(key = "lyrics-bottom") { Spacer(Modifier.height(boundarySpace)) }
         }
     }
 }
 
-private suspend fun centerLyricExactly(state: LazyListState, lazyIndex: Int) {
+private suspend fun centerLyricExactly(state: LazyListState, lazyIndex: Int, animation: String) {
     var target = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
     if (target == null) {
         state.scrollToItem(lazyIndex)
@@ -185,7 +127,7 @@ private suspend fun centerLyricExactly(state: LazyListState, lazyIndex: Int) {
     }
     val first = correction() ?: return
     if (abs(first) > 0.5f) {
-        state.animateScrollBy(value = first, animationSpec = tween(durationMillis = 280, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        state.animateScrollBy(value = first, animationSpec = tween(durationMillis = when (animation) { "fade" -> 180; "focus" -> 300; else -> 260 }, easing = androidx.compose.animation.core.FastOutSlowInEasing))
     }
     withFrameNanos { }
     val final = correction() ?: return

@@ -48,6 +48,10 @@ class MainPlayerViewModel(
                 }
                 _state.update {
                     it.copy(
+                        queue = if (playback.queue.isNotEmpty()) playback.queue else it.queue,
+                        playingSource = if (playback.externalQueue) "Queue" else it.playingSource,
+                        miniPlayerVisible = if (playback.currentSongId == null) false else
+                            if (playback.isPlaying && !it.nowPlayingVisible) true else it.miniPlayerVisible,
                         connected = playback.connected,
                         currentSongId = playback.currentSongId,
                         currentIndex = playback.currentIndex,
@@ -61,6 +65,7 @@ class MainPlayerViewModel(
     }
 
     fun setQueue(songs: List<Song>) {
+        controller.cacheLibrary(songs)
         val signature = queueSignature(songs)
         if (songs.size == libraryQueueSize && signature == libraryQueueSignature) return
 
@@ -70,7 +75,8 @@ class MainPlayerViewModel(
         val current = _state.value
         if (current.playingSource != "All Songs" && current.queue.isNotEmpty()) {
             val available = songs.mapTo(HashSet()) { it.id }
-            val retained = current.queue.filter { it.id in available }
+            val updatedSongs = songs.associateBy { it.id }
+            val retained = current.queue.mapNotNull { updatedSongs[it.id] }
             if (retained != current.queue) {
                 if (current.currentSongId != null && current.currentSongId !in available) stopPlayback()
                 controller.setQueue(retained)
@@ -250,10 +256,12 @@ class MainPlayerViewModel(
 
     fun openNowPlaying() {
         if (_state.value.currentSongId == null) return
+        controller.setFastProgress(true)
         _state.update { it.copy(nowPlayingVisible = true, miniPlayerVisible = false) }
     }
 
     fun closeNowPlaying() {
+        controller.setFastProgress(false)
         _state.update { current ->
             if (current.currentSongId == null) {
                 current.copy(nowPlayingVisible = false, miniPlayerVisible = false)
@@ -272,6 +280,7 @@ class MainPlayerViewModel(
     }
 
     fun stopPlayback() {
+        controller.setFastProgress(false)
         controller.stop()
         _state.update { it.copy(miniPlayerVisible = false, nowPlayingVisible = false) }
     }

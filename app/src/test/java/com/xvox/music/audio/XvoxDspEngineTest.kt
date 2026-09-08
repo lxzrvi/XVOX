@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.math.*
 
 class XvoxDspEngineTest {
-    @Test fun disablingBoostDoesNotReleaseHeadroomAheadOfTheRampedBands() {
+    @Test fun switchingBoostDoesNotIntroduceSingleSampleBursts() {
         val dsp = XvoxDspEngine().apply {
             settings = AudioDspSettings(equalizerEnabled = true, bands = List(5) { 12f }, headroomDb = 3f)
             configure(48000)
@@ -28,8 +28,11 @@ class XvoxDspEngineTest {
             val l = (sin(2 * PI * 440 * i / 48000) * .3).toFloat()
             val r = (sin(2 * PI * 990 * i / 48000) * .2).toFloat()
             dsp.process(l, r)
-            assertEquals(l.toDouble(), dsp.left.toDouble(), 0.00001)
-            assertEquals(r.toDouble(), dsp.right.toDouble(), 0.00001)
+            val sourceIndex = i - dsp.latencyFrames
+            val expectedL = if (sourceIndex < 0) 0.0 else sin(2 * PI * 440 * sourceIndex / 48000) * .3
+            val expectedR = if (sourceIndex < 0) 0.0 else sin(2 * PI * 990 * sourceIndex / 48000) * .2
+            assertEquals(expectedL, dsp.left.toDouble(), 0.00001)
+            assertEquals(expectedR, dsp.right.toDouble(), 0.00001)
         }
     }
     @Test fun fastBandChangesRemainFiniteAndBelowThePeakCeiling() {

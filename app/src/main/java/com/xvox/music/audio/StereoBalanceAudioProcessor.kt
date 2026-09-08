@@ -10,6 +10,7 @@ import java.nio.ByteOrder
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class StereoBalanceAudioProcessor : BaseAudioProcessor() {
     val engine = XvoxDspEngine()
+    private var tailFrames = 0
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
@@ -35,6 +36,21 @@ class StereoBalanceAudioProcessor : BaseAudioProcessor() {
         output.flip()
     }
 
-    override fun onFlush() { engine.reset() }
-    override fun onReset() { engine.reset() }
+    override fun onQueueEndOfStream() { tailFrames = engine.latencyFrames }
+    override fun getOutput(): ByteBuffer {
+        val pending = super.getOutput()
+        if (pending.hasRemaining() || tailFrames == 0) return pending
+        val output = replaceOutputBuffer(tailFrames * 4).order(ByteOrder.LITTLE_ENDIAN)
+        repeat(tailFrames) {
+            engine.process(0f, 0f)
+            output.putShort((engine.left * 32767).toInt().toShort())
+            output.putShort((engine.right * 32767).toInt().toShort())
+        }
+        tailFrames = 0
+        output.flip()
+        return super.getOutput()
+    }
+    override fun isEnded(): Boolean = super.isEnded() && tailFrames == 0
+    override fun onFlush() { tailFrames = 0; engine.reset() }
+    override fun onReset() { tailFrames = 0; engine.reset() }
 }

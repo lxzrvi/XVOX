@@ -42,6 +42,13 @@ fun PlaybackSettingsSection(
         )
 
         if (state.crossfade) {
+            SettingsToggle("Smart energy blend", "Compare the outgoing tail and incoming intro graphs; prefer calmer hand-off points without skipping the intro.",
+                state.crossfadeSmart, viewModel::setCrossfadeSmart)
+            if (state.crossfadeSmart) {
+                Text("Beat-clash control: ${(state.crossfadeClashControl * 100).toInt()}%", color = colors.secondaryText, fontSize = 12.sp)
+                com.xvox.music.features.settings.components.XvoxThinLineSlider(state.crossfadeClashControl, viewModel::setCrossfadeClashControl, 0f..1f)
+                Text("Stronger control hands the low end to one track at a time. No forced tempo/pitch changes.", color = colors.secondaryText, fontSize = 10.sp)
+            }
             SettingsToggle("Beat alignment", "Align the incoming first beat when rhythms are confidently detected and tempos fit. Never skips the intro or waits for analysis.",
                 state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
             Spacer(modifier = Modifier.height(12.dp))

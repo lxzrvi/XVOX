@@ -52,6 +52,10 @@ class XvoxLibraryPreferences(
         return updatePlaylist(playlist.id) { playlist }
     }
 
+    suspend fun restoreSong(songId: Long) {
+        context.xvoxDataStore.edit { prefs -> prefs[Keys.hidden] = (decodeIds(prefs[Keys.hidden].orEmpty()) - songId).joinToString(",") }
+    }
+    suspend fun restoreAllSongs() { context.xvoxDataStore.edit { it.remove(Keys.hidden) } }
     suspend fun hideSong(songId: Long) {
         context.xvoxDataStore.edit { prefs ->
             val ids = decodeIds(prefs[Keys.hidden].orEmpty()).toMutableSet()

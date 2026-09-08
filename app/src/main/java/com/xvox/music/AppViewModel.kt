@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xvox.music.data.preferences.UserPreferencesRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,8 +18,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            val isCompleted = prefs.preferences.first().setupCompleted
-            delay(5000L)
+            val isCompleted = runCatching { prefs.preferences.first().setupCompleted }.getOrDefault(false)
             if (isCompleted) {
                 _state.value = AppUiState.Home
             } else {

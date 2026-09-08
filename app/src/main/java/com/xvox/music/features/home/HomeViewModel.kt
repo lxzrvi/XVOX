@@ -128,6 +128,7 @@ class HomeViewModel(
         _state.update {
             it.copy(
                 songs = sorted,
+                hiddenSongs = allRawSongs.filter { song -> song.id in it.hiddenSongIds },
                 recentlyPlayed = resolveRecent(sorted, recentIds)
             )
         }
@@ -135,7 +136,7 @@ class HomeViewModel(
 
     private fun loadLibrary() {
         viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) { songRepository.loadSongs() }
+            val loaded = withContext(Dispatchers.IO) { runCatching { songRepository.loadSongs() }.getOrDefault(emptyList()) }
             allRawSongs = loaded
             _folders.value = HomeLibraryFilterHelper.groupFolders(loaded)
             publishFilteredSongs()
@@ -238,6 +239,8 @@ class HomeViewModel(
         }
     }
 
+    fun restoreSong(id: Long) = viewModelScope.launch { libraryPreferences.restoreSong(id) }
+    fun restoreAllHiddenSongs() = viewModelScope.launch { libraryPreferences.restoreAllSongs() }
     fun hideSong(song: Song) = viewModelScope.launch { libraryPreferences.hideSong(song.id) }
 
     fun createPlaylist(name: String, songIds: Set<Long>, onDone: (XvoxPlaylist?) -> Unit) =

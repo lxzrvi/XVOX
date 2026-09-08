@@ -5,12 +5,15 @@ import kotlin.math.*
 data class AudioDspSettings(
     val equalizerEnabled: Boolean = false,
     val bands: List<Float> = List(5) { 0f },
-    val headroomDb: Float = 3f,
+    val headroomDb: Float = 0f,
     val balance: Float = 0f,
     val surroundEnabled: Boolean = false,
     val surroundDepth: Float = .65f,
     val orbitSeconds: Float = 6f,
-    val masterVolume: Float = 1f
+    val masterVolume: Float = 1f,
+    val bandCount: Int = 5,
+    val noiseReduction: Float = 0f,
+    val softenHighs: Float = 0f
 )
 
 /**
@@ -22,19 +25,21 @@ class XvoxDspEngine {
     @Volatile var settings = AudioDspSettings()
     @Volatile var mixGain = 1f
     @Volatile var duckGain = 1f
+    @Volatile var transitionBassGain = 1f
     var left = 0f
         private set
     var right = 0f
         private set
 
+    private val peakGuard = StereoPeakGuard()
+    val latencyFrames: Int get() = peakGuard.latencyFrames
+    private var noiseThreshold = .0003
     private var rate = 44100
-    private val frequencies = doubleArrayOf(60.0, 230.0, 910.0, 3600.0, 14000.0)
-    private val filters = Array(5) { FixedStereoBandpass() }
+    private val frequencies = EqBands.five + EqBands.ten
+    private val filters = Array(15) { FixedStereoBandpass() }
     private val pinna = FixedStereoBandpass()
-    private val currentBand = DoubleArray(5)
-    private val targetBand = DoubleArray(5)
-    private val responseReal = Array(48) { DoubleArray(5) }
-    private val responseImaginary = Array(48) { DoubleArray(5) }
+    private val currentBand = DoubleArray(15)
+    private val targetBand = DoubleArray(15)
     private var targetHeadroom = 1.0
     private var lastSettings: AudioDspSettings? = null
     private var block = 0
@@ -64,6 +69,13 @@ class XvoxDspEngine {
     private var cursor = 0
     private var shadowLeft = 0.0
     private var shadowRight = 0.0
+    private var softL = 0.0; private var softR = 0.0
+    private var bassL = 0.0; private var bassR = 0.0
+    private var spatialBassL = 0.0; private var spatialBassR = 0.0
+    private var toneAlpha = 0.0; private var bassAlpha = 0.0; private var spatialBassAlpha = 0.0
+    private var currentSoftHighs = 1.0; private var targetSoftHighs = 1.0
+    private var currentNoise = 0.0; private var targetNoise = 0.0; private var noiseEnvelope = 0.0; private var noiseGain = 1.0
+    private var currentBassGain = 1.0
 
     fun configure(sampleRate: Int) {
         rate = sampleRate.coerceIn(8000, 384000)
@@ -72,26 +84,25 @@ class XvoxDspEngine {
         reductionAlpha = 1 - exp(-1.0 / (rate * .008))
         fastAlpha = 1 - exp(-1.0 / (rate * .008))
         for (i in filters.indices) filters[i].configure(frequencies[i].coerceAtMost(rate * .43), rate, .82)
-        repeat(48) { point ->
-            val frequency = 30.0 * (minOf(19000.0, rate * .45) / 30.0).pow(point / 47.0)
-            for (band in filters.indices) {
-                filters[band].response(2 * PI * frequency / rate)
-                responseReal[point][band] = filters[band].responseReal
-                responseImaginary[point][band] = filters[band].responseImaginary
-            }
-        }
+        toneAlpha = 1 - exp(-2 * PI * minOf(5500.0, rate * .35) / rate)
+        bassAlpha = 1 - exp(-2 * PI * 180 / rate)
+        spatialBassAlpha = 1 - exp(-2 * PI * 700 / rate)
         pinna.configure(minOf(6800.0, rate * .40), rate, 1.15)
         delayLeft = DoubleArray((rate * .024).toInt() + 8)
         delayRight = DoubleArray(delayLeft.size)
+        peakGuard.configure(rate)
         reset()
     }
 
     fun reset() {
-        filters.forEach { it.reset() }; pinna.reset()
+        filters.forEach { it.reset() }; pinna.reset(); peakGuard.reset()
         currentBand.fill(0.0); targetBand.fill(0.0)
         delayLeft.fill(0.0); delayRight.fill(0.0)
         cursor = 0; phase = 0.0; block = 0
         shadowLeft = 0.0; shadowRight = 0.0
+        softL = 0.0; softR = 0.0; bassL = 0.0; bassR = 0.0; spatialBassL = 0.0; spatialBassR = 0.0
+        noiseEnvelope = 0.0; noiseGain = 1.0; currentNoise = 0.0; currentSoftHighs = 1.0
+        currentBassGain = transitionBassGain.toDouble().coerceIn(0.0, 1.0)
         currentVolume = settings.masterVolume.toDouble().coerceIn(0.0, 1.0)
         currentMix = mixGain.toDouble().coerceIn(0.0, 1.0)
         currentBalance = settings.balance.toDouble().coerceIn(-1.0, 1.0)
@@ -108,10 +119,14 @@ class XvoxDspEngine {
         if (lastSettings == s) return
         lastSettings = s
         for (i in targetBand.indices) {
-            val db = if (s.equalizerEnabled) s.bands.getOrElse(i) { 0f }.toDouble().coerceIn(-12.0, 12.0) else 0.0
+            val selectedBank = if (s.bandCount == 10) i >= 5 else i < 5
+            val bandIndex = if (s.bandCount == 10) i - 5 else i
+            val db = if (s.equalizerEnabled && selectedBank) s.bands.getOrElse(bandIndex) { 0f }.toDouble().coerceIn(-12.0, 12.0) else 0.0
             targetBand[i] = 10.0.pow(db / 20.0) - 1.0
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
+        targetSoftHighs = 10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
+        targetNoise = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
         targetDepth = if (s.surroundEnabled) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
@@ -121,19 +136,10 @@ class XvoxDspEngine {
     fun process(inputLeft: Float, inputRight: Float) {
         if (block == 0) {
             updateTargets()
-            // Track the CURRENT interpolated response, not the final preset. Otherwise switching
-            // EQ off can release all headroom while old boosted bands are still fading, causing a burst.
-            var peakResponse = 1.0
-            for (point in responseReal.indices) {
-                var re = 1.0; var im = 0.0
-                for (band in currentBand.indices) {
-                    re += currentBand[band] * responseReal[point][band]
-                    im += currentBand[band] * responseImaginary[point][band]
-                }
-                peakResponse = max(peakResponse, sqrt(re * re + im * im))
-            }
-            targetPreamp = targetHeadroom / peakResponse
-            pan = sin(phase) * .92
+            // User-controlled headroom only: raising a band must not secretly turn the entire track down.
+            targetPreamp = targetHeadroom
+            noiseThreshold = 10.0.pow((-70 + currentNoise * 20) / 20)
+            pan = sin(phase) * .78
             rear = (1 - cos(phase)) * .5
             shadowAlpha = 1 - exp(-2 * PI * (12000 - rear * 7000) / rate)
             nearLeft = cos((pan + 1) * PI / 4) * sqrt(2.0)
@@ -142,6 +148,9 @@ class XvoxDspEngine {
         block = (block + 1) and 31
         currentPreamp += (targetPreamp - currentPreamp) * reductionAlpha
         currentVolume += (targetVolume * duckGain - currentVolume) * controlAlpha
+        currentSoftHighs += (targetSoftHighs - currentSoftHighs) * controlAlpha
+        currentNoise += (targetNoise - currentNoise) * controlAlpha
+        currentBassGain += (transitionBassGain.coerceIn(0f, 1f) - currentBassGain) * fastAlpha
         currentMix += (mixGain.toDouble().coerceIn(0.0, 1.0) - currentMix) * fastAlpha
         currentBalance += (targetBalance - currentBalance) * controlAlpha
         currentDepth += (targetDepth - currentDepth) * controlAlpha
@@ -161,6 +170,17 @@ class XvoxDspEngine {
         // Float-domain filtering cannot clip internally; apply the smooth protection envelope here
         // so changing headroom does not perturb filter histories.
         l *= currentPreamp; r *= currentPreamp
+        softL += (l - softL) * toneAlpha; softR += (r - softR) * toneAlpha
+        l = softL + (l - softL) * currentSoftHighs
+        r = softR + (r - softR) * currentSoftHighs
+        val envelopeInput = max(abs(l), abs(r))
+        noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
+        val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
+        val desiredNoiseGain = 1 - currentNoise * .92 * (1 - ratio * ratio)
+        noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
+        l *= noiseGain; r *= noiseGain
+        bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha
+        l += bassL * (currentBassGain - 1); r += bassR * (currentBassGain - 1)
         delayLeft[cursor] = l; delayRight[cursor] = r
         // Headphone orbit: fractional ear delay, equal-power position, rear pinna shadow and quiet early reflections.
         // Preserve the stereo side information rather than folding the recording to mono.
@@ -174,8 +194,10 @@ class XvoxDspEngine {
         val farR = max(-pan, 0.0)
         val filteredL = (earL * (1 - farL * .60) + shadowLeft * farL * .60) - pinna.left * rear * .30
         val filteredR = (earR * (1 - farR * .60) + shadowRight * farR * .60) - pinna.right * rear * .30
-        val spatialL = filteredL * nearLeft * .94 + delayed(delayRight, rate * .011) * .04 + delayed(delayLeft, rate * .017) * .02
-        val spatialR = filteredR * nearRight * .94 + delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02
+        spatialBassL += (filteredL - spatialBassL) * spatialBassAlpha
+        spatialBassR += (filteredR - spatialBassR) * spatialBassAlpha
+        val spatialL = (spatialBassL * (.90 + .10 * nearLeft) + (filteredL - spatialBassL) * nearLeft) * .94 + delayed(delayRight, rate * .011) * .04 + delayed(delayLeft, rate * .017) * .02
+        val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02
         l += (spatialL - l) * currentDepth
         r += (spatialR - r) * currentDepth
         cursor = (cursor + 1) % delayLeft.size
@@ -184,14 +206,10 @@ class XvoxDspEngine {
             l = 0.0; r = 0.0
             filters.forEach { it.reset() }; pinna.reset()
         }
-        // C1-continuous, stereo-linked soft knee: no instantaneous limiter gain jumps / hard clipping.
-        // The constant ceiling reserves the same headroom before, during and after a two-deck blend.
-        val peak = max(abs(l), abs(r))
-        val protectedPeak = if (peak <= .56) peak else .56 + .14 * (1 - exp(-(peak - .56) / .14))
-        val guard = if (peak > 0) protectedPeak / peak else 1.0
-        val output = currentVolume * currentMix * guard
-        left = (l * output).toFloat().coerceIn(-.70f, .70f)
-        right = (r * output).toFloat().coerceIn(-.70f, .70f)
+        peakGuard.process(l, r)
+        val output = currentVolume * currentMix
+        left = (peakGuard.left * output).toFloat()
+        right = (peakGuard.right * output).toFloat()
     }
 
     private fun delayed(buffer: DoubleArray, samples: Double): Double {

@@ -24,6 +24,7 @@ data class HomeUiState(
         RecentTransitionRequest(),
     val likedSongIds: Set<Long> =
         emptySet(),
+    val hiddenSongs: List<Song> = emptyList(),
     val hiddenSongIds: Set<Long> =
         emptySet(),
     val playlists: List<XvoxPlaylist> =

@@ -10,9 +10,11 @@ data class LiveEqState(
     val enabled: Boolean, val preset: String, val bands: List<Int>,
     val headroomDb: Float, val balance: Float, val surroundEnabled: Boolean,
     val surroundDepth: Float, val orbitSeconds: Int, val appVolume: Float, val volumeLimit: Float,
+    val bandCount: Int = 5, val noiseReduction: Float = 0f, val softenHighs: Float = 0f,
     val revision: Long = 0
 ) {
-    fun applyTo(saved: AudioDspSettings) = saved.copy(equalizerEnabled = enabled, bands = bands.map { it.toFloat() },
+    fun applyTo(saved: AudioDspSettings) = saved.copy(equalizerEnabled = enabled, bands = bands.map { it.toFloat() }, bandCount = bandCount,
+        noiseReduction = noiseReduction, softenHighs = softenHighs,
         headroomDb = headroomDb, balance = balance, surroundEnabled = surroundEnabled, surroundDepth = surroundDepth,
         orbitSeconds = orbitSeconds.toFloat(), masterVolume = (appVolume * volumeLimit).coerceIn(0f, 1f))
 }
@@ -30,7 +32,7 @@ object AudioEffectsManager {
     /** Immediate in-memory audio update; coalesce slider persistence instead of writing per pixel. */
     @Synchronized
     fun submit(context: Context, controls: LiveEqState) {
-        val state = controls.copy(bands = List(5) { controls.bands.getOrElse(it) { 0 }.coerceIn(-12, 12) }, revision = ++revision)
+        val state = controls.copy(bands = List(EqBands.count(controls.bandCount)) { controls.bands.getOrElse(it) { 0 }.coerceIn(-12, 12) }, revision = ++revision)
         _liveEq.value = state
         _persistenceError.value = null
         writer?.cancel()

@@ -324,6 +324,7 @@ fun XvoxNowPlaying(
                 Spacer(Modifier.height(14.dp))
 
                 XvoxNowPlayingProgress(
+                    currentSongId = song.id,
                     position = position,
                     duration = duration,
                     onSeek = onSeek
