@@ -18,10 +18,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -154,7 +157,18 @@ fun XvoxFullscreenLyrics(
             }
         }
 
-        // Floating top chrome: song artwork + title, transport, close. Slides up when idle.
+        // A slim dim band keeps the lyric lines clear of the status bar while the chrome is away.
+        if (!chromeVisible) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .background(colors.background.copy(alpha = 0.4f))
+            )
+        }
+
+        // Floating top chrome: song artwork + title, transport, close. Sits below the status bar
+        // so the header never hides under the clock; slides away after idle and returns on touch.
         AnimatedVisibility(
             visible = chromeVisible,
             enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(200)),
@@ -165,6 +179,7 @@ fun XvoxFullscreenLyrics(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.background.copy(alpha = 0.55f))
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 8.dp)
             ) {
                 Row(

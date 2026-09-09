@@ -19,8 +19,11 @@ object XvoxNavigationGeometry {
     val selectorBaseRadius = 29.dp
     val selectorGrowRadius = 13.dp
 
-    val selectorStart = 4.dp
-    val selectorTravel = 160.dp
+    // Three equal 82 dp slots in a 246 dp bar with a 78 dp pill: start = slotCentre - halfPill
+    // (2 dp) and each full step advances one slot (82 dp), so the pill sits exactly under Home,
+    // Search and Settings.
+    val selectorStart = 2.dp
+    val selectorTravel = 164.dp
     val selectorGrowShift = 16.dp
 
     val iconSize = 25.dp

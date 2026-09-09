@@ -36,51 +36,62 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     val maximumSize = maxOf(settings.currentSize, settings.otherSize)
     val wanted = (if (active) settings.currentSize else settings.otherSize).toFloat() / maximumSize
     val animation = settings.animation
-    val spec: AnimationSpec<Float> = if (animation == "spring") spring(dampingRatio = .55f, stiffness = 460f)
-        else tween(280, easing = FastOutSlowInEasing)
 
-    // "focus" shrinks passing lines away (strong zoom-out); "wave" keeps them full size and only
-    // sways them; "pulse" breathes on the active line only (handled below).
+    // Each style gets its own motion character and timing so the eight names never feel alike.
+    val spec: AnimationSpec<Float> = when (animation) {
+        "spring" -> spring(dampingRatio = .5f, stiffness = 420f)
+        "fade" -> tween(200, easing = LinearEasing)
+        "slide" -> tween(300, easing = FastOutSlowInEasing)
+        "rise" -> tween(380, easing = LinearOutSlowInEasing)
+        "glide" -> tween(420, easing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f))
+        "focus" -> tween(340, easing = FastOutSlowInEasing)
+        "wave" -> tween(460, easing = CubicBezierEasing(0.34f, 1.4f, 0.64f, 1f))
+        else -> tween(280, easing = FastOutSlowInEasing)
+    }
+
+    // "focus" shrinks passing lines away hard while the active line stays big; "wave" sways the
+    // neighbours while they keep full size; "pulse" breathes on the active line only.
     val focusScale = animation == "focus" && !active
     val waveScale = animation == "wave" && !active && (distance % 2 != 0)
     val scaleBase = wanted * when {
-        focusScale -> .9f
-        waveScale -> 1.02f
+        focusScale -> .82f
+        waveScale -> 1.07f
         else -> 1f
     }
     val scale by animateFloatAsState(scaleBase, spec, label = "lyricScale")
 
-    // Base dim by distance from the active line. "Equal fade" is stricter: every line above and
-    // below is faded out fully by fadeIntensity — only the current line stays clear, exactly as
-    // if the lyrics above and below were not there.
+    // Base dim by distance from the active line. "Equal fade" is stricter and binary: everything
+    // above and below the current line is faded by fadeIntensity as one whole area — no gradual
+    // distance gradient — so the lyrics read as a clear centre row with the rest gone.
     val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
     val dimTarget = if (settings.fadeEqual) {
-        if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0.05f, 1f)
+        if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0f, 1f)
     } else baseAlpha
-    val alpha by animateFloatAsState(if (!synchronized) .82f else dimTarget, tween(240), label = "lyricAlpha")
+    val alpha by animateFloatAsState(if (!synchronized) .82f else dimTarget,
+        if (animation == "fade") tween(200, easing = LinearEasing) else tween(260), label = "lyricAlpha")
 
-    // Each animation moves differently, so they never feel the same:
-    //  glide -> the whole line drifts sideways; wave -> neighbours sway in/out of the centre;
-    //  slide -> lines drop one place; rise -> upcoming lines climb from below; spring -> a soft
-    //  vertical hop on passing lines.
+    // Distinct sideways movement:
+    //  glide -> the whole line drifts away sideways; wave -> neighbours sway in/out of centre.
     val glideX = animation == "glide" && !active
     val waveX = animation == "wave" && !active
     val shiftX by animateFloatAsState(
         when {
-            glideX -> distance.coerceIn(-1, 1) * 26f
-            waveX -> if (distance % 2 != 0) distance.coerceIn(-1, 1) * 10f
-                else -distance.coerceIn(-1, 1) * 4f
+            glideX -> distance.coerceIn(-1, 1) * 46f
+            waveX -> if (distance % 2 != 0) distance.coerceIn(-1, 1) * 18f
+                else -distance.coerceIn(-1, 1) * 7f
             else -> 0f
         }, spec, label = "lyricShiftX")
 
+    // Vertical flavours: slide -> lines drop one place; rise -> upcoming lines climb from below;
+    // spring -> a pronounced hop on the passing lines.
     val slideY = animation == "slide" && !active
     val riseY = animation == "rise" && !active && distance > 0
     val springY = animation == "spring" && !active
     val shiftY by animateFloatAsState(
         when {
-            slideY -> distance.coerceIn(-1, 1) * 10f
-            riseY -> distance.coerceIn(1, 6) * 16f
-            springY -> distance.coerceIn(-1, 1) * 4f
+            slideY -> distance.coerceIn(-1, 1) * 22f
+            riseY -> distance.coerceIn(1, 6) * 30f
+            springY -> distance.coerceIn(-1, 1) * 12f
             else -> 0f
         }, spec, label = "lyricShiftY")
 
@@ -89,8 +100,8 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     if (animation == "pulse" && active) {
         val transition = rememberInfiniteTransition(label = "pulse")
         val pulse by transition.animateFloat(
-            initialValue = 1f, targetValue = 1.06f,
-            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "pulseScale"
+            initialValue = 1f, targetValue = 1.08f,
+            animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulseScale"
         )
         pulseScale = pulse
     }

@@ -56,6 +56,8 @@ data class SettingsState(
     val centerPreservation: Float = 0f,
     val appVolume: Float = 1.0f,
     val volumeLimit: Float = 1.0f,
+    val playbackSpeed: Float = 1.0f,
+    val playbackPitch: Float = 1.0f,
     val widgetTransparency: Float = 0.25f,
     val widgetTheme: String = "Dark",
     val widgetCustomColor: String = "#000000",

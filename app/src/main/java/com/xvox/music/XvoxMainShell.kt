@@ -96,6 +96,8 @@ fun XvoxMainShell(
 
     var destination by remember { mutableStateOf(XvoxDestination.HOME) }
     var homeResetKey by remember { mutableLongStateOf(0L) }
+    // Bumped on every tab switch so each freshly opened tab lands at the top of its content.
+    var tabEpoch by remember { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(mergedHome) {
         hoistedSelectedPlaylistId = null
@@ -164,8 +166,9 @@ fun XvoxMainShell(
     }
 
     fun showAddCurrentSongToPlaylist(song: Song) {
-        // A small PIP-style popup, not a full editor: the song is added without leaving the screen.
-        overlays.showMiniBox("Add to playlist") {
+        // A full picker box rather than the small popup: choosing a playlist (or creating one) is
+        // an editor action and should read as one, with the song list still visible underneath.
+        overlays.showBox("Add to playlist") {
             XvoxPlaylistPickerBoxContent(
                 song = song,
                 playlists = homeState.playlists,
@@ -264,6 +267,7 @@ fun XvoxMainShell(
                                 currentSongId = player.currentSongId,
                                 isPlaying = player.isPlaying,
                                 homeResetKey = homeResetKey,
+                                scrollResetKey = tabEpoch,
                                 selectedPlaylistId = hoistedSelectedPlaylistId,
                                 onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
                                 onQueueReady = playerViewModel::setQueue,
@@ -275,6 +279,7 @@ fun XvoxMainShell(
                             SearchScreen(
                                 homeViewModel = homeViewModel,
                                 playerViewModel = playerViewModel,
+                                topResetKey = tabEpoch,
                                 onPlaylistSelected = { playlistId ->
                                     hoistedSelectedPlaylistId = playlistId
                                     destination = XvoxDestination.HOME
@@ -282,7 +287,7 @@ fun XvoxMainShell(
                             )
                         }
                         XvoxDestination.SETTINGS -> {
-                            SettingsScreen(homeViewModel = homeViewModel)
+                            SettingsScreen(homeViewModel = homeViewModel, topResetKey = tabEpoch)
                         }
                     }
                     }
@@ -348,6 +353,7 @@ fun XvoxMainShell(
                         hoistedSelectedPlaylistId = null
                         homeResetKey = System.currentTimeMillis()
                     }
+                    if (next != destination) tabEpoch++
                     destination = next
                 }
             )

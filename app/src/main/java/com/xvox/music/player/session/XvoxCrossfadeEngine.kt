@@ -1,11 +1,13 @@
 package com.xvox.music.player.session
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Timeline
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -42,7 +44,7 @@ class XvoxCrossfadeEngine(
     private val onActivePlayerChanged: (ExoPlayer) -> Unit,
     private val onStateChanged: (Player) -> Unit
 ) {
-    private class Deck(val player: ExoPlayer, val processor: StereoBalanceAudioProcessor, val listener: Player.Listener, var gain: Float)
+    private class Deck(val player: ExoPlayer, val processor: StereoBalanceAudioProcessor, val sink: DefaultAudioSink, val listener: Player.Listener, var gain: Float)
     private data class Prepared(val deck: Deck, val fromId: String, val nextIndex: Int, var started: Boolean = false, var plan: EnergyBlendPlan? = null)
     private data class Overlap(
         val outgoing: Deck, val startPosition: Long, val duration: Long, val beatAligned: Boolean,
@@ -99,9 +101,9 @@ class XvoxCrossfadeEngine(
             // Preload full PCM, not silence: output envelopes belong AFTER the buffered audio sink.
             engine.settings = parameters.copy(masterVolume = 1f)
         }
+        val sink = DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(processor)).build()
         val factory = object : DefaultRenderersFactory(context) {
-            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(processor)).build()
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink = sink
         }
         val exo = ExoPlayer.Builder(context, factory).build().apply {
             // One focus owner for both decks prevents the incoming track stealing focus from its own tail.
@@ -109,6 +111,10 @@ class XvoxCrossfadeEngine(
             setWakeMode(C.WAKE_MODE_LOCAL)
             repeatMode = Player.REPEAT_MODE_OFF
             volume = (gain * duck * parameters.masterVolume).coerceIn(0f, 1f)
+            if (outputSpeed != 1f || outputPitch != 1f) {
+                runCatching { setPlaybackParameters(PlaybackParameters(outputSpeed, outputPitch)) }
+            }
+            runCatching { sink.setPreferredDevice(preferredOutputDevice) }
         }
         val listener = object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -162,7 +168,43 @@ class XvoxCrossfadeEngine(
             }
         }
         exo.addListener(listener)
-        return Deck(exo, processor, listener, gain)
+        return Deck(exo, processor, sink, listener, gain)
+    }
+
+    // --- Output route + playback speed / pitch (phone vs headset, 2× preview, EQ pitch & speed) ---
+    @Volatile private var outputSpeed = 1f
+    @Volatile private var outputPitch = 1f
+    @Volatile private var preferredOutputDevice: AudioDeviceInfo? = null
+
+    /** Where audio should physically leave the phone. "phone" forces the built-in speaker (null). */
+    fun setOutputRoute(route: String) {
+        val device = if (route == "headset") {
+            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isHeadsetOutput(it) }
+        } else null
+        preferredOutputDevice = device
+        decks().forEach { deck ->
+            runCatching { deck.sink.setPreferredDevice(device) }
+        }
+    }
+
+    fun updatePlayback(speed: Float, pitch: Float) {
+        outputSpeed = speed.coerceIn(.25f, 3f)
+        outputPitch = pitch.coerceIn(.25f, 3f)
+        val parameters = PlaybackParameters(outputSpeed, outputPitch)
+        decks().forEach { deck ->
+            runCatching { deck.player.setPlaybackParameters(parameters) }
+        }
+    }
+
+    private fun isHeadsetOutput(device: AudioDeviceInfo): Boolean {
+        if (!device.isSink) return false
+        return when (device.type) {
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> true
+            else -> Build.VERSION.SDK_INT >= 31 &&
+                (device.type == AudioDeviceInfo.TYPE_BLE_HEADSET || device.type == AudioDeviceInfo.TYPE_BLE_SPEAKER)
+        }
     }
 
     fun updateSettings(settings: AudioDspSettings) {

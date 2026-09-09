@@ -103,6 +103,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.chromeStyle.collect { v -> _state.update { it.copy(chromeStyle = v) } } }
             launch { prefs.backgroundBrightness.collect { v -> _state.update { it.copy(backgroundBrightness = v) } } }
             launch { prefs.audioOutputRoute.collect { v -> _state.update { it.copy(audioOutputRoute = v) } } }
+            launch { prefs.playbackSpeed.collect { v -> _state.update { it.copy(playbackSpeed = v) } } }
+            launch { prefs.playbackPitch.collect { v -> _state.update { it.copy(playbackPitch = v) } } }
             launch { prefs.profileLines.collect { v -> _state.update { it.copy(profileLines = v) } } }
             launch { prefs.remindersEnabled.collect { v -> _state.update { it.copy(remindersEnabled = v) } } }
         }
@@ -218,6 +220,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }
     fun setAudioOutputRoute(route: String) = viewModelScope.launch { prefs.setAudioOutputRoute(route) }
+    fun setPlaybackSpeed(value: Float) = viewModelScope.launch { prefs.setPlaybackSpeed(value) }
+    fun setPlaybackPitch(value: Float) = viewModelScope.launch { prefs.setPlaybackPitch(value) }
     fun setProfileLines(lines: List<String>) = viewModelScope.launch { prefs.setProfileLines(lines) }
     fun setRemindersEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setRemindersEnabled(enabled) }
 }

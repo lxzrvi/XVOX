@@ -52,6 +52,7 @@ fun HomeScreen(
     currentSongId: Long?,
     isPlaying: Boolean,
     homeResetKey: Long = 0L,
+    scrollResetKey: Long = 0L,
     selectedPlaylistId: String? = null,
     onSelectedPlaylistIdChange: ((String?) -> Unit)? = null,
     onQueueReady: (List<Song>) -> Unit,
@@ -258,6 +259,8 @@ fun HomeScreen(
             modifier = Modifier.weight(1f), label = "libraryFade") { target ->
             val listState = rememberLazyListState()
             LaunchedEffect(homeResetKey) { if (homeResetKey > 0L) listState.scrollToItem(0) }
+            // Re-entering the tab after a switch always lands back on top, wherever it was left.
+            LaunchedEffect(scrollResetKey, targetKey) { if (scrollResetKey > 0L) listState.scrollToItem(0) }
             val targetPlaylist = (target as? String)?.let { id -> state.playlists.firstOrNull { it.id == id } }
             val detailTracks = remember(targetPlaylist, playlistContents) {
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()

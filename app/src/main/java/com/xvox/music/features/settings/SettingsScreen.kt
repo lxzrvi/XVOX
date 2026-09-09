@@ -73,6 +73,7 @@ enum class SettingsAccordionKey {
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    topResetKey: Long = 0L,
     homeViewModel: HomeViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
@@ -82,8 +83,8 @@ fun SettingsScreen(
     var expandedKey by remember { mutableStateOf(SettingsAccordionKey.NONE) }
     val listState = rememberLazyListState()
 
-    // Entering the tab always lands on the top of the list, fully collapsed.
-    LaunchedEffect(Unit) {
+    // Every fresh entry into the Settings tab lands on the top of the list, fully collapsed.
+    LaunchedEffect(topResetKey) {
         expandedKey = SettingsAccordionKey.NONE
         listState.scrollToItem(0)
     }

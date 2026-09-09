@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,13 +76,16 @@ fun NowPlayingActions(
     onOpenOptions: ((String) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
-    var audioToggles by remember { mutableStateOf(false) }
+    // An endless carousel: each swipe advances one trio and the same two rows keep alternating,
+    // so a fast run of swipes never hits a dead end and each row always slides in from the same
+    // side the finger is travelling towards.
+    var page by remember { mutableIntStateOf(0) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Fixed left cluster.
+        // Fixed left cluster (timer / queue / info) with soft circular chips behind them.
         Row(verticalAlignment = Alignment.CenterVertically) {
             NowPlayingActionIcon(
                 resource = R.drawable.ic_xvox_timer,
@@ -100,7 +104,9 @@ fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
-        // Right cluster: three circles that swap in place on a horizontal swipe.
+        // Right cluster: three circles that cycle endlessly on a horizontal swipe. A left swipe
+        // (finger moving right-to-left) slides the current trio out to the left while the next
+        // trio enters from the right; a right swipe does the reverse. Both rows alternate forever.
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
@@ -114,23 +120,23 @@ fun NowPlayingActions(
                             drag += dragAmount
                         },
                         onDragEnd = {
-                            if (drag <= -28f) audioToggles = true
-                            else if (drag >= 28f) audioToggles = false
+                            if (drag <= -28f) page += 1
+                            else if (drag >= 28f) page -= 1
                         },
                         onDragCancel = { }
                     )
                 }
         ) {
             AnimatedContent(
-                targetState = audioToggles,
+                targetState = page,
                 transitionSpec = {
-                    val forward = targetState
+                    val forward = targetState > initialState
                     (slideInHorizontally(tween(230)) { it * if (forward) -1 else 1 } + fadeIn(tween(150)))
                         .togetherWith(slideOutHorizontally(tween(230)) { -it * if (forward) -1 else 1 } + fadeOut(tween(150)))
                 },
                 label = "nowPlayingRightCluster"
-            ) { toggles ->
-                if (!toggles) {
+            ) { currentPage ->
+                if (currentPage % 2 == 0) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         NowPlayingCircleAction(
                             resource = R.drawable.ic_xvox_crossfade,
@@ -173,13 +179,15 @@ fun NowPlayingActions(
                             onClick = onToggleSpace,
                             onLongClick = if (onOpenOptions != null) ({ onOpenOptions("3D sound") }) else null
                         )
+                        // Bluetooth replaced Lyrics here: tapping (or long-pressing) opens the
+                        // output picker — phone speaker vs connected headset.
                         NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_lyrics,
-                            tint = if (lyricsOn) colors.primaryAccent else colors.primaryText,
-                            active = lyricsOn,
-                            contentDescription = "Lyrics",
-                            onClick = onToggleLyrics,
-                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Lyrics") }) else null
+                            resource = R.drawable.ic_xvox_bluetooth,
+                            tint = colors.primaryAccent,
+                            active = true,
+                            contentDescription = "Bluetooth / audio output",
+                            onClick = if (onOpenOptions != null) ({ onOpenOptions("Bluetooth") }) else null,
+                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Bluetooth") }) else null
                         )
                     }
                 }
@@ -198,7 +206,9 @@ fun NowPlayingActionIcon(
 
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(colors.card.copy(alpha = 0.22f))
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

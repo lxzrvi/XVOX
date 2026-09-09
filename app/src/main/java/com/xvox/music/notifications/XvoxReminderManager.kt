@@ -89,7 +89,6 @@ object XvoxReminderManager {
         val message = MESSAGES.random()
         val notification = NotificationCompat.Builder(context, channelId(context))
             .setSmallIcon(R.drawable.ic_stat_xvox_note)
-            .setLargeIcon(launcherIcon(context))
             .setContentTitle("XVOX")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -99,20 +98,6 @@ object XvoxReminderManager {
             .build()
         ContextCompat.getSystemService(context, NotificationManager::class.java)
             ?.notify(Random.nextInt(1000, 9999), notification)
-    }
-
-    /** The launcher logo as the large notification icon, so the app mark is actually visible. */
-    private fun launcherIcon(context: Context): android.graphics.Bitmap? {
-        val drawable = context.getDrawable(R.mipmap.ic_launcher) ?: return null
-        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
-        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
-        return runCatching {
-            val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
-        }.getOrNull()
     }
 
     /** Returns true when the reminder should actually fire (under the daily budget). */

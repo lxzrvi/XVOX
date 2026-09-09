@@ -99,6 +99,7 @@ fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
     playerViewModel: MainPlayerViewModel = viewModel(),
     onPlaylistSelected: ((String) -> Unit)? = null,
+    topResetKey: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -116,6 +117,9 @@ fun SearchScreen(
     val selecting = selectedIds.isNotEmpty()
     val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Every fresh entry into the Search tab lands on the top, wherever it was left.
+    LaunchedEffect(topResetKey) { if (topResetKey > 0L) listState.scrollToItem(0) }
     BackHandler(selecting) { selectedIds = emptySet() }
     LaunchedEffect(query) { selectedIds = emptySet() }
     LaunchedEffect(homeState.songs) { selectedIds = selectedIds.intersect(homeState.songs.mapTo(HashSet()) { it.id }) }
@@ -160,6 +164,7 @@ fun SearchScreen(
                 overlays, context, onClearSelection = { selectedIds = emptySet() })
         }
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = if (selecting) 4.dp else topInset + 4.dp, bottom = bottomInset)
         ) {

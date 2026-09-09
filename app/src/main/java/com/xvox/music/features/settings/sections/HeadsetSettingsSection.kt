@@ -35,6 +35,11 @@ fun HeadsetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         )
 
         Spacer(Modifier.height(16.dp))
+        SettingsSectionCard(title = "Audio output") {
+            AudioOutputContent(state, viewModel)
+        }
+
+        Spacer(Modifier.height(10.dp))
         SettingsSectionCard(title = "Headset connected") {
             SettingsChoiceRow(
                 listOf("none" to "Nothing", "play" to "Start playing"),

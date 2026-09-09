@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,15 @@ fun XvoxNowPlayingProgress(
         mutableFloatStateOf(0f)
     }
 
+    // Dragging moves the bar by the amount the finger travels (anchored at grab time) instead of
+    // snapping the whole bar under the finger; a tap still jumps straight to that spot.
+    var dragAnchorFraction by remember {
+        mutableFloatStateOf(0f)
+    }
+    var dragAnchorX by remember {
+        mutableFloatStateOf(0f)
+    }
+
     val realFraction =
         if (duration > 0L) {
             (position.toFloat() / duration.toFloat())
@@ -52,6 +62,10 @@ fun XvoxNowPlayingProgress(
         } else {
             0f
         }
+
+    // Live view of the real fraction so a drag start anchors onto the position *right now*, not
+    // the value captured when the gesture handler last restarted.
+    val latestRealFraction by rememberUpdatedState(realFraction)
 
     val visibleFraction =
         if (dragging) dragFraction else realFraction
@@ -73,28 +87,26 @@ fun XvoxNowPlayingProgress(
                 .fillMaxWidth()
                 .height(18.dp)
                 .pointerInput(duration) {
-                    fun update(x: Float) {
-                        if (
-                            duration <= 0L ||
-                            size.width <= 0
-                        ) return
-
-                        dragFraction =
-                            (x / size.width)
-                                .coerceIn(0f, 1f)
-                    }
-
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
-                            dragging = true
-                            update(offset.x)
+                            if (duration > 0L && size.width > 0) {
+                                dragging = true
+                                dragAnchorFraction = latestRealFraction
+                                dragAnchorX = offset.x
+                                dragFraction = latestRealFraction
+                            }
                         },
                         onHorizontalDrag = { change, _ ->
                             change.consume()
-                            update(change.position.x)
+                            if (dragging && size.width > 0) {
+                                dragFraction =
+                                    (dragAnchorFraction +
+                                        (change.position.x - dragAnchorX) / size.width)
+                                        .coerceIn(0f, 1f)
+                            }
                         },
                         onDragEnd = {
-                            if (duration > 0L) {
+                            if (duration > 0L && dragging) {
                                 onSeek(
                                     (duration * dragFraction)
                                         .toLong()
@@ -142,18 +154,14 @@ fun XvoxNowPlayingProgress(
                     cap = StrokeCap.Round
                 )
 
-                val tip = Offset(size.width * visibleFraction, y)
                 if (visibleFraction > 0f) {
                     drawLine(
                         color = activeColor,
                         start = Offset(0f, y),
-                        end = tip,
-                        strokeWidth = 2.dp.toPx(),
+                        end = Offset(size.width * visibleFraction, y),
+                        strokeWidth = 2.5.dp.toPx(),
                         cap = StrokeCap.Round
                     )
-                    // The thumb rides exactly under the finger from wherever the drag began.
-                    drawCircle(activeColor, 5.dp.toPx(), tip)
-                    drawCircle(colors.background, 2.2.dp.toPx(), tip)
                 }
             }
         }

@@ -28,7 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -147,9 +150,23 @@ fun ColorPickerRow(
         if (wheelV != hsv[2]) wheelV = hsv[2]
     }
 
+    // Dragging the wheel or the brightness slider moves at pointer speed; pushing a colour write to
+    // the whole theme on every single pixel was the lag. The picker stays fully live, but the
+    // outgoing change is coalesced to ~10 a second so the rest of the UI can keep up.
+    val scope = rememberCoroutineScope()
+    var pendingPush by remember { mutableStateOf<Job?>(null) }
     fun commit(h: Float, s: Float, v: Float) {
         wheelH = h; wheelS = s; wheelV = v
-        onColorChange(hsvToHex(h, s, v))
+        pendingPush?.cancel()
+        pendingPush = scope.launch {
+            kotlinx.coroutines.delay(70)
+            onColorChange(hsvToHex(wheelH, wheelS, wheelV))
+        }
+    }
+    fun flushPending() {
+        pendingPush?.cancel()
+        pendingPush = null
+        onColorChange(hsvToHex(wheelH, wheelS, wheelV))
     }
 
     val current = parseHexColor(hex)
@@ -237,11 +254,15 @@ fun ColorPickerRow(
                                             var a = atan2(dy, dx) * 180f / PI.toFloat() + 90f
                                             if (a < 0f) a += 360f
                                             commit(a % 360f, (dist / half).coerceIn(0f, 1f), wheelV)
+                                            flushPending()
                                         }
                                     }
                                 }
                                 .pointerInput(Unit) {
-                                    detectDragGestures { change, _ ->
+                                    detectDragGestures(
+                                        onDragEnd = { flushPending() },
+                                        onDragCancel = { flushPending() }
+                                    ) { change, _ ->
                                         change.consume()
                                         val dx = change.position.x - half; val dy = change.position.y - half
                                         val dist = sqrt(dx * dx + dy * dy)
@@ -263,7 +284,8 @@ fun ColorPickerRow(
                         onValueChange = { v -> commit(wheelH, wheelS, v) },
                         valueRange = 0.15f..1f,
                         defaultValue = 0.9f,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        onValueChangeFinished = { flushPending() }
                     )
                     Text("Light", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(34.dp))
                 }

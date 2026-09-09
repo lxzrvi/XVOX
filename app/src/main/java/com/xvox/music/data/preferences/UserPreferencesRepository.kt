@@ -110,6 +110,8 @@ class UserPreferencesRepository(
         val chromeStyle = stringPreferencesKey("chrome_style_v1")
         val backgroundBrightness = floatPreferencesKey("background_brightness")
         val audioOutputRoute = stringPreferencesKey("audio_output_route")
+        val playbackSpeed = floatPreferencesKey("playback_speed")
+        val playbackPitch = floatPreferencesKey("playback_pitch")
         val profileLines = stringPreferencesKey("profile_lines")
         val showProfileLines = booleanPreferencesKey("show_profile_lines")
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
@@ -286,6 +288,10 @@ class UserPreferencesRepository(
     val audioOutputRoute: Flow<String> = context.xvoxDataStore.data
         .map { (it[Keys.audioOutputRoute] ?: "auto").let { route -> if (route == "headset" || route == "phone") route else "auto" } }
         .distinctUntilChanged()
+    val playbackSpeed: Flow<Float> = context.xvoxDataStore.data
+        .map { (it[Keys.playbackSpeed] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
+    val playbackPitch: Flow<Float> = context.xvoxDataStore.data
+        .map { (it[Keys.playbackPitch] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
     val profileLines: Flow<List<String>> = context.xvoxDataStore.data
         .map { it[Keys.profileLines].orEmpty().lines().map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4) }
         .distinctUntilChanged()
@@ -437,6 +443,12 @@ class UserPreferencesRepository(
     }
     suspend fun setAudioOutputRoute(v: String) {
         context.xvoxDataStore.edit { it[Keys.audioOutputRoute] = when (v) { "headset", "phone" -> v; else -> "auto" } }
+    }
+    suspend fun setPlaybackSpeed(v: Float) {
+        context.xvoxDataStore.edit { it[Keys.playbackSpeed] = v.coerceIn(.25f, 3f) }
+    }
+    suspend fun setPlaybackPitch(v: Float) {
+        context.xvoxDataStore.edit { it[Keys.playbackPitch] = v.coerceIn(.25f, 3f) }
     }
     suspend fun setProfileLines(lines: List<String>) {
         context.xvoxDataStore.edit { it[Keys.profileLines] = lines.map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4).joinToString("\n") }

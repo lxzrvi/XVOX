@@ -32,15 +32,20 @@ fun XvoxThinLineSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
-    defaultValue: Float? = null
+    defaultValue: Float? = null,
+    snapRadius: Float? = null,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
     var localValue by remember(value) { mutableFloatStateOf(value) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
+    val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
 
     val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
-    val snapThreshold = totalSpan * 0.045f
+    // A caller can ask for an exact snap radius (e.g. ±100 ms on the lyrics timing bar) instead of
+    // a percentage of the whole range — dragging never jumps to the default before that radius.
+    val snapThreshold = snapRadius ?: (totalSpan * 0.045f)
 
     val defaultFraction = if (defaultValue != null) {
         ((defaultValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
@@ -75,9 +80,10 @@ fun XvoxThinLineSlider(
                     }
                     localValue = newValue
                     currentOnValueChange(newValue)
+                    currentOnFinish?.invoke()
                 }
             }
-            .pointerInput(valueRange, defaultValue) {
+            .pointerInput(valueRange, defaultValue, onValueChangeFinished) {
                 fun settle(x: Float) {
                     val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
@@ -91,6 +97,8 @@ fun XvoxThinLineSlider(
                 }
                 detectHorizontalDragGestures(
                     onDragStart = { offset -> settle(offset.x) },
+                    onDragEnd = { currentOnFinish?.invoke() },
+                    onDragCancel = { currentOnFinish?.invoke() },
                     onHorizontalDrag = { change, _ ->
                         change.consume()
                         settle(change.position.x)

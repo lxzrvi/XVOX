@@ -1,6 +1,7 @@
 package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -68,10 +69,22 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             com.xvox.music.features.settings.components.SettingsChoiceRow(
                 (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it }, state.eqPreset, viewModel::setEqPreset)
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(180.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                com.xvox.music.audio.EqBands.frequencies(5).forEachIndexed { index, frequency ->
-                    VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
-                        viewModel.setEqBand(index, it)
+            // Five bands share one rounded box, each an equal slice of the full width — no side
+            // scrolling, no drifting gaps, every slider aligned to the same baseline.
+            Box(
+                Modifier.fillMaxWidth().height(196.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    com.xvox.music.audio.EqBands.frequencies(5).forEachIndexed { index, frequency ->
+                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                            VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
+                                viewModel.setEqBand(index, it)
+                            }
+                        }
                     }
                 }
             }
@@ -122,6 +135,14 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
         EqLabel("Balance ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}")
         XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+
+        Spacer(Modifier.height(12.dp))
+        val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
+        EqLabel(if (speedNormal) "Playback speed · Normal"
+            else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
+        XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
+        EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
+        XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
     })
 }
 
@@ -149,7 +170,7 @@ fun VerticalEqBandSlider(
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier
             .fillMaxHeight()
-            .width(52.dp)
+            .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
         Text(

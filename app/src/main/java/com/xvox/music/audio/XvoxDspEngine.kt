@@ -265,11 +265,13 @@ class XvoxDspEngine {
         val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + (delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02) * currentRoom
         l += (spatialL - l) * currentDepth
         r += (spatialR - r) * currentDepth
-        // Reverb: a short damped feedback tail that works with XvoxMix and inside 3D sound.
+        // Reverb: a damped feedback tail that works with XvoxMix and inside 3D sound. The wet mix
+        // and feedback rise steeply with the preset so Room, Hall and Cathedral are clearly heard —
+        // the previous fixed curve barely whispered.
         if (currentReverb > .001 && tailDelayLeft.isNotEmpty()) {
             val tailSize = tailDelayLeft.size
-            val feedback = .40 * currentReverb
-            val wet = .32 * currentReverb
+            val feedback = (.18 + .58 * currentReverb).coerceAtMost(.72)
+            val wet = .10 + .42 * currentReverb
             val staleL = tailDelayLeft[tailCursor]
             val staleR = tailDelayRight[tailCursor]
             tailDelayLeft[tailCursor] = l + staleL * feedback

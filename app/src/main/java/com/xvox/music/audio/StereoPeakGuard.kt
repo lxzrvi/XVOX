@@ -38,10 +38,12 @@ class StereoPeakGuard {
         }
         peaks[tail] = peak; frames[tail] = frame; tail = (tail + 1) % peaks.size
         val maxPeak = if (head != tail) peaks[head] else 0.0
-        val desired = if (maxPeak > .66) .66 / maxPeak else 1.0
+        // Protection only starts very near full scale (≈0.92), so boosting an EQ band raises the
+        // band — not the fear of clipping. Normal music never touches the limiter.
+        val desired = if (maxPeak > .92) .92 / maxPeak else 1.0
         gain += (desired - gain) * if (desired < gain) attack else release
-        left = (oldL * gain).coerceIn(-.70, .70)
-        right = (oldR * gain).coerceIn(-.70, .70)
+        left = (oldL * gain).coerceIn(-.92, .92)
+        right = (oldR * gain).coerceIn(-.92, .92)
         frame++
     }
 }

@@ -117,6 +117,21 @@ fun AppearanceSettingsSection(
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
+        GroupTitle("Cards")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = state.cardTransparency,
+                onValueChange = viewModel::setCardTransparency,
+                valueRange = 0f..0.6f,
+                defaultValue = 0f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(state.cardTransparency.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+        }
+
         GroupTitle("Text size")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("A", color = colors.mutedText, fontSize = 12.sp, modifier = Modifier.width(30.dp))
