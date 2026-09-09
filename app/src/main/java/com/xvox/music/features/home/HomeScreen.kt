@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,13 +39,11 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
 import com.xvox.music.features.home.allsongs.allSongsItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
 import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
-import com.xvox.music.features.playlist.XvoxLikedSongsSection
-import com.xvox.music.features.playlist.XvoxPlaylistDetail
-import com.xvox.music.features.playlist.XvoxPlaylistsSection
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
@@ -96,6 +95,10 @@ fun HomeScreen(
         buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1")
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }
+    // Plans for the Liked section/destination, mirroring the all-songs plans built above.
+    val likedPlans = remember(likedSongs, config.style, config.rows) {
+        buildMosaicPagePlans(likedSongs, config.rows, config.style == "uniform", config.style == "mosaic1")
+    }
     val songsById = remember(state.songs) { state.songs.associateBy { it.id } }
     val playlistContents = remember(songsById, state.playlists) {
         state.playlists.associate { it.id to it.songIds.mapNotNull(songsById::get) }
@@ -183,8 +186,49 @@ fun HomeScreen(
             )
         }
     }
+    /**
+     * A song collection (Liked Songs, or the tracks inside a playlist) respects the Home layout
+     * choice exactly like All Songs: when "Scroll" is Horizontal, the songs become horizontal
+     * mosaic pages of [config.rows] rows; Vertical renders the same mosaic pages stacked in the
+     * flow. This mirrors allSongsItems so every song surface on Home looks and behaves alike.
+     * Page plans are built in composable scope by the caller and handed in here.
+     */
+    fun androidx.compose.foundation.lazy.LazyListScope.songListContent(
+        keyPrefix: String,
+        title: String,
+        songs: List<Song>,
+        sectionPlans: List<XvoxMosaicPagePlan>,
+        onPlay: (Song) -> Unit,
+        onOptions: (Song) -> Unit,
+        onAdd: (() -> Unit)? = null
+    ) {
+        if (songs.isEmpty()) {
+            librarySongItems(keyPrefix, title, emptyList(), currentSongId, isPlaying, selectedSongIds,
+                onPlay = onPlay, onOptions = onOptions, onAdd = onAdd)
+            return
+        }
+        item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd) }
+        if (config.direction == "horizontal") {
+            item(key = "${keyPrefix}_pages", contentType = "mosaic_pager") {
+                com.xvox.music.features.home.allsongs.HorizontalSongPages(
+                    songs = songs, plans = sectionPlans, config = config,
+                    currentSongId = currentSongId, isPlaying = isPlaying, selectedSongIds = selectedSongIds,
+                    onSongClick = onPlay, onSongLongClick = onOptions
+                )
+            }
+        } else {
+            items(sectionPlans, key = { "${keyPrefix}_page_${it.startIndex}" }, contentType = { "mosaic_page" }) { plan ->
+                com.xvox.music.features.home.allsongs.XvoxSongGridPage(
+                    songs = songs, plan = plan, config = config,
+                    currentSongId = currentSongId, isPlaying = isPlaying, selectedSongIds = selectedSongIds,
+                    onSongClick = onPlay, onSongLongClick = onOptions, compact = true,
+                    modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp))
+            }
+        }
+    }
+
     fun androidx.compose.foundation.lazy.LazyListScope.likedSection() {
-        librarySongItems("liked", "Liked Songs", likedSongs, currentSongId, isPlaying, selectedSongIds,
+        songListContent("liked", "Liked Songs", likedSongs, likedPlans,
             onPlay = { handleSongClick(it, likedSongs, "Liked Songs") },
             onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) })
     }
@@ -214,12 +258,17 @@ fun HomeScreen(
             val listState = rememberLazyListState()
             LaunchedEffect(homeResetKey) { if (homeResetKey > 0L) listState.scrollToItem(0) }
             val targetPlaylist = (target as? String)?.let { id -> state.playlists.firstOrNull { it.id == id } }
+            val detailTracks = remember(targetPlaylist, playlistContents) {
+                targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
+            }
+            val detailPlans = remember(targetPlaylist, detailTracks, config.style, config.rows) {
+                buildMosaicPagePlans(detailTracks, config.rows, config.style == "uniform", config.style == "mosaic1")
+            }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = if (isSelectionMode) 4.dp else topInset + 4.dp, bottom = bottomInset)) {
                 if (targetPlaylist != null) {
-                    val tracks = playlistContents[targetPlaylist.id].orEmpty()
-                    librarySongItems("playlist_detail", targetPlaylist.name, tracks, currentSongId, isPlaying, selectedSongIds,
-                        onPlay = { handleSongClick(it, tracks, targetPlaylist.name) },
+                    songListContent("playlist_detail", targetPlaylist.name, detailTracks, detailPlans,
+                        onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) })
                 } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
