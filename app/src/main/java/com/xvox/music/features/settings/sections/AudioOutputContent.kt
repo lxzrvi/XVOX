@@ -126,10 +126,14 @@ private fun describeDevice(device: AudioDeviceInfo): String = when (device.type)
     AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> {
         if (Build.VERSION.SDK_INT >= 28) device.productName?.toString()?.ifBlank { "Bluetooth headset" }
             ?: "Bluetooth headset"
+        else "Bluetooth headset"
     }
     AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired headphones"
     AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired headset"
     AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "USB headset"
-    else -> if (Build.VERSION.SDK_INT >= 31) device.productName?.toString()?.ifBlank { "Wireless device" } ?: "Wireless device"
+    else -> {
+        if (Build.VERSION.SDK_INT >= 31) device.productName?.toString()?.ifBlank { "Wireless device" }
+            ?: "Wireless device"
         else "Wireless device"
+    }
 }
