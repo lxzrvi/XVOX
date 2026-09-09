@@ -22,7 +22,9 @@ object HomeSections {
     const val LIKED = "liked"
     const val SPLIT = "split"
     const val PLAYLISTS = "playlists"
-    val defaultOrder = listOf(ALL, RECENT, LIKED, SPLIT, PLAYLISTS)
+    // XvoxSplit no longer ships as a Home section; the constant stays only so old stored
+    // section orders (which may mention "split") are silently cleaned out by [normalize].
+    val defaultOrder = listOf(ALL, RECENT, LIKED, PLAYLISTS)
     fun label(id: String): String = when (id) {
         ALL -> "All Songs"
         RECENT -> "Recently Played"

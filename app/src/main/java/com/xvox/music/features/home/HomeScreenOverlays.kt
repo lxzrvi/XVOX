@@ -40,7 +40,7 @@ fun showPlaylistPickerOverlay(
     playlists: List<XvoxPlaylist>,
     songs: List<Song>
 ) {
-    overlays.showBox("Add to playlist") {
+    overlays.showMiniBox("Add to playlist") {
         PlaylistPickerBox(
             song = song,
             playlists = playlists,

@@ -40,9 +40,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.net.Uri
+import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
@@ -75,6 +79,7 @@ fun XvoxMainShell(
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
+    val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     LaunchedEffect(player.queue) { com.xvox.music.split.XvoxSplitRepository.updateQueue(player.queue, player.currentSongId) }
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
@@ -164,7 +169,8 @@ fun XvoxMainShell(
     }
 
     fun showAddCurrentSongToPlaylist(song: Song) {
-        overlays.showBox("Add to playlist") {
+        // A small PIP-style popup, not a full editor: the song is added without leaving the screen.
+        overlays.showMiniBox("Add to playlist") {
             XvoxPlaylistPickerBoxContent(
                 song = song,
                 playlists = homeState.playlists,
@@ -256,8 +262,7 @@ fun XvoxMainShell(
                 modifier = Modifier.fillMaxSize()
             ) { targetDestination ->
                 tabState.SaveableStateProvider(targetDestination.name) {
-                    // Opaque isolated page surfaces prevent outgoing Settings becoming Home's backdrop.
-                    Box(Modifier.fillMaxSize().background(colors.background)) {
+                    TabSurface(backgroundImage = backgroundImage) {
                     when (targetDestination) {
                         XvoxDestination.HOME -> {
                             HomeScreen(
@@ -371,6 +376,9 @@ fun XvoxMainShell(
         ) {
             val playingSong = currentSong ?: return@AnimatedVisibility
 
+            // Now Playing renders over the artwork and keeps its own solid chrome; the global
+            // card transparency and tinted page backdrop never reach it.
+            com.xvox.music.core.design.theme.ProvideXvoxNowPlayingChrome {
             XvoxNowPlaying(
                 song = playingSong,
                 queue = player.queue,
@@ -412,6 +420,30 @@ fun XvoxMainShell(
                 playingSource = player.playingSource,
                 modifier = Modifier.fillMaxSize()
             )
+            }
         }
+    }
+}
+
+/**
+ * One opaque page surface per destination. With a custom background photo it paints the photo
+ * (lightly dimmed) instead of a flat colour, so the chosen background reaches every screen —
+ * Home and its Liked/Playlist views, Search and Settings — while the Now Playing artwork
+ * surface always stays on top and untouched.
+ */
+@Composable
+private fun TabSurface(backgroundImage: String, content: @Composable () -> Unit) {
+    val colors = XvoxTheme.colors
+    Box(Modifier.fillMaxSize().background(colors.background)) {
+        if (backgroundImage.isNotBlank()) {
+            AsyncImage(
+                model = Uri.parse(backgroundImage),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.16f)))
+        }
+        content()
     }
 }

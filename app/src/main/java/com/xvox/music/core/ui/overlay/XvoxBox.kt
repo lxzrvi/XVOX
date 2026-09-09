@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +46,7 @@ fun XvoxBox(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "XVOX",
+    mini: Boolean = false,
     onAddClick: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
@@ -73,22 +76,41 @@ fun XvoxBox(
             )
             BoxWithConstraints(
                 Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)
-                    .imePadding().padding(horizontal = 20.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
+                    .imePadding().padding(horizontal = if (mini) 0.dp else 20.dp, vertical = if (mini) 0.dp else 16.dp),
+                contentAlignment = if (mini) Alignment.BottomCenter else Alignment.Center
             ) {
                 val availableHeight = maxHeight
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(tween(180)) + scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.96f),
-                    exit = fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.97f)
+                    enter = fadeIn(tween(180)) + if (mini) slideInVertically(tween(220, easing = XvoxBoxEasing)) { it }
+                        else scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.96f),
+                    exit = fadeOut(tween(180)) + if (mini) slideOutVertically(tween(180)) { it }
+                        else scaleOut(tween(180), targetScale = 0.97f)
                 ) {
-                    val shape = RoundedCornerShape(26.dp)
+                    val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+                        else RoundedCornerShape(26.dp)
                     Column(
-                        Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = availableHeight)
+                        Modifier.widthIn(max = if (mini) 520.dp else 560.dp)
+                            .fillMaxWidth().heightIn(max = availableHeight)
                             .clip(shape).background(colors.cardElevated)
                             .border(0.8.dp, colors.cardBorder, shape)
                             .semantics { paneTitle = title }
                     ) {
+                        if (mini) {
+                            // The tell-tale PIP grabber, so it reads as a small floating popup.
+                            Box(
+                                Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(top = 9.dp, bottom = 5.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(width = 38.dp, height = 4.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.cardBorder.copy(alpha = 0.9f))
+                                )
+                            }
+                        }
                         Row(
                             Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically

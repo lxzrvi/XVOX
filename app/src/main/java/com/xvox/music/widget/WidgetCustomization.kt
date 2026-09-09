@@ -12,7 +12,9 @@ data class WidgetLabelStyle(
 data class WidgetButtonStyle(
     val position: String = "auto", val size: Int = 0, val color: String = "Auto",
     val background: String = "Auto", val borderColor: String = "Auto", val borderWidth: Float = 0f, val radius: Int = 12,
-    val showLabel: Boolean = false, val labelSize: Int = 8, val labelColor: String = "Auto", val padding: Int = 6
+    val showLabel: Boolean = false, val labelSize: Int = 8, val labelColor: String = "Auto", val padding: Int = 6,
+    /** Free nudge in dp. Negative values are allowed, so a button may float anywhere. */
+    val offsetX: Int = 0, val offsetY: Int = 0
 )
 data class WidgetCustomization(
     val marginX: Int = 0, val marginY: Int = 0, val alignment: String = "center",
@@ -51,7 +53,8 @@ data class WidgetCustomization(
         buttons = defaultButtons().mapValues { (id, _) -> button(id).let { it.copy(
             position = it.position.takeIf { v -> v in setOf("auto", "left", "center", "right", "hidden") } ?: "auto",
             size = it.size.coerceIn(0, 48), radius = it.radius.coerceIn(0, 48), borderWidth = (it.borderWidth.takeIf { value -> value.isFinite() } ?: 0f).coerceIn(0f, 4f),
-            labelSize = it.labelSize.coerceIn(6, 14), padding = it.padding.coerceIn(0, 14)) } })
+            labelSize = it.labelSize.coerceIn(6, 14), padding = it.padding.coerceIn(0, 14),
+            offsetX = it.offsetX.coerceIn(-48, 48), offsetY = it.offsetY.coerceIn(-48, 48)) } })
     fun encode(): String {
         val j = JSONObject().put("mx", marginX).put("my", marginY).put("align", alignment)
             .put("cover", coverPlacement).put("coverSize", coverSize).put("coverRadius", coverRadius)
@@ -66,7 +69,8 @@ data class WidgetCustomization(
         val bs = JSONObject(); buttons.forEach { (id, s) -> bs.put(id, JSONObject().put("position", s.position).put("size", s.size)
             .put("color", s.color).put("bg", s.background).put("borderColor", s.borderColor)
             .put("border", s.borderWidth.toDouble()).put("radius", s.radius).put("label", s.showLabel)
-            .put("labelSize", s.labelSize).put("labelColor", s.labelColor).put("padding", s.padding)) }
+            .put("labelSize", s.labelSize).put("labelColor", s.labelColor).put("padding", s.padding)
+            .put("ox", s.offsetX).put("oy", s.offsetY)) }
         return j.put("labels", ls).put("buttons", bs).toString()
     }
     companion object {
@@ -87,7 +91,8 @@ data class WidgetCustomization(
                 val s = j.optJSONObject("buttons")?.optJSONObject(id) ?: JSONObject()
                 WidgetButtonStyle(s.optString("position", d.position), s.optInt("size", d.size), s.optString("color", d.color),
                     s.optString("bg", d.background), s.optString("borderColor", d.borderColor), s.optDouble("border", 0.0).toFloat(), s.optInt("radius", d.radius), s.optBoolean("label", false),
-                    s.optInt("labelSize", 8), s.optString("labelColor", "Auto"), s.optInt("padding", 6))
+                    s.optInt("labelSize", 8), s.optString("labelColor", "Auto"), s.optInt("padding", 6),
+                    s.optInt("ox", 0), s.optInt("oy", 0))
             }
             WidgetCustomization(j.optInt("mx"), j.optInt("my"), j.optString("align", "center"), j.optString("cover", "auto"),
                 j.optInt("coverSize"), j.optInt("coverRadius", -1), j.optDouble("coverBorder", 0.0).toFloat(), j.optString("coverBorderColor", "Auto"),

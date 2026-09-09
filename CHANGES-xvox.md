@@ -1,3 +1,51 @@
+# XVOX revision 6 — working tree only (not built or pushed)
+
+Branch: **xvox**. Uncommitted working-tree edits over `9a8cf26`; not compiled in this environment.
+
+## What changed in this pass
+
+### Launcher icon
+- Adaptive foreground regenerated with a **smaller** mark (~27 % of the canvas, near the original look) in every density.
+
+### Appearance (settings)
+- **Background** group: Default / Midnight / Warm colour presets + one **custom image** picker (`theme_background`, `theme_background_image`).
+- **Card transparency** slider (0–60 %) applied through the palette (`card`, `cardElevated`, `surface`) so every screen blends cards with the backdrop.
+- Background photo/tint and card transparency reach Home, Liked, Playlists, Search and Settings through `TabSurface`; **Now Playing is exempted** with its own solid chrome (`ProvideXvoxNowPlayingChrome`).
+
+### Accent
+- **Red is the default**; Blue and White remain alternatives with the exact iOS-style pairs: red `#FF3B30` light / `#FF453A` dark·AMOLED, blue `#007AFF` light / `#0A84FF` dark·AMOLED. Legacy names fold into Red.
+
+### XvoxSplit → no Home presence
+- Removed from XvoxMix (Equalizer) settings and from Home entirely (section order, dedicated section, SPLIT mode routing, header heart no longer cycles through it). Reachable only via Now Playing › More › XvoxSplit.
+
+### 3D sound
+- Restructured into exactly: **Width, Depth, Position, Room, Reverb, Movement, HRTF/Spatial, Center Preservation**; every knob is wired end-to-end (engine smoothing, `LiveEqState`, preferences `surround_width`/`surround_position`/`room_amount`/`reverb_amount`/`hrtf`/`center_preservation`, ViewModel setters).
+
+### Press / haptics
+- `SongPress`: the pulse starts only after 28 ms and cancels on scroll slop — All Songs cards only “push” on a true tap.
+- Recents tile shows the **whole square cover** while truly pressed (no cropped band), reverting on release.
+
+### Now Playing
+- Dominant backdrop colour now preserves the cover's true hue/saturation (HSL lightness band only).
+- The old XvoxSplit pill is replaced by a **round crossfade toggle** (new `ic_xvox_crossfade`) at star/like size.
+- The three utility icons **swipe left** to reveal XvoxMix / 3D sound / Lyrics — tap toggles on/off, long-press opens the options box.
+- The sheet's top corners round progressively as it slides down (dismiss/close).
+
+### Home / shell
+- Header refresh/liked action pill is more transparent.
+- Queue drag target is arithmetic from scroll offsets, so dragging **up** auto-scrolls exactly like down.
+
+### Add to playlist = PIP popup
+- Every “+ Add to playlist” trigger now opens a compact bottom-anchored **PIP-style popup** (`showMiniBox`) with a grabber handle instead of a full-screen editor — no navigation away from what you were doing. (A cross-app overlay bubble that floats above other apps needs `SYSTEM_ALERT_WINDOW` + a background overlay service and permission onboarding; not added in this pass.)
+
+### Widget settings
+- Existing dedicated per-element panels kept (Surface / Cover / Text / Buttons) with per-element sizes, negative margins/paddings, cover bleed and no separate text box.
+- Buttons can now be **moved freely**: per-button Nudge X / Nudge Y (−48…48 dp, `offsetX`/`offsetY`, persisted and applied via `RemoteViews` layout margins).
+
+### Exit / playlist covers
+- Exit confirmation: sad face **only**, no outer circle.
+- Playlist cover editor: any 1–4 picked covers applies; changing covers no longer locks after several picks.
+
 # XVOX revision 5 — built source update
 
 Branch: **xvox**. Working-tree edits only; nothing pushed.

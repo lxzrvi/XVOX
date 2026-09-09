@@ -11,12 +11,17 @@ data class LiveEqState(
     val headroomDb: Float, val balance: Float, val surroundEnabled: Boolean,
     val surroundDepth: Float, val orbitSeconds: Int, val appVolume: Float, val volumeLimit: Float,
     val bandCount: Int = 5, val noiseReduction: Float = 0f, val softenHighs: Float = 0f,
+    val surroundWidth: Float = .78f, val surroundPosition: Float = 0f,
+    val roomAmount: Float = .5f, val reverbAmount: Float = 0f,
+    val hrtf: Float = .6f, val centerPreservation: Float = 0f,
     val revision: Long = 0
 ) {
     fun applyTo(saved: AudioDspSettings) = saved.copy(equalizerEnabled = enabled, bands = bands.map { it.toFloat() }, bandCount = bandCount,
         noiseReduction = noiseReduction, softenHighs = softenHighs,
         headroomDb = headroomDb, balance = balance, surroundEnabled = surroundEnabled, surroundDepth = surroundDepth,
-        orbitSeconds = orbitSeconds.toFloat(), masterVolume = (appVolume * volumeLimit).coerceIn(0f, 1f))
+        orbitSeconds = orbitSeconds.toFloat(), masterVolume = (appVolume * volumeLimit).coerceIn(0f, 1f),
+        surroundWidth = surroundWidth, surroundPosition = surroundPosition,
+        roomAmount = roomAmount, reverbAmount = reverbAmount, hrtf = hrtf, centerPreservation = centerPreservation)
 }
 
 /** Preset catalogue. DSP lives in the PCM pipeline, never in a repeatedly re-created hardware EQ. */

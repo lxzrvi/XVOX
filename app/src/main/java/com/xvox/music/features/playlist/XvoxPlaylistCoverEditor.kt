@@ -88,7 +88,8 @@ fun XvoxPlaylistCoverEditor(
         }
     }
 
-    val canApply = (selected.size == 1 || selected.size == 4) || customUri != null
+    // Any pick between 1 and 4 covers is valid; the mosaic renders whichever count is kept.
+    val canApply = (selected.isNotEmpty() && selected.size <= 4) || customUri != null
 
     Column(modifier = Modifier.fillMaxWidth().heightIn(max = 660.dp)) {
         Text(
@@ -99,7 +100,12 @@ fun XvoxPlaylistCoverEditor(
         )
 
         Text(
-            text = if (selected.size == 1) "Single cover • Full" else if (selected.size == 4) "4 covers • Mosaic" else "Select 1 or 4 covers",
+            text = when {
+                customUri != null -> "Custom image"
+                selected.size == 1 -> "Single cover"
+                selected.isEmpty() -> "Pick 1–4 covers"
+                else -> "${selected.size} covers • Mosaic"
+            },
             color = colors.secondaryText,
             fontSize = 11.sp,
             modifier = Modifier.padding(top = 4.dp)

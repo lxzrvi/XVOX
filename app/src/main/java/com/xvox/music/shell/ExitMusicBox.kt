@@ -29,6 +29,7 @@ fun XvoxConfirmBox(
     cancelLabel: String = "Cancel",
     detail: String? = null,
     danger: Boolean = false,
+    emoji: String? = null,
     onConfirm: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -38,6 +39,10 @@ fun XvoxConfirmBox(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Plain emoji, no circle around it.
+        if (!emoji.isNullOrBlank()) {
+            Text(emoji, fontSize = 36.sp, modifier = Modifier.padding(bottom = 6.dp))
+        }
         Text(
             question, color = colors.primaryText, fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
@@ -76,6 +81,7 @@ fun ExitMusicBox(onYes: () -> Unit, onNo: () -> Unit) = XvoxConfirmBox(
     question = "Stop the music and close XVOX?",
     confirmLabel = "Yes, stop",
     cancelLabel = "No, stay",
+    emoji = "😢",
     onConfirm = onYes,
     onCancel = onNo
 )

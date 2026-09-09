@@ -211,6 +211,8 @@ object XvoxWidgetHelper {
             button.setContentDescription(R.id.widget_item, when (id) { "prev" -> "Previous"; "next" -> "Next"; "like" -> "Like"; else -> "Play or pause" })
             if (interactive) button.setOnClickPendingIntent(R.id.widget_item, action(context, when (id) {
                 "prev" -> ACTION_PREVIOUS; "next" -> ACTION_NEXT; "like" -> ACTION_TOGGLE_LIKE; else -> ACTION_PLAY_PAUSE }, id.hashCode()))
+            // Buttons float freely: the per-button nudge shifts the control within its zone.
+            applyOffset(button, R.id.widget_item, style.offsetX, style.offsetY)
             views.addView(buttonSlot(placement, zone), button)
         }
         if (interactive) views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, 105,

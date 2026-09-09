@@ -28,8 +28,8 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsToggle
 
 /**
- * Playback. XvoxSplit is no longer here — it now lives under XvoxMix › 3D sound, where it
- * belongs as a spatial option.
+ * Playback. XvoxSplit is no longer here — it now lives in Now Playing › More, away from the
+ * Home and settings surfaces.
  */
 @Composable
 fun PlaybackSettingsSection(

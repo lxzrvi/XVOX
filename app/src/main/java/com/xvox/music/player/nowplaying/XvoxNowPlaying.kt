@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
@@ -89,11 +90,13 @@ fun XvoxNowPlaying(
     sleepTimerProgress: Float? = null,
     playingSource: String = "All Songs",
     isInPlaylist: Boolean = false,
-    lyricsViewModel: XvoxLyricsViewModel = viewModel()
+    lyricsViewModel: XvoxLyricsViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
+    val settingsState by settingsViewModel.state.collectAsState()
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -105,6 +108,7 @@ fun XvoxNowPlaying(
     var entered by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showQuickSettingsSheet by remember { mutableStateOf(false) }
+    var quickPage by remember { mutableStateOf<String?>(null) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
@@ -179,7 +183,7 @@ fun XvoxNowPlaying(
 
     BackHandler {
         when {
-            showQuickSettingsSheet -> showQuickSettingsSheet = false
+            showQuickSettingsSheet -> { showQuickSettingsSheet = false; quickPage = null }
             lyricsState.fullscreen -> lyricsViewModel.closeFullscreen()
             showLyrics -> showLyrics = false
             else -> dismiss()
@@ -206,9 +210,18 @@ fun XvoxNowPlaying(
         return
     }
 
+    // As the player slides down the top corners round off, so the closing sheet always reads
+    // as one soft-edged card peeling away from the Home screen behind it.
+    val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val sheetCorner = RoundedCornerShape(
+        topStart = 30.dp * slideFraction,
+        topEnd = 30.dp * slideFraction
+    )
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .clip(sheetCorner)
             .graphicsLayer { translationY = screenY }
             .background(paletteState.color)
     ) {
@@ -239,7 +252,10 @@ fun XvoxNowPlaying(
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
                 onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
-                onMore = { showQuickSettingsSheet = true },
+                onMore = {
+                    quickPage = null
+                    showQuickSettingsSheet = true
+                },
                 playingSource = playingSource
             )
 
@@ -296,7 +312,19 @@ fun XvoxNowPlaying(
                     onInfo = { onInfo?.invoke() },
                     onToggleLiked = { onToggleLiked?.invoke() },
                     onStarPlaylist = { onStarPlaylist?.invoke() },
-                    timerProgress = sleepTimerProgress
+                    timerProgress = sleepTimerProgress,
+                    crossfadeOn = settingsState.crossfade,
+                    onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
+                    xvoxMixOn = settingsState.equalizerEnabled,
+                    spaceOn = settingsState.stereoWidening,
+                    lyricsOn = showLyrics,
+                    onToggleXvoxMix = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
+                    onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
+                    onToggleLyrics = { showLyrics = !showLyrics },
+                    onOpenOptions = { page ->
+                        quickPage = page
+                        showQuickSettingsSheet = true
+                    }
                 )
 
                 Spacer(Modifier.height(18.dp))
@@ -363,7 +391,11 @@ fun XvoxNowPlaying(
 
         if (showQuickSettingsSheet) {
             NowPlayingOptionsBox(
-                onDismiss = { showQuickSettingsSheet = false }
+                onDismiss = {
+                    showQuickSettingsSheet = false
+                    quickPage = null
+                },
+                initialPage = quickPage
             )
         }
     }

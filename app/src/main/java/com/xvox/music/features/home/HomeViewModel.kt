@@ -203,8 +203,7 @@ class HomeViewModel(
     fun toggleLikedMode() {
         _state.update {
             it.copy(libraryMode = when (it.libraryMode) {
-                XvoxHomeLibraryMode.LIKED -> if (splitHidden) XvoxHomeLibraryMode.ALL_SONGS else XvoxHomeLibraryMode.SPLIT
-                XvoxHomeLibraryMode.SPLIT -> XvoxHomeLibraryMode.ALL_SONGS
+                XvoxHomeLibraryMode.LIKED, XvoxHomeLibraryMode.SPLIT -> XvoxHomeLibraryMode.ALL_SONGS
                 else -> XvoxHomeLibraryMode.LIKED
             })
         }

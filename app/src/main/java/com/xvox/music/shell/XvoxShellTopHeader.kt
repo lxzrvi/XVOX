@@ -110,7 +110,7 @@ fun XvoxShellTopHeader(
                     modifier = Modifier
                         .height(42.dp)
                         .clip(actionShape)
-                        .background(colors.card.copy(alpha = 0.88f))
+                        .background(colors.card.copy(alpha = 0.60f))
                         .border(
                             width = 0.7.dp,
                             color = colors.cardBorder.copy(alpha = 0.62f),
@@ -131,9 +131,12 @@ fun XvoxShellTopHeader(
 
                     if (!mergedHome) {
                     Icon(
-                        painter = painterResource(if (libraryMode == XvoxHomeLibraryMode.SPLIT) R.drawable.ic_xvox_split else R.drawable.ic_xvox_heart),
-                        contentDescription = "Liked → XvoxSplit → Home",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED || libraryMode == XvoxHomeLibraryMode.SPLIT) colors.primaryAccent else colors.primaryText,
+                        painter = painterResource(
+                            if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
+                            else R.drawable.ic_xvox_heart_outline
+                        ),
+                        contentDescription = "Liked Songs",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
                         modifier = Modifier
                             .size(36.dp)
                             .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }

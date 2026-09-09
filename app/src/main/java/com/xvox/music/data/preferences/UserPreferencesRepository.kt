@@ -72,8 +72,18 @@ class UserPreferencesRepository(
         val appVolume = floatPreferencesKey("app_volume")
         val volumeLimit = floatPreferencesKey("volume_limit")
 
+        val surroundWidth = floatPreferencesKey("surround_width")
+        val surroundPosition = floatPreferencesKey("surround_position")
+        val roomAmount = floatPreferencesKey("room_amount")
+        val reverbAmount = floatPreferencesKey("reverb_amount")
+        val hrtf = floatPreferencesKey("hrtf")
+        val centerPreservation = floatPreferencesKey("center_preservation")
+
         val theme = stringPreferencesKey("theme")
         val accentColor = stringPreferencesKey("accent_color")
+        val themeBackground = stringPreferencesKey("theme_background")
+        val themeBackgroundImage = stringPreferencesKey("theme_background_image")
+        val cardTransparency = floatPreferencesKey("card_transparency")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
         val fourRowsGrid = booleanPreferencesKey("four_rows_grid")
 
@@ -183,12 +193,21 @@ class UserPreferencesRepository(
     val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }.distinctUntilChanged()
     val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }.distinctUntilChanged()
     val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }.distinctUntilChanged()
+    val surroundWidth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f) }.distinctUntilChanged()
+    val surroundPosition: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f) }.distinctUntilChanged()
+    val roomAmount: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val reverbAmount: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.reverbAmount] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val hrtf: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val centerPreservation: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }.distinctUntilChanged()
-    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Default" }.distinctUntilChanged()
+    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Red" }.distinctUntilChanged()
+    val themeBackground: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackground] ?: "Default" }.distinctUntilChanged()
+    val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
+    val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }.distinctUntilChanged()
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
@@ -213,7 +232,13 @@ class UserPreferencesRepository(
             surroundEnabled = it[Keys.stereoWidening] ?: false,
             surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
             orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(2f, 10f),
-            masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f)
+            masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f),
+            surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
+            surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
+            roomAmount = (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f),
+            reverbAmount = (it[Keys.reverbAmount] ?: 0f).coerceIn(0f, 1f),
+            hrtf = (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f),
+            centerPreservation = (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f)
         )
     }.distinctUntilChanged()
 
@@ -286,6 +311,21 @@ class UserPreferencesRepository(
 
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
+    suspend fun setThemeBackground(v: String) {
+        context.xvoxDataStore.edit { it[Keys.themeBackground] = if (v == "Midnight" || v == "Warm") v else "Default" }
+    }
+    suspend fun setThemeBackgroundImage(uri: String?) {
+        val previous = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage] }.first()
+        val persisted = if (uri.isNullOrBlank()) null else persistGalleryImage(uri, "background")
+        context.xvoxDataStore.edit { prefs ->
+            if (persisted == null) prefs.remove(Keys.themeBackgroundImage)
+            else prefs[Keys.themeBackgroundImage] = persisted
+        }
+        if (previous != null && previous != persisted) deleteAppFile(previous)
+    }
+    suspend fun setCardTransparency(v: Float) {
+        context.xvoxDataStore.edit { it[Keys.cardTransparency] = v.coerceIn(0f, 0.6f) }
+    }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
@@ -316,6 +356,12 @@ class UserPreferencesRepository(
             it[Keys.stereoWidening] = state.surroundEnabled
             it[Keys.surroundDepth] = state.surroundDepth.coerceIn(0f, 1f)
             it[Keys.surroundPanSpeed] = state.orbitSeconds.coerceIn(2, 10)
+            it[Keys.surroundWidth] = state.surroundWidth.coerceIn(.05f, 1f)
+            it[Keys.surroundPosition] = state.surroundPosition.coerceIn(-1.5f, 1.5f)
+            it[Keys.roomAmount] = state.roomAmount.coerceIn(0f, 1f)
+            it[Keys.reverbAmount] = state.reverbAmount.coerceIn(0f, 1f)
+            it[Keys.hrtf] = state.hrtf.coerceIn(0f, 1f)
+            it[Keys.centerPreservation] = state.centerPreservation.coerceIn(0f, 1f)
             it[Keys.appVolume] = state.appVolume.coerceIn(0f, 1f)
             it[Keys.volumeLimit] = state.volumeLimit.coerceIn(0f, 1f)
         }

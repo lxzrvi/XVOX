@@ -73,12 +73,10 @@ fun HomeSettingsSection(
             Label("Order")
             state.homeSectionOrder.forEachIndexed { index, section ->
                 val visible = section !in state.homeHiddenSections &&
-                    (section != HomeSections.RECENT || !state.hideRecentlyPlayed) &&
-                    (section != HomeSections.SPLIT || !state.splitHideCollection)
+                    (section != HomeSections.RECENT || !state.hideRecentlyPlayed)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(visible, onCheckedChange = {
                         viewModel.setHomeSectionVisible(section, it)
-                        if (section == HomeSections.SPLIT) viewModel.setSplitHideCollection(!it)
                     })
                     Text(HomeSections.label(section), color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Move ${HomeSections.label(section)} up",
@@ -94,7 +92,6 @@ fun HomeSettingsSection(
             }
         }
 
-        SettingsToggle("XvoxSplit pill", null, state.splitShowPill, viewModel::setSplitShowPill)
     })
 }
 

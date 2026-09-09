@@ -49,6 +49,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             } }
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
+            launch { prefs.themeBackground.collect { v -> _state.update { it.copy(backgroundName = v) } } }
+            launch { prefs.themeBackgroundImage.collect { v -> _state.update { it.copy(backgroundImageUri = v.ifBlank { null }) } } }
+            launch { prefs.cardTransparency.collect { v -> _state.update { it.copy(cardTransparency = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
             launch { prefs.fourRowsGrid.collect { v -> _state.update { it.copy(fourRowsGrid = v) } } }
 
@@ -81,6 +84,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.balance.collect { v -> _state.update { it.copy(balance = AudioEffectsManager.liveEq.value?.balance ?: v) } } }
             launch { prefs.stereoWidening.collect { v -> _state.update { it.copy(stereoWidening = AudioEffectsManager.liveEq.value?.surroundEnabled ?: v) } } }
             launch { prefs.surroundPanSpeed.collect { v -> _state.update { it.copy(surroundPanSpeed = AudioEffectsManager.liveEq.value?.orbitSeconds ?: v) } } }
+            launch { prefs.surroundWidth.collect { v -> _state.update { it.copy(surroundWidth = v) } } }
+            launch { prefs.surroundPosition.collect { v -> _state.update { it.copy(surroundPosition = v) } } }
+            launch { prefs.roomAmount.collect { v -> _state.update { it.copy(roomAmount = v) } } }
+            launch { prefs.reverbAmount.collect { v -> _state.update { it.copy(reverbAmount = v) } } }
+            launch { prefs.hrtf.collect { v -> _state.update { it.copy(hrtf = v) } } }
+            launch { prefs.centerPreservation.collect { v -> _state.update { it.copy(centerPreservation = v) } } }
 
             launch { prefs.appVolume.collect { v -> _state.update { it.copy(appVolume = AudioEffectsManager.liveEq.value?.appVolume ?: v) } } }
             launch { prefs.volumeLimit.collect { v -> _state.update { it.copy(volumeLimit = AudioEffectsManager.liveEq.value?.volumeLimit ?: v) } } }
@@ -124,6 +133,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
     fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }
+    fun setBackgroundName(name: String) = viewModelScope.launch { prefs.setThemeBackground(name) }
+    fun setBackgroundImage(uri: String?) = viewModelScope.launch { prefs.setThemeBackgroundImage(uri) }
+    fun setCardTransparency(value: Float) = viewModelScope.launch { prefs.setCardTransparency(value) }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setFourRowsGrid(enabled: Boolean) = viewModelScope.launch { prefs.setFourRowsGrid(enabled) }
 
@@ -134,6 +146,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }
     fun setEqHeadroomDb(value: Float) = changeAudio { it.copy(eqHeadroomDb = value.coerceIn(0f, 18f)) }
     fun setSurroundDepth(value: Float) = changeAudio { it.copy(surroundDepth = value.coerceIn(0f, 1f)) }
+    fun setSurroundWidth(value: Float) = changeAudio { it.copy(surroundWidth = value.coerceIn(.05f, 1f)) }
+    fun setSurroundPosition(value: Float) = changeAudio { it.copy(surroundPosition = value.coerceIn(-1.5f, 1.5f)) }
+    fun setRoomAmount(value: Float) = changeAudio { it.copy(roomAmount = value.coerceIn(0f, 1f)) }
+    fun setReverbAmount(value: Float) = changeAudio { it.copy(reverbAmount = value.coerceIn(0f, 1f)) }
+    fun setHrtf(value: Float) = changeAudio { it.copy(hrtf = value.coerceIn(0f, 1f)) }
+    fun setCenterPreservation(value: Float) = changeAudio { it.copy(centerPreservation = value.coerceIn(0f, 1f)) }
     fun setIgnoredFolders(folders: Set<String>) = viewModelScope.launch { prefs.setIgnoredFolders(folders) }
     fun setSortOrder(order: String) = viewModelScope.launch { prefs.setSortOrder(order) }
 
@@ -153,7 +171,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val value = _state.value
         AudioEffectsManager.submit(getApplication<Application>(), LiveEqState(value.equalizerEnabled, value.eqPreset, value.eqBands,
             value.eqHeadroomDb, value.balance, value.stereoWidening, value.surroundDepth, value.surroundPanSpeed,
-            value.appVolume, value.volumeLimit, value.eqBandCount, value.noiseReduction, value.softenHighs))
+            value.appVolume, value.volumeLimit, value.eqBandCount, value.noiseReduction, value.softenHighs,
+            value.surroundWidth, value.surroundPosition, value.roomAmount, value.reverbAmount, value.hrtf, value.centerPreservation))
     }
     private fun applyEq(enabled: Boolean, preset: String, bands: List<Int>) {
         val safe = EqBands.convert(bands, _state.value.eqBandCount)

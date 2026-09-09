@@ -161,6 +161,9 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                             }
                         }) { Text(if (direction < 0) "Move left" else "Move right", fontSize = 11.sp) }
                     }
+                    // Free placement: nudge the button anywhere, including outside its usual slot.
+                    WidgetSlider("Nudge X", b.offsetX.toFloat(), -48f..48f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
+                    WidgetSlider("Nudge Y", b.offsetY.toFloat(), -48f..48f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
                 }
 
                 Group("Shape")

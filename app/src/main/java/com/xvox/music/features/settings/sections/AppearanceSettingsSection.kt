@@ -1,5 +1,7 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,19 +26,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Appearance.
  *
- * Every option is outlined, so the unselected choices are visible instead of dissolving into the
- * background; the selected one is filled and its border thickens. Both states animate.
+ * Every option is outlined, so the unselected choices stay visible; the selected one is filled
+ * and its border thickens. Both states animate.
  */
 @Composable
 fun AppearanceSettingsSection(
@@ -64,12 +74,11 @@ fun AppearanceSettingsSection(
         SectionLabel("Accent")
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val accents = listOf(
-                "Default" to Color(0xFFF5F5F5),
-                "XVOX Red" to Color(0xFFFA2D48),
-                "XVOX Blue" to Color(0xFF007AFF)
-            )
-            accents.forEach { (name, swatch) ->
+            listOf(
+                "Red" to Color(0xFFFF453A),
+                "Blue" to Color(0xFF0A84FF),
+                "White" to Color(0xFFF5F5F5)
+            ).forEach { (name, swatch) ->
                 val isSelected = state.accentColor == name
                 val border by animateColorAsState(
                     if (isSelected) colors.primaryAccent else colors.cardBorder,
@@ -90,11 +99,18 @@ fun AppearanceSettingsSection(
                     Box(
                         modifier = Modifier
                             .size(16.dp)
-                            .background(swatch, CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                            .background(
+                                if (name == "White") Color.White else swatch,
+                                CircleShape
+                            )
+                            .border(
+                                1.dp,
+                                if (name == "White") colors.cardBorder else Color.White.copy(alpha = 0.3f),
+                                CircleShape
+                            )
                     )
                     Text(
-                        text = name.replace("XVOX ", ""),
+                        text = name,
                         color = colors.primaryText,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -106,6 +122,91 @@ fun AppearanceSettingsSection(
 
         Spacer(Modifier.height(16.dp))
 
+        SectionLabel("Background")
+        Spacer(Modifier.height(8.dp))
+        val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) viewModel.setBackgroundImage(uri.toString())
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Default" to colors.background, "Midnight" to Color(0xFF141B33), "Warm" to Color(0xFFE8D9BF))
+                .forEach { (name, swatch) ->
+                    val active = state.backgroundImageUri == null && state.backgroundName == name
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (active) colors.primaryAccent.copy(alpha = 0.14f) else colors.cardElevated
+                            )
+                            .border(
+                                if (active) 1.6.dp else 0.9.dp,
+                                if (active) colors.primaryAccent else colors.cardBorder,
+                                RoundedCornerShape(10.dp)
+                            )
+                            .xvoxPressScale {
+                                viewModel.setBackgroundImage(null)
+                                viewModel.setBackgroundName(name)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(swatch, CircleShape)
+                                .border(1.dp, colors.cardBorder, CircleShape)
+                        )
+                    }
+                }
+
+            val photoActive = state.backgroundImageUri != null
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (photoActive) colors.primaryAccent.copy(alpha = 0.14f) else colors.cardElevated)
+                    .border(
+                        if (photoActive) 1.6.dp else 0.9.dp,
+                        if (photoActive) colors.primaryAccent else colors.cardBorder,
+                        RoundedCornerShape(10.dp)
+                    )
+                    .xvoxPressScale { picker.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = state.backgroundImageUri,
+                    contentDescription = "Background image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .clip(CircleShape)
+                        .fillMaxWidth()
+                )
+                if (!photoActive) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_add),
+                        contentDescription = null,
+                        tint = colors.primaryText,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        Text(
+            "Card transparency ${(state.cardTransparency * 100).roundToInt()}%",
+            color = colors.primaryText,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(4.dp))
+        XvoxThinLineSlider(state.cardTransparency, viewModel::setCardTransparency, 0f..0.6f, defaultValue = 0f)
+
+        Spacer(Modifier.height(16.dp))
+
         SectionLabel("Text size")
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -113,7 +214,7 @@ fun AppearanceSettingsSection(
                 .forEach { (scaleValue, scaleLabel) ->
                     OptionChip(
                         label = scaleLabel,
-                        selected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.04f,
+                        selected = abs(state.fontSizeScale - scaleValue) < 0.04f,
                         modifier = Modifier.weight(1f),
                         fontSize = 11.sp,
                         onClick = { viewModel.setFontSizeScale(scaleValue) }

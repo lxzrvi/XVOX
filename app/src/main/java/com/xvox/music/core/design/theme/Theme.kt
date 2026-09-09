@@ -30,19 +30,45 @@ object XvoxTheme {
         get() = LocalXvoxPalette.current
 }
 
+/**
+ * Removes the global card-transparency alpha for one subtree. Used around Now Playing so its
+ * chrome (controls, options and queue sheets over the artwork surface) stays as designed while
+ * Home, Liked, playlists, Search and Settings keep the transparent cards and tinted backdrop.
+ */
+@Composable
+fun ProvideXvoxNowPlayingChrome(content: @Composable () -> Unit) {
+    val palette = LocalXvoxPalette.current
+    CompositionLocalProvider(
+        LocalXvoxPalette provides palette.copy(
+            card = palette.card.copy(alpha = 1f),
+            cardElevated = palette.cardElevated.copy(alpha = 1f),
+            surface = palette.surface.copy(alpha = 1f)
+        ),
+        content = content
+    )
+}
+
 @Composable
 fun XvoxTheme(
     mode: XvoxThemeMode = XvoxThemeMode.SYSTEM,
-    accent: String = "Default",
+    accent: String = "Red",
+    background: String = "Default",
+    cardTransparency: Float = 0f,
     content: @Composable () -> Unit
 ) {
+    val dark = when (mode) {
+        XvoxThemeMode.LIGHT -> false
+        XvoxThemeMode.DARK, XvoxThemeMode.AMOLED -> true
+        XvoxThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
     val basePalette = when (mode) {
         XvoxThemeMode.LIGHT -> XvoxWhitePalette
         XvoxThemeMode.DARK -> XvoxDarkPalette
         XvoxThemeMode.AMOLED -> XvoxAmoledPalette
 
         XvoxThemeMode.SYSTEM -> {
-            if (isSystemInDarkTheme()) {
+            if (dark) {
                 XvoxDarkPalette
             } else {
                 XvoxWhitePalette
@@ -50,17 +76,15 @@ fun XvoxTheme(
         }
     }
 
-    val palette = basePalette.withAccent(accent)
+    val palette = basePalette
+        .withAccent(accent, light = !dark)
+        .withBackdrop(background, light = !dark, transparency = cardTransparency)
 
-    val materialColors =
-        if (
-            mode == XvoxThemeMode.LIGHT ||
-            (
-                mode == XvoxThemeMode.SYSTEM &&
-                !isSystemInDarkTheme()
-            )
-        ) {
-            lightColorScheme(
+    val isLight = mode == XvoxThemeMode.LIGHT ||
+        (mode == XvoxThemeMode.SYSTEM && !dark)
+
+    val materialColors = if (isLight) {
+        lightColorScheme(
                 primary = palette.primaryAccent,
                 onPrimary = palette.background,
                 background = palette.background,

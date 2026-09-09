@@ -80,7 +80,9 @@ fun XvoxAppRoot(
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
-    val accentStr by prefs.accentColor.collectAsState(initial = "Default")
+    val accentStr by prefs.accentColor.collectAsState(initial = "Red")
+    val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
+    val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
 
     val mode = when (themeStr) {
@@ -98,7 +100,12 @@ fun XvoxAppRoot(
         )
     }
 
-    XvoxTheme(mode = mode, accent = accentStr) {
+    XvoxTheme(
+        mode = mode,
+        accent = accentStr,
+        background = backgroundStr,
+        cardTransparency = cardTransparency
+    ) {
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays

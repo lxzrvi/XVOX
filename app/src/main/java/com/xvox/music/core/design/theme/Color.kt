@@ -16,16 +16,51 @@ data class XvoxPalette(
     val progressTrack: Color,
     val progressActive: Color
 ) {
-    fun withAccent(accentName: String): XvoxPalette {
-        val accentColor = when (accentName) {
-            "XVOX Red", "Red" -> Color(0xFFFA2D48)
-            "XVOX Blue", "Blue" -> Color(0xFF007AFF)
-            else -> return this
+    /**
+     * Applies the chosen accent. `light` selects the correct pair of the iOS-style palette:
+     *
+     *   Red    #FF3B30 (light) / #FF453A (dark, AMOLED)
+     *   Blue   #007AFF (light) / #0A84FF (dark, AMOLED)
+     *   White  monochrome accent (ink on light themes, pure white on dark)
+     *
+     * Red is the default; legacy names ("Default", "XVOX …") fold into it so existing
+     * installations keep a coloured accent instead of falling back to plain text colour.
+     */
+    fun withAccent(accentName: String, light: Boolean): XvoxPalette {
+        val normalized = when (accentName) {
+            "Default", "XVOX Red" -> "Red"
+            "XVOX Blue" -> "Blue"
+            else -> accentName
+        }
+        val accentColor = when (normalized) {
+            "Blue" -> if (light) Color(0xFF007AFF) else Color(0xFF0A84FF)
+            "White" -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF)
+            else -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A) // Red / anything legacy
         }
         return this.copy(
             primaryAccent = accentColor,
             progressActive = accentColor,
             accentSoft = accentColor.copy(alpha = 0.18f)
+        )
+    }
+
+    /**
+     * Swaps the page background for the chosen tinted preset and applies the global card
+     * transparency slider. Cards blend with whatever is behind them (theme background or a
+     * custom background photo), everywhere except the Now Playing artwork surface.
+     */
+    fun withBackdrop(backgroundName: String, light: Boolean, transparency: Float): XvoxPalette {
+        val background = when (backgroundName) {
+            "Midnight" -> if (light) Color(0xFFE9EDF7) else Color(0xFF070B16)
+            "Warm" -> if (light) Color(0xFFF6F0E6) else Color(0xFF16130E)
+            else -> this.background
+        }
+        val keep = (1f - transparency.coerceIn(0f, 0.6f))
+        return this.copy(
+            background = background,
+            card = card.copy(alpha = keep),
+            cardElevated = cardElevated.copy(alpha = keep),
+            surface = surface.copy(alpha = keep)
         )
     }
 }

@@ -82,14 +82,15 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
     }
 
     /**
-     * Index under the finger, derived from the uniform row stride rather than from a layout
-     * snapshot — correct even on the frame the list is being scrolled.
+     * Index under the finger, derived purely from the scroll position and the uniform row
+     * stride. Unlike a viewport snapshot this stays exact on the very frame the list is
+     * auto-scrolling, so dragging up no longer fights the row that scrolls under the finger.
      */
     fun targetIndex(): Int {
-        val anchor = listState.layoutInfo.visibleItemsInfo.firstOrNull() ?: return -1
-        val center = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - rowHeightPx).coerceAtLeast(0f)) + rowHeightPx / 2f
-        val steps = floor((center - anchor.offset) / stridePx).toInt()
-        return (anchor.index + steps).coerceIn(0, local.lastIndex)
+        if (local.isEmpty()) return -1
+        val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
+        val centre = (pointerY - grabOffset) + rowHeightPx / 2f + scrolledPx
+        return floor(centre / stridePx).toInt().coerceIn(0, local.lastIndex)
     }
 
     fun reorderAtPointer() {

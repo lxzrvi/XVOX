@@ -102,37 +102,46 @@ class XvoxArtworkPaletteLoader(
         return normalize(Color((red[best] / count).toInt(), (green[best] / count).toInt(), (blue[best] / count).toInt()))
     }
 
+    /**
+     * Keeps the cover's true dominant hue and saturation and only nudges lightness into a
+     * readable band, so a bright cover stays recognisably itself instead of being washed
+     * toward grey, and a near-black cover is not blown out.
+     */
     private fun normalize(source: Color): Color {
-        val lum = source.luminance()
-        val targetLum = when {
-            lum < 0.22f -> 0.32f
-            lum > 0.65f -> 0.48f
-            else -> lum
-        }
+        val r = source.red.coerceIn(0f, 1f)
+        val g = source.green.coerceIn(0f, 1f)
+        val b = source.blue.coerceIn(0f, 1f)
+        val maxC = max(r, max(g, b))
+        val minC = min(r, min(g, b))
+        val l = (maxC + minC) / 2f
 
-        if (abs(targetLum - lum) < 0.02f) return source
+        // Stay inside the contrast band while preserving chroma exactly.
+        if (l in 0.16f..0.56f) return source
 
-        val factor = if (targetLum > lum) {
-            (targetLum - lum) / (1f - lum).coerceAtLeast(0.01f)
-        } else {
-            targetLum / lum.coerceAtLeast(0.01f)
+        val delta = maxC - minC
+        val s = if (delta <= 0.0001f) 0f else delta / (1f - abs(2f * l - 1f)).coerceAtLeast(0.0001f)
+        var h = 0f
+        if (delta > 0.0001f) {
+            when (maxC) {
+                r -> h = (((g - b) / delta) % 6f) * 60f
+                g -> h = (((b - r) / delta) + 2f) * 60f
+                else -> h = (((r - g) / delta) + 4f) * 60f
+            }
+            if (h < 0f) h += 360f
         }
-
-        return if (targetLum > lum) {
-            Color(
-                red = source.red + (1f - source.red) * factor * 0.7f,
-                green = source.green + (1f - source.green) * factor * 0.7f,
-                blue = source.blue + (1f - source.blue) * factor * 0.7f,
-                alpha = 1f
-            )
-        } else {
-            Color(
-                red = (source.red * factor).coerceIn(0f, 1f),
-                green = (source.green * factor).coerceIn(0f, 1f),
-                blue = (source.blue * factor).coerceIn(0f, 1f),
-                alpha = 1f
-            )
+        val target = l.coerceIn(0.16f, 0.56f)
+        val c = (1f - abs(2f * target - 1f)) * s
+        val x = c * (1f - abs((h / 60f) % 2f - 1f))
+        val m = target - c / 2f
+        val (rr, gg, bb) = when {
+            h < 60f -> Triple(c, x, 0f)
+            h < 120f -> Triple(x, c, 0f)
+            h < 180f -> Triple(0f, c, x)
+            h < 240f -> Triple(0f, x, c)
+            h < 300f -> Triple(x, 0f, c)
+            else -> Triple(c, 0f, x)
         }
+        return Color(rr + m, gg + m, bb + m)
     }
 
     private fun fallback(): Color {

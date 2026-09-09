@@ -50,8 +50,6 @@ import kotlin.math.roundToInt
 @Composable
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
-    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
-    val split by com.xvox.music.split.XvoxSplitRepository.state.collectAsState()
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
     var previewMode by remember { androidx.compose.runtime.mutableStateOf("eq") }
     com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = {
@@ -92,29 +90,22 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         Spacer(Modifier.height(12.dp))
         SettingsToggle("3D sound", null, state.stereoWidening, { previewMode = "space"; viewModel.setStereoWidening(it) })
         if (state.stereoWidening) {
+            EqLabel("Width ${(state.surroundWidth * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.surroundWidth, viewModel::setSurroundWidth, .05f..1f, defaultValue = .78f)
             EqLabel("Depth ${(state.surroundDepth * 100).roundToInt()}%")
             XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
-            EqLabel("Orbit ${state.surroundPanSpeed}s")
-            XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f)
-
-            // XvoxSplit is a 3D option: the beat goes left, the vocal goes right, and the 3D
-            // stage then moves that separated pair around you.
-            Spacer(Modifier.height(6.dp))
-            EqLabel("XvoxSplit")
-            Text("Beat left · vocal right, then placed in 3D", color = colors.secondaryText, fontSize = 11.sp)
-            androidx.compose.material3.OutlinedButton(
-                onClick = { overlays.showBox("XvoxSplit") { com.xvox.music.split.XvoxSplitPanel() } },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    when {
-                        split.active -> "XvoxSplit on · ${split.ready}/${split.total} ready"
-                        split.running -> "Preparing · ${split.ready}/${split.total}"
-                        split.modelReady -> "Set up XvoxSplit"
-                        else -> "Set up XvoxSplit"
-                    }
-                )
-            }
+            EqLabel("Position ${(state.surroundPosition * 57.2958f).roundToInt()}°")
+            XvoxThinLineSlider(state.surroundPosition, viewModel::setSurroundPosition, -1.5f..1.5f, defaultValue = 0f)
+            EqLabel("Room ${(state.roomAmount * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
+            EqLabel("Reverb ${(state.reverbAmount * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
+            EqLabel("Movement ${state.surroundPanSpeed}s per orbit")
+            XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f, defaultValue = 6f)
+            EqLabel("HRTF / Spatial ${(state.hrtf * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.hrtf, viewModel::setHrtf, 0f..1f, defaultValue = .6f)
+            EqLabel("Center preservation ${(state.centerPreservation * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.centerPreservation, viewModel::setCenterPreservation, 0f..1f, defaultValue = 0f)
         }
 
         EqLabel("App volume ${(state.appVolume * 100).roundToInt()}%")

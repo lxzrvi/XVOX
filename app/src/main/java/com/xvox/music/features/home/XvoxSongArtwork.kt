@@ -32,7 +32,8 @@ const val XvoxRecentArtworkSize = 512
 fun XvoxSongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier,
-    requestSize: Int = XvoxGridArtworkSize
+    requestSize: Int = XvoxGridArtworkSize,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
@@ -59,7 +60,7 @@ fun XvoxSongArtwork(
         Image(
             bitmap = cachedBitmap.asImageBitmap(),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
+            contentScale = contentScale,
             modifier = modifier
         )
         return
@@ -79,7 +80,7 @@ fun XvoxSongArtwork(
     AsyncImage(
         model = request,
         contentDescription = null,
-        contentScale = ContentScale.Crop,
+        contentScale = contentScale,
         onSuccess = { successResult ->
             val drawable = successResult.result.image
             if (drawable is coil3.BitmapImage) {

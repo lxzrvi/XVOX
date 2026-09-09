@@ -13,7 +13,13 @@ data class AudioDspSettings(
     val masterVolume: Float = 1f,
     val bandCount: Int = 5,
     val noiseReduction: Float = 0f,
-    val softenHighs: Float = 0f
+    val softenHighs: Float = 0f,
+    val surroundWidth: Float = .78f,
+    val surroundPosition: Float = 0f,
+    val roomAmount: Float = .5f,
+    val reverbAmount: Float = 0f,
+    val hrtf: Float = .6f,
+    val centerPreservation: Float = 0f
 )
 
 /**
@@ -61,6 +67,18 @@ class XvoxDspEngine {
     private var targetVolume = 1.0
     private var targetBalance = 0.0
     private var targetPeriod = 6.0
+    private var currentWidth = 0.78
+    private var currentPosition = 0.0
+    private var currentRoom = 1.0
+    private var currentReverb = 0.0
+    private var currentHrtf = 0.6
+    private var currentCenter = 0.0
+    private var targetWidth = 0.78
+    private var targetPosition = 0.0
+    private var targetRoom = 1.0
+    private var targetReverb = 0.0
+    private var targetHrtf = 0.6
+    private var targetCenter = 0.0
     private var phase = 0.0
     private var pan = 0.0
     private var rear = 0.0
@@ -70,6 +88,9 @@ class XvoxDspEngine {
     private var delayLeft = DoubleArray(1600)
     private var delayRight = DoubleArray(1600)
     private var cursor = 0
+    private var tailDelayLeft = DoubleArray(0)
+    private var tailDelayRight = DoubleArray(0)
+    private var tailCursor = 0
     private var shadowLeft = 0.0
     private var shadowRight = 0.0
     private var softL = 0.0; private var softR = 0.0
@@ -93,6 +114,9 @@ class XvoxDspEngine {
         pinna.configure(minOf(6800.0, rate * .40), rate, 1.15)
         delayLeft = DoubleArray((rate * .024).toInt() + 8)
         delayRight = DoubleArray(delayLeft.size)
+        tailDelayLeft = DoubleArray(maxOf(64, (rate * 0.12).toInt()))
+        tailDelayRight = DoubleArray(tailDelayLeft.size)
+        tailCursor = 0
         peakGuard.configure(rate)
         reset()
     }
@@ -101,6 +125,8 @@ class XvoxDspEngine {
         filters.forEach { it.reset() }; pinna.reset(); peakGuard.reset()
         currentBand.fill(0.0); targetBand.fill(0.0)
         delayLeft.fill(0.0); delayRight.fill(0.0)
+        if (tailDelayLeft.isNotEmpty()) { tailDelayLeft.fill(0.0); tailDelayRight.fill(0.0) }
+        tailCursor = 0
         cursor = 0; phase = 0.0; splitPhase = 0.0; block = 0
         shadowLeft = 0.0; shadowRight = 0.0
         softL = 0.0; softR = 0.0; bassL = 0.0; bassR = 0.0; spatialBassL = 0.0; spatialBassR = 0.0
@@ -115,6 +141,12 @@ class XvoxDspEngine {
         updateTargets()
         targetPreamp = targetHeadroom
         currentPreamp = targetHeadroom
+        currentWidth = targetWidth
+        currentPosition = targetPosition
+        currentRoom = targetRoom
+        currentReverb = targetReverb
+        currentHrtf = targetHrtf
+        currentCenter = targetCenter
     }
 
     private fun updateTargets() {
@@ -130,7 +162,14 @@ class XvoxDspEngine {
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = 10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
         targetNoise = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
-        targetDepth = if (s.surroundEnabled && !splitStems) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
+        val spatialActive = s.surroundEnabled && !splitStems
+        targetDepth = if (spatialActive) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
+        targetWidth = if (spatialActive) s.surroundWidth.toDouble().coerceIn(0.05, 1.0) else 0.78
+        targetPosition = if (spatialActive) s.surroundPosition.toDouble() else 0.0
+        targetRoom = if (spatialActive) s.roomAmount.toDouble().coerceIn(0.0, 1.0) * 2.0 else 1.0
+        targetHrtf = if (spatialActive) s.hrtf.toDouble().coerceIn(0.0, 1.0) else 0.6
+        targetCenter = if (spatialActive) s.centerPreservation.toDouble().coerceIn(0.0, 1.0) else 0.0
+        targetReverb = s.reverbAmount.toDouble().coerceIn(0.0, 1.0)
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = s.orbitSeconds.toDouble().coerceIn(2.0, 10.0)
@@ -143,7 +182,7 @@ class XvoxDspEngine {
             // User-controlled headroom only: raising a band must not secretly turn the entire track down.
             targetPreamp = targetHeadroom
             noiseThreshold = 10.0.pow((-70 + currentNoise * 20) / 20)
-            pan = sin(phase) * .78
+            pan = sin(phase + currentPosition) * currentWidth
             rear = (1 - cos(phase)) * .5
             shadowAlpha = 1 - exp(-2 * PI * (12000 - rear * 7000) / rate)
             nearLeft = cos((pan + 1) * PI / 4) * sqrt(2.0)
@@ -158,6 +197,12 @@ class XvoxDspEngine {
         currentMix += (mixGain.toDouble().coerceIn(0.0, 1.0) - currentMix) * fastAlpha
         currentBalance += (targetBalance - currentBalance) * controlAlpha
         currentDepth += (targetDepth - currentDepth) * controlAlpha
+        currentWidth += (targetWidth - currentWidth) * controlAlpha
+        currentPosition += (targetPosition - currentPosition) * controlAlpha
+        currentRoom += (targetRoom - currentRoom) * controlAlpha
+        currentHrtf += (targetHrtf - currentHrtf) * controlAlpha
+        currentCenter += (targetCenter - currentCenter) * controlAlpha
+        currentReverb += (targetReverb - currentReverb) * controlAlpha
         currentPeriod += (targetPeriod - currentPeriod) * controlAlpha
         phase += 2 * PI / (rate * currentPeriod)
         if (phase >= 2 * PI) phase -= 2 * PI
@@ -207,14 +252,40 @@ class XvoxDspEngine {
         pinna.process(earL, earR)
         val farL = max(pan, 0.0)
         val farR = max(-pan, 0.0)
-        val filteredL = (earL * (1 - farL * .60) + shadowLeft * farL * .60) - pinna.left * rear * .30
-        val filteredR = (earR * (1 - farR * .60) + shadowRight * farR * .60) - pinna.right * rear * .30
+        // HRTF amount drives both the head shadow and the pinna glare that make the image sit
+        // outside the ears (defaults equal the original fixed strengths).
+        val headShadow = currentHrtf
+        val pinnaShadow = currentHrtf * .5
+        val filteredL = (earL * (1 - farL * headShadow) + shadowLeft * farL * headShadow) - pinna.left * rear * pinnaShadow
+        val filteredR = (earR * (1 - farR * headShadow) + shadowRight * farR * headShadow) - pinna.right * rear * pinnaShadow
         spatialBassL += (filteredL - spatialBassL) * spatialBassAlpha
         spatialBassR += (filteredR - spatialBassR) * spatialBassAlpha
-        val spatialL = (spatialBassL * (.90 + .10 * nearLeft) + (filteredL - spatialBassL) * nearLeft) * .94 + delayed(delayRight, rate * .011) * .04 + delayed(delayLeft, rate * .017) * .02
-        val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02
+        // Room is the level of the early reflections that suggest an enclosed space.
+        val spatialL = (spatialBassL * (.90 + .10 * nearLeft) + (filteredL - spatialBassL) * nearLeft) * .94 + (delayed(delayRight, rate * .011) * .04 + delayed(delayLeft, rate * .017) * .02) * currentRoom
+        val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + (delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02) * currentRoom
         l += (spatialL - l) * currentDepth
         r += (spatialR - r) * currentDepth
+        // Reverb: a short damped feedback tail that works with XvoxMix and inside 3D sound.
+        if (currentReverb > .001 && tailDelayLeft.isNotEmpty()) {
+            val tailSize = tailDelayLeft.size
+            val feedback = .40 * currentReverb
+            val wet = .32 * currentReverb
+            val staleL = tailDelayLeft[tailCursor]
+            val staleR = tailDelayRight[tailCursor]
+            tailDelayLeft[tailCursor] = l + staleL * feedback
+            tailDelayRight[tailCursor] = r + staleR * feedback
+            l += staleL * wet
+            r += staleR * wet
+            tailCursor = (tailCursor + 1) % tailSize
+        }
+        // Center preservation keeps the phantom centre glued to the original mix while the
+        // sides fan out; at the default (0) the behaviour is exactly the old widening.
+        if (currentCenter > .001) {
+            val dryMid = (dryL + dryR) * .5
+            val processedMid = (l + r) * .5
+            l += (dryMid - processedMid) * currentCenter
+            r += (dryMid - processedMid) * currentCenter
+        }
         cursor = (cursor + 1) % delayLeft.size
         if (currentBalance > 0) l *= 1 - currentBalance else r *= 1 + currentBalance
         if (!l.isFinite() || !r.isFinite()) {

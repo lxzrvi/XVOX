@@ -18,6 +18,7 @@ fun XvoxOverlayHost(
                 XvoxBox(
                     onDismiss = controller::hideBox,
                     title = controller.boxTitle,
+                    mini = controller.boxMini,
                     modifier = Modifier.fillMaxSize()
                 ) {
                     content()

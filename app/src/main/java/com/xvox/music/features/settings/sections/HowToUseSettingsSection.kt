@@ -23,7 +23,7 @@ fun HowToUseSettingsSection() {
         "Refresh" to "Header pill, after adding files.",
         "Deleted songs" to "Settings › Deleted songs to restore.",
         "Widget" to "Settings › Widget › Add widget.",
-        "XvoxSplit" to "Settings › XvoxMix › 3D sound."
+        "XvoxSplit" to "Now Playing › More › XvoxSplit."
     )
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         tips.forEach { (title, text) ->

@@ -13,6 +13,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -28,13 +30,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,6 +70,10 @@ fun XvoxRecentArtwork(
 
     val shape = RoundedCornerShape(3.dp)
 
+    // A true tap (no scroll slop) holds the tile pressed; while pressed the artwork reveals its
+    // whole square cover instead of the wide cropped band, so the cover never looks cut off.
+    var pressed by remember { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .clip(shape)
@@ -74,10 +84,36 @@ fun XvoxRecentArtwork(
                 shape = shape
             )
             .xvoxSongPress(onClick, onLongClick)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var slopped = false
+                    pressed = true
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!slopped) {
+                                val dx = change.position.x - down.position.x
+                                val dy = change.position.y - down.position.y
+                                val moved = dx * dx + dy * dy > viewConfiguration.touchSlop * viewConfiguration.touchSlop
+                                if (moved) {
+                                    slopped = true
+                                    pressed = false
+                                }
+                            }
+                            if (event.changes.none { it.pressed }) break
+                        }
+                    } finally {
+                        pressed = false
+                    }
+                }
+            }
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = XvoxRecentArtworkSize,
+            contentScale = if (pressed) ContentScale.Fit else ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 
