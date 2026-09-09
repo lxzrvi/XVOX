@@ -2,11 +2,7 @@ package com.xvox.music.features.settings.sections
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -25,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,18 +29,21 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.components.ColorPickerRow
+import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Appearance.
+ * Appearance — minimal settings UI.
  *
- * Every option is outlined, so the unselected choices stay visible; the selected one is filled
- * and its border thickens. Both states animate.
+ * Background offers exactly two choices (Default or your Image), and every tint/colour/edge in
+ * the app is tuned from its own card: Cards, Option boxes and Home chrome (header, mini player,
+ * navbar and its pill). Every colour row opens the same free colour wheel + hex + intensity.
  */
 @Composable
 fun AppearanceSettingsSection(
@@ -53,214 +51,234 @@ fun AppearanceSettingsSection(
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
+    val chrome = state.chromeStyle
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) viewModel.setBackgroundImage(uri.toString())
+    }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        SectionLabel("Theme")
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("System", "Dark", "AMOLED", "Light").forEach { themeName ->
-                OptionChip(
-                    label = themeName,
-                    selected = state.theme == themeName,
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.setTheme(themeName) }
-                )
-            }
-        }
+        // ---------------------------------------------------------------- Theme + accent.
+        GroupTitle("Theme")
+        SettingsChoiceRow(
+            listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
+            state.theme
+        ) { viewModel.setTheme(it) }
 
-        Spacer(Modifier.height(16.dp))
+        GroupTitle("Accent")
+        SettingsChoiceRow(
+            listOf("Red" to "Red", "Blue" to "Blue", "White" to "White"),
+            if (state.accentColor.startsWith("#")) "custom" else state.accentColor
+        ) { key -> if (key == "custom") return@SettingsChoiceRow else viewModel.setAccentColor(key) }
+        ColorPickerRow(
+            label = "Custom accent colour",
+            hex = if (state.accentColor.startsWith("#")) state.accentColor else "",
+            onColorChange = { hex -> viewModel.setAccentColor(hex) },
+            subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour to override"
+        )
 
-        SectionLabel("Accent")
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
-                "Red" to Color(0xFFFF453A),
-                "Blue" to Color(0xFF0A84FF),
-                "White" to Color(0xFFF5F5F5)
-            ).forEach { (name, swatch) ->
-                val isSelected = state.accentColor == name
-                val border by animateColorAsState(
-                    if (isSelected) colors.primaryAccent else colors.cardBorder,
-                    tween(180), label = "accent_border"
-                )
-                val width by animateDpAsState(if (isSelected) 1.6.dp else 0.9.dp, tween(180), label = "accent_width")
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) colors.primaryAccent.copy(alpha = 0.14f) else colors.cardElevated)
-                        .border(width, border, RoundedCornerShape(10.dp))
-                        .xvoxPressScale { viewModel.setAccentColor(name) }
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .background(
-                                if (name == "White") Color.White else swatch,
-                                CircleShape
-                            )
-                            .border(
-                                1.dp,
-                                if (name == "White") colors.cardBorder else Color.White.copy(alpha = 0.3f),
-                                CircleShape
-                            )
-                    )
-                    Text(
-                        text = name,
-                        color = colors.primaryText,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(start = 6.dp)
-                    )
+        // ---------------------------------------------------------------- Background.
+        GroupTitle("Background")
+        val imageUri = state.backgroundImageUri
+        SettingsChoiceRow(
+            listOf("Default" to "Default", "Image" to "Image"),
+            if (imageUri == null) "Default" else "Image"
+        ) { key ->
+            when (key) {
+                "Default" -> {
+                    viewModel.setBackgroundImage(null)
+                    viewModel.setBackgroundName("Default")
                 }
+                "Image" -> if (imageUri == null) imagePicker.launch("image/*")
             }
         }
-
-        Spacer(Modifier.height(16.dp))
-
-        SectionLabel("Background")
-        Spacer(Modifier.height(8.dp))
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) viewModel.setBackgroundImage(uri.toString())
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Default" to colors.background, "Midnight" to Color(0xFF141B33), "Warm" to Color(0xFFE8D9BF))
-                .forEach { (name, swatch) ->
-                    val active = state.backgroundImageUri == null && state.backgroundName == name
+        if (imageUri != null) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colors.cardElevated)
+                ) {
+                    AsyncImage(
+                        model = imageUri,
+                        contentDescription = "Background image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxWidth().height(120.dp)
+                    )
+                    // Remove (X).
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (active) colors.primaryAccent.copy(alpha = 0.14f) else colors.cardElevated
-                            )
-                            .border(
-                                if (active) 1.6.dp else 0.9.dp,
-                                if (active) colors.primaryAccent else colors.cardBorder,
-                                RoundedCornerShape(10.dp)
-                            )
-                            .xvoxPressScale {
-                                viewModel.setBackgroundImage(null)
-                                viewModel.setBackgroundName(name)
-                            },
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(colors.card.copy(alpha = 0.85f))
+                            .xvoxPressScale { viewModel.setBackgroundImage(null) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .background(swatch, CircleShape)
-                                .border(1.dp, colors.cardBorder, CircleShape)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_close),
+                            contentDescription = "Remove background image",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(16.dp)
                         )
+                    }
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(colors.card.copy(alpha = 0.9f))
+                            .xvoxPressScale { imagePicker.launch("image/*") }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text("Choose image", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
-            val photoActive = state.backgroundImageUri != null
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (photoActive) colors.primaryAccent.copy(alpha = 0.14f) else colors.cardElevated)
-                    .border(
-                        if (photoActive) 1.6.dp else 0.9.dp,
-                        if (photoActive) colors.primaryAccent else colors.cardBorder,
-                        RoundedCornerShape(10.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Brightness", color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(86.dp))
+                    XvoxThinLineSlider(
+                        value = state.backgroundBrightness,
+                        onValueChange = viewModel::setBackgroundBrightness,
+                        valueRange = 0.2f..1f,
+                        defaultValue = 0.8f,
+                        modifier = Modifier.weight(1f)
                     )
-                    .xvoxPressScale { picker.launch("image/*") },
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = state.backgroundImageUri,
-                    contentDescription = "Background image",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .padding(6.dp)
-                        .clip(CircleShape)
-                        .fillMaxWidth()
-                )
-                if (!photoActive) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_add),
-                        contentDescription = null,
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Text("${(state.backgroundBrightness * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.width(42.dp))
                 }
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-
-        Text(
-            "Card transparency ${(state.cardTransparency * 100).roundToInt()}%",
-            color = colors.primaryText,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
+        // ---------------------------------------------------------------- Cards.
+        GroupTitle("Cards")
+        AlphaRow("Transparency", state.cardTransparency / 0.6f, { viewModel.setCardTransparency(it * 0.6f) }, defaultValue = 0f, labelLeft = "Solid", labelRight = "Glass")
+        ColorPickerRow(
+            label = "Border colour",
+            hex = chrome.cardBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(cardBorder = hex) } }
         )
-        Spacer(Modifier.height(4.dp))
-        XvoxThinLineSlider(state.cardTransparency, viewModel::setCardTransparency, 0f..0.6f, defaultValue = 0f)
+        AlphaRow("Border", chrome.cardBorderAlpha, { a -> viewModel.setChromeStyle { it.copy(cardBorderAlpha = a) } }, defaultValue = 1f)
 
-        Spacer(Modifier.height(16.dp))
+        // ---------------------------------------------------------------- Option boxes.
+        GroupTitle("Option boxes")
+        AlphaRow("Fill", chrome.optionBoxBgAlpha, { a -> viewModel.setChromeStyle { it.copy(optionBoxBgAlpha = a) } }, defaultValue = 1f, labelRight = "Solid")
+        ColorPickerRow(
+            label = "Border colour",
+            hex = chrome.optionBoxBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(optionBoxBorder = hex) } }
+        )
+        AlphaRow("Border", chrome.optionBoxBorderAlpha, { a -> viewModel.setChromeStyle { it.copy(optionBoxBorderAlpha = a) } }, defaultValue = 1f)
 
-        SectionLabel("Text size")
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0.75f to "0.75x", 0.85f to "0.85x", 1.0f to "1x", 1.15f to "1.15x", 1.25f to "1.25x")
-                .forEach { (scaleValue, scaleLabel) ->
-                    OptionChip(
-                        label = scaleLabel,
-                        selected = abs(state.fontSizeScale - scaleValue) < 0.04f,
-                        modifier = Modifier.weight(1f),
-                        fontSize = 11.sp,
-                        onClick = { viewModel.setFontSizeScale(scaleValue) }
-                    )
-                }
+        // ---------------------------------------------------------------- Home chrome.
+        GroupTitle("Header")
+        ChromeStrip(chrome, viewModel,
+            bgAlpha = chrome.headerBgAlpha,
+            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(headerBgAlpha = a) } },
+            border = chrome.headerBorder,
+            onBorder = { hex -> viewModel.setChromeStyle { it.copy(headerBorder = hex) } },
+            borderAlpha = chrome.headerBorderAlpha,
+            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(headerBorderAlpha = a) } }
+        )
+
+        GroupTitle("Mini player")
+        ChromeStrip(chrome, viewModel,
+            bgAlpha = chrome.miniBgAlpha,
+            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(miniBgAlpha = a) } },
+            border = chrome.miniBorder,
+            onBorder = { hex -> viewModel.setChromeStyle { it.copy(miniBorder = hex) } },
+            borderAlpha = chrome.miniBorderAlpha,
+            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(miniBorderAlpha = a) } }
+        )
+
+        GroupTitle("Navigation bar")
+        ChromeStrip(chrome, viewModel,
+            bgAlpha = chrome.navBgAlpha,
+            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(navBgAlpha = a) } },
+            border = chrome.navBorder,
+            onBorder = { hex -> viewModel.setChromeStyle { it.copy(navBorder = hex) } },
+            borderAlpha = chrome.navBorderAlpha,
+            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(navBorderAlpha = a) } }
+        )
+        ColorPickerRow(
+            label = "Pill colour",
+            hex = chrome.pillColor,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillColor = hex) } }
+        )
+        AlphaRow("Pill", chrome.pillAlpha, { a -> viewModel.setChromeStyle { it.copy(pillAlpha = a) } }, defaultValue = 1f)
+
+        GroupTitle("Text size")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("A", color = colors.mutedText, fontSize = 13.sp, modifier = Modifier.width(30.dp))
+            XvoxThinLineSlider(
+                value = state.fontSizeScale,
+                onValueChange = viewModel::setFontSizeScale,
+                valueRange = 0.8f..1.4f,
+                defaultValue = 1f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("A", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text, color = XvoxTheme.colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+private fun ChromeStrip(
+    chrome: XvoxChromeStyle,
+    viewModel: SettingsViewModel,
+    bgAlpha: Float,
+    onBgAlpha: (Float) -> Unit,
+    border: String,
+    onBorder: (String) -> Unit,
+    borderAlpha: Float,
+    onBorderAlpha: (Float) -> Unit
+) {
+    AlphaRow("Fill", bgAlpha, onBgAlpha, defaultValue = 1f)
+    ColorPickerRow(
+        label = "Border colour",
+        hex = border,
+        onColorChange = onBorder
+    )
+    AlphaRow("Border", borderAlpha, onBorderAlpha, defaultValue = if (borderAlpha == 0f) 0f else 1f)
 }
 
-/** Outlined in every state; filled and emphasised when selected. */
 @Composable
-private fun OptionChip(
-    label: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    fontSize: androidx.compose.ui.unit.TextUnit = 12.sp,
-    onClick: () -> Unit
+private fun AlphaRow(
+    title: String,
+    value: Float,
+    onChange: (Float) -> Unit,
+    defaultValue: Float,
+    labelLeft: String = "Clear",
+    labelRight: String = "Solid"
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(10.dp)
-    val fill by animateColorAsState(
-        if (selected) colors.primaryAccent else colors.cardElevated, tween(180), label = "chip_fill"
-    )
-    val border by animateColorAsState(
-        if (selected) colors.primaryAccent else colors.cardBorder, tween(180), label = "chip_border"
-    )
-    val borderWidth by animateDpAsState(if (selected) 1.6.dp else 0.9.dp, tween(180), label = "chip_border_w")
-    Box(
-        modifier = modifier
-            .height(38.dp)
-            .clip(shape)
-            .background(fill)
-            .border(borderWidth, border, shape)
-            .xvoxPressScale(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            color = if (selected) colors.background else colors.primaryText,
-            fontSize = fontSize,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(86.dp))
+        XvoxThinLineSlider(
+            value = value.coerceIn(0f, 1f),
+            onValueChange = onChange,
+            valueRange = 0f..1f,
+            defaultValue = defaultValue,
+            modifier = Modifier.weight(1f)
         )
+        Text(labelLeft, color = colors.mutedText, fontSize = 10.sp, modifier = Modifier.width(30.dp))
+        Text("${(value.coerceIn(0f, 1f) * 100).roundToInt()}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(38.dp))
+        Spacer(Modifier.width(2.dp))
     }
 }
+
+@Composable
+private fun GroupTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = com.xvox.music.core.design.theme.XvoxTheme.colors.mutedText,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+}
+
+

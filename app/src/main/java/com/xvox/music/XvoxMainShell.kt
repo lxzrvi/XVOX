@@ -72,7 +72,8 @@ import com.xvox.music.shell.XvoxShellTopHeader
 @Composable
 fun XvoxMainShell(
     homeViewModel: HomeViewModel = viewModel(),
-    playerViewModel: MainPlayerViewModel = viewModel()
+    playerViewModel: MainPlayerViewModel = viewModel(),
+    backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
@@ -80,14 +81,8 @@ fun XvoxMainShell(
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
-    LaunchedEffect(player.queue) { com.xvox.music.split.XvoxSplitRepository.updateQueue(player.queue, player.currentSongId) }
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
-    LaunchedEffect(overlays, Unit) {
-        com.xvox.music.split.XvoxSplitRepository.state.map { it.noticeId to it.notice }.distinctUntilChanged().collect { (id, text) ->
-            if (id > 0 && text.isNotBlank()) overlays.showP(text)
-        }
-    }
     LaunchedEffect(overlays) {
         var popup: Long? = null
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map { it.enabled && it.active }.distinctUntilChanged().collect { active ->
@@ -262,7 +257,7 @@ fun XvoxMainShell(
                 modifier = Modifier.fillMaxSize()
             ) { targetDestination ->
                 tabState.SaveableStateProvider(targetDestination.name) {
-                    TabSurface(backgroundImage = backgroundImage) {
+                    TabSurface(backgroundImage = backgroundImage, backgroundBrightness = backgroundBrightness) {
                     when (targetDestination) {
                         XvoxDestination.HOME -> {
                             HomeScreen(
@@ -432,7 +427,11 @@ fun XvoxMainShell(
  * surface always stays on top and untouched.
  */
 @Composable
-private fun TabSurface(backgroundImage: String, content: @Composable () -> Unit) {
+private fun TabSurface(
+    backgroundImage: String,
+    backgroundBrightness: Float = 0.8f,
+    content: @Composable () -> Unit
+) {
     val colors = XvoxTheme.colors
     Box(Modifier.fillMaxSize().background(colors.background)) {
         if (backgroundImage.isNotBlank()) {
@@ -442,7 +441,10 @@ private fun TabSurface(backgroundImage: String, content: @Composable () -> Unit)
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.16f)))
+            // The brightness slider in Appearance dims a bright background photo. Higher value
+            // means a brighter image (a thinner dark veil over it).
+            val veil = (0.16f + (1f - backgroundBrightness.coerceIn(0.2f, 1f)) * 0.7f).coerceIn(0.12f, 0.9f)
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = veil)))
         }
         content()
     }

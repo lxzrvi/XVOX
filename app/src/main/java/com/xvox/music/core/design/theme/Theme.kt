@@ -54,6 +54,8 @@ fun XvoxTheme(
     accent: String = "Red",
     background: String = "Default",
     cardTransparency: Float = 0f,
+    cardBorder: String = "",
+    cardBorderAlpha: Float = 1f,
     content: @Composable () -> Unit
 ) {
     val dark = when (mode) {
@@ -79,6 +81,11 @@ fun XvoxTheme(
     val palette = basePalette
         .withAccent(accent, light = !dark)
         .withBackdrop(background, light = !dark, transparency = cardTransparency)
+        .let { p ->
+            val chosen = com.xvox.music.core.ui.chrome.parseHexColor(cardBorder) ?: p.cardBorder
+            val alpha = cardBorderAlpha.coerceIn(0f, 1f)
+            p.copy(cardBorder = chosen.copy(alpha = chosen.alpha * alpha))
+        }
 
     val isLight = mode == XvoxThemeMode.LIGHT ||
         (mode == XvoxThemeMode.SYSTEM && !dark)

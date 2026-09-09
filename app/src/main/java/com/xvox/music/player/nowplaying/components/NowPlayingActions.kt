@@ -49,10 +49,10 @@ import com.xvox.music.core.design.theme.XvoxTheme
  * The Now Playing action bar.
  *
  * Left cluster: three utility icons (Timer / Queue / Info). Swipe that cluster to the left and
- * it slides over to the three audio toggles — XvoxMix, 3D sound and Lyrics — where a tap
+ * it slides over to the three audio toggles — Equalizer, 3D sound and Lyrics — where a tap
  * switches them on or off and a long press opens their settings box.
  *
- * Right cluster: crossfade (the old XvoxSplit pill slot), add-to-playlist star and the heart.
+ * Right cluster: crossfade, add-to-playlist star and the heart.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -67,10 +67,10 @@ fun NowPlayingActions(
     timerProgress: Float? = null,
     crossfadeOn: Boolean = false,
     onToggleCrossfade: (() -> Unit)? = null,
-    xvoxMixOn: Boolean = false,
+    equalizerOn: Boolean = false,
     spaceOn: Boolean = false,
     lyricsOn: Boolean = false,
-    onToggleXvoxMix: (() -> Unit)? = null,
+    onToggleEqualizer: (() -> Unit)? = null,
     onToggleSpace: (() -> Unit)? = null,
     onToggleLyrics: (() -> Unit)? = null,
     onOpenOptions: ((String) -> Unit)? = null
@@ -133,10 +133,10 @@ fun NowPlayingActions(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             NowPlayingToggleIcon(
                                 resource = R.drawable.ic_xvox_equalizer,
-                                active = xvoxMixOn,
-                                contentDescription = "XvoxMix",
-                                onClick = onToggleXvoxMix,
-                                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("XvoxMix") }) else null
+                                active = equalizerOn,
+                                contentDescription = "Equalizer",
+                                onClick = onToggleEqualizer,
+                                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Equalizer") }) else null
                             )
                             NowPlayingToggleIcon(
                                 resource = R.drawable.ic_xvox_waveform,
@@ -160,28 +160,29 @@ fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
-        NowPlayingCircleAction(
-            resource = R.drawable.ic_xvox_crossfade,
-            tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
-            active = crossfadeOn,
-            contentDescription = "Crossfade",
-            onClick = onToggleCrossfade
-        )
-        NowPlayingCircleAction(
-            resource = R.drawable.ic_xvox_star,
-            tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
-            contentDescription = "Add to playlist",
-            onClick = onStarPlaylist
-        )
-
-        Spacer(Modifier.size(10.dp))
-
-        NowPlayingCircleAction(
-            resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-            tint = if (isLiked) colors.primaryAccent else colors.primaryText,
-            contentDescription = if (isLiked) "Unlike" else "Like",
-            onClick = onToggleLiked
-        )
+        // The three round actions: crossfade, add-to-playlist and heart, at equal spacing.
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            NowPlayingCircleAction(
+                resource = R.drawable.ic_xvox_crossfade,
+                tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
+                active = crossfadeOn,
+                contentDescription = "Crossfade",
+                onClick = onToggleCrossfade,
+                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Crossfade") }) else null
+            )
+            NowPlayingCircleAction(
+                resource = R.drawable.ic_xvox_star,
+                tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
+                contentDescription = "Add to playlist",
+                onClick = onStarPlaylist
+            )
+            NowPlayingCircleAction(
+                resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+                tint = if (isLiked) colors.primaryAccent else colors.primaryText,
+                contentDescription = if (isLiked) "Unlike" else "Like",
+                onClick = onToggleLiked
+            )
+        }
     }
 }
 
@@ -240,7 +241,8 @@ fun NowPlayingCircleAction(
     tint: Color? = null,
     active: Boolean = false,
     contentDescription: String? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
 
@@ -255,9 +257,9 @@ fun NowPlayingCircleAction(
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                enabled = onClick != null,
+                enabled = onClick != null || onLongClick != null,
                 onClick = { onClick?.invoke() },
-                onLongClick = null
+                onLongClick = onLongClick
             ),
         contentAlignment = Alignment.Center
     ) {

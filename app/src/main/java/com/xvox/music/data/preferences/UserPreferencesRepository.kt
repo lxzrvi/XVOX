@@ -105,6 +105,15 @@ class UserPreferencesRepository(
         val widgetCustomColor = stringPreferencesKey("widget_custom_color")
         val widgetShowLogo = booleanPreferencesKey("widget_show_logo")
         val widgetCornerRadius = intPreferencesKey("widget_corner_radius")
+
+        // Revision 7: per-surface chrome (header / mini player / nav bar / pills / cards / boxes).
+        val chromeStyle = stringPreferencesKey("chrome_style_v1")
+        val backgroundBrightness = floatPreferencesKey("background_brightness")
+        val audioOutputRoute = stringPreferencesKey("audio_output_route")
+        val profileLines = stringPreferencesKey("profile_lines")
+        val remindersEnabled = booleanPreferencesKey("reminders_enabled")
+        val remindersLastAt = longPreferencesKey("reminders_last_at")
+        val remindersDayCount = intPreferencesKey("reminders_day_count")
     }
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
@@ -113,7 +122,9 @@ class UserPreferencesRepository(
             username = prefs[Keys.username].orEmpty(),
             selectedPfp = prefs[Keys.selectedPfp] ?: "DEFAULT",
             customPfpUri = prefs[Keys.customPfpUri],
-            customPfpUris = decodeUriList(prefs[Keys.customPfpUris].orEmpty())
+            customPfpUris = decodeUriList(prefs[Keys.customPfpUris].orEmpty()),
+            profileLines = prefs[Keys.profileLines].orEmpty().lines()
+                .map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(4)
         )
     }.distinctUntilChanged()
 
@@ -265,6 +276,20 @@ class UserPreferencesRepository(
     val widgetShowLogo: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.widgetShowLogo] ?: true }.distinctUntilChanged()
     val widgetCornerRadius: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.widgetCornerRadius] ?: 16 }.distinctUntilChanged()
 
+    val chromeStyle: Flow<com.xvox.music.core.ui.chrome.XvoxChromeStyle> = context.xvoxDataStore.data
+        .map { com.xvox.music.core.ui.chrome.XvoxChromeStyle.decode(it[Keys.chromeStyle].orEmpty()) }
+        .distinctUntilChanged()
+    val backgroundBrightness: Flow<Float> = context.xvoxDataStore.data
+        .map { (it[Keys.backgroundBrightness] ?: 0.8f).coerceIn(0.2f, 1f) }.distinctUntilChanged()
+    val audioOutputRoute: Flow<String> = context.xvoxDataStore.data
+        .map { when (it[Keys.audioOutputRoute]) { "headset", "phone" -> it[Keys.audioOutputRoute]; else -> "auto" } }
+        .distinctUntilChanged()
+    val profileLines: Flow<List<String>> = context.xvoxDataStore.data
+        .map { it[Keys.profileLines].orEmpty().lines().map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4) }
+        .distinctUntilChanged()
+    val remindersEnabled: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.remindersEnabled] ?: false }.distinctUntilChanged()
+
     suspend fun setLyricsSettings(settings: LyricsSettings) { context.xvoxDataStore.edit { it[Keys.lyricsSettings] = settings.sanitized().encode() } }
     suspend fun setSplitShowPill(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitShowPill] = v } }
     suspend fun setSplitHideCollection(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitHideCollection] = v } }
@@ -401,6 +426,25 @@ class UserPreferencesRepository(
     suspend fun setWidgetCustomColor(v: String) { context.xvoxDataStore.edit { it[Keys.widgetCustomColor] = v } }
     suspend fun setWidgetShowLogo(v: Boolean) { context.xvoxDataStore.edit { it[Keys.widgetShowLogo] = v } }
     suspend fun setWidgetCornerRadius(v: Int) { context.xvoxDataStore.edit { it[Keys.widgetCornerRadius] = v } }
+
+    suspend fun setChromeStyle(v: com.xvox.music.core.ui.chrome.XvoxChromeStyle) {
+        context.xvoxDataStore.edit { it[Keys.chromeStyle] = v.encode() }
+    }
+    suspend fun setBackgroundBrightness(v: Float) {
+        context.xvoxDataStore.edit { it[Keys.backgroundBrightness] = v.coerceIn(0.2f, 1f) }
+    }
+    suspend fun setAudioOutputRoute(v: String) {
+        context.xvoxDataStore.edit { it[Keys.audioOutputRoute] = when (v) { "headset", "phone" -> v; else -> "auto" } }
+    }
+    suspend fun setProfileLines(lines: List<String>) {
+        context.xvoxDataStore.edit { it[Keys.profileLines] = lines.map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4).joinToString("\n") }
+    }
+    suspend fun setRemindersEnabled(enabled: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.remindersEnabled] = enabled }
+    }
+    suspend fun setReminderFired() {
+        context.xvoxDataStore.edit { it[Keys.remindersLastAt] = System.currentTimeMillis() }
+    }
 
     suspend fun addRecentSearch(query: String) {
         val clean = query.trim()

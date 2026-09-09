@@ -51,63 +51,40 @@ import kotlin.math.roundToInt
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-    var previewMode by remember { androidx.compose.runtime.mutableStateOf("eq") }
     com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = {
-        if (state.equalizerEnabled && state.stereoWidening) com.xvox.music.features.settings.components.SettingsChoiceRow(
-            listOf("eq" to "Equalizer", "space" to "3D"), previewMode) { previewMode = it }
         when {
-            state.stereoWidening && (previewMode == "space" || !state.equalizerEnabled) -> com.xvox.music.features.settings.components.SurroundSettingsPreview(state)
             state.equalizerEnabled -> com.xvox.music.features.settings.components.EqSettingsPreview(state)
-            else -> Text("Turn on EQ or 3D to preview", color = colors.secondaryText, fontSize = 12.sp)
+            else -> Text("Turn on the equalizer to preview", color = colors.secondaryText, fontSize = 12.sp)
         }
     }, controls = {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
-        SettingsToggle("Equalizer", null, state.equalizerEnabled, viewModel::setEqualizerEnabled)
+        SettingsToggle("Equalizer", "5 bands · presets · reverb · protect", state.equalizerEnabled) { on ->
+            if (on) viewModel.setEqBandCount(5)
+            viewModel.setEqualizerEnabled(on)
+        }
         if (state.equalizerEnabled) {
-            com.xvox.music.features.settings.components.SettingsChoiceRow(listOf("5" to "5 bands", "10" to "10 bands"), state.eqBandCount.toString()) {
-                viewModel.setEqBandCount(it.toInt())
-            }
             Spacer(Modifier.height(12.dp))
             com.xvox.music.features.settings.components.SettingsChoiceRow(
                 (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it }, state.eqPreset, viewModel::setEqPreset)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(180.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                com.xvox.music.audio.EqBands.frequencies(state.eqBandCount).forEachIndexed { index, frequency ->
+                com.xvox.music.audio.EqBands.frequencies(5).forEachIndexed { index, frequency ->
                     VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
-                        previewMode = "eq"; viewModel.setEqBand(index, it)
+                        viewModel.setEqBand(index, it)
                     }
                 }
             }
+            EqLabel("Reverb ${(state.reverbAmount * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
         }
+
         Spacer(Modifier.height(14.dp))
-        EqLabel("Boost protection ${state.eqHeadroomDb.roundToInt()} dB")
-        XvoxThinLineSlider(state.eqHeadroomDb, { previewMode = "eq"; viewModel.setEqHeadroomDb(it) }, 0f..18f, defaultValue = 0f)
         EqLabel("Noise reduction ${(state.noiseReduction * 100).roundToInt()}%")
         XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
         EqLabel("Soften highs ${(state.softenHighs * 100).roundToInt()}%")
         XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
-
-        Spacer(Modifier.height(12.dp))
-        SettingsToggle("3D sound", null, state.stereoWidening, { previewMode = "space"; viewModel.setStereoWidening(it) })
-        if (state.stereoWidening) {
-            EqLabel("Width ${(state.surroundWidth * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.surroundWidth, viewModel::setSurroundWidth, .05f..1f, defaultValue = .78f)
-            EqLabel("Depth ${(state.surroundDepth * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
-            EqLabel("Position ${(state.surroundPosition * 57.2958f).roundToInt()}°")
-            XvoxThinLineSlider(state.surroundPosition, viewModel::setSurroundPosition, -1.5f..1.5f, defaultValue = 0f)
-            EqLabel("Room ${(state.roomAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
-            EqLabel("Reverb ${(state.reverbAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
-            EqLabel("Movement ${state.surroundPanSpeed}s per orbit")
-            XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f, defaultValue = 6f)
-            EqLabel("HRTF / Spatial ${(state.hrtf * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.hrtf, viewModel::setHrtf, 0f..1f, defaultValue = .6f)
-            EqLabel("Center preservation ${(state.centerPreservation * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.centerPreservation, viewModel::setCenterPreservation, 0f..1f, defaultValue = 0f)
-        }
-
+        EqLabel("Boost protection ${state.eqHeadroomDb.roundToInt()} dB")
+        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
         EqLabel("App volume ${(state.appVolume * 100).roundToInt()}%")
         XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
         EqLabel("Output ceiling ${(state.volumeLimit * 100).roundToInt()}%")

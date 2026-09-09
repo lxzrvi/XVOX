@@ -35,8 +35,12 @@ import com.xvox.music.features.settings.sections.AppearanceSettingsSection
 import com.xvox.music.features.settings.sections.BatteryOptimizationSection
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
 import com.xvox.music.features.settings.sections.HomeSettingsSection
+import com.xvox.music.features.settings.sections.BackupSettingsSection
+import com.xvox.music.features.settings.sections.HeadsetSettingsSection
 import com.xvox.music.features.settings.sections.HowToUseSettingsSection
 import com.xvox.music.features.settings.sections.LibraryFilterSettingsSection
+import com.xvox.music.features.settings.sections.NotifySettingsSection
+import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
 import com.xvox.music.features.settings.sections.WidgetSettingsSection
 
 enum class SettingsAccordionKey {
@@ -45,7 +49,11 @@ enum class SettingsAccordionKey {
     HOME,
     LYRICS,
     XVOX_MIX,
-    PLAYBACK,
+    THREE_D,
+    CROSSFADE,
+    HEADSET,
+    BACKUP,
+    NOTIFY,
     FILTER,
     BATTERY,
     WIDGET,
@@ -91,8 +99,12 @@ fun SettingsScreen(
             when (title) {
                 "Home" -> HomeSettingsSection(live, settingsViewModel)
                 "Lyrics" -> com.xvox.music.features.settings.sections.LyricsSettingsSection(live, settingsViewModel)
-                "XvoxMix" -> EqualizerSettingsSection(live, settingsViewModel)
-                "Playback" -> com.xvox.music.features.settings.sections.PlaybackSettingsEditor(live, settingsViewModel)
+                "Equalizer" -> EqualizerSettingsSection(live, settingsViewModel)
+                "3D sound" -> ThreeDSoundSettingsSection(live, settingsViewModel)
+                "Crossfade" -> com.xvox.music.features.settings.sections.PlaybackSettingsEditor(live, settingsViewModel)
+                "Headset" -> HeadsetSettingsSection(live, settingsViewModel)
+                "Backup" -> BackupSettingsSection(live, settingsViewModel)
+                "Notify" -> NotifySettingsSection(live, settingsViewModel)
                 "Widgets" -> WidgetSettingsSection(live, settingsViewModel)
             }
         }
@@ -146,16 +158,32 @@ fun SettingsScreen(
             SettingsAccordionItem("Lyrics", R.drawable.ic_xvox_lyrics, false, { openEditor("Lyrics") }) { }
         }
 
-        item(key = "accordion_xvoxmix") {
-            SettingsAccordionItem("XvoxMix", R.drawable.ic_xvox_equalizer, false, { openEditor("XvoxMix") }) { }
+        item(key = "accordion_equalizer") {
+            SettingsAccordionItem("Equalizer", R.drawable.ic_xvox_equalizer, false, { openEditor("Equalizer") }) { }
         }
 
-        item(key = "accordion_playback") {
-            SettingsAccordionItem("Playback", R.drawable.ic_xvox_disc, false, { openEditor("Playback") }) { }
+        item(key = "accordion_3d") {
+            SettingsAccordionItem("3D sound", R.drawable.ic_xvox_waveform, false, { openEditor("3D sound") }) { }
+        }
+
+        item(key = "accordion_crossfade") {
+            SettingsAccordionItem("Crossfade", R.drawable.ic_xvox_disc, false, { openEditor("Crossfade") }) { }
+        }
+
+        item(key = "accordion_headset") {
+            SettingsAccordionItem("Headset", R.drawable.ic_xvox_music_note, false, { openEditor("Headset") }) { }
         }
 
         item(key = "accordion_widget") {
             SettingsAccordionItem("Widget", R.drawable.ic_xvox_settings, false, { openEditor("Widgets") }) { }
+        }
+
+        item(key = "accordion_backup") {
+            SettingsAccordionItem("Backup & Restore", R.drawable.ic_xvox_folder, false, { openEditor("Backup") }) { }
+        }
+
+        item(key = "accordion_notify") {
+            SettingsAccordionItem("Notify", R.drawable.ic_xvox_timer, false, { openEditor("Notify") }) { }
         }
 
         item(key = "accordion_filter") {

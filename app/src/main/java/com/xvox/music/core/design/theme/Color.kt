@@ -27,12 +27,16 @@ data class XvoxPalette(
      * installations keep a coloured accent instead of falling back to plain text colour.
      */
     fun withAccent(accentName: String, light: Boolean): XvoxPalette {
+        // A "#RRGGBB" value means the user picked a fully custom accent in Settings.
+        val customAccent = if (accentName.startsWith("#")) {
+            com.xvox.music.core.ui.chrome.parseHexColor(accentName)
+        } else null
         val normalized = when (accentName) {
             "Default", "XVOX Red" -> "Red"
             "XVOX Blue" -> "Blue"
             else -> accentName
         }
-        val accentColor = when (normalized) {
+        val accentColor = customAccent ?: when (normalized) {
             "Blue" -> if (light) Color(0xFF007AFF) else Color(0xFF0A84FF)
             "White" -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF)
             else -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A) // Red / anything legacy

@@ -60,5 +60,10 @@ data class SettingsState(
     val widgetTheme: String = "Dark",
     val widgetCustomColor: String = "#000000",
     val widgetShowLogo: Boolean = true,
-    val widgetCornerRadius: Int = 16
+    val widgetCornerRadius: Int = 16,
+    val chromeStyle: com.xvox.music.core.ui.chrome.XvoxChromeStyle = com.xvox.music.core.ui.chrome.XvoxChromeStyle(),
+    val backgroundBrightness: Float = 0.8f,
+    val audioOutputRoute: String = "auto",
+    val profileLines: List<String> = emptyList(),
+    val remindersEnabled: Boolean = false
 )

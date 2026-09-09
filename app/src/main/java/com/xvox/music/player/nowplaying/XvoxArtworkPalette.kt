@@ -115,8 +115,10 @@ class XvoxArtworkPaletteLoader(
         val minC = min(r, min(g, b))
         val l = (maxC + minC) / 2f
 
-        // Stay inside the contrast band while preserving chroma exactly.
-        if (l in 0.16f..0.56f) return source
+        // Stay inside the "normal" band — not too dark, not too bright — while preserving the
+        // cover's true chroma. The band sits near mid-lightness so text and controls stay readable
+        // on either a midnight-black or a glaring-white cover.
+        if (l in 0.30f..0.62f) return source
 
         val delta = maxC - minC
         val s = if (delta <= 0.0001f) 0f else delta / (1f - abs(2f * l - 1f)).coerceAtLeast(0.0001f)

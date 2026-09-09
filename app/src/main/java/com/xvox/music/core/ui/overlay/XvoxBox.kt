@@ -53,6 +53,7 @@ fun XvoxBox(
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
@@ -89,11 +90,16 @@ fun XvoxBox(
                 ) {
                     val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
                         else RoundedCornerShape(26.dp)
+                    // Option-box chrome from Appearance: box fill transparency and border colour/alpha.
+                    val boxFill = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
+                    val borderBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder)
+                        ?: colors.cardBorder
+                    val boxBorder = borderBase.copy(alpha = borderBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
                     Column(
                         Modifier.widthIn(max = if (mini) 520.dp else 560.dp)
                             .fillMaxWidth().heightIn(max = availableHeight)
-                            .clip(shape).background(colors.cardElevated)
-                            .border(0.8.dp, colors.cardBorder, shape)
+                            .clip(shape).background(boxFill)
+                            .border(0.8.dp, boxBorder, shape)
                             .semantics { paneTitle = title }
                     ) {
                         if (mini) {

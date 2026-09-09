@@ -38,7 +38,6 @@ fun XvoxAppRoot(
     val minimumReady by viewModel.minimumReady.collectAsState()
     val progress by viewModel.progress.collectAsState()
     val stage by viewModel.stage.collectAsState()
-    val splitCatalogue by com.xvox.music.split.XvoxSplitRepository.state.collectAsState()
     val preparing = state == AppUiState.Preparing || state == AppUiState.Home
     val homeVm: com.xvox.music.features.home.HomeViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
@@ -55,12 +54,9 @@ fun XvoxAppRoot(
     LaunchedEffect(player?.connected) {
         if (player?.connected == true) viewModel.report(0.80f, "Connecting playback")
     }
-    LaunchedEffect(splitCatalogue.initialized) {
-        if (splitCatalogue.initialized) viewModel.report(0.86f, "Loading XvoxSplit catalogue")
-    }
 
     val dataReady = minimumReady && library?.startupReady == true &&
-        player?.connected == true && splitCatalogue.initialized
+        player?.connected == true
 
     // Mount the shell UNDER the loading screen first. Loading only lifts once the real layout
     // has actually been measured and drawn, so Home is never revealed half-built.
@@ -84,6 +80,8 @@ fun XvoxAppRoot(
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
+    val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
+    val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
 
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
@@ -104,18 +102,21 @@ fun XvoxAppRoot(
         mode = mode,
         accent = accentStr,
         background = backgroundStr,
-        cardTransparency = cardTransparency
+        cardTransparency = cardTransparency,
+        cardBorder = chrome.cardBorder,
+        cardBorderAlpha = chrome.cardBorderAlpha
     ) {
         CompositionLocalProvider(
             LocalDensity provides customDensity,
-            LocalXvoxOverlayController provides overlays
+            LocalXvoxOverlayController provides overlays,
+            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides chrome
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (state == AppUiState.Setup) {
                     SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                 } else {
                     if (shellMounted && homeVm != null && playerVm != null) {
-                        XvoxMainShell(homeVm, playerVm)
+                        XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
                     }
 
                     AnimatedVisibility(

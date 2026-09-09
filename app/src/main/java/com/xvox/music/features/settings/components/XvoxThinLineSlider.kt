@@ -59,7 +59,15 @@ fun XvoxThinLineSlider(
                 }
             }
             .pointerInput(valueRange, defaultValue) {
-                detectTapGestures { offset ->
+                detectTapGestures(
+                    onPress = { },
+                    onLongPress = {
+                        val target = (defaultValue ?: (valueRange.start + valueRange.endInclusive) / 2f)
+                            .coerceIn(valueRange)
+                        localValue = target
+                        currentOnValueChange(target)
+                    }
+                ) { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {

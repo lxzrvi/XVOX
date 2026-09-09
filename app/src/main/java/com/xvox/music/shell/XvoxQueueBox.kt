@@ -37,6 +37,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -125,9 +126,11 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                 else -> 0f
             }
             if (strength != 0f) {
-                // Eased ramp: a gentle nudge near the edge, a steady glide right at it.
-                val speed = strength * strength * (if (strength < 0) -1f else 1f)
-                val consumed = listState.scrollBy(speed * rowHeightPx * 14f * seconds)
+                // Symmetric smoothstep ramp: the same glide speed upward or downward, gentle at
+                // the edge and steady at full strength — no more laggy, jerky top/bottom races.
+                val t = strength.coerceIn(-1f, 1f)
+                val eased = t * t * (3f - 2f * abs(t)) * (if (t < 0f) -1f else 1f)
+                val consumed = listState.scrollBy(eased * rowHeightPx * 16f * seconds)
                 if (consumed != 0f) reorderAtPointer()
             }
         }

@@ -81,8 +81,9 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             }
         }
     }, controls = {
+        // Timing: 1 ms precision now (was 50 ms), long-press anywhere on the bar returns to 0.
         Label(if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms")
-        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = (v / 50).roundToInt() * 50) } }, -5000f..5000f, defaultValue = 0f)
+        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } }, -5000f..5000f, defaultValue = 0f)
 
         Label("Current line ${settings.currentSize}")
         XvoxThinLineSlider(settings.currentSize.toFloat(), { v -> viewModel.updateLyrics { it.copy(currentSize = v.roundToInt()) } }, 16f..42f)
@@ -91,14 +92,29 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         XvoxThinLineSlider(settings.otherSize.toFloat(), { v -> viewModel.updateLyrics { it.copy(otherSize = v.roundToInt()) } }, 10f..30f)
 
         Label("Top fade ${(settings.fadeTop * 100).roundToInt()}%")
-        XvoxThinLineSlider(settings.fadeTop, { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
+        XvoxThinLineSlider(settings.fadeTop, { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } }, 0f..0.45f, defaultValue = .22f)
 
         Label("Bottom fade ${(settings.fadeBottom * 100).roundToInt()}%")
-        XvoxThinLineSlider(settings.fadeBottom, { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } }, 0f..0.45f)
+        XvoxThinLineSlider(settings.fadeBottom, { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } }, 0f..0.45f, defaultValue = .22f)
+
+        SettingsToggle(
+            title = "Equal fade",
+            subtitle = "Fade all lines evenly around the clear centre line",
+            checked = settings.fadeEqual,
+            onChange = { on -> viewModel.updateLyrics { it.copy(fadeEqual = on) } }
+        )
+
+        if (settings.fadeEqual) {
+            Label("Fade strength ${(settings.fadeIntensity * 100).roundToInt()}%")
+            XvoxThinLineSlider(settings.fadeIntensity, { v -> viewModel.updateLyrics { it.copy(fadeIntensity = (v * 100).roundToInt() / 100f) } }, 0f..1f, defaultValue = 1f)
+        }
 
         Label("Animation")
         SettingsChoiceRow(
-            listOf("fade" to "Fade", "slide" to "Slide", "focus" to "Zoom", "glide" to "Glide", "spring" to "Spring"),
+            listOf(
+                "fade" to "Fade", "slide" to "Slide", "focus" to "Zoom", "glide" to "Glide",
+                "spring" to "Spring", "rise" to "Rise", "pulse" to "Pulse", "wave" to "Wave"
+            ),
             settings.animation
         ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
 

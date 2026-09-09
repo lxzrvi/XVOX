@@ -35,18 +35,53 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     modifier: Modifier = Modifier, color: Color = Color.White, synchronized: Boolean = true) {
     val maximumSize = maxOf(settings.currentSize, settings.otherSize)
     val wanted = (if (active) settings.currentSize else settings.otherSize).toFloat() / maximumSize
-    val spec: AnimationSpec<Float> = if (settings.animation == "spring") spring(dampingRatio = .72f, stiffness = 340f) else tween(280, easing = FastOutSlowInEasing)
-    val scale by animateFloatAsState(wanted * if (settings.animation == "focus" && !active) .97f else 1f, spec, label = "lyricScale")
-    val alpha by animateFloatAsState(if (!synchronized) .82f else when (abs(distance)) { 0 -> 1f; 1 -> .65f; 2 -> .34f; else -> .18f }, tween(240), label = "lyricAlpha")
-    val shiftX by animateFloatAsState(if (settings.animation == "glide" && !active) distance.coerceIn(-1, 1) * 12f else 0f, spec, label = "lyricGlide")
-    val shiftY by animateFloatAsState(if (settings.animation == "slide" && !active) distance.coerceIn(-1, 1) * 6f else 0f, spec, label = "lyricSlide")
+    val animation = settings.animation
+    val spec: AnimationSpec<Float> = if (animation == "spring") spring(dampingRatio = .72f, stiffness = 340f) else tween(300, easing = FastOutSlowInEasing)
+
+    // Zoom ("focus") shrinks the passing lines slightly; wave alternates a soft left/right sway.
+    val zoomOut = (animation == "focus" && !active) || (animation == "wave" && !active && (distance % 2 != 0))
+    val scale by animateFloatAsState(wanted * (if (zoomOut) .97f else 1f), spec, label = "lyricScale")
+
+    // Base dim by distance from the active line. "Equal fade" re-applies it symmetrically to
+    // every line (centre stays clear) with its own strength via fadeIntensity.
+    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
+    val dimTarget = if (settings.fadeEqual) 1f - (1f - baseAlpha) * settings.fadeIntensity else baseAlpha
+    val alpha by animateFloatAsState(if (!synchronized) .82f else dimTarget, tween(240), label = "lyricAlpha")
+
+    val glideX = animation == "glide" && !active
+    val waveX = animation == "wave" && !active
+    val shiftX by animateFloatAsState(
+        if (glideX) distance.coerceIn(-1, 1) * 12f
+        else if (waveX) if (distance % 2 == 0) 0f else distance.coerceIn(-1, 1) * 5f
+        else 0f, spec, label = "lyricShiftX")
+
+    val slideY = animation == "slide" && !active
+    // "rise": future lines enter from below the active line and climb up into the centre.
+    val riseY = animation == "rise" && !active && distance > 0
+    val shiftY by animateFloatAsState(
+        if (slideY) distance.coerceIn(-1, 1) * 6f
+        else if (riseY) distance.coerceIn(1, 4) * 7f
+        else 0f, spec, label = "lyricShiftY")
+
+    // "pulse": the active line breathes gently instead of sitting static.
+    var pulseScale by remember { mutableFloatStateOf(1f) }
+    if (animation == "pulse" && active) {
+        val transition = rememberInfiniteTransition(label = "pulse")
+        pulseScale by transition.animateFloat(
+            initialValue = 1f, targetValue = 1.045f,
+            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "pulseScale"
+        )
+    } else {
+        pulseScale = 1f
+    }
+
     // Always measure at the same maximum size and weight. Animating font metrics was moving the
     // list's row heights during centring and caused the old jitter / corrective jumps.
     Text(text.ifBlank { "♪" }, color = color,
         style = MaterialTheme.typography.bodyLarge.copy(fontSize = maximumSize.sp, lineHeight = (maximumSize * 1.3f).sp,
             fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center),
         modifier = modifier.fillMaxWidth().graphicsLayer {
-            this.alpha = alpha; scaleX = scale; scaleY = scale
+            this.alpha = alpha; scaleX = scale * pulseScale; scaleY = scale * pulseScale
             translationX = shiftX.dp.toPx(); translationY = shiftY.dp.toPx()
         }.padding(horizontal = 18.dp, vertical = 8.dp))
 }

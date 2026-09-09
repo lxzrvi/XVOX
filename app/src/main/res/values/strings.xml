@@ -3,4 +3,7 @@
     <string name="app_name">XVOX</string>
     <string name="widget_name">XVOX Music Player</string>
     <string name="widget_description">Control music playback and view current track</string>
+    <string name="reminder_channel_id">xvox_reminders</string>
+    <string name="reminder_channel_name">Music reminders</string>
+    <string name="reminder_channel_description">Friendly nudges to play your music (max 3 per day)</string>
 </resources>

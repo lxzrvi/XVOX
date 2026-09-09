@@ -8,21 +8,34 @@ data class LyricsSettings(
     val otherSize: Int = 15,
     val fadeTop: Float = .22f,
     val fadeBottom: Float = .22f,
-    val animation: String = "focus"
+    val animation: String = "focus",
+    val fadeEqual: Boolean = false,
+    val fadeIntensity: Float = 1f
 ) {
-    fun sanitized() = copy(offsetMs = offsetMs.coerceIn(-5000, 5000), currentSize = currentSize.coerceIn(16, 42),
-        otherSize = otherSize.coerceIn(10, 30), fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f), fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        animation = animation.takeIf { it in setOf("fade", "slide", "focus", "glide", "spring") } ?: "focus")
+    fun sanitized() = copy(
+        offsetMs = offsetMs.coerceIn(-5000, 5000),
+        currentSize = currentSize.coerceIn(16, 42),
+        otherSize = otherSize.coerceIn(10, 30),
+        fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
+        fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
+        animation = animation.takeIf { it in LyricsSettings.ANIMATIONS } ?: "focus",
+        fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f)
+    )
     fun position(playbackMs: Long): Long = (playbackMs - offsetMs).coerceAtLeast(0)
     fun seekPosition(lyricMs: Long): Long = (lyricMs + offsetMs).coerceAtLeast(0)
     fun encode(): String = JSONObject().put("offset", offsetMs).put("current", currentSize).put("other", otherSize)
-        .put("top", fadeTop.toDouble()).put("bottom", fadeBottom.toDouble()).put("animation", animation).toString()
+        .put("top", fadeTop.toDouble()).put("bottom", fadeBottom.toDouble()).put("animation", animation)
+        .put("equal", fadeEqual).put("intensity", fadeIntensity.toDouble()).toString()
     companion object {
+        val ANIMATIONS = listOf("fade", "slide", "focus", "glide", "spring", "rise", "pulse", "wave")
         fun decode(raw: String): LyricsSettings = runCatching {
             val j = JSONObject(raw)
             LyricsSettings(j.optInt("offset", 0), j.optInt("current", 23), j.optInt("other", 15),
                 j.optDouble("top", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
-                j.optDouble("bottom", .22).toFloat().takeIf { it.isFinite() } ?: .22f, j.optString("animation", "focus")).sanitized()
+                j.optDouble("bottom", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
+                j.optString("animation", "focus"),
+                j.optBoolean("equal", false),
+                j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f).sanitized()
         }.getOrDefault(LyricsSettings())
     }
 }

@@ -70,7 +70,15 @@
 
         </service>
 
-        <service android:name=".split.XvoxSplitService" android:exported="false" android:foregroundServiceType="dataSync|mediaProcessing" />
+        <service
+            android:name=".split.XvoxSplitService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing" />
+
+        <receiver
+            android:name=".notifications.XvoxReminderReceiver"
+            android:exported="false" />
+
 
         <!-- XVOX Resizable Home Screen Music Widget -->
         <receiver

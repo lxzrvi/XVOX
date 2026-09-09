@@ -60,12 +60,15 @@ fun XvoxMiniPlayerCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val zones by remember(song.id) { com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
         if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
     }.distinctUntilChanged() }.collectAsState(initial = 0L to 0L)
 
     val cardShape = RoundedCornerShape(15.dp)
     val artworkShape = RoundedCornerShape(11.dp)
+    val miniEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
+    val miniEdge = miniEdgeBase.copy(alpha = miniEdgeBase.alpha * chrome.miniBorderAlpha.coerceIn(0f, 1f))
 
     val controlInteraction = remember { MutableInteractionSource() }
 
@@ -80,7 +83,7 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(60.dp)
             .clip(cardShape)
-            .background(colors.surface.copy(alpha = 0.88f))
+            .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
             .drawWithContent {
                 drawContent()
                 val b = .7.dp.toPx(); val radius = 15.dp.toPx()
@@ -95,7 +98,7 @@ fun XvoxMiniPlayerCard(
                     }
                     if (progress > 0) drawRect(colors.primaryAccent, Offset.Zero, Size(size.width * progress, barHeight))
                 }
-                drawRoundRect(colors.cardBorder.copy(alpha = .62f), Offset(b / 2, b / 2), Size(size.width - b, size.height - b),
+                drawRoundRect(miniEdge, Offset(b / 2, b / 2), Size(size.width - b, size.height - b),
                     CornerRadius(radius - b / 2), style = Stroke(b))
             }
     ) {

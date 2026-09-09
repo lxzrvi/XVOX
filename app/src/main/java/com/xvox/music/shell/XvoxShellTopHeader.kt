@@ -58,11 +58,12 @@ fun XvoxShellTopHeader(
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surface.copy(alpha = com.xvox.music.core.ui.navigation.XvoxChrome.GlassAlpha))
+            .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
             .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(bottom = 6.dp)
     ) {
@@ -162,5 +163,16 @@ fun XvoxShellTopHeader(
                 }
             }
         }
+
+        // Header hairline tuned in Appearance (Home chrome): colour + transparency.
+        val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder)
+            ?: colors.cardBorder
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .height(1.dp)
+                .background(headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f)))
+        )
     }
 }

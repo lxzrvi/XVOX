@@ -81,7 +81,7 @@ fun ExitMusicBox(onYes: () -> Unit, onNo: () -> Unit) = XvoxConfirmBox(
     question = "Stop the music and close XVOX?",
     confirmLabel = "Yes, stop",
     cancelLabel = "No, stay",
-    emoji = "😢",
+    emoji = ":(",
     onConfirm = onYes,
     onCancel = onNo
 )

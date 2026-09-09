@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -126,7 +127,76 @@ fun ProfileEditorBox(
             }
         )
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Lines shown under the name (the little messages on the profile). Existing lines keep
+        // their X to delete; an "add" field at the end lets new lines be added freely.
+        val storedLines by prefs.profileLines.collectAsState(initial = profile.profileLines)
+        var lines by remember(profile.username) { mutableStateOf(profile.profileLines) }
+        var draft by remember { mutableStateOf("") }
+
+        fun persist(next: List<String>) {
+            lines = next
+            scope.launch { prefs.setProfileLines(next) }
+        }
+
+        Text("Shown under your name", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+
+        if (lines.isEmpty()) {
+            Text("Nothing yet — add a short message below", color = colors.mutedText, fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 8.dp))
+        }
+        lines.forEach { line ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.card)
+                    .padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(line, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Box(
+                    Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).xvoxPressScale(pressedScale = 0.85f) {
+                        haptics.tap(); persist(lines - line)
+                    },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("✕", color = colors.mutedText, fontSize = 11.sp)
+                }
+            }
+            Spacer(Modifier.height(5.dp))
+        }
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = draft,
+                onValueChange = { if (it.length <= 40) draft = it },
+                singleLine = true,
+                textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
+                cursorBrush = SolidColor(colors.primaryAccent),
+                modifier = Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(12.dp)).background(colors.cardElevated),
+                decorationBox = { field ->
+                    Box(
+                        Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) { field() }
+                }
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.width(84.dp).height(42.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (draft.isNotBlank() && lines.size < 4) colors.primaryAccent else colors.cardElevated)
+                    .xvoxPressScale(enabled = draft.isNotBlank() && lines.size < 4) {
+                        haptics.tap()
+                        persist((lines + draft.trim()).distinct())
+                        draft = ""
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Add", color = if (draft.isNotBlank() && lines.size < 4) colors.background else colors.mutedText,
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),

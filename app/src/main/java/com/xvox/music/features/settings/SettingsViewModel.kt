@@ -99,6 +99,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.widgetCustomColor.collect { v -> _state.update { it.copy(widgetCustomColor = v) } } }
             launch { prefs.widgetShowLogo.collect { v -> _state.update { it.copy(widgetShowLogo = v) } } }
             launch { prefs.widgetCornerRadius.collect { v -> _state.update { it.copy(widgetCornerRadius = v) } } }
+
+            launch { prefs.chromeStyle.collect { v -> _state.update { it.copy(chromeStyle = v) } } }
+            launch { prefs.backgroundBrightness.collect { v -> _state.update { it.copy(backgroundBrightness = v) } } }
+            launch { prefs.audioOutputRoute.collect { v -> _state.update { it.copy(audioOutputRoute = v) } } }
+            launch { prefs.profileLines.collect { v -> _state.update { it.copy(profileLines = v) } } }
+            launch { prefs.remindersEnabled.collect { v -> _state.update { it.copy(remindersEnabled = v) } } }
         }
     }
 
@@ -204,4 +210,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setWidgetCustomColor(c: String) = viewModelScope.launch { prefs.setWidgetCustomColor(c) }
     fun setWidgetShowLogo(s: Boolean) = viewModelScope.launch { prefs.setWidgetShowLogo(s) }
     fun setWidgetCornerRadius(r: Int) = viewModelScope.launch { prefs.setWidgetCornerRadius(r) }
+
+    fun setChromeStyle(change: (com.xvox.music.core.ui.chrome.XvoxChromeStyle) -> com.xvox.music.core.ui.chrome.XvoxChromeStyle) {
+        val next = change(_state.value.chromeStyle)
+        _state.update { it.copy(chromeStyle = next) }
+        viewModelScope.launch { prefs.setChromeStyle(next) }
+    }
+    fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }
+    fun setAudioOutputRoute(route: String) = viewModelScope.launch { prefs.setAudioOutputRoute(route) }
+    fun setProfileLines(lines: List<String>) = viewModelScope.launch { prefs.setProfileLines(lines) }
+    fun setRemindersEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setRemindersEnabled(enabled) }
 }

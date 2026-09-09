@@ -79,7 +79,25 @@ fun HomeHeader(
                     TextOverflow.Ellipsis
             )
 
-            HomeGreeting()
+            // Lines the user wrote replace the rotating greeting; keep at most two so the
+            // header stays compact, and only when the name itself fits.
+            val lines = profile.profileLines
+            if (lines.isEmpty()) {
+                HomeGreeting()
+            } else {
+                Column {
+                    lines.take(2).forEach { line ->
+                        Text(
+                            text = line,
+                            color = colors.secondaryText,
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
 
         val actionShape =

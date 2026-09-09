@@ -315,10 +315,10 @@ fun XvoxNowPlaying(
                     timerProgress = sleepTimerProgress,
                     crossfadeOn = settingsState.crossfade,
                     onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
-                    xvoxMixOn = settingsState.equalizerEnabled,
+                    equalizerOn = settingsState.equalizerEnabled,
                     spaceOn = settingsState.stereoWidening,
                     lyricsOn = showLyrics,
-                    onToggleXvoxMix = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
+                    onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
                     onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
                     onToggleLyrics = { showLyrics = !showLyrics },
                     onOpenOptions = { page ->

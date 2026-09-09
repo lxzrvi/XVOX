@@ -28,8 +28,8 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsToggle
 
 /**
- * Playback. XvoxSplit is no longer here — it now lives in Now Playing › More, away from the
- * Home and settings surfaces.
+ * Crossfade (renamed from Playback). This screen is crossfade-only: headset routing and
+ * connect/unplug behaviour live in their own Headset section.
  */
 @Composable
 fun PlaybackSettingsSection(
@@ -65,30 +65,6 @@ fun PlaybackSettingsSection(
                     Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
                         viewModel.setCrossfadeDuration(sec)
                     }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Label("Headset unplugged")
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("pause" to "Pause", "keep" to "Keep playing").forEach { (key, label) ->
-                Choice(label, state.btDisconnectAction == key, Modifier.weight(1f)) {
-                    viewModel.setBtDisconnectAction(key)
-                    viewModel.setPauseOnHeadphoneDisconnect(key == "pause")
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Label("Headset connected")
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("none" to "Nothing", "play" to "Play").forEach { (key, label) ->
-                Choice(label, state.btConnectAction == key, Modifier.weight(1f)) {
-                    viewModel.setBtConnectAction(key)
-                    viewModel.setPlayOnHeadsetConnect(key == "play")
                 }
             }
         }

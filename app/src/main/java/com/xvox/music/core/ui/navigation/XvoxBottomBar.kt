@@ -33,6 +33,7 @@ fun XvoxBottomBar(
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
 
@@ -46,6 +47,14 @@ fun XvoxBottomBar(
     val parentShape = RoundedCornerShape(XvoxNavigationGeometry.barRadius)
     val selectorShape = RoundedCornerShape(XvoxNavigationGeometry.selectorBaseRadius)
 
+    // Appearance › Home chrome overrides for the floating nav bar and its travelling pill.
+    val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
+    val navEdge = navEdgeBase.copy(alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(0f, 1f))
+    val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
+        ?: colors.cardElevated.copy(alpha = 0.42f)
+    val pillFill = if (chrome.pillColor.isBlank()) pillBase
+        else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f))
+
     Box(
         modifier = modifier
             .width(XvoxNavigationGeometry.barWidth)
@@ -57,10 +66,10 @@ fun XvoxBottomBar(
                 .offset(y = XvoxNavigationGeometry.hostOverflow)
                 .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight)
                 .clip(parentShape)
-                .background(colors.surface.copy(alpha = 0.88f))
+                .background(colors.surface.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f)))
                 .border(
                     width = XvoxNavigationGeometry.barBorderWidth,
-                    color = colors.cardBorder.copy(alpha = 0.62f),
+                    color = navEdge,
                     shape = parentShape
                 )
         )
@@ -78,10 +87,10 @@ fun XvoxBottomBar(
                 }
                 .size(XvoxNavigationGeometry.selectorRestWidth, XvoxNavigationGeometry.selectorRestHeight)
                 .clip(selectorShape)
-                .background(colors.cardElevated.copy(alpha = 0.42f))
+                .background(pillFill)
                 .border(
                     width = XvoxNavigationGeometry.selectorBorderWidth,
-                    color = colors.cardBorder.copy(alpha = 0.72f),
+                    color = navEdge,
                     shape = selectorShape
                 )
         )
