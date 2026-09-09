@@ -58,6 +58,9 @@ fun XvoxBox(
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    // Swallows taps on empty interior (header space, padding around content) so the box can only
+    // be closed from its X, the scrim behind it, or the system back button.
+    val swallowInteraction = remember { MutableInteractionSource() }
     fun close() {
         if (closing) return
         closing = true
@@ -100,6 +103,8 @@ fun XvoxBox(
                             .fillMaxWidth().heightIn(max = availableHeight)
                             .clip(shape).background(boxFill)
                             .border(0.8.dp, boxBorder, shape)
+                            // Consume taps on the box's own empty regions (never closes the box).
+                            .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {
                         if (mini) {

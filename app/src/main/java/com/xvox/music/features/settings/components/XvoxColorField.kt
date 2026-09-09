@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -131,10 +132,20 @@ fun ColorPickerRow(
     subtitle: String? = null
 ) {
     val colors = XvoxTheme.colors
-    var expanded by remember(hex) { mutableStateOf(false) }
-    var wheelH by remember(hex) { mutableFloatStateOf(hexToHsv(hex)?.get(0) ?: 210f) }
-    var wheelS by remember(hex) { mutableFloatStateOf(hexToHsv(hex)?.get(1) ?: 0.8f) }
-    var wheelV by remember(hex) { mutableFloatStateOf(hexToHsv(hex)?.get(2) ?: 0.9f) }
+    // "expanded" is NOT keyed on hex: sliding the wheel or the value slider keeps changing the
+    // colour and would have collapsed the picker on every frame. It only closes on tap-again.
+    var expanded by remember { mutableStateOf(false) }
+    var wheelH by remember { mutableFloatStateOf(hexToHsv(hex)?.get(0) ?: 210f) }
+    var wheelS by remember { mutableFloatStateOf(hexToHsv(hex)?.get(1) ?: 0.8f) }
+    var wheelV by remember { mutableFloatStateOf(hexToHsv(hex)?.get(2) ?: 0.9f) }
+
+    // Follow external changes (hex typing, swatches) without ever closing the row.
+    LaunchedEffect(hex) {
+        val hsv = hexToHsv(hex) ?: return@LaunchedEffect
+        if (wheelH != hsv[0]) wheelH = hsv[0]
+        if (wheelS != hsv[1]) wheelS = hsv[1]
+        if (wheelV != hsv[2]) wheelV = hsv[2]
+    }
 
     fun commit(h: Float, s: Float, v: Float) {
         wheelH = h; wheelS = s; wheelV = v

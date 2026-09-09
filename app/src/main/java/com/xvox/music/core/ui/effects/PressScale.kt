@@ -25,6 +25,46 @@ private val TapIn = spring<Float>(dampingRatio = 0.9f, stiffness = 2400f)
 private val TapOut = spring<Float>(dampingRatio = 0.72f, stiffness = 850f)
 
 /**
+ * One gesture for a button that also repeats while held: a short tap calls [onTap]; pressing and
+ * holding fires [onHoldFire] after [longPressDelay] and again every [repeatEvery] until release.
+ * A release right after a hold never fires the tap, so holding Next skips fast and releasing it
+ * does not skip one extra track.
+ */
+fun Modifier.xvoxTapOrHold(
+    enabled: Boolean = true,
+    onTap: () -> Unit,
+    onHoldFire: () -> Unit = onTap,
+    longPressDelay: Long = 480,
+    repeatEvery: Long = 360
+): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    val currentTap by rememberUpdatedState(onTap)
+    val currentFire by rememberUpdatedState(onHoldFire)
+    pointerInput(enabled, longPressDelay, repeatEvery) {
+        if (!enabled) return@pointerInput
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var held = false
+            val job = scope.launch {
+                delay(longPressDelay)
+                held = true
+                currentFire()
+                while (true) {
+                    delay(repeatEvery)
+                    currentFire()
+                }
+            }
+            try {
+                waitForUpOrCancellation(PointerEventPass.Initial)
+            } finally {
+                job.cancel()
+            }
+            if (!held) currentTap()
+        }
+    }
+}
+
+/**
  * Same first-touch guarantee as [xvoxSongPress], for buttons, pills and rows: the scale is
  * animated off-composition so the response is instant no matter what else is on screen.
  */

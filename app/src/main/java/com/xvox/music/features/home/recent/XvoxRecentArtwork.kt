@@ -70,10 +70,9 @@ fun XvoxRecentArtwork(
 
     val shape = RoundedCornerShape(3.dp)
 
-    // A true tap (no scroll slop) holds the tile pressed; while pressed the artwork reveals its
-    // whole square cover instead of the wide cropped band, so the cover never looks cut off.
-    var pressed by remember { mutableStateOf(false) }
-
+    // The square cover is always larger than the wide tile and is simply cropped, so the artwork
+    // never shows letterbox gaps or flickers. xvoxSongPress shrinks the tile slightly on a real
+    // press (never during a scroll) for the press feel — no contentScale switching, no flicker.
     Box(
         modifier = modifier
             .clip(shape)
@@ -84,36 +83,11 @@ fun XvoxRecentArtwork(
                 shape = shape
             )
             .xvoxSongPress(onClick, onLongClick)
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    var slopped = false
-                    pressed = true
-                    try {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!slopped) {
-                                val dx = change.position.x - down.position.x
-                                val dy = change.position.y - down.position.y
-                                val moved = dx * dx + dy * dy > viewConfiguration.touchSlop * viewConfiguration.touchSlop
-                                if (moved) {
-                                    slopped = true
-                                    pressed = false
-                                }
-                            }
-                            if (event.changes.none { it.pressed }) break
-                        }
-                    } finally {
-                        pressed = false
-                    }
-                }
-            }
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = XvoxRecentArtworkSize,
-            contentScale = if (pressed) ContentScale.Fit else ContentScale.Crop,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 

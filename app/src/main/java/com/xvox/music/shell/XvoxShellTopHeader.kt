@@ -91,7 +91,23 @@ fun XvoxShellTopHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                HomeGreeting()
+                // User lines under the name (hidden = name stands beside the avatar on its own);
+                // with no lines the rotating greeting keeps the spot.
+                val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
+                if (lines.isEmpty()) {
+                    HomeGreeting()
+                } else {
+                    lines.take(2).forEach { line ->
+                        Text(
+                            text = line,
+                            color = colors.secondaryText,
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
             AnimatedVisibility(

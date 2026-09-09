@@ -211,11 +211,13 @@ fun XvoxNowPlaying(
     }
 
     // As the player slides down the top corners round off, so the closing sheet always reads
-    // as one soft-edged card peeling away from the Home screen behind it.
+    // as one soft-edged card peeling away from the Home screen behind it. The rounding eases in
+    // — small while you nudge it, fullest as the sheet is about to let go.
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val cornerEased = slideFraction * slideFraction
     val sheetCorner = RoundedCornerShape(
-        topStart = 30.dp * slideFraction,
-        topEnd = 30.dp * slideFraction
+        topStart = 36.dp * cornerEased,
+        topEnd = 36.dp * cornerEased
     )
 
     Box(

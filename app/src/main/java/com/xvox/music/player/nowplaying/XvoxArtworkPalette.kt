@@ -115,10 +115,10 @@ class XvoxArtworkPaletteLoader(
         val minC = min(r, min(g, b))
         val l = (maxC + minC) / 2f
 
-        // Stay inside the "normal" band — not too dark, not too bright — while preserving the
-        // cover's true chroma. The band sits near mid-lightness so text and controls stay readable
-        // on either a midnight-black or a glaring-white cover.
-        if (l in 0.30f..0.62f) return source
+        // Stay inside the "normal" band — never very dark, never near-white — while preserving the
+        // cover's true chroma. The band sits at light-but-readable lightness so text and controls
+        // stay readable on a midnight-black cover, and a glaring-white cover is pulled down a touch.
+        if (l in 0.42f..0.62f) return source
 
         val delta = maxC - minC
         val s = if (delta <= 0.0001f) 0f else delta / (1f - abs(2f * l - 1f)).coerceAtLeast(0.0001f)
@@ -131,7 +131,7 @@ class XvoxArtworkPaletteLoader(
             }
             if (h < 0f) h += 360f
         }
-        val target = l.coerceIn(0.16f, 0.56f)
+        val target = l.coerceIn(0.42f, 0.60f)
         val c = (1f - abs(2f * target - 1f)) * s
         val x = c * (1f - abs((h / 60f) % 2f - 1f))
         val m = target - c / 2f

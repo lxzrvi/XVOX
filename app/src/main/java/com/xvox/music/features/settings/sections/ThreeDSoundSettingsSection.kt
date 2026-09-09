@@ -19,9 +19,9 @@ import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
 /**
- * 3D sound — a separate settings home of its own, with only the important spatial controls
- * (width, depth, position, room, movement and spatial headroom). Reverb lives with the
- * equalizer; the XvoxMix screen no longer mixes both.
+ * 3D sound — a separate settings home of its own, with only the spatial controls (width, depth,
+ * position, movement and spatial headroom). Room and reverb live in the Equalizer now, so the
+ * two effects are never tuned in two places.
  */
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
@@ -46,8 +46,6 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
             XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
             EqL("Position ${(state.surroundPosition * 57.2958f).roundToInt()}°")
             XvoxThinLineSlider(state.surroundPosition, viewModel::setSurroundPosition, -1.5f..1.5f, defaultValue = 0f)
-            EqL("Room ${(state.roomAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
             EqL("Movement ${state.surroundPanSpeed}s per orbit")
             XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f, defaultValue = 6f)
             EqL("HRTF / Spatial ${(state.hrtf * 100).roundToInt()}%")
@@ -60,5 +58,5 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
 
 @Composable
 private fun EqL(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
+    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
 }

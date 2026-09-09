@@ -126,11 +126,11 @@ fun XvoxNowPlayingProgress(
                 },
             contentAlignment = Alignment.Center
         ) {
-            XvoxBlendZones(currentSongId, duration, Modifier.fillMaxWidth().height(1.5.dp))
+            XvoxBlendZones(currentSongId, duration, Modifier.fillMaxWidth().height(2.dp))
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(18.dp)
             ) {
                 val y = size.height / 2f
 
@@ -138,21 +138,22 @@ fun XvoxNowPlayingProgress(
                     color = activeColor.copy(alpha = 0.28f),
                     start = Offset(0f, y),
                     end = Offset(size.width, y),
-                    strokeWidth = 1.5.dp.toPx(),
+                    strokeWidth = 2.dp.toPx(),
                     cap = StrokeCap.Round
                 )
 
+                val tip = Offset(size.width * visibleFraction, y)
                 if (visibleFraction > 0f) {
                     drawLine(
                         color = activeColor,
                         start = Offset(0f, y),
-                        end = Offset(
-                            size.width * visibleFraction,
-                            y
-                        ),
-                        strokeWidth = 1.5.dp.toPx(),
+                        end = tip,
+                        strokeWidth = 2.dp.toPx(),
                         cap = StrokeCap.Round
                     )
+                    // The thumb rides exactly under the finger from wherever the drag began.
+                    drawCircle(activeColor, 5.dp.toPx(), tip)
+                    drawCircle(colors.background, 2.2.dp.toPx(), tip)
                 }
             }
         }

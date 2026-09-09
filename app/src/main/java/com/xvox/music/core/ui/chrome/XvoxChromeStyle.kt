@@ -31,6 +31,8 @@ data class XvoxChromeStyle(
     // Navigation selector "pill".
     val pillColor: String = "",
     val pillAlpha: Float = 1f,
+    // Colour of the icon sitting inside the pill ("" = the theme accent).
+    val pillIconColor: String = "",
     // Cards everywhere (border only; the card fill transparency lives in Theme's card alpha).
     val cardBorder: String = "",
     val cardBorderAlpha: Float = 1f
@@ -41,6 +43,7 @@ data class XvoxChromeStyle(
         miniBgAlpha, miniBorder, miniBorderAlpha,
         navBgAlpha, navBorder, navBorderAlpha,
         pillColor, pillAlpha,
+        pillIconColor,
         cardBorder, cardBorderAlpha
     ).joinToString("|")
 
@@ -50,14 +53,26 @@ data class XvoxChromeStyle(
             fun str(i: Int): String = parts.getOrNull(i).orEmpty().trim()
             fun flt(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
-            if (parts.size < 16) return XvoxChromeStyle()
+            // Legacy 16-field backups predate the pill icon colour: map them to their own order.
+            if (parts.size == 16) {
+                return XvoxChromeStyle(
+                    optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
+                    headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
+                    miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
+                    navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
+                    pillColor = str(12), pillAlpha = flt(13, 1f),
+                    cardBorder = str(14), cardBorderAlpha = flt(15, 1f)
+                )
+            }
+            if (parts.size < 17) return XvoxChromeStyle()
             return XvoxChromeStyle(
                 optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
                 headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
                 miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
                 navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
                 pillColor = str(12), pillAlpha = flt(13, 1f),
-                cardBorder = str(14), cardBorderAlpha = flt(15, 1f)
+                pillIconColor = str(14),
+                cardBorder = str(15), cardBorderAlpha = flt(16, 1f)
             )
         }
     }

@@ -1,7 +1,5 @@
 package com.xvox.music.features.settings.sections
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,24 +11,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.XvoxChromeStyle
-import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
@@ -39,11 +33,11 @@ import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
 /**
- * Appearance — minimal settings UI.
+ * Appearance — minimal. No Background section, no Cards section.
  *
- * Background offers exactly two choices (Default or your Image), and every tint/colour/edge in
- * the app is tuned from its own card: Cards, Option boxes and Home chrome (header, mini player,
- * navbar and its pill). Every colour row opens the same free colour wheel + hex + intensity.
+ * One "Chrome" slider drives the header, the mini player and the nav bar together; the nav pill
+ * keeps its own colour, transparency and icon colour. The little preview above shows every
+ * change live, so nothing here needs a paragraph of explanation.
  */
 @Composable
 fun AppearanceSettingsSection(
@@ -52,13 +46,13 @@ fun AppearanceSettingsSection(
 ) {
     val colors = XvoxTheme.colors
     val chrome = state.chromeStyle
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) viewModel.setBackgroundImage(uri.toString())
-    }
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // ---------------------------------------------------------------- Theme + accent.
+        // Live preview of the current chrome settings (header / mini player / nav pill).
+        XvoxChromePreview(chrome)
+        Spacer(Modifier.height(2.dp))
+
         GroupTitle("Theme")
         SettingsChoiceRow(
             listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
@@ -69,149 +63,62 @@ fun AppearanceSettingsSection(
         SettingsChoiceRow(
             listOf("Red" to "Red", "Blue" to "Blue", "White" to "White"),
             if (state.accentColor.startsWith("#")) "custom" else state.accentColor
-        ) { key -> if (key == "custom") return@SettingsChoiceRow else viewModel.setAccentColor(key) }
+        ) { key -> if (key != "custom") viewModel.setAccentColor(key) }
         ColorPickerRow(
-            label = "Custom accent colour",
+            label = "Custom accent",
             hex = if (state.accentColor.startsWith("#")) state.accentColor else "",
             onColorChange = { hex -> viewModel.setAccentColor(hex) },
-            subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour to override"
+            subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour"
         )
 
-        // ---------------------------------------------------------------- Background.
-        GroupTitle("Background")
-        val imageUri = state.backgroundImageUri
-        SettingsChoiceRow(
-            listOf("Default" to "Default", "Image" to "Image"),
-            if (imageUri == null) "Default" else "Image"
-        ) { key ->
-            when (key) {
-                "Default" -> {
-                    viewModel.setBackgroundImage(null)
-                    viewModel.setBackgroundName("Default")
-                }
-                "Image" -> if (imageUri == null) imagePicker.launch("image/*")
-            }
-        }
-        if (imageUri != null) {
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.cardElevated)
-                ) {
-                    AsyncImage(
-                        model = imageUri,
-                        contentDescription = "Background image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().height(120.dp)
-                    )
-                    // Remove (X).
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(15.dp))
-                            .background(colors.card.copy(alpha = 0.85f))
-                            .xvoxPressScale { viewModel.setBackgroundImage(null) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_close),
-                            contentDescription = "Remove background image",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(colors.card.copy(alpha = 0.9f))
-                            .xvoxPressScale { imagePicker.launch("image/*") }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text("Choose image", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Brightness", color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(86.dp))
-                    XvoxThinLineSlider(
-                        value = state.backgroundBrightness,
-                        onValueChange = viewModel::setBackgroundBrightness,
-                        valueRange = 0.2f..1f,
-                        defaultValue = 0.8f,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text("${(state.backgroundBrightness * 100).roundToInt()}%", color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.width(42.dp))
-                }
-            }
+        GroupTitle("Chrome")
+        // One slider controls the whole top + bottom chrome together.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Header / Mini / Bar", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = chrome.headerBgAlpha,
+                onValueChange = { a ->
+                    viewModel.setChromeStyle { it.copy(headerBgAlpha = a, miniBgAlpha = a, navBgAlpha = a) }
+                },
+                valueRange = 0.25f..1f,
+                defaultValue = 0.88f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
-        // ---------------------------------------------------------------- Cards.
-        GroupTitle("Cards")
-        AlphaRow("Transparency", state.cardTransparency / 0.6f, { viewModel.setCardTransparency(it * 0.6f) }, defaultValue = 0f, labelLeft = "Solid", labelRight = "Glass")
-        ColorPickerRow(
-            label = "Border colour",
-            hex = chrome.cardBorder,
-            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(cardBorder = hex) } }
-        )
-        AlphaRow("Border", chrome.cardBorderAlpha, { a -> viewModel.setChromeStyle { it.copy(cardBorderAlpha = a) } }, defaultValue = 1f)
-
-        // ---------------------------------------------------------------- Option boxes.
-        GroupTitle("Option boxes")
-        AlphaRow("Fill", chrome.optionBoxBgAlpha, { a -> viewModel.setChromeStyle { it.copy(optionBoxBgAlpha = a) } }, defaultValue = 1f, labelRight = "Solid")
-        ColorPickerRow(
-            label = "Border colour",
-            hex = chrome.optionBoxBorder,
-            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(optionBoxBorder = hex) } }
-        )
-        AlphaRow("Border", chrome.optionBoxBorderAlpha, { a -> viewModel.setChromeStyle { it.copy(optionBoxBorderAlpha = a) } }, defaultValue = 1f)
-
-        // ---------------------------------------------------------------- Home chrome.
-        GroupTitle("Header")
-        ChromeStrip(chrome, viewModel,
-            bgAlpha = chrome.headerBgAlpha,
-            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(headerBgAlpha = a) } },
-            border = chrome.headerBorder,
-            onBorder = { hex -> viewModel.setChromeStyle { it.copy(headerBorder = hex) } },
-            borderAlpha = chrome.headerBorderAlpha,
-            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(headerBorderAlpha = a) } }
-        )
-
-        GroupTitle("Mini player")
-        ChromeStrip(chrome, viewModel,
-            bgAlpha = chrome.miniBgAlpha,
-            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(miniBgAlpha = a) } },
-            border = chrome.miniBorder,
-            onBorder = { hex -> viewModel.setChromeStyle { it.copy(miniBorder = hex) } },
-            borderAlpha = chrome.miniBorderAlpha,
-            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(miniBorderAlpha = a) } }
-        )
-
-        GroupTitle("Navigation bar")
-        ChromeStrip(chrome, viewModel,
-            bgAlpha = chrome.navBgAlpha,
-            onBgAlpha = { a -> viewModel.setChromeStyle { it.copy(navBgAlpha = a) } },
-            border = chrome.navBorder,
-            onBorder = { hex -> viewModel.setChromeStyle { it.copy(navBorder = hex) } },
-            borderAlpha = chrome.navBorderAlpha,
-            onBorderAlpha = { a -> viewModel.setChromeStyle { it.copy(navBorderAlpha = a) } }
-        )
+        GroupTitle("Nav pill")
         ColorPickerRow(
             label = "Pill colour",
             hex = chrome.pillColor,
-            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillColor = hex) } }
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillColor = hex) } },
+            subtitle = if (chrome.pillColor.isBlank()) "Default: soft grey" else "Custom pill fill"
         )
-        AlphaRow("Pill", chrome.pillAlpha, { a -> viewModel.setChromeStyle { it.copy(pillAlpha = a) } }, defaultValue = 1f)
+        ColorPickerRow(
+            label = "Icon colour",
+            hex = chrome.pillIconColor,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillIconColor = hex) } },
+            subtitle = if (chrome.pillIconColor.isBlank()) "Default: your accent" else "Icon on the pill"
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Pill", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = chrome.pillAlpha,
+                onValueChange = { a -> viewModel.setChromeStyle { it.copy(pillAlpha = a) } },
+                valueRange = 0.1f..1f,
+                defaultValue = 1f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(chrome.pillAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+        }
 
         GroupTitle("Text size")
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("A", color = colors.mutedText, fontSize = 13.sp, modifier = Modifier.width(30.dp))
+            Text("A", color = colors.mutedText, fontSize = 12.sp, modifier = Modifier.width(30.dp))
             XvoxThinLineSlider(
                 value = state.fontSizeScale,
                 onValueChange = viewModel::setFontSizeScale,
@@ -224,48 +131,78 @@ fun AppearanceSettingsSection(
     }
 }
 
+/** A compact live snapshot of the header, mini player and floating nav bar using current chrome. */
 @Composable
-private fun ChromeStrip(
-    chrome: XvoxChromeStyle,
-    viewModel: SettingsViewModel,
-    bgAlpha: Float,
-    onBgAlpha: (Float) -> Unit,
-    border: String,
-    onBorder: (String) -> Unit,
-    borderAlpha: Float,
-    onBorderAlpha: (Float) -> Unit
-) {
-    AlphaRow("Fill", bgAlpha, onBgAlpha, defaultValue = 1f)
-    ColorPickerRow(
-        label = "Border colour",
-        hex = border,
-        onColorChange = onBorder
-    )
-    AlphaRow("Border", borderAlpha, onBorderAlpha, defaultValue = if (borderAlpha == 0f) 0f else 1f)
-}
-
-@Composable
-private fun AlphaRow(
-    title: String,
-    value: Float,
-    onChange: (Float) -> Unit,
-    defaultValue: Float,
-    labelLeft: String = "Clear",
-    labelRight: String = "Solid"
-) {
+private fun XvoxChromePreview(chrome: XvoxChromeStyle) {
     val colors = XvoxTheme.colors
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(86.dp))
-        XvoxThinLineSlider(
-            value = value.coerceIn(0f, 1f),
-            onValueChange = onChange,
-            valueRange = 0f..1f,
-            defaultValue = defaultValue,
-            modifier = Modifier.weight(1f)
-        )
-        Text(labelLeft, color = colors.mutedText, fontSize = 10.sp, modifier = Modifier.width(30.dp))
-        Text("${(value.coerceIn(0f, 1f) * 100).roundToInt()}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(38.dp))
-        Spacer(Modifier.width(2.dp))
+    val fillAlpha = chrome.headerBgAlpha.coerceIn(0f, 1f)
+    val pillIcon = parseHexColor(chrome.pillIconColor) ?: colors.primaryAccent
+    val pillBg = parseHexColor(chrome.pillColor)
+        ?: colors.cardElevated.copy(alpha = 0.42f)
+    val pillFill = if (chrome.pillColor.isBlank()) pillBg
+        else pillBg.copy(alpha = pillBg.alpha * chrome.pillAlpha.coerceIn(0f, 1f))
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.card)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Text("PREVIEW", color = colors.secondaryText, fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
+
+        // Header strip.
+        Row(
+            Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(8.dp))
+                .background(colors.surface.copy(alpha = fillAlpha)).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(14.dp).clip(CircleShape).background(colors.primaryAccent.copy(alpha = 0.8f)))
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.width(52.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.primaryText.copy(alpha = .55f)))
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.size(10.dp).clip(CircleShape).background(colors.cardBorder))
+        }
+
+        // Mini player bar.
+        Row(
+            Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(9.dp))
+                .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f))).padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(colors.primaryAccent.copy(alpha = 0.35f)))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Box(Modifier.width(70.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(colors.primaryText.copy(alpha = .5f)))
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.width(42.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(colors.secondaryText.copy(alpha = .5f)))
+            }
+            Box(Modifier.size(20.dp).clip(CircleShape).background(colors.primaryAccent.copy(alpha = 0.35f)))
+        }
+
+        // Floating nav bar with pill.
+        Box(Modifier.fillMaxWidth().height(34.dp), contentAlignment = Alignment.Center) {
+            Row(
+                Modifier.width(150.dp).height(26.dp).clip(RoundedCornerShape(13.dp))
+                    .background(colors.surface.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f))).padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(true, false, false, false).forEach { active ->
+                    Box(
+                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(10.dp))
+                            .background(if (active) pillFill else Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            Modifier.size(7.dp).clip(CircleShape)
+                                .background(if (active) pillIcon else colors.mutedText.copy(alpha = .5f))
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -277,8 +214,6 @@ private fun GroupTitle(title: String) {
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.8.sp,
-        modifier = Modifier.padding(top = 4.dp)
+        modifier = Modifier.padding(top = 6.dp)
     )
 }
-
-

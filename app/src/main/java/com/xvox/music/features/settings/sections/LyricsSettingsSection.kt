@@ -81,9 +81,9 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             }
         }
     }, controls = {
-        // Timing: 1 ms precision now (was 50 ms), long-press anywhere on the bar returns to 0.
+        // Timing: −3000..+3000 ms with 1 ms precision; long-press anywhere on the bar returns to 0.
         Label(if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms")
-        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } }, -5000f..5000f, defaultValue = 0f)
+        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } }, -3000f..3000f, defaultValue = 0f)
 
         Label("Current line ${settings.currentSize}")
         XvoxThinLineSlider(settings.currentSize.toFloat(), { v -> viewModel.updateLyrics { it.copy(currentSize = v.roundToInt()) } }, 16f..42f)
@@ -99,7 +99,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
         SettingsToggle(
             title = "Equal fade",
-            subtitle = "Fade all lines evenly around the clear centre line",
+            subtitle = "Fade every line above and below — only the current line stays clear",
             checked = settings.fadeEqual,
             onChange = { on -> viewModel.updateLyrics { it.copy(fadeEqual = on) } }
         )
@@ -126,5 +126,5 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
 @Composable
 private fun Label(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }

@@ -14,33 +14,23 @@ import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.SettingsToggle
 
 /**
- * Headset. First choose where a song should play — always the headset, always the phone speaker,
- * or Auto (the phone decides, pausing when nothing is plugged in). Below that: what happens when
- * a headset connects and when it unplugs. The same three choices are reachable from Now Playing's
- * three-dot menu.
+ * Headset. Audio stays on Auto — a Bluetooth headset or earbuds take over the moment they
+ * connect and the phone pauses when they unplug. The only choices left are what happens on
+ * connect and on unplug.
  */
 @Composable
 fun HeadsetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
 
     androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
-        SettingsChoiceRow(
-            listOf("auto" to "Auto", "headset" to "Headset", "phone" to "Phone"),
-            state.audioOutputRoute
-        ) { route -> viewModel.setAudioOutputRoute(route) }
-        Spacer(Modifier.height(8.dp))
         Text(
-            text = when (state.audioOutputRoute) {
-                "headset" -> "Music always stays in your headset/earbuds."
-                "phone" -> "Music plays on the phone speaker even when a headset is connected."
-                else -> "Music follows your headset; pausing when it is unplugged."
-            },
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
+            text = "Auto: Bluetooth headset plays as soon as it connects; music pauses when it is unplugged.",
+            color = colors.primaryAccent,
+            fontSize = 13.sp,
+            lineHeight = 17.sp,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -65,11 +55,5 @@ fun HeadsetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                 viewModel.setPauseOnHeadphoneDisconnect(key == "pause")
             }
         }
-
     }
-}
-
-@Composable
-private fun HeadLabel(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }

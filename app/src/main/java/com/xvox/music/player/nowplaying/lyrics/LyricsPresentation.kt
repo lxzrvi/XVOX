@@ -36,39 +36,60 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     val maximumSize = maxOf(settings.currentSize, settings.otherSize)
     val wanted = (if (active) settings.currentSize else settings.otherSize).toFloat() / maximumSize
     val animation = settings.animation
-    val spec: AnimationSpec<Float> = if (animation == "spring") spring(dampingRatio = .72f, stiffness = 340f) else tween(300, easing = FastOutSlowInEasing)
+    val spec: AnimationSpec<Float> = if (animation == "spring") spring(dampingRatio = .55f, stiffness = 460f)
+        else tween(280, easing = FastOutSlowInEasing)
 
-    // Zoom ("focus") shrinks the passing lines slightly; wave alternates a soft left/right sway.
-    val zoomOut = (animation == "focus" && !active) || (animation == "wave" && !active && (distance % 2 != 0))
-    val scale by animateFloatAsState(wanted * (if (zoomOut) .97f else 1f), spec, label = "lyricScale")
+    // "focus" shrinks passing lines away (strong zoom-out); "wave" keeps them full size and only
+    // sways them; "pulse" breathes on the active line only (handled below).
+    val focusScale = animation == "focus" && !active
+    val waveScale = animation == "wave" && !active && (distance % 2 != 0)
+    val scaleBase = wanted * when {
+        focusScale -> .9f
+        waveScale -> 1.02f
+        else -> 1f
+    }
+    val scale by animateFloatAsState(scaleBase, spec, label = "lyricScale")
 
-    // Base dim by distance from the active line. "Equal fade" re-applies it symmetrically to
-    // every line (centre stays clear) with its own strength via fadeIntensity.
+    // Base dim by distance from the active line. "Equal fade" is stricter: every line above and
+    // below is faded out fully by fadeIntensity — only the current line stays clear, exactly as
+    // if the lyrics above and below were not there.
     val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
-    val dimTarget = if (settings.fadeEqual) 1f - (1f - baseAlpha) * settings.fadeIntensity else baseAlpha
+    val dimTarget = if (settings.fadeEqual) {
+        if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0.05f, 1f)
+    } else baseAlpha
     val alpha by animateFloatAsState(if (!synchronized) .82f else dimTarget, tween(240), label = "lyricAlpha")
 
+    // Each animation moves differently, so they never feel the same:
+    //  glide -> the whole line drifts sideways; wave -> neighbours sway in/out of the centre;
+    //  slide -> lines drop one place; rise -> upcoming lines climb from below; spring -> a soft
+    //  vertical hop on passing lines.
     val glideX = animation == "glide" && !active
     val waveX = animation == "wave" && !active
     val shiftX by animateFloatAsState(
-        if (glideX) distance.coerceIn(-1, 1) * 12f
-        else if (waveX) if (distance % 2 == 0) 0f else distance.coerceIn(-1, 1) * 5f
-        else 0f, spec, label = "lyricShiftX")
+        when {
+            glideX -> distance.coerceIn(-1, 1) * 26f
+            waveX -> if (distance % 2 != 0) distance.coerceIn(-1, 1) * 10f
+                else -distance.coerceIn(-1, 1) * 4f
+            else -> 0f
+        }, spec, label = "lyricShiftX")
 
     val slideY = animation == "slide" && !active
-    // "rise": future lines enter from below the active line and climb up into the centre.
     val riseY = animation == "rise" && !active && distance > 0
+    val springY = animation == "spring" && !active
     val shiftY by animateFloatAsState(
-        if (slideY) distance.coerceIn(-1, 1) * 6f
-        else if (riseY) distance.coerceIn(1, 4) * 7f
-        else 0f, spec, label = "lyricShiftY")
+        when {
+            slideY -> distance.coerceIn(-1, 1) * 10f
+            riseY -> distance.coerceIn(1, 6) * 16f
+            springY -> distance.coerceIn(-1, 1) * 4f
+            else -> 0f
+        }, spec, label = "lyricShiftY")
 
     // "pulse": the active line breathes gently instead of sitting static.
     var pulseScale = 1f
     if (animation == "pulse" && active) {
         val transition = rememberInfiniteTransition(label = "pulse")
         val pulse by transition.animateFloat(
-            initialValue = 1f, targetValue = 1.045f,
+            initialValue = 1f, targetValue = 1.06f,
             animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "pulseScale"
         )
         pulseScale = pulse

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -130,9 +132,11 @@ fun ProfileEditorBox(
         Spacer(Modifier.height(16.dp))
 
         // Lines shown under the name (the little messages on the profile). Existing lines keep
-        // their X to delete; an "add" field at the end lets new lines be added freely.
+        // their X to delete; an "add" field at the end lets new lines be added freely. A switch
+        // above hides the whole block — then only your name sits beside the picture on Home.
         val storedLines by prefs.profileLines.collectAsState(initial = profile.profileLines)
         var lines by remember(profile.username) { mutableStateOf(profile.profileLines) }
+        var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
         var draft by remember { mutableStateOf("") }
 
         fun persist(next: List<String>) {
@@ -140,7 +144,28 @@ fun ProfileEditorBox(
             scope.launch { prefs.setProfileLines(next) }
         }
 
-        Text("Shown under your name", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Lines under my name", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f))
+            Switch(
+                checked = showLines,
+                onCheckedChange = { on ->
+                    showLines = on
+                    scope.launch { prefs.setShowProfileLines(on) }
+                },
+                colors = androidx.compose.material3.SwitchDefaults.colors(
+                    checkedThumbColor = colors.background,
+                    checkedTrackColor = colors.primaryAccent,
+                    uncheckedThumbColor = colors.secondaryText,
+                    uncheckedTrackColor = colors.cardElevated
+                )
+            )
+        }
+        Text(
+            text = if (showLines) "Shown under your name" else "Hidden — your name appears beside the picture only",
+            color = if (showLines) colors.secondaryText else colors.mutedText, fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
 
         if (lines.isEmpty()) {
             Text("Nothing yet — add a short message below", color = colors.mutedText, fontSize = 11.sp,

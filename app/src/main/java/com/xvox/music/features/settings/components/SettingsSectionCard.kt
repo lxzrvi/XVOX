@@ -54,7 +54,7 @@ fun SettingsSectionCard(
             }
             Text(
                 text = title,
-                color = colors.primaryText,
+                color = colors.primaryAccent,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )

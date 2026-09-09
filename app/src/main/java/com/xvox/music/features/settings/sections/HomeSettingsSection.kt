@@ -1,12 +1,15 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -15,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import kotlin.math.roundToInt
 import com.xvox.music.features.home.HomeSections
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
@@ -54,12 +58,24 @@ fun HomeSettingsSection(
         SettingsChoiceRow(listOf("cards" to "Grid", "long" to "Long"), state.playlistStyle, viewModel::setPlaylistStyle)
 
         if (state.playlistStyle == "long") {
-            Label("Long card height")
-            SettingsChoiceRow(
-                listOf(0 to "Auto", 90 to "90", 110 to "110", 130 to "130", 160 to "160", 190 to "190", 220 to "220")
-                    .map { (value, label) -> value.toString() to label },
-                state.playlistLongHeight.toString()
-            ) { viewModel.setPlaylistLongHeight(it.toInt()) }
+            Label(if (state.playlistLongHeight <= 0) "Long card height · Auto"
+                else "Long card height · ${state.playlistLongHeight} dp")
+            com.xvox.music.features.settings.components.XvoxThinLineSlider(
+                value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
+                onValueChange = { v -> viewModel.setPlaylistLongHeight(v.roundToInt()) },
+                valueRange = 60f..240f,
+                defaultValue = 0f,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text("Auto (original size)",
+                    color = if (state.playlistLongHeight <= 0) colors.background else colors.primaryAccent,
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp))
+                        .background(if (state.playlistLongHeight <= 0) colors.primaryAccent else colors.card)
+                        .xvoxPressScale { viewModel.setPlaylistLongHeight(0) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp))
+            }
         }
 
         SettingsToggle("Hide recents", null, state.hideRecentlyPlayed, viewModel::setHideRecentlyPlayed)
@@ -97,5 +113,5 @@ fun HomeSettingsSection(
 
 @Composable
 private fun Label(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }

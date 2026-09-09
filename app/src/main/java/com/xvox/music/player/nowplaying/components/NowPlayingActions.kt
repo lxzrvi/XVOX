@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
@@ -49,11 +48,10 @@ import com.xvox.music.core.design.theme.XvoxTheme
 /**
  * The Now Playing action bar.
  *
- * Left cluster: three utility icons (Timer / Queue / Info). Swipe that cluster to the left and
- * it slides over to the three audio toggles — Equalizer, 3D sound and Lyrics — where a tap
- * switches them on or off and a long press opens their settings box.
- *
- * Right cluster: crossfade, add-to-playlist star and the heart.
+ * Left side stays put: Timer / Queue / Info. The right side holds three round buttons that swap
+ * in place — swipe that cluster left and Crossfade / Add-to-playlist / Heart slide out while
+ * Equalizer / 3D sound / Lyrics slide into the exact same spots. A small swipe right brings the
+ * first trio back. Long-press on the audio toggles opens their settings.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -77,20 +75,38 @@ fun NowPlayingActions(
     onOpenOptions: ((String) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
+    var audioToggles by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        var showToggles by remember { mutableStateOf(false) }
+        // Fixed left cluster.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NowPlayingActionIcon(
+                resource = R.drawable.ic_xvox_timer,
+                onClick = onTimer,
+                progress = timerProgress
+            )
+            NowPlayingActionIcon(
+                resource = R.drawable.ic_xvox_queue,
+                onClick = onQueue
+            )
+            NowPlayingActionIcon(
+                resource = R.drawable.ic_xvox_info,
+                onClick = onInfo
+            )
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        // Right cluster: three circles that swap in place on a horizontal swipe.
         Box(
             modifier = Modifier
-                .background(colors.card.copy(alpha = 0.22f), RoundedCornerShape(22.dp))
-                .padding(horizontal = 3.dp)
-        ) {
-            var drag by remember { mutableFloatStateOf(0f) }
-            Box(
-                modifier = Modifier.pointerInput(Unit) {
+                .clip(RoundedCornerShape(22.dp))
+                .padding(horizontal = 2.dp, vertical = 2.dp)
+                .pointerInput(Unit) {
+                    var drag = 0f
                     detectHorizontalDragGestures(
                         onDragStart = { drag = 0f },
                         onHorizontalDrag = { change, dragAmount ->
@@ -98,91 +114,76 @@ fun NowPlayingActions(
                             drag += dragAmount
                         },
                         onDragEnd = {
-                            if (drag <= -36f) showToggles = true
-                            else if (drag >= 36f) showToggles = false
+                            if (drag <= -28f) audioToggles = true
+                            else if (drag >= 28f) audioToggles = false
                         },
                         onDragCancel = { }
                     )
                 }
-            ) {
-                AnimatedContent(
-                    targetState = showToggles,
-                    transitionSpec = {
-                        val forward = targetState
-                        (slideInHorizontally(tween(240)) { it * if (forward) -1 else 1 } + fadeIn(tween(160)))
-                            .togetherWith(slideOutHorizontally(tween(240)) { -it * if (forward) -1 else 1 } + fadeOut(tween(160)))
-                    },
-                    label = "nowPlayingActionRow"
-                ) { toggles ->
-                    if (!toggles) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            NowPlayingActionIcon(
-                                resource = R.drawable.ic_xvox_timer,
-                                onClick = onTimer,
-                                progress = timerProgress
-                            )
-                            NowPlayingActionIcon(
-                                resource = R.drawable.ic_xvox_queue,
-                                onClick = onQueue
-                            )
-                            NowPlayingActionIcon(
-                                resource = R.drawable.ic_xvox_info,
-                                onClick = onInfo
-                            )
-                        }
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            NowPlayingToggleIcon(
-                                resource = R.drawable.ic_xvox_equalizer,
-                                active = equalizerOn,
-                                contentDescription = "Equalizer",
-                                onClick = onToggleEqualizer,
-                                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Equalizer") }) else null
-                            )
-                            NowPlayingToggleIcon(
-                                resource = R.drawable.ic_xvox_waveform,
-                                active = spaceOn,
-                                contentDescription = "3D sound",
-                                onClick = onToggleSpace,
-                                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("3D sound") }) else null
-                            )
-                            NowPlayingToggleIcon(
-                                resource = R.drawable.ic_xvox_lyrics,
-                                active = lyricsOn,
-                                contentDescription = "Lyrics",
-                                onClick = onToggleLyrics,
-                                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Lyrics") }) else null
-                            )
-                        }
+        ) {
+            AnimatedContent(
+                targetState = audioToggles,
+                transitionSpec = {
+                    val forward = targetState
+                    (slideInHorizontally(tween(230)) { it * if (forward) -1 else 1 } + fadeIn(tween(150)))
+                        .togetherWith(slideOutHorizontally(tween(230)) { -it * if (forward) -1 else 1 } + fadeOut(tween(150)))
+                },
+                label = "nowPlayingRightCluster"
+            ) { toggles ->
+                if (!toggles) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        NowPlayingCircleAction(
+                            resource = R.drawable.ic_xvox_crossfade,
+                            tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
+                            active = crossfadeOn,
+                            contentDescription = "Crossfade",
+                            onClick = onToggleCrossfade,
+                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Crossfade") }) else null
+                        )
+                        NowPlayingCircleAction(
+                            resource = R.drawable.ic_xvox_star,
+                            tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
+                            active = isInPlaylist,
+                            contentDescription = "Add to playlist",
+                            onClick = onStarPlaylist
+                        )
+                        NowPlayingCircleAction(
+                            resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+                            tint = if (isLiked) colors.primaryAccent else colors.primaryText,
+                            active = isLiked,
+                            contentDescription = if (isLiked) "Unlike" else "Like",
+                            onClick = onToggleLiked
+                        )
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        NowPlayingCircleAction(
+                            resource = R.drawable.ic_xvox_equalizer,
+                            tint = if (equalizerOn) colors.primaryAccent else colors.primaryText,
+                            active = equalizerOn,
+                            contentDescription = "Equalizer",
+                            onClick = onToggleEqualizer,
+                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Equalizer") }) else null
+                        )
+                        NowPlayingCircleAction(
+                            resource = R.drawable.ic_xvox_waveform,
+                            tint = if (spaceOn) colors.primaryAccent else colors.primaryText,
+                            active = spaceOn,
+                            contentDescription = "3D sound",
+                            onClick = onToggleSpace,
+                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("3D sound") }) else null
+                        )
+                        NowPlayingCircleAction(
+                            resource = R.drawable.ic_xvox_lyrics,
+                            tint = if (lyricsOn) colors.primaryAccent else colors.primaryText,
+                            active = lyricsOn,
+                            contentDescription = "Lyrics",
+                            onClick = onToggleLyrics,
+                            onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Lyrics") }) else null
+                        )
                     }
                 }
             }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        // The three round actions: crossfade, add-to-playlist and heart, at equal spacing.
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            NowPlayingCircleAction(
-                resource = R.drawable.ic_xvox_crossfade,
-                tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
-                active = crossfadeOn,
-                contentDescription = "Crossfade",
-                onClick = onToggleCrossfade,
-                onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Crossfade") }) else null
-            )
-            NowPlayingCircleAction(
-                resource = R.drawable.ic_xvox_star,
-                tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
-                contentDescription = "Add to playlist",
-                onClick = onStarPlaylist
-            )
-            NowPlayingCircleAction(
-                resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-                tint = if (isLiked) colors.primaryAccent else colors.primaryText,
-                contentDescription = if (isLiked) "Unlike" else "Like",
-                onClick = onToggleLiked
-            )
         }
     }
 }
@@ -251,7 +252,7 @@ fun NowPlayingCircleAction(
         modifier = Modifier
             .size(42.dp)
             .background(
-                if (active) colors.primaryAccent.copy(alpha = 0.22f)
+                if (active) colors.primaryAccent.copy(alpha = 0.24f)
                 else colors.card.copy(alpha = 0.22f),
                 CircleShape
             )
@@ -270,44 +271,5 @@ fun NowPlayingCircleAction(
             tint = tint ?: colors.primaryAccent,
             modifier = Modifier.size(19.dp)
         )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun NowPlayingToggleIcon(
-    resource: Int,
-    active: Boolean,
-    contentDescription: String,
-    onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null
-) {
-    val colors = XvoxTheme.colors
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = onClick != null,
-                onClick = { onClick?.invoke() },
-                onLongClick = onLongClick
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(resource),
-            contentDescription = contentDescription,
-            tint = if (active) colors.primaryAccent else colors.primaryText,
-            modifier = Modifier.size(19.dp)
-        )
-        if (active) {
-            Text(
-                text = "●",
-                color = colors.primaryAccent,
-                fontSize = 5.sp,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp)
-            )
-        }
     }
 }

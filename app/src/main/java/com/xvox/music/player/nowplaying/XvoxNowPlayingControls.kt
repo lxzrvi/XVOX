@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxTapOrHold
 import com.xvox.music.player.playback.RepeatMode
 
 @Composable
@@ -58,7 +59,8 @@ fun XvoxNowPlayingControls(
                 25,
                 onPrevious,
                 tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                enabled = prevEnabled
+                enabled = prevEnabled,
+                onHoldFire = onPrevious
             )
 
             PlayControl(
@@ -71,7 +73,8 @@ fun XvoxNowPlayingControls(
                 25,
                 onNext,
                 tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                enabled = nextEnabled
+                enabled = nextEnabled,
+                onHoldFire = onNext
             )
 
             BareControl(
@@ -141,21 +144,32 @@ private fun BareControl(
     onClick: () -> Unit,
     tint: Color? = null,
     showDot: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onHoldFire: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
             .size(42.dp)
-            .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
+            .then(
+                if (onHoldFire != null) {
+                    Modifier.xvoxTapOrHold(
+                        enabled = enabled,
+                        onTap = onClick,
+                        onHoldFire = onHoldFire
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        indication = null,
+                        enabled = enabled,
+                        onClick = onClick
+                    )
+                }
             ),
         contentAlignment =
             Alignment.Center

@@ -78,9 +78,8 @@ fun XvoxThinLineSlider(
                 }
             }
             .pointerInput(valueRange, defaultValue) {
-                detectHorizontalDragGestures { change, _ ->
-                    change.consume()
-                    val newFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                fun settle(x: Float) {
+                    val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
                     if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
@@ -90,6 +89,13 @@ fun XvoxThinLineSlider(
                         currentOnValueChange(newValue)
                     }
                 }
+                detectHorizontalDragGestures(
+                    onDragStart = { offset -> settle(offset.x) },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        settle(change.position.x)
+                    }
+                )
             },
         contentAlignment = Alignment.CenterStart
     ) {

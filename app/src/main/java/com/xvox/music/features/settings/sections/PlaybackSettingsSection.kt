@@ -73,7 +73,7 @@ fun PlaybackSettingsSection(
 
 @Composable
 private fun Label(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }
 
 /** Outlined in both states so the unselected option is never invisible. */

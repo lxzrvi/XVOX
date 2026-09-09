@@ -67,23 +67,15 @@ fun BackupSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = "One file holds every XVOX setting. Keep it somewhere safe, then restore it on a new phone or after a fresh install.",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            text = "Settings only — your music, playlists and liked songs are never touched.",
+            color = colors.primaryAccent,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth()
         )
 
         BigAction("Export settings (.xvox)", colors) { create.launch("XVOX-backup-${System.currentTimeMillis()}.xvox") }
         BigAction("Restore from .xvox", colors) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
-
-        Text(
-            text = "Restore replaces your current settings with the backup. Music files and playlists you created on your device stay untouched.",
-            color = colors.mutedText,
-            fontSize = 11.sp,
-            lineHeight = 15.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 

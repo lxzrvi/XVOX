@@ -119,12 +119,15 @@ fun XvoxBottomBar(
                         },
                     contentAlignment = Alignment.Center
                 ) {
+                    // Active icon colour: pill icon setting wins, otherwise the accent.
+                    val iconAccent = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillIconColor)
+                        ?: colors.primaryAccent
                     XvoxNavigationItem(
                         destination = destination,
                         proximity = navigationProximity(position = motion.position, index = index),
                         dragging = false,
                         inactiveColor = colors.mutedText.copy(alpha = 0.76f),
-                        activeColor = colors.primaryAccent,
+                        activeColor = iconAccent,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

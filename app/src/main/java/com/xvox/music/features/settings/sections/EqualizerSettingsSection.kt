@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.audio.AudioEffectsManager
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsToggle
@@ -74,11 +75,41 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                     }
                 }
             }
-            EqLabel("Reverb ${(state.reverbAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
         }
 
-        Spacer(Modifier.height(14.dp))
+        // Reverb + room always stay reachable, even while the equalizer itself is off.
+        Spacer(Modifier.height(10.dp))
+        EqLabel("Reverb")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Off" to 0f, "Room" to .16f, "Small hall" to .3f, "Hall" to .45f, "Large hall" to .62f, "Cathedral" to .85f)
+                .forEach { (name, value) ->
+                    val active = kotlin.math.abs(state.reverbAmount - value) < .03f
+                    Text(name, color = if (active) colors.background else colors.primaryText, fontSize = 11.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        modifier = Modifier.clip(RoundedCornerShape(11.dp))
+                            .background(if (active) colors.primaryAccent else colors.card)
+                            .xvoxPressScale { viewModel.setReverbAmount(value) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+        }
+        XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
+
+        EqLabel("Room size")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Dry" to 0f, "Small" to .25f, "Mid" to .5f, "Large" to .78f, "Huge" to 1f)
+                .forEach { (name, value) ->
+                    val active = kotlin.math.abs(state.roomAmount - value) < .05f
+                    Text(name, color = if (active) colors.background else colors.primaryText, fontSize = 11.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        modifier = Modifier.clip(RoundedCornerShape(11.dp))
+                            .background(if (active) colors.primaryAccent else colors.card)
+                            .xvoxPressScale { viewModel.setRoomAmount(value) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+        }
+        XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
+
+        Spacer(Modifier.height(12.dp))
         EqLabel("Noise reduction ${(state.noiseReduction * 100).roundToInt()}%")
         XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
         EqLabel("Soften highs ${(state.softenHighs * 100).roundToInt()}%")
@@ -96,7 +127,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
 
 @Composable
 private fun EqLabel(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable

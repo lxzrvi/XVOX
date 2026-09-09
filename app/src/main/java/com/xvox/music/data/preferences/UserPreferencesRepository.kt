@@ -111,6 +111,7 @@ class UserPreferencesRepository(
         val backgroundBrightness = floatPreferencesKey("background_brightness")
         val audioOutputRoute = stringPreferencesKey("audio_output_route")
         val profileLines = stringPreferencesKey("profile_lines")
+        val showProfileLines = booleanPreferencesKey("show_profile_lines")
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
@@ -124,7 +125,8 @@ class UserPreferencesRepository(
             customPfpUri = prefs[Keys.customPfpUri],
             customPfpUris = decodeUriList(prefs[Keys.customPfpUris].orEmpty()),
             profileLines = prefs[Keys.profileLines].orEmpty().lines()
-                .map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(4)
+                .map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(4),
+            showProfileLines = prefs[Keys.showProfileLines] ?: true
         )
     }.distinctUntilChanged()
 
@@ -438,6 +440,9 @@ class UserPreferencesRepository(
     }
     suspend fun setProfileLines(lines: List<String>) {
         context.xvoxDataStore.edit { it[Keys.profileLines] = lines.map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4).joinToString("\n") }
+    }
+    suspend fun setShowProfileLines(enabled: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.showProfileLines] = enabled }
     }
     suspend fun setRemindersEnabled(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.remindersEnabled] = enabled }

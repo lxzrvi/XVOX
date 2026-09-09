@@ -57,10 +57,10 @@ fun NotifySettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = "XVOX can nudge you with 24 friendly messages — “Let's play music”, “Time to hear some songs”… at any hour of the day or night, but never more than three in 24 hours.",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            text = "Friendly reminders to play music — never more than three in 24 hours.",
+            color = colors.primaryAccent,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth()
         )
 
