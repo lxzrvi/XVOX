@@ -94,7 +94,7 @@ private fun BigAction(label: String, colors: com.xvox.music.core.design.theme.Xv
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
             .background(colors.cardElevated)
-            .xvoxPressScale(onClick)
+            .xvoxPressScale(onClick = onClick)
             .padding(16.dp)
     ) {
         Text(label, color = colors.primaryAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -136,8 +136,9 @@ private fun exportXvox(context: Context, uri: android.net.Uri): Boolean {
 
 private fun restoreXvox(context: Context, uri: android.net.Uri): Boolean {
     return runCatching {
-        val target = preferencesFile(context) ?: return false
-        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+        val target = preferencesFile(context) ?: return@runCatching false
+        var found: ByteArray? = null
+        context.contentResolver.openInputStream(uri)?.use { input ->
             val zip = ZipInputStream(input)
             var entry = zip.nextEntry
             while (entry != null) {
@@ -149,16 +150,17 @@ private fun restoreXvox(context: Context, uri: android.net.Uri): Boolean {
                         if (n > 0) out.write(chunk, 0, n)
                         n = zip.read(chunk)
                     }
-                    return out.toByteArray()
+                    found = out.toByteArray()
+                    break
                 }
                 zip.closeEntry()
                 entry = zip.nextEntry
             }
-            null
-        } ?: return false
+        }
+        val bytes = found ?: return@runCatching false
         // Replace the DataStore file while no edit is running; the process restarts right after.
         synchronized(context) {
-            target.outputStream().use { it.write(bytes) }
+            target.outputStream().use { out -> out.write(bytes) }
             target.setLastModified(System.currentTimeMillis())
         }
         true

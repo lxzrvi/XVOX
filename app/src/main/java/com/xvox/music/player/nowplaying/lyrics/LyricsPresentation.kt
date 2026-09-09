@@ -64,15 +64,14 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
         else 0f, spec, label = "lyricShiftY")
 
     // "pulse": the active line breathes gently instead of sitting static.
-    var pulseScale by remember { mutableFloatStateOf(1f) }
+    var pulseScale = 1f
     if (animation == "pulse" && active) {
         val transition = rememberInfiniteTransition(label = "pulse")
-        pulseScale by transition.animateFloat(
+        val pulse by transition.animateFloat(
             initialValue = 1f, targetValue = 1.045f,
             animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "pulseScale"
         )
-    } else {
-        pulseScale = 1f
+        pulseScale = pulse
     }
 
     // Always measure at the same maximum size and weight. Animating font metrics was moving the

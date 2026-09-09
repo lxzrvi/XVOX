@@ -282,7 +282,7 @@ class UserPreferencesRepository(
     val backgroundBrightness: Flow<Float> = context.xvoxDataStore.data
         .map { (it[Keys.backgroundBrightness] ?: 0.8f).coerceIn(0.2f, 1f) }.distinctUntilChanged()
     val audioOutputRoute: Flow<String> = context.xvoxDataStore.data
-        .map { when (it[Keys.audioOutputRoute]) { "headset", "phone" -> it[Keys.audioOutputRoute]; else -> "auto" } }
+        .map { (it[Keys.audioOutputRoute] ?: "auto").let { route -> if (route == "headset" || route == "phone") route else "auto" } }
         .distinctUntilChanged()
     val profileLines: Flow<List<String>> = context.xvoxDataStore.data
         .map { it[Keys.profileLines].orEmpty().lines().map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4) }

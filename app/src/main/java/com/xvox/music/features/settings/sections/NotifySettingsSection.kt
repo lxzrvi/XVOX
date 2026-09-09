@@ -134,7 +134,7 @@ private fun RowAction(label: String, colors: com.xvox.music.core.design.theme.Xv
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(colors.cardElevated)
-            .xvoxPressScale(onClick)
+            .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp)
     ) {
         Text(label, color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
