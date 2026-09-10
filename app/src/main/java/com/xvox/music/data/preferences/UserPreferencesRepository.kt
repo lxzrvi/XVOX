@@ -314,6 +314,10 @@ class UserPreferencesRepository(
         .distinctUntilChanged()
     val profileLinesInitialized: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.profileLinesInitialized] ?: false }.distinctUntilChanged()
+    /** How long each rotating line under the name stays on screen. */
+    val greetingIntervalMs: Flow<Long> = context.xvoxDataStore.data
+        .map { (it[Keys.greetingIntervalMs] ?: 8_000L).coerceIn(1_500L, 60_000L) }
+        .distinctUntilChanged()
     /** Per-size widget settings: "3x1" -> that size's own customization. */
     val widgetSizes: Flow<Map<String, com.xvox.music.widget.WidgetCustomization>> = context.xvoxDataStore.data
         .map { com.xvox.music.widget.WidgetCustomization.decodeSizes(it[Keys.widgetSizes].orEmpty()) }
