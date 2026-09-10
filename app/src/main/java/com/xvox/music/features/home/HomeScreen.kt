@@ -270,13 +270,19 @@ fun HomeScreen(
             val detailTracks = remember(targetPlaylist, playlistContents) {
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
             }
-            val detailPlans = remember(targetPlaylist, detailTracks, config.style, config.rows) {
-                buildMosaicPagePlans(detailTracks, config.rows, config.style == "uniform", config.style == "mosaic1")
-            }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = if (isSelectionMode) 4.dp else topInset + 4.dp, bottom = bottomInset)) {
                 if (targetPlaylist != null) {
-                    songListContent("playlist_detail", targetPlaylist.name, detailTracks, detailPlans,
+                    // A playlist's own songs are always a plain list — one row per song — no matter
+                    // how Home itself is laid out. Opening a playlist must never re-shape it into a
+                    // mosaic; the grid stays on the Home surface.
+                    librarySongItems(
+                        keyPrefix = "playlist_detail",
+                        title = targetPlaylist.name,
+                        songs = detailTracks,
+                        currentSongId = currentSongId,
+                        playing = isPlaying,
+                        selected = selectedSongIds,
                         onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) })
