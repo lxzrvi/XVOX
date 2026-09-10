@@ -252,8 +252,15 @@ class XvoxPlaybackService : MediaSessionService() {
         serviceScope.launch { prefs.crossfadeDuration.distinctUntilChanged().collect { playback.crossfadeSeconds = it.coerceIn(1, 12) } }
         serviceScope.launch { prefs.audioOutputRoute.distinctUntilChanged().collect { playback.setOutputRoute(it) } }
         serviceScope.launch {
-            combine(prefs.playbackSpeed, prefs.playbackPitch) { speed, pitch -> speed to pitch }
-                .collect { (speed, pitch) -> playback.updatePlayback(speed, pitch) }
+            combine(
+                prefs.playbackSpeed,
+                prefs.playbackPitch,
+                com.xvox.music.player.session.XvoxTransportBoost.factor
+            ) { speed, pitch, boost -> Triple(speed, pitch, boost) }
+                .collect { (speed, pitch, boost) ->
+                    // Holding Next simply plays faster; nothing is re-seeked, so audio stays intact.
+                    playback.updatePlayback((speed * boost).coerceIn(.25f, 3f), pitch)
+                }
         }
     }
 

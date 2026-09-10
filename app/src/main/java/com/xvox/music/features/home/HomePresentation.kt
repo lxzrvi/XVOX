@@ -13,7 +13,9 @@ data class HomePresentation(
     val playlistStyle: String = "long",
     val hideSplit: Boolean = false,
     /** Long playlist card height in dp; 0 keeps the original proportional height. */
-    val playlistLongHeight: Int = 0
+    val playlistLongHeight: Int = 0,
+    /** "horizontal" = full-width cards on a sideways row; "vertical" = stacked cards. */
+    val playlistCardOrientation: String = "vertical"
 )
 
 object HomeSections {

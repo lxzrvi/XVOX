@@ -53,12 +53,7 @@ import kotlin.math.roundToInt
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-    com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = {
-        when {
-            state.equalizerEnabled -> com.xvox.music.features.settings.components.EqSettingsPreview(state)
-            else -> Text("Turn on the equalizer to preview", color = colors.secondaryText, fontSize = 12.sp)
-        }
-    }, controls = {
+    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
         SettingsToggle("Equalizer", "5 bands · presets · reverb · protect", state.equalizerEnabled) { on ->
             if (on) viewModel.setEqBandCount(5)
@@ -107,19 +102,9 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
         }
         XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
 
-        EqLabel("Room size")
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("Dry" to 0f, "Small" to .25f, "Mid" to .5f, "Large" to .78f, "Huge" to 1f)
-                .forEach { (name, value) ->
-                    val active = kotlin.math.abs(state.roomAmount - value) < .05f
-                    Text(name, color = if (active) colors.background else colors.primaryText, fontSize = 11.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier.clip(RoundedCornerShape(11.dp))
-                            .background(if (active) colors.primaryAccent else colors.card)
-                            .xvoxPressScale { viewModel.setRoomAmount(value) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp))
-                }
-        }
+        // Intensity only: this scales the room/hall already chosen above. It never switches the
+        // preset, so the chips above stay the only place a mode is picked.
+        EqLabel("Room size ${(state.roomAmount * 100).roundToInt()}%")
         XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
 
         Spacer(Modifier.height(12.dp))

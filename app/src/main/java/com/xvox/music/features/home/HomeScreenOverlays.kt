@@ -137,6 +137,7 @@ fun showSongOptionsOverlay(
     song: Song,
     isLiked: Boolean,
     playlist: XvoxPlaylist? = null,
+    playlistMembership: List<XvoxPlaylist> = emptyList(),
     recent: Boolean = false,
     viewModel: HomeViewModel,
     playerViewModel: MainPlayerViewModel,
@@ -152,6 +153,18 @@ fun showSongOptionsOverlay(
             liked = isLiked,
             onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
             playlistName = playlist?.name,
+            membership = playlistMembership.map { pl ->
+                pl.name to {
+                    viewModel.removeFromPlaylist(pl.id, song) {
+                        overlays.hideBox()
+                        overlays.showP("Removed from ${pl.name}")
+                    }
+                }
+            },
+            onAddToEach = {
+                overlays.hideBox()
+                showPlaylistPickerOverlay(overlays, viewModel, song, playlists, songs)
+            },
             onPlayNext = {
                 playerViewModel.playNextInQueue(song)
                 overlays.hideBox()

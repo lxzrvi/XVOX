@@ -65,6 +65,9 @@ fun XvoxNowPlayingControls(
                 enabled = prevEnabled,
                 scrubTo = onScrubTo,
                 scrubDirection = -1,
+                // Rewinding cannot be seamless on a forward-only decoder, so step back in fewer,
+                // bigger jumps instead of 40 ms ticks — far less chopping of the voice.
+                scrubTickEveryMs = 320,
                 scrubPositionMs = { positionMs },
                 scrubDurationMs = { durationMs }
             )
@@ -78,6 +81,7 @@ fun XvoxNowPlayingControls(
                 R.drawable.ic_xvox_skip_next,
                 25,
                 onNext,
+                boostHold = true,
                 tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
                 enabled = nextEnabled,
                 scrubTo = onScrubTo,
@@ -157,7 +161,10 @@ private fun BareControl(
     scrubTo: ((Long) -> Unit)? = null,
     scrubDirection: Int = 1,
     scrubPositionMs: () -> Long = { 0L },
-    scrubDurationMs: () -> Long = { 0L }
+    scrubDurationMs: () -> Long = { 0L },
+    scrubTickEveryMs: Long = 40,
+    /** Next only: holding plays faster instead of re-seeking, so the audio never breaks. */
+    boostHold: Boolean = false
 ) {
     val colors = XvoxTheme.colors
 
@@ -165,7 +172,16 @@ private fun BareControl(
         modifier = Modifier
             .size(42.dp)
             .then(
-                if (scrubTo != null && scrubDurationMs() > 0L) {
+                if (boostHold) {
+                    Modifier.xvoxTapOrBoost(
+                        enabled = enabled,
+                        onTap = onClick,
+                        onBoostChange = { boosting ->
+                            if (boosting) com.xvox.music.player.session.XvoxTransportBoost.set(2f)
+                            else com.xvox.music.player.session.XvoxTransportBoost.release()
+                        }
+                    )
+                } else if (scrubTo != null && scrubDurationMs() > 0L) {
                     // Tap skips the track; holding scrubs at 2× real time in [scrubDirection].
                     Modifier.xvoxTapOrScrub(
                         enabled = true,
@@ -173,7 +189,8 @@ private fun BareControl(
                         onScrubTo = scrubTo,
                         direction = scrubDirection,
                         positionMs = scrubPositionMs,
-                        durationMs = scrubDurationMs
+                        durationMs = scrubDurationMs,
+                        tickEvery = scrubTickEveryMs
                     )
                 } else {
                     Modifier.clickable(

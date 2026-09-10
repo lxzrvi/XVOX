@@ -59,8 +59,8 @@ fun SettingsPreviewFrame(label: String, content: @Composable ColumnScope.() -> U
 @Composable
 fun EqSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    SettingsPreviewFrame("${state.eqBandCount}-band output contour") {
-        Canvas(Modifier.fillMaxWidth().height(92.dp)) {
+    SettingsPreviewFrame("${state.eqBandCount}-band output · live") {
+        Canvas(Modifier.fillMaxWidth().height(84.dp)) {
             val middle = size.height * .42f
             drawLine(colors.cardBorder, Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
             val path = Path()
@@ -76,19 +76,63 @@ fun EqSettingsPreview(state: SettingsState) {
             val noiseHeight = 10.dp.toPx() * (1 - state.noiseReduction)
             drawRect(colors.secondaryText.copy(alpha = .15f), Offset(0f, size.height - noiseHeight), Size(size.width, noiseHeight))
         }
-        Text("−${state.eqHeadroomDb.toInt()} dB · highs ${(state.softenHighs * 100).toInt()}% · noise ${(state.noiseReduction * 100).toInt()}%",
-            color = colors.secondaryText, fontSize = 10.sp)
+
+        // Every control in the equalizer shows up here, so a change is visible immediately.
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            PreviewBar("Reverb", state.reverbAmount)
+            PreviewBar("Room size", state.roomAmount)
+            PreviewBar("Noise reduction", state.noiseReduction)
+            PreviewBar("Soften highs", state.softenHighs)
+            PreviewBar("Boost protection", (state.eqHeadroomDb / 18f).coerceIn(0f, 1f))
+            PreviewBar("App volume", state.appVolume)
+            PreviewBar("Output ceiling", state.volumeLimit)
+            PreviewBar("Speed", ((state.playbackSpeed - .5f) / 1.5f).coerceIn(0f, 1f))
+            PreviewBar("Pitch", ((state.playbackPitch - .5f) / 1.5f).coerceIn(0f, 1f))
+            PreviewValue("Balance", when {
+                state.balance < -.05f -> "Left ${(kotlin.math.abs(state.balance) * 100).toInt()}%"
+                state.balance > .05f -> "Right ${(state.balance * 100).toInt()}%"
+                else -> "Centre"
+            })
+        }
+    }
+}
+
+/** Label + live fill used by the equalizer preview. */
+@Composable
+private fun PreviewBar(label: String, value: Float) {
+    val colors = XvoxTheme.colors
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 9.sp, modifier = Modifier.width(92.dp), maxLines = 1)
+        Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(colors.cardBorder)) {
+            Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(2.dp))
+                .background(colors.primaryAccent))
+        }
+    }
+}
+
+@Composable
+private fun PreviewValue(label: String, value: String) {
+    val colors = XvoxTheme.colors
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 9.sp, modifier = Modifier.weight(1f))
+        Text(value, color = colors.primaryText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 fun SurroundSettingsPreview(state: SettingsState) {
-    if (!state.stereoWidening) return
     val colors = XvoxTheme.colors
+    // Always on screen: off shows the resting layout, on animates it.
+    val on = state.stereoWidening
     val transition = rememberInfiniteTransition(label = "orbitPreview")
-    val phase by transition.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(state.surroundPanSpeed * 1000, easing = LinearEasing)), label = "orbit")
+    val animated by transition.animateFloat(
+        0f, (2 * PI).toFloat(),
+        infiniteRepeatable(tween((state.surroundPanSpeed * 1000).coerceAtLeast(1000), easing = LinearEasing)),
+        label = "orbit"
+    )
+    val phase = if (on) animated else 0f
     val level = (state.appVolume * state.volumeLimit).coerceIn(0f, 1f)
-    SettingsPreviewFrame("3D · layout preview") {
+    SettingsPreviewFrame(if (on) "3D sound · moving" else "3D sound · off") {
         Canvas(Modifier.fillMaxWidth().height(94.dp)) {
             val radius = size.height * .38f
             drawCircle(colors.cardBorder, radius, center, style = Stroke(1.dp.toPx()))
@@ -102,7 +146,12 @@ fun SurroundSettingsPreview(state: SettingsState) {
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(8.dp.toPx(), size.height * (1 - left) / 2), Size(5.dp.toPx(), size.height * left), CornerRadius(3.dp.toPx()))
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(size.width - 13.dp.toPx(), size.height * (1 - right) / 2), Size(5.dp.toPx(), size.height * right), CornerRadius(3.dp.toPx()))
         }
-        Text("Depth ${(state.surroundDepth * 100).toInt()}% · orbit ${state.surroundPanSpeed}s", color = colors.secondaryText, fontSize = 10.sp)
+        Text(
+            "Width ${(state.surroundWidth * 100).toInt()}% · Depth ${(state.surroundDepth * 100).toInt()}% · " +
+                "Pos ${(state.surroundPosition * 100).toInt()}% · move ${state.surroundPanSpeed}s · " +
+                "HRTF ${(state.hrtf * 100).toInt()}% · centre ${(state.centerPreservation * 100).toInt()}%",
+            color = colors.secondaryText, fontSize = 9.sp, maxLines = 2
+        )
     }
 }
 

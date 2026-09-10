@@ -136,13 +136,23 @@ fun ProfileEditorBox(
         // their X to delete; an "add" field at the end lets new lines be added freely. A switch
         // above hides the whole block — then only your name sits beside the picture on Home.
         val storedLines by prefs.profileLines.collectAsState(initial = profile.profileLines)
-        var lines by remember(profile.username) { mutableStateOf(profile.profileLines) }
+        // First run: the starter lines are already in the list. Once anything is saved (or
+        // removed) the flag flips, so a deleted default never comes back on its own.
+        var lines by remember(profile.username) {
+            mutableStateOf(
+                if (profile.profileLinesInitialized) profile.profileLines
+                else com.xvox.music.data.preferences.ProfileDefaults.lines
+            )
+        }
         var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
         var draft by remember { mutableStateOf("") }
 
         fun persist(next: List<String>) {
             lines = next
-            scope.launch { prefs.setProfileLines(next) }
+            scope.launch {
+                prefs.setProfileLines(next)
+                prefs.setProfileLinesInitialized(true)
+            }
         }
 
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

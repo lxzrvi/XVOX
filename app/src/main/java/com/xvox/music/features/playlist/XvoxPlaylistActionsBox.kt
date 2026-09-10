@@ -315,6 +315,18 @@ private fun PlaylistLayoutEditor(
         }
 
         if (state.playlistStyle == "long") {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LayoutChoice("Horizontal", state.playlistCardOrientation == "horizontal") {
+                    settingsViewModel.setPlaylistCardOrientation("horizontal")
+                }
+                LayoutChoice("Vertical", state.playlistCardOrientation == "vertical") {
+                    settingsViewModel.setPlaylistCardOrientation("vertical")
+                }
+            }
+        }
+
+        if (state.playlistStyle == "long") {
             Spacer(Modifier.height(14.dp))
             Text(
                 text = if (auto) "Height · Auto" else "Height · ${state.playlistLongHeight} dp",

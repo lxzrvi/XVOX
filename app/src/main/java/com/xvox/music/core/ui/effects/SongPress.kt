@@ -28,13 +28,21 @@ private val PressOut = spring<Float>(dampingRatio = 0.72f, stiffness = 900f)
  * tap is no longer swallowed by a busy composition and why the grid stops jittering under load.
  */
 @OptIn(ExperimentalFoundationApi::class)
-fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): Modifier = composed {
+fun Modifier.xvoxSongPress(
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    /** How far the tile itself dips. 1f leaves the frame still and animates only the caller's art. */
+    pressedScale: Float = 0.94f,
+    /** Optional hook so a card can shrink its own artwork inwards instead of the whole tile. */
+    onPressedChange: ((Boolean) -> Unit)? = null
+): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val click by rememberUpdatedState(onClick)
     val longClick by rememberUpdatedState(onLongClick)
     val scope = rememberCoroutineScope()
     val scale = remember { Animatable(1f) }
     val release = remember { mutableStateOf<Job?>(null) }
+    val pressChange by rememberUpdatedState(onPressedChange)
 
     graphicsLayer { scaleX = scale.value; scaleY = scale.value }
         .pointerInput(Unit) {
@@ -46,7 +54,8 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
                 val pressJob = scope.launch {
                     delay(14)
                     release.value?.cancel()
-                    scale.animateTo(0.94f, PressIn)
+                    pressChange?.invoke(true)
+                    scale.animateTo(pressedScale, PressIn)
                 }
                 var becameScroll = false
                 try {
@@ -60,6 +69,7 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
                             if (moved) {
                                 becameScroll = true
                                 pressJob.cancel()
+                                pressChange?.invoke(false)
                                 release.value?.cancel()
                                 release.value = scope.launch { scale.animateTo(1f, PressOut) }
                             }
@@ -71,6 +81,7 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
                     // Hold the pulse a beat so a flick-fast tap is still visible.
                     if (!becameScroll) {
                         pressJob.cancel()
+                        pressChange?.invoke(false)
                         release.value = scope.launch { delay(46); scale.animateTo(1f, PressOut) }
                     }
                 }

@@ -27,6 +27,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.splitHideCollection.collect { v -> _state.update { it.copy(splitHideCollection = v) } } }
             launch { prefs.playlistStyle.collect { v -> _state.update { it.copy(playlistStyle = v) } } }
             launch { prefs.playlistLongHeight.collect { v -> _state.update { it.copy(playlistLongHeight = v) } } }
+            launch { prefs.playlistCardOrientation.collect { v -> _state.update { it.copy(playlistCardOrientation = v) } } }
+            launch { prefs.settingsPreviewHidden.collect { v -> _state.update { it.copy(previewHidden = v) } } }
+            launch { prefs.lastSettingsTab.collect { v -> _state.update { it.copy(lastSettingsTab = v) } } }
+            launch { prefs.widgetSizes.collect { v -> _state.update { it.copy(widgetSizes = v) } } }
             launch { prefs.homeMerge.collect { v -> _state.update { it.copy(homeMerge = v) } } }
             launch { prefs.homeSectionOrder.collect { v -> _state.update { it.copy(homeSectionOrder = v) } } }
             launch { prefs.homeHiddenSections.collect { v -> _state.update { it.copy(homeHiddenSections = v) } } }
@@ -50,6 +54,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
             launch { prefs.themeBackground.collect { v -> _state.update { it.copy(backgroundName = v) } } }
+            launch { prefs.headerImageUri.collect { v -> _state.update { it.copy(headerImageUri = v) } } }
             launch { prefs.themeBackgroundImage.collect { v -> _state.update { it.copy(backgroundImageUri = v.ifBlank { null }) } } }
             launch { prefs.cardTransparency.collect { v -> _state.update { it.copy(cardTransparency = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
@@ -114,6 +119,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSplitHideCollection(v: Boolean) = viewModelScope.launch { prefs.setSplitHideCollection(v) }
     fun setPlaylistStyle(v: String) = viewModelScope.launch { prefs.setPlaylistStyle(v) }
     fun setPlaylistLongHeight(v: Int) = viewModelScope.launch { prefs.setPlaylistLongHeight(v) }
+    fun setPlaylistCardOrientation(v: String) = viewModelScope.launch { prefs.setPlaylistCardOrientation(v) }
+    fun setPreviewHidden(v: Boolean) = viewModelScope.launch { prefs.setSettingsPreviewHidden(v) }
+    fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
+    fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
+    /** Saves the given size's own widget settings; other sizes are untouched. */
+    fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) =
+        viewModelScope.launch { prefs.setWidgetSizeCustomization(key, value) }
     fun setHomeMerge(value: Boolean) = viewModelScope.launch { prefs.setHomeMerge(value) }
     fun moveHomeSection(from: Int, to: Int) = viewModelScope.launch {
         val order = _state.value.homeSectionOrder.toMutableList()

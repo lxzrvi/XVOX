@@ -78,15 +78,15 @@ fun XvoxStartupLoadingScreen(
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colors.primaryText),
                 modifier = Modifier
-                    .size(76.dp)
+                    .size(52.dp)
                     .graphicsLayer { scaleX = breathe; scaleY = breathe }
             )
 
             Text(
                 text = "XVOX",
                 fontFamily = XvoxLogoFont,
-                fontSize = 21.sp,
-                letterSpacing = 7.sp,
+                fontSize = 17.sp,
+                letterSpacing = 6.sp,
                 fontWeight = FontWeight.Bold,
                 color = colors.primaryText,
                 modifier = Modifier.padding(top = 2.dp)

@@ -33,8 +33,13 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
     val colors = XvoxTheme.colors
     val trackFlow = remember(playerViewModel) { playerViewModel.state.map { p -> p.queue.firstOrNull { it.id == p.currentSongId } to p.isPlaying }.distinctUntilChanged() }
     val track by trackFlow.collectAsState(initial = null to false)
-    val c = state.widgetCustomization
     var columns by remember { mutableIntStateOf(3) }; var rows by remember { mutableIntStateOf(1) }
+    // Every widget size (1x1, 2x1, 3x1 …) owns its own settings, exactly as Home will apply them.
+    val sizeKey = com.xvox.music.widget.WidgetCustomization.sizeKey(columns, rows)
+    val c = state.widgetSizes[sizeKey] ?: state.widgetCustomization
+    fun editWidget(change: (com.xvox.music.widget.WidgetCustomization) -> com.xvox.music.widget.WidgetCustomization) {
+        viewModel.setWidgetSizeCustomization(sizeKey, change(c))
+    }
     var panel by remember { mutableStateOf("general") }
     var labelId by remember { mutableStateOf("title") }; var buttonId by remember { mutableStateOf("play") }
     val width = columns * 70 + (columns - 1) * 8; val height = rows * 70 + (rows - 1) * 8
@@ -43,13 +48,13 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
         transparency = state.widgetTransparency, theme = state.widgetTheme, customColor = state.widgetCustomColor,
         showLogo = state.widgetShowLogo, cornerRadiusDp = state.widgetCornerRadius, paddingX = state.widgetPaddingX,
         paddingY = state.widgetPaddingY, customization = c)
-    fun label(change: (WidgetLabelStyle) -> WidgetLabelStyle) = viewModel.updateWidget { it.copy(labels = it.labels + (labelId to change(it.label(labelId)))) }
-    fun button(change: (WidgetButtonStyle) -> WidgetButtonStyle) = viewModel.updateWidget { current ->
+    fun label(change: (WidgetLabelStyle) -> WidgetLabelStyle) = editWidget { it.copy(labels = it.labels + (labelId to change(it.label(labelId)))) }
+    fun button(change: (WidgetButtonStyle) -> WidgetButtonStyle) = editWidget { current ->
         current.copy(buttons = current.buttons.mapValues { (id, value) -> if (buttonId == "all" || id == buttonId) change(value) else value })
     }
     PinnedSettingsEditor(preview = {
         SettingsPreviewFrame("Widget · actual size") {
-            Text("$columns × $rows", color = colors.primaryText, fontSize = 12.sp)
+            Text("$columns × $rows · Surface · Cover · Text · Buttons", color = colors.primaryText, fontSize = 11.sp)
             key(columns, rows) {
                 val views by produceState<RemoteViews?>(null, display) {
                     value = XvoxWidgetHelper.buildRemoteViews(context, display, width, height, interactive = false)
@@ -81,41 +86,41 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                 WidgetSlider("Corners", state.widgetCornerRadius.toFloat(), 0f..48f, "dp") { viewModel.setWidgetCornerRadius(it.roundToInt()) }
 
                 Group("Spacing")
-                WidgetSlider("Margin X", c.marginX.toFloat(), 0f..32f, "dp") { v -> viewModel.updateWidget { it.copy(marginX = v.roundToInt()) } }
-                WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..32f, "dp") { v -> viewModel.updateWidget { it.copy(marginY = v.roundToInt()) } }
+                WidgetSlider("Margin X", c.marginX.toFloat(), 0f..32f, "dp") { v -> editWidget { it.copy(marginX = v.roundToInt()) } }
+                WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..32f, "dp") { v -> editWidget { it.copy(marginY = v.roundToInt()) } }
                 WidgetSlider("Padding X", state.widgetPaddingX.toFloat(), 0f..32f, "dp") { viewModel.setWidgetPaddingX(it.roundToInt()) }
                 WidgetSlider("Padding Y", state.widgetPaddingY.toFloat(), 0f..28f, "dp") { viewModel.setWidgetPaddingY(it.roundToInt()) }
 
                 Group("Alignment")
-                SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), c.alignment) { value -> viewModel.updateWidget { it.copy(alignment = value) } }
-                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.verticalAlignment) { value -> viewModel.updateWidget { it.copy(verticalAlignment = value) } }
+                SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), c.alignment) { value -> editWidget { it.copy(alignment = value) } }
+                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.verticalAlignment) { value -> editWidget { it.copy(verticalAlignment = value) } }
 
                 Group("Border")
-                WidgetSlider("Width", c.borderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Colour", c.borderColor) { value -> viewModel.updateWidget { it.copy(borderColor = value) } }
+                WidgetSlider("Width", c.borderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Colour", c.borderColor) { value -> editWidget { it.copy(borderColor = value) } }
             }
 
             "cover" -> {
                 Group("Mode")
-                SettingsToggle("Full cover", null, c.fullCover) { enabled -> viewModel.updateWidget { it.copy(fullCover = enabled) } }
-                if (c.fullCover) WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> viewModel.updateWidget { it.copy(fullCoverShade = v / 100) } }
+                SettingsToggle("Full cover", null, c.fullCover) { enabled -> editWidget { it.copy(fullCover = enabled) } }
+                if (c.fullCover) WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> editWidget { it.copy(fullCoverShade = v / 100) } }
 
                 Group("Placement")
-                SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> viewModel.updateWidget { it.copy(coverPlacement = value) } }
-                SettingsChoiceRow(listOf(0, 24, 32, 40, 48, 56, 64, 80, 96, 120, 144, 160).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> viewModel.updateWidget { it.copy(coverSize = value.toInt()) } }
+                SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> editWidget { it.copy(coverPlacement = value) } }
+                SettingsChoiceRow(listOf(0, 24, 32, 40, 48, 56, 64, 80, 96, 120, 144, 160).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> editWidget { it.copy(coverSize = value.toInt()) } }
 
                 // Negative values are intentional: the cover may sit outside the widget box.
                 Group("Offset · negative allowed")
-                WidgetSlider("Margin X", c.coverMarginX.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginX = v.roundToInt()) } }
-                WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverMarginY = v.roundToInt()) } }
-                WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingX = v.roundToInt()) } }
-                WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -32f..24f, "dp") { v -> viewModel.updateWidget { it.copy(coverPaddingY = v.roundToInt()) } }
+                WidgetSlider("Margin X", c.coverMarginX.toFloat(), -32f..24f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+                WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -32f..24f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
+                WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -32f..24f, "dp") { v -> editWidget { it.copy(coverPaddingX = v.roundToInt()) } }
+                WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -32f..24f, "dp") { v -> editWidget { it.copy(coverPaddingY = v.roundToInt()) } }
 
                 Group("Shape")
-                SettingsToggle("Match widget corners", null, c.coverRadius < 0) { value -> viewModel.updateWidget { it.copy(coverRadius = if (value) -1 else 12) } }
-                if (c.coverRadius >= 0) WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> viewModel.updateWidget { it.copy(coverRadius = v.roundToInt()) } }
-                WidgetSlider("Border", c.coverBorderWidth, 0f..4f, "dp") { v -> viewModel.updateWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
-                WidgetColourEditor("Border colour", c.coverBorderColor) { value -> viewModel.updateWidget { it.copy(coverBorderColor = value) } }
+                SettingsToggle("Match widget corners", null, c.coverRadius < 0) { value -> editWidget { it.copy(coverRadius = if (value) -1 else 12) } }
+                if (c.coverRadius >= 0) WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> editWidget { it.copy(coverRadius = v.roundToInt()) } }
+                WidgetSlider("Border", c.coverBorderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
+                WidgetColourEditor("Border colour", c.coverBorderColor) { value -> editWidget { it.copy(coverBorderColor = value) } }
             }
 
             "labels" -> {
@@ -125,7 +130,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                 SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Show", "hide" to "Hide"), l.visibility) { value -> label { it.copy(visibility = value) } }
 
                 Group("Position")
-                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.labelPlacement) { value -> viewModel.updateWidget { it.copy(labelPlacement = value) } }
+                SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.labelPlacement) { value -> editWidget { it.copy(labelPlacement = value) } }
                 SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), l.alignment) { value -> label { it.copy(alignment = value) } }
                 // Cover text is allowed to leave the box, so these go negative too.
                 WidgetSlider("Nudge X", l.offsetX.toFloat(), -48f..48f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
@@ -149,12 +154,12 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
                 val b = c.button(if (buttonId == "all") "play" else buttonId)
 
                 Group("Position")
-                SettingsChoiceRow(listOf("auto" to "Auto", "inline" to "Inline", "top" to "Top", "bottom" to "Bottom"), c.buttonsPlacement) { value -> viewModel.updateWidget { it.copy(buttonsPlacement = value) } }
+                SettingsChoiceRow(listOf("auto" to "Auto", "inline" to "Inline", "top" to "Top", "bottom" to "Bottom"), c.buttonsPlacement) { value -> editWidget { it.copy(buttonsPlacement = value) } }
                 SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Centre", "right" to "Right", "hidden" to "Hidden"), b.position) { value -> button { it.copy(position = value) } }
                 if (buttonId != "all") {
                     Row {
                         for (direction in listOf(-1, 1)) TextButton(onClick = {
-                            viewModel.updateWidget { old ->
+                            editWidget { old ->
                                 val order = old.buttonOrder.toMutableList(); val index = order.indexOf(buttonId); val to = index + direction
                                 if (index >= 0 && to in order.indices) order.add(to, order.removeAt(index))
                                 old.copy(buttonOrder = order)
@@ -194,7 +199,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
         }, modifier = Modifier.fillMaxWidth()) { Text("Add widget") }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { XvoxAppWidgetProvider.notifyWidgetUpdate(context) }) { Text("Refresh") }
-            TextButton(onClick = { viewModel.updateWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset") }
+            TextButton(onClick = { editWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset") }
         }
     })
 }

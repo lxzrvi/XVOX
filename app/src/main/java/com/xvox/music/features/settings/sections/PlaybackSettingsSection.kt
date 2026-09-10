@@ -98,7 +98,6 @@ private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifi
 
 @Composable
 fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
-    com.xvox.music.features.settings.components.PinnedSettingsEditor(
-        preview = { com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state) },
+    com.xvox.music.features.settings.components.SettingsControlsEditor(
         controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) })
 }

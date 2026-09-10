@@ -81,7 +81,8 @@ fun HomeHeader(
 
             // Lines the user wrote replace the rotating greeting; keep at most two so the
             // header stays compact, and only when the name itself fits.
-            val lines = profile.profileLines
+            // Hidden means hidden: the starter lines are never forced back on screen.
+            val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
             if (lines.isEmpty()) {
                 HomeGreeting()
             } else {

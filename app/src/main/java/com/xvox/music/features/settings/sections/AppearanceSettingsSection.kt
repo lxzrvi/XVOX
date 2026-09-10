@@ -24,12 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.chrome.parseHexColor
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsChoiceRow
+import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
@@ -50,9 +51,7 @@ fun AppearanceSettingsSection(
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // Live preview of the current chrome settings (header / mini player / nav pill).
-        XvoxChromePreview(chrome)
-        Spacer(Modifier.height(2.dp))
+        // The preview lives in the Settings top pane only; this section is controls alone.
 
         GroupTitle("Theme")
         SettingsChoiceRow(
@@ -72,21 +71,51 @@ fun AppearanceSettingsSection(
             subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour"
         )
 
-        GroupTitle("Chrome")
-        // One slider controls the whole top + bottom chrome together.
+        GroupTitle("Header")
+        // The header photo sits behind the header strip; the transparency below is the header's
+        // own, kept separate from the mini player and the nav bar.
+        HeaderPhotoRow(state, viewModel)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Header / Mini / Bar", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.width(118.dp))
             XvoxThinLineSlider(
                 value = chrome.headerBgAlpha,
-                onValueChange = { a ->
-                    viewModel.setChromeStyle { it.copy(headerBgAlpha = a, miniBgAlpha = a, navBgAlpha = a) }
-                },
-                valueRange = 0.25f..1f,
-                defaultValue = 0.88f,
+                onValueChange = { a -> viewModel.setChromeStyle { it.copy(headerBgAlpha = a) } },
+                valueRange = 0f..1f,
+                defaultValue = 1f,
                 modifier = Modifier.weight(1f)
             )
             Text("${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+        }
+
+        GroupTitle("Mini player")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = chrome.miniBgAlpha,
+                onValueChange = { a -> viewModel.setChromeStyle { it.copy(miniBgAlpha = a) } },
+                valueRange = 0f..1f,
+                defaultValue = 1f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(chrome.miniBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+        }
+
+        GroupTitle("Nav bar")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = chrome.navBgAlpha,
+                onValueChange = { a -> viewModel.setChromeStyle { it.copy(navBgAlpha = a) } },
+                valueRange = 0f..1f,
+                defaultValue = 0.88f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(chrome.navBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
@@ -123,6 +152,14 @@ fun AppearanceSettingsSection(
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
+        // Last control in Appearance: the Settings top preview pane can be turned off entirely.
+        SettingsToggle(
+            title = "Hide preview",
+            subtitle = "Hide the live preview at the top of Settings",
+            checked = state.previewHidden,
+            onChange = viewModel::setPreviewHidden
+        )
+
         GroupTitle("Text size")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("A", color = colors.mutedText, fontSize = 12.sp, modifier = Modifier.width(30.dp))
@@ -139,79 +176,6 @@ fun AppearanceSettingsSection(
 }
 
 /** A compact live snapshot of the header, mini player and floating nav bar using current chrome. */
-@Composable
-private fun XvoxChromePreview(chrome: XvoxChromeStyle) {
-    val colors = XvoxTheme.colors
-    val fillAlpha = chrome.headerBgAlpha.coerceIn(0f, 1f)
-    val pillIcon = parseHexColor(chrome.pillIconColor) ?: colors.primaryAccent
-    val pillBg = parseHexColor(chrome.pillColor)
-        ?: colors.cardElevated.copy(alpha = 0.42f)
-    val pillFill = if (chrome.pillColor.isBlank()) pillBg
-        else pillBg.copy(alpha = pillBg.alpha * chrome.pillAlpha.coerceIn(0f, 1f))
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
-    ) {
-        Text("PREVIEW", color = colors.secondaryText, fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
-
-        // Header strip.
-        Row(
-            Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(8.dp))
-                .background(colors.surface.copy(alpha = fillAlpha)).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(14.dp).clip(CircleShape).background(colors.primaryAccent.copy(alpha = 0.8f)))
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.width(52.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.primaryText.copy(alpha = .55f)))
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.size(10.dp).clip(CircleShape).background(colors.cardBorder))
-        }
-
-        // Mini player bar.
-        Row(
-            Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(9.dp))
-                .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f))).padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(colors.primaryAccent.copy(alpha = 0.35f)))
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Box(Modifier.width(70.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(colors.primaryText.copy(alpha = .5f)))
-                Spacer(Modifier.height(4.dp))
-                Box(Modifier.width(42.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(colors.secondaryText.copy(alpha = .5f)))
-            }
-            Box(Modifier.size(20.dp).clip(CircleShape).background(colors.primaryAccent.copy(alpha = 0.35f)))
-        }
-
-        // Floating nav bar with pill.
-        Box(Modifier.fillMaxWidth().height(34.dp), contentAlignment = Alignment.Center) {
-            Row(
-                Modifier.width(150.dp).height(26.dp).clip(RoundedCornerShape(13.dp))
-                    .background(colors.surface.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f))).padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(true, false, false, false).forEach { active ->
-                    Box(
-                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(10.dp))
-                            .background(if (active) pillFill else Color.Transparent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            Modifier.size(7.dp).clip(CircleShape)
-                                .background(if (active) pillIcon else colors.mutedText.copy(alpha = .5f))
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun GroupTitle(title: String) {
@@ -223,4 +187,50 @@ private fun GroupTitle(title: String) {
         letterSpacing = 0.8.sp,
         modifier = Modifier.padding(top = 6.dp)
     )
+}
+
+/**
+ * The Home header can carry the user's own photo. It is stored as a URI and drawn behind the
+ * header's own transparency scrim, so the transparency slider decides how much of it shows.
+ */
+@Composable
+private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
+    val colors = XvoxTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            viewModel.setHeaderImageUri(uri.toString())
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Photo", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(110.dp))
+        Box(
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(colors.card)
+                .xvoxPressScale {
+                    picker.launch(
+                        androidx.activity.result.PickVisualMediaRequest(
+                            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly
+                        )
+                    )
+                }
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        ) { Text(if (state.headerImageUri == null) "Choose photo" else "Change photo",
+            color = colors.primaryText, fontSize = 12.sp) }
+        if (state.headerImageUri != null) {
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(colors.cardElevated)
+                    .xvoxPressScale { viewModel.setHeaderImageUri(null) }
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) { Text("Remove", color = colors.secondaryText, fontSize = 12.sp) }
+        }
+    }
 }

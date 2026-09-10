@@ -35,3 +35,16 @@ fun PinnedSettingsEditor(preview: @Composable ColumnScope.() -> Unit, controls: 
         }
     }
 }
+
+/**
+ * Controls-only editor. The live preview for a section now lives in the Settings top pane, so
+ * sections render their controls alone — never a second, duplicated preview.
+ */
+@Composable
+fun SettingsControlsEditor(controls: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).animateContentSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = controls
+    )
+}

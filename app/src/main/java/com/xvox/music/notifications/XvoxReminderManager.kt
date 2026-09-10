@@ -62,7 +62,7 @@ object XvoxReminderManager {
         manager.createNotificationChannel(
             NotificationChannel(
                 channelId(context), context.getString(R.string.reminder_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH
             ).apply { description = context.getString(R.string.reminder_channel_description) }
         )
     }
@@ -91,8 +91,12 @@ object XvoxReminderManager {
             .setSmallIcon(R.drawable.ic_stat_xvox_note)
             .setContentTitle("XVOX")
             .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // Bigger card: the expanded style keeps the whole message readable at a glance.
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message).setBigContentTitle("XVOX"))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
             .setContentIntent(openAppPending(context))
             .setAutoCancel(true)
             .build()

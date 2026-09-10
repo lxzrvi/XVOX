@@ -52,14 +52,21 @@ object XvoxWidgetHelper {
         144 -> R.layout.widget_image_144; else -> R.layout.widget_image_160
     }
     suspend fun loadCurrentWidgetState(context: Context, song: Song?, isPlaying: Boolean, position: Long = 0, duration: Long = 0): WidgetDisplayState = withContext(Dispatchers.IO) {
-        val style = UserPreferencesRepository(context).widgetStyle.first()
+        val repository = UserPreferencesRepository(context)
+        val style = repository.widgetStyle.first()
         val liked = song?.let { it.id in XvoxLibraryPreferences(context).likedSongIds.first() } ?: false
         WidgetDisplayState(song?.title ?: "XVOX Music", song?.artist ?: "Tap play", song?.artworkUri, isPlaying, liked, position,
             duration.takeIf { it > 0 } ?: song?.duration ?: 0, style.transparency, style.theme, style.customColor,
+            // Base customization only: buildRemoteViews swaps in the entry saved for the size
+            // it is actually drawing.
             style.showLogo, style.radius, style.paddingX, style.paddingY, style.customization)
     }
     suspend fun buildRemoteViews(context: Context, state: WidgetDisplayState, widthDp: Int = 300, heightDp: Int = 90, interactive: Boolean = true): RemoteViews = withContext(Dispatchers.IO) {
-        val c = state.customization.sanitized()
+        // Each widget size keeps its own settings; this draw uses the one saved for its size.
+        val saved = runCatching { UserPreferencesRepository(context).widgetSizes.first() }.getOrDefault(emptyMap())
+        val c = (saved[WidgetCustomization.sizeKey(
+            columnsFor(widthDp), rowsFor(heightDp)
+        )] ?: state.customization).sanitized()
         val w = widthDp.coerceAtLeast(40); val h = heightDp.coerceAtLeast(40)
         val mx = c.marginX.coerceAtMost(w / 6); val my = c.marginY.coerceAtMost(h / 6)
         val iw = w - 2 * mx; val ih = h - 2 * my
@@ -320,4 +327,8 @@ object XvoxWidgetHelper {
             }
         }.getOrNull()
     }
+
+    /** Same cell metric the settings preview uses: one cell is 70 dp plus an 8 dp gutter. */
+    fun columnsFor(widthDp: Int): Int = ((widthDp + 8) / 78).coerceIn(1, 6)
+    fun rowsFor(heightDp: Int): Int = ((heightDp + 8) / 78).coerceIn(1, 6)
 }

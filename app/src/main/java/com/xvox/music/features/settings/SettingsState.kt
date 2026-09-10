@@ -5,6 +5,8 @@ data class SettingsState(
     val theme: String = "System",
     val accentColor: String = "Red",
     val backgroundName: String = "Default",
+    /** Custom photo behind the Home header; null keeps the theme surface. */
+    val headerImageUri: String? = null,
     val backgroundImageUri: String? = null,
     val cardTransparency: Float = 0f,
     val fontSizeScale: Float = 1.0f,
@@ -20,6 +22,14 @@ data class SettingsState(
     val splitHideCollection: Boolean = false,
     val playlistStyle: String = "long",
     val playlistLongHeight: Int = 0,
+    /** Playlist cards on Home: full-width horizontally scrolling cards, or stacked vertically. */
+    val playlistCardOrientation: String = "vertical",
+    /** Appearance › "Hide preview" — the Settings top preview pane can be turned off. */
+    val previewHidden: Boolean = false,
+    /** Last Settings choice the user had open; restored on the next visit. */
+    val lastSettingsTab: String = "Appearance",
+    /** Per-size widget settings ("3x1" -> customization) so each widget size keeps its own. */
+    val widgetSizes: Map<String, com.xvox.music.widget.WidgetCustomization> = emptyMap(),
     val homeMerge: Boolean = false,
     val homeSectionOrder: List<String> = com.xvox.music.features.home.HomeSections.defaultOrder,
     val homeHiddenSections: Set<String> = emptySet(),

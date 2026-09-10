@@ -136,6 +136,10 @@ fun HomeScreen(
             song = song,
             isLiked = song.id in state.likedSongIds,
             playlist = playlist,
+            // Recents tiles have no owning playlist, so the menu resolves membership itself.
+            playlistMembership = if (playlist == null) {
+                state.playlists.filter { pl -> song.id in pl.songIds }
+            } else emptyList(),
             recent = recent,
             viewModel = viewModel,
             playerViewModel = playerViewModel,
@@ -237,6 +241,7 @@ fun HomeScreen(
     fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
         playlistCollectionItems(state.playlists, { playlistContents[it.id].orEmpty() },
             layoutStyle = config.playlistStyle, longCardHeight = config.playlistLongHeight,
+            orientation = config.playlistCardOrientation,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist -> showPlaylistActions(overlays, viewModel, playlist) {

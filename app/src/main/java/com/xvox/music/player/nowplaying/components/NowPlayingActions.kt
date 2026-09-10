@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,6 +28,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -85,8 +89,15 @@ fun NowPlayingActions(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Fixed left cluster (timer / queue / info) with soft circular chips behind them.
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Timer / Queue / Info share one filled pill instead of three separate circles.
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(22.dp))
+                .background(colors.card.copy(alpha = 0.78f))
+                .border(0.65.dp, colors.cardBorder, RoundedCornerShape(22.dp))
+                .padding(horizontal = 4.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             NowPlayingActionIcon(
                 resource = R.drawable.ic_xvox_timer,
                 onClick = onTimer,
@@ -130,9 +141,11 @@ fun NowPlayingActions(
             AnimatedContent(
                 targetState = page,
                 transitionSpec = {
+                    // Swiping right-to-left (a forward page) brings the next trio in from the
+                    // right and pushes the current one out to the left; the reverse swipe mirrors it.
                     val forward = targetState > initialState
-                    (slideInHorizontally(tween(230)) { it * if (forward) -1 else 1 } + fadeIn(tween(150)))
-                        .togetherWith(slideOutHorizontally(tween(230)) { -it * if (forward) -1 else 1 } + fadeOut(tween(150)))
+                    (slideInHorizontally(tween(230)) { if (forward) it else -it } + fadeIn(tween(150)))
+                        .togetherWith(slideOutHorizontally(tween(230)) { if (forward) -it else it } + fadeOut(tween(150)))
                 },
                 label = "nowPlayingRightCluster"
             ) { currentPage ->
@@ -181,12 +194,17 @@ fun NowPlayingActions(
                         )
                         // Bluetooth replaced Lyrics here: tapping (or long-pressing) opens the
                         // output picker — phone speaker vs connected headset.
+                        val bluetoothReady = rememberBluetoothReady()
                         NowPlayingCircleAction(
                             resource = R.drawable.ic_xvox_bluetooth,
-                            tint = colors.primaryAccent,
-                            active = true,
+                            // Idle until Bluetooth is actually on and a headset is around.
+                            tint = if (bluetoothReady) colors.primaryAccent else colors.primaryText,
+                            active = bluetoothReady,
                             contentDescription = "Bluetooth / audio output",
-                            onClick = if (onOpenOptions != null) ({ onOpenOptions("Bluetooth") }) else null,
+                            onClick = if (onOpenOptions != null) ({
+                                rememberBluetoothEnableRequest()?.let { launch -> launch() }
+                                onOpenOptions("Bluetooth")
+                            }) else null,
                             onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Bluetooth") }) else null
                         )
                     }
@@ -281,5 +299,62 @@ fun NowPlayingCircleAction(
             tint = tint ?: colors.primaryAccent,
             modifier = Modifier.size(19.dp)
         )
+    }
+}
+
+/** True once the adapter is on and at least one headset is connected. */
+@Composable
+private fun rememberBluetoothReady(): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val manager = remember(context) { context.getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager }
+    var ready by remember { mutableStateOf(currentBluetoothReady(manager)) }
+    DisposableEffect(manager) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) {
+                ready = currentBluetoothReady(manager)
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        }
+        runCatching { context.registerReceiver(receiver, filter) }
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    return ready
+}
+
+private fun currentBluetoothReady(manager: android.bluetooth.BluetoothManager?): Boolean {
+    val adapter = runCatching { manager?.adapter }.getOrNull() ?: return false
+    if (!adapter.isEnabled) return false
+    // Reading bonded devices needs BLUETOOTH_CONNECT on Android 12+, so a denied permission
+    // simply reads as "no headset around" rather than crashing.
+    return runCatching {
+        adapter.bondedDevices?.any { device ->
+            val major = device.bluetoothClass?.majorDeviceClass
+            major == android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO ||
+                major == android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL
+        } == true
+    }.getOrDefault(false)
+}
+
+/** A one-shot "turn Bluetooth on" request, or null while it is already on / unavailable. */
+@Composable
+private fun rememberBluetoothEnableRequest(): (() -> Unit)? {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return remember(context) {
+        val adapter = runCatching {
+            (context.getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
+        }.getOrNull()
+        if (adapter == null || adapter.isEnabled) null
+        else ({
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        })
     }
 }

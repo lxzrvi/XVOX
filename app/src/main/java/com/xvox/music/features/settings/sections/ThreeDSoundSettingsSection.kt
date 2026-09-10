@@ -25,13 +25,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
-    PinnedSettingsEditor(preview = {
-        if (state.stereoWidening) {
-            SurroundSettingsPreview(state)
-        } else {
-            Text("Turn on 3D sound to preview", color = XvoxTheme.colors.secondaryText, fontSize = 12.sp)
-        }
-    }, controls = {
+    PinnedSettingsEditor(preview = { }, controls = {
         SettingsToggle(
             title = "3D sound",
             subtitle = "Widen, move and place the sound around you",

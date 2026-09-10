@@ -55,6 +55,9 @@ fun XvoxShellTopHeader(
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     mergedHome: Boolean = false,
+    /** Sections hidden from Home keep their icon, merged into the refresh pill. */
+    likedSectionHidden: Boolean = false,
+    playlistsSectionHidden: Boolean = false,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -63,14 +66,28 @@ fun XvoxShellTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
             .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
-            .padding(bottom = 6.dp)
     ) {
+        // Optional header photo, drawn first; the surface scrim above it is the header's own
+        // transparency, so a lower value simply reveals more of the photo.
+        profile.headerImageUri?.takeIf { it.isNotBlank() }?.let { photo ->
+            coil3.compose.AsyncImage(
+                model = photo,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+        }
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
+        )
         Row(
             modifier = Modifier
                 .padding(horizontal = 14.dp)
-                .height(54.dp),
+                .height(54.dp)
+                .padding(bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             HomeProfileAvatar(
@@ -146,8 +163,10 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    if (!mergedHome) {
-                    Icon(
+                    // Hidden sections no longer appear on Home, so their icons stay here in the
+                    // same pill as Refresh — the shortcut survives, the section does not.
+                    if (!mergedHome || likedSectionHidden || playlistsSectionHidden) {
+                    if (!mergedHome || likedSectionHidden) Icon(
                         painter = painterResource(
                             if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
                             else R.drawable.ic_xvox_heart_outline
@@ -160,7 +179,7 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    Icon(
+                    if (!mergedHome || playlistsSectionHidden) Icon(
                         painter = painterResource(
                             if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
                                 R.drawable.ic_xvox_music_note

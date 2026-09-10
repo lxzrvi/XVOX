@@ -153,3 +153,41 @@ fun Modifier.xvoxPressScale(
             indication = null
         ) { click() }
 }
+
+/**
+ * Tap = [onTap]; press-and-hold = [onBoostChange] true until release, then false.
+ *
+ * Unlike a scrub this never moves the playhead, so the deck keeps streaming: holding Next plays
+ * faster through the same audio pipeline, with no cut, gap or voice break.
+ */
+fun Modifier.xvoxTapOrBoost(
+    enabled: Boolean = true,
+    onTap: () -> Unit,
+    onBoostChange: (Boolean) -> Unit,
+    longPressDelay: Long = 420
+): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    val currentTap by rememberUpdatedState(onTap)
+    val currentBoost by rememberUpdatedState(onBoostChange)
+    pointerInput(enabled, longPressDelay) {
+        if (!enabled) return@pointerInput
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var held = false
+            val job = scope.launch {
+                delay(longPressDelay)
+                held = true
+                currentBoost(true)
+            }
+            try {
+                waitForUpOrCancellation(PointerEventPass.Initial)
+            } finally {
+                job.cancel()
+                // Always drop the boost, even if the gesture was cancelled mid-hold.
+                if (held) currentBoost(false)
+                held = false
+            }
+            if (!held) currentTap()
+        }
+    }
+}

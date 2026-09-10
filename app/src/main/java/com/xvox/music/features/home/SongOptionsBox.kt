@@ -42,6 +42,9 @@ fun SongOptionsBox(
     song: Song,
     liked: Boolean,
     playlistName: String? = null,
+    /** Every playlist that already holds this song, so the menu can offer "Remove from …". */
+    membership: List<Pair<String, () -> Unit>> = emptyList(),
+    onAddToEach: (() -> Unit)? = null,
     onPlayNext: () -> Unit,
     onAddQueue: () -> Unit,
     onPlaylist: () -> Unit,
@@ -57,23 +60,20 @@ fun SongOptionsBox(
     val colors =
         XvoxTheme.colors
 
-    val playlistOption =
-        if (
-            playlistName != null &&
-            onRemovePlaylist != null
-        ) {
-            SongOption(
-                "Remove from $playlistName",
-                R.drawable.ic_xvox_delete,
-                onRemovePlaylist
-            )
+    // Membership is checked per playlist, so the menu always matches reality: a playlist that
+    // holds the song offers "Remove from this playlist", the others offer "Add to this playlist".
+    val playlistOptions: List<SongOption> = buildList {
+        if (playlistName != null && onRemovePlaylist != null) {
+            add(SongOption("Remove from $playlistName", R.drawable.ic_xvox_delete, onRemovePlaylist))
+        } else if (membership.isNotEmpty()) {
+            membership.forEach { (name, remove) ->
+                add(SongOption("Remove from this playlist · $name", R.drawable.ic_xvox_delete, remove))
+            }
+            onAddToEach?.let { add(SongOption("Add to this playlist", R.drawable.ic_xvox_playlist, it)) }
         } else {
-            SongOption(
-                "Add to playlist",
-                R.drawable.ic_xvox_playlist,
-                onPlaylist
-            )
+            add(SongOption("Add to this playlist", R.drawable.ic_xvox_playlist, onPlaylist))
         }
+    }
 
     val options =
         buildList {
@@ -94,7 +94,7 @@ fun SongOptionsBox(
                 )
             )
 
-            add(playlistOption)
+            addAll(playlistOptions)
 
             add(
                 SongOption(

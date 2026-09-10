@@ -56,17 +56,9 @@ fun NotifySettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "Friendly reminders to play music — never more than three in 24 hours.",
-            color = colors.primaryAccent,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.fillMaxWidth()
-        )
-
         SettingsToggle(
             title = "Music reminders",
-            subtitle = "Max 3 messages every 24 hours",
+            subtitle = null,
             checked = state.remindersEnabled,
             onChange = { on ->
                 if (on) {

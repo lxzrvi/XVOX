@@ -35,7 +35,7 @@ fun HomeSettingsSection(
     state: SettingsState, viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
-    com.xvox.music.features.settings.components.PinnedSettingsEditor(preview = { HomeSettingsPreview(state) }, controls = {
+    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
         Label("Card style")
         SettingsChoiceRow(listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One size"),
             state.homeLayoutStyle, viewModel::setHomeLayoutStyle)
@@ -53,6 +53,10 @@ fun HomeSettingsSection(
 
         Label("Sort")
         SettingsChoiceRow(listOf("A-Z", "Z-A", "Random").map { it to it }, state.sortOrder, viewModel::setSortOrder)
+
+        Label("Cards layout")
+        SettingsChoiceRow(listOf("vertical" to "Vertical", "horizontal" to "Horizontal"),
+            state.playlistCardOrientation, viewModel::setPlaylistCardOrientation)
 
         Label("Playlist cards")
         SettingsChoiceRow(listOf("cards" to "Grid", "long" to "Long"), state.playlistStyle, viewModel::setPlaylistStyle)

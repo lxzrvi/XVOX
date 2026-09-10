@@ -112,6 +112,12 @@ class UserPreferencesRepository(
         val audioOutputRoute = stringPreferencesKey("audio_output_route")
         val playbackSpeed = floatPreferencesKey("playback_speed")
         val playbackPitch = floatPreferencesKey("playback_pitch")
+        val headerImageUri = stringPreferencesKey("header_image_uri")
+        val settingsPreviewHidden = booleanPreferencesKey("settings_preview_hidden")
+        val lastSettingsTab = stringPreferencesKey("last_settings_tab")
+        val playlistCardOrientation = stringPreferencesKey("playlist_card_orientation")
+        val profileLinesInitialized = booleanPreferencesKey("profile_lines_initialized")
+        val widgetSizes = stringPreferencesKey("widget_sizes_v1")
         val profileLines = stringPreferencesKey("profile_lines")
         val showProfileLines = booleanPreferencesKey("show_profile_lines")
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
@@ -128,7 +134,9 @@ class UserPreferencesRepository(
             customPfpUris = decodeUriList(prefs[Keys.customPfpUris].orEmpty()),
             profileLines = prefs[Keys.profileLines].orEmpty().lines()
                 .map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(4),
-            showProfileLines = prefs[Keys.showProfileLines] ?: true
+            showProfileLines = prefs[Keys.showProfileLines] ?: true,
+            headerImageUri = prefs[Keys.headerImageUri]?.takeIf { it.isNotBlank() },
+            profileLinesInitialized = prefs[Keys.profileLinesInitialized] ?: false
         )
     }.distinctUntilChanged()
 
@@ -181,6 +189,7 @@ class UserPreferencesRepository(
             order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
                 ?: HomeSections.placeRecent(HomeSections.defaultOrder, placement),
             playlistStyle = if (it[Keys.playlistStyle] == "cards") "cards" else "long", hideSplit = it[Keys.splitHideCollection] ?: false,
+            playlistCardOrientation = if (it[Keys.playlistCardOrientation] == "horizontal") "horizontal" else "vertical",
             playlistLongHeight = (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260),
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
@@ -292,6 +301,21 @@ class UserPreferencesRepository(
         .map { (it[Keys.playbackSpeed] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
     val playbackPitch: Flow<Float> = context.xvoxDataStore.data
         .map { (it[Keys.playbackPitch] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
+    val headerImageUri: Flow<String?> = context.xvoxDataStore.data.map { it[Keys.headerImageUri] }
+        .distinctUntilChanged()
+    val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.settingsPreviewHidden] ?: false }.distinctUntilChanged()
+    val lastSettingsTab: Flow<String> = context.xvoxDataStore.data
+        .map { it[Keys.lastSettingsTab] ?: "Appearance" }.distinctUntilChanged()
+    val playlistCardOrientation: Flow<String> = context.xvoxDataStore.data
+        .map { if (it[Keys.playlistCardOrientation] == "horizontal") "horizontal" else "vertical" }
+        .distinctUntilChanged()
+    val profileLinesInitialized: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.profileLinesInitialized] ?: false }.distinctUntilChanged()
+    /** Per-size widget settings: "3x1" -> that size's own customization. */
+    val widgetSizes: Flow<Map<String, com.xvox.music.widget.WidgetCustomization>> = context.xvoxDataStore.data
+        .map { com.xvox.music.widget.WidgetCustomization.decodeSizes(it[Keys.widgetSizes].orEmpty()) }
+        .distinctUntilChanged()
     val profileLines: Flow<List<String>> = context.xvoxDataStore.data
         .map { it[Keys.profileLines].orEmpty().lines().map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4) }
         .distinctUntilChanged()
@@ -455,6 +479,28 @@ class UserPreferencesRepository(
     }
     suspend fun setShowProfileLines(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.showProfileLines] = enabled }
+    }
+    suspend fun setHeaderImageUri(uri: String?) {
+        context.xvoxDataStore.edit { it[Keys.headerImageUri] = uri.orEmpty() }
+    }
+    suspend fun setSettingsPreviewHidden(hidden: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.settingsPreviewHidden] = hidden }
+    }
+    suspend fun setLastSettingsTab(tab: String) {
+        context.xvoxDataStore.edit { it[Keys.lastSettingsTab] = tab }
+    }
+    suspend fun setPlaylistCardOrientation(value: String) {
+        context.xvoxDataStore.edit { it[Keys.playlistCardOrientation] = if (value == "horizontal") "horizontal" else "vertical" }
+    }
+    suspend fun setProfileLinesInitialized(value: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.profileLinesInitialized] = value }
+    }
+    suspend fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) {
+        context.xvoxDataStore.edit { prefs ->
+            val next = com.xvox.music.widget.WidgetCustomization.decodeSizes(prefs[Keys.widgetSizes].orEmpty()).toMutableMap()
+            next[key] = value.sanitized()
+            prefs[Keys.widgetSizes] = com.xvox.music.widget.WidgetCustomization.encodeSizes(next)
+        }
     }
     suspend fun setRemindersEnabled(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.remindersEnabled] = enabled }

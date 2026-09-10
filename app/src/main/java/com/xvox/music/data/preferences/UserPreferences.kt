@@ -1,5 +1,10 @@
 package com.xvox.music.data.preferences
 
+object ProfileDefaults {
+    /** Starter lines offered under the name; removing one keeps it removed. */
+    val lines = listOf("Music is my reset button", "Always looking for the next great track")
+}
+
 data class UserPreferences(
     val setupCompleted: Boolean = false,
     val username: String = "",
@@ -10,5 +15,9 @@ data class UserPreferences(
     /** Short lines the user wrote; the first one or two appear under the name on Home. */
     val profileLines: List<String> = emptyList(),
     /** When false the name stands alone next to the avatar (no lines block under it). */
-    val showProfileLines: Boolean = true
+    val showProfileLines: Boolean = true,
+    /** Custom photo shown behind the Home header; null keeps the theme surface. */
+    val headerImageUri: String? = null,
+    /** True once the starter lines have been offered, so removing one keeps it removed. */
+    val profileLinesInitialized: Boolean = false
 )

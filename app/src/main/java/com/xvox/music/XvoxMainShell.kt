@@ -80,6 +80,7 @@ fun XvoxMainShell(
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
+    val hiddenHomeSections by homePreferences.homeHiddenSections.collectAsState(initial = emptySet())
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
@@ -299,6 +300,8 @@ fun XvoxMainShell(
                 destination = destination,
                 libraryMode = homeState.libraryMode,
                 mergedHome = mergedHome,
+                likedSectionHidden = com.xvox.music.features.home.HomeSections.LIKED in hiddenHomeSections,
+                playlistsSectionHidden = com.xvox.music.features.home.HomeSections.PLAYLISTS in hiddenHomeSections,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
                 onLikedClick = {

@@ -70,9 +70,17 @@ fun XvoxRecentArtwork(
 
     val shape = RoundedCornerShape(3.dp)
 
-    // The artwork is fitted, never cropped: when the tile is small the cover keeps its left and
-    // right edges and simply scales down inside the box (the card colour fills any gap). A press
-    // only shrinks the tile slightly via xvoxSongPress — no contentScale switching, no flicker.
+    // Press pulls the artwork inwards; the card frame itself does not move.
+    var pressed by remember { mutableStateOf(false) }
+    val artScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed) 0.90f else 1f,
+        animationSpec = tween(150),
+        label = "recentArtInset"
+    )
+
+    // The card is full-cover: the artwork fills it edge to edge. A press never re-crops the
+    // image — the artwork itself scales down inwards inside the still card frame, so the cover
+    // pulls in evenly and its sides stay exactly where they were.
     Box(
         modifier = modifier
             .clip(shape)
@@ -82,13 +90,15 @@ fun XvoxRecentArtwork(
                 color = colors.cardBorder,
                 shape = shape
             )
-            .xvoxSongPress(onClick, onLongClick)
+            .xvoxSongPress(onClick, onLongClick, pressedScale = 1f, onPressedChange = { pressed = it })
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = XvoxRecentArtworkSize,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { scaleX = artScale; scaleY = artScale }
         )
 
         Box(

@@ -1,5 +1,6 @@
 package com.xvox.music.features.settings
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -71,6 +76,13 @@ import com.xvox.music.features.settings.sections.WidgetSettingsSection
  * There is no accordion list any more: picking a choice shows that choice's controls in the lower
  * part of the screen while the top part keeps showing a live preview of whatever is being changed.
  */
+private val SettingsChoice.hasPreview: Boolean
+    get() = this in setOf(
+        SettingsChoice.APPEARANCE, SettingsChoice.HOME, SettingsChoice.LYRICS,
+        SettingsChoice.EQUALIZER, SettingsChoice.THREE_D, SettingsChoice.CROSSFADE,
+        SettingsChoice.WIDGET
+    )
+
 private enum class SettingsChoice(val label: String) {
     APPEARANCE("Appearance"),
     HOME("Home"),
@@ -106,17 +118,29 @@ fun SettingsScreen(
 ) {
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
-    // Appearance is the section the tab opens on.
+    // The tab the user left open last time; restored once, then tracked live.
     var choice by remember { mutableStateOf(SettingsChoice.APPEARANCE) }
+    var restored by remember { mutableStateOf(false) }
     val controlsState = rememberLazyListState()
     val chipsState = rememberLazyListState()
 
-    // Every fresh entry into the Settings tab lands on Appearance, scrolled to the top.
+    LaunchedEffect(state.lastSettingsTab) {
+        if (!restored) {
+            val saved = SettingsChoice.entries.firstOrNull { it.label == state.lastSettingsTab }
+            if (saved != null) choice = saved
+            restored = true
+        }
+    }
+
+    // Remembered, not reset: re-entering the tab keeps the last choice, but its content starts
+    // at the top. Home does the same with its configured top section.
     LaunchedEffect(topResetKey) {
-        choice = SettingsChoice.APPEARANCE
         runCatching { controlsState.scrollToItem(0) }
         runCatching { chipsState.scrollToItem(0) }
     }
+
+    // Persist whichever choice is shown so the next visit opens here.
+    LaunchedEffect(choice) { settingsViewModel.setLastSettingsTab(choice.label) }
 
     // Keep the active chip on screen when the choice changes.
     LaunchedEffect(choice) {
@@ -154,23 +178,28 @@ fun SettingsScreen(
         Spacer(Modifier.height(HomeGeometry.sectionGap))
 
         // Live preview: the top 40% of this same screen, following whatever is being changed.
-        SettingsPreviewPane(
-            choice = choice,
-            state = state,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.4f)
-                .padding(horizontal = 12.dp)
-        )
+        // Only the visual sections have one — Headset, Notify, Library filter, Deleted songs,
+        // Backup, Battery, How to use and About show no preview, and Appearance can hide it.
+        val showPreview = !state.previewHidden && choice.hasPreview
+        if (showPreview) {
+            SettingsPreviewPane(
+                choice = choice,
+                state = state,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.4f)
+                    .padding(horizontal = 12.dp)
+            )
 
-        Spacer(Modifier.height(HomeGeometry.sectionGap))
+            Spacer(Modifier.height(HomeGeometry.sectionGap))
+        }
 
         // Controls for the selected choice.
         LazyColumn(
             state = controlsState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.6f),
+                .weight(if (state.previewHidden || !choice.hasPreview) 1f else 0.6f),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -243,13 +272,16 @@ private fun SettingsPreviewPane(choice: SettingsChoice, state: SettingsState, mo
     ) {
         when (choice) {
             SettingsChoice.APPEARANCE -> ChromePreview(state.chromeStyle, state.accentColor)
-            SettingsChoice.HOME -> HomeSettingsPreview(state)
+            // Scrollable on purpose: the whole Home layout can be inspected top to bottom.
+            SettingsChoice.HOME -> Box(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            ) { HomeSettingsPreview(state) }
             SettingsChoice.LYRICS -> LyricsPreview(state)
             SettingsChoice.EQUALIZER -> EqSettingsPreview(state)
             SettingsChoice.THREE_D -> SurroundSettingsPreview(state)
             SettingsChoice.CROSSFADE -> CrossfadeSettingsPreview(state)
             SettingsChoice.WIDGET -> WidgetPreview(state)
-            else -> SettingsSummaryPreview(choice, state)
+            else -> Unit
         }
     }
 }
@@ -314,33 +346,63 @@ private fun ChromePreview(chrome: XvoxChromeStyle, accentName: String) {
     }
 }
 
-/** Sample lyric lines: current line in the accent at its size, the rest at their fade. */
+/**
+ * Sample lyric lines that actually move: the highlight walks down the lines like playback does,
+ * at the chosen alignment, so the fade and size settings can be judged in motion.
+ */
 @Composable
 private fun LyricsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     val lyrics = state.lyrics
     val sample = listOf("Hold the night a little longer", "Every echo finds its way", "This is where we stay")
     val otherAlpha = if (lyrics.fadeEqual) 0.18f else (1f - lyrics.fadeIntensity).coerceIn(0.18f, 1f)
+    val topFade = lyrics.fadeTop.coerceIn(0f, .45f)
+    val bottomFade = lyrics.fadeBottom.coerceIn(0f, .45f)
+    val alignment = when (lyrics.alignment) {
+        "left" -> Alignment.CenterStart
+        "right" -> Alignment.CenterEnd
+        else -> Alignment.CenterHorizontally
+    }
+
+    var active by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lyrics.animation) {
+        while (true) {
+            kotlinx.coroutines.delay(1500)
+            active = (active + 1) % sample.size
+        }
+    }
 
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = when (lyrics.alignment) {
+            "left" -> Alignment.Start
+            "right" -> Alignment.End
+            else -> Alignment.CenterHorizontally
+        }
     ) {
         sample.forEachIndexed { index, line ->
-            val current = index == 1
+            val current = index == active
+            val edgeFade = when (index) {
+                0 -> 1f - topFade
+                sample.lastIndex -> 1f - bottomFade
+                else -> 1f
+            }
             Text(
                 text = line,
-                color = if (current) colors.primaryAccent else colors.primaryText.copy(alpha = otherAlpha),
+                color = if (current) colors.primaryAccent
+                else colors.primaryText.copy(alpha = (otherAlpha * edgeFade).coerceIn(.08f, 1f)),
                 fontSize = (if (current) lyrics.currentSize else lyrics.otherSize).sp,
                 fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 1
+                maxLines = 1,
+                modifier = Modifier.animateContentSize()
             )
         }
         Text(
-            text = "${lyrics.animation} · ${if (lyrics.offsetMs == 0) "0 ms" else "${lyrics.offsetMs} ms"}",
+            text = "${lyrics.animation} · ${lyrics.alignment} · ${if (lyrics.offsetMs == 0) "0 ms" else "${lyrics.offsetMs} ms"}",
             color = colors.mutedText,
-            fontSize = 10.sp
+            fontSize = 10.sp,
+            modifier = Modifier.align(alignment)
         )
     }
 }
@@ -374,47 +436,6 @@ private fun WidgetPreview(state: SettingsState) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Now playing", color = colors.primaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             Text("XVOX widget", color = colors.secondaryText, fontSize = 9.sp)
-        }
-    }
-}
-
-/** Read-out for the sections that have no visual surface of their own. */
-@Composable
-private fun SettingsSummaryPreview(choice: SettingsChoice, state: SettingsState) {
-    val colors = XvoxTheme.colors
-    val rows = when (choice) {
-        SettingsChoice.HEADSET -> listOf(
-            "Output" to state.audioOutputRoute,
-            "On disconnect" to state.btDisconnectAction,
-            "On connect" to state.btConnectAction,
-            "Pause when unplugged" to if (state.pauseOnHeadphoneDisconnect) "On" else "Off"
-        )
-        SettingsChoice.NOTIFY -> listOf(
-            "Reminders" to if (state.remindersEnabled) "On" else "Off",
-            "Notification bar" to "One media icon"
-        )
-        SettingsChoice.FILTER -> listOf(
-            "Ignored folders" to state.ignoredFolders.size.toString(),
-            "Shortest song" to "${state.ignoreBelowSec}s",
-            "Smallest file" to "${state.ignoreBelowKb} KB"
-        )
-        SettingsChoice.DELETED -> listOf("Hidden songs" to "Managed from Home settings")
-        SettingsChoice.BACKUP -> listOf(
-            "Backup" to "Playlists, prefs & profile",
-            "Restore" to "Pick a backup file"
-        )
-        SettingsChoice.BATTERY -> listOf("Background playback" to "Keep alive")
-        SettingsChoice.HOW_TO_USE -> listOf("Gestures" to "Hold, swipe, scrub")
-        SettingsChoice.ABOUT -> listOf("App" to "XVOX", "Build" to "Offline music player")
-        else -> emptyList()
-    }
-
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        rows.forEach { (label, value) ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                Text(value, color = colors.primaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
         }
     }
 }

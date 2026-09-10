@@ -55,14 +55,30 @@ fun LazyListScope.librarySongItems(
 fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
-    layoutStyle: String = "long", longCardHeight: Int = 0
+    layoutStyle: String = "long", longCardHeight: Int = 0,
+    /** "horizontal" = full-width cards you swipe sideways; "vertical" = stacked full-width cards. */
+    orientation: String = "vertical"
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
         Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
-    if (layoutStyle == "long") {
+    if (layoutStyle == "long" && orientation == "horizontal") {
+        // One horizontally scrolling row of full-width cards.
+        item(key = "playlist_horizontal_row") {
+            androidx.compose.foundation.lazy.LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(playlists, key = { "playlist_h_${it.id}" }) { playlist ->
+                    XvoxPlaylistCard(playlist, songsFor(playlist), { onOpen(playlist) }, { onOptions(playlist) },
+                        Modifier.width(300.dp).height(cardHeight(playlist, longCardHeight)), longCard = true)
+                }
+            }
+        }
+    } else if (layoutStyle == "long") {
         items(playlists, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
             BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
                 // 0 keeps the original proportional height; any other value is the chosen dp height.
@@ -85,3 +101,7 @@ fun LazyListScope.playlistCollectionItems(
     }
 
 }
+
+/** Card height for the horizontal row: Auto keeps a wide-card proportion, otherwise the dp choice. */
+private fun cardHeight(playlist: XvoxPlaylist, longCardHeight: Int) =
+    if (longCardHeight > 0) longCardHeight.dp else 178.dp
