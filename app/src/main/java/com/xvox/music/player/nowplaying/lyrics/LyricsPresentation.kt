@@ -35,7 +35,18 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     modifier: Modifier = Modifier, color: Color = Color.White, synchronized: Boolean = true) {
     val maximumSize = maxOf(settings.currentSize, settings.otherSize)
     val wanted = (if (active) settings.currentSize else settings.otherSize).toFloat() / maximumSize
-    val animation = settings.animation
+    // Left / Centre / Right is a layout choice, so it is honoured here — the old renderer always
+    // centred every line, which is why the setting appeared to do nothing while playing.
+    val textAlign = when (settings.alignment) {
+        "left" -> TextAlign.Start
+        "right" -> TextAlign.End
+        else -> TextAlign.Center
+    }
+    // With a side alignment the lines come in straight: the sideways and vertical animation
+    // flavours are dropped and the default, quiet motion is used instead, so nothing pushes an
+    // aligned line off its edge.
+    val aligned = settings.alignment != "center"
+    val animation = if (aligned) "default" else settings.animation
 
     // Each style gets its own motion character and timing so the eight names never feel alike.
     val spec: AnimationSpec<Float> = when (animation) {
@@ -110,7 +121,7 @@ fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings
     // list's row heights during centring and caused the old jitter / corrective jumps.
     Text(text.ifBlank { "♪" }, color = color,
         style = MaterialTheme.typography.bodyLarge.copy(fontSize = maximumSize.sp, lineHeight = (maximumSize * 1.3f).sp,
-            fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center),
+            fontWeight = FontWeight.SemiBold, textAlign = textAlign),
         modifier = modifier.fillMaxWidth().graphicsLayer {
             this.alpha = alpha; scaleX = scale * pulseScale; scaleY = scale * pulseScale
             translationX = shiftX.dp.toPx(); translationY = shiftY.dp.toPx()

@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -82,17 +84,41 @@ fun XvoxFullscreenLyrics(
     // Real immersive full screen: the clock, battery and notification icons go away with the
     // bars while lyrics are open, and everything comes back on the way out.
     val view = LocalView.current
+    // The status-bar inset is captured once and then animated away. Reading the live inset while
+    // the bars slide in and out would resize the stage on every frame, which is what made the
+    // lyrics jump; a fixed animated pad keeps the block perfectly still.
+    val statusBarPx = remember(view) {
+        val window = (view.context as? android.app.Activity)?.window
+        if (window == null) 0
+        else androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(view.rootWindowInsets, view)
+            .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
+    }
+    var barsVisible by remember { mutableStateOf(true) }
+    val animatedBarsPad by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (barsVisible) with(LocalDensity.current) { statusBarPx.toDp() } else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(260, easing = FastOutSlowInEasing),
+        label = "barsPad"
+    )
+
     DisposableEffect(view) {
         val window = (view.context as? android.app.Activity)?.window
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
         controller?.let { c ->
             c.systemBarsBehavior =
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            c.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            // The lyric stage keeps its own top padding, so a stale inset would only add a gap.
             c.isAppearanceLightStatusBars = false
         }
-        onDispose { controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+        // Let the screen finish entering, then fade the bars out; the pad above animates down with
+        // them, so the two motions read as one movement instead of a snap.
+        val hide = view.postDelayed({
+            barsVisible = false
+            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }, 120)
+        onDispose {
+            view.removeCallbacks(hide)
+            barsVisible = true
+            controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
     }
     val custom = state.lyrics?.source == XvoxLyricsSource.USER_LRC || state.lyrics?.source == XvoxLyricsSource.USER_TEXT
     var chromeVisible by remember { mutableStateOf(true) }
@@ -179,7 +205,7 @@ fun XvoxFullscreenLyrics(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = animatedBarsPad)
                     .background(colors.background.copy(alpha = 0.4f))
             )
         }
@@ -196,7 +222,7 @@ fun XvoxFullscreenLyrics(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.background.copy(alpha = 0.55f))
-                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = animatedBarsPad)
                     .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 8.dp)
             ) {
                 Row(

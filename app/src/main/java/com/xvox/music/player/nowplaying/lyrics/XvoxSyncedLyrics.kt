@@ -50,7 +50,12 @@ fun XvoxSyncedLyrics(lyrics: XvoxLyrics, position: Long, onSeek: (Long) -> Unit,
     val density = LocalDensity.current
     val maximum = maxOf(settings.currentSize, settings.otherSize)
     val textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = maximum.sp, lineHeight = (maximum * 1.3f).sp,
-        fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        fontWeight = FontWeight.SemiBold,
+        textAlign = when (settings.alignment) {
+            "left" -> TextAlign.Start
+            "right" -> TextAlign.End
+            else -> TextAlign.Center
+        })
     BoxWithConstraints(modifier.fillMaxSize()) {
         val viewport = with(density) { maxHeight.toPx() }
         val textWidth = with(density) { (maxWidth - 36.dp).roundToPx().coerceAtLeast(1) }

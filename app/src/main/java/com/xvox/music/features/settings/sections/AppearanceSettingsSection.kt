@@ -53,6 +53,39 @@ fun AppearanceSettingsSection(
 
         // The preview lives in the Settings top pane only; this section is controls alone.
 
+        // Option boxes: every popup opened over the app (queue, playlist picker, song options).
+        GroupTitle("Option boxes")
+        AlphaRow("Fill", chrome.optionBoxBgAlpha) { a ->
+            viewModel.setChromeStyle { it.copy(optionBoxBgAlpha = a) }
+        }
+        ColorPickerRow(
+            label = "Border",
+            hex = chrome.optionBoxBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(optionBoxBorder = hex) } },
+            subtitle = if (chrome.optionBoxBorder.isBlank()) "Default: theme border" else "Box outline",
+            alpha = chrome.optionBoxBorderAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(optionBoxBorderAlpha = a) } }
+        )
+
+        GroupTitle("Background")
+        SettingsChoiceRow(
+            listOf("Default" to "Default", "Dim" to "Dim", "Dark" to "Dark"),
+            state.backgroundName
+        ) { viewModel.setBackgroundName(it) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Brightness", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.width(118.dp))
+            XvoxThinLineSlider(
+                value = state.backgroundBrightness,
+                onValueChange = viewModel::setBackgroundBrightness,
+                valueRange = 0.3f..1f,
+                defaultValue = 0.8f,
+                modifier = Modifier.weight(1f)
+            )
+            Text("${(state.backgroundBrightness.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+        }
+
         GroupTitle("Theme")
         SettingsChoiceRow(
             listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
@@ -89,6 +122,15 @@ fun AppearanceSettingsSection(
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
+        ColorPickerRow(
+            label = "Border",
+            hex = chrome.headerBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(headerBorder = hex) } },
+            subtitle = if (chrome.headerBorder.isBlank()) "Default: theme border" else "Header hairline",
+            alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(headerBorderAlpha = a) } }
+        )
+
         GroupTitle("Mini player")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -104,6 +146,15 @@ fun AppearanceSettingsSection(
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
 
+        ColorPickerRow(
+            label = "Border",
+            hex = chrome.miniBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(miniBorder = hex) } },
+            subtitle = if (chrome.miniBorder.isBlank()) "Default: theme border" else "Mini player outline",
+            alpha = chrome.miniBorderAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(miniBorderAlpha = a) } }
+        )
+
         GroupTitle("Nav bar")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -118,6 +169,15 @@ fun AppearanceSettingsSection(
             Text("${(chrome.navBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
+
+        ColorPickerRow(
+            label = "Border",
+            hex = chrome.navBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(navBorder = hex) } },
+            subtitle = if (chrome.navBorder.isBlank()) "Default: theme border" else "Bar and pill outline",
+            alpha = chrome.navBorderAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(navBorderAlpha = a) } }
+        )
 
         GroupTitle("Nav pill")
         // The fill's transparency lives inside its own picker — a single "Transparency" slider
@@ -151,6 +211,15 @@ fun AppearanceSettingsSection(
             Text("${(state.cardTransparency.coerceIn(0f, 1f) * 100).roundToInt()}%",
                 color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
         }
+
+        ColorPickerRow(
+            label = "Border",
+            hex = chrome.cardBorder,
+            onColorChange = { hex -> viewModel.setChromeStyle { it.copy(cardBorder = hex) } },
+            subtitle = if (chrome.cardBorder.isBlank()) "Default: theme border" else "Card outline",
+            alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(cardBorderAlpha = a) } }
+        )
 
         // Last control in Appearance: the Settings top preview pane can be turned off entirely.
         SettingsToggle(
@@ -236,5 +305,24 @@ private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
                     .padding(horizontal = 14.dp, vertical = 9.dp)
             ) { Text("Remove", color = colors.secondaryText, fontSize = 12.sp) }
         }
+    }
+}
+
+/** A labelled transparency slider row, used by the per-surface chrome controls. */
+@Composable
+private fun AlphaRow(label: String, value: Float, onChange: (Float) -> Unit) {
+    val colors = XvoxTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(118.dp))
+        XvoxThinLineSlider(
+            value = value.coerceIn(0f, 1f),
+            onValueChange = { onChange(it.coerceIn(0f, 1f)) },
+            valueRange = 0f..1f,
+            defaultValue = 1f,
+            modifier = Modifier.weight(1f)
+        )
+        Text("${(value.coerceIn(0f, 1f) * 100).roundToInt()}%",
+            color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
     }
 }

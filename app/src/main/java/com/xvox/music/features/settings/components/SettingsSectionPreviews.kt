@@ -201,11 +201,19 @@ fun LyricsStagePreview(state: SettingsState) {
         }
     }
 
-    Column(
-        Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        horizontalAlignment = alignment
+    // Drawn at the real screen size and scaled to fit, so a large lyric size shows completely
+    // instead of being cropped by the preview frame.
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    UniformPreview(
+        configuration.screenWidthDp.dp,
+        configuration.screenHeightDp.dp,
+        Modifier.fillMaxWidth().heightIn(max = 176.dp)
     ) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = alignment
+        ) {
         sample.forEachIndexed { index, line ->
             val current = index == active
             val edgeFade = when (index) {
@@ -220,11 +228,17 @@ fun LyricsStagePreview(state: SettingsState) {
                 fontSize = (if (current) lyrics.currentSize else lyrics.otherSize).sp,
                 fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
+                textAlign = when (lyrics.alignment) {
+                    "left" -> androidx.compose.ui.text.style.TextAlign.Start
+                    "right" -> androidx.compose.ui.text.style.TextAlign.End
+                    else -> androidx.compose.ui.text.style.TextAlign.Center
+                },
                 modifier = Modifier
                     .animateContentSize()
-                    // The animation style shows up as motion, not as a label.
+                    .fillMaxWidth()
                     .align(alignment)
             )
+        }
         }
     }
 }
