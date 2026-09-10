@@ -110,10 +110,12 @@ fun XvoxFullscreenLyrics(
         }
         // Let the screen finish entering, then fade the bars out; the pad above animates down with
         // them, so the two motions read as one movement instead of a snap.
-        val hide = view.postDelayed({
+        val hide = Runnable {
             barsVisible = false
             controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        }, 120)
+            Unit
+        }
+        view.postDelayed(hide, 120)
         onDispose {
             view.removeCallbacks(hide)
             barsVisible = true
