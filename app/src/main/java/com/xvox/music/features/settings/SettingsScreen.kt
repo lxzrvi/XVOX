@@ -2,6 +2,8 @@ package com.xvox.music.features.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -205,7 +207,11 @@ private fun SettingsChoiceChip(label: String, active: Boolean, onClick: () -> Un
             .clip(CircleShape)
             .background(if (active) colors.primaryAccent else colors.card)
             .border(1.dp, if (active) colors.primaryAccent else colors.cardBorder, CircleShape)
-            .xvoxSettingsChipPress(onClick)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
             .padding(horizontal = 12.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -218,9 +224,6 @@ private fun SettingsChoiceChip(label: String, active: Boolean, onClick: () -> Un
         )
     }
 }
-
-private fun Modifier.xvoxSettingsChipPress(onClick: () -> Unit): Modifier =
-    com.xvox.music.core.ui.effects.xvoxPressScale(pressedScale = 0.94f, onClick = onClick)
 
 /**
  * The live preview shown in the top 40% of the Settings screen. Visual sections reuse the same
