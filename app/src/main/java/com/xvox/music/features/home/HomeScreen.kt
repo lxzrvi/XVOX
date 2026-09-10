@@ -265,7 +265,7 @@ fun HomeScreen(
             val listState = rememberLazyListState()
             LaunchedEffect(homeResetKey) { if (homeResetKey > 0L) listState.scrollToItem(0) }
             // Re-entering the tab after a switch always lands back on top, wherever it was left.
-            LaunchedEffect(scrollResetKey, targetKey) { if (scrollResetKey > 0L) listState.scrollToItem(0) }
+            // Keep the scroll and view state preserved across tab switches
             val targetPlaylist = (target as? String)?.let { id -> state.playlists.firstOrNull { it.id == id } }
             val detailTracks = remember(targetPlaylist, playlistContents) {
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()

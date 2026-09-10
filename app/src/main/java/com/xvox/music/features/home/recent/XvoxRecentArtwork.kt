@@ -1,7 +1,5 @@
 package com.xvox.music.features.home.recent
 
-import com.xvox.music.core.ui.effects.xvoxSongPress
-import com.xvox.music.features.home.rememberSongCardColor
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
@@ -12,11 +10,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -29,17 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,10 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.PlaybackIcon
 import com.xvox.music.features.home.PlaybackIconType
 import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.features.home.rememberSongCardColor
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -67,20 +56,8 @@ fun XvoxRecentArtwork(
 ) {
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current)
+    val shape = RoundedCornerShape(14.dp)
 
-    val shape = RoundedCornerShape(3.dp)
-
-    // Press pulls the artwork inwards; the card frame itself does not move.
-    var pressed by remember { mutableStateOf(false) }
-    val artScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (pressed) 0.90f else 1f,
-        animationSpec = tween(150),
-        label = "recentArtInset"
-    )
-
-    // The card is full-cover: the artwork fills it edge to edge. A press never re-crops the
-    // image — the artwork itself scales down inwards inside the still card frame, so the cover
-    // pulls in evenly and its sides stay exactly where they were.
     Box(
         modifier = modifier
             .clip(shape)
@@ -90,15 +67,13 @@ fun XvoxRecentArtwork(
                 color = colors.cardBorder,
                 shape = shape
             )
-            .xvoxSongPress(onClick, onLongClick, pressedScale = 1f, onPressedChange = { pressed = it })
+            .xvoxSongPress(onClick, onLongClick, pressedScale = 0.97f)
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = XvoxRecentArtworkSize,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { scaleX = artScale; scaleY = artScale }
+            modifier = Modifier.fillMaxSize()
         )
 
         Box(
@@ -115,7 +90,7 @@ fun XvoxRecentArtwork(
                 )
         )
 
-        // Origin badge, top-left: tapping it names the collection in the XVOX pill.
+        // Origin badge, top-left: tapping it names the collection in the XVOX pill (border removed).
         if (onSourceClick != null) {
             RecentSourceBadge(
                 source = source,

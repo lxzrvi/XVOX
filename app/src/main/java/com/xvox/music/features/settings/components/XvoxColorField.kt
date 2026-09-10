@@ -30,8 +30,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +49,9 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -123,11 +124,6 @@ private val WheelSwatches = listOf(
     "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#AF52DE", "#FF2D92"
 )
 
-/**
- * One colour setting row. Leading pill = current colour (auto shows the theme border with a
- * slash); tapping reveals a full picker — free HSV wheel, dark/light intensity slider and a
- * hex box — plus "Auto" to hand the colour back to the theme.
- */
 @Composable
 fun ColorPickerRow(
     label: String,
@@ -138,31 +134,26 @@ fun ColorPickerRow(
     onAlphaChange: ((Float) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
-    // "expanded" is NOT keyed on hex: sliding the wheel or the value slider keeps changing the
-    // colour and would have collapsed the picker on every frame. It only closes on tap-again.
+    val haptics = LocalXvoxHaptics.current
+    val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var wheelH by remember { mutableFloatStateOf(hexToHsv(hex)?.get(0) ?: 210f) }
     var wheelS by remember { mutableFloatStateOf(hexToHsv(hex)?.get(1) ?: 0.8f) }
     var wheelV by remember { mutableFloatStateOf(hexToHsv(hex)?.get(2) ?: 0.9f) }
 
-    // Follow external changes (hex typing, swatches) without ever closing the row.
     LaunchedEffect(hex) {
         val hsv = hexToHsv(hex) ?: return@LaunchedEffect
-        if (wheelH != hsv[0]) wheelH = hsv[0]
-        if (wheelS != hsv[1]) wheelS = hsv[1]
-        if (wheelV != hsv[2]) wheelV = hsv[2]
+        wheelH = hsv[0]
+        wheelS = hsv[1]
+        wheelV = hsv[2]
     }
 
-    // Dragging the wheel or the brightness slider moves at pointer speed; pushing a colour write to
-    // the whole theme on every single pixel was the lag. The picker stays fully live, but the
-    // outgoing change is coalesced to ~10 a second so the rest of the UI can keep up.
-    val scope = rememberCoroutineScope()
     var pendingPush by remember { mutableStateOf<Job?>(null) }
     fun commit(h: Float, s: Float, v: Float) {
         wheelH = h; wheelS = s; wheelV = v
         pendingPush?.cancel()
         pendingPush = scope.launch {
-            kotlinx.coroutines.delay(70)
+            kotlinx.coroutines.delay(40)
             onColorChange(hsvToHex(wheelH, wheelS, wheelV))
         }
     }
@@ -238,13 +229,13 @@ fun ColorPickerRow(
                             )
                         }
                         val half = if (wheelPx == 0) 100f else wheelPx / 2f
-                        val angle = wheelH * PI.toFloat() / 180f
-                        val markerR = half * wheelS
-                        val mx = half + markerR * cos(angle)
-                        val my = half + markerR * sin(angle)
+                        val rad = (wheelH - 90f) * PI.toFloat() / 180f
+                        val markerR = half * wheelS.coerceIn(0f, 1f)
+                        val mx = half + markerR * cos(rad)
+                        val my = half + markerR * sin(rad)
                         Canvas(Modifier.fillMaxSize()) {
                             drawCircle(Color.White, radius = 6.dp.toPx(), center = Offset(mx, my))
-                            drawCircle(Color.Black.copy(alpha = 0.75f), radius = 1.8.dp.toPx(), center = Offset(mx, my))
+                            drawCircle(Color.Black.copy(alpha = 0.75f), radius = 2.dp.toPx(), center = Offset(mx, my))
                         }
                         Box(
                             Modifier

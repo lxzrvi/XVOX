@@ -28,6 +28,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 
 const val XvoxGridArtworkSize = 160
 const val XvoxRecentArtworkSize = 256
+const val XvoxNowPlayingArtworkSize = 1024
 
 @Composable
 fun XvoxSongArtwork(
@@ -67,14 +68,11 @@ fun XvoxSongArtwork(
         return
     }
 
-    // One request object per (artwork, size): rebuilding it on every recomposition was the main
-    // reason the grid felt heavy while scrolling. No crossfade — the bitmap cache above already
-    // hands back a ready frame, so a fade would only add per-item animation work.
     val request = remember(artwork, requestSize) {
         ImageRequest.Builder(context)
             .data(artwork)
             .size(requestSize, requestSize)
-            .precision(Precision.INEXACT)
+            .precision(if (requestSize >= 512) Precision.EXACT else Precision.INEXACT)
             .crossfade(false)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)

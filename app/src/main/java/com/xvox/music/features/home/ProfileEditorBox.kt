@@ -4,9 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +16,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.data.preferences.ProfileDefaults
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.PfpType
@@ -50,10 +52,9 @@ import com.xvox.music.features.setup.XvoxAvatarPicker
 import kotlinx.coroutines.launch
 
 /**
- * Profile editor.
- *
- * Adding a picture keeps it: it joins the avatar strip and stays there, selected or not, until
- * its delete badge is tapped. Exactly the same behaviour as the setup screen.
+ * Profile editor:
+ * Shows avatar picker, username, greeting lines (all default 20 lines numbered 1..20 with '✕',
+ * custom lines 21, 22, 23...), interval slider, and an accent-bordered add text box.
  */
 @Composable
 fun ProfileEditorBox(
@@ -77,7 +78,6 @@ fun ProfileEditorBox(
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
-            // Persist immediately so the picture is part of the stack even before Save.
             prefs.addCustomPfp(uri.toString())?.let { stored ->
                 customUri = stored
                 selected = PfpType.CUSTOM
@@ -85,7 +85,6 @@ fun ProfileEditorBox(
         }
     }
 
-    // A deleted picture must not stay selected.
     LaunchedEffect(storedCustoms) {
         if (selected == PfpType.CUSTOM && customUri != null && customUri !in storedCustoms) {
             customUri = storedCustoms.firstOrNull()
@@ -94,6 +93,23 @@ fun ProfileEditorBox(
     }
 
     val canSave = name.isNotBlank() && (selected != PfpType.CUSTOM || customUri != null)
+
+    var lines by remember(profile.username) {
+        mutableStateOf(
+            if (profile.profileLinesInitialized) profile.profileLines
+            else GreetingLines
+        )
+    }
+    var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
+    var draft by remember { mutableStateOf("") }
+
+    fun persist(next: List<String>) {
+        lines = next
+        scope.launch {
+            prefs.setProfileLines(next)
+            prefs.setProfileLinesInitialized(true)
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 6.dp)
@@ -133,29 +149,6 @@ fun ProfileEditorBox(
 
         Spacer(Modifier.height(16.dp))
 
-        // Lines shown under the name (the little messages on the profile). Existing lines keep
-        // their X to delete; an "add" field at the end lets new lines be added freely. A switch
-        // above hides the whole block — then only your name sits beside the picture on Home.
-        val storedLines by prefs.profileLines.collectAsState(initial = profile.profileLines)
-        // First run: the starter lines are already in the list. Once anything is saved (or
-        // removed) the flag flips, so a deleted default never comes back on its own.
-        var lines by remember(profile.username) {
-            mutableStateOf(
-                if (profile.profileLinesInitialized) profile.profileLines
-                else com.xvox.music.data.preferences.ProfileDefaults.lines
-            )
-        }
-        var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
-        var draft by remember { mutableStateOf("") }
-
-        fun persist(next: List<String>) {
-            lines = next
-            scope.launch {
-                prefs.setProfileLines(next)
-                prefs.setProfileLinesInitialized(true)
-            }
-        }
-
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Lines under my name", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f))
@@ -165,7 +158,7 @@ fun ProfileEditorBox(
                     showLines = on
                     scope.launch { prefs.setShowProfileLines(on) }
                 },
-                colors = androidx.compose.material3.SwitchDefaults.colors(
+                colors = SwitchDefaults.colors(
                     checkedThumbColor = colors.background,
                     checkedTrackColor = colors.primaryAccent,
                     uncheckedThumbColor = colors.secondaryText,
@@ -179,37 +172,10 @@ fun ProfileEditorBox(
             modifier = Modifier.padding(bottom = 6.dp)
         )
 
-        if (lines.isEmpty()) {
-            Text("Nothing yet — add a short message below", color = colors.mutedText, fontSize = 11.sp,
-                modifier = Modifier.padding(bottom = 8.dp))
-        }
-
-        // Every line that can appear under the name, listed. With none of your own the app
-        // rotates through these, so they are shown here instead of cycling mysteriously.
-        if (showLines && lines.isEmpty()) {
-            Text("Rotating under your name", color = colors.mutedText, fontSize = 10.sp,
-                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
-            com.xvox.music.features.home.GreetingLines.forEachIndexed { index, line ->
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                        .background(colors.cardElevated.copy(alpha = 0.55f))
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${index + 1}", color = colors.mutedText, fontSize = 10.sp,
-                        modifier = Modifier.width(20.dp))
-                    Text(line, color = colors.secondaryText, fontSize = 11.sp,
-                        modifier = Modifier.weight(1f), maxLines = 1)
-                }
-                Spacer(Modifier.height(4.dp))
-            }
-        }
-
-        // How fast those lines swap.
-        Spacer(Modifier.height(4.dp))
+        // Interval slider
         Text(
             "Change every ${(greetingInterval / 1000f).let { if (it % 1f == 0f) it.toInt().toString() else "%.1f".format(it) }}s",
-            color = colors.mutedText, fontSize = 10.sp
+            color = colors.mutedText, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
         com.xvox.music.features.settings.components.XvoxThinLineSlider(
             value = (greetingInterval / 1000f).coerceIn(1.5f, 60f),
@@ -218,53 +184,77 @@ fun ProfileEditorBox(
             defaultValue = 8f,
             modifier = Modifier.fillMaxWidth()
         )
-        // Every line is an editable item: tap it to retype it (the default lines included),
-        // replace it with your own wording, or remove it with the X. Edits are committed when
-        // the field loses focus, so the profile never rewrites itself on each keystroke.
+
+        Spacer(Modifier.height(10.dp))
+
+        Text("All greeting lines (${lines.size})", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+
+        // All lines: numbered 1, 2, 3... 20, 21, 22... with '✕' buttons to remove
         lines.forEachIndexed { index, line ->
-            ProfileLineField(
+            ProfileNumberedLineField(
+                index = index + 1,
                 line = line,
                 onCommit = { next ->
                     val updated = lines.toMutableList().also { if (index in it.indices) it[index] = next }
                     persist(updated.filter { it.isNotBlank() })
                 },
-                onRemove = { haptics.tap(); persist(lines.filterIndexed { i, _ -> i != index }) }
+                onRemove = {
+                    haptics.tap()
+                    persist(lines.filterIndexed { i, _ -> i != index })
+                }
             )
             Spacer(Modifier.height(5.dp))
         }
 
+        Spacer(Modifier.height(8.dp))
+
+        // Add text field with visible accent border
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(
                 value = draft,
-                onValueChange = { if (it.length <= 40) draft = it },
+                onValueChange = { if (it.length <= 60) draft = it },
                 singleLine = true,
                 textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
                 cursorBrush = SolidColor(colors.primaryAccent),
-                modifier = Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(12.dp)).background(colors.cardElevated),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardElevated)
+                    .border(1.2.dp, colors.primaryAccent, RoundedCornerShape(12.dp)),
                 decorationBox = { field ->
                     Box(
-                        Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 12.dp),
+                        Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 12.dp),
                         contentAlignment = Alignment.CenterStart
-                    ) { field() }
+                    ) {
+                        if (draft.isEmpty()) {
+                            Text("Add new line #${lines.size + 1}…", color = colors.mutedText, fontSize = 12.sp)
+                        }
+                        field()
+                    }
                 }
             )
             Spacer(Modifier.width(8.dp))
             Box(
-                Modifier.width(84.dp).height(42.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (draft.isNotBlank() && lines.size < 4) colors.primaryAccent else colors.cardElevated)
-                    .xvoxPressScale(enabled = draft.isNotBlank() && lines.size < 4) {
+                Modifier.width(84.dp).height(44.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (draft.isNotBlank()) colors.primaryAccent else colors.cardElevated)
+                    .xvoxPressScale(enabled = draft.isNotBlank()) {
                         haptics.tap()
                         persist((lines + draft.trim()).distinct())
                         draft = ""
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("Add", color = if (draft.isNotBlank() && lines.size < 4) colors.background else colors.mutedText,
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Add",
+                    color = if (draft.isNotBlank()) colors.background else colors.mutedText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -297,9 +287,10 @@ fun ProfileEditorBox(
     }
 }
 
-/** One editable profile line: retype in place, or remove it entirely. */
+/** One numbered editable profile line with ✕ button. */
 @Composable
-private fun ProfileLineField(
+private fun ProfileNumberedLineField(
+    index: Int,
     line: String,
     onCommit: (String) -> Unit,
     onRemove: () -> Unit
@@ -311,12 +302,19 @@ private fun ProfileLineField(
 
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.card)
-            .padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Text(
+            text = "$index.",
+            color = colors.primaryAccent,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(28.dp)
+        )
         BasicTextField(
             value = text,
-            onValueChange = { if (it.length <= 40) text = it },
+            onValueChange = { if (it.length <= 60) text = it },
             singleLine = true,
             textStyle = TextStyle(
                 color = if (focused) colors.primaryText else colors.secondaryText,
@@ -334,10 +332,13 @@ private fun ProfileLineField(
                 }
         )
         Box(
-            Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).xvoxPressScale(pressedScale = 0.85f) { onRemove() },
+            Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).xvoxPressScale(pressedScale = 0.85f) {
+                haptics.tap()
+                onRemove()
+            },
             contentAlignment = Alignment.Center
         ) {
-            Text("✕", color = colors.mutedText, fontSize = 11.sp)
+            Text("✕", color = colors.mutedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

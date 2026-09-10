@@ -58,10 +58,8 @@ import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 import kotlinx.coroutines.delay
 
 /**
- * Full-screen lyrics: the lyric stage spans the whole screen so the active line stays centred
- * between the top and bottom edges (not squeezed between the header and the controls). The top
- * chrome (song info + transport + progress) floats above it, slides away after 3 idle seconds
- * and returns the moment the user touches the screen.
+ * Full-screen lyrics: background transparency is governed by Header transparency.
+ * No background photo here (header only).
  */
 @Composable
 fun XvoxFullscreenLyrics(
@@ -81,12 +79,10 @@ fun XvoxFullscreenLyrics(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    // Real immersive full screen: the clock, battery and notification icons go away with the
-    // bars while lyrics are open, and everything comes back on the way out.
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val headerAlpha = chrome.headerBgAlpha.coerceIn(0f, 1f)
+
     val view = LocalView.current
-    // The status-bar inset is captured once and then animated away. Reading the live inset while
-    // the bars slide in and out would resize the stage on every frame, which is what made the
-    // lyrics jump; a fixed animated pad keeps the block perfectly still.
     val statusBarPx = remember(view) {
         val window = (view.context as? android.app.Activity)?.window
         if (window == null) 0
@@ -94,9 +90,9 @@ fun XvoxFullscreenLyrics(
             .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
     }
     var barsVisible by remember { mutableStateOf(true) }
-    val animatedBarsPad by androidx.compose.animation.core.animateDpAsState(
+    val animatedBarsPad by animateDpAsState(
         targetValue = if (barsVisible) with(LocalDensity.current) { statusBarPx.toDp() } else 0.dp,
-        animationSpec = androidx.compose.animation.core.tween(260, easing = FastOutSlowInEasing),
+        animationSpec = tween(260, easing = FastOutSlowInEasing),
         label = "barsPad"
     )
 
@@ -108,8 +104,6 @@ fun XvoxFullscreenLyrics(
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             c.isAppearanceLightStatusBars = false
         }
-        // Let the screen finish entering, then fade the bars out; the pad above animates down with
-        // them, so the two motions read as one movement instead of a snap.
         val hide = Runnable {
             barsVisible = false
             controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -129,7 +123,6 @@ fun XvoxFullscreenLyrics(
         uri?.let(onAttach)
     }
 
-    // Any touch brings the floating chrome back; it then auto-hides after 3 s of silence.
     LaunchedEffect(chromeVisible) {
         if (!chromeVisible) return@LaunchedEffect
         delay(3000)
@@ -137,9 +130,12 @@ fun XvoxFullscreenLyrics(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        XvoxNowPlayingBackdrop(dominant = backgroundColor, modifier = Modifier.fillMaxSize())
+        XvoxNowPlayingBackdrop(
+            dominant = backgroundColor.copy(alpha = headerAlpha),
+            modifier = Modifier.fillMaxSize()
+        )
 
-        // Lyric stage — full height, so XvoxSyncedLyrics centres the active line on screen.
+        // Lyric stage
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -202,7 +198,6 @@ fun XvoxFullscreenLyrics(
             }
         }
 
-        // A slim dim band keeps the lyric lines clear of the status bar while the chrome is away.
         if (!chromeVisible) {
             Box(
                 Modifier
@@ -212,8 +207,6 @@ fun XvoxFullscreenLyrics(
             )
         }
 
-        // Floating top chrome: song artwork + title, transport, close. Sits below the status bar
-        // so the header never hides under the clock; slides away after idle and returns on touch.
         AnimatedVisibility(
             visible = chromeVisible,
             enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(200)),

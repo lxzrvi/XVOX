@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
@@ -44,27 +45,13 @@ import kotlin.math.roundToInt
 private val RowHeight = 54.dp
 private val RowSpacing = 4.dp
 
-/**
- * Queue reordering.
- *
- * The gesture belongs to the list, not to a recycled row, and an overlay follows the finger.
- *
- * Two things used to break dragging to the very top or bottom:
- *  - the target row was resolved from `visibleItemsInfo`, which is one layout pass stale while
- *    the list is auto-scrolling, so rows appeared to duplicate and jump;
- *  - every intermediate position was pushed straight into the player queue, restarting the
- *    media items dozens of times per second.
- *
- * Both are gone: the target index is now computed arithmetically from a uniform row stride
- * (so it is always correct mid-scroll), and the player is told about the move exactly once,
- * when the finger is lifted.
- */
 @Composable
 fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (Int) -> Unit, onMoveItem: (Int, Int) -> Unit) {
     val colors = XvoxTheme.colors
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val haptics = LocalXvoxHaptics.current
     val move by rememberUpdatedState(onMoveItem)
     val play by rememberUpdatedState(onPlayIndex)
     val local = remember { mutableStateListOf<Song>().apply { addAll(queue) } }
@@ -82,11 +69,6 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
         if (draggedId == null && local.toList() != queue) { local.clear(); local.addAll(queue) }
     }
 
-    /**
-     * Index under the finger, derived purely from the scroll position and the uniform row
-     * stride. Unlike a viewport snapshot this stays exact on the very frame the list is
-     * auto-scrolling, so dragging up no longer fights the row that scrolls under the finger.
-     */
     fun targetIndex(): Int {
         if (local.isEmpty()) return -1
         val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
@@ -98,7 +80,10 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
         val id = draggedId ?: return
         val from = local.indexOfFirst { it.id == id }
         val to = targetIndex()
-        if (from >= 0 && to >= 0 && to != from) local.add(to, local.removeAt(from))
+        if (from >= 0 && to >= 0 && to != from) {
+            haptics.tap()
+            local.add(to, local.removeAt(from))
+        }
     }
 
     fun finishDrag(commit: Boolean) {
@@ -106,7 +91,6 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
         draggedId = null
         if (!commit || id == null) return
         val to = local.indexOfFirst { it.id == id }
-        // One authoritative move instead of a move per frame.
         if (dragStartIndex >= 0 && to >= 0 && to != dragStartIndex) move(dragStartIndex, to)
         dragStartIndex = -1
     }
@@ -126,8 +110,6 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                 else -> 0f
             }
             if (strength != 0f) {
-                // Symmetric smoothstep ramp: the same glide speed upward or downward, gentle at
-                // the edge and steady at full strength — no more laggy, jerky top/bottom races.
                 val t = strength.coerceIn(-1f, 1f)
                 val eased = t * t * (3f - 2f * abs(t)) * (if (t < 0f) -1f else 1f)
                 val consumed = listState.scrollBy(eased * rowHeightPx * 16f * seconds)
@@ -142,73 +124,115 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
         if (local.isEmpty()) {
             Text("Your queue is empty", color = colors.mutedText, modifier = Modifier.padding(20.dp))
         } else Box(Modifier.fillMaxWidth().heightIn(max = 600.dp)) {
-            LazyColumn(state = listState, userScrollEnabled = draggedId == null,
-                contentPadding = PaddingValues(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(RowSpacing),
+            LazyColumn(
+                state = listState,
+                userScrollEnabled = draggedId == null,
+                contentPadding = PaddingValues(vertical = 3.dp),
+                verticalArrangement = Arrangement.spacedBy(RowSpacing),
                 modifier = Modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }
-                    .pointerInput(listState) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { point ->
-                                val row = listState.layoutInfo.visibleItemsInfo.firstOrNull { point.y >= it.offset && point.y < it.offset + it.size }
-                                draggedId = row?.key as? Long
-                                if (row != null) {
-                                    pointerY = point.y
-                                    grabOffset = point.y - row.offset
-                                    dragStartIndex = local.indexOfFirst { it.id == row.key }
-                                    scope.launch { listState.stopScroll() }
-                                }
-                            },
-                            onDrag = { change, _ ->
-                                if (draggedId != null) {
-                                    change.consume(); pointerY = change.position.y; reorderAtPointer()
-                                }
-                            },
-                            onDragEnd = { finishDrag(commit = true) },
-                            onDragCancel = { finishDrag(commit = false) }
-                        )
-                    }) {
+            ) {
                 items(local, key = { it.id }, contentType = { "queue_row" }) { song ->
-                    QueueRow(song, song.id == currentSongId, onClick = {
-                        val index = local.indexOfFirst { it.id == song.id }
-                        if (draggedId == null && index >= 0) play(index)
-                    }, modifier = Modifier
-                        .animateItem()
-                        .graphicsLayer { alpha = if (draggedId == song.id) 0f else 1f }
-                        .semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction("Move up") {
-                                    val index = local.indexOfFirst { it.id == song.id }
-                                    if (index > 0) { move(index, index - 1); true } else false
-                                },
-                                CustomAccessibilityAction("Move down") {
-                                    val index = local.indexOfFirst { it.id == song.id }
-                                    if (index >= 0 && index < local.lastIndex) { move(index, index + 1); true } else false
-                                })
-                        })
+                    QueueRow(
+                        song = song,
+                        current = song.id == currentSongId,
+                        onClick = {
+                            val index = local.indexOfFirst { it.id == song.id }
+                            if (draggedId == null && index >= 0) play(index)
+                        },
+                        onStartDrag = { pointYInList, rowOffsetInList ->
+                            draggedId = song.id
+                            pointerY = pointYInList
+                            grabOffset = pointYInList - rowOffsetInList
+                            dragStartIndex = local.indexOfFirst { it.id == song.id }
+                            haptics.heavy()
+                            scope.launch { listState.stopScroll() }
+                        },
+                        onDrag = { changeY ->
+                            pointerY = changeY
+                            reorderAtPointer()
+                        },
+                        onEndDrag = { finishDrag(commit = true) },
+                        onCancelDrag = { finishDrag(commit = false) },
+                        modifier = Modifier
+                            .graphicsLayer { alpha = if (draggedId == song.id) 0f else 1f }
+                            .semantics {
+                                customActions = listOf(
+                                    CustomAccessibilityAction("Move up") {
+                                        val index = local.indexOfFirst { it.id == song.id }
+                                        if (index > 0) { move(index, index - 1); true } else false
+                                    },
+                                    CustomAccessibilityAction("Move down") {
+                                        val index = local.indexOfFirst { it.id == song.id }
+                                        if (index >= 0 && index < local.lastIndex) { move(index, index + 1); true } else false
+                                    }
+                                )
+                            }
+                    )
                 }
             }
             local.firstOrNull { it.id == draggedId }?.let { song ->
-                QueueRow(song, song.id == currentSongId, onClick = null,
+                QueueRow(
+                    song = song,
+                    current = song.id == currentSongId,
+                    onClick = null,
                     modifier = Modifier.offset { IntOffset(0, overlayY.roundToInt()) }
-                        .shadow(10.dp, RoundedCornerShape(14.dp)).graphicsLayer { scaleX = 1.015f; scaleY = 1.015f })
+                        .shadow(10.dp, RoundedCornerShape(14.dp)).graphicsLayer { scaleX = 1.015f; scaleY = 1.015f }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun QueueRow(song: Song, current: Boolean, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun QueueRow(
+    song: Song,
+    current: Boolean,
+    onClick: (() -> Unit)?,
+    onStartDrag: ((Float, Float) -> Unit)? = null,
+    onDrag: ((Float) -> Unit)? = null,
+    onEndDrag: (() -> Unit)? = null,
+    onCancelDrag: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     val colors = XvoxTheme.colors
     val color = rememberSongCardColor(song, current)
-    Row(modifier.fillMaxWidth().height(RowHeight).clip(RoundedCornerShape(14.dp)).background(color)
-        .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
-        .padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(RowHeight)
+            .clip(RoundedCornerShape(14.dp))
+            .background(color)
+            .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         XvoxSongArtwork(song.artworkUri, requestSize = 96, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp)))
         Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
             Text(song.title, color = if (current) colors.primaryAccent else colors.primaryText,
                 fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artist, color = colors.secondaryText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        XvoxDragDots(modifier = Modifier.semantics { contentDescription = "Reorder ${song.title}" })
+        Box(
+            modifier = Modifier
+                .padding(end = 4.dp)
+                .then(
+                    if (onStartDrag != null) {
+                        Modifier.pointerInput(song.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { offset -> onStartDrag(offset.y, 0f) },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    onDrag?.invoke(change.position.y)
+                                },
+                                onDragEnd = { onEndDrag?.invoke() },
+                                onDragCancel = { onCancelDrag?.invoke() }
+                            )
+                        }
+                    } else Modifier
+                )
+        ) {
+            XvoxDragDots(modifier = Modifier.semantics { contentDescription = "Reorder ${song.title}" })
+        }
     }
 }
 

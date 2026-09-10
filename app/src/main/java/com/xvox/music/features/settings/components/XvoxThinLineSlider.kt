@@ -1,13 +1,8 @@
 package com.xvox.music.features.settings.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.setProgress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,9 +17,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
 @Composable
 fun XvoxThinLineSlider(
@@ -37,15 +38,15 @@ fun XvoxThinLineSlider(
     onValueChangeFinished: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
     var localValue by remember(value) { mutableFloatStateOf(value) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
 
     val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
-    // A caller can ask for an exact snap radius (e.g. ±100 ms on the lyrics timing bar) instead of
-    // a percentage of the whole range — dragging never jumps to the default before that radius.
-    val snapThreshold = snapRadius ?: (totalSpan * 0.045f)
+    // Only snap when an explicit snapRadius is passed by the caller.
+    val snapThreshold = snapRadius
 
     val defaultFraction = if (defaultValue != null) {
         ((defaultValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
@@ -70,15 +71,17 @@ fun XvoxThinLineSlider(
                         val target = (defaultValue ?: (valueRange.start + valueRange.endInclusive) / 2f)
                             .coerceIn(valueRange)
                         localValue = target
+                        haptics.heavy()
                         currentOnValueChange(target)
                     }
                 ) { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                    if (defaultValue != null && snapThreshold != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
                     }
                     localValue = newValue
+                    haptics.tap()
                     currentOnValueChange(newValue)
                     currentOnFinish?.invoke()
                 }
@@ -87,7 +90,7 @@ fun XvoxThinLineSlider(
                 fun settle(x: Float) {
                     val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                    if (defaultValue != null && snapThreshold != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
                         newValue = defaultValue
                     }
                     if (newValue != localValue) {

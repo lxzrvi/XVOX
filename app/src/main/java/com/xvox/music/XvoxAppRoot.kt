@@ -23,6 +23,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
@@ -106,10 +108,12 @@ fun XvoxAppRoot(
         cardBorder = chrome.cardBorder,
         cardBorderAlpha = chrome.cardBorderAlpha
     ) {
+        val haptics = rememberXvoxHaptics()
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
-            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides chrome
+            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides chrome,
+            LocalXvoxHaptics provides haptics
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (state == AppUiState.Setup) {

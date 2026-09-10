@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,47 +29,66 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.components.SettingsAccordionItem
+import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
+import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
-/**
- * Crossfade (renamed from Playback). This screen is crossfade-only: headset routing and
- * connect/unplug behaviour live in their own Headset section.
- */
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsState,
     viewModel: SettingsViewModel,
     showPreview: Boolean = true
 ) {
-    val colors = XvoxTheme.colors
+    var expandedGroup by remember { mutableStateOf<String?>("Duration") }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    fun toggle(group: String) {
+        expandedGroup = if (expandedGroup == group) null else group
+    }
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
 
         SettingsToggle("Crossfade", null, state.crossfade, viewModel::setCrossfade)
 
         if (state.crossfade) {
-            SettingsToggle("Seamless blend", null, state.crossfadeSmart, viewModel::setCrossfadeSmart)
-            if (state.crossfadeSmart) {
-                Label("Bass hand-off ${(state.crossfadeClashControl * 100).toInt()}%")
-                com.xvox.music.features.settings.components.XvoxThinLineSlider(
-                    state.crossfadeClashControl, viewModel::setCrossfadeClashControl, 0f..1f
+            SettingsAccordionItem(
+                title = "Transition length · ${state.crossfadeDuration}s",
+                expanded = expandedGroup == "Duration",
+                onToggle = { toggle("Duration") }
+            ) {
+                XvoxThinLineSlider(
+                    value = state.crossfadeDuration.toFloat(),
+                    valueRange = 1f..12f,
+                    onValueChange = { viewModel.setCrossfadeDuration(kotlin.math.round(it).toInt()) }
                 )
-            }
-            SettingsToggle("Beat align", null, state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
-
-            Spacer(Modifier.height(12.dp))
-            Label("Length")
-            Spacer(Modifier.height(8.dp))
-            com.xvox.music.features.settings.components.XvoxThinLineSlider(
-                value = state.crossfadeDuration.toFloat(), valueRange = 1f..12f,
-                onValueChange = { viewModel.setCrossfadeDuration(kotlin.math.round(it).toInt()) })
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(2, 3, 5, 7, 10, 12).forEach { sec ->
-                    Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
-                        viewModel.setCrossfadeDuration(sec)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 3, 5, 7, 10, 12).forEach { sec ->
+                        Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                            viewModel.setCrossfadeDuration(sec)
+                        }
                     }
                 }
+            }
+
+            SettingsAccordionItem(
+                title = "Smart blend & Beat align",
+                expanded = expandedGroup == "Blend",
+                onToggle = { toggle("Blend") }
+            ) {
+                SettingsToggle("Seamless blend", null, state.crossfadeSmart, viewModel::setCrossfadeSmart)
+                if (state.crossfadeSmart) {
+                    Spacer(Modifier.height(8.dp))
+                    Label("Bass hand-off · ${(state.crossfadeClashControl * 100).toInt()}%")
+                    XvoxThinLineSlider(
+                        state.crossfadeClashControl,
+                        viewModel::setCrossfadeClashControl,
+                        0f..1f
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                SettingsToggle("Beat align", null, state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
             }
         }
     }
@@ -73,10 +96,15 @@ fun PlaybackSettingsSection(
 
 @Composable
 private fun Label(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
 }
 
-/** Outlined in both states so the unselected option is never invisible. */
 @Composable
 private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val colors = XvoxTheme.colors
@@ -98,6 +126,7 @@ private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifi
 
 @Composable
 fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
-    com.xvox.music.features.settings.components.SettingsControlsEditor(
-        controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) })
+    SettingsControlsEditor(
+        controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) }
+    )
 }

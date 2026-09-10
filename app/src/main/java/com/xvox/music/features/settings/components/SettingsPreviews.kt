@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -23,13 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.features.home.allsongs.generateMosaicSpecs
-import com.xvox.music.features.home.allsongs.regularSpecs
 import com.xvox.music.features.settings.SettingsState
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.random.Random
 
 @Composable
 fun SettingsChoiceRow(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
@@ -56,73 +54,99 @@ fun SettingsPreviewFrame(label: String, content: @Composable ColumnScope.() -> U
     }
 }
 
+/**
+ * Equalizer live graph preview: Reverb, room size, noise reduction, soften highs, boost
+ * protection, and volume are all rendered directly inside the graph itself (no separate bars).
+ */
 @Composable
 fun EqSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    SettingsPreviewFrame("${state.eqBandCount}-band output · live") {
-        Canvas(Modifier.fillMaxWidth().height(84.dp)) {
-            val middle = size.height * .42f
-            drawLine(colors.cardBorder, Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
+    val transition = rememberInfiniteTransition(label = "eqWaves")
+    val phase by transition.animateFloat(
+        initialValue = 0f, targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "wavePhase"
+    )
+
+    SettingsPreviewFrame(if (state.equalizerEnabled) "${state.eqBandCount}-band EQ · live visualization" else "Equalizer · off") {
+        Canvas(Modifier.fillMaxWidth().height(118.dp)) {
+            val w = size.width
+            val h = size.height
+            val middle = h * 0.48f
+
+            // Baseline
+            drawLine(colors.cardBorder, Offset(0f, middle), Offset(w, middle), 1.dp.toPx())
+
+            // Boost protection ceiling line
+            val ceilingY = 8.dp.toPx() + (state.eqHeadroomDb / 18f) * 16.dp.toPx()
+            drawLine(
+                color = colors.primaryAccent.copy(alpha = 0.4f),
+                start = Offset(0f, ceilingY),
+                end = Offset(w, ceilingY),
+                strokeWidth = 1.5.dp.toPx()
+            )
+
+            // Noise floor (bottom shaded band that shrinks with noise reduction)
+            val noiseHeight = 24.dp.toPx() * (1f - state.noiseReduction.coerceIn(0f, 1f))
+            if (noiseHeight > 1f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        listOf(Color.Transparent, colors.secondaryText.copy(alpha = 0.14f))
+                    ),
+                    topLeft = Offset(0f, h - noiseHeight),
+                    size = Size(w, noiseHeight)
+                )
+            }
+
+            // Reverb / Room reflection echoes (rippling aura around curve)
+            val reverbGlow = state.reverbAmount.coerceIn(0f, 1f)
+            val roomScale = 1f + state.roomAmount * 0.5f
+
+            if (reverbGlow > 0.05f) {
+                val echoPath = Path()
+                repeat(state.eqBandCount) { i ->
+                    val f = i.toFloat() / (state.eqBandCount - 1)
+                    val highCut = state.softenHighs * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
+                    val rawDb = if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f
+                    val db = (rawDb - state.eqHeadroomDb - highCut) * state.appVolume * state.volumeLimit
+                    val ripple = sin(phase + f * 4f) * (6f * reverbGlow * roomScale)
+                    val pt = Offset(w * f, (middle - (db / 36f) * h * 0.8f + ripple).coerceIn(ceilingY, h - 4f))
+                    if (i == 0) echoPath.moveTo(pt.x, pt.y) else echoPath.lineTo(pt.x, pt.y)
+                }
+                drawPath(echoPath, colors.primaryAccent.copy(alpha = reverbGlow * 0.35f), style = Stroke(4.dp.toPx()))
+            }
+
+            // Main EQ curve with volume scaling and frequency nodes
             val path = Path()
+            val fillPath = Path()
             repeat(state.eqBandCount) { i ->
                 val f = i.toFloat() / (state.eqBandCount - 1)
-                val highCut = state.softenHighs * 9 * ((f - .60f) / .40f).coerceIn(0f, 1f)
-                val db = (if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f) - state.eqHeadroomDb - highCut
-                val point = Offset(size.width * f, (middle - db / 42f * size.height).coerceIn(2f, size.height - 2))
-                if (i == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
-                drawCircle(colors.primaryAccent, 2.5.dp.toPx(), point)
+                val highCut = state.softenHighs * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
+                val rawDb = if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f
+                val db = (rawDb - state.eqHeadroomDb - highCut) * state.appVolume * state.volumeLimit
+                val point = Offset(w * f, (middle - (db / 36f) * h * 0.8f).coerceIn(ceilingY, h - 4f))
+                if (i == 0) {
+                    path.moveTo(point.x, point.y)
+                    fillPath.moveTo(point.x, middle)
+                    fillPath.lineTo(point.x, point.y)
+                } else {
+                    path.lineTo(point.x, point.y)
+                    fillPath.lineTo(point.x, point.y)
+                }
+                if (i == state.eqBandCount - 1) {
+                    fillPath.lineTo(point.x, middle)
+                    fillPath.close()
+                }
+                drawCircle(colors.primaryAccent, 3.5.dp.toPx(), point)
             }
-            drawPath(path, colors.primaryAccent, style = Stroke(2.dp.toPx()))
-            val noiseHeight = 10.dp.toPx() * (1 - state.noiseReduction)
-            drawRect(colors.secondaryText.copy(alpha = .15f), Offset(0f, size.height - noiseHeight), Size(size.width, noiseHeight))
+            drawPath(fillPath, Brush.verticalGradient(listOf(colors.primaryAccent.copy(alpha = 0.25f), Color.Transparent)))
+            drawPath(path, colors.primaryAccent, style = Stroke(2.2.dp.toPx()))
         }
-
-        // Every control in the equalizer shows up here, so a change is visible immediately.
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            PreviewBar("Reverb", state.reverbAmount)
-            PreviewBar("Room size", state.roomAmount)
-            PreviewBar("Noise reduction", state.noiseReduction)
-            PreviewBar("Soften highs", state.softenHighs)
-            PreviewBar("Boost protection", (state.eqHeadroomDb / 18f).coerceIn(0f, 1f))
-            PreviewBar("App volume", state.appVolume)
-            PreviewBar("Output ceiling", state.volumeLimit)
-            PreviewBar("Speed", ((state.playbackSpeed - .5f) / 1.5f).coerceIn(0f, 1f))
-            PreviewBar("Pitch", ((state.playbackPitch - .5f) / 1.5f).coerceIn(0f, 1f))
-            PreviewValue("Balance", when {
-                state.balance < -.05f -> "Left ${(kotlin.math.abs(state.balance) * 100).toInt()}%"
-                state.balance > .05f -> "Right ${(state.balance * 100).toInt()}%"
-                else -> "Centre"
-            })
-        }
-    }
-}
-
-/** Label + live fill used by the equalizer preview. */
-@Composable
-private fun PreviewBar(label: String, value: Float) {
-    val colors = XvoxTheme.colors
-    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(label, color = colors.secondaryText, fontSize = 9.sp, modifier = Modifier.width(92.dp), maxLines = 1)
-        Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(colors.cardBorder)) {
-            Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(2.dp))
-                .background(colors.primaryAccent))
-        }
-    }
-}
-
-@Composable
-private fun PreviewValue(label: String, value: String) {
-    val colors = XvoxTheme.colors
-    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(label, color = colors.secondaryText, fontSize = 9.sp, modifier = Modifier.weight(1f))
-        Text(value, color = colors.primaryText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 fun SurroundSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    // Always on screen: off shows the resting layout, on animates it.
     val on = state.stereoWidening
     val transition = rememberInfiniteTransition(label = "orbitPreview")
     val animated by transition.animateFloat(
@@ -132,34 +156,34 @@ fun SurroundSettingsPreview(state: SettingsState) {
     )
     val phase = if (on) animated else 0f
     val level = (state.appVolume * state.volumeLimit).coerceIn(0f, 1f)
-    SettingsPreviewFrame(if (on) "3D sound · moving" else "3D sound · off") {
+    SettingsPreviewFrame(if (on) "3D sound · ${state.surroundPanSpeed}s orbit" else "3D sound · off") {
         Canvas(Modifier.fillMaxWidth().height(94.dp)) {
-            val radius = size.height * .38f
+            val radius = size.height * .38f * (0.6f + state.surroundWidth * 0.4f)
+            // Spatial orbit rings
             drawCircle(colors.cardBorder, radius, center, style = Stroke(1.dp.toPx()))
+            if (state.hrtf > 0.2f) {
+                drawCircle(colors.primaryAccent.copy(alpha = 0.15f * state.hrtf), radius * 1.25f, center, style = Stroke(1.dp.toPx()))
+            }
+            // Listener at center
             drawCircle(colors.secondaryText.copy(alpha = .45f), 8.dp.toPx(), center)
             val shift = Offset(state.balance * radius * .3f, 0f)
-            drawCircle(colors.primaryAccent.copy(alpha = .2f + level * .8f), 5.dp.toPx(),
-                center + shift + Offset(sin(phase) * radius * state.surroundDepth, -cos(phase) * radius * state.surroundDepth))
+            val orbitX = sin(phase) * radius * state.surroundDepth
+            val orbitY = -cos(phase) * radius * state.surroundDepth
+            drawCircle(colors.primaryAccent.copy(alpha = .2f + level * .8f), 6.dp.toPx(), center + shift + Offset(orbitX, orbitY))
             val pan = sin(phase) * state.surroundDepth * .6f + state.balance
             val left = (1 - pan.coerceAtLeast(0f)).coerceIn(0f, 1f) * level
             val right = (1 + pan.coerceAtMost(0f)).coerceIn(0f, 1f) * level
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(8.dp.toPx(), size.height * (1 - left) / 2), Size(5.dp.toPx(), size.height * left), CornerRadius(3.dp.toPx()))
             drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(size.width - 13.dp.toPx(), size.height * (1 - right) / 2), Size(5.dp.toPx(), size.height * right), CornerRadius(3.dp.toPx()))
         }
-        Text(
-            "Width ${(state.surroundWidth * 100).toInt()}% · Depth ${(state.surroundDepth * 100).toInt()}% · " +
-                "Pos ${(state.surroundPosition * 100).toInt()}% · move ${state.surroundPanSpeed}s · " +
-                "HRTF ${(state.hrtf * 100).toInt()}% · centre ${(state.centerPreservation * 100).toInt()}%",
-            color = colors.secondaryText, fontSize = 9.sp, maxLines = 2
-        )
     }
 }
 
 @Composable
 fun CrossfadeSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
-    SettingsPreviewFrame("Transition · schematic") {
-        Canvas(Modifier.fillMaxWidth().height(92.dp)) {
+    SettingsPreviewFrame(if (!state.crossfade) "Crossfade · off" else "Crossfade · ${state.crossfadeDuration}s") {
+        Canvas(Modifier.fillMaxWidth().height(88.dp)) {
             val out = Path(); val incoming = Path()
             val handoff = if (state.crossfadeSmart) .43f else .5f
             for (i in 0..100) {
@@ -180,7 +204,5 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
             drawPath(out, Color(0xFFE6AB6C), style = Stroke(2.dp.toPx()))
             drawPath(incoming, Color(0xFF62CDBD), style = Stroke(2.dp.toPx()))
         }
-        Text(if (!state.crossfade) "Off" else "${state.crossfadeDuration}s · ${if (state.crossfadeSmart) "Seamless" else "Equal power"}${if (state.crossfadeBeatSync) " · beat aligned" else ""}",
-            color = colors.secondaryText, fontSize = 10.sp)
     }
 }

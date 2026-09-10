@@ -2,6 +2,7 @@ package com.xvox.music.features.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -56,7 +57,6 @@ fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
     layoutStyle: String = "long", longCardHeight: Int = 0,
-    /** "horizontal" = full-width cards you swipe sideways; "vertical" = stacked full-width cards. */
     orientation: String = "vertical"
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
@@ -64,44 +64,45 @@ fun LazyListScope.playlistCollectionItems(
         Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
-    if (layoutStyle == "long" && orientation == "horizontal") {
-        // One horizontally scrolling row of full-width cards.
+    if (orientation == "horizontal") {
+        // Full width cards on a horizontal row with no unwanted peek.
         item(key = "playlist_horizontal_row") {
-            androidx.compose.foundation.lazy.LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(playlists, key = { "playlist_h_${it.id}" }) { playlist ->
-                    XvoxPlaylistCard(playlist, songsFor(playlist), { onOpen(playlist) }, { onOptions(playlist) },
-                        Modifier.width(300.dp).height(cardHeight(playlist, longCardHeight)), longCard = true)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val fullCardWidth = (maxWidth - 12.dp).coerceAtLeast(200.dp)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(playlists, key = { "playlist_h_${it.id}" }) { playlist ->
+                        XvoxPlaylistCard(
+                            playlist = playlist,
+                            songs = songsFor(playlist),
+                            onClick = { onOpen(playlist) },
+                            onLongClick = { onOptions(playlist) },
+                            modifier = Modifier.width(fullCardWidth).height(cardHeight(playlist, longCardHeight)),
+                            longCard = true
+                        )
+                    }
                 }
             }
         }
-    } else if (layoutStyle == "long") {
+    } else {
         items(playlists, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
             BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
-                // 0 keeps the original proportional height; any other value is the chosen dp height.
                 val oldCardHeight = if (longCardHeight > 0) longCardHeight.dp else (maxWidth - 6.dp) / 2 + 35.dp
-                XvoxPlaylistCard(playlist, songsFor(playlist), { onOpen(playlist) }, { onOptions(playlist) },
-                    Modifier.fillMaxWidth().height(oldCardHeight), longCard = true)
+                XvoxPlaylistCard(
+                    playlist = playlist,
+                    songs = songsFor(playlist),
+                    onClick = { onOpen(playlist) },
+                    onLongClick = { onOptions(playlist) },
+                    modifier = Modifier.fillMaxWidth().height(oldCardHeight),
+                    longCard = true
+                )
             }
         }
-    } else {
-    items(playlists.chunked(2), key = { "playlist_row_${it.first().id}" }, contentType = { "playlist_row" }) { row ->
-        Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            row.forEach { playlist ->
-                XvoxPlaylistCard(playlist, songsFor(playlist), onClick = { onOpen(playlist) },
-                    onLongClick = { onOptions(playlist) }, modifier = Modifier.weight(1f))
-            }
-            if (row.size == 1) Spacer(Modifier.weight(1f))
-        }
     }
-    }
-
 }
 
-/** Card height for the horizontal row: Auto keeps a wide-card proportion, otherwise the dp choice. */
 private fun cardHeight(playlist: XvoxPlaylist, longCardHeight: Int) =
     if (longCardHeight > 0) longCardHeight.dp else 178.dp

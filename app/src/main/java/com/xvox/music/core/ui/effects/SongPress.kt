@@ -13,6 +13,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -21,22 +22,20 @@ private val PressIn = spring<Float>(dampingRatio = 0.92f, stiffness = 3600f)
 private val PressOut = spring<Float>(dampingRatio = 0.72f, stiffness = 900f)
 
 /**
- * Press feedback that lands on the FIRST touch, even while the library is still settling.
- *
- * The scale lives in an [Animatable] read only inside the `graphicsLayer` lambda, so a press
- * animates entirely in the draw phase. Nothing recomposes the card, which is why the very first
- * tap is no longer swallowed by a busy composition and why the grid stops jittering under load.
+ * Press feedback for song cards: responsive low haptics on tap, heavy haptic on long click,
+ * and immediate audio dispatch.
  */
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.xvoxSongPress(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
-    /** How far the tile itself dips. 1f leaves the frame still and animates only the caller's art. */
-    pressedScale: Float = 0.94f,
-    /** Optional hook so a card can shrink its own artwork inwards instead of the whole tile. */
+    /** How far the tile itself dips. 1f leaves the frame still. */
+    pressedScale: Float = 0.96f,
+    /** Optional hook for cards. */
     onPressedChange: ((Boolean) -> Unit)? = null
 ): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
+    val haptics = LocalXvoxHaptics.current
     val click by rememberUpdatedState(onClick)
     val longClick by rememberUpdatedState(onLongClick)
     val scope = rememberCoroutineScope()
@@ -47,10 +46,7 @@ fun Modifier.xvoxSongPress(
     graphicsLayer { scaleX = scale.value; scaleY = scale.value }
         .pointerInput(Unit) {
             awaitEachGesture {
-                // Initial pass: the touch is seen before the list's scroll handler can claim it.
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                // A short grace period keeps scrolling touches from pulsing the card: the pulse
-                // only starts if the finger has not moved past the scroll slop.
                 val pressJob = scope.launch {
                     delay(14)
                     release.value?.cancel()
@@ -78,7 +74,6 @@ fun Modifier.xvoxSongPress(
                         if (event.changes.none { it.pressed }) break
                     }
                 } finally {
-                    // Hold the pulse a beat so a flick-fast tap is still visible.
                     if (!becameScroll) {
                         pressJob.cancel()
                         pressChange?.invoke(false)
@@ -91,7 +86,13 @@ fun Modifier.xvoxSongPress(
             hapticFeedbackEnabled = false,
             interactionSource = interaction,
             indication = null,
-            onClick = { click() }, // Dispatch immediately; the visual pulse never delays audio.
-            onLongClick = if (onLongClick != null) ({ longClick?.invoke() }) else null
+            onClick = {
+                haptics.tap()
+                click()
+            },
+            onLongClick = if (onLongClick != null) ({
+                haptics.heavy()
+                longClick?.invoke()
+            }) else null
         )
 }

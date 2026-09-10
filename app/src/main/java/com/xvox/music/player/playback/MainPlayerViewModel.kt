@@ -199,16 +199,20 @@ class MainPlayerViewModel(
         }
     }
 
-    private fun persistSong(songId: Long) {
+    private fun persistSong(songId: Long, source: String? = null) {
         savedSongId = songId
         restoreResolved = true
-        viewModelScope.launch { preferences.setLastPlayedSongId(songId) }
+        val src = source ?: _state.value.playingSource
+        viewModelScope.launch {
+            preferences.setLastPlayedSongId(songId)
+            preferences.recordRecentSong(songId, src)
+        }
     }
 
     fun play(song: Song, source: String? = null) {
         val needsEntrance = !_state.value.miniPlayerVisible && !_state.value.nowPlayingVisible
         controller.play(song)
-        persistSong(song.id)
+        persistSong(song.id, source)
 
         _state.update { current ->
             current.copy(
@@ -222,7 +226,7 @@ class MainPlayerViewModel(
 
     fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = _state.value.queue.getOrNull(index) ?: return
-        persistSong(song.id)
+        persistSong(song.id, source)
         controller.playQueueIndex(index = index, keepPlayingState = keepPlayingState)
     }
 

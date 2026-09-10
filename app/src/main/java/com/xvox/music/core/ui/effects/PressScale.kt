@@ -1,5 +1,6 @@
 package com.xvox.music.core.ui.effects
 
+import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -7,17 +8,17 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import android.os.SystemClock
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -40,6 +41,7 @@ fun Modifier.xvoxTapOrHold(
     repeatEvery: Long = 360
 ): Modifier = composed {
     val scope = rememberCoroutineScope()
+    val haptics = LocalXvoxHaptics.current
     val currentTap by rememberUpdatedState(onTap)
     val currentFire by rememberUpdatedState(onHoldFire)
     pointerInput(enabled, longPressDelay, repeatEvery) {
@@ -50,6 +52,7 @@ fun Modifier.xvoxTapOrHold(
             val job = scope.launch {
                 delay(longPressDelay)
                 held = true
+                haptics.heavy()
                 currentFire()
                 while (true) {
                     delay(repeatEvery)
@@ -61,7 +64,10 @@ fun Modifier.xvoxTapOrHold(
             } finally {
                 job.cancel()
             }
-            if (!held) currentTap()
+            if (!held) {
+                haptics.tap()
+                currentTap()
+            }
         }
     }
 }
@@ -84,6 +90,7 @@ fun Modifier.xvoxTapOrScrub(
     tickEvery: Long = 40
 ): Modifier = composed {
     val scope = rememberCoroutineScope()
+    val haptics = LocalXvoxHaptics.current
     val currentTap by rememberUpdatedState(onTap)
     val currentScrub by rememberUpdatedState(onScrubTo)
     val currentPos by rememberUpdatedState(positionMs)
@@ -96,6 +103,7 @@ fun Modifier.xvoxTapOrScrub(
             val job = scope.launch {
                 delay(longPressDelay)
                 held = true
+                haptics.heavy()
                 val anchor = currentPos().coerceAtLeast(0L)
                 val started = SystemClock.uptimeMillis()
                 while (isActive) {
@@ -112,7 +120,10 @@ fun Modifier.xvoxTapOrScrub(
             } finally {
                 job.cancel()
             }
-            if (!held) currentTap()
+            if (!held) {
+                haptics.tap()
+                currentTap()
+            }
         }
     }
 }
@@ -128,6 +139,7 @@ fun Modifier.xvoxPressScale(
 ): Modifier = composed {
     val interactionSource = remember { MutableInteractionSource() }
     val scope = rememberCoroutineScope()
+    val haptics = LocalXvoxHaptics.current
     val scale = remember { Animatable(1f) }
     val release = remember { mutableStateOf<Job?>(null) }
     val click by rememberUpdatedState(onClick)
@@ -151,7 +163,10 @@ fun Modifier.xvoxPressScale(
             enabled = enabled,
             interactionSource = interactionSource,
             indication = null
-        ) { click() }
+        ) {
+            haptics.tap()
+            click()
+        }
 }
 
 /**
@@ -167,27 +182,30 @@ fun Modifier.xvoxTapOrBoost(
     longPressDelay: Long = 420
 ): Modifier = composed {
     val scope = rememberCoroutineScope()
+    val haptics = LocalXvoxHaptics.current
     val currentTap by rememberUpdatedState(onTap)
     val currentBoost by rememberUpdatedState(onBoostChange)
     pointerInput(enabled, longPressDelay) {
         if (!enabled) return@pointerInput
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            var held = false
+            var wasHeld = false
             val job = scope.launch {
                 delay(longPressDelay)
-                held = true
+                wasHeld = true
+                haptics.heavy()
                 currentBoost(true)
             }
             try {
                 waitForUpOrCancellation(PointerEventPass.Initial)
             } finally {
                 job.cancel()
-                // Always drop the boost, even if the gesture was cancelled mid-hold.
-                if (held) currentBoost(false)
-                held = false
+                if (wasHeld) currentBoost(false)
             }
-            if (!held) currentTap()
+            if (!wasHeld) {
+                haptics.tap()
+                currentTap()
+            }
         }
     }
 }

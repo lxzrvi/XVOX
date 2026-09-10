@@ -12,13 +12,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.XvoxRecentArtworkSize
+import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
-/** A three-slot, song-identity anchored pager. Reordering a queue cannot move the current cover. */
+/** A three-slot, song-identity anchored pager. High quality artwork rendering. */
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>, currentIndex: Int, navigationRequest: Int, onArtworkTap: () -> Unit,
@@ -67,7 +67,7 @@ fun XvoxNowPlayingArtworkPager(
             val song = when (page) { 0 -> previous; 2 -> next; else -> current } ?: current
             Box(Modifier.fillMaxSize().padding(8.dp).clip(RoundedCornerShape(20.dp))
                 .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } }, contentAlignment = Alignment.Center) {
-                XvoxSongArtwork(song.artworkUri, requestSize = XvoxRecentArtworkSize, modifier = Modifier.fillMaxSize())
+                XvoxSongArtwork(song.artworkUri, requestSize = XvoxNowPlayingArtworkSize, modifier = Modifier.fillMaxSize())
             }
         }
     }

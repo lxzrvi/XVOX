@@ -1,7 +1,6 @@
 package com.xvox.music.features.home.recent
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -20,7 +19,7 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
  * Where a recently played song came from.
  *
  * Every play records its origin, so the recent card can show a small round source logo in its
- * left corner — Liked, a playlist, All Songs or XvoxSplit — and say so in the XVOX pill on tap.
+ * left corner — Liked, a playlist, All Songs or Search — and say so in the XVOX pill on tap.
  */
 object RecentSource {
     const val ALL_SONGS = "All Songs"
@@ -45,14 +44,13 @@ object RecentSource {
     }
 }
 
-/** Small round badge: readable, but never big enough to fight the artwork. */
+/** Small round badge: readable, with no border. */
 @Composable
 fun RecentSourceBadge(source: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(24.dp)
             .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-            .border(0.8.dp, Color.White.copy(alpha = 0.28f), CircleShape)
             .xvoxPressScale(pressedScale = 0.88f, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

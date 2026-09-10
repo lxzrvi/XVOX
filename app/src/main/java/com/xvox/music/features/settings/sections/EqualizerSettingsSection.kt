@@ -2,7 +2,6 @@ package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -21,22 +20,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.setProgress
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +45,9 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.components.SettingsAccordionItem
+import com.xvox.music.features.settings.components.SettingsChoiceRow
+import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
@@ -53,31 +56,45 @@ import kotlin.math.roundToInt
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
+    var expandedGroup by remember { mutableStateOf<String?>("Equalizer") }
+
+    fun toggle(group: String) {
+        expandedGroup = if (expandedGroup == group) null else group
+    }
+
+    SettingsControlsEditor(controls = {
         saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
-        SettingsToggle("Equalizer", "5 bands · presets · reverb · protect", state.equalizerEnabled) { on ->
-            if (on) viewModel.setEqBandCount(5)
-            viewModel.setEqualizerEnabled(on)
-        }
-        if (state.equalizerEnabled) {
-            Spacer(Modifier.height(12.dp))
-            com.xvox.music.features.settings.components.SettingsChoiceRow(
-                (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it }, state.eqPreset, viewModel::setEqPreset)
-            Spacer(Modifier.height(12.dp))
-            // Five bands share one rounded box, each an equal slice of the full width — no side
-            // scrolling, no drifting gaps, every slider aligned to the same baseline.
-            Box(
-                Modifier.fillMaxWidth().height(196.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(colors.card)
-                    .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
-            ) {
-                Row(Modifier.fillMaxWidth().fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    com.xvox.music.audio.EqBands.frequencies(5).forEachIndexed { index, frequency ->
-                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
-                            VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
-                                viewModel.setEqBand(index, it)
+
+        SettingsAccordionItem(
+            title = "Equalizer & Bands",
+            expanded = expandedGroup == "Equalizer",
+            onToggle = { toggle("Equalizer") }
+        ) {
+            SettingsToggle("Enable equalizer", null, state.equalizerEnabled) { on ->
+                if (on) viewModel.setEqBandCount(5)
+                viewModel.setEqualizerEnabled(on)
+            }
+            if (state.equalizerEnabled) {
+                Spacer(Modifier.height(10.dp))
+                SettingsChoiceRow(
+                    (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it },
+                    state.eqPreset,
+                    viewModel::setEqPreset
+                )
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(196.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colors.card)
+                        .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        com.xvox.music.audio.EqBands.frequencies(5).forEachIndexed { index, frequency ->
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                                VerticalEqBandSlider(com.xvox.music.audio.EqBands.label(frequency), state.eqBands.getOrElse(index) { 0 }) {
+                                    viewModel.setEqBand(index, it)
+                                }
                             }
                         }
                     }
@@ -85,55 +102,86 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             }
         }
 
-        // Reverb + room always stay reachable, even while the equalizer itself is off.
-        Spacer(Modifier.height(10.dp))
-        EqLabel("Reverb")
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("Off" to 0f, "Room" to .16f, "Small hall" to .3f, "Hall" to .45f, "Large hall" to .62f, "Cathedral" to .85f)
-                .forEach { (name, value) ->
-                    val active = kotlin.math.abs(state.reverbAmount - value) < .03f
-                    Text(name, color = if (active) colors.background else colors.primaryText, fontSize = 11.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier.clip(RoundedCornerShape(11.dp))
-                            .background(if (active) colors.primaryAccent else colors.card)
-                            .xvoxPressScale { viewModel.setReverbAmount(value) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp))
-                }
+        SettingsAccordionItem(
+            title = "Reverb & Space",
+            expanded = expandedGroup == "Reverb",
+            onToggle = { toggle("Reverb") }
+        ) {
+            EqLabel("Reverb preset")
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Off" to 0f, "Room" to .16f, "Small hall" to .3f, "Hall" to .45f, "Large hall" to .62f, "Cathedral" to .85f)
+                    .forEach { (name, value) ->
+                        val active = kotlin.math.abs(state.reverbAmount - value) < .03f
+                        Text(name, color = if (active) colors.background else colors.primaryText, fontSize = 11.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.clip(RoundedCornerShape(11.dp))
+                                .background(if (active) colors.primaryAccent else colors.card)
+                                .xvoxPressScale { viewModel.setReverbAmount(value) }
+                                .padding(horizontal = 12.dp, vertical = 8.dp))
+                    }
+            }
+            Spacer(Modifier.height(8.dp))
+            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
+
+            Spacer(Modifier.height(10.dp))
+            EqLabel("Room size · ${(state.roomAmount * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
         }
-        XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
 
-        // Intensity only: this scales the room/hall already chosen above. It never switches the
-        // preset, so the chips above stay the only place a mode is picked.
-        EqLabel("Room size ${(state.roomAmount * 100).roundToInt()}%")
-        XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
+        SettingsAccordionItem(
+            title = "Clarity & Protection",
+            expanded = expandedGroup == "Clarity",
+            onToggle = { toggle("Clarity") }
+        ) {
+            EqLabel("Noise reduction · ${(state.noiseReduction * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
+            Spacer(Modifier.height(8.dp))
+            EqLabel("Soften highs · ${(state.softenHighs * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
+            Spacer(Modifier.height(8.dp))
+            EqLabel("Boost protection · ${state.eqHeadroomDb.roundToInt()} dB")
+            XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
+        }
 
-        Spacer(Modifier.height(12.dp))
-        EqLabel("Noise reduction ${(state.noiseReduction * 100).roundToInt()}%")
-        XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
-        EqLabel("Soften highs ${(state.softenHighs * 100).roundToInt()}%")
-        XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
-        EqLabel("Boost protection ${state.eqHeadroomDb.roundToInt()} dB")
-        XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
-        EqLabel("App volume ${(state.appVolume * 100).roundToInt()}%")
-        XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
-        EqLabel("Output ceiling ${(state.volumeLimit * 100).roundToInt()}%")
-        XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
-        EqLabel("Balance ${if (state.balance < -.05f) "Left" else if (state.balance > .05f) "Right" else "Centre"}")
-        XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+        SettingsAccordionItem(
+            title = "Volume & Balance",
+            expanded = expandedGroup == "Volume",
+            onToggle = { toggle("Volume") }
+        ) {
+            EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
+            Spacer(Modifier.height(8.dp))
+            EqLabel("Output ceiling · ${(state.volumeLimit * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
+            Spacer(Modifier.height(8.dp))
+            EqLabel("Balance · ${if (state.balance < -.05f) "Left ${(kotlin.math.abs(state.balance) * 100).roundToInt()}%" else if (state.balance > .05f) "Right ${(state.balance * 100).roundToInt()}%" else "Centre"}")
+            XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+        }
 
-        Spacer(Modifier.height(12.dp))
-        val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
-        EqLabel(if (speedNormal) "Playback speed · Normal"
-            else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
-        XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
-        EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
-        XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
+        SettingsAccordionItem(
+            title = "Speed & Pitch",
+            expanded = expandedGroup == "Speed",
+            onToggle = { toggle("Speed") }
+        ) {
+            val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
+            EqLabel(if (speedNormal) "Playback speed · Normal" else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
+            XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
+            Spacer(Modifier.height(8.dp))
+            EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
+            XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
+        }
     })
 }
 
 @Composable
 private fun EqLabel(text: String) {
-    Text(text, color = XvoxTheme.colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
 }
 
 @Composable
@@ -205,8 +253,8 @@ fun VerticalEqBandSlider(
                 modifier = Modifier
                     .width(4.dp)
                     .height(110.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(colors.cardBorder)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.cardBorder)
             )
 
             Box(

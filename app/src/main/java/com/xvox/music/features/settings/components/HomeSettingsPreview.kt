@@ -3,7 +3,9 @@ package com.xvox.music.features.settings.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,12 +26,8 @@ import com.xvox.music.features.settings.SettingsState
 import kotlin.random.Random
 
 /**
- * The whole Home screen, at the real phone's proportions, shrunk to fit.
- *
- * It is not a scroll window onto a partial layout: the entire screen — header, every enabled
- * section in its configured order, the mosaic at the chosen grid, playlists at their chosen card
- * style and height, and the bottom bar — is laid out at full device size and then scaled down by
- * [UniformPreview]. What is on screen is exactly what Home will look like.
+ * Scrollable Home Layout preview: user can scroll through the entire Home screen preview
+ * to see every section (All songs, Recently played, Playlists, Liked) as configured.
  */
 @Composable
 fun HomeSettingsPreview(state: SettingsState) {
@@ -39,14 +37,21 @@ fun HomeSettingsPreview(state: SettingsState) {
     val screenHeight = configuration.screenHeightDp.dp
 
     val config = HomePresentation(
-        state.homeLayoutStyle, state.homeScrollDirection, state.homeHorizontalRows,
-        state.hideRecentlyPlayed, state.recentsPlacement, state.homeMerge,
-        state.homeSectionOrder, state.homeHiddenSections, state.playlistStyle,
-        state.splitHideCollection, state.playlistLongHeight
+        style = state.homeLayoutStyle,
+        direction = state.homeScrollDirection,
+        rows = state.homeHorizontalRows,
+        hideRecents = state.hideRecentlyPlayed,
+        recentsPlacement = state.recentsPlacement,
+        merge = state.homeMerge,
+        order = state.homeSectionOrder,
+        hidden = state.homeHiddenSections,
+        playlistStyle = state.playlistStyle,
+        hideSplit = state.splitHideCollection,
+        playlistLongHeight = state.playlistLongHeight,
+        playlistCardOrientation = state.playlistCardOrientation
     )
     val sections = HomeSections.visible(config)
 
-    // Real generators, real row count: the tile shapes here are the ones Home will produce.
     val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows) {
         val rows = state.homeHorizontalRows.coerceIn(3, 8)
         val seeded = Random(4801)
@@ -57,37 +62,42 @@ fun HomeSettingsPreview(state: SettingsState) {
         }
     }
 
-    SettingsPreviewFrame("Home · full screen") {
-        UniformPreview(screenWidth, screenHeight, Modifier.fillMaxWidth().heightIn(max = 260.dp)) {
-            Column(Modifier.fillMaxSize().background(colors.background)) {
-                // Status strip + profile header, exactly where the shell puts them.
+    SettingsPreviewFrame("Home · scroll to preview") {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.background)
+        ) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                // Header mockup
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 10.dp),
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(17.dp)).background(colors.card))
+                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).background(colors.primaryAccent.copy(alpha = 0.3f)))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.width(64.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.cardElevated))
                     Spacer(Modifier.weight(1f))
-                    Box(Modifier.size(width = 96.dp, height = 32.dp).clip(RoundedCornerShape(16.dp)).background(colors.card))
+                    Box(Modifier.size(width = 54.dp, height = 20.dp).clip(RoundedCornerShape(10.dp)).background(colors.card))
                 }
 
-                Column(Modifier.weight(1f).fillMaxWidth()) {
-                    sections.forEach { section ->
-                        PreviewSectionTitle(HomeSections.label(section))
-                        when (section) {
-                            HomeSections.ALL -> PreviewMosaic(tiles, state.homeHorizontalRows, state.homeScrollDirection == "horizontal")
-                            HomeSections.RECENT -> PreviewRecentRow()
-                            HomeSections.PLAYLISTS -> PreviewPlaylists(state)
-                            else -> PreviewSongRows(3)
-                        }
-                        Spacer(Modifier.height(10.dp))
+                sections.forEach { section ->
+                    PreviewSectionTitle(HomeSections.label(section))
+                    when (section) {
+                        HomeSections.ALL -> PreviewMosaic(tiles, state.homeHorizontalRows, state.homeScrollDirection == "horizontal")
+                        HomeSections.RECENT -> PreviewRecentRow()
+                        HomeSections.PLAYLISTS -> PreviewPlaylists(state)
+                        else -> PreviewSongRows(3)
                     }
+                    Spacer(Modifier.height(8.dp))
                 }
-
-                // Bottom navigation bar.
-                Box(
-                    Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 12.dp)
-                        .height(52.dp).clip(RoundedCornerShape(26.dp)).background(colors.cardElevated)
-                )
             }
         }
     }
@@ -96,30 +106,29 @@ fun HomeSettingsPreview(state: SettingsState) {
 @Composable
 private fun PreviewSectionTitle(label: String) {
     Text(
-        label, color = XvoxTheme.colors.primaryAccent, fontSize = 16.sp,
-        fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+        label, color = XvoxTheme.colors.primaryAccent, fontSize = 11.sp,
+        fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp)
     )
 }
 
 @Composable
 private fun PreviewMosaic(tiles: List<Spec>, rows: Int, horizontal: Boolean) {
     val colors = XvoxTheme.colors
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
-        val gap = 6.dp
-        // Identical geometry to XvoxSongGridPage, so proportions match Home exactly.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val gap = 4.dp
         val unitWidth = (maxWidth - gap * 3) / 4
-        val unitHeight = unitWidth + 38.dp
-        val used = if (horizontal) rows.toFloat() else (tiles.maxOfOrNull { it.y + it.height } ?: 0f)
+        val unitHeight = unitWidth + 16.dp
+        val used = if (horizontal) rows.toFloat().coerceAtMost(4f) else (tiles.maxOfOrNull { it.y + it.height } ?: 0f).coerceAtMost(5f)
         Canvas(Modifier.fillMaxWidth().height(unitHeight * used + gap * (used - 1).coerceAtLeast(0f))) {
             val gx = gap.toPx(); val w = unitWidth.toPx(); val h = unitHeight.toPx()
             tiles.forEach { tile ->
                 val at = Offset(tile.x * (w + gx), tile.y * (h + gx))
                 val area = Size(tile.width * w + (tile.width - 1) * gx, tile.height * h + (tile.height - 1) * gx)
-                drawRoundRect(colors.card, at, area, CornerRadius(12.dp.toPx()))
+                drawRoundRect(colors.card, at, area, CornerRadius(8.dp.toPx()))
                 drawRoundRect(
-                    colors.primaryAccent.copy(alpha = .30f), at + Offset(6.dp.toPx(), 6.dp.toPx()),
-                    Size((area.width - 12.dp.toPx()).coerceAtLeast(1f), (area.height - 44.dp.toPx()).coerceAtLeast(1f)),
-                    CornerRadius(9.dp.toPx())
+                    colors.primaryAccent.copy(alpha = .30f), at + Offset(3.dp.toPx(), 3.dp.toPx()),
+                    Size((area.width - 6.dp.toPx()).coerceAtLeast(1f), (area.height - 18.dp.toPx()).coerceAtLeast(1f)),
+                    CornerRadius(6.dp.toPx())
                 )
             }
         }
@@ -129,9 +138,9 @@ private fun PreviewMosaic(tiles: List<Spec>, rows: Int, horizontal: Boolean) {
 @Composable
 private fun PreviewRecentRow() {
     val colors = XvoxTheme.colors
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         repeat(3) {
-            Box(Modifier.weight(1f).height(120.dp).clip(RoundedCornerShape(14.dp)).background(colors.card))
+            Box(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
         }
     }
 }
@@ -139,9 +148,9 @@ private fun PreviewRecentRow() {
 @Composable
 private fun PreviewSongRows(count: Int) {
     val colors = XvoxTheme.colors
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(count) {
-            Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(14.dp)).background(colors.card))
+            Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp)).background(colors.card))
         }
     }
 }
@@ -149,20 +158,15 @@ private fun PreviewSongRows(count: Int) {
 @Composable
 private fun PreviewPlaylists(state: SettingsState) {
     val colors = XvoxTheme.colors
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
-        if (state.playlistStyle == "long") {
-            val height = if (state.playlistLongHeight > 0) state.playlistLongHeight.dp else (maxWidth - 6.dp) / 2 + 35.dp
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                repeat(2) {
-                    Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(16.dp)).background(colors.card))
-                }
-            }
-        } else {
-            val size = (maxWidth - 6.dp) / 2
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                repeat(2) {
-                    Box(Modifier.width(size).height(size + 35.dp).clip(RoundedCornerShape(16.dp)).background(colors.card))
-                }
+    val isHorizontal = state.playlistCardOrientation == "horizontal"
+    if (isHorizontal) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
+        }
+    } else {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(2) {
+                Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
             }
         }
     }

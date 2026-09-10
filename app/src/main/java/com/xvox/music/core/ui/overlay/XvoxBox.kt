@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
-/** One app-wide modal: a floating, centred box, never a draggable bottom sheet. */
+/** One app-wide modal: solid opaque card (0 transparency), never see-through. */
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
@@ -58,8 +58,6 @@ fun XvoxBox(
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
-    // Swallows taps on empty interior (header space, padding around content) so the box can only
-    // be closed from its X, the scrim behind it, or the system back button.
     val swallowInteraction = remember { MutableInteractionSource() }
     fun close() {
         if (closing) return
@@ -75,7 +73,7 @@ fun XvoxBox(
     ) {
         Box(modifier.fillMaxSize()) {
             Box(
-                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f))
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
             BoxWithConstraints(
@@ -93,22 +91,20 @@ fun XvoxBox(
                 ) {
                     val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
                         else RoundedCornerShape(26.dp)
-                    // Option-box chrome from Appearance: box fill transparency and border colour/alpha.
-                    val boxFill = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
+                    // Solid fill: option box transparency is fixed at 0.
+                    val boxFill = colors.cardElevated
                     val borderBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder)
                         ?: colors.cardBorder
-                    val boxBorder = borderBase.copy(alpha = borderBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
+                    val boxBorder = borderBase.copy(alpha = chrome.optionBoxBorderAlpha.coerceIn(0.2f, 1f))
                     Column(
                         Modifier.widthIn(max = if (mini) 520.dp else 560.dp)
                             .fillMaxWidth().heightIn(max = availableHeight)
                             .clip(shape).background(boxFill)
                             .border(0.8.dp, boxBorder, shape)
-                            // Consume taps on the box's own empty regions (never closes the box).
                             .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {
                         if (mini) {
-                            // The tell-tale PIP grabber, so it reads as a small floating popup.
                             Box(
                                 Modifier
                                     .align(Alignment.CenterHorizontally)
@@ -144,7 +140,6 @@ fun XvoxBox(
                             }
                         }
                         Box(Modifier.fillMaxWidth().height(0.7.dp).background(colors.cardBorder.copy(alpha = 0.55f)))
-                        // Bounded content keeps the header / X visible even for long queues or the keyboard.
                         Box(Modifier.weight(1f, fill = false).fillMaxWidth().padding(14.dp)) { content() }
                         if (bottomAction != null) {
                             Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { bottomAction() }

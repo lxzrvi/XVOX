@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,18 +42,16 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 private val XvoxSettingsEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
 /**
- * A settings row is a label and a chevron — nothing else.
- *
- * Descriptions were removed on purpose: the control below the label already explains itself, and
- * a wall of grey text is what made this screen feel heavy.
+ * An accordion label card for Settings.
+ * Tapping expands its controls; tapping another collapses this one.
  */
 @Composable
 fun SettingsAccordionItem(
     title: String,
-    iconRes: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
+    iconRes: Int? = null,
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -75,40 +74,40 @@ fun SettingsAccordionItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(surface)
-            .padding(vertical = 4.dp)
+            .border(0.7.dp, if (expanded) colors.primaryAccent.copy(alpha = 0.35f) else colors.cardBorder, RoundedCornerShape(14.dp))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .xvoxPressScale(pressedScale = 0.985f, onClick = onToggle)
-                .padding(horizontal = 14.dp, vertical = 13.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(if (expanded) colors.primaryAccent.copy(alpha = 0.15f) else colors.cardElevated),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(17.dp)
-                )
+            if (iconRes != null) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(if (expanded) colors.primaryAccent.copy(alpha = 0.15f) else colors.cardElevated),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
             }
-
-            Spacer(Modifier.width(12.dp))
 
             Text(
                 text = title,
                 color = accent,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                fontWeight = if (expanded) FontWeight.Bold else FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
 
@@ -117,7 +116,7 @@ fun SettingsAccordionItem(
                 contentDescription = null,
                 tint = if (expanded) colors.primaryAccent else colors.mutedText,
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(15.dp)
                     .graphicsLayer { rotationZ = rotation }
             )
         }
@@ -138,7 +137,7 @@ fun SettingsAccordionItem(
                         .height(0.6.dp)
                         .background(colors.cardBorder.copy(alpha = 0.5f))
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 content()
             }
         }

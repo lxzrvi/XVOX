@@ -6,14 +6,12 @@ data class WidgetLabelStyle(
     val visibility: String = "auto", val size: Int = 13, val alignment: String = "left", val font: String = "inter",
     val color: String = "Auto", val background: String = "Transparent", val borderColor: String = "Auto",
     val borderWidth: Float = 0f, val radius: Int = 6,
-    /** Nudge in dp. Negative values are allowed, so cover text can sit outside the box. */
     val offsetX: Int = 0, val offsetY: Int = 0
 )
 data class WidgetButtonStyle(
     val position: String = "auto", val size: Int = 0, val color: String = "Auto",
     val background: String = "Auto", val borderColor: String = "Auto", val borderWidth: Float = 0f, val radius: Int = 12,
     val showLabel: Boolean = false, val labelSize: Int = 8, val labelColor: String = "Auto", val padding: Int = 6,
-    /** Free nudge in dp. Negative values are allowed, so a button may float anywhere. */
     val offsetX: Int = 0, val offsetY: Int = 0
 )
 data class WidgetCustomization(
@@ -31,14 +29,14 @@ data class WidgetCustomization(
 ) {
     fun label(id: String) = labels[id] ?: defaultLabels().getValue(id)
     fun button(id: String) = buttons[id] ?: WidgetButtonStyle()
-    // Cover margin/padding accept negative values on purpose: the artwork and its text are
-    // allowed to bleed outside the widget box.
-    fun sanitized() = copy(coverMarginX = coverMarginX.coerceIn(-64, 64), coverMarginY = coverMarginY.coerceIn(-64, 64),
-        coverPaddingX = coverPaddingX.coerceIn(-64, 64), coverPaddingY = coverPaddingY.coerceIn(-64, 64),marginX = marginX.coerceIn(0, 32), marginY = marginY.coerceIn(0, 32),
+    fun sanitized() = copy(
+        coverMarginX = coverMarginX.coerceIn(-96, 96), coverMarginY = coverMarginY.coerceIn(-96, 96),
+        coverPaddingX = coverPaddingX.coerceIn(-96, 96), coverPaddingY = coverPaddingY.coerceIn(-96, 96),
+        marginX = marginX.coerceIn(0, 48), marginY = marginY.coerceIn(0, 48),
         verticalAlignment = verticalAlignment.takeIf { it in setOf("top", "center", "bottom") } ?: "center",
         alignment = alignment.takeIf { it in setOf("left", "center", "right") } ?: "center",
         coverPlacement = coverPlacement.takeIf { it in setOf("auto", "left", "right", "top", "bottom", "hidden") } ?: "auto",
-        coverSize = coverSize.coerceIn(0, 240), coverRadius = coverRadius.coerceIn(-1, 64),
+        coverSize = coverSize.coerceIn(0, 320), coverRadius = coverRadius.coerceIn(-1, 64),
         coverBorderWidth = (coverBorderWidth.takeIf { it.isFinite() } ?: 0f).coerceIn(0f, 4f), borderWidth = (borderWidth.takeIf { it.isFinite() } ?: 0f).coerceIn(0f, 4f),
         fullCoverShade = (fullCoverShade.takeIf { it.isFinite() } ?: .35f).coerceIn(0f, .85f),
         labelPlacement = labelPlacement.takeIf { it in setOf("top", "center", "bottom") } ?: "center",
@@ -78,7 +76,6 @@ data class WidgetCustomization(
         val labelIds = listOf("title", "artist", "logo")
         fun defaultLabels() = mapOf("title" to WidgetLabelStyle(), "artist" to WidgetLabelStyle(size = 10), "logo" to WidgetLabelStyle(size = 12, font = "cinzel"))
         fun defaultButtons() = buttonIds.associateWith { WidgetButtonStyle() }
-        /** "3x1" -> customization, kept as one newline-separated preference. */
         fun encodeSizes(map: Map<String, WidgetCustomization>): String =
             map.entries.joinToString("\n") { "${it.key}|${it.value.sanitized().encode()}" }
         fun decodeSizes(raw: String): Map<String, WidgetCustomization> =
@@ -87,7 +84,6 @@ data class WidgetCustomization(
                 val body = line.substringAfter('|')
                 if (key.isBlank()) null else key to decode(body)
             }.toMap()
-        /** Stable key for a widget size, e.g. "3x1". */
         fun sizeKey(columns: Int, rows: Int): String = "${columns}x${rows}"
         fun decode(raw: String): WidgetCustomization = runCatching {
             val j = JSONObject(raw)

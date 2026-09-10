@@ -63,18 +63,13 @@ fun XvoxShellTopHeader(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
-    // The header is full height: its surface (and the custom photo behind it) starts at the very
-    // top of the screen and runs under the status bar, so the clock and icons sit on the header
-    // instead of on a bare strip. Only the row of controls is pushed below the system inset.
+    // The header is full height: the outer Box spans the very top of the screen including status
+    // bar area, so the photo and background extend into the notification bar with zero blank space.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
-            .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
-            .padding(bottom = 6.dp)
     ) {
-        // Optional header photo, drawn first; the scrim above it is the header's own transparency,
-        // so a lower value simply reveals more of the photo.
         profile.headerImageUri?.takeIf { it.isNotBlank() }?.let { photo ->
             coil3.compose.AsyncImage(
                 model = photo,
@@ -88,9 +83,12 @@ fun XvoxShellTopHeader(
                     .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
             )
         }
+
         Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp)
+                .fillMaxWidth()
+                .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
+                .padding(horizontal = 14.dp, vertical = 6.dp)
                 .height(54.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -112,10 +110,6 @@ fun XvoxShellTopHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // User lines under the name (hidden = name stands beside the avatar on its own);
-                // with no lines the rotating greeting keeps the spot.
-                // Hide removes every line under the name — custom lines and the rotating
-                // greeting alike — leaving just the name beside the avatar.
                 val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
                 if (!profile.showProfileLines) {
                     // nothing under the name
@@ -171,43 +165,40 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    // Hidden sections no longer appear on Home, so their icons stay here in the
-                    // same pill as Refresh — the shortcut survives, the section does not.
                     if (!mergedHome || likedSectionHidden || playlistsSectionHidden) {
-                    if (!mergedHome || likedSectionHidden) Icon(
-                        painter = painterResource(
-                            if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
-                            else R.drawable.ic_xvox_heart_outline
-                        ),
-                        contentDescription = "Liked Songs",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
-                            .padding(8.dp)
-                    )
+                        if (!mergedHome || likedSectionHidden) Icon(
+                            painter = painterResource(
+                                if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
+                                else R.drawable.ic_xvox_heart_outline
+                            ),
+                            contentDescription = "Liked Songs",
+                            tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
+                                .padding(8.dp)
+                        )
 
-                    if (!mergedHome || playlistsSectionHidden) Icon(
-                        painter = painterResource(
-                            if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
-                                R.drawable.ic_xvox_music_note
-                            } else {
-                                R.drawable.ic_xvox_playlist
-                            }
-                        ),
-                        contentDescription = "Playlists",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
-                            .padding(8.dp)
-                    )
+                        if (!mergedHome || playlistsSectionHidden) Icon(
+                            painter = painterResource(
+                                if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
+                                    R.drawable.ic_xvox_music_note
+                                } else {
+                                    R.drawable.ic_xvox_playlist
+                                }
+                            ),
+                            contentDescription = "Playlists",
+                            tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
+                                .padding(8.dp)
+                        )
                     }
                 }
             }
         }
 
-        // Header hairline tuned in Appearance (Home chrome): colour + transparency.
         val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder)
             ?: colors.cardBorder
         Box(
