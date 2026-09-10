@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -304,16 +305,28 @@ fun WidgetSizePreview(state: SettingsState, columns: Int = 3, rows: Int = 1) {
         ?: state.widgetCustomization
     val width = columns * 70 + (columns - 1) * 8
     val height = rows * 70 + (rows - 1) * 8
-    val display = remember(c, state.widgetTransparency, height) {
+    val display = remember(c, state.widgetTransparency, state.theme, state.accentColor, state.widgetCornerRadius, state.widgetPaddingX, state.widgetPaddingY) {
         XvoxWidgetHelper.WidgetDisplayState(
-            "Your favourite track", "XVOX widget",
-            state.theme, state.accentColor, null, true,
-            state.widgetTransparency, state.widgetCornerRadius,
-            state.widgetPaddingX, state.widgetPaddingY,
-            c, heightDp = height, widthDp = width
+            songTitle = "Your favourite track",
+            songArtist = "XVOX widget",
+            artworkUri = null,
+            isPlaying = true,
+            isLiked = false,
+            currentPosition = 0L,
+            duration = 0L,
+            transparency = state.widgetTransparency,
+            theme = state.theme,
+            customColor = state.accentColor,
+            showLogo = true,
+            cornerRadiusDp = state.widgetCornerRadius,
+            paddingX = state.widgetPaddingX,
+            paddingY = state.widgetPaddingY,
+            customization = c
         )
     }
-    val views = remember(display) { XvoxWidgetHelper.buildRemoteViews(context, display) }
+    val views by produceState<android.widget.RemoteViews?>(null, display, width, height) {
+        value = XvoxWidgetHelper.buildRemoteViews(context, display, width, height)
+    }
 
     UniformPreview(width.dp, height.dp, Modifier.fillMaxWidth().heightIn(max = 160.dp)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
