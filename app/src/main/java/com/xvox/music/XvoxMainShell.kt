@@ -340,6 +340,12 @@ fun XvoxMainShell(
             },
             onAdd = {
                 currentSong?.let(::showAddCurrentSongToPlaylist)
+            },
+            onDelete = {
+                currentSong?.let { song ->
+                    homeViewModel.hideSong(song)
+                    overlays.showP("Song deleted")
+                }
             }
         )
 

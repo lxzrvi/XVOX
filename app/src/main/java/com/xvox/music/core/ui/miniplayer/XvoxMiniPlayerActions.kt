@@ -28,6 +28,7 @@ fun XvoxMiniPlayerActions(
     visible: Boolean,
     onLike: () -> Unit,
     onAdd: () -> Unit,
+    onDelete: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -44,45 +45,36 @@ fun XvoxMiniPlayerActions(
                             stiffness = 500f
                         )
                 ) +
-                slideInVertically {
-                    26
-                },
+                slideInVertically { 26 },
         exit =
             fadeOut() +
                 scaleOut(
                     targetScale = 0.82f
                 ) +
-                slideOutVertically {
-                    14
-                }
+                slideOutVertically { 14 }
     ) {
         Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    12.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             ActionButton(
-                icon =
-                    XvoxMiniIcon.HEART,
-                onClick =
-                    onLike
+                icon = XvoxMiniIcon.HEART,
+                onClick = onLike
             )
 
             ActionButton(
-                icon =
-                    XvoxMiniIcon.ADD,
-                onClick =
-                    onAdd
+                icon = XvoxMiniIcon.ADD,
+                onClick = onAdd
             )
 
             ActionButton(
-                icon =
-                    XvoxMiniIcon.CLOSE,
-                onClick =
-                    onClose
+                icon = XvoxMiniIcon.DELETE,
+                onClick = onDelete
+            )
+
+            ActionButton(
+                icon = XvoxMiniIcon.CLOSE,
+                onClick = onClose
             )
         }
     }
@@ -93,8 +85,7 @@ private fun ActionButton(
     icon: XvoxMiniIcon,
     onClick: () -> Unit
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
@@ -104,22 +95,16 @@ private fun ActionButton(
                 CircleShape
             )
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         XvoxMiniPlayerIcon(
             icon = icon,
-            color =
-                colors.primaryText,
-            modifier =
-                Modifier.size(19.dp)
+            color = if (icon == XvoxMiniIcon.DELETE) colors.primaryAccent else colors.primaryText,
+            modifier = Modifier.size(19.dp)
         )
     }
 }

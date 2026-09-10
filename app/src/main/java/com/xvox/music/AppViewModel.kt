@@ -112,4 +112,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         _state.value = AppUiState.Preparing
     }
+
+    fun resetToSetup() {
+        released = true
+        _state.value = AppUiState.Setup
+    }
 }

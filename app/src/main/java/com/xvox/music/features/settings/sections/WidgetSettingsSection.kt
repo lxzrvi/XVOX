@@ -1,30 +1,39 @@
 package com.xvox.music.features.settings.sections
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.parseHexColor
+import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.widget.WidgetCustomization
-import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlin.math.roundToInt
 
 @Composable
 fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
-    val context = LocalContext.current
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
+    var editingCategory by remember { mutableStateOf("Horizontal") }
     var editingSize by remember { mutableStateOf(state.widgetPreviewSize) }
-    var sizeTab by remember { mutableStateOf("cover") }
     var labelId by remember { mutableStateOf("title") }
     var buttonId by remember { mutableStateOf("all") }
     var expandedGroup by remember { mutableStateOf<String?>("Size") }
@@ -67,10 +76,30 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             expanded = expandedGroup == "Size",
             onToggle = { toggle("Size") }
         ) {
+            // Category Tabs: Row, Horizontal, Box
             SettingsChoiceRow(
-                listOf("2x1" to "2×1", "3x1" to "3×1", "4x1" to "4×1", "2x2" to "2×2", "3x2" to "3×2", "4x2" to "4×2", "3x3" to "3×3", "4x4" to "4×4"),
-                editingSize
-            ) { chosen ->
+                listOf("Horizontal" to "Horizontal", "Row" to "Row", "Box" to "Box"),
+                editingCategory
+            ) { category ->
+                editingCategory = category
+                val defaultForCat = when (category) {
+                    "Row" -> "1x3"
+                    "Box" -> "2x2"
+                    else -> "3x1"
+                }
+                editingSize = defaultForCat
+                viewModel.setWidgetPreviewSize(defaultForCat)
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            val sizeList = when (editingCategory) {
+                "Row" -> listOf("1x2" to "1×2", "1x3" to "1×3", "1x4" to "1×4", "2x3" to "2×3", "2x4" to "2×4")
+                "Box" -> listOf("1x1" to "1×1", "2x2" to "2×2", "3x3" to "3×3", "4x4" to "4×4")
+                else -> listOf("1x1" to "1×1", "2x1" to "2×1", "3x1" to "3×1", "4x1" to "4×1", "5x1" to "5×1")
+            }
+
+            SettingsChoiceRow(sizeList, editingSize) { chosen ->
                 editingSize = chosen
                 viewModel.setWidgetPreviewSize(chosen)
             }
@@ -112,14 +141,14 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             SettingsChoiceRow(listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> editWidget { it.copy(coverSize = value.toInt()) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Offset / Gaps")
-            WidgetSlider("Margin X", c.coverMarginX.toFloat(), -48f..48f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+            Group("Surface offsets & Margins")
+            WidgetSlider("Margin X", c.coverMarginX.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -48f..48f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
+            WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -48f..48f, "dp") { v -> editWidget { it.copy(coverPaddingX = v.roundToInt()) } }
+            WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverPaddingX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -48f..48f, "dp") { v -> editWidget { it.copy(coverPaddingY = v.roundToInt()) } }
+            WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverPaddingY = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Shape")
@@ -128,156 +157,105 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                 Spacer(Modifier.height(6.dp))
                 WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> editWidget { it.copy(coverRadius = v.roundToInt()) } }
             }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Border", c.coverBorderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(coverBorderWidth = (v * 4).roundToInt() / 4f) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetColourEditor("Border colour", c.coverBorderColor) { value -> editWidget { it.copy(coverBorderColor = value) } }
         }
 
         SettingsAccordionItem(
-            title = "Text & Labels",
+            title = "Text labels",
             expanded = expandedGroup == "Labels",
             onToggle = { toggle("Labels") }
         ) {
-            Group("Target text")
-            SettingsChoiceRow(listOf("title" to "Song", "artist" to "Artist", "logo" to "Logo"), labelId) { labelId = it }
+            SettingsChoiceRow(listOf("title" to "Title", "artist" to "Artist", "logo" to "Logo"), labelId) { labelId = it }
             val l = c.label(labelId)
-            Spacer(Modifier.height(8.dp))
-            SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Show", "hide" to "Hide"), l.visibility) { value -> label { it.copy(visibility = value) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Position")
-            SettingsChoiceRow(listOf("top" to "Top", "center" to "Middle", "bottom" to "Bottom"), c.labelPlacement) { value -> editWidget { it.copy(labelPlacement = value) } }
+            Group("Visibility & Size")
+            SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Always show", "hide" to "Hide"), l.visibility) { v -> label { it.copy(visibility = v) } }
             Spacer(Modifier.height(6.dp))
-            SettingsChoiceRow(listOf("left" to "Left", "center" to "Centre", "right" to "Right"), l.alignment) { value -> label { it.copy(alignment = value) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Nudge X", l.offsetX.toFloat(), -48f..48f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Nudge Y", l.offsetY.toFloat(), -48f..48f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
-
-            Spacer(Modifier.height(8.dp))
-            Group("Type")
             WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
-            Spacer(Modifier.height(6.dp))
-            SettingsChoiceRow(listOf("inter" to "Inter", "cinzel" to "Cinzel", "hand" to "Hand"), l.font) { value -> label { it.copy(font = value) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetColourEditor("Colour", l.color) { value -> label { it.copy(color = value) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Box")
-            WidgetColourEditor("Background", l.background) { value -> label { it.copy(background = value) } }
+            Group("Placement & Surface Offset")
+            SettingsChoiceRow(listOf("left" to "Left", "center" to "Center", "right" to "Right"), l.alignment) { v -> label { it.copy(alignment = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Border", l.borderWidth, 0f..4f, "dp") { v -> label { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+            WidgetSlider("Offset X", l.offsetX.toFloat(), -96f..96f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetColourEditor("Border colour", l.borderColor) { value -> label { it.copy(borderColor = value) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Radius", l.radius.toFloat(), 0f..48f, "dp") { v -> label { it.copy(radius = v.roundToInt()) } }
+            WidgetSlider("Offset Y", l.offsetY.toFloat(), -96f..96f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsAccordionItem(
-            title = "Buttons & Controls",
+            title = "Control buttons",
             expanded = expandedGroup == "Buttons",
             onToggle = { toggle("Buttons") }
         ) {
-            Group("Target button")
             SettingsChoiceRow(listOf("all" to "All", "prev" to "Prev", "play" to "Play", "next" to "Next", "like" to "Like"), buttonId) { buttonId = it }
             val b = c.button(if (buttonId == "all") "play" else buttonId)
 
             Spacer(Modifier.height(8.dp))
-            Group("Position")
-            SettingsChoiceRow(listOf("auto" to "Auto", "inline" to "Inline", "top" to "Top", "bottom" to "Bottom"), c.buttonsPlacement) { value -> editWidget { it.copy(buttonsPlacement = value) } }
+            Group("Placement & Size")
+            SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Center", "right" to "Right", "hidden" to "Hide"), b.position) { v -> button { it.copy(position = v) } }
             Spacer(Modifier.height(6.dp))
-            SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Centre", "right" to "Right", "hidden" to "Hidden"), b.position) { value -> button { it.copy(position = value) } }
-            if (buttonId != "all") {
-                Row {
-                    for (direction in listOf(-1, 1)) TextButton(onClick = {
-                        editWidget { old ->
-                            val order = old.buttonOrder.toMutableList(); val index = order.indexOf(buttonId); val to = index + direction
-                            if (index >= 0 && to in order.indices) order.add(to, order.removeAt(index))
-                            old.copy(buttonOrder = order)
-                        }
-                    }) { Text(if (direction < 0) "Move left" else "Move right", fontSize = 11.sp) }
-                }
-                WidgetSlider("Nudge X", b.offsetX.toFloat(), -48f..48f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
-                Spacer(Modifier.height(6.dp))
-                WidgetSlider("Nudge Y", b.offsetY.toFloat(), -48f..48f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
-            }
+            WidgetSlider("Size", (if (b.size == 0) 32 else b.size).toFloat(), 20f..48f, "dp") { v -> button { it.copy(size = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Shape")
-            SettingsChoiceRow(listOf(0, 16, 20, 24, 28, 32, 36, 40, 44, 48).map { "$it" to if (it == 0) "Auto" else "$it" }, b.size.toString()) { value -> button { it.copy(size = value.toInt()) } }
+            Group("Surface Offset")
+            WidgetSlider("Offset X", b.offsetX.toFloat(), -96f..96f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Inner padding", b.padding.toFloat(), 0f..14f, "dp") { v -> button { it.copy(padding = v.roundToInt()) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Radius", b.radius.toFloat(), 0f..48f, "dp") { v -> button { it.copy(radius = v.roundToInt()) } }
-
-            Spacer(Modifier.height(8.dp))
-            Group("Colour")
-            WidgetColourEditor("Icon", b.color) { value -> button { it.copy(color = value) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetColourEditor("Background", b.background) { value -> button { it.copy(background = value) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Border", b.borderWidth, 0f..4f, "dp") { v -> button { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetColourEditor("Border colour", b.borderColor) { value -> button { it.copy(borderColor = value) } }
-
-            Spacer(Modifier.height(8.dp))
-            Group("Caption")
-            SettingsToggle("Show caption", null, b.showLabel) { value -> button { it.copy(showLabel = value) } }
-            if (b.showLabel) {
-                Spacer(Modifier.height(6.dp))
-                WidgetSlider("Caption size", b.labelSize.toFloat(), 6f..14f, "sp") { v -> button { it.copy(labelSize = v.roundToInt()) } }
-                Spacer(Modifier.height(6.dp))
-                WidgetColourEditor("Caption colour", b.labelColor) { value -> button { it.copy(labelColor = value) } }
-            }
+            WidgetSlider("Offset Y", b.offsetY.toFloat(), -96f..96f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
         }
 
-        Group("Install & Actions")
-        Button(onClick = {
-            val manager = AppWidgetManager.getInstance(context)
-            if (manager.isRequestPinAppWidgetSupported) manager.requestPinAppWidget(ComponentName(context, XvoxAppWidgetProvider::class.java), null, null)
-            else Toast.makeText(context, "Add XVOX from your launcher widget picker", Toast.LENGTH_LONG).show()
-        }, modifier = Modifier.fillMaxWidth()) { Text("Add widget to home") }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { XvoxAppWidgetProvider.notifyWidgetUpdate(context) }) { Text("Refresh") }
-            TextButton(onClick = { editWidget { WidgetCustomization() }; viewModel.setWidgetPaddingX(10); viewModel.setWidgetPaddingY(8); viewModel.setWidgetCornerRadius(16) }) { Text("Reset") }
+        SettingsChoiceRow(listOf("reset_all" to "Reset size", "reset_base" to "Reset defaults"), "") { key ->
+            if (key == "reset_all") {
+                viewModel.setWidgetCustomizationForSize(sizeKey, WidgetCustomization())
+            } else {
+                viewModel.setWidgetCustomization(WidgetCustomization())
+            }
         }
     })
 }
 
 @Composable
-private fun Group(title: String) {
+private fun Group(text: String) {
     Text(
-        title.uppercase(), color = XvoxTheme.colors.secondaryText, fontSize = 9.sp,
-        letterSpacing = 1.sp, fontWeight = FontWeight.Bold,
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
     )
 }
 
 @Composable
 private fun WidgetSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, unit: String, onChange: (Float) -> Unit) {
-    Text("$label: ${if (unit == "dp" && range.endInclusive <= 4) "%.2f".format(value) else value.roundToInt()} $unit", color = XvoxTheme.colors.primaryText, fontSize = 12.sp)
-    XvoxThinLineSlider(value, onChange, range)
+    val colors = XvoxTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(110.dp))
+        XvoxThinLineSlider(value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range, modifier = Modifier.weight(1f))
+        Text("${value.roundToInt()} $unit", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(48.dp))
+    }
 }
 
 @Composable
-private fun WidgetColourEditor(label: String, value: String, onChange: (String) -> Unit) {
+private fun WidgetColourEditor(label: String, current: String, onSelect: (String) -> Unit) {
     val colors = XvoxTheme.colors
-    var text by remember(label, value) { mutableStateOf(if (value.startsWith("#")) value else "") }
-    Text(label, color = colors.primaryText, fontSize = 12.sp)
-    SettingsChoiceRow(listOf("Auto" to "Auto", "Transparent" to "None", "#FFFFFF" to "White", "#181818" to "Black",
-        "#79BDED" to "Blue", "#E6AB6C" to "Gold"), value, onChange)
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            if (it.length <= 9) {
-                text = it
-                if (it.matches(Regex("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?"))) onChange(it)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(110.dp))
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf("Auto", "Accent", "#FFFFFF", "#000000", "#1E1E28", "#FF453A", "#30D158", "#0A84FF", "#BF5AF2", "#FF9F0A").forEach { code ->
+                val active = current == code
+                val c = when (code) {
+                    "Auto" -> colors.cardElevated
+                    "Accent" -> colors.primaryAccent
+                    else -> parseHexColor(code) ?: Color.Transparent
+                }
+                Box(
+                    Modifier.size(24.dp).clip(CircleShape).background(c)
+                        .border(if (active) 2.dp else .7.dp, if (active) colors.primaryText else colors.cardBorder, CircleShape)
+                        .clickable { onSelect(code) }
+                )
             }
-        },
-        label = { Text("Custom #RRGGBB or #AARRGGBB", fontSize = 10.sp) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        isError = text.isNotEmpty() && !text.matches(Regex("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?"))
-    )
+        }
+    }
 }

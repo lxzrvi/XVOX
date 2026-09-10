@@ -31,99 +31,88 @@ fun Modifier.lyricsEdgeFade(top: Float, bottom: Float): Modifier = graphicsLayer
 }
 
 @Composable
-fun LyricPresentationLine(text: String, active: Boolean, distance: Int, settings: LyricsSettings,
-    modifier: Modifier = Modifier, color: Color = Color.White, synchronized: Boolean = true) {
-    val maximumSize = maxOf(settings.currentSize, settings.otherSize)
-    val wanted = (if (active) settings.currentSize else settings.otherSize).toFloat() / maximumSize
-    // Left / Centre / Right is a layout choice, so it is honoured here — the old renderer always
-    // centred every line, which is why the setting appeared to do nothing while playing.
+fun LyricPresentationLine(
+    text: String,
+    active: Boolean,
+    distance: Int,
+    settings: LyricsSettings,
+    modifier: Modifier = Modifier,
+    color: Color = Color.White,
+    synchronized: Boolean = true
+) {
+    val maximumSize = maxOf(settings.currentSize, maxOf(settings.topSize, settings.bottomSize))
+    val targetSize = when {
+        distance < 0 -> settings.topSize
+        distance == 0 -> settings.currentSize
+        else -> settings.bottomSize
+    }
+    val wantedScale = targetSize.toFloat() / maximumSize.toFloat()
+
     val textAlign = when (settings.alignment) {
         "left" -> TextAlign.Start
         "right" -> TextAlign.End
         else -> TextAlign.Center
     }
-    // With a side alignment the lines come in straight: the sideways and vertical animation
-    // flavours are dropped and the default, quiet motion is used instead, so nothing pushes an
-    // aligned line off its edge.
-    val aligned = settings.alignment != "center"
-    val animation = if (aligned) "default" else settings.animation
 
-    // Each style gets its own motion character and timing so the eight names never feel alike.
+    val transformOrigin = when (settings.alignment) {
+        "left" -> TransformOrigin(0f, 0.5f)
+        "right" -> TransformOrigin(1f, 0.5f)
+        else -> TransformOrigin(0.5f, 0.5f)
+    }
+
+    val aligned = settings.alignment != "center"
+    val animation = if (aligned) "fade" else settings.animation
+
     val spec: AnimationSpec<Float> = when (animation) {
-        "spring" -> spring(dampingRatio = .5f, stiffness = 420f)
-        "fade" -> tween(200, easing = LinearEasing)
+        "spring" -> spring(dampingRatio = .55f, stiffness = 420f)
         "slide" -> tween(300, easing = FastOutSlowInEasing)
         "rise" -> tween(380, easing = LinearOutSlowInEasing)
-        "glide" -> tween(420, easing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f))
-        "focus" -> tween(340, easing = FastOutSlowInEasing)
-        "wave" -> tween(460, easing = CubicBezierEasing(0.34f, 1.4f, 0.64f, 1f))
-        else -> tween(280, easing = FastOutSlowInEasing)
+        "wave" -> tween(420, easing = CubicBezierEasing(0.34f, 1.3f, 0.64f, 1f))
+        else -> tween(240, easing = LinearEasing) // "fade"
     }
 
-    // "focus" shrinks passing lines away hard while the active line stays big; "wave" sways the
-    // neighbours while they keep full size; "pulse" breathes on the active line only.
-    val focusScale = animation == "focus" && !active
-    val waveScale = animation == "wave" && !active && (distance % 2 != 0)
-    val scaleBase = wanted * when {
-        focusScale -> .82f
-        waveScale -> 1.07f
-        else -> 1f
-    }
-    val scale by animateFloatAsState(scaleBase, spec, label = "lyricScale")
+    val scale by animateFloatAsState(wantedScale, spec, label = "lyricScale")
 
-    // Base dim by distance from the active line. "Equal fade" is stricter and binary: everything
-    // above and below the current line is faded by fadeIntensity as one whole area — no gradual
-    // distance gradient — so the lyrics read as a clear centre row with the rest gone.
     val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
     val dimTarget = if (settings.fadeEqual) {
         if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0f, 1f)
     } else baseAlpha
-    val alpha by animateFloatAsState(if (!synchronized) .82f else dimTarget,
-        if (animation == "fade") tween(200, easing = LinearEasing) else tween(260), label = "lyricAlpha")
+    val alpha by animateFloatAsState(
+        if (!synchronized) .82f else dimTarget,
+        tween(240, easing = FastOutSlowInEasing),
+        label = "lyricAlpha"
+    )
 
-    // Distinct sideways movement:
-    //  glide -> the whole line drifts away sideways; wave -> neighbours sway in/out of centre.
-    val glideX = animation == "glide" && !active
-    val waveX = animation == "wave" && !active
-    val shiftX by animateFloatAsState(
-        when {
-            glideX -> distance.coerceIn(-1, 1) * 46f
-            waveX -> if (distance % 2 != 0) distance.coerceIn(-1, 1) * 18f
-                else -distance.coerceIn(-1, 1) * 7f
-            else -> 0f
-        }, spec, label = "lyricShiftX")
-
-    // Vertical flavours: slide -> lines drop one place; rise -> upcoming lines climb from below;
-    // spring -> a pronounced hop on the passing lines.
     val slideY = animation == "slide" && !active
     val riseY = animation == "rise" && !active && distance > 0
     val springY = animation == "spring" && !active
     val shiftY by animateFloatAsState(
         when {
-            slideY -> distance.coerceIn(-1, 1) * 22f
-            riseY -> distance.coerceIn(1, 6) * 30f
+            slideY -> distance.coerceIn(-1, 1) * 20f
+            riseY -> distance.coerceIn(1, 6) * 28f
             springY -> distance.coerceIn(-1, 1) * 12f
             else -> 0f
-        }, spec, label = "lyricShiftY")
+        }, spec, label = "lyricShiftY"
+    )
 
-    // "pulse": the active line breathes gently instead of sitting static.
-    var pulseScale = 1f
-    if (animation == "pulse" && active) {
-        val transition = rememberInfiniteTransition(label = "pulse")
-        val pulse by transition.animateFloat(
-            initialValue = 1f, targetValue = 1.08f,
-            animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulseScale"
-        )
-        pulseScale = pulse
-    }
-
-    // Always measure at the same maximum size and weight. Animating font metrics was moving the
-    // list's row heights during centring and caused the old jitter / corrective jumps.
-    Text(text.ifBlank { "♪" }, color = color,
-        style = MaterialTheme.typography.bodyLarge.copy(fontSize = maximumSize.sp, lineHeight = (maximumSize * 1.3f).sp,
-            fontWeight = FontWeight.SemiBold, textAlign = textAlign),
-        modifier = modifier.fillMaxWidth().graphicsLayer {
-            this.alpha = alpha; scaleX = scale * pulseScale; scaleY = scale * pulseScale
-            translationX = shiftX.dp.toPx(); translationY = shiftY.dp.toPx()
-        }.padding(horizontal = 18.dp, vertical = 8.dp))
+    Text(
+        text = text.ifBlank { "♪" },
+        color = color,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = maximumSize.sp,
+            lineHeight = (maximumSize * 1.3f).sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+            textAlign = textAlign
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                this.alpha = alpha
+                this.scaleX = scale
+                this.scaleY = scale
+                this.translationY = shiftY.dp.toPx()
+                this.transformOrigin = transformOrigin
+            }
+            .padding(horizontal = if (aligned) 8.dp else 18.dp, vertical = 7.dp)
+    )
 }

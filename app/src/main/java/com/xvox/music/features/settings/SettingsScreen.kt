@@ -56,6 +56,7 @@ import com.xvox.music.features.settings.sections.HomeSettingsSection
 import com.xvox.music.features.settings.sections.HowToUseSettingsSection
 import com.xvox.music.features.settings.sections.LibraryFilterSettingsSection
 import com.xvox.music.features.settings.sections.LyricsSettingsSection
+import com.xvox.music.features.settings.sections.MiscSettingsSection
 import com.xvox.music.features.settings.sections.NotifySettingsSection
 import com.xvox.music.features.settings.sections.PlaybackSettingsEditor
 import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
@@ -74,6 +75,7 @@ private enum class SettingsChoice(val label: String, val hasPreview: Boolean = t
     FILTER("Library filter", hasPreview = false),
     DELETED("Deleted songs", hasPreview = false),
     BACKUP("Backup", hasPreview = false),
+    MISC("Misc", hasPreview = false),
     BATTERY("Don't kill app", hasPreview = false),
     HOW_TO_USE("How to use", hasPreview = false),
     ABOUT("About", hasPreview = false)
@@ -178,6 +180,7 @@ fun SettingsScreen(
                     SettingsChoice.FILTER -> LibraryFilterSettingsSection(state, settingsViewModel, homeViewModel)
                     SettingsChoice.DELETED -> HiddenSongsSettingsSection(homeViewModel)
                     SettingsChoice.BACKUP -> BackupSettingsSection(state, settingsViewModel)
+                    SettingsChoice.MISC -> MiscSettingsSection(state, settingsViewModel)
                     SettingsChoice.BATTERY -> BatteryOptimizationSection()
                     SettingsChoice.HOW_TO_USE -> HowToUseSettingsSection()
                     SettingsChoice.ABOUT -> AboutSettingsSection()

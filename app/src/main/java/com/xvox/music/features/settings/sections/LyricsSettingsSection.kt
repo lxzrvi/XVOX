@@ -47,8 +47,8 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         ) {
             SettingsChoiceRow(
                 listOf(
-                    "fade" to "Fade", "slide" to "Slide", "focus" to "Zoom", "glide" to "Glide",
-                    "spring" to "Spring", "rise" to "Rise", "pulse" to "Pulse", "wave" to "Wave"
+                    "fade" to "Fade", "slide" to "Slide", "spring" to "Spring",
+                    "wave" to "Wave", "rise" to "Rise"
                 ),
                 settings.animation
             ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
@@ -59,20 +59,32 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             expanded = expandedGroup == "Font sizes",
             onToggle = { toggle("Font sizes") }
         ) {
-            Label("Current line · ${settings.currentSize} sp")
+            Label("Top lines font size · ${settings.topSize} sp")
             XvoxThinLineSlider(
-                settings.currentSize.toFloat(),
-                { v -> viewModel.updateLyrics { it.copy(currentSize = v.roundToInt()) } },
-                16f..42f
+                settings.topSize.toFloat(),
+                { v -> viewModel.updateLyrics { it.copy(topSize = v.roundToInt(), otherSize = v.roundToInt()) } },
+                10f..36f,
+                defaultValue = 14f
             )
 
             Spacer(Modifier.height(8.dp))
 
-            Label("Other lines · ${settings.otherSize} sp")
+            Label("Current line font size · ${settings.currentSize} sp")
             XvoxThinLineSlider(
-                settings.otherSize.toFloat(),
-                { v -> viewModel.updateLyrics { it.copy(otherSize = v.roundToInt()) } },
-                10f..30f
+                settings.currentSize.toFloat(),
+                { v -> viewModel.updateLyrics { it.copy(currentSize = v.roundToInt()) } },
+                14f..44f,
+                defaultValue = 23f
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Label("Bottom lines font size · ${settings.bottomSize} sp")
+            XvoxThinLineSlider(
+                settings.bottomSize.toFloat(),
+                { v -> viewModel.updateLyrics { it.copy(bottomSize = v.roundToInt()) } },
+                10f..36f,
+                defaultValue = 14f
             )
         }
 

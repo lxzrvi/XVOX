@@ -177,9 +177,11 @@ class XvoxCrossfadeEngine(
 
     /** Where audio should physically leave the phone. "phone" forces the built-in speaker (null). */
     fun setOutputRoute(route: String) {
-        val device = if (route == "headset") {
-            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isHeadsetOutput(it) }
-        } else null
+        val device = when (route) {
+            "headset" -> audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isHeadsetOutput(it) }
+            "phone" -> audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            else -> null
+        }
         preferredOutputDevice = device
         decks().forEach { deck ->
             runCatching { deck.sink.setPreferredDevice(device) }
@@ -188,10 +190,13 @@ class XvoxCrossfadeEngine(
 
     fun updatePlayback(speed: Float, pitch: Float) {
         outputSpeed = speed.coerceIn(.25f, 3f)
-        outputPitch = pitch.coerceIn(.25f, 3f)
-        val parameters = PlaybackParameters(outputSpeed, outputPitch)
+        outputPitch = pitch.coerceIn(.5f, 2f)
         decks().forEach { deck ->
-            runCatching { deck.player.setPlaybackParameters(parameters) }
+            runCatching {
+                deck.player.playbackParameters = PlaybackParameters(outputSpeed, outputPitch)
+            }.onFailure {
+                runCatching { deck.player.playbackParameters = PlaybackParameters(outputSpeed, 1.0f) }
+            }
         }
     }
 

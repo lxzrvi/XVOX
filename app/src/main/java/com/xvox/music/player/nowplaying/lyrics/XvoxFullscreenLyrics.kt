@@ -68,6 +68,7 @@ import kotlin.math.sin
 /**
  * Full-screen lyrics: background is solid (opaque), with an optional moving gradient
  * toggled from the button before Previous.
+ * Synchronizes system status bar hide/show directly with the header options bar.
  */
 @Composable
 fun XvoxFullscreenLyrics(
@@ -97,6 +98,7 @@ fun XvoxFullscreenLyrics(
         else androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(view.rootWindowInsets, view)
             .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
     }
+    var chromeVisible by remember { mutableStateOf(true) }
     var barsVisible by remember { mutableStateOf(true) }
     val animatedBarsPad by animateDpAsState(
         targetValue = if (barsVisible) with(LocalDensity.current) { statusBarPx.toDp() } else 0.dp,
@@ -112,29 +114,29 @@ fun XvoxFullscreenLyrics(
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             c.isAppearanceLightStatusBars = false
         }
-        val hide = Runnable {
-            barsVisible = false
-            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            Unit
-        }
-        view.postDelayed(hide, 120)
         onDispose {
-            view.removeCallbacks(hide)
             barsVisible = true
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
+
+    LaunchedEffect(chromeVisible) {
+        barsVisible = chromeVisible
+        val window = (view.context as? android.app.Activity)?.window
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        if (chromeVisible) {
+            controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            delay(3500)
+            chromeVisible = false
+        } else {
+            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     val custom = state.lyrics?.source == XvoxLyricsSource.USER_LRC || state.lyrics?.source == XvoxLyricsSource.USER_TEXT
-    var chromeVisible by remember { mutableStateOf(true) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(onAttach)
-    }
-
-    LaunchedEffect(chromeVisible) {
-        if (!chromeVisible) return@LaunchedEffect
-        delay(3000)
-        chromeVisible = false
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "lyricGradient")
@@ -182,7 +184,7 @@ fun XvoxFullscreenLyrics(
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
-                        chromeVisible = true
+                        chromeVisible = !chromeVisible
                     }
                 }
         ) {
