@@ -89,6 +89,13 @@ object XvoxSongActions {
             null
         }
 
+    fun deleteMultiplePendingIntent(context: Context, songs: List<Song>): PendingIntent? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            MediaStore.createDeleteRequest(context.contentResolver, songs.map { it.contentUri })
+        } else {
+            null
+        }
+
     fun deleteLegacy(context: Context, song: Song): Boolean =
         runCatching { context.contentResolver.delete(song.contentUri, null, null) > 0 }.getOrDefault(false)
 }

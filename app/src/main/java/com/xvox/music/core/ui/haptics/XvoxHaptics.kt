@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 class XvoxHaptics(
     private val context: Context? = null,
     var enabled: Boolean = true,
-    var strength: String = "Normal"
+    var strength: String = "medium"
 ) {
     private val vibrator: Vibrator? by lazy {
         context?.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
@@ -22,8 +22,22 @@ class XvoxHaptics(
     fun tap() {
         if (!enabled) return
         runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+            val level = strength.lowercase()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val (ms, amp) = when (level) {
+                    "very_low" -> 5L to 25
+                    "low" -> 8L to 60
+                    "high" -> 20L to 255
+                    else -> 12L to 120 // medium
+                }
+                if (vibrator?.hasAmplitudeControl() == true) {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(ms)
+                }
             } else {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(10L)
@@ -32,15 +46,7 @@ class XvoxHaptics(
     }
 
     fun click() {
-        if (!enabled) return
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(16L)
-            }
-        }
+        tap()
     }
 
     fun toggle() {
@@ -54,8 +60,22 @@ class XvoxHaptics(
     fun heavy() {
         if (!enabled) return
         runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
+            val level = strength.lowercase()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val (ms, amp) = when (level) {
+                    "very_low" -> 14L to 55
+                    "low" -> 22L to 110
+                    "high" -> 45L to 255
+                    else -> 30L to 180 // medium
+                }
+                if (vibrator?.hasAmplitudeControl() == true) {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(ms)
+                }
             } else {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(35L)
@@ -64,15 +84,7 @@ class XvoxHaptics(
     }
 
     fun success() {
-        if (!enabled) return
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(20L)
-            }
-        }
+        tap()
     }
 }
 
@@ -83,7 +95,7 @@ val LocalXvoxHaptics: ProvidableCompositionLocal<XvoxHaptics> = staticCompositio
 @Composable
 fun rememberXvoxHaptics(
     enabled: Boolean = true,
-    strength: String = "Normal"
+    strength: String = "medium"
 ): XvoxHaptics {
     val context = LocalContext.current.applicationContext
     return remember(context, enabled, strength) {

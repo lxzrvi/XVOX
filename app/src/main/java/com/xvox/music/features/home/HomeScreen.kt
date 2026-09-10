@@ -1,3 +1,5 @@
+import android.os.Build
+import androidx.activity.result.IntentSenderRequest
 package com.xvox.music.features.home
 
 import android.app.Activity
@@ -234,9 +236,16 @@ fun HomeScreen(
     }
 
     fun androidx.compose.foundation.lazy.LazyListScope.likedSection() {
-        songListContent("liked", "Liked Songs", likedSongs, likedPlans,
+        librarySongItems(
+            keyPrefix = "liked",
+            title = "Liked Songs",
+            songs = likedSongs,
+            currentSongId = currentSongId,
+            playing = isPlaying,
+            selected = selectedSongIds,
             onPlay = { handleSongClick(it, likedSongs, "Liked Songs") },
-            onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) })
+            onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) }
+        )
     }
     fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
         playlistCollectionItems(state.playlists, { playlistContents[it.id].orEmpty() },
@@ -253,10 +262,46 @@ fun HomeScreen(
     val bottomInset = LocalXvoxBottomInset.current
     val targetKey = effectiveSelectedPlaylistId ?: state.libraryMode
     Column(Modifier.fillMaxSize()) {
+        fun requestDeleteSelected() {
+            if (selectedSongsList.isEmpty()) return
+            overlays.showBox("Delete ${selectedSongsList.size} songs?") {
+                com.xvox.music.shell.XvoxConfirmBox(
+                    question = "Permanently delete ${selectedSongsList.size} songs?",
+                    detail = "The files will be removed from storage. This cannot be undone.",
+                    confirmLabel = "Delete",
+                    danger = true,
+                    onCancel = overlays::hideBox,
+                    onConfirm = {
+                        overlays.hideBox()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            val pending = XvoxSongActions.deleteMultiplePendingIntent(context, selectedSongsList)
+                            if (pending != null) {
+                                pendingDeleteSongs = selectedSongsList
+                                deleteLauncher.launch(
+                                    IntentSenderRequest.Builder(pending.intentSender).build()
+                                )
+                            }
+                        } else {
+                            var count = 0
+                            selectedSongsList.forEach { s ->
+                                if (XvoxSongActions.deleteLegacy(context, s)) {
+                                    playerViewModel.removeFromQueue(s.id)
+                                    count++
+                                }
+                            }
+                            selectedSongIds = emptySet()
+                            viewModel.refresh()
+                            overlays.showP("$count songs deleted from device")
+                        }
+                    }
+                )
+            }
+        }
         if (isSelectionMode) {
             Spacer(Modifier.height(topInset))
             HomeMultiSelectBar(selectedSongsList, selectedPlaylist, selectionLibraryMode,
-                viewModel, overlays, context, onClearSelection = { selectedSongIds = emptySet() })
+                viewModel, overlays, context, onClearSelection = { selectedSongIds = emptySet() },
+                onDeleteSelected = ::requestDeleteSelected)
         }
         // One complete lazy surface per library destination; only a fade, never a slide or reveal.
         AnimatedContent(targetState = targetKey,
@@ -271,7 +316,7 @@ fun HomeScreen(
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
             }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = if (isSelectionMode) 4.dp else topInset + 4.dp, bottom = bottomInset)) {
+                contentPadding = PaddingValues(top = if (isSelectionMode) 8.dp else topInset + 14.dp, bottom = bottomInset)) {
                 if (targetPlaylist != null) {
                     // A playlist's own songs are always a plain list — one row per song — no matter
                     // how Home itself is laid out. Opening a playlist must never re-shape it into a

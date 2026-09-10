@@ -2,15 +2,11 @@ package com.xvox.music.features.home.allsongs
 
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.rememberSongCardColor
-import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,7 +60,7 @@ fun XvoxAllSongCard(
             .clip(cardShape)
             .background(cardColor)
             .border(width = borderWidth, color = borderColor, shape = cardShape)
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 1f, hapticOnTap = false)
             .padding(5.dp)
     ) {
         Box(

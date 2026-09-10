@@ -32,7 +32,8 @@ fun Modifier.xvoxSongPress(
     /** How far the tile itself dips. 1f leaves the frame still. */
     pressedScale: Float = 0.96f,
     /** Optional hook for cards. */
-    onPressedChange: ((Boolean) -> Unit)? = null
+    onPressedChange: ((Boolean) -> Unit)? = null,
+    hapticOnTap: Boolean = true
 ): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val haptics = LocalXvoxHaptics.current
@@ -43,56 +44,59 @@ fun Modifier.xvoxSongPress(
     val release = remember { mutableStateOf<Job?>(null) }
     val pressChange by rememberUpdatedState(onPressedChange)
 
-    graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-        .pointerInput(Unit) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                val pressJob = scope.launch {
-                    delay(14)
-                    release.value?.cancel()
-                    pressChange?.invoke(true)
-                    scale.animateTo(pressedScale, PressIn)
-                }
-                var becameScroll = false
-                try {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!becameScroll) {
-                            val dx = change.position.x - down.position.x
-                            val dy = change.position.y - down.position.y
-                            val moved = dx * dx + dy * dy > viewConfiguration.touchSlop * viewConfiguration.touchSlop
-                            if (moved) {
-                                becameScroll = true
-                                pressJob.cancel()
-                                pressChange?.invoke(false)
-                                release.value?.cancel()
-                                release.value = scope.launch { scale.animateTo(1f, PressOut) }
-                            }
-                        }
-                        if (!change.pressed) break
-                        if (event.changes.none { it.pressed }) break
+    val modifier = if (pressedScale != 1f) {
+        graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val pressJob = scope.launch {
+                        delay(14)
+                        release.value?.cancel()
+                        pressChange?.invoke(true)
+                        scale.animateTo(pressedScale, PressIn)
                     }
-                } finally {
-                    if (!becameScroll) {
-                        pressJob.cancel()
-                        pressChange?.invoke(false)
-                        release.value = scope.launch { delay(46); scale.animateTo(1f, PressOut) }
+                    var becameScroll = false
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!becameScroll) {
+                                val dx = change.position.x - down.position.x
+                                val dy = change.position.y - down.position.y
+                                val moved = dx * dx + dy * dy > viewConfiguration.touchSlop * viewConfiguration.touchSlop
+                                if (moved) {
+                                    becameScroll = true
+                                    pressJob.cancel()
+                                    pressChange?.invoke(false)
+                                    release.value?.cancel()
+                                    release.value = scope.launch { scale.animateTo(1f, PressOut) }
+                                }
+                            }
+                            if (!change.pressed) break
+                            if (event.changes.none { it.pressed }) break
+                        }
+                    } finally {
+                        if (!becameScroll) {
+                            pressJob.cancel()
+                            pressChange?.invoke(false)
+                            release.value = scope.launch { delay(46); scale.animateTo(1f, PressOut) }
+                        }
                     }
                 }
             }
-        }
-        .combinedClickable(
-            hapticFeedbackEnabled = false,
-            interactionSource = interaction,
-            indication = null,
-            onClick = {
-                haptics.tap()
-                click()
-            },
-            onLongClick = if (onLongClick != null) ({
-                haptics.heavy()
-                longClick?.invoke()
-            }) else null
-        )
+    } else Modifier
+
+    modifier.combinedClickable(
+        hapticFeedbackEnabled = false,
+        interactionSource = interaction,
+        indication = null,
+        onClick = {
+            if (hapticOnTap) haptics.tap()
+            click()
+        },
+        onLongClick = if (onLongClick != null) ({
+            haptics.heavy()
+            longClick?.invoke()
+        }) else null
+    )
 }

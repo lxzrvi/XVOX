@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -20,13 +21,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.player.playback.XvoxBlendMonitor
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun XvoxNowPlayingProgress(
@@ -46,8 +48,6 @@ fun XvoxNowPlayingProgress(
         mutableFloatStateOf(0f)
     }
 
-    // Dragging moves the bar by the amount the finger travels (anchored at grab time) instead of
-    // snapping the whole bar under the finger; a tap still jumps straight to that spot.
     var dragAnchorFraction by remember {
         mutableFloatStateOf(0f)
     }
@@ -63,8 +63,6 @@ fun XvoxNowPlayingProgress(
             0f
         }
 
-    // Live view of the real fraction so a drag start anchors onto the position *right now*, not
-    // the value captured when the gesture handler last restarted.
     val latestRealFraction by rememberUpdatedState(realFraction)
 
     val visibleFraction =
@@ -78,6 +76,15 @@ fun XvoxNowPlayingProgress(
         }
 
     val activeColor = colors.primaryAccent
+
+    val blendProjection = remember(currentSongId) {
+        XvoxBlendMonitor.state.map {
+            if (it.enabled && it.currentId == currentSongId && currentSongId != null) it.introZoneMs to it.tailZoneMs else 0L to 0L
+        }.distinctUntilChanged()
+    }
+    val blendZones by blendProjection.collectAsState(initial = 0L to 0L)
+    val introFraction = if (duration > 0L) (blendZones.first.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+    val tailFraction = if (duration > 0L) (blendZones.second.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
 
     Column(
         modifier = modifier.fillMaxWidth()
@@ -138,28 +145,52 @@ fun XvoxNowPlayingProgress(
                 },
             contentAlignment = Alignment.Center
         ) {
-            XvoxBlendZones(currentSongId, duration, Modifier.fillMaxWidth().height(2.dp))
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp)
             ) {
                 val y = size.height / 2f
+                val stroke = 2.5.dp.toPx()
 
+                // Base progress track
                 drawLine(
                     color = activeColor.copy(alpha = 0.28f),
                     start = Offset(0f, y),
                     end = Offset(size.width, y),
-                    strokeWidth = 2.dp.toPx(),
+                    strokeWidth = stroke,
                     cap = StrokeCap.Round
                 )
 
+                // Crossfade intro zone
+                if (introFraction > 0f) {
+                    drawLine(
+                        color = XvoxBlendInColor.copy(alpha = 0.9f),
+                        start = Offset(0f, y),
+                        end = Offset(size.width * introFraction, y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Crossfade tail zone
+                if (tailFraction > 0f) {
+                    drawLine(
+                        color = XvoxBlendOutColor.copy(alpha = 0.9f),
+                        start = Offset(size.width * (1f - tailFraction), y),
+                        end = Offset(size.width, y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Played fraction
                 if (visibleFraction > 0f) {
                     drawLine(
                         color = activeColor,
                         start = Offset(0f, y),
                         end = Offset(size.width * visibleFraction, y),
-                        strokeWidth = 2.5.dp.toPx(),
+                        strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
                 }

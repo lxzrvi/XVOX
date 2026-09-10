@@ -5,12 +5,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -20,12 +26,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -40,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -52,14 +58,16 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.player.nowplaying.XvoxNowPlayingBackdrop
 import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Full-screen lyrics: background transparency is governed by Header transparency.
- * No background photo here (header only).
+ * Full-screen lyrics: background is solid (opaque), with an optional moving gradient
+ * toggled from the button before Previous.
  */
 @Composable
 fun XvoxFullscreenLyrics(
@@ -79,8 +87,8 @@ fun XvoxFullscreenLyrics(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val headerAlpha = chrome.headerBgAlpha.coerceIn(0f, 1f)
+    val haptics = LocalXvoxHaptics.current
+    var gradientEnabled by remember { mutableStateOf(false) }
 
     val view = LocalView.current
     val statusBarPx = remember(view) {
@@ -129,11 +137,43 @@ fun XvoxFullscreenLyrics(
         chromeVisible = false
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        XvoxNowPlayingBackdrop(
-            dominant = backgroundColor.copy(alpha = headerAlpha),
-            modifier = Modifier.fillMaxSize()
-        )
+    val infiniteTransition = rememberInfiniteTransition(label = "lyricGradient")
+    val gradientPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28318f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.background)
+    ) {
+        // Solid background base with optional moving gradient layer
+        if (gradientEnabled) {
+            Canvas(Modifier.fillMaxSize()) {
+                val cx = size.width / 2f + (size.width * 0.35f * cos(gradientPhase))
+                val cy = size.height / 2f + (size.height * 0.35f * sin(gradientPhase))
+                val start = Offset(cx - size.width * 0.5f, cy - size.height * 0.5f)
+                val end = Offset(cx + size.width * 0.5f, cy + size.height * 0.5f)
+                val colorA = backgroundColor.copy(alpha = 0.85f)
+                val colorB = colors.primaryAccent.copy(alpha = 0.55f)
+                val colorC = colors.background
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(colorA, colorB, colorC),
+                        start = start,
+                        end = end
+                    )
+                )
+            }
+        } else {
+            Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.35f)))
+        }
 
         // Lyric stage
         Box(
@@ -216,7 +256,7 @@ fun XvoxFullscreenLyrics(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(colors.background.copy(alpha = 0.55f))
+                    .background(colors.background.copy(alpha = 0.75f))
                     .padding(top = animatedBarsPad)
                     .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 8.dp)
             ) {
@@ -266,6 +306,11 @@ fun XvoxFullscreenLyrics(
 
                     LyricsTransport(
                         isPlaying = isPlaying,
+                        gradientEnabled = gradientEnabled,
+                        onToggleGradient = {
+                            haptics.tap()
+                            gradientEnabled = !gradientEnabled
+                        },
                         onPrevious = onPrevious,
                         onTogglePlay = onTogglePlay,
                         onNext = onNext
@@ -294,6 +339,8 @@ fun XvoxFullscreenLyrics(
 @Composable
 private fun LyricsTransport(
     isPlaying: Boolean,
+    gradientEnabled: Boolean,
+    onToggleGradient: () -> Unit,
     onPrevious: () -> Unit,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit
@@ -306,6 +353,23 @@ private fun LyricsTransport(
             .background(colors.card.copy(alpha = 0.38f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onToggleGradient
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_sparkle),
+                contentDescription = "Toggle moving gradient",
+                tint = if (gradientEnabled) colors.primaryAccent else colors.mutedText,
+                modifier = Modifier.size(17.dp)
+            )
+        }
         TransportButton(R.drawable.ic_xvox_skip_previous, onPrevious)
         TransportButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onTogglePlay)
         TransportButton(R.drawable.ic_xvox_skip_next, onNext)
@@ -321,7 +385,7 @@ private fun TransportButton(
 
     Box(
         modifier = Modifier
-            .size(39.dp)
+            .size(38.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -348,7 +412,7 @@ private fun FullscreenCircle(
 
     Box(
         modifier = Modifier
-            .size(39.dp)
+            .size(38.dp)
             .background(colors.card.copy(alpha = 0.32f), CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

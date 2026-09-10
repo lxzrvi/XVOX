@@ -1,3 +1,6 @@
+import android.os.Build
+import androidx.activity.result.IntentSenderRequest
+import com.xvox.music.features.home.XvoxSongActions
 package com.xvox.music.features.search
 
 import androidx.activity.compose.BackHandler
@@ -123,18 +126,17 @@ fun SearchScreen(
     BackHandler(selecting) { selectedIds = emptySet() }
     LaunchedEffect(query) { selectedIds = emptySet() }
     LaunchedEffect(homeState.songs) { selectedIds = selectedIds.intersect(homeState.songs.mapTo(HashSet()) { it.id }) }
-    var pendingDelete by remember { mutableStateOf<Song?>(null) }
+    var pendingDelete by remember { mutableStateOf<List<Song>>(emptyList()) }
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            pendingDelete?.let { song ->
-                playerViewModel.removeFromQueue(song.id)
-                homeViewModel.refresh()
-                overlays.showP("Deleted from device")
-            }
+        if (result.resultCode == Activity.RESULT_OK && pendingDelete.isNotEmpty()) {
+            pendingDelete.forEach { playerViewModel.removeFromQueue(it.id) }
+            val count = pendingDelete.size
+            homeViewModel.refresh()
+            overlays.showP("$count ${if (count == 1) "song" else "songs"} deleted from device")
         }
-        pendingDelete = null
+        pendingDelete = emptyList()
     }
 
     val filteredSongs = remember(homeState.songs, query) {
@@ -158,15 +160,51 @@ fun SearchScreen(
     }
 
     Column(modifier.fillMaxSize().imePadding()) {
+        fun requestDeleteSelected() {
+            if (selectedSongs.isEmpty()) return
+            overlays.showBox("Delete ${selectedSongs.size} songs?") {
+                com.xvox.music.shell.XvoxConfirmBox(
+                    question = "Permanently delete ${selectedSongs.size} songs?",
+                    detail = "The files will be removed from storage. This cannot be undone.",
+                    confirmLabel = "Delete",
+                    danger = true,
+                    onCancel = overlays::hideBox,
+                    onConfirm = {
+                        overlays.hideBox()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            val pending = XvoxSongActions.deleteMultiplePendingIntent(context, selectedSongs)
+                            if (pending != null) {
+                                pendingDelete = selectedSongs
+                                deleteLauncher.launch(
+                                    IntentSenderRequest.Builder(pending.intentSender).build()
+                                )
+                            }
+                        } else {
+                            var count = 0
+                            selectedSongs.forEach { s ->
+                                if (XvoxSongActions.deleteLegacy(context, s)) {
+                                    playerViewModel.removeFromQueue(s.id)
+                                    count++
+                                }
+                            }
+                            selectedIds = emptySet()
+                            homeViewModel.refresh()
+                            overlays.showP("$count songs deleted from device")
+                        }
+                    }
+                )
+            }
+        }
         if (selecting) {
             Spacer(Modifier.height(topInset))
             HomeMultiSelectBar(selectedSongs, null, XvoxHomeLibraryMode.ALL_SONGS, homeViewModel,
-                overlays, context, onClearSelection = { selectedIds = emptySet() })
+                overlays, context, onClearSelection = { selectedIds = emptySet() },
+                onDeleteSelected = ::requestDeleteSelected)
         }
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = if (selecting) 4.dp else topInset + 4.dp, bottom = bottomInset)
+            contentPadding = PaddingValues(top = if (selecting) 8.dp else topInset + 14.dp, bottom = bottomInset)
         ) {
         item(key = "search_header_title") {
             Row(
@@ -355,8 +393,9 @@ fun SearchScreen(
                             if (selecting) selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
                             else {
                                 addRecent(query)
-                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId)
-                                playerViewModel.playFromSource(song, filteredSongs, "Search")
+                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Search")
+                                val songQueue = if (homeState.songs.isNotEmpty()) homeState.songs else filteredSongs
+                                playerViewModel.playFromSource(song, songQueue, "Search")
                             }
                         },
                         onOptions = {
@@ -372,7 +411,7 @@ fun SearchScreen(
                                 playlists = homeState.playlists,
                                 songs = homeState.songs,
                                 deleteLauncher = deleteLauncher,
-                                onPendingDelete = { pendingDelete = it },
+                                onPendingDelete = { pendingDelete = listOf(it) },
                                 onSelect = { selectedIds = selectedIds + song.id }
                             )
                         },

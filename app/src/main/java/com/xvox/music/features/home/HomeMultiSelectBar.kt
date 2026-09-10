@@ -8,13 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -42,20 +39,21 @@ fun HomeMultiSelectBar(
     overlays: XvoxOverlayController,
     context: Context,
     onClearSelection: () -> Unit,
+    onDeleteSelected: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
     Box(
         modifier = modifier
-            .padding(top = 4.dp, bottom = 8.dp, start = 12.dp, end = 12.dp)
+            .padding(top = 10.dp, bottom = 12.dp, start = 12.dp, end = 12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(colors.cardElevated.copy(alpha = 0.96f))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 10.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -106,6 +104,14 @@ fun HomeMultiSelectBar(
                 )
             }
 
+            if (onDeleteSelected != null) {
+                MultiActionItem(
+                    iconRes = R.drawable.ic_xvox_delete,
+                    label = "Delete",
+                    onClick = onDeleteSelected
+                )
+            }
+
             MultiActionItem(
                 iconRes = R.drawable.ic_xvox_share,
                 label = "Share",
@@ -137,7 +143,7 @@ private fun MultiActionItem(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
         Icon(
             painter = painterResource(iconRes),

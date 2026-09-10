@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -120,9 +121,12 @@ private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
     return bitmap.asImageBitmap()
 }
 
-private val WheelSwatches = listOf(
+private val DefaultWheelSwatches = listOf(
     "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#AF52DE", "#FF2D92"
 )
+
+// Shared dynamic swatches list so user-made colors persist during the session
+private val UserCustomSwatches = mutableListOf<String>()
 
 @Composable
 fun ColorPickerRow(
@@ -141,11 +145,23 @@ fun ColorPickerRow(
     var wheelS by remember { mutableFloatStateOf(hexToHsv(hex)?.get(1) ?: 0.8f) }
     var wheelV by remember { mutableFloatStateOf(hexToHsv(hex)?.get(2) ?: 0.9f) }
 
+    val swatches = remember {
+        mutableStateListOf<String>().apply {
+            addAll(DefaultWheelSwatches)
+            UserCustomSwatches.forEach { if (it !in this) add(it) }
+        }
+    }
+
     LaunchedEffect(hex) {
         val hsv = hexToHsv(hex) ?: return@LaunchedEffect
         wheelH = hsv[0]
         wheelS = hsv[1]
         wheelV = hsv[2]
+        val cleanHex = hex.uppercase()
+        if (cleanHex.startsWith("#") && cleanHex.length == 7 && cleanHex !in swatches) {
+            swatches.add(cleanHex)
+            if (cleanHex !in UserCustomSwatches) UserCustomSwatches.add(cleanHex)
+        }
     }
 
     var pendingPush by remember { mutableStateOf<Job?>(null) }
@@ -154,13 +170,23 @@ fun ColorPickerRow(
         pendingPush?.cancel()
         pendingPush = scope.launch {
             kotlinx.coroutines.delay(40)
-            onColorChange(hsvToHex(wheelH, wheelS, wheelV))
+            val generated = hsvToHex(wheelH, wheelS, wheelV)
+            onColorChange(generated)
+            if (generated !in swatches) {
+                swatches.add(generated)
+                if (generated !in UserCustomSwatches) UserCustomSwatches.add(generated)
+            }
         }
     }
     fun flushPending() {
         pendingPush?.cancel()
         pendingPush = null
-        onColorChange(hsvToHex(wheelH, wheelS, wheelV))
+        val generated = hsvToHex(wheelH, wheelS, wheelV)
+        onColorChange(generated)
+        if (generated !in swatches) {
+            swatches.add(generated)
+            if (generated !in UserCustomSwatches) UserCustomSwatches.add(generated)
+        }
     }
 
     val current = parseHexColor(hex)
@@ -244,12 +270,11 @@ fun ColorPickerRow(
                                     detectTapGestures { offset ->
                                         val dx = offset.x - half; val dy = offset.y - half
                                         val dist = sqrt(dx * dx + dy * dy)
-                                        if (dist <= half) {
-                                            var a = atan2(dy, dx) * 180f / PI.toFloat() + 90f
-                                            if (a < 0f) a += 360f
-                                            commit(a % 360f, (dist / half).coerceIn(0f, 1f), wheelV)
-                                            flushPending()
-                                        }
+                                        var a = atan2(dy, dx) * 180f / PI.toFloat() + 90f
+                                        if (a < 0f) a += 360f
+                                        val sat = (dist / half).coerceIn(0f, 1f)
+                                        commit(a % 360f, sat, wheelV)
+                                        flushPending()
                                     }
                                 }
                                 .pointerInput(Unit) {
@@ -260,11 +285,10 @@ fun ColorPickerRow(
                                         change.consume()
                                         val dx = change.position.x - half; val dy = change.position.y - half
                                         val dist = sqrt(dx * dx + dy * dy)
-                                        if (dist <= half) {
-                                            var a = atan2(dy, dx) * 180f / PI.toFloat() + 90f
-                                            if (a < 0f) a += 360f
-                                            commit(a % 360f, (dist / half).coerceIn(0f, 1f), wheelV)
-                                        }
+                                        var a = atan2(dy, dx) * 180f / PI.toFloat() + 90f
+                                        if (a < 0f) a += 360f
+                                        val sat = (dist / half).coerceIn(0f, 1f)
+                                        commit(a % 360f, sat, wheelV)
                                     }
                                 }
                         )
@@ -337,7 +361,7 @@ fun ColorPickerRow(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    WheelSwatches.forEach { swatch ->
+                    swatches.forEach { swatch ->
                         val active = hex.equals(swatch, ignoreCase = true)
                         Box(
                             Modifier

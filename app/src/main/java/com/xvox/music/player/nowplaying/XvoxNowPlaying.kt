@@ -214,7 +214,7 @@ fun XvoxNowPlaying(
     // as one soft-edged card peeling away from the Home screen behind it. The rounding eases in
     // — small while you nudge it, fullest as the sheet is about to let go.
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val cornerRadiusDp = if (screenY <= 1f) 0.dp else (32.dp * (slideFraction * 3f).coerceIn(0.25f, 1f))
+    val cornerRadiusDp = if (screenY <= 0.5f) 0.dp else (32.dp * slideFraction.coerceIn(0f, 1f))
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
         topEnd = cornerRadiusDp

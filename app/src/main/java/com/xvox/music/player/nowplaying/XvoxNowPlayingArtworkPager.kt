@@ -18,7 +18,9 @@ import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
-/** A three-slot, song-identity anchored pager. High quality artwork rendering. */
+private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song: Song)
+
+/** A song-identity anchored pager. No duplicated artwork at boundaries. */
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>, currentIndex: Int, navigationRequest: Int, onArtworkTap: () -> Unit,
@@ -31,42 +33,75 @@ fun XvoxNowPlayingArtworkPager(
     val wrap = repeatMode == RepeatMode.ALL && queue.size > 1
     val previousIndex = if (index > 0) index - 1 else if (wrap) queue.lastIndex else null
     val nextIndex = if (index < queue.lastIndex) index + 1 else if (wrap) 0 else null
+
+    val previous = previousIndex?.let { queue[it] }
+    val next = nextIndex?.let { queue[it] }
+
+    val slots = remember(current.id, previous?.id, next?.id) {
+        buildList {
+            if (previous != null) add(PagerSlot(pageType = 0, targetIndex = previousIndex, song = previous))
+            add(PagerSlot(pageType = 1, targetIndex = index, song = current))
+            if (next != null) add(PagerSlot(pageType = 2, targetIndex = nextIndex, song = next))
+        }
+    }
+    val currentSlotIndex = remember(slots) { slots.indexOfFirst { it.pageType == 1 }.coerceAtLeast(0) }
+
     var handledRequest by remember { mutableIntStateOf(navigationRequest) }
     val settled by rememberUpdatedState(onSettledPage)
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
+
     key(current.id) {
-        val pager = rememberPagerState(initialPage = 1, pageCount = { 3 })
+        val pager = rememberPagerState(initialPage = currentSlotIndex, pageCount = { slots.size })
         var navigated by remember { mutableStateOf(false) }
-        val previous = previousIndex?.let { queue[it] }
-        val next = nextIndex?.let { queue[it] }
+
         LaunchedEffect(navigationRequest) {
             if (navigationRequest == handledRequest) return@LaunchedEffect
             handledRequest = navigationRequest
-            val target = if (navigationRequest > 0) 2 else 0
-            if ((target == 2 && next != null) || (target == 0 && previous != null)) {
-                pager.animateScrollToPage(target)
+            val targetSlot = if (navigationRequest > 0) {
+                slots.indexOfFirst { it.pageType == 2 }
+            } else {
+                slots.indexOfFirst { it.pageType == 0 }
+            }
+            if (targetSlot in slots.indices) {
+                pager.animateScrollToPage(targetSlot)
             }
         }
+
         LaunchedEffect(pager, previous?.id, next?.id) {
             snapshotFlow { pager.currentPage to pager.currentPageOffsetFraction }.collect { (page, offset) ->
-                val direction = (page - 1) + offset
+                val direction = (page - currentSlotIndex) + offset
                 palette(current, if (direction >= 0) next else previous, abs(direction).coerceIn(0f, 1f))
             }
         }
-        LaunchedEffect(pager, previousIndex, nextIndex) {
+
+        LaunchedEffect(pager, slots) {
             snapshotFlow { if (pager.isScrollInProgress) null else pager.settledPage }.distinctUntilChanged().collect { page ->
-                if (page == null || page == 1 || navigated) return@collect
-                val target = if (page == 0) previousIndex else nextIndex
-                if (target == null) pager.animateScrollToPage(1)
-                else { navigated = true; settled(target) }
+                if (page == null || page == currentSlotIndex || navigated) return@collect
+                val slot = slots.getOrNull(page)
+                if (slot?.targetIndex != null && slot.pageType != 1) {
+                    navigated = true
+                    settled(slot.targetIndex)
+                }
             }
         }
-        HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = modifier.fillMaxSize(),
-            key = { page -> "$page:${when (page) { 0 -> previous?.id; 2 -> next?.id; else -> current.id }}" }) { page ->
-            val song = when (page) { 0 -> previous; 2 -> next; else -> current } ?: current
-            Box(Modifier.fillMaxSize().padding(8.dp).clip(RoundedCornerShape(20.dp))
-                .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } }, contentAlignment = Alignment.Center) {
+
+        HorizontalPager(
+            state = pager,
+            beyondViewportPageCount = 1,
+            modifier = modifier.fillMaxSize(),
+            key = { page -> "${slots.getOrNull(page)?.pageType}:${slots.getOrNull(page)?.song?.id ?: page}" }
+        ) { page ->
+            val slot = slots.getOrNull(page) ?: return@HorizontalPager
+            val song = slot.song
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } },
+                contentAlignment = Alignment.Center
+            ) {
                 XvoxSongArtwork(song.artworkUri, requestSize = XvoxNowPlayingArtworkSize, modifier = Modifier.fillMaxSize())
             }
         }

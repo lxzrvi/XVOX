@@ -7,7 +7,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -39,7 +39,6 @@ import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.floor
 import kotlin.math.roundToInt
 
 private val RowHeight = 54.dp
@@ -72,8 +71,8 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
     fun targetIndex(): Int {
         if (local.isEmpty()) return -1
         val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
-        val centre = (pointerY - grabOffset) + rowHeightPx / 2f + scrolledPx
-        return floor(centre / stridePx).toInt().coerceIn(0, local.lastIndex)
+        val centre = pointerY + scrolledPx
+        return ((centre - rowHeightPx / 2f) / stridePx).roundToInt().coerceIn(0, local.lastIndex)
     }
 
     fun reorderAtPointer() {
@@ -131,7 +130,7 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                 verticalArrangement = Arrangement.spacedBy(RowSpacing),
                 modifier = Modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }
             ) {
-                items(local, key = { it.id }, contentType = { "queue_row" }) { song ->
+                itemsIndexed(local, key = { _, it -> it.id }, contentType = { _, _ -> "queue_row" }) { idx, song ->
                     QueueRow(
                         song = song,
                         current = song.id == currentSongId,
@@ -139,16 +138,18 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                             val index = local.indexOfFirst { it.id == song.id }
                             if (draggedId == null && index >= 0) play(index)
                         },
-                        onStartDrag = { pointYInList, rowOffsetInList ->
+                        onStartDrag = {
                             draggedId = song.id
-                            pointerY = pointYInList
-                            grabOffset = pointYInList - rowOffsetInList
-                            dragStartIndex = local.indexOfFirst { it.id == song.id }
+                            dragStartIndex = idx
+                            val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
+                            val itemTop = idx * stridePx - scrolledPx
+                            grabOffset = rowHeightPx / 2f
+                            pointerY = itemTop + grabOffset
                             haptics.heavy()
                             scope.launch { listState.stopScroll() }
                         },
-                        onDrag = { changeY ->
-                            pointerY = changeY
+                        onDragDelta = { deltaY ->
+                            pointerY = (pointerY + deltaY).coerceIn(0f, viewportHeight.toFloat())
                             reorderAtPointer()
                         },
                         onEndDrag = { finishDrag(commit = true) },
@@ -188,8 +189,8 @@ private fun QueueRow(
     song: Song,
     current: Boolean,
     onClick: (() -> Unit)?,
-    onStartDrag: ((Float, Float) -> Unit)? = null,
-    onDrag: ((Float) -> Unit)? = null,
+    onStartDrag: (() -> Unit)? = null,
+    onDragDelta: ((Float) -> Unit)? = null,
     onEndDrag: (() -> Unit)? = null,
     onCancelDrag: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -219,10 +220,10 @@ private fun QueueRow(
                     if (onStartDrag != null) {
                         Modifier.pointerInput(song.id) {
                             detectDragGesturesAfterLongPress(
-                                onDragStart = { offset -> onStartDrag(offset.y, 0f) },
-                                onDrag = { change, _ ->
+                                onDragStart = { onStartDrag() },
+                                onDrag = { change, dragAmount ->
                                     change.consume()
-                                    onDrag?.invoke(change.position.y)
+                                    onDragDelta?.invoke(dragAmount.y)
                                 },
                                 onDragEnd = { onEndDrag?.invoke() },
                                 onDragCancel = { onCancelDrag?.invoke() }

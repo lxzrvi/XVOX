@@ -117,7 +117,7 @@ fun SettingsScreen(
             .fillMaxSize()
             .padding(
                 top = LocalXvoxTopInset.current + 4.dp,
-                bottom = LocalXvoxBottomInset.current
+                bottom = 0.dp
             )
     ) {
         Text(
@@ -161,7 +161,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(if (showPreview) 0.58f else 1f),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = LocalXvoxBottomInset.current + 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item(key = "controls_${choice.name}") {

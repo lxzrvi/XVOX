@@ -1,17 +1,26 @@
 package com.xvox.music.features.settings.sections
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,11 +30,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
@@ -114,131 +129,46 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Header") }
         ) {
             HeaderPhotoRow(state, viewModel)
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
-                    value = chrome.headerBgAlpha,
-                    onValueChange = { a -> viewModel.setChromeStyle { it.copy(headerBgAlpha = a) } },
-                    valueRange = 0f..1f,
-                    defaultValue = 1f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-            ColorPickerRow(
-                label = "Border",
-                hex = chrome.headerBorder,
-                onColorChange = { hex -> viewModel.setChromeStyle { it.copy(headerBorder = hex) } },
-                subtitle = if (chrome.headerBorder.isBlank()) "Default: theme border" else "Header hairline",
-                alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f),
-                onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(headerBorderAlpha = a) } }
-            )
         }
 
         SettingsAccordionItem(
-            title = "Mini player",
-            expanded = expandedGroup == "Mini player",
-            onToggle = { toggle("Mini player") }
+            title = "Mini player & Navigation bar",
+            expanded = expandedGroup == "Mini player & Navigation bar",
+            onToggle = { toggle("Mini player & Navigation bar") }
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.width(118.dp))
                 XvoxThinLineSlider(
                     value = chrome.miniBgAlpha,
-                    onValueChange = { a -> viewModel.setChromeStyle { it.copy(miniBgAlpha = a) } },
+                    onValueChange = { a ->
+                        viewModel.setChromeStyle { it.copy(miniBgAlpha = a, navBgAlpha = a) }
+                    },
                     valueRange = 0f..1f,
-                    defaultValue = 1f,
+                    defaultValue = 0.88f,
                     modifier = Modifier.weight(1f)
                 )
                 Text("${(chrome.miniBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
                     color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
             }
-            Spacer(Modifier.height(8.dp))
-            ColorPickerRow(
-                label = "Border",
-                hex = chrome.miniBorder,
-                onColorChange = { hex -> viewModel.setChromeStyle { it.copy(miniBorder = hex) } },
-                subtitle = if (chrome.miniBorder.isBlank()) "Default: theme border" else "Mini player outline",
-                alpha = chrome.miniBorderAlpha.coerceIn(0f, 1f),
-                onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(miniBorderAlpha = a) } }
-            )
         }
 
         SettingsAccordionItem(
-            title = "Nav bar",
-            expanded = expandedGroup == "Nav bar",
-            onToggle = { toggle("Nav bar") }
+            title = "Haptic intensity",
+            expanded = expandedGroup == "Haptic intensity",
+            onToggle = { toggle("Haptic intensity") }
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
-                    value = chrome.navBgAlpha,
-                    onValueChange = { a -> viewModel.setChromeStyle { it.copy(navBgAlpha = a) } },
-                    valueRange = 0f..1f,
-                    defaultValue = 0.88f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${(chrome.navBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+            SettingsChoiceRow(
+                listOf(
+                    "Very Low" to "very_low",
+                    "Low" to "low",
+                    "Medium" to "medium",
+                    "High" to "high"
+                ),
+                state.hapticIntensity
+            ) { intensity ->
+                viewModel.setHapticIntensity(intensity)
             }
-            Spacer(Modifier.height(8.dp))
-            ColorPickerRow(
-                label = "Border",
-                hex = chrome.navBorder,
-                onColorChange = { hex -> viewModel.setChromeStyle { it.copy(navBorder = hex) } },
-                subtitle = if (chrome.navBorder.isBlank()) "Default: theme border" else "Bar and pill outline",
-                alpha = chrome.navBorderAlpha.coerceIn(0f, 1f),
-                onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(navBorderAlpha = a) } }
-            )
-        }
-
-        SettingsAccordionItem(
-            title = "Cards",
-            expanded = expandedGroup == "Cards",
-            onToggle = { toggle("Cards") }
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
-                    value = state.cardTransparency,
-                    onValueChange = viewModel::setCardTransparency,
-                    valueRange = 0f..0.6f,
-                    defaultValue = 0f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${(state.cardTransparency.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-            ColorPickerRow(
-                label = "Border",
-                hex = chrome.cardBorder,
-                onColorChange = { hex -> viewModel.setChromeStyle { it.copy(cardBorder = hex) } },
-                subtitle = if (chrome.cardBorder.isBlank()) "Default: theme border" else "Card outline",
-                alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f),
-                onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(cardBorderAlpha = a) } }
-            )
-        }
-
-        SettingsAccordionItem(
-            title = "Option boxes",
-            expanded = expandedGroup == "Option boxes",
-            onToggle = { toggle("Option boxes") }
-        ) {
-            ColorPickerRow(
-                label = "Border",
-                hex = chrome.optionBoxBorder,
-                onColorChange = { hex -> viewModel.setChromeStyle { it.copy(optionBoxBorder = hex) } },
-                subtitle = if (chrome.optionBoxBorder.isBlank()) "Default: theme border" else "Box outline",
-                alpha = chrome.optionBoxBorderAlpha.coerceIn(0f, 1f),
-                onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(optionBoxBorderAlpha = a) } }
-            )
         }
 
         SettingsAccordionItem(
@@ -271,9 +201,10 @@ fun AppearanceSettingsSection(
 @Composable
 private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    val haptics = LocalXvoxHaptics.current
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
             runCatching {
@@ -288,27 +219,89 @@ private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
         }
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Photo", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.width(110.dp))
-        Box(
-            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(colors.card)
-                .xvoxPressScale {
-                    picker.launch(
-                        androidx.activity.result.PickVisualMediaRequest(
-                            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (state.headerImageUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.cardElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = Uri.parse(state.headerImageUri)),
+                            contentDescription = "Stored header photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
+                    }
+                }
+
+                Column {
+                    Text(
+                        if (state.headerImageUri == null) "Choose photo" else "Header photo stored",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        if (state.headerImageUri == null) "Select an image for the top header" else "Applied behind top header",
+                        color = colors.secondaryText,
+                        fontSize = 11.sp
                     )
                 }
-                .padding(horizontal = 14.dp, vertical = 9.dp)
-        ) { Text(if (state.headerImageUri == null) "Choose photo" else "Change photo",
-            color = colors.primaryText, fontSize = 12.sp) }
-        if (state.headerImageUri != null) {
-            Box(
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(colors.cardElevated)
-                    .xvoxPressScale { viewModel.setHeaderImageUri(null) }
-                    .padding(horizontal = 14.dp, vertical = 9.dp)
-            ) { Text("Remove", color = colors.secondaryText, fontSize = 12.sp) }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.cardElevated)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            picker.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                )
+                            )
+                        }
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                ) {
+                    Text(
+                        if (state.headerImageUri == null) "Browse" else "Change",
+                        color = colors.primaryAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (state.headerImageUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.cardElevated)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                viewModel.setHeaderImageUri(null)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_close),
+                            contentDescription = "Remove header photo",
+                            tint = colors.secondaryText,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
