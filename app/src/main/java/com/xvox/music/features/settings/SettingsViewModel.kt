@@ -131,6 +131,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     /** Saves the given size's own widget settings; other sizes are untouched. */
     fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) =
         viewModelScope.launch { prefs.setWidgetSizeCustomization(key, value) }
+    fun setWidgetCustomizationForSize(key: String, value: com.xvox.music.widget.WidgetCustomization) =
+        setWidgetSizeCustomization(key, value)
+    fun setWidgetCustomization(value: com.xvox.music.widget.WidgetCustomization) =
+        updateWidget { value }
     fun setHomeMerge(value: Boolean) = viewModelScope.launch { prefs.setHomeMerge(value) }
     fun moveHomeSection(from: Int, to: Int) = viewModelScope.launch {
         val order = _state.value.homeSectionOrder.toMutableList()

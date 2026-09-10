@@ -226,7 +226,7 @@ class MainPlayerViewModel(
 
     fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = _state.value.queue.getOrNull(index) ?: return
-        persistSong(song.id, source)
+        persistSong(song.id, _state.value.playingSource)
         controller.playQueueIndex(index = index, keepPlayingState = keepPlayingState)
     }
 
