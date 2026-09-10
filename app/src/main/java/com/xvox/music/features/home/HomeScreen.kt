@@ -1,6 +1,7 @@
+package com.xvox.music.features.home
+
 import android.os.Build
 import androidx.activity.result.IntentSenderRequest
-package com.xvox.music.features.home
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler

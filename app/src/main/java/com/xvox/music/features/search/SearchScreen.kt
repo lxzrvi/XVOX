@@ -1,7 +1,8 @@
+package com.xvox.music.features.search
+
 import android.os.Build
 import androidx.activity.result.IntentSenderRequest
 import com.xvox.music.features.home.XvoxSongActions
-package com.xvox.music.features.search
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
