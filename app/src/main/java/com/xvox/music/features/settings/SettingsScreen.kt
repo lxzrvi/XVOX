@@ -358,9 +358,9 @@ private fun LyricsPreview(state: SettingsState) {
     val otherAlpha = if (lyrics.fadeEqual) 0.18f else (1f - lyrics.fadeIntensity).coerceIn(0.18f, 1f)
     val topFade = lyrics.fadeTop.coerceIn(0f, .45f)
     val bottomFade = lyrics.fadeBottom.coerceIn(0f, .45f)
-    val alignment = when (lyrics.alignment) {
-        "left" -> Alignment.CenterStart
-        "right" -> Alignment.CenterEnd
+    val alignment: Alignment.Horizontal = when (lyrics.alignment) {
+        "left" -> Alignment.Start
+        "right" -> Alignment.End
         else -> Alignment.CenterHorizontally
     }
 

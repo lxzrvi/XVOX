@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxTapOrBoost
 import com.xvox.music.core.ui.effects.xvoxTapOrScrub
 import com.xvox.music.player.playback.RepeatMode
 
@@ -176,7 +177,7 @@ private fun BareControl(
                     Modifier.xvoxTapOrBoost(
                         enabled = enabled,
                         onTap = onClick,
-                        onBoostChange = { boosting ->
+                        onBoostChange = { boosting: Boolean ->
                             if (boosting) com.xvox.music.player.session.XvoxTransportBoost.set(2f)
                             else com.xvox.music.player.session.XvoxTransportBoost.release()
                         }

@@ -195,6 +195,8 @@ fun NowPlayingActions(
                         // Bluetooth replaced Lyrics here: tapping (or long-pressing) opens the
                         // output picker — phone speaker vs connected headset.
                         val bluetoothReady = rememberBluetoothReady()
+                        // Resolved here, in composition — the click lambda cannot call a composable.
+                        val enableBluetooth = rememberBluetoothEnableRequest()
                         NowPlayingCircleAction(
                             resource = R.drawable.ic_xvox_bluetooth,
                             // Idle until Bluetooth is actually on and a headset is around.
@@ -202,7 +204,7 @@ fun NowPlayingActions(
                             active = bluetoothReady,
                             contentDescription = "Bluetooth / audio output",
                             onClick = if (onOpenOptions != null) ({
-                                rememberBluetoothEnableRequest()?.let { launch -> launch() }
+                                enableBluetooth?.invoke()
                                 onOpenOptions("Bluetooth")
                             }) else null,
                             onLongClick = if (onOpenOptions != null) ({ onOpenOptions("Bluetooth") }) else null
