@@ -287,7 +287,6 @@ class PlaybackController(
     }
 
     fun play(song: Song) {
-        com.xvox.music.split.XvoxSplitRepository.onTrackChanged(song.id, manual = true)
         QueuePopulationEpoch.invalidate()
         externalQueue = false
         if (indexOf(song.id) < 0) setQueue(queue + song)
@@ -302,7 +301,6 @@ class PlaybackController(
 
     fun playQueueIndex(index: Int, keepPlayingState: Boolean = true) {
         val song = queue.getOrNull(index) ?: return
-        com.xvox.music.split.XvoxSplitRepository.onTrackChanged(song.id, manual = true)
         val p = controller
         if (p == null) { pendingPlay = song; return }
         val shouldPlay = restoredSongId != null || !keepPlayingState || p.playWhenReady || _state.value.isPlaying

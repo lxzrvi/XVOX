@@ -13,7 +13,7 @@ data class LyricsSettings(
     val fadeIntensity: Float = 1f
 ) {
     fun sanitized() = copy(
-        offsetMs = offsetMs.coerceIn(-5000, 5000),
+        offsetMs = offsetMs.coerceIn(-500, 500),
         currentSize = currentSize.coerceIn(16, 42),
         otherSize = otherSize.coerceIn(10, 30),
         fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),

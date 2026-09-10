@@ -17,8 +17,10 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import android.os.SystemClock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val TapIn = spring<Float>(dampingRatio = 0.9f, stiffness = 2400f)
@@ -52,6 +54,57 @@ fun Modifier.xvoxTapOrHold(
                 while (true) {
                     delay(repeatEvery)
                     currentFire()
+                }
+            }
+            try {
+                waitForUpOrCancellation(PointerEventPass.Initial)
+            } finally {
+                job.cancel()
+            }
+            if (!held) currentTap()
+        }
+    }
+}
+
+/**
+ * Tap = [onTap]; press-and-hold = a continuous ±[rate]× position scrub from wherever playback was
+ * when the hold began. While held, [onScrubTo] is fed the target position every [tickEvery] ms,
+ * advancing at [rate]× real time (e.g. 2× forward for Next, 2× backward for Previous). A release
+ * right after a hold never fires the tap.
+ */
+fun Modifier.xvoxTapOrScrub(
+    enabled: Boolean = true,
+    onTap: () -> Unit,
+    onScrubTo: (Long) -> Unit,
+    direction: Int = 1,
+    positionMs: () -> Long,
+    durationMs: () -> Long,
+    rate: Float = 2f,
+    longPressDelay: Long = 460,
+    tickEvery: Long = 40
+): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    val currentTap by rememberUpdatedState(onTap)
+    val currentScrub by rememberUpdatedState(onScrubTo)
+    val currentPos by rememberUpdatedState(positionMs)
+    val currentDur by rememberUpdatedState(durationMs)
+    pointerInput(enabled, direction, rate, longPressDelay, tickEvery) {
+        if (!enabled) return@pointerInput
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var held = false
+            val job = scope.launch {
+                delay(longPressDelay)
+                held = true
+                val anchor = currentPos().coerceAtLeast(0L)
+                val started = SystemClock.uptimeMillis()
+                while (isActive) {
+                    val dur = currentDur()
+                    val elapsed = SystemClock.uptimeMillis() - started
+                    var target = anchor + (direction * rate * elapsed).toLong()
+                    if (dur > 0L) target = target.coerceIn(0L, dur)
+                    currentScrub(target.coerceAtLeast(0L))
+                    delay(tickEvery)
                 }
             }
             try {

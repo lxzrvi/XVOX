@@ -21,7 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxTapOrHold
+import com.xvox.music.core.ui.effects.xvoxTapOrScrub
 import com.xvox.music.player.playback.RepeatMode
 
 @Composable
@@ -37,6 +37,9 @@ fun XvoxNowPlayingControls(
     repeatMode: RepeatMode = RepeatMode.OFF,
     currentIndex: Int = -1,
     queueSize: Int = 0,
+    positionMs: Long = 0L,
+    durationMs: Long = 0L,
+    onScrubTo: ((Long) -> Unit)? = null,
 ) {
     val colors = XvoxTheme.colors
     val prevEnabled = repeatMode == RepeatMode.ALL || currentIndex > 0
@@ -60,7 +63,10 @@ fun XvoxNowPlayingControls(
                 onPrevious,
                 tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
                 enabled = prevEnabled,
-                onHoldFire = onPrevious
+                scrubTo = onScrubTo,
+                scrubDirection = -1,
+                scrubPositionMs = { positionMs },
+                scrubDurationMs = { durationMs }
             )
 
             PlayControl(
@@ -74,7 +80,10 @@ fun XvoxNowPlayingControls(
                 onNext,
                 tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
                 enabled = nextEnabled,
-                onHoldFire = onNext
+                scrubTo = onScrubTo,
+                scrubDirection = 1,
+                scrubPositionMs = { positionMs },
+                scrubDurationMs = { durationMs }
             )
 
             BareControl(
@@ -145,7 +154,10 @@ private fun BareControl(
     tint: Color? = null,
     showDot: Boolean = false,
     enabled: Boolean = true,
-    onHoldFire: (() -> Unit)? = null
+    scrubTo: ((Long) -> Unit)? = null,
+    scrubDirection: Int = 1,
+    scrubPositionMs: () -> Long = { 0L },
+    scrubDurationMs: () -> Long = { 0L }
 ) {
     val colors = XvoxTheme.colors
 
@@ -153,11 +165,15 @@ private fun BareControl(
         modifier = Modifier
             .size(42.dp)
             .then(
-                if (onHoldFire != null) {
-                    Modifier.xvoxTapOrHold(
-                        enabled = enabled,
-                        onTap = onClick,
-                        onHoldFire = onHoldFire
+                if (scrubTo != null && scrubDurationMs() > 0L) {
+                    // Tap skips the track; holding scrubs at 2× real time in [scrubDirection].
+                    Modifier.xvoxTapOrScrub(
+                        enabled = true,
+                        onTap = { if (enabled) onClick() },
+                        onScrubTo = scrubTo,
+                        direction = scrubDirection,
+                        positionMs = scrubPositionMs,
+                        durationMs = scrubDurationMs
                     )
                 } else {
                     Modifier.clickable(

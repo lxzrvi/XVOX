@@ -82,11 +82,11 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             }
         }
     }, controls = {
-        // Timing: −3000..+3000 ms, continuous while dragging; only within ±100 ms of zero does the
-        // value settle exactly on 0 — so it never jumps to the centre from, say, 449 ms. Precise
-        // 1 ms nudges sit right under the bar for fine sync.
+        // Timing: −500..+500 ms at 1 ms resolution. Small offsets (say +37 ms) sit exactly where
+        // you leave them — the value is never snapped back to the centre, not even within ±100 ms
+        // of zero. Fine nudges sit right under the bar for precise sync.
         Label(if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms")
-        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } }, -3000f..3000f, defaultValue = 0f, snapRadius = 100f)
+        XvoxThinLineSlider(settings.offsetMs.toFloat(), { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } }, -500f..500f, defaultValue = 0f, snapRadius = 0f)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(-100, -10, -1, 1, 10, 100).forEach { step ->
                 val label = if (step < 0) "${step} ms" else "+$step ms"
@@ -94,7 +94,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                     Modifier.weight(1f).clip(RoundedCornerShape(9.dp))
                         .background(colors.cardElevated)
                         .xvoxPressScale {
-                            viewModel.updateLyrics { it.copy(offsetMs = (it.offsetMs + step).coerceIn(-3000, 3000)) }
+                            viewModel.updateLyrics { it.copy(offsetMs = (it.offsetMs + step).coerceIn(-500, 500)) }
                         }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center

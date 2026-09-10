@@ -70,9 +70,9 @@ fun XvoxRecentArtwork(
 
     val shape = RoundedCornerShape(3.dp)
 
-    // The square cover is always larger than the wide tile and is simply cropped, so the artwork
-    // never shows letterbox gaps or flickers. xvoxSongPress shrinks the tile slightly on a real
-    // press (never during a scroll) for the press feel — no contentScale switching, no flicker.
+    // The artwork is fitted, never cropped: when the tile is small the cover keeps its left and
+    // right edges and simply scales down inside the box (the card colour fills any gap). A press
+    // only shrinks the tile slightly via xvoxSongPress — no contentScale switching, no flicker.
     Box(
         modifier = modifier
             .clip(shape)
@@ -87,7 +87,7 @@ fun XvoxRecentArtwork(
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = XvoxRecentArtworkSize,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize()
         )
 

@@ -55,6 +55,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -132,7 +133,9 @@ fun ColorPickerRow(
     label: String,
     hex: String,
     onColorChange: (String) -> Unit,
-    subtitle: String? = null
+    subtitle: String? = null,
+    alpha: Float? = null,
+    onAlphaChange: ((Float) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     // "expanded" is NOT keyed on hex: sliding the wheel or the value slider keeps changing the
@@ -288,6 +291,21 @@ fun ColorPickerRow(
                         onValueChangeFinished = { flushPending() }
                     )
                     Text("Light", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(34.dp))
+                }
+
+                if (alpha != null && onAlphaChange != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Transparency", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(70.dp))
+                        XvoxThinLineSlider(
+                            value = alpha.coerceIn(0f, 1f),
+                            onValueChange = { a -> onAlphaChange(a.coerceIn(0f, 1f)) },
+                            valueRange = 0f..1f,
+                            defaultValue = 1f,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                            color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(38.dp))
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

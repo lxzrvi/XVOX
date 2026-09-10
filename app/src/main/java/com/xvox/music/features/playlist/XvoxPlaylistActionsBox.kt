@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
+import kotlin.math.roundToInt
 
 @Composable
 fun XvoxPlaylistActionsBox(
@@ -54,6 +57,7 @@ fun XvoxPlaylistActionsBox(
 ) {
     var editing by remember(playlist.id) { mutableStateOf(false) }
     var coverEditor by remember(playlist.id) { mutableStateOf(false) }
+    var layoutEditor by remember(playlist.id) { mutableStateOf(false) }
 
     if (coverEditor) {
         XvoxPlaylistCoverEditor(
@@ -69,6 +73,11 @@ fun XvoxPlaylistActionsBox(
         return
     }
 
+    if (layoutEditor) {
+        PlaylistLayoutEditor(onDone = { layoutEditor = false })
+        return
+    }
+
     PlaylistActionsMain(
         playlist = playlist,
         songs = songs,
@@ -77,7 +86,8 @@ fun XvoxPlaylistActionsBox(
         onRename = onRename,
         onEditCover = { coverEditor = true },
         onDelete = onDelete,
-        onInfo = onInfo
+        onInfo = onInfo,
+        onEditLayout = { layoutEditor = true }
     )
 }
 
@@ -90,7 +100,8 @@ private fun PlaylistActionsMain(
     onRename: (String) -> Unit,
     onEditCover: () -> Unit,
     onDelete: () -> Unit,
-    onInfo: () -> Unit
+    onInfo: () -> Unit,
+    onEditLayout: () -> Unit
 ) {
     val colors = XvoxTheme.colors
 
@@ -224,6 +235,12 @@ private fun PlaylistActionsMain(
 
         Spacer(Modifier.height(12.dp))
 
+        // Card layout lives on the card: how the playlist reads on Home, and how tall it gets.
+        PlaylistAction(
+            title = "Card layout",
+            onClick = onEditLayout
+        )
+
         PlaylistAction(
             title = "Delete playlist",
             onClick = onDelete
@@ -256,4 +273,104 @@ private fun PlaylistAction(
             )
             .padding(vertical = 13.dp)
     )
+}
+
+/**
+ * Layout of this playlist's card on Home: swiping cards (horizontal) versus a long card that
+ * merges into the vertical flow, plus a height for the long form.
+ */
+@Composable
+private fun PlaylistLayoutEditor(
+    onDone: () -> Unit,
+    settingsViewModel: com.xvox.music.features.settings.SettingsViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel()
+) {
+    val colors = XvoxTheme.colors
+    val state by settingsViewModel.state.collectAsState()
+    val auto = state.playlistLongHeight <= 0
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Card layout",
+            color = colors.primaryText,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "How this playlist sits in Home",
+            color = colors.secondaryText,
+            fontSize = 11.sp
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LayoutChoice("Swipe cards", state.playlistStyle == "cards") {
+                settingsViewModel.setPlaylistStyle("cards")
+            }
+            LayoutChoice("Long merge", state.playlistStyle == "long") {
+                settingsViewModel.setPlaylistStyle("long")
+            }
+        }
+
+        if (state.playlistStyle == "long") {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = if (auto) "Height · Auto" else "Height · ${state.playlistLongHeight} dp",
+                color = colors.secondaryText,
+                fontSize = 11.sp
+            )
+            com.xvox.music.features.settings.components.XvoxThinLineSlider(
+                value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
+                onValueChange = { settingsViewModel.setPlaylistLongHeight(it.roundToInt()) },
+                valueRange = 60f..220f,
+                defaultValue = 120f
+            )
+            Spacer(Modifier.height(8.dp))
+            LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(colors.cardElevated)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDone
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Done", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun LayoutChoice(label: String, active: Boolean, onClick: () -> Unit) {
+    val colors = XvoxTheme.colors
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (active) colors.primaryAccent else colors.card)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (active) colors.background else colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }

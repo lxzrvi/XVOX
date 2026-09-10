@@ -36,7 +36,6 @@ class XvoxApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        com.xvox.music.split.XvoxSplitRepository.initialize(this)
         armReminders()
 
         SingletonImageLoader.setSafe { context ->

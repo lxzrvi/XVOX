@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -171,22 +172,18 @@ fun ProfileEditorBox(
             Text("Nothing yet — add a short message below", color = colors.mutedText, fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 8.dp))
         }
-        lines.forEach { line ->
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.card)
-                    .padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(line, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                Box(
-                    Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).xvoxPressScale(pressedScale = 0.85f) {
-                        haptics.tap(); persist(lines - line)
-                    },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("✕", color = colors.mutedText, fontSize = 11.sp)
-                }
-            }
+        // Every line is an editable item: tap it to retype it (the default lines included),
+        // replace it with your own wording, or remove it with the X. Edits are committed when
+        // the field loses focus, so the profile never rewrites itself on each keystroke.
+        lines.forEachIndexed { index, line ->
+            ProfileLineField(
+                line = line,
+                onCommit = { next ->
+                    val updated = lines.toMutableList().also { if (index in it.indices) it[index] = next }
+                    persist(updated.filter { it.isNotBlank() })
+                },
+                onRemove = { haptics.tap(); persist(lines.filterIndexed { i, _ -> i != index }) }
+            )
             Spacer(Modifier.height(5.dp))
         }
 
@@ -250,6 +247,51 @@ fun ProfileEditorBox(
                     fontSize = 12.sp, fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+/** One editable profile line: retype in place, or remove it entirely. */
+@Composable
+private fun ProfileLineField(
+    line: String,
+    onCommit: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
+    var text by remember(line) { mutableStateOf(line) }
+    var focused by remember { mutableStateOf(false) }
+
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.card)
+            .padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BasicTextField(
+            value = text,
+            onValueChange = { if (it.length <= 40) text = it },
+            singleLine = true,
+            textStyle = TextStyle(
+                color = if (focused) colors.primaryText else colors.secondaryText,
+                fontSize = 12.sp
+            ),
+            cursorBrush = SolidColor(colors.primaryAccent),
+            modifier = Modifier.weight(1f).height(30.dp)
+                .onFocusChanged { state ->
+                    val was = focused
+                    focused = state.isFocused
+                    if (was && !state.isFocused) {
+                        val next = text.trim()
+                        if (next != line) { haptics.tap(); onCommit(next) }
+                    }
+                }
+        )
+        Box(
+            Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).xvoxPressScale(pressedScale = 0.85f) { onRemove() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("✕", color = colors.mutedText, fontSize = 11.sp)
         }
     }
 }

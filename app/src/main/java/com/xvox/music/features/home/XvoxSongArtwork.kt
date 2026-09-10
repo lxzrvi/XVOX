@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import coil3.size.Precision
 import com.xvox.music.artwork.XvoxArtworkCache
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
 const val XvoxGridArtworkSize = 160
-const val XvoxRecentArtworkSize = 512
+const val XvoxRecentArtworkSize = 256
 
 @Composable
 fun XvoxSongArtwork(
@@ -66,11 +67,15 @@ fun XvoxSongArtwork(
         return
     }
 
+    // One request object per (artwork, size): rebuilding it on every recomposition was the main
+    // reason the grid felt heavy while scrolling. No crossfade — the bitmap cache above already
+    // hands back a ready frame, so a fade would only add per-item animation work.
     val request = remember(artwork, requestSize) {
         ImageRequest.Builder(context)
             .data(artwork)
             .size(requestSize, requestSize)
             .precision(Precision.INEXACT)
+            .crossfade(false)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)

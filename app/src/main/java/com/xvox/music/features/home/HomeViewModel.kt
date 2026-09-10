@@ -346,14 +346,13 @@ class HomeViewModel(
 
     /**
      * Recents stack from every source, not just All Songs: a track that has been filtered out of
-     * the main library, or that only exists as a prepared XvoxSplit stem, is still resolved here.
+     * the main library is still resolved here.
      */
     private fun resolveRecent(songs: List<Song>, ids: List<Long>): List<Song> {
         if (ids.isEmpty()) return emptyList()
         val byId = HashMap<Long, Song>(songs.size + 16)
         songs.forEach { byId[it.id] = it }
         allRawSongs.forEach { byId.putIfAbsent(it.id, it) }
-        com.xvox.music.split.XvoxSplitRepository.state.value.savedTracks.forEach { byId.putIfAbsent(it.id, it.song()) }
         return ids.mapNotNull { byId[it] }
     }
 

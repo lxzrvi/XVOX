@@ -22,8 +22,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Keep the universal APK download compact. Native libraries are extracted on install;
-    // the bundled ARM64 ONNX libraries themselves use 16 KB-compatible ELF alignment.
+    // Keep the universal APK download compact; native libraries are extracted on install.
     packaging { jniLibs.useLegacyPackaging = true }
 
     buildFeatures {
@@ -32,7 +31,6 @@ android {
 }
 
 dependencies {
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
     testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
     implementation(composeBom)

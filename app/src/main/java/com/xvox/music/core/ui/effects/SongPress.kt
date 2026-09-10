@@ -17,7 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val PressIn = spring<Float>(dampingRatio = 0.9f, stiffness = 2600f)
+private val PressIn = spring<Float>(dampingRatio = 0.92f, stiffness = 3600f)
 private val PressOut = spring<Float>(dampingRatio = 0.72f, stiffness = 900f)
 
 /**
@@ -44,7 +44,7 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
                 // A short grace period keeps scrolling touches from pulsing the card: the pulse
                 // only starts if the finger has not moved past the scroll slop.
                 val pressJob = scope.launch {
-                    delay(28)
+                    delay(14)
                     release.value?.cancel()
                     scale.animateTo(0.94f, PressIn)
                 }
@@ -71,7 +71,7 @@ fun Modifier.xvoxSongPress(onClick: () -> Unit, onLongClick: (() -> Unit)? = nul
                     // Hold the pulse a beat so a flick-fast tap is still visible.
                     if (!becameScroll) {
                         pressJob.cancel()
-                        release.value = scope.launch { delay(70); scale.animateTo(1f, PressOut) }
+                        release.value = scope.launch { delay(46); scale.animateTo(1f, PressOut) }
                     }
                 }
             }

@@ -232,12 +232,6 @@ class XvoxPlaybackService : MediaSessionService() {
         routes = XvoxAudioRouteObserver(this, ::onHeadsetConnected, ::onHeadsetDisconnected).also { it.start() }
         val prefs = UserPreferencesRepository(this)
         serviceScope.launch {
-            com.xvox.music.split.XvoxSplitRepository.state.map { state ->
-                Triple(state.active, state.normalIds, state.readyTracks.mapValues { it.value.fileName })
-            }.distinctUntilChanged().collect { applySplitRoutes() }
-        }
-        serviceScope.launch { prefs.splitShowPill.collect { com.xvox.music.split.XvoxSplitRepository.showPill(it) } }
-        serviceScope.launch {
             combine(prefs.audioDspSettings, AudioEffectsManager.liveEq) { saved, live ->
                 saved to (live?.applyTo(saved) ?: saved)
             }.collect { (saved, effective) ->
@@ -263,34 +257,6 @@ class XvoxPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun applySplitRoutes() {
-        val p = engine?.player ?: return
-        if (p.mediaItemCount == 0) return
-        val current = p.currentMediaItemIndex
-        val position = p.currentPosition
-        val shouldPlay = p.playWhenReady
-        var changedCurrent = false
-        for (index in 0 until p.mediaItemCount) {
-            val item = p.getMediaItemAt(index)
-            val id = item.mediaId.toLongOrNull() ?: continue
-            val original = item.mediaMetadata.extras?.getString("xvox_original_uri")
-                ?: item.localConfiguration?.uri?.toString() ?: continue
-            val song = Song(id, item.mediaMetadata.title?.toString().orEmpty(), item.mediaMetadata.artist?.toString().orEmpty(),
-                Uri.parse(original), item.mediaMetadata.artworkUri, item.mediaMetadata.extras?.getLong("xvox_duration") ?: 0,
-                item.mediaMetadata.extras?.getLong("xvox_file_size") ?: 0)
-            val resolved = com.xvox.music.split.XvoxSplitRepository.resolve(song)
-            val target = resolved ?: song.contentUri
-            if (item.localConfiguration?.uri == target) continue
-            val extras = Bundle(item.mediaMetadata.extras ?: Bundle()).apply {
-                putString("xvox_original_uri", original)
-                putBoolean(com.xvox.music.split.SplitModel.STEM_FLAG, resolved != null)
-            }
-            p.replaceMediaItem(index, item.buildUpon().setUri(target).setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build())
-            if (index == current) changedCurrent = true
-        }
-        if (changedCurrent) { p.seekTo(current, position); p.prepare(); p.playWhenReady = shouldPlay }
-    }
-
     private fun syncWidgetState(player: Player) {
         val item = player.currentMediaItem
         val song = item?.let {
@@ -300,7 +266,6 @@ class XvoxPlaybackService : MediaSessionService() {
                 contentUri = it.mediaMetadata.extras?.getString("xvox_original_uri")?.let(Uri::parse) ?: it.localConfiguration?.uri ?: Uri.EMPTY,
                 artworkUri = it.mediaMetadata.artworkUri, duration = player.duration.coerceAtLeast(0L))
         }
-        if (player.isPlaying && song != null) com.xvox.music.split.XvoxSplitRepository.onTrackChanged(song.id, manual = false)
         if (player.isPlaying && song != null && song.id != persistedSongId) {
             persistedSongId = song.id
             serviceScope.launch { UserPreferencesRepository(this@XvoxPlaybackService).setLastPlayedSongId(song.id) }

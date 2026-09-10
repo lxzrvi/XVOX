@@ -140,7 +140,6 @@ class XvoxCrossfadeEngine(
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (!released && exo === player) {
-                    com.xvox.music.split.XvoxSplitRepository.onTrackChanged(mediaItem?.mediaId?.toLongOrNull(), reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
                     failedForId = null; finishOverlap(); discardPrepared()
                     XvoxBlendMonitor.newTrack(exo.currentMediaItem?.mediaId?.toLongOrNull())
                 }
@@ -160,7 +159,6 @@ class XvoxCrossfadeEngine(
                 }
             }
             override fun onEvents(player: Player, events: Player.Events) {
-                processor.engine.splitStems = exo.mediaMetadata.extras?.getBoolean(com.xvox.music.split.SplitModel.STEM_FLAG, false) == true
                 if (!released && exo === this@XvoxCrossfadeEngine.player) {
                     XvoxBlendMonitor.current(exo.currentMediaItem?.mediaId?.toLongOrNull(), exo.duration,
                         exo.hasNextMediaItem() || exo.repeatMode != Player.REPEAT_MODE_OFF)

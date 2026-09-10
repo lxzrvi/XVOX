@@ -91,11 +91,15 @@ fun AppearanceSettingsSection(
         }
 
         GroupTitle("Nav pill")
+        // The fill's transparency lives inside its own picker — a single "Transparency" slider
+        // under the colour wheel, so the fill and its opacity are tuned in one place.
         ColorPickerRow(
             label = "Pill colour",
             hex = chrome.pillColor,
             onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillColor = hex) } },
-            subtitle = if (chrome.pillColor.isBlank()) "Default: soft grey" else "Custom pill fill"
+            subtitle = if (chrome.pillColor.isBlank()) "Default: soft grey" else "Custom pill fill",
+            alpha = chrome.pillAlpha.coerceIn(0f, 1f),
+            onAlphaChange = { a -> viewModel.setChromeStyle { it.copy(pillAlpha = a.coerceIn(0f, 1f)) } }
         )
         ColorPickerRow(
             label = "Icon colour",
@@ -103,19 +107,6 @@ fun AppearanceSettingsSection(
             onColorChange = { hex -> viewModel.setChromeStyle { it.copy(pillIconColor = hex) } },
             subtitle = if (chrome.pillIconColor.isBlank()) "Default: your accent" else "Icon on the pill"
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Pill", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.width(118.dp))
-            XvoxThinLineSlider(
-                value = chrome.pillAlpha,
-                onValueChange = { a -> viewModel.setChromeStyle { it.copy(pillAlpha = a) } },
-                valueRange = 0.1f..1f,
-                defaultValue = 1f,
-                modifier = Modifier.weight(1f)
-            )
-            Text("${(chrome.pillAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-        }
 
         GroupTitle("Cards")
         Row(verticalAlignment = Alignment.CenterVertically) {

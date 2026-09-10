@@ -373,6 +373,9 @@ fun XvoxNowPlaying(
                     onRepeat = { onToggleRepeat?.invoke() },
                     currentIndex = currentIndex,
                     queueSize = queue.size,
+                    positionMs = position,
+                    durationMs = duration,
+                    onScrubTo = onSeek,
                     modifier = Modifier.fillMaxWidth()
                 )
 
