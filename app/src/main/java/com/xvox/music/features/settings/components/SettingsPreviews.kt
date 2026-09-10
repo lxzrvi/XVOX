@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -31,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,12 +40,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Reusable frame for individual settings previews (single surface, no duplicate bars). */
+/** Reusable choice row used throughout Settings sections */
+@Composable
+fun SettingsChoiceRow(
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        options.forEach { (key, label) ->
+            val active = selected == key
+            Text(
+                text = label,
+                color = if (active) colors.background else colors.primaryText,
+                fontSize = 12.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (active) colors.primaryAccent else colors.card)
+                    .xvoxPressScale { onSelect(key) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            )
+        }
+    }
+}
+
+/** Reusable frame for individual settings previews */
 @Composable
 fun SettingsPreviewFrame(
     status: String,
@@ -94,18 +125,15 @@ fun EqSettingsPreview(state: SettingsState) {
     )
 
     SettingsPreviewFrame(if (state.equalizerEnabled) "${state.eqBandCount}-band EQ · live visualization" else "Equalizer · off") {
-        Canvas(Modifier.fillMaxWidth().height(118.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(96.dp)) {
             val w = size.width
             val h = size.height
-            val middle = h * 0.48f
+            val middle = h * 0.55f
 
-            // Baseline
-            drawLine(colors.cardBorder, Offset(0f, middle), Offset(w, middle), 1.dp.toPx())
-
-            // Boost protection ceiling line
-            val ceilingY = 8.dp.toPx() + (state.eqHeadroomDb / 18f) * 16.dp.toPx()
+            // Headroom ceiling guide line (drops down with eqHeadroomDb)
+            val ceilingY = (18f - state.eqHeadroomDb.coerceIn(0f, 18f)) / 18f * (h * 0.28f)
             drawLine(
-                color = colors.primaryAccent.copy(alpha = 0.4f),
+                color = colors.primaryAccent.copy(alpha = 0.45f),
                 start = Offset(0f, ceilingY),
                 end = Offset(w, ceilingY),
                 strokeWidth = 1.5.dp.toPx()
@@ -126,9 +154,7 @@ fun EqSettingsPreview(state: SettingsState) {
             val noiseHeight = 24.dp.toPx() * (1f - state.noiseReduction.coerceIn(0f, 1f))
             if (noiseHeight > 1f) {
                 drawRect(
-                    brush = Brush.verticalGradient(
-                        listOf(Color.Transparent, colors.secondaryText.copy(alpha = 0.14f))
-                    ),
+                    color = Color.Red.copy(alpha = 0.12f),
                     topLeft = Offset(0f, h - noiseHeight),
                     size = Size(w, noiseHeight)
                 )
@@ -165,19 +191,18 @@ fun EqSettingsPreview(state: SettingsState) {
                 val point = Offset(w * f, (middle - (db / 36f) * h * 0.8f).coerceIn(ceilingY, h - 4f))
                 if (i == 0) {
                     path.moveTo(point.x, point.y)
-                    fillPath.moveTo(point.x, middle)
+                    fillPath.moveTo(point.x, h)
                     fillPath.lineTo(point.x, point.y)
                 } else {
                     path.lineTo(point.x, point.y)
                     fillPath.lineTo(point.x, point.y)
                 }
-                if (i == state.eqBandCount - 1) {
-                    fillPath.lineTo(point.x, middle)
-                    fillPath.close()
-                }
-                drawCircle(colors.primaryAccent, 3.5.dp.toPx(), point)
+                drawCircle(colors.primaryAccent, 4.dp.toPx(), point)
             }
-            drawPath(fillPath, Brush.verticalGradient(listOf(colors.primaryAccent.copy(alpha = 0.25f), Color.Transparent)))
+            fillPath.lineTo(w, h)
+            fillPath.close()
+
+            drawPath(fillPath, colors.primaryAccent.copy(alpha = 0.16f))
             drawPath(path, colors.primaryAccent, style = Stroke(2.2.dp.toPx()))
         }
     }
@@ -226,8 +251,8 @@ fun SurroundSettingsPreview(state: SettingsState) {
             val pan = sin(phase) * state.surroundDepth * .6f + state.balance
             val left = (1 - pan.coerceAtLeast(0f)).coerceIn(0f, 1f) * level
             val right = (1 + pan.coerceAtMost(0f)).coerceIn(0f, 1f) * level
-            drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(8.dp.toPx(), size.height * (1 - left) / 2), Size(5.dp.toPx(), size.height * left), CornerRadius(3.dp.toPx()))
-            drawRoundRect(colors.primaryAccent.copy(alpha = .6f), Offset(size.width - 13.dp.toPx(), size.height * (1 - right) / 2), Size(5.dp.toPx(), size.height * right), CornerRadius(3.dp.toPx()))
+            drawRect(colors.primaryAccent.copy(alpha = .65f), Offset(12.dp.toPx(), size.height - (left * 36.dp.toPx())), Size(5.dp.toPx(), left * 36.dp.toPx()))
+            drawRect(colors.primaryAccent.copy(alpha = .65f), Offset(size.width - 17.dp.toPx(), size.height - (right * 36.dp.toPx())), Size(5.dp.toPx(), right * 36.dp.toPx()))
         }
     }
 }
@@ -271,9 +296,8 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
                 val bass = if (state.crossfadeSmart) com.xvox.music.player.playback.EnergyBlendPlanner.bassGains(t, handoff, state.crossfadeClashControl, gain)
                     else com.xvox.music.player.playback.CrossfadeGains(1f, 1f)
                 val wave1 = .62f + .30f * kotlin.math.abs(sin(t * cycles * PI)).toFloat()
-                val phase = if (state.crossfadeBeatSync) 0f else .8f
-                val wave2 = .62f + .30f * kotlin.math.abs(sin(t * cycles * PI + phase)).toFloat()
-                val x = t * size.width
+                val wave2 = .62f + .30f * kotlin.math.abs(cos(t * cycles * PI)).toFloat()
+                val x = size.width * t
                 val y1 = size.height * (1 - gain.outgoing * wave1 * (.65f + .35f * bass.outgoing))
                 val y2 = size.height * (1 - gain.incoming * wave2 * (.65f + .35f * bass.incoming))
                 if (i == 0) { out.moveTo(x, y1); incoming.moveTo(x, y2) } else { out.lineTo(x, y1); incoming.lineTo(x, y2) }
@@ -288,40 +312,6 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
                 val dotX = dotT * size.width
                 val dotY = size.height * 0.5f
                 drawCircle(Color.White, 3.5.dp.toPx(), Offset(dotX, dotY))
-            }
-        }
-    }
-}
-
-@Composable
-fun SettingsChoiceRow(
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = XvoxTheme.colors
-    androidx.compose.foundation.lazy.LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        androidx.compose.foundation.lazy.items(options) { (key, label) ->
-            val active = selected == key
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (active) colors.primaryAccent else colors.card)
-                    .border(0.8.dp, if (active) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(12.dp))
-                    .com.xvox.music.core.ui.effects.xvoxPressScale { onSelect(key) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (active) colors.background else colors.primaryText,
-                    fontSize = 12.sp,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
-                )
             }
         }
     }
