@@ -93,8 +93,9 @@ fun NowPlayingActions(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
-                .background(colors.card.copy(alpha = 0.78f))
-                .border(0.65.dp, colors.cardBorder, RoundedCornerShape(22.dp))
+                // Exactly the fill the round buttons use, so the pill reads as the same material.
+                .background(colors.card.copy(alpha = 0.22f))
+                .border(0.65.dp, colors.cardBorder.copy(alpha = 0.5f), RoundedCornerShape(22.dp))
                 .padding(horizontal = 4.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

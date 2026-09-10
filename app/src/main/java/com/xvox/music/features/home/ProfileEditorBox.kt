@@ -67,6 +67,7 @@ fun ProfileEditorBox(
     val scope = rememberCoroutineScope()
     val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
     val storedCustoms by prefs.customPfpUris.collectAsState(initial = profile.customPfpUris)
+    val greetingInterval by prefs.greetingIntervalMs.collectAsState(initial = profile.greetingIntervalMs)
 
     var name by remember(profile.username) { mutableStateOf(profile.username) }
     var selected by remember(profile.selectedPfp) {
@@ -182,6 +183,41 @@ fun ProfileEditorBox(
             Text("Nothing yet — add a short message below", color = colors.mutedText, fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 8.dp))
         }
+
+        // Every line that can appear under the name, listed. With none of your own the app
+        // rotates through these, so they are shown here instead of cycling mysteriously.
+        if (showLines && lines.isEmpty()) {
+            Text("Rotating under your name", color = colors.mutedText, fontSize = 10.sp,
+                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+            com.xvox.music.features.home.GreetingLines.forEachIndexed { index, line ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .background(colors.cardElevated.copy(alpha = 0.55f))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${index + 1}", color = colors.mutedText, fontSize = 10.sp,
+                        modifier = Modifier.width(20.dp))
+                    Text(line, color = colors.secondaryText, fontSize = 11.sp,
+                        modifier = Modifier.weight(1f), maxLines = 1)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+
+        // How fast those lines swap.
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Change every ${(greetingInterval / 1000f).let { if (it % 1f == 0f) it.toInt().toString() else "%.1f".format(it) }}s",
+            color = colors.mutedText, fontSize = 10.sp
+        )
+        com.xvox.music.features.settings.components.XvoxThinLineSlider(
+            value = (greetingInterval / 1000f).coerceIn(1.5f, 60f),
+            onValueChange = { seconds -> scope.launch { prefs.setGreetingIntervalMs((seconds * 1000f).toLong()) } },
+            valueRange = 1.5f..60f,
+            defaultValue = 8f,
+            modifier = Modifier.fillMaxWidth()
+        )
         // Every line is an editable item: tap it to retype it (the default lines included),
         // replace it with your own wording, or remove it with the X. Edits are committed when
         // the field loses focus, so the profile never rewrites itself on each keystroke.

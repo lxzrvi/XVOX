@@ -30,6 +30,8 @@ data class SettingsState(
     val lastSettingsTab: String = "Appearance",
     /** Per-size widget settings ("3x1" -> customization) so each widget size keeps its own. */
     val widgetSizes: Map<String, com.xvox.music.widget.WidgetCustomization> = emptyMap(),
+    /** Size currently open in the widget editor, so the preview shows the size being edited. */
+    val widgetPreviewSize: String = "3x1",
     val homeMerge: Boolean = false,
     val homeSectionOrder: List<String> = com.xvox.music.features.home.HomeSections.defaultOrder,
     val homeHiddenSections: Set<String> = emptySet(),
@@ -77,5 +79,6 @@ data class SettingsState(
     val backgroundBrightness: Float = 0.8f,
     val audioOutputRoute: String = "auto",
     val profileLines: List<String> = emptyList(),
+    val greetingIntervalMs: Long = 8_000L,
     val remindersEnabled: Boolean = false
 )

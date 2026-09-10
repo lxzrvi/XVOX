@@ -19,5 +19,7 @@ data class UserPreferences(
     /** Custom photo shown behind the Home header; null keeps the theme surface. */
     val headerImageUri: String? = null,
     /** True once the starter lines have been offered, so removing one keeps it removed. */
-    val profileLinesInitialized: Boolean = false
+    val profileLinesInitialized: Boolean = false,
+    /** How long each rotating line under the name stays before the next one fades in. */
+    val greetingIntervalMs: Long = 8_000L
 )

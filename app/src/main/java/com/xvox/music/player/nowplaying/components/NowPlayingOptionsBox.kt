@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +39,14 @@ fun NowPlayingOptionsBox(
     val state by settingsViewModel.state.collectAsState()
     var page by remember { mutableStateOf(initialPage) }
     XvoxBox(onDismiss = onDismiss, title = page ?: "Now Playing options", onBack = if (page != null) ({ page = null }) else null) {
+        // Same live preview as Settings, above the controls, so a change here is visible too.
+        page?.takeIf { it != "Bluetooth" }?.let { title ->
+            com.xvox.music.features.settings.components.SettingsSectionPreview(
+                title = title,
+                state = state,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp).padding(bottom = 10.dp)
+            )
+        }
         when (page) {
             "Equalizer" -> EqualizerSettingsSection(state, settingsViewModel)
             "Crossfade" -> PlaybackSettingsEditor(state, settingsViewModel)
@@ -46,6 +55,11 @@ fun NowPlayingOptionsBox(
             "Bluetooth" -> Column(Modifier.fillMaxWidth()) {
                 Text("Audio output", color = XvoxTheme.colors.primaryAccent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
+                com.xvox.music.features.settings.components.SettingsSectionPreview(
+                    title = "Headset",
+                    state = state,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp).padding(bottom = 10.dp)
+                )
                 AudioOutputContent(state, settingsViewModel)
             }
             "Lyrics" -> LyricsSettingsSection(state, settingsViewModel)

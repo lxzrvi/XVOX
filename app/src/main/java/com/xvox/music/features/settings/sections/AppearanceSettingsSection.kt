@@ -207,6 +207,10 @@ private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
                 )
             }
             viewModel.setHeaderImageUri(uri.toString())
+            // An opaque header would hide the photo completely, so picking a photo reveals it.
+            if (viewModel.state.value.chromeStyle.headerBgAlpha >= 0.9f) {
+                viewModel.setChromeStyle { it.copy(headerBgAlpha = 0.28f) }
+            }
         }
     }
 

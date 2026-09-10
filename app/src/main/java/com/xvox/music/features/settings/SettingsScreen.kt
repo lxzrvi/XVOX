@@ -50,10 +50,7 @@ import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.features.home.HomeGeometry
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.settings.components.CrossfadeSettingsPreview
-import com.xvox.music.features.settings.components.EqSettingsPreview
-import com.xvox.music.features.settings.components.HomeSettingsPreview
-import com.xvox.music.features.settings.components.SurroundSettingsPreview
+import com.xvox.music.features.settings.components.SettingsSectionPreview
 import com.xvox.music.features.settings.sections.AboutSettingsSection
 import com.xvox.music.features.settings.sections.AppearanceSettingsSection
 import com.xvox.music.features.settings.sections.BackupSettingsSection
@@ -76,13 +73,6 @@ import com.xvox.music.features.settings.sections.WidgetSettingsSection
  * There is no accordion list any more: picking a choice shows that choice's controls in the lower
  * part of the screen while the top part keeps showing a live preview of whatever is being changed.
  */
-private val SettingsChoice.hasPreview: Boolean
-    get() = this in setOf(
-        SettingsChoice.APPEARANCE, SettingsChoice.HOME, SettingsChoice.LYRICS,
-        SettingsChoice.EQUALIZER, SettingsChoice.THREE_D, SettingsChoice.CROSSFADE,
-        SettingsChoice.WIDGET
-    )
-
 private enum class SettingsChoice(val label: String) {
     APPEARANCE("Appearance"),
     HOME("Home"),
@@ -177,10 +167,8 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(HomeGeometry.sectionGap))
 
-        // Live preview: the top 40% of this same screen, following whatever is being changed.
-        // Only the visual sections have one — Headset, Notify, Library filter, Deleted songs,
-        // Backup, Battery, How to use and About show no preview, and Appearance can hide it.
-        val showPreview = !state.previewHidden && choice.hasPreview
+        // Live preview: the top 40% of this same screen, for every section. Appearance can hide it.
+        val showPreview = !state.previewHidden
         if (showPreview) {
             SettingsPreviewPane(
                 choice = choice,
@@ -199,7 +187,7 @@ fun SettingsScreen(
             state = controlsState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(if (state.previewHidden || !choice.hasPreview) 1f else 0.6f),
+                .weight(if (state.previewHidden) 1f else 0.6f),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -255,187 +243,18 @@ private fun SettingsChoiceChip(label: String, active: Boolean, onClick: () -> Un
 }
 
 /**
- * The live preview shown in the top 40% of the Settings screen. Visual sections reuse the same
- * previews the app already had; the non-visual ones show a compact read-out of the live values,
- * so something on screen always answers "what did I just change?".
+ * The live preview shown in the top 40% of the Settings screen. It renders the shared
+ * [SettingsSectionPreview], so Settings and the Now Playing options box can never drift apart.
  */
 @Composable
 private fun SettingsPreviewPane(choice: SettingsChoice, state: SettingsState, modifier: Modifier) {
-    val colors = XvoxTheme.colors
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
-            .padding(10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when (choice) {
-            SettingsChoice.APPEARANCE -> ChromePreview(state.chromeStyle, state.accentColor)
-            // Scrollable on purpose: the whole Home layout can be inspected top to bottom.
-            SettingsChoice.HOME -> Box(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            ) { HomeSettingsPreview(state) }
-            SettingsChoice.LYRICS -> LyricsPreview(state)
-            SettingsChoice.EQUALIZER -> EqSettingsPreview(state)
-            SettingsChoice.THREE_D -> SurroundSettingsPreview(state)
-            SettingsChoice.CROSSFADE -> CrossfadeSettingsPreview(state)
-            SettingsChoice.WIDGET -> WidgetPreview(state)
-            else -> Unit
-        }
-    }
-}
-
-/** Header / mini player / nav pill, drawn with the current chrome alphas and pill colour. */
-@Composable
-private fun ChromePreview(chrome: XvoxChromeStyle, accentName: String) {
-    val colors = XvoxTheme.colors
-    val accent =
-        if (accentName.startsWith("#")) parseHexColor(accentName) ?: colors.primaryAccent
-        else colors.primaryAccent
-    val pill = parseHexColor(chrome.pillColor) ?: colors.cardElevated
-
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(26.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(colors.cardElevated.copy(alpha = chrome.headerBgAlpha))
+    val scrollable = choice == SettingsChoice.HOME
+    Box(modifier) {
+        SettingsSectionPreview(
+            title = choice.label,
+            state = state,
+            modifier = if (scrollable) Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            else Modifier.fillMaxSize()
         )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(30.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.cardElevated.copy(alpha = chrome.miniBgAlpha))
-        ) {
-            Box(
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
-                    .size(14.dp)
-                    .clip(CircleShape)
-                    .background(accent)
-            )
-        }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(34.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.cardElevated.copy(alpha = chrome.navBgAlpha)),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    Modifier
-                        .width(64.dp)
-                        .height(22.dp)
-                        .clip(CircleShape)
-                        .background(pill.copy(alpha = chrome.pillAlpha))
-                )
-                Box(
-                    Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(colors.cardElevated)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Sample lyric lines that actually move: the highlight walks down the lines like playback does,
- * at the chosen alignment, so the fade and size settings can be judged in motion.
- */
-@Composable
-private fun LyricsPreview(state: SettingsState) {
-    val colors = XvoxTheme.colors
-    val lyrics = state.lyrics
-    val sample = listOf("Hold the night a little longer", "Every echo finds its way", "This is where we stay")
-    val otherAlpha = if (lyrics.fadeEqual) 0.18f else (1f - lyrics.fadeIntensity).coerceIn(0.18f, 1f)
-    val topFade = lyrics.fadeTop.coerceIn(0f, .45f)
-    val bottomFade = lyrics.fadeBottom.coerceIn(0f, .45f)
-    val alignment: Alignment.Horizontal = when (lyrics.alignment) {
-        "left" -> Alignment.Start
-        "right" -> Alignment.End
-        else -> Alignment.CenterHorizontally
-    }
-
-    var active by remember { mutableIntStateOf(0) }
-    LaunchedEffect(lyrics.animation) {
-        while (true) {
-            kotlinx.coroutines.delay(1500)
-            active = (active + 1) % sample.size
-        }
-    }
-
-    Column(
-        Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        horizontalAlignment = when (lyrics.alignment) {
-            "left" -> Alignment.Start
-            "right" -> Alignment.End
-            else -> Alignment.CenterHorizontally
-        }
-    ) {
-        sample.forEachIndexed { index, line ->
-            val current = index == active
-            val edgeFade = when (index) {
-                0 -> 1f - topFade
-                sample.lastIndex -> 1f - bottomFade
-                else -> 1f
-            }
-            Text(
-                text = line,
-                color = if (current) colors.primaryAccent
-                else colors.primaryText.copy(alpha = (otherAlpha * edgeFade).coerceIn(.08f, 1f)),
-                fontSize = (if (current) lyrics.currentSize else lyrics.otherSize).sp,
-                fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 1,
-                modifier = Modifier.animateContentSize()
-            )
-        }
-        Text(
-            text = "${lyrics.animation} · ${lyrics.alignment} · ${if (lyrics.offsetMs == 0) "0 ms" else "${lyrics.offsetMs} ms"}",
-            color = colors.mutedText,
-            fontSize = 10.sp,
-            modifier = Modifier.align(alignment)
-        )
-    }
-}
-
-/** Small widget mock: cover square, labels and the live padding/margins. */
-@Composable
-private fun WidgetPreview(state: SettingsState) {
-    val colors = XvoxTheme.colors
-    val c = state.widgetCustomization
-    val cover = (if (c.coverSize in 1..160) c.coverSize else 64).dp
-
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.cardElevated.copy(alpha = (1f - state.widgetTransparency).coerceIn(0.15f, 1f)))
-            .padding(
-                horizontal = (20 + c.coverMarginX).coerceIn(0, 40).dp,
-                vertical = (12 + c.coverMarginY).coerceIn(0, 32).dp
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(
-            Modifier
-                .size(cover)
-                .clip(RoundedCornerShape(if (c.coverRadius >= 0) c.coverRadius else state.widgetCornerRadius))
-                .background(colors.card)
-                .border(if (c.coverBorderWidth > 0f) c.coverBorderWidth.dp else 0.7.dp, colors.cardBorder,
-                    RoundedCornerShape(if (c.coverRadius >= 0) c.coverRadius else state.widgetCornerRadius))
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("Now playing", color = colors.primaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            Text("XVOX widget", color = colors.secondaryText, fontSize = 9.sp)
-        }
     }
 }

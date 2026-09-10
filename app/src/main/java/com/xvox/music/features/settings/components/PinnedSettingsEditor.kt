@@ -42,8 +42,10 @@ fun PinnedSettingsEditor(preview: @Composable ColumnScope.() -> Unit, controls: 
  */
 @Composable
 fun SettingsControlsEditor(controls: @Composable ColumnScope.() -> Unit) {
+    // No verticalScroll here: this sits inside the Settings LazyColumn item, which already
+    // scrolls. Nesting a scrollable in an item measures it against infinite height and crashes.
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).animateContentSize(),
+        Modifier.fillMaxWidth().animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         content = controls
     )

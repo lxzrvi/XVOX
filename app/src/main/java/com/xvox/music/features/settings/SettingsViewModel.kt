@@ -111,6 +111,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.playbackSpeed.collect { v -> _state.update { it.copy(playbackSpeed = v) } } }
             launch { prefs.playbackPitch.collect { v -> _state.update { it.copy(playbackPitch = v) } } }
             launch { prefs.profileLines.collect { v -> _state.update { it.copy(profileLines = v) } } }
+            launch { prefs.greetingIntervalMs.collect { v -> _state.update { it.copy(greetingIntervalMs = v) } } }
             launch { prefs.remindersEnabled.collect { v -> _state.update { it.copy(remindersEnabled = v) } } }
         }
     }
@@ -122,7 +123,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setPlaylistCardOrientation(v: String) = viewModelScope.launch { prefs.setPlaylistCardOrientation(v) }
     fun setPreviewHidden(v: Boolean) = viewModelScope.launch { prefs.setSettingsPreviewHidden(v) }
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
+    fun setGreetingIntervalMs(value: Long) = viewModelScope.launch { prefs.setGreetingIntervalMs(value) }
     fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
+    /** View-only: which widget size the settings preview is showing. */
+    fun setWidgetPreviewSize(key: String) = _state.update { it.copy(widgetPreviewSize = key) }
+
     /** Saves the given size's own widget settings; other sizes are untouched. */
     fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) =
         viewModelScope.launch { prefs.setWidgetSizeCustomization(key, value) }

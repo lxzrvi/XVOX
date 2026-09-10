@@ -36,6 +36,8 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
     var columns by remember { mutableIntStateOf(3) }; var rows by remember { mutableIntStateOf(1) }
     // Every widget size (1x1, 2x1, 3x1 …) owns its own settings, exactly as Home will apply them.
     val sizeKey = com.xvox.music.widget.WidgetCustomization.sizeKey(columns, rows)
+    // Keep the Settings top preview on the size being edited here.
+    LaunchedEffect(sizeKey) { viewModel.setWidgetPreviewSize(sizeKey) }
     val c = state.widgetSizes[sizeKey] ?: state.widgetCustomization
     fun editWidget(change: (com.xvox.music.widget.WidgetCustomization) -> com.xvox.music.widget.WidgetCustomization) {
         viewModel.setWidgetSizeCustomization(sizeKey, change(c))
@@ -52,23 +54,8 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel,
     fun button(change: (WidgetButtonStyle) -> WidgetButtonStyle) = editWidget { current ->
         current.copy(buttons = current.buttons.mapValues { (id, value) -> if (buttonId == "all" || id == buttonId) change(value) else value })
     }
-    PinnedSettingsEditor(preview = {
-        SettingsPreviewFrame("Widget · actual size") {
-            Text("$columns × $rows · Surface · Cover · Text · Buttons", color = colors.primaryText, fontSize = 11.sp)
-            key(columns, rows) {
-                val views by produceState<RemoteViews?>(null, display) {
-                    value = XvoxWidgetHelper.buildRemoteViews(context, display, width, height, interactive = false)
-                }
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    UniformPreview(width.dp, height.dp, Modifier.fillMaxWidth().heightIn(max = 170.dp)) {
-                        AndroidView(factory = { FrameLayout(it) }, modifier = Modifier.fillMaxSize(), update = { host ->
-                            views?.let { rv -> if (host.tag !== rv) { host.removeAllViews(); host.addView(rv.apply(context, host)); host.tag = rv } }
-                        })
-                    }
-                }
-            }
-        }
-    }, controls = {
+    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
+
         // Ordered the way the widget is actually built up: size → surface → cover → text →
         // buttons → install. Each panel only shows what belongs to it.
         Group("Preview size")

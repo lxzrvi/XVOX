@@ -39,7 +39,8 @@ fun XvoxBlendZones(songId: Long?, duration: Long, modifier: Modifier = Modifier)
         val radius = CornerRadius(size.height / 2f)
         if (intro > 0) {
             drawRoundRect(
-                color = colors.primaryAccent.copy(alpha = .30f),
+                // Its own colour, clearly different from the played/unplayed track.
+                color = XvoxBlendInColor.copy(alpha = .85f),
                 topLeft = Offset.Zero,
                 size = Size(size.width * intro, size.height),
                 cornerRadius = radius
@@ -47,7 +48,7 @@ fun XvoxBlendZones(songId: Long?, duration: Long, modifier: Modifier = Modifier)
         }
         if (tail > 0) {
             drawRoundRect(
-                color = colors.primaryAccent.copy(alpha = .18f),
+                color = XvoxBlendOutColor.copy(alpha = .85f),
                 topLeft = Offset(size.width * (1 - tail), 0f),
                 size = Size(size.width * tail, size.height),
                 cornerRadius = radius

@@ -63,13 +63,18 @@ fun XvoxShellTopHeader(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
+    // The header is full height: its surface (and the custom photo behind it) starts at the very
+    // top of the screen and runs under the status bar, so the clock and icons sit on the header
+    // instead of on a bare strip. Only the row of controls is pushed below the system inset.
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
             .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
+            .padding(bottom = 6.dp)
     ) {
-        // Optional header photo, drawn first; the surface scrim above it is the header's own
-        // transparency, so a lower value simply reveals more of the photo.
+        // Optional header photo, drawn first; the scrim above it is the header's own transparency,
+        // so a lower value simply reveals more of the photo.
         profile.headerImageUri?.takeIf { it.isNotBlank() }?.let { photo ->
             coil3.compose.AsyncImage(
                 model = photo,
@@ -77,17 +82,16 @@ fun XvoxShellTopHeader(
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.matchParentSize()
             )
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
+            )
         }
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
-        )
         Row(
             modifier = Modifier
                 .padding(horizontal = 14.dp)
-                .height(54.dp)
-                .padding(bottom = 6.dp),
+                .height(54.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             HomeProfileAvatar(
@@ -110,9 +114,13 @@ fun XvoxShellTopHeader(
                 )
                 // User lines under the name (hidden = name stands beside the avatar on its own);
                 // with no lines the rotating greeting keeps the spot.
+                // Hide removes every line under the name — custom lines and the rotating
+                // greeting alike — leaving just the name beside the avatar.
                 val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
-                if (lines.isEmpty()) {
-                    HomeGreeting()
+                if (!profile.showProfileLines) {
+                    // nothing under the name
+                } else if (lines.isEmpty()) {
+                    HomeGreeting(intervalMs = profile.greetingIntervalMs)
                 } else {
                     lines.take(2).forEach { line ->
                         Text(

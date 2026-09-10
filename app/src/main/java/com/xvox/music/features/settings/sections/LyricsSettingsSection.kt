@@ -37,51 +37,8 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val loop = rememberInfiniteTransition(label = "lyricsLayoutDemo")
     val time by loop.animateFloat(0f, 12000f, infiniteRepeatable(tween(12000, easing = LinearEasing)), label = "demoTime")
 
-    PinnedSettingsEditor(preview = {
-        SettingsPreviewFrame("Lyrics · full screen") {
-            val demo = remember {
-                com.xvox.music.player.nowplaying.lyrics.XvoxLyrics(
-                    (0..6).map { com.xvox.music.player.nowplaying.lyrics.XvoxLyricLine(it * 2400L, "Lyric line ${it + 1}") },
-                    true, com.xvox.music.player.nowplaying.lyrics.XvoxLyricsSource.USER_TEXT
-                )
-            }
-            UniformPreview(
-                configuration.screenWidthDp.dp, configuration.screenHeightDp.dp,
-                Modifier.fillMaxWidth().heightIn(max = 250.dp)
-            ) {
-                Column(Modifier.fillMaxSize().background(colors.background)) {
-                    // Header band, matching the Now Playing chrome above the lyrics.
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 34.dp, bottom = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(21.dp)).background(colors.card))
-                        Spacer(Modifier.weight(1f))
-                        Box(Modifier.size(width = 84.dp, height = 42.dp).clip(RoundedCornerShape(21.dp)).background(colors.card))
-                    }
-                    Box(
-                        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(20.dp)).background(colors.card.copy(alpha = .35f))
-                    ) {
-                        com.xvox.music.player.nowplaying.lyrics.XvoxSyncedLyrics(
-                            demo, time.toLong(), {},
-                            settingsOverride = settings, preview = true, textColor = colors.primaryText
-                        )
-                    }
-                    // Controls block underneath, so the fade zones are judged against real chrome.
-                    Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                            .background(colors.background.copy(alpha = .35f)).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(Modifier.fillMaxWidth(.6f).height(20.dp).clip(RoundedCornerShape(6.dp)).background(colors.card))
-                        Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(colors.card))
-                        Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(colors.card))
-                    }
-                }
-            }
-        }
-    }, controls = {
+    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
+
         // Timing: −1000..+1000 ms at 1 ms resolution. Small offsets (say +37 ms) sit exactly where
         // you leave them — the value is never snapped back to the centre, not even within ±100 ms
         // of zero. Fine nudges sit right under the bar for precise sync.

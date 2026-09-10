@@ -83,8 +83,10 @@ fun HomeHeader(
             // header stays compact, and only when the name itself fits.
             // Hidden means hidden: the starter lines are never forced back on screen.
             val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
-            if (lines.isEmpty()) {
-                HomeGreeting()
+            if (!profile.showProfileLines) {
+                // nothing under the name
+            } else if (lines.isEmpty()) {
+                HomeGreeting(intervalMs = profile.greetingIntervalMs)
             } else {
                 Column {
                     lines.take(2).forEach { line ->

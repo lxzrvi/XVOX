@@ -117,6 +117,7 @@ class UserPreferencesRepository(
         val lastSettingsTab = stringPreferencesKey("last_settings_tab")
         val playlistCardOrientation = stringPreferencesKey("playlist_card_orientation")
         val profileLinesInitialized = booleanPreferencesKey("profile_lines_initialized")
+        val greetingIntervalMs = longPreferencesKey("greeting_interval_ms")
         val widgetSizes = stringPreferencesKey("widget_sizes_v1")
         val profileLines = stringPreferencesKey("profile_lines")
         val showProfileLines = booleanPreferencesKey("show_profile_lines")
@@ -136,7 +137,8 @@ class UserPreferencesRepository(
                 .map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(4),
             showProfileLines = prefs[Keys.showProfileLines] ?: true,
             headerImageUri = prefs[Keys.headerImageUri]?.takeIf { it.isNotBlank() },
-            profileLinesInitialized = prefs[Keys.profileLinesInitialized] ?: false
+            profileLinesInitialized = prefs[Keys.profileLinesInitialized] ?: false,
+            greetingIntervalMs = (prefs[Keys.greetingIntervalMs] ?: 8_000L).coerceIn(1_500L, 60_000L)
         )
     }.distinctUntilChanged()
 
@@ -491,6 +493,9 @@ class UserPreferencesRepository(
     }
     suspend fun setPlaylistCardOrientation(value: String) {
         context.xvoxDataStore.edit { it[Keys.playlistCardOrientation] = if (value == "horizontal") "horizontal" else "vertical" }
+    }
+    suspend fun setGreetingIntervalMs(value: Long) {
+        context.xvoxDataStore.edit { it[Keys.greetingIntervalMs] = value.coerceIn(1_500L, 60_000L) }
     }
     suspend fun setProfileLinesInitialized(value: Boolean) {
         context.xvoxDataStore.edit { it[Keys.profileLinesInitialized] = value }

@@ -25,7 +25,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
-    PinnedSettingsEditor(preview = { }, controls = {
+    com.xvox.music.features.settings.components.SettingsControlsEditor(controls = {
         SettingsToggle(
             title = "3D sound",
             subtitle = "Widen, move and place the sound around you",
