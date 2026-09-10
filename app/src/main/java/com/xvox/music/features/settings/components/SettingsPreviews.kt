@@ -292,3 +292,37 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
         }
     }
 }
+
+@Composable
+fun SettingsChoiceRow(
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        androidx.compose.foundation.lazy.items(options) { (key, label) ->
+            val active = selected == key
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (active) colors.primaryAccent else colors.card)
+                    .border(0.8.dp, if (active) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(12.dp))
+                    .com.xvox.music.core.ui.effects.xvoxPressScale { onSelect(key) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (active) colors.background else colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+        }
+    }
+}
