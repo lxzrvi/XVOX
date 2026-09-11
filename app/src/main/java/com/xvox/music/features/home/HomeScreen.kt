@@ -111,7 +111,7 @@ fun HomeScreen(
             artist = currentArtist,
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
-                playerViewModel.playNext(currentArtist.songs)
+                playerViewModel.playNextInQueue(currentArtist.songs)
                 overlays.showP("Playing by ${currentArtist.name}")
             },
             onEditPhoto = {

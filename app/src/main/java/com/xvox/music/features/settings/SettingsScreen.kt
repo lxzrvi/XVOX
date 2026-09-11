@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -314,7 +315,7 @@ private fun SettingsSectionCard(
                 tint = if (expanded) colors.primaryAccent else colors.secondaryText,
                 modifier = Modifier
                     .size(16.dp)
-                    .androidx.compose.ui.graphics.graphicsLayer {
+                    .graphicsLayer {
                         rotationZ = if (expanded) 90f else 0f
                     }
             )

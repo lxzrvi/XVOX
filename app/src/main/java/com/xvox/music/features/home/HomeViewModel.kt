@@ -286,7 +286,7 @@ class HomeViewModel(
 
     fun setArtistPhoto(artist: String, uri: Uri?) = viewModelScope.launch {
         val persistedUri = if (uri != null) {
-            preferencesRepository.persistCoverImage(uri)
+            preferencesRepository.persistArtistImage(uri.toString())
         } else null
         preferencesRepository.setArtistImage(artist, persistedUri)
     }

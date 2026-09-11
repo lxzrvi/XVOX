@@ -156,6 +156,13 @@ class MainPlayerViewModel(
         _state.update { it.copy(queue = queue) }
     }
 
+    fun playNextInQueue(songs: List<Song>) {
+        songs.reversed().forEach { song ->
+            val queue = controller.playNext(song)
+            _state.update { it.copy(queue = queue) }
+        }
+    }
+
     fun addToQueue(song: Song) {
         val queue = controller.addToQueue(song)
         _state.update { it.copy(queue = queue) }

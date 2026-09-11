@@ -768,6 +768,8 @@ class UserPreferencesRepository(
         return persisted
     }
 
+    suspend fun persistArtistImage(source: String): String? = persistGalleryImage(source, "artist_images")
+
     suspend fun setArtistImage(artist: String, uri: String?) {
         context.xvoxDataStore.edit { prefs ->
             val raw = prefs[Keys.customArtistImages].orEmpty()
