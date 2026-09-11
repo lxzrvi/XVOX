@@ -60,39 +60,39 @@ fun LyricPresentationLine(
         else -> TransformOrigin(0.5f, 0.5f)
     }
 
-    val aligned = settings.alignment != "center"
-    val animation = if (aligned) "fade" else settings.animation
+    val animation = settings.animation
 
-    val spec: AnimationSpec<Float> = when (animation) {
-        "spring" -> spring(dampingRatio = .55f, stiffness = 420f)
-        "slide" -> tween(300, easing = FastOutSlowInEasing)
-        "rise" -> tween(380, easing = LinearOutSlowInEasing)
-        "wave" -> tween(420, easing = CubicBezierEasing(0.34f, 1.3f, 0.64f, 1f))
-        else -> tween(240, easing = LinearEasing) // "fade"
+    val scaleSpec: AnimationSpec<Float> = when (animation) {
+        "spring" -> spring(dampingRatio = 0.52f, stiffness = 460f)
+        "slide" -> tween(280, easing = FastOutSlowInEasing)
+        "rise" -> tween(340, easing = LinearOutSlowInEasing)
+        "wave" -> tween(380, easing = CubicBezierEasing(0.34f, 1.35f, 0.64f, 1f))
+        else -> tween(220, easing = LinearEasing) // "fade"
     }
 
-    val scale by animateFloatAsState(wantedScale, spec, label = "lyricScale")
+    val scale by animateFloatAsState(wantedScale, scaleSpec, label = "lyricScale")
 
     val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
     val dimTarget = if (settings.fadeEqual) {
         if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0f, 1f)
     } else baseAlpha
+
     val alpha by animateFloatAsState(
         if (!synchronized) .82f else dimTarget,
         tween(240, easing = FastOutSlowInEasing),
         label = "lyricAlpha"
     )
 
-    val slideY = animation == "slide" && !active
-    val riseY = animation == "rise" && !active && distance > 0
-    val springY = animation == "spring" && !active
     val shiftY by animateFloatAsState(
-        when {
-            slideY -> distance.coerceIn(-1, 1) * 20f
-            riseY -> distance.coerceIn(1, 6) * 28f
-            springY -> distance.coerceIn(-1, 1) * 12f
+        when (animation) {
+            "slide" -> if (active) 0f else distance.coerceIn(-1, 1) * 18f
+            "rise" -> if (active) 0f else distance.coerceIn(-2, 4) * 22f
+            "spring" -> if (active) 0f else distance.coerceIn(-1, 1) * 10f
+            "wave" -> if (active) -4f else distance.coerceIn(-1, 1) * 14f
             else -> 0f
-        }, spec, label = "lyricShiftY"
+        },
+        scaleSpec,
+        label = "lyricShiftY"
     )
 
     Text(
@@ -113,6 +113,6 @@ fun LyricPresentationLine(
                 this.translationY = shiftY.dp.toPx()
                 this.transformOrigin = transformOrigin
             }
-            .padding(horizontal = if (aligned) 8.dp else 18.dp, vertical = 7.dp)
+            .padding(horizontal = if (settings.alignment == "center") 16.dp else 10.dp, vertical = 7.dp)
     )
 }

@@ -1,29 +1,27 @@
 package com.xvox.music.features.home
 
-import android.os.Build
-import androidx.activity.result.IntentSenderRequest
-
 import android.app.Activity
+import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
-import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,9 +38,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.components.XvoxImageCropDialog
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.artist.ArtistInfoDialog
+import com.xvox.music.features.artist.XvoxArtist
+import com.xvox.music.features.artist.XvoxArtistGrid
 import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
 import com.xvox.music.features.home.allsongs.allSongsItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
@@ -75,6 +79,53 @@ fun HomeScreen(
         else internalSelectedPlaylistId = value
     }
 
+    var selectedArtist by remember { mutableStateOf<XvoxArtist?>(null) }
+    var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }
+    var croppingArtistPhotoFor by remember { mutableStateOf<Pair<String, Uri>?>(null) }
+
+    val artistPhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null && showArtistInfo != null) {
+            croppingArtistPhotoFor = showArtistInfo!!.name to uri
+        }
+    }
+
+    if (croppingArtistPhotoFor != null) {
+        XvoxImageCropDialog(
+            sourceUri = croppingArtistPhotoFor!!.second,
+            isCircle = true,
+            onCropped = { croppedUri ->
+                viewModel.setArtistPhoto(croppingArtistPhotoFor!!.first, croppedUri)
+                croppingArtistPhotoFor = null
+                showArtistInfo = null
+                overlays.showP("Artist photo updated")
+            },
+            onDismiss = { croppingArtistPhotoFor = null }
+        )
+    }
+
+    if (showArtistInfo != null) {
+        val currentArtist = showArtistInfo!!
+        ArtistInfoDialog(
+            artist = currentArtist,
+            onDismiss = { showArtistInfo = null },
+            onPlayNext = {
+                playerViewModel.playNext(currentArtist.songs)
+                overlays.showP("Playing by ${currentArtist.name}")
+            },
+            onEditPhoto = {
+                artistPhotoPicker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
+            onHideArtist = {
+                viewModel.hideArtist(currentArtist.name)
+                overlays.showP("${currentArtist.name} hidden")
+            }
+        )
+    }
+
     var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var selectionLibraryMode by remember { mutableStateOf(state.libraryMode) }
     val isSelectionMode = selectedSongIds.isNotEmpty()
@@ -100,13 +151,24 @@ fun HomeScreen(
         buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1")
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }
-    // Plans for the Liked section/destination, mirroring the all-songs plans built above.
-    val likedPlans = remember(likedSongs, config.style, config.rows) {
-        buildMosaicPagePlans(likedSongs, config.rows, config.style == "uniform", config.style == "mosaic1")
-    }
     val songsById = remember(state.songs) { state.songs.associateBy { it.id } }
     val playlistContents = remember(songsById, state.playlists) {
         state.playlists.associate { it.id to it.songIds.mapNotNull(songsById::get) }
+    }
+
+    val artists = remember(state.songs, state.customArtistImages, state.hiddenArtists) {
+        state.songs
+            .filterNot { it.artist in state.hiddenArtists }
+            .groupBy { it.artist.ifBlank { "Unknown Artist" } }
+            .map { (artistName, songList) ->
+                XvoxArtist(
+                    name = artistName,
+                    songs = songList,
+                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    customImageUri = state.customArtistImages[artistName]
+                )
+            }
+            .sortedBy { it.name.lowercase() }
     }
 
     LaunchedEffect(state.songs) {
@@ -117,6 +179,7 @@ fun HomeScreen(
     LaunchedEffect(homeResetKey) {
         if (homeResetKey > 0L) {
             selectedSongIds = emptySet()
+            selectedArtist = null
             setSelectedPlaylistId(null)
             viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
         }
@@ -127,8 +190,9 @@ fun HomeScreen(
     }
 
     BackHandler(enabled = isSelectionMode) { selectedSongIds = emptySet() }
-    BackHandler(enabled = !isSelectionMode && selectedPlaylist != null) { setSelectedPlaylistId(null) }
-    BackHandler(enabled = !isSelectionMode && selectedPlaylist == null && state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
+    BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtist = null }
+    BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist != null) { setSelectedPlaylistId(null) }
+    BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist == null && state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
         viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
     }
 
@@ -139,7 +203,6 @@ fun HomeScreen(
             song = song,
             isLiked = song.id in state.likedSongIds,
             playlist = playlist,
-            // Recents tiles have no owning playlist, so the menu resolves membership itself.
             playlistMembership = if (playlist == null) {
                 state.playlists.filter { pl -> song.id in pl.songIds }
             } else emptyList(),
@@ -158,7 +221,6 @@ fun HomeScreen(
         if (isSelectionMode) {
             selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
         } else {
-            // The origin travels with the play, so the recent badge can name it later.
             viewModel.recordPlayedFromLibrary(song, currentSongId, sourceName)
             playerViewModel.playFromSource(song, list, sourceName)
         }
@@ -177,7 +239,9 @@ fun HomeScreen(
     fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
         item(key = "recent") {
             XvoxRecentlyPlayedSection(
-                songs = state.recentlyPlayed, currentSongId = currentSongId, isPlaying = isPlaying,
+                songs = state.recentlyPlayed,
+                currentSongId = currentSongId,
+                isPlaying = isPlaying,
                 transition = state.recentTransition,
                 onSongClick = { song ->
                     if (isSelectionMode) handleSongLongClick(song)
@@ -195,44 +259,18 @@ fun HomeScreen(
             )
         }
     }
-    /**
-     * A song collection (Liked Songs, or the tracks inside a playlist) respects the Home layout
-     * choice exactly like All Songs: when "Scroll" is Horizontal, the songs become horizontal
-     * mosaic pages of [config.rows] rows; Vertical renders the same mosaic pages stacked in the
-     * flow. This mirrors allSongsItems so every song surface on Home looks and behaves alike.
-     * Page plans are built in composable scope by the caller and handed in here.
-     */
-    fun androidx.compose.foundation.lazy.LazyListScope.songListContent(
-        keyPrefix: String,
-        title: String,
-        songs: List<Song>,
-        sectionPlans: List<XvoxMosaicPagePlan>,
-        onPlay: (Song) -> Unit,
-        onOptions: (Song) -> Unit,
-        onAdd: (() -> Unit)? = null
-    ) {
-        if (songs.isEmpty()) {
-            librarySongItems(keyPrefix, title, emptyList(), currentSongId, isPlaying, selectedSongIds,
-                onPlay = onPlay, onOptions = onOptions, onAdd = onAdd)
-            return
+
+    fun androidx.compose.foundation.lazy.LazyListScope.artistsSection() {
+        item(key = "artists_header") {
+            HomeCollectionHeader("Artists", artists.size, onAdd = null)
         }
-        item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd) }
-        if (config.direction == "horizontal") {
-            item(key = "${keyPrefix}_pages", contentType = "mosaic_pager") {
-                com.xvox.music.features.home.allsongs.HorizontalSongPages(
-                    songs = songs, plans = sectionPlans, config = config,
-                    currentSongId = currentSongId, isPlaying = isPlaying, selectedSongIds = selectedSongIds,
-                    onSongClick = onPlay, onSongLongClick = onOptions
-                )
-            }
-        } else {
-            items(sectionPlans, key = { "${keyPrefix}_page_${it.startIndex}" }, contentType = { "mosaic_page" }) { plan ->
-                com.xvox.music.features.home.allsongs.XvoxSongGridPage(
-                    songs = songs, plan = plan, config = config,
-                    currentSongId = currentSongId, isPlaying = isPlaying, selectedSongIds = selectedSongIds,
-                    onSongClick = onPlay, onSongLongClick = onOptions, compact = true,
-                    modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp))
-            }
+        item(key = "artists_grid") {
+            XvoxArtistGrid(
+                artists = artists,
+                onArtistClick = { selectedArtist = it },
+                onArtistLongClick = { showArtistInfo = it },
+                modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp)
+            )
         }
     }
 
@@ -248,20 +286,32 @@ fun HomeScreen(
             onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) }
         )
     }
+
     fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
-        playlistCollectionItems(state.playlists, { playlistContents[it.id].orEmpty() },
-            layoutStyle = config.playlistStyle, longCardHeight = config.playlistLongHeight,
+        playlistCollectionItems(
+            state.playlists,
+            { playlistContents[it.id].orEmpty() },
+            layoutStyle = config.playlistStyle,
+            longCardHeight = config.playlistLongHeight,
             orientation = config.playlistCardOrientation,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
-            onOptions = { playlist -> showPlaylistActions(overlays, viewModel, playlist) {
-                if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
-            } })
+            onOptions = { playlist ->
+                showPlaylistActions(overlays, viewModel, playlist) {
+                    if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
+                }
+            }
+        )
     }
 
     val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
-    val targetKey = effectiveSelectedPlaylistId ?: state.libraryMode
+    val targetKey = when {
+        selectedArtist != null -> "artist_${selectedArtist!!.name}"
+        effectiveSelectedPlaylistId != null -> effectiveSelectedPlaylistId
+        else -> state.libraryMode
+    }
+
     Column(Modifier.fillMaxSize()) {
         fun requestDeleteSelected() {
             if (selectedSongsList.isEmpty()) return
@@ -298,30 +348,57 @@ fun HomeScreen(
                 )
             }
         }
+
         if (isSelectionMode) {
             Spacer(Modifier.height(topInset))
-            HomeMultiSelectBar(selectedSongsList, selectedPlaylist, selectionLibraryMode,
-                viewModel, overlays, context, onClearSelection = { selectedSongIds = emptySet() },
-                onDeleteSelected = ::requestDeleteSelected)
+            HomeMultiSelectBar(
+                selectedSongsList, selectedPlaylist, selectionLibraryMode,
+                viewModel, overlays, context,
+                onClearSelection = { selectedSongIds = emptySet() },
+                onDeleteSelected = ::requestDeleteSelected
+            )
         }
-        // One complete lazy surface per library destination; only a fade, never a slide or reveal.
-        AnimatedContent(targetState = targetKey,
+
+        AnimatedContent(
+            targetState = targetKey,
             transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(140))).using(null) },
-            modifier = Modifier.weight(1f), label = "libraryFade") { target ->
+            modifier = Modifier.weight(1f),
+            label = "libraryFade"
+        ) { target ->
             val listState = rememberLazyListState()
-            LaunchedEffect(homeResetKey) { if (homeResetKey > 0L) listState.scrollToItem(0) }
-            // Re-entering the tab after a switch always lands back on top, wherever it was left.
-            // Keep the scroll and view state preserved across tab switches
-            val targetPlaylist = (target as? String)?.let { id -> state.playlists.firstOrNull { it.id == id } }
+            LaunchedEffect(homeResetKey, scrollResetKey) {
+                listState.scrollToItem(0)
+            }
+
+            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
+                state.playlists.firstOrNull { it.id == id }
+            }
             val detailTracks = remember(targetPlaylist, playlistContents) {
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
             }
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = if (isSelectionMode) 8.dp else topInset + 14.dp, bottom = bottomInset)) {
-                if (targetPlaylist != null) {
-                    // A playlist's own songs are always a plain list — one row per song — no matter
-                    // how Home itself is laid out. Opening a playlist must never re-shape it into a
-                    // mosaic; the grid stays on the Home surface.
+
+            val currentSelectedArtist = selectedArtist
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = if (isSelectionMode) 8.dp else topInset + 10.dp,
+                    bottom = bottomInset
+                )
+            ) {
+                if (currentSelectedArtist != null && target == "artist_${currentSelectedArtist.name}") {
+                    librarySongItems(
+                        keyPrefix = "artist_detail",
+                        title = currentSelectedArtist.name,
+                        songs = currentSelectedArtist.songs,
+                        currentSongId = currentSongId,
+                        playing = isPlaying,
+                        selected = selectedSongIds,
+                        onPlay = { handleSongClick(it, currentSelectedArtist.songs, "Playing by " + currentSelectedArtist.name) },
+                        onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) }
+                    )
+                } else if (targetPlaylist != null) {
                     librarySongItems(
                         keyPrefix = "playlist_detail",
                         title = targetPlaylist.name,
@@ -331,28 +408,37 @@ fun HomeScreen(
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, targetPlaylist) },
-                        onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) })
+                        onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) }
+                    )
                 } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                     XvoxHomeLibraryMode.LIKED -> likedSection()
-                    XvoxHomeLibraryMode.SPLIT -> { } // XvoxSplit no longer has a dedicated Home place.
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection()
+                    XvoxHomeLibraryMode.ARTISTS -> artistsSection()
+                    XvoxHomeLibraryMode.SPLIT -> { }
                     XvoxHomeLibraryMode.ALL_SONGS -> {
                         val sections = HomeSections.visible(config)
                         sections.forEach { section ->
                             when (section) {
-                                HomeSections.ALL -> allSongsItems(state.songs, plans, config, currentSongId, isPlaying, selectedSongIds,
+                                HomeSections.ALL -> allSongsItems(
+                                    state.songs, plans, config, currentSongId, isPlaying, selectedSongIds,
                                     onSongClick = { handleSongClick(it, state.songs, "All Songs") },
                                     onSongLongClick = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) },
-                                    onPrefetch = viewModel::prefetchFrom)
+                                    onPrefetch = viewModel::prefetchFrom
+                                )
                                 HomeSections.RECENT -> recentSection()
+                                HomeSections.ARTISTS -> artistsSection()
                                 HomeSections.LIKED -> likedSection()
                                 HomeSections.PLAYLISTS -> playlistsSection()
                             }
                         }
-                        if (sections.isEmpty()) item(key = "hidden_home") {
-                            androidx.compose.material3.Text("All Home sections are hidden. Show them in Settings → Home → Merge.",
-                                color = com.xvox.music.core.design.theme.XvoxTheme.colors.secondaryText,
-                                modifier = Modifier.padding(20.dp))
+                        if (sections.isEmpty()) {
+                            item(key = "hidden_home") {
+                                androidx.compose.material3.Text(
+                                    "All Home sections are hidden. Show them in Settings → Home → Merge sections.",
+                                    color = com.xvox.music.core.design.theme.XvoxTheme.colors.secondaryText,
+                                    modifier = Modifier.padding(20.dp)
+                                )
+                            }
                         }
                     }
                 }

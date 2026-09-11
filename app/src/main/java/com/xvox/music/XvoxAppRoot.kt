@@ -78,7 +78,7 @@ fun XvoxAppRoot(
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
-    val accentStr by prefs.accentColor.collectAsState(initial = "Red")
+    val accentStr by prefs.accentColor.collectAsState(initial = "White")
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)

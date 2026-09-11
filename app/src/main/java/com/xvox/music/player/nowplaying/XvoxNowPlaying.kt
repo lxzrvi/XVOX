@@ -161,7 +161,7 @@ fun XvoxNowPlaying(
             val target = if (atFirst) queue.lastIndex else currentIndex - 1
             onPlayQueueIndex(target)
         } else {
-            navigationRequest = -(abs(navigationRequest) + 1)
+            onPrevious()
         }
     }
 
@@ -174,7 +174,7 @@ fun XvoxNowPlaying(
             val target = if (atLast) 0 else currentIndex + 1
             onPlayQueueIndex(target)
         } else {
-            navigationRequest = abs(navigationRequest) + 1
+            onNext()
         }
     }
 
@@ -211,13 +211,16 @@ fun XvoxNowPlaying(
         return
     }
 
-    // As the player slides down the top corners round off with a top-side rounded border,
-    // so the sheet reads as a soft-edged card peeling away smoothly.
+    // Live dynamic rounded corners and border only while sliding down.
+    // Completely borderless and square when flat at the top.
+    val isSlidingDown = screenY > 1f
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val cornerRadiusDp = if (screenY <= 1f) 0.dp else (24.dp + 12.dp * slideFraction).coerceIn(0.dp, 36.dp)
+    val cornerRadiusDp = if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
-        topEnd = cornerRadiusDp
+        topEnd = cornerRadiusDp,
+        bottomStart = 0.dp,
+        bottomEnd = 0.dp
     )
 
     Box(
@@ -226,10 +229,14 @@ fun XvoxNowPlaying(
             .graphicsLayer { translationY = screenY }
             .clip(sheetCorner)
             .background(paletteState.color)
-            .border(
-                width = if (screenY > 1f) 1.dp else 0.dp,
-                color = colors.cardBorder.copy(alpha = if (screenY > 1f) (0.35f + slideFraction * 0.45f) else 0f),
-                shape = sheetCorner
+            .then(
+                if (isSlidingDown) {
+                    Modifier.border(
+                        width = 1.dp,
+                        color = colors.cardBorder.copy(alpha = (0.2f + slideFraction * 0.4f)),
+                        shape = sheetCorner
+                    )
+                } else Modifier
             )
     ) {
         XvoxNowPlayingBackdrop(

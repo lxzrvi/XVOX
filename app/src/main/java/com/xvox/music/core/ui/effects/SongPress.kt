@@ -18,20 +18,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val PressIn = spring<Float>(dampingRatio = 0.92f, stiffness = 3600f)
-private val PressOut = spring<Float>(dampingRatio = 0.72f, stiffness = 900f)
+private val PressIn = spring<Float>(dampingRatio = 0.90f, stiffness = 1200f)
+private val PressOut = spring<Float>(dampingRatio = 0.75f, stiffness = 900f)
 
 /**
- * Press feedback for song cards: responsive low haptics on tap, heavy haptic on long click,
- * and immediate audio dispatch.
+ * Press feedback for song cards:
+ * - Clean tap with immediate audio playback.
+ * - Smooth push/scale effect on long press across library lists.
  */
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.xvoxSongPress(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
-    /** How far the tile itself dips. 1f leaves the frame still. */
+    /** How far the tile itself dips on long press. */
     pressedScale: Float = 0.96f,
-    /** Optional hook for cards. */
     onPressedChange: ((Boolean) -> Unit)? = null,
     hapticOnTap: Boolean = true
 ): Modifier = composed {
@@ -50,7 +50,7 @@ fun Modifier.xvoxSongPress(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val pressJob = scope.launch {
-                        delay(14)
+                        delay(120) // Only animate scale on deliberate press/hold
                         release.value?.cancel()
                         pressChange?.invoke(true)
                         scale.animateTo(pressedScale, PressIn)
@@ -79,7 +79,7 @@ fun Modifier.xvoxSongPress(
                         if (!becameScroll) {
                             pressJob.cancel()
                             pressChange?.invoke(false)
-                            release.value = scope.launch { delay(46); scale.animateTo(1f, PressOut) }
+                            release.value = scope.launch { delay(30); scale.animateTo(1f, PressOut) }
                         }
                     }
                 }

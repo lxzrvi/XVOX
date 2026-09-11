@@ -35,7 +35,9 @@ data class XvoxChromeStyle(
     val pillIconColor: String = "",
     // Cards everywhere (border only; the card fill transparency lives in Theme's card alpha).
     val cardBorder: String = "",
-    val cardBorderAlpha: Float = 1f
+    val cardBorderAlpha: Float = 1f,
+    // Mini player cover mode ("default" or "full").
+    val miniCoverStyle: String = "default"
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -44,7 +46,8 @@ data class XvoxChromeStyle(
         navBgAlpha, navBorder, navBorderAlpha,
         pillColor, pillAlpha,
         pillIconColor,
-        cardBorder, cardBorderAlpha
+        cardBorder, cardBorderAlpha,
+        miniCoverStyle
     ).joinToString("|")
 
     companion object {
@@ -53,7 +56,6 @@ data class XvoxChromeStyle(
             fun str(i: Int): String = parts.getOrNull(i).orEmpty().trim()
             fun flt(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
-            // Legacy 16-field backups predate the pill icon colour: map them to their own order.
             if (parts.size == 16) {
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
@@ -64,7 +66,18 @@ data class XvoxChromeStyle(
                     cardBorder = str(14), cardBorderAlpha = flt(15, 1f)
                 )
             }
-            if (parts.size < 17) return XvoxChromeStyle()
+            if (parts.size == 17) {
+                return XvoxChromeStyle(
+                    optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
+                    headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
+                    miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
+                    navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
+                    pillColor = str(12), pillAlpha = flt(13, 1f),
+                    pillIconColor = str(14),
+                    cardBorder = str(15), cardBorderAlpha = flt(16, 1f)
+                )
+            }
+            if (parts.size < 18) return XvoxChromeStyle()
             return XvoxChromeStyle(
                 optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
                 headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
@@ -72,7 +85,8 @@ data class XvoxChromeStyle(
                 navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
                 pillColor = str(12), pillAlpha = flt(13, 1f),
                 pillIconColor = str(14),
-                cardBorder = str(15), cardBorderAlpha = flt(16, 1f)
+                cardBorder = str(15), cardBorderAlpha = flt(16, 1f),
+                miniCoverStyle = if (str(17).isNotBlank()) str(17) else "default"
             )
         }
     }

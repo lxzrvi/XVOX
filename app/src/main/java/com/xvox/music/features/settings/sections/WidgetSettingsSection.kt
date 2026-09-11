@@ -138,6 +138,39 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
+            title = "Theme preset",
+            expanded = expandedGroup == "ThemePreset",
+            onToggle = { toggle("ThemePreset") }
+        ) {
+            SettingsChoiceRow(
+                listOf("Dark" to "Dark", "Light" to "Light", "Glass" to "Glass"),
+                when {
+                    state.widgetTransparency >= 0.6f -> "Glass"
+                    state.widgetTransparency <= 0.1f -> "Dark"
+                    else -> "Dark"
+                }
+            ) { preset ->
+                when (preset) {
+                    "Dark" -> {
+                        viewModel.setWidgetTransparency(0f)
+                        viewModel.setWidgetCornerRadius(18)
+                        editWidget { it.copy(borderColor = "#292929", borderWidth = 1f, fullCover = false) }
+                    }
+                    "Light" -> {
+                        viewModel.setWidgetTransparency(0f)
+                        viewModel.setWidgetCornerRadius(18)
+                        editWidget { it.copy(borderColor = "#E2E2E2", borderWidth = 1f, fullCover = false) }
+                    }
+                    "Glass" -> {
+                        viewModel.setWidgetTransparency(0.68f)
+                        viewModel.setWidgetCornerRadius(24)
+                        editWidget { it.copy(borderColor = "#FFFFFF", borderWidth = 1f, fullCover = true, fullCoverShade = 0.45f) }
+                    }
+                }
+            }
+        }
+
+        SettingsAccordionItem(
             title = "Surface & Positioning",
             expanded = expandedGroup == "Surface",
             onToggle = { toggle("Surface") }

@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,8 +53,8 @@ fun XvoxShellTopHeader(
     onRefreshClick: () -> Unit,
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
+    onArtistClick: () -> Unit = {},
     mergedHome: Boolean = false,
-    /** Sections hidden from Home keep their icon, merged into the refresh pill. */
     likedSectionHidden: Boolean = false,
     playlistsSectionHidden: Boolean = false,
     useSystemInsets: Boolean = true
@@ -63,8 +62,6 @@ fun XvoxShellTopHeader(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
-    // The header is full height: the outer Box spans the very top of the screen including status
-    // bar area, so the photo and background extend into the notification bar with zero blank space.
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,16 +139,12 @@ fun XvoxShellTopHeader(
             ) {
                 val actionShape = RoundedCornerShape(21.dp)
 
+                // Clean pill without outer border
                 Row(
                     modifier = Modifier
                         .height(42.dp)
                         .clip(actionShape)
                         .background(colors.card.copy(alpha = 0.60f))
-                        .border(
-                            width = 0.7.dp,
-                            color = colors.cardBorder.copy(alpha = 0.62f),
-                            shape = actionShape
-                        )
                         .padding(horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -165,36 +158,44 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    if (!mergedHome || likedSectionHidden || playlistsSectionHidden) {
-                        if (!mergedHome || likedSectionHidden) Icon(
-                            painter = painterResource(
-                                if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
-                                else R.drawable.ic_xvox_heart_outline
-                            ),
-                            contentDescription = "Liked Songs",
-                            tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
-                                .padding(8.dp)
-                        )
+                    Icon(
+                        painter = painterResource(
+                            if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
+                            else R.drawable.ic_xvox_heart_outline
+                        ),
+                        contentDescription = "Liked Songs",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
+                            .padding(8.dp)
+                    )
 
-                        if (!mergedHome || playlistsSectionHidden) Icon(
-                            painter = painterResource(
-                                if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
-                                    R.drawable.ic_xvox_music_note
-                                } else {
-                                    R.drawable.ic_xvox_playlist
-                                }
-                            ),
-                            contentDescription = "Playlists",
-                            tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
-                                .padding(8.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(
+                            if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
+                                R.drawable.ic_xvox_music_note
+                            } else {
+                                R.drawable.ic_xvox_playlist
+                            }
+                        ),
+                        contentDescription = "Playlists",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
+                            .padding(8.dp)
+                    )
+
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_microphone),
+                        contentDescription = "Artists",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onArtistClick() }
+                            .padding(8.dp)
+                    )
                 }
             }
         }

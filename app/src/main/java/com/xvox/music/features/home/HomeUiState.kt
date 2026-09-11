@@ -30,6 +30,8 @@ data class HomeUiState(
     val hiddenSongs: List<Song> = emptyList(),
     val hiddenSongIds: Set<Long> =
         emptySet(),
+    val hiddenArtists: Set<String> = emptySet(),
+    val customArtistImages: Map<String, String> = emptyMap(),
     val playlists: List<XvoxPlaylist> =
         emptyList()
 )

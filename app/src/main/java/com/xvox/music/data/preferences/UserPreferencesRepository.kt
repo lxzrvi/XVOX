@@ -32,10 +32,13 @@ class UserPreferencesRepository(
         val customPfpUri = stringPreferencesKey("custom_pfp_uri")
         val customPfpUris = stringPreferencesKey("custom_pfp_uris")
         val customCoverUris = stringPreferencesKey("custom_cover_uris")
+        val customArtistImages = stringPreferencesKey("custom_artist_images")
+        val hiddenArtists = stringPreferencesKey("hidden_artists")
         val recentSongIds = stringPreferencesKey("recent_song_ids")
         val recentSongSources = stringPreferencesKey("recent_song_sources")
         val lyricsUris = stringPreferencesKey("lyrics_uris")
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
+        val fullscreenLyricsGradient = booleanPreferencesKey("fullscreen_lyrics_gradient")
         val hapticFeedbackEnabled = booleanPreferencesKey("haptic_feedback_enabled")
         val hapticIntensity = stringPreferencesKey("haptic_intensity")
         val recentSearches = stringPreferencesKey("recent_searches")
@@ -152,6 +155,21 @@ class UserPreferencesRepository(
     val customCoverUris: Flow<List<String>> = context.xvoxDataStore.data
         .map { decodeUriList(it[Keys.customCoverUris].orEmpty()) }.distinctUntilChanged()
 
+    val customArtistImages: Flow<Map<String, String>> = context.xvoxDataStore.data.map { prefs ->
+        val raw = prefs[Keys.customArtistImages].orEmpty()
+        if (raw.isBlank()) emptyMap()
+        else raw.split(";").mapNotNull { entry ->
+            val parts = entry.split("=", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else null
+        }.toMap()
+    }.distinctUntilChanged()
+
+    val hiddenArtists: Flow<Set<String>> = context.xvoxDataStore.data.map { prefs ->
+        val raw = prefs[Keys.hiddenArtists].orEmpty()
+        if (raw.isBlank()) emptySet()
+        else raw.split(",").filter { it.isNotBlank() }.toSet()
+    }.distinctUntilChanged()
+
     val recentSongIds: Flow<List<Long>> = context.xvoxDataStore.data.map { prefs ->
         decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
     }.distinctUntilChanged()
@@ -234,7 +252,12 @@ class UserPreferencesRepository(
     val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
     val hapticIntensity: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticIntensity] ?: "medium" }.distinctUntilChanged()
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }.distinctUntilChanged()
-    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Red" }.distinctUntilChanged()
+    val fullscreenLyricsGradient: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.fullscreenLyricsGradient] ?: true }.distinctUntilChanged()
+
+    suspend fun setFullscreenLyricsGradient(enabled: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.fullscreenLyricsGradient] = enabled }
+    }
     val themeBackground: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackground] ?: "Default" }.distinctUntilChanged()
     val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
     val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
@@ -742,6 +765,39 @@ class UserPreferencesRepository(
             prefs[Keys.customCoverUris] = encodeUriList(listOf(persisted) + current.filterNot { it == persisted })
         }
         return persisted
+    }
+
+    suspend fun setArtistImage(artist: String, uri: String?) {
+        context.xvoxDataStore.edit { prefs ->
+            val raw = prefs[Keys.customArtistImages].orEmpty()
+            val map = if (raw.isBlank()) mutableMapOf()
+            else raw.split(";").mapNotNull { entry ->
+                val parts = entry.split("=", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }.toMap().toMutableMap()
+            if (uri != null) {
+                map[artist] = uri
+            } else {
+                map.remove(artist)
+            }
+            prefs[Keys.customArtistImages] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    suspend fun addHiddenArtist(artist: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val set = prefs[Keys.hiddenArtists].orEmpty().split(",").filter { it.isNotBlank() }.toMutableSet()
+            set.add(artist)
+            prefs[Keys.hiddenArtists] = set.joinToString(",")
+        }
+    }
+
+    suspend fun removeHiddenArtist(artist: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val set = prefs[Keys.hiddenArtists].orEmpty().split(",").filter { it.isNotBlank() }.toMutableSet()
+            set.remove(artist)
+            prefs[Keys.hiddenArtists] = set.joinToString(",")
+        }
     }
 
     suspend fun removeCustomCover(uri: String) {

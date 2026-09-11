@@ -32,14 +32,15 @@ data class XvoxPalette(
             com.xvox.music.core.ui.chrome.parseHexColor(accentName)
         } else null
         val normalized = when (accentName) {
-            "Default", "XVOX Red" -> "Red"
+            "Default", "White" -> "White"
+            "XVOX Red" -> "Red"
             "XVOX Blue" -> "Blue"
             else -> accentName
         }
         val accentColor = customAccent ?: when (normalized) {
             "Blue" -> if (light) Color(0xFF007AFF) else Color(0xFF0A84FF)
-            "White" -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF)
-            else -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A) // Red / anything legacy
+            "Red" -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A)
+            else -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF) // White / Default is pure white
         }
         return this.copy(
             primaryAccent = accentColor,

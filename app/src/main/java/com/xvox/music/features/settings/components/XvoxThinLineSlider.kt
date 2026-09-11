@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -26,6 +27,8 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun XvoxThinLineSlider(
@@ -45,8 +48,7 @@ fun XvoxThinLineSlider(
     val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
 
     val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
-    // Only snap when an explicit snapRadius is passed by the caller.
-    val snapThreshold = snapRadius
+    var lastHapticStep by remember { mutableIntStateOf((fraction * 10).roundToInt()) }
 
     val defaultFraction = if (defaultValue != null) {
         ((defaultValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
@@ -73,11 +75,12 @@ fun XvoxThinLineSlider(
                         localValue = target
                         haptics.heavy()
                         currentOnValueChange(target)
+                        currentOnFinish?.invoke()
                     }
                 ) { offset ->
                     val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && snapThreshold != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.05f)) {
                         newValue = defaultValue
                     }
                     localValue = newValue
@@ -90,8 +93,13 @@ fun XvoxThinLineSlider(
                 fun settle(x: Float) {
                     val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && snapThreshold != null && kotlin.math.abs(newValue - defaultValue) < snapThreshold) {
+                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
                         newValue = defaultValue
+                    }
+                    val step = (newFraction * 10).roundToInt()
+                    if (step != lastHapticStep) {
+                        lastHapticStep = step
+                        haptics.tap()
                     }
                     if (newValue != localValue) {
                         localValue = newValue

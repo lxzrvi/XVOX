@@ -191,11 +191,13 @@ class XvoxCrossfadeEngine(
     fun updatePlayback(speed: Float, pitch: Float) {
         outputSpeed = speed.coerceIn(.25f, 3f)
         outputPitch = pitch.coerceIn(.5f, 2f)
-        decks().forEach { deck ->
-            runCatching {
-                deck.player.playbackParameters = PlaybackParameters(outputSpeed, outputPitch)
-            }.onFailure {
-                runCatching { deck.player.playbackParameters = PlaybackParameters(outputSpeed, 1.0f) }
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            decks().forEach { deck ->
+                runCatching {
+                    deck.player.playbackParameters = PlaybackParameters(outputSpeed, outputPitch)
+                }.onFailure {
+                    runCatching { deck.player.playbackParameters = PlaybackParameters(outputSpeed, 1.0f) }
+                }
             }
         }
     }

@@ -6,19 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.HomeSections
@@ -37,6 +35,7 @@ fun HomeSettingsSection(
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
+    val chrome = LocalXvoxChromeStyle.current
     val haptics = LocalXvoxHaptics.current
     var expandedGroup by remember { mutableStateOf<String?>(null) }
 
@@ -51,7 +50,7 @@ fun HomeSettingsSection(
             onToggle = { toggle("Card style") }
         ) {
             SettingsChoiceRow(
-                listOf("mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2", "uniform" to "One size"),
+                listOf("uniform" to "Default", "mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2"),
                 state.homeLayoutStyle,
                 viewModel::setHomeLayoutStyle
             )
@@ -114,6 +113,45 @@ fun HomeSettingsSection(
                 onValueChange = { viewModel.setPlaylistLongHeight(it.roundToInt()) },
                 valueRange = 100f..260f,
                 defaultValue = 178f
+            )
+        }
+
+        SettingsAccordionItem(
+            title = "Mini Player & Nav Bar",
+            expanded = expandedGroup == "Mini Player & Nav Bar",
+            onToggle = { toggle("Mini Player & Nav Bar") }
+        ) {
+            Label("Cover style")
+            SettingsChoiceRow(
+                listOf("default" to "Default", "full" to "Full cover"),
+                chrome.miniCoverStyle,
+                onSelect = { style ->
+                    viewModel.setChromeStyle { it.copy(miniCoverStyle = style) }
+                }
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Label("Mini player transparency · ${(chrome.miniBgAlpha * 100).roundToInt()}%")
+            XvoxThinLineSlider(
+                value = chrome.miniBgAlpha,
+                onValueChange = { alpha ->
+                    viewModel.setChromeStyle { it.copy(miniBgAlpha = alpha) }
+                },
+                valueRange = 0f..1f,
+                defaultValue = 1f
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Label("Navigation bar transparency · ${(chrome.navBgAlpha * 100).roundToInt()}%")
+            XvoxThinLineSlider(
+                value = chrome.navBgAlpha,
+                onValueChange = { alpha ->
+                    viewModel.setChromeStyle { it.copy(navBgAlpha = alpha) }
+                },
+                valueRange = 0f..1f,
+                defaultValue = 0.88f
             )
         }
 

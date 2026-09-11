@@ -311,6 +311,10 @@ fun XvoxMainShell(
                 onPlaylistClick = {
                     hoistedSelectedPlaylistId = null
                     homeViewModel.togglePlaylistMode()
+                },
+                onArtistClick = {
+                    hoistedSelectedPlaylistId = null
+                    homeViewModel.toggleArtistMode()
                 }
             )
 

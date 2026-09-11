@@ -3,7 +3,7 @@ package com.xvox.music.features.settings
 data class SettingsState(
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
-    val accentColor: String = "Red",
+    val accentColor: String = "White",
     val backgroundName: String = "Default",
     /** Custom photo behind the Home header; null keeps the theme surface. */
     val headerImageUri: String? = null,

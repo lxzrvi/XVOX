@@ -114,6 +114,18 @@ class HomeViewModel(
                 _state.update { it.copy(playlists = playlists) }
             }
         }
+
+        viewModelScope.launch {
+            preferencesRepository.hiddenArtists.collect { artists ->
+                _state.update { it.copy(hiddenArtists = artists) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.customArtistImages.collect { images ->
+                _state.update { it.copy(customArtistImages = images) }
+            }
+        }
     }
 
     private fun observeFilterPreferences() {
@@ -215,6 +227,12 @@ class HomeViewModel(
         }
     }
 
+    fun toggleArtistMode() {
+        _state.update {
+            it.copy(libraryMode = if (it.libraryMode == XvoxHomeLibraryMode.ARTISTS) XvoxHomeLibraryMode.ALL_SONGS else XvoxHomeLibraryMode.ARTISTS)
+        }
+    }
+
     fun setLibraryMode(mode: XvoxHomeLibraryMode) {
         _state.update { it.copy(libraryMode = mode) }
     }
@@ -260,8 +278,30 @@ class HomeViewModel(
     }
 
     fun restoreSong(id: Long) = viewModelScope.launch { libraryPreferences.restoreSong(id) }
-    fun restoreAllHiddenSongs() = viewModelScope.launch { libraryPreferences.restoreAllSongs() }
+    fun restoreAllHiddenSongs() = viewModelScope.launch {
+        libraryPreferences.restoreAllSongs()
+        state.value.hiddenArtists.forEach { preferencesRepository.removeHiddenArtist(it) }
+    }
     fun hideSong(song: Song) = viewModelScope.launch { libraryPreferences.hideSong(song.id) }
+
+    fun setArtistPhoto(artist: String, uri: Uri?) = viewModelScope.launch {
+        val persistedUri = if (uri != null) {
+            preferencesRepository.persistCoverImage(uri)
+        } else null
+        preferencesRepository.setArtistImage(artist, persistedUri)
+    }
+
+    fun hideArtist(artist: String) = viewModelScope.launch {
+        val artistSongs = allRawSongs.filter { it.artist.equals(artist, ignoreCase = true) }
+        artistSongs.forEach { libraryPreferences.hideSong(it.id) }
+        preferencesRepository.addHiddenArtist(artist)
+    }
+
+    fun restoreArtist(artist: String) = viewModelScope.launch {
+        val artistSongs = allRawSongs.filter { it.artist.equals(artist, ignoreCase = true) }
+        artistSongs.forEach { libraryPreferences.restoreSong(it.id) }
+        preferencesRepository.removeHiddenArtist(artist)
+    }
 
     fun createPlaylist(name: String, songIds: Set<Long>, onDone: (XvoxPlaylist?) -> Unit) =
         viewModelScope.launch { onDone(libraryPreferences.createPlaylist(name, songIds)) }

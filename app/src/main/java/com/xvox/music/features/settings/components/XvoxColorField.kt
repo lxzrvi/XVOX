@@ -111,9 +111,12 @@ private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
             if (dist > radius) {
                 pixel[y * size + x] = 0
             } else {
+                val edgeAlpha = if (dist > radius - 1.2f) ((radius - dist) / 1.2f).coerceIn(0f, 1f) else 1f
                 var angle = atan2(dy, dx) * 180f / PI.toFloat() + 90f
                 if (angle < 0f) angle += 360f
-                pixel[y * size + x] = hsvColor(angle % 360f, (dist / radius).coerceIn(0f, 1f), value).toArgb()
+                val color = hsvColor(angle % 360f, (dist / radius).coerceIn(0f, 1f), value)
+                val argb = color.copy(alpha = edgeAlpha).toArgb()
+                pixel[y * size + x] = argb
             }
         }
     }

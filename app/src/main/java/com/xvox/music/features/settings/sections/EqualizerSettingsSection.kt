@@ -100,14 +100,14 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 listOf(
-                    Triple("Off", 0f, 0f),
-                    Triple("Small Room", 0.16f, 0.25f),
-                    Triple("Medium Room", 0.32f, 0.50f),
-                    Triple("Large Room", 0.48f, 0.75f),
-                    Triple("Hall", 0.65f, 0.85f),
-                    Triple("Cathedral", 0.88f, 1.0f)
-                ).forEach { (name, revAmount, roomSz) ->
-                    val active = kotlin.math.abs(state.reverbAmount - revAmount) < 0.04f
+                    Pair("Off", 0f),
+                    Pair("Small Room", 0.18f),
+                    Pair("Medium Room", 0.36f),
+                    Pair("Large Room", 0.54f),
+                    Pair("Hall", 0.72f),
+                    Pair("Cathedral", 0.90f)
+                ).forEach { (name, revAmount) ->
+                    val active = kotlin.math.abs(state.reverbAmount - revAmount) < 0.08f
                     Text(
                         text = name,
                         color = if (active) colors.background else colors.primaryText,
@@ -118,19 +118,14 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                             .background(if (active) colors.primaryAccent else colors.card)
                             .xvoxPressScale {
                                 viewModel.setReverbAmount(revAmount)
-                                viewModel.setRoomAmount(roomSz)
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             EqLabel("Reverb amount · ${(state.reverbAmount * 100).roundToInt()}%")
             XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
-
-            Spacer(Modifier.height(10.dp))
-            EqLabel("Room size · ${(state.roomAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
         }
 
         SettingsAccordionItem(
@@ -139,13 +134,10 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             onToggle = { toggle("Clarity") }
         ) {
             EqLabel("Noise reduction · ${(state.noiseReduction * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
-            Spacer(Modifier.height(8.dp))
+            XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f, defaultValue = 0f)
+            Spacer(Modifier.height(10.dp))
             EqLabel("Grain control · ${(state.softenHighs * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
-            Spacer(Modifier.height(8.dp))
-            EqLabel("Anti-clip protection · ${state.eqHeadroomDb.roundToInt()} dB")
-            XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
+            XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f, defaultValue = 0f)
         }
 
         SettingsAccordionItem(
@@ -154,7 +146,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             onToggle = { toggle("Volume") }
         ) {
             EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
+            XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f, defaultValue = 1f)
         }
 
         SettingsAccordionItem(
@@ -165,7 +157,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
             EqLabel(if (speedNormal) "Playback speed · Normal" else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
             XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
             XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
         }

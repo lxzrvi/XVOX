@@ -24,23 +24,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.Stroke
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun XvoxMiniPlayerCard(
@@ -61,14 +63,17 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val zones by remember(song.id) { com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
-        if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
-    }.distinctUntilChanged() }.collectAsState(initial = 0L to 0L)
+    val zones by remember(song.id) {
+        com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
+            if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
+        }.distinctUntilChanged()
+    }.collectAsState(initial = 0L to 0L)
 
     val cardShape = RoundedCornerShape(15.dp)
     val artworkShape = RoundedCornerShape(11.dp)
     val miniEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
     val miniEdge = miniEdgeBase.copy(alpha = miniEdgeBase.alpha * chrome.miniBorderAlpha.coerceIn(0f, 1f))
+    val isFullCover = chrome.miniCoverStyle == "full"
 
     val controlInteraction = remember { MutableInteractionSource() }
 
@@ -86,8 +91,11 @@ fun XvoxMiniPlayerCard(
             .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
             .drawWithContent {
                 drawContent()
-                val b = .7.dp.toPx(); val radius = 15.dp.toPx()
-                val inside = Path().apply { addRoundRect(RoundRect(b, b, size.width - b, size.height - b, CornerRadius((radius - b).coerceAtLeast(0f)))) }
+                val b = .7.dp.toPx()
+                val radius = 15.dp.toPx()
+                val inside = Path().apply {
+                    addRoundRect(RoundRect(b, b, size.width - b, size.height - b, CornerRadius((radius - b).coerceAtLeast(0f))))
+                }
                 clipPath(inside) {
                     val barHeight = 3.dp.toPx()
                     if (duration > 0) {
@@ -98,35 +106,63 @@ fun XvoxMiniPlayerCard(
                     }
                     if (progress > 0) drawRect(colors.primaryAccent, Offset.Zero, Size(size.width * progress, barHeight))
                 }
-                drawRoundRect(miniEdge, Offset(b / 2, b / 2), Size(size.width - b, size.height - b),
-                    CornerRadius(radius - b / 2), style = Stroke(b))
+                drawRoundRect(
+                    miniEdge,
+                    Offset(b / 2, b / 2),
+                    Size(size.width - b, size.height - b),
+                    CornerRadius(radius - b / 2),
+                    style = Stroke(b)
+                )
             }
     ) {
+        if (isFullCover) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 320,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                colors.surface.copy(alpha = 0.88f),
+                                colors.surface.copy(alpha = 0.60f),
+                                colors.surface.copy(alpha = 0.92f)
+                            )
+                        )
+                    )
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 4.dp, top = 4.dp, end = 50.dp, bottom = 4.dp),
+                .padding(start = if (isFullCover) 14.dp else 4.dp, top = 4.dp, end = 50.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(artworkShape)
-            ) {
-                AnimatedContent(
-                    targetState = song,
-                    contentKey = { it.id },
-                    transitionSpec = {
-                        fadeIn(tween(180)).togetherWith(fadeOut(tween(140)))
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    label = "miniArtworkFade"
-                ) { visualSong ->
-                    XvoxSongArtwork(
-                        artwork = visualSong.artworkUri,
-                        requestSize = 160,
-                        modifier = Modifier.fillMaxSize()
-                    )
+            if (!isFullCover) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(artworkShape)
+                ) {
+                    AnimatedContent(
+                        targetState = song,
+                        contentKey = { it.id },
+                        transitionSpec = {
+                            fadeIn(tween(180)).togetherWith(fadeOut(tween(140)))
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        label = "miniArtworkFade"
+                    ) { visualSong ->
+                        XvoxSongArtwork(
+                            artwork = visualSong.artworkUri,
+                            requestSize = 160,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
 
@@ -159,7 +195,7 @@ fun XvoxMiniPlayerCard(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 9.dp, end = 5.dp),
+                            .padding(start = if (isFullCover) 0.dp else 9.dp, end = 5.dp),
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
@@ -207,6 +243,5 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier.size(18.dp)
             )
         }
-
     }
 }

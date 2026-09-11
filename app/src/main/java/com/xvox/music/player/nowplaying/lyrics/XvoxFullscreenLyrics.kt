@@ -19,8 +19,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -37,9 +37,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -58,17 +61,22 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
+import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Full-screen lyrics: background is solid (opaque), with an optional moving gradient
- * toggled from the button before Previous.
- * Synchronizes system status bar hide/show directly with the header options bar.
+ * Full-screen lyrics:
+ * - Header styling inherits Home header background & opacity settings.
+ * - Moving gradient preference is stored and built from the song's dominant color.
+ * - First tap reveals header/chrome; when visible, tapping a lyric seeks the song.
  */
 @Composable
 fun XvoxFullscreenLyrics(
@@ -87,9 +95,14 @@ fun XvoxFullscreenLyrics(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val colors = XvoxTheme.colors
+    val chrome = LocalXvoxChromeStyle.current
     val haptics = LocalXvoxHaptics.current
-    var gradientEnabled by remember { mutableStateOf(false) }
+    val prefs = remember(context) { UserPreferencesRepository(context) }
+    val scope = rememberCoroutineScope()
+    val savedGradient by prefs.fullscreenLyricsGradient.collectAsState(initial = true)
+    var gradientEnabled by remember(savedGradient) { mutableStateOf(savedGradient) }
 
     val view = LocalView.current
     val statusBarPx = remember(view) {
@@ -126,7 +139,7 @@ fun XvoxFullscreenLyrics(
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
         if (chromeVisible) {
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            delay(3500)
+            delay(4000)
             chromeVisible = false
         } else {
             controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -155,36 +168,39 @@ fun XvoxFullscreenLyrics(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Solid background base with optional moving gradient layer
+        // Dynamic moving gradient built from song's dominant color
         if (gradientEnabled) {
             Canvas(Modifier.fillMaxSize()) {
                 val cx = size.width / 2f + (size.width * 0.35f * cos(gradientPhase))
                 val cy = size.height / 2f + (size.height * 0.35f * sin(gradientPhase))
-                val start = Offset(cx - size.width * 0.5f, cy - size.height * 0.5f)
-                val end = Offset(cx + size.width * 0.5f, cy + size.height * 0.5f)
-                val colorA = backgroundColor.copy(alpha = 0.85f)
-                val colorB = colors.primaryAccent.copy(alpha = 0.55f)
-                val colorC = colors.background
+                val start = Offset(cx - size.width * 0.55f, cy - size.height * 0.55f)
+                val end = Offset(cx + size.width * 0.55f, cy + size.height * 0.55f)
+                val dominantPrimary = backgroundColor
+                val dominantSecondary = backgroundColor.copy(alpha = 0.50f)
+                val baseDark = colors.background
                 drawRect(
                     brush = Brush.linearGradient(
-                        colors = listOf(colorA, colorB, colorC),
+                        colors = listOf(dominantPrimary, dominantSecondary, baseDark),
                         start = start,
                         end = end
                     )
                 )
             }
         } else {
-            Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.35f)))
+            Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.30f)))
         }
 
-        // Lyric stage
+        // Lyric Stage
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
-                        chromeVisible = !chromeVisible
+                .pointerInput(chromeVisible) {
+                    detectTapGestures {
+                        if (!chromeVisible) {
+                            chromeVisible = true
+                        } else {
+                            chromeVisible = false
+                        }
                     }
                 }
         ) {
@@ -198,7 +214,13 @@ fun XvoxFullscreenLyrics(
                     XvoxSyncedLyrics(
                         lyrics = state.lyrics,
                         position = position,
-                        onSeek = onSeek,
+                        onSeek = { seekPos ->
+                            if (!chromeVisible) {
+                                chromeVisible = true
+                            } else {
+                                onSeek(seekPos)
+                            }
+                        },
                         strongEdgeFade = true,
                         modifier = Modifier
                             .fillMaxSize()
@@ -240,50 +262,52 @@ fun XvoxFullscreenLyrics(
             }
         }
 
-        if (!chromeVisible) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = animatedBarsPad)
-                    .background(colors.background.copy(alpha = 0.4f))
-            )
-        }
+        // Header and Status Bar overlay (inherits Home's header settings)
+        val headerBg = colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
+        val headerEdge = parseHexColor(chrome.headerBorder) ?: colors.cardBorder
 
         AnimatedVisibility(
             visible = chromeVisible,
-            enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(200)),
-            exit = slideOutVertically(tween(240)) { -it } + fadeOut(tween(160)),
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(260, easing = FastOutSlowInEasing)
+            ) + fadeIn(tween(200)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(160)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(colors.background.copy(alpha = 0.75f))
-                    .padding(top = animatedBarsPad)
-                    .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 8.dp)
+                    .background(headerBg)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = animatedBarsPad)
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .height(54.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     XvoxSongArtwork(
-                        artwork = song.artworkUri,
-                        requestSize = 128,
+                        song = song,
+                        contentDescription = song.title,
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(42.dp)
                             .clip(RoundedCornerShape(10.dp))
                     )
 
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(start = 10.dp, end = 8.dp)
+                            .padding(horizontal = 10.dp)
                     ) {
                         Text(
                             text = song.title,
                             color = colors.primaryText,
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -291,7 +315,7 @@ fun XvoxFullscreenLyrics(
                         Text(
                             text = song.artist,
                             color = colors.secondaryText,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -306,12 +330,56 @@ fun XvoxFullscreenLyrics(
                         Spacer(Modifier.size(6.dp))
                     }
 
+                    FullscreenCircle(
+                        resource = R.drawable.ic_xvox_lyrics_add,
+                        description = "Add or change lyrics",
+                        onClick = { launcher.launch(arrayOf("*/*")) }
+                    )
+                }
+
+                // Border matching header chrome
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(1.dp)
+                        .background(headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f)))
+                )
+            }
+        }
+
+        // Bottom Controls Overlay
+        AnimatedVisibility(
+            visible = chromeVisible,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(260, easing = FastOutSlowInEasing)
+            ) + fadeIn(tween(200)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(160)),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerBg)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Spacer(Modifier.weight(1f))
+
                     LyricsTransport(
                         isPlaying = isPlaying,
                         gradientEnabled = gradientEnabled,
                         onToggleGradient = {
-                            haptics.tap()
-                            gradientEnabled = !gradientEnabled
+                            val next = !gradientEnabled
+                            gradientEnabled = next
+                            scope.launch { prefs.setFullscreenLyricsGradient(next) }
                         },
                         onPrevious = onPrevious,
                         onTogglePlay = onTogglePlay,

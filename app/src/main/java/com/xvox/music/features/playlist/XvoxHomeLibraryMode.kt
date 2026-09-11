@@ -4,5 +4,6 @@ enum class XvoxHomeLibraryMode {
     ALL_SONGS,
     SPLIT,
     LIKED,
-    PLAYLISTS
+    PLAYLISTS,
+    ARTISTS
 }

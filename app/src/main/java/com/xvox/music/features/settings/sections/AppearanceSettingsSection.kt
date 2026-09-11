@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import com.xvox.music.features.home.XvoxSongArtwork
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,28 +38,22 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
-import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
-/**
- * Appearance settings:
- * Accordion items start closed by default.
- * Includes Header transparency slider, Background settings, and dynamic Haptic feedback controls.
- */
 @Composable
 fun AppearanceSettingsSection(
     state: SettingsState,
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val chrome = state.chromeStyle
     var expandedGroup by remember { mutableStateOf<String?>(null) }
 
@@ -86,7 +79,7 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Accent") }
         ) {
             SettingsChoiceRow(
-                listOf("Red" to "Red", "Blue" to "Blue", "White" to "White"),
+                listOf("White" to "White", "Red" to "Red", "Blue" to "Blue"),
                 if (state.accentColor.startsWith("#")) "custom" else state.accentColor
             ) { key -> if (key != "custom") viewModel.setAccentColor(key) }
             Spacer(Modifier.height(8.dp))
@@ -96,31 +89,6 @@ fun AppearanceSettingsSection(
                 onColorChange = { hex -> viewModel.setAccentColor(hex) },
                 subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour"
             )
-        }
-
-        SettingsAccordionItem(
-            title = "Background",
-            expanded = expandedGroup == "Background",
-            onToggle = { toggle("Background") }
-        ) {
-            SettingsChoiceRow(
-                listOf("Default" to "Default", "Dim" to "Dim", "Dark" to "Dark"),
-                state.backgroundName
-            ) { viewModel.setBackgroundName(it) }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Brightness", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
-                    value = state.backgroundBrightness,
-                    onValueChange = viewModel::setBackgroundBrightness,
-                    valueRange = 0.3f..1f,
-                    defaultValue = 0.8f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${(state.backgroundBrightness.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-            }
         }
 
         SettingsAccordionItem(
@@ -148,57 +116,6 @@ fun AppearanceSettingsSection(
         }
 
         SettingsAccordionItem(
-            title = "Mini player & Navigation bar",
-            expanded = expandedGroup == "Mini player & Navigation bar",
-            onToggle = { toggle("Mini player & Navigation bar") }
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
-                    value = chrome.miniBgAlpha,
-                    onValueChange = { a ->
-                        viewModel.setChromeStyle { it.copy(miniBgAlpha = a, navBgAlpha = a) }
-                    },
-                    valueRange = 0f..1f,
-                    defaultValue = 0.88f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${(chrome.miniBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-            }
-        }
-
-        SettingsAccordionItem(
-            title = "Haptic intensity",
-            expanded = expandedGroup == "Haptic intensity",
-            onToggle = { toggle("Haptic intensity") }
-        ) {
-            SettingsToggle(
-                title = "Haptic feedback",
-                subtitle = "Vibrations on tap, drags, and playback controls",
-                checked = state.hapticFeedbackEnabled,
-                onChange = viewModel::setHapticFeedbackEnabled
-            )
-            if (state.hapticFeedbackEnabled) {
-                Spacer(Modifier.height(10.dp))
-                SettingsChoiceRow(
-                    listOf(
-                        "very_low" to "Soft",
-                        "low" to "Medium",
-                        "medium" to "Strong",
-                        "high" to "Sharp"
-                    ),
-                    state.hapticIntensity
-                ) { intensity ->
-                    viewModel.setHapticIntensity(intensity)
-                    haptics.strength = intensity
-                    haptics.heavy()
-                }
-            }
-        }
-
-        SettingsAccordionItem(
             title = "Text size",
             expanded = expandedGroup == "Text size",
             onToggle = { toggle("Text size") }
@@ -215,13 +132,6 @@ fun AppearanceSettingsSection(
                 Text("A", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
             }
         }
-
-        SettingsToggle(
-            title = "Hide preview",
-            subtitle = "Hide the live preview at the top of Settings",
-            checked = state.previewHidden,
-            onChange = viewModel::setPreviewHidden
-        )
     })
 }
 

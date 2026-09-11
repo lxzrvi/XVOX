@@ -3,6 +3,7 @@
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,16 +13,20 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -48,10 +53,11 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 
 /**
  * The Now Playing action bar.
- *
- * Left side: Timer / Queue / Info in a single seamless pill container with no border and no internal circles.
- * Right side: Three round buttons that swap in place with a horizontal swipe.
- * Tapping audio options shows immediate ON/OFF feedback in XVOX popup.
+ * Left side: Timer / Queue / Info in a pill.
+ * Right side: 2-by-2 action buttons across 3 pages with 3 indicator dots.
+ *   Page 0: Star / Like
+ *   Page 1: EQ / 3D Sound
+ *   Page 2: Bluetooth / Crossfade
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -77,13 +83,13 @@ fun NowPlayingActions(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
-    var page by remember { mutableIntStateOf(0) }
+    var pageIndex by remember { mutableIntStateOf(0) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Timer / Queue / Info share one continuous pill: no border, no internal circle background.
+        // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
@@ -109,124 +115,176 @@ fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
-        // Right cluster: three circles that cycle endlessly on swipe.
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(22.dp))
-                .padding(horizontal = 2.dp, vertical = 2.dp)
-                .pointerInput(Unit) {
-                    var drag = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { drag = 0f },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            drag += dragAmount
-                        },
-                        onDragEnd = {
-                            if (drag <= -28f) page += 1
-                            else if (drag >= 28f) page -= 1
-                        },
-                        onDragCancel = { }
-                    )
-                }
+        // Right cluster: 2 action buttons with 3 indicator dots
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AnimatedContent(
-                targetState = page,
-                transitionSpec = {
-                    val forward = targetState > initialState
-                    (slideInHorizontally(tween(230)) { if (forward) it else -it } + fadeIn(tween(150)))
-                        .togetherWith(slideOutHorizontally(tween(230)) { if (forward) -it else it } + fadeOut(tween(150)))
-                },
-                label = "nowPlayingRightCluster"
-            ) { currentPage ->
-                if (currentPage % 2 == 0) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_crossfade,
-                            tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
-                            active = crossfadeOn,
-                            contentDescription = "Crossfade",
-                            onClick = {
-                                haptics.tap()
-                                onToggleCrossfade?.invoke()
-                                overlays.showP("Crossfade: ${if (!crossfadeOn) "ON" else "OFF"}")
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(22.dp))
+                    .padding(horizontal = 2.dp, vertical = 2.dp)
+                    .pointerInput(Unit) {
+                        var drag = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { drag = 0f },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                drag += dragAmount
                             },
-                            onLongClick = if (onOpenOptions != null) ({
-                                haptics.heavy()
-                                onOpenOptions("Crossfade")
-                            }) else null
-                        )
-                        NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_star,
-                            tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
-                            active = isInPlaylist,
-                            contentDescription = "Add to playlist",
-                            onClick = {
-                                haptics.tap()
-                                onStarPlaylist?.invoke()
-                            }
-                        )
-                        NowPlayingCircleAction(
-                            resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-                            tint = if (isLiked) colors.primaryAccent else colors.primaryText,
-                            active = isLiked,
-                            contentDescription = if (isLiked) "Unlike" else "Like",
-                            onClick = {
-                                haptics.tap()
-                                onToggleLiked?.invoke()
-                            }
+                            onDragEnd = {
+                                if (drag <= -24f) {
+                                    pageIndex = (pageIndex + 1) % 3
+                                    haptics.tap()
+                                } else if (drag >= 24f) {
+                                    pageIndex = (pageIndex - 1 + 3) % 3
+                                    haptics.tap()
+                                }
+                            },
+                            onDragCancel = { }
                         )
                     }
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_equalizer,
-                            tint = if (equalizerOn) colors.primaryAccent else colors.primaryText,
-                            active = equalizerOn,
-                            contentDescription = "Equalizer",
-                            onClick = {
-                                haptics.tap()
-                                onToggleEqualizer?.invoke()
-                                overlays.showP("Equalizer: ${if (!equalizerOn) "ON" else "OFF"}")
-                            },
-                            onLongClick = if (onOpenOptions != null) ({
-                                haptics.heavy()
-                                onOpenOptions("Equalizer")
-                            }) else null
-                        )
-                        NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_waveform,
-                            tint = if (spaceOn) colors.primaryAccent else colors.primaryText,
-                            active = spaceOn,
-                            contentDescription = "3D sound",
-                            onClick = {
-                                haptics.tap()
-                                onToggleSpace?.invoke()
-                                overlays.showP("3D Sound: ${if (!spaceOn) "ON" else "OFF"}")
-                            },
-                            onLongClick = if (onOpenOptions != null) ({
-                                haptics.heavy()
-                                onOpenOptions("3D sound")
-                            }) else null
-                        )
-                        val bluetoothReady = rememberBluetoothReady()
-                        val enableBluetooth = rememberBluetoothEnableRequest()
-                        NowPlayingCircleAction(
-                            resource = R.drawable.ic_xvox_bluetooth,
-                            tint = if (bluetoothReady) colors.primaryAccent else colors.primaryText,
-                            active = bluetoothReady,
-                            contentDescription = "Bluetooth / audio output",
-                            onClick = if (onOpenOptions != null) ({
-                                haptics.tap()
-                                enableBluetooth?.invoke()
-                                onOpenOptions("Bluetooth")
-                            }) else null,
-                            onLongClick = if (onOpenOptions != null) ({
-                                haptics.heavy()
-                                onOpenOptions("Bluetooth")
-                            }) else null
-                        )
+            ) {
+                AnimatedContent(
+                    targetState = pageIndex,
+                    transitionSpec = {
+                        val forward = targetState > initialState || (initialState == 2 && targetState == 0)
+                        (slideInHorizontally(tween(220)) { if (forward) it else -it } + fadeIn(tween(140)))
+                            .togetherWith(slideOutHorizontally(tween(220)) { if (forward) -it else it } + fadeOut(tween(140)))
+                    },
+                    label = "nowPlaying2by2Cluster"
+                ) { targetPage ->
+                    when (targetPage) {
+                        0 -> {
+                            // Page 1: Star + Like
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                NowPlayingCircleAction(
+                                    resource = R.drawable.ic_xvox_star,
+                                    tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
+                                    active = isInPlaylist,
+                                    contentDescription = "Add to playlist",
+                                    onClick = {
+                                        haptics.tap()
+                                        onStarPlaylist?.invoke()
+                                    }
+                                )
+                                NowPlayingCircleAction(
+                                    resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+                                    tint = if (isLiked) colors.primaryAccent else colors.primaryText,
+                                    active = isLiked,
+                                    contentDescription = if (isLiked) "Unlike" else "Like",
+                                    onClick = {
+                                        haptics.tap()
+                                        onToggleLiked?.invoke()
+                                    }
+                                )
+                            }
+                        }
+                        1 -> {
+                            // Page 2: EQ + 3D Sound
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                NowPlayingCircleAction(
+                                    resource = R.drawable.ic_xvox_equalizer,
+                                    tint = if (equalizerOn) colors.primaryAccent else colors.primaryText,
+                                    active = equalizerOn,
+                                    contentDescription = "Equalizer",
+                                    onClick = {
+                                        haptics.tap()
+                                        onToggleEqualizer?.invoke()
+                                        overlays.showP("Equalizer: ${if (!equalizerOn) "ON" else "OFF"}")
+                                    },
+                                    onLongClick = if (onOpenOptions != null) ({
+                                        haptics.heavy()
+                                        onOpenOptions("Equalizer")
+                                    }) else null
+                                )
+                                NowPlayingCircleAction(
+                                    resource = R.drawable.ic_xvox_waveform,
+                                    tint = if (spaceOn) colors.primaryAccent else colors.primaryText,
+                                    active = spaceOn,
+                                    contentDescription = "3D sound",
+                                    onClick = {
+                                        haptics.tap()
+                                        onToggleSpace?.invoke()
+                                        overlays.showP("3D Sound: ${if (!spaceOn) "ON" else "OFF"}")
+                                    },
+                                    onLongClick = if (onOpenOptions != null) ({
+                                        haptics.heavy()
+                                        onOpenOptions("3D sound")
+                                    }) else null
+                                )
+                            }
+                        }
+                        else -> {
+                            // Page 3: Bluetooth + Crossfade
+                            val bluetoothReady = rememberBluetoothReady()
+                            val enableBluetooth = rememberBluetoothEnableRequest()
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                NowPlayingCircleAction(
+                                    resource = R.drawable.ic_xvox_bluetooth,
+                                    tint = if (bluetoothReady) colors.primaryAccent else colors.primaryText,
+                                    active = bluetoothReady,
+                                    contentDescription = "Bluetooth / audio output",
+                                    onClick = if (onOpenOptions != null) ({
+                                        haptics.tap()
+                                        enableBluetooth?.invoke()
+                                        onOpenOptions("Bluetooth")
+                                    }) else null,
+                                    onLongClick = if (onOpenOptions != null) ({
+                                        haptics.heavy()
+                                        onOpenOptions("Bluetooth")
+                                    }) else null
+                                )
+                                NowPlayingCircleAction(
+                                    resource = R.drawable.ic_xvox_crossfade,
+                                    tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
+                                    active = crossfadeOn,
+                                    contentDescription = "Crossfade",
+                                    onClick = {
+                                        haptics.tap()
+                                        onToggleCrossfade?.invoke()
+                                        overlays.showP("Crossfade: ${if (!crossfadeOn) "ON" else "OFF"}")
+                                    },
+                                    onLongClick = if (onOpenOptions != null) ({
+                                        haptics.heavy()
+                                        onOpenOptions("Crossfade")
+                                    }) else null
+                                )
+                            }
+                        }
                     }
+                }
+            }
+
+            // 3 indicator dots
+            Row(
+                modifier = Modifier.padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { dotIdx ->
+                    val isSelected = dotIdx == pageIndex
+                    val dotWidth by animateDpAsState(
+                        targetValue = if (isSelected) 12.dp else 4.dp,
+                        animationSpec = tween(200),
+                        label = "dotWidth"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .height(4.dp)
+                            .width(dotWidth)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                if (isSelected) colors.primaryAccent
+                                else colors.secondaryText.copy(alpha = 0.35f)
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                haptics.tap()
+                                pageIndex = dotIdx
+                            }
+                    )
                 }
             }
         }
