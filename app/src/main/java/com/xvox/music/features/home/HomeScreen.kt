@@ -79,6 +79,9 @@ fun HomeScreen(
         else internalSelectedPlaylistId = value
     }
 
+    val prefs = remember { UserPreferencesRepository(context) }
+    val config by prefs.homePresentation.collectAsState(initial = HomePresentation())
+
     var selectedArtist by remember { mutableStateOf<XvoxArtist?>(null) }
     var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }
     var croppingArtistPhotoFor by remember { mutableStateOf<Pair<String, Uri>?>(null) }
@@ -149,8 +152,6 @@ fun HomeScreen(
         pendingDeleteSongs = emptyList()
     }
 
-    val prefs = remember { UserPreferencesRepository(context) }
-    val config by prefs.homePresentation.collectAsState(initial = HomePresentation())
     val plans = remember(state.songs, config.style, config.rows) {
         buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1")
     }

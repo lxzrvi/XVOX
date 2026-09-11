@@ -101,7 +101,7 @@ fun XvoxFullscreenLyrics(
     val prefs = remember(context) { UserPreferencesRepository(context) }
     val scope = rememberCoroutineScope()
 
-    val profilePrefs by prefs.userPreferences.collectAsState(initial = null)
+    val headerPhotoUri by prefs.headerImageUri.collectAsState(initial = null)
     val lyricsSettings by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
     val gradientAnim = lyricsSettings.gradientAnimation
 
@@ -366,7 +366,7 @@ fun XvoxFullscreenLyrics(
         // Top Header Overlay (inherits Home's header settings and photo)
         val headerBg = colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
         val headerEdge = parseHexColor(chrome.headerBorder) ?: colors.cardBorder
-        val headerPhoto = profilePrefs?.headerImageUri?.takeIf { it.isNotBlank() }
+        val headerPhoto = headerPhotoUri?.takeIf { it.isNotBlank() }
 
         AnimatedVisibility(
             visible = chromeVisible,

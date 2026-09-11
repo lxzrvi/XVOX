@@ -211,10 +211,7 @@ fun XvoxNowPlaying(
         )
         if (showQuickSettingsSheet && quickPage != null) {
             NowPlayingOptionsBox(
-                page = quickPage!!,
-                state = settingsState,
-                viewModel = settingsViewModel,
-                homeViewModel = homeViewModel,
+                initialPage = quickPage,
                 onDismiss = { showQuickSettingsSheet = false; quickPage = null }
             )
         }

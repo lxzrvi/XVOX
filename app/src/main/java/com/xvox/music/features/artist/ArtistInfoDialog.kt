@@ -130,16 +130,16 @@ fun ArtistInfoDialog(
                 SettingsChoiceRow(
                     options = listOf("3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
                     selected = columns.toString(),
-                    onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
 
                 SettingsChoiceRow(
                     options = listOf("4" to "Compact", "8" to "Normal", "12" to "Spacious"),
                     selected = gap.toString(),
-                    onSelect = { onGapChange(it.toIntOrNull() ?: 8) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
+                    onSelect = { onGapChange(it.toIntOrNull() ?: 8) }
                 )
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Actions
                 Column(
