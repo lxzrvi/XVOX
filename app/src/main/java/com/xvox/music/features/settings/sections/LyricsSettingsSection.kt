@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
 fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
-    var expandedGroup by remember { mutableStateOf<String?>("Alignment") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group

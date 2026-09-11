@@ -36,6 +36,7 @@ class UserPreferencesRepository(
         val recentSongSources = stringPreferencesKey("recent_song_sources")
         val lyricsUris = stringPreferencesKey("lyrics_uris")
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
+        val hapticFeedbackEnabled = booleanPreferencesKey("haptic_feedback_enabled")
         val hapticIntensity = stringPreferencesKey("haptic_intensity")
         val recentSearches = stringPreferencesKey("recent_searches")
 
@@ -230,6 +231,7 @@ class UserPreferencesRepository(
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
+    val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
     val hapticIntensity: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticIntensity] ?: "medium" }.distinctUntilChanged()
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }.distinctUntilChanged()
     val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "Red" }.distinctUntilChanged()
@@ -374,6 +376,7 @@ class UserPreferencesRepository(
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 
+    suspend fun setHapticFeedbackEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedbackEnabled] = v } }
     suspend fun setHapticIntensity(v: String) { context.xvoxDataStore.edit { it[Keys.hapticIntensity] = v } }
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }

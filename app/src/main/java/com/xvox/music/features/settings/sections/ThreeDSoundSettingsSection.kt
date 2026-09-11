@@ -21,11 +21,12 @@ import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
-    var expandedGroup by remember { mutableStateOf<String?>("Spatial") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group
@@ -65,15 +66,34 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
             }
 
             SettingsAccordionItem(
-                title = "Acoustics & Center",
+                title = "Acoustics & Balance",
                 expanded = expandedGroup == "Acoustics",
                 onToggle = { toggle("Acoustics") }
             ) {
                 EqL("HRTF / Spatial · ${(state.hrtf * 100).roundToInt()}%")
                 XvoxThinLineSlider(state.hrtf, viewModel::setHrtf, 0f..1f, defaultValue = .6f)
                 Spacer(Modifier.height(8.dp))
-                EqL("Center preservation · ${(state.centerPreservation * 100).roundToInt()}%")
-                XvoxThinLineSlider(state.centerPreservation, viewModel::setCenterPreservation, 0f..1f, defaultValue = 0f)
+                val balText = if (state.balance < -0.05f) "Left ${(abs(state.balance) * 100).roundToInt()}%"
+                else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
+                else "Center"
+                EqL("Stereo Balance · $balText")
+                XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+            }
+        } else {
+            // Options when 3D sound is disabled
+            SettingsAccordionItem(
+                title = "Acoustics & Balance",
+                expanded = expandedGroup == "Acoustics",
+                onToggle = { toggle("Acoustics") }
+            ) {
+                val balText = if (state.balance < -0.05f) "Left ${(abs(state.balance) * 100).roundToInt()}%"
+                else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
+                else "Center"
+                EqL("Stereo Balance · $balText")
+                XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+                Spacer(Modifier.height(8.dp))
+                EqL("Room acoustic size · ${(state.roomAmount * 100).roundToInt()}%")
+                XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
             }
         }
     })

@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
 fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
-    var expandedGroup by remember { mutableStateOf<String?>("Equalizer") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group
@@ -141,26 +141,20 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             EqLabel("Noise reduction · ${(state.noiseReduction * 100).roundToInt()}%")
             XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f)
             Spacer(Modifier.height(8.dp))
-            EqLabel("Soften highs · ${(state.softenHighs * 100).roundToInt()}%")
+            EqLabel("Grain control · ${(state.softenHighs * 100).roundToInt()}%")
             XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f)
             Spacer(Modifier.height(8.dp))
-            EqLabel("Boost protection · ${state.eqHeadroomDb.roundToInt()} dB")
+            EqLabel("Anti-clip protection · ${state.eqHeadroomDb.roundToInt()} dB")
             XvoxThinLineSlider(state.eqHeadroomDb, viewModel::setEqHeadroomDb, 0f..18f, defaultValue = 0f)
         }
 
         SettingsAccordionItem(
-            title = "Volume & Balance",
+            title = "Volume",
             expanded = expandedGroup == "Volume",
             onToggle = { toggle("Volume") }
         ) {
             EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
             XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f)
-            Spacer(Modifier.height(8.dp))
-            EqLabel("Output ceiling · ${(state.volumeLimit * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.volumeLimit, viewModel::setVolumeLimit, 0f..1f)
-            Spacer(Modifier.height(8.dp))
-            EqLabel("Balance · ${if (state.balance < -.05f) "Left ${(kotlin.math.abs(state.balance) * 100).roundToInt()}%" else if (state.balance > .05f) "Right ${(state.balance * 100).roundToInt()}%" else "Centre"}")
-            XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
         }
 
         SettingsAccordionItem(

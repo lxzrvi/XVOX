@@ -51,6 +51,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     _state.update { it.copy(lyrics = value) }
                 }
             } }
+            launch { prefs.hapticFeedbackEnabled.collect { v -> _state.update { it.copy(hapticFeedbackEnabled = v) } } }
             launch { prefs.hapticIntensity.collect { v -> _state.update { it.copy(hapticIntensity = v) } } }
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
@@ -161,6 +162,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _state.update { it.copy(lyrics = next) }
         com.xvox.music.data.preferences.PreferenceWriteQueue.submit("lyrics") { prefs.setLyricsSettings(next) }
     }
+    fun setHapticFeedbackEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setHapticFeedbackEnabled(enabled) }
     fun setHapticIntensity(v: String) = viewModelScope.launch { prefs.setHapticIntensity(v) }
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
     fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }

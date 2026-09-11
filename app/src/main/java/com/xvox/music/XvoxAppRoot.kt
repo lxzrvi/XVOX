@@ -84,6 +84,7 @@ fun XvoxAppRoot(
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
+    val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
 
     val mode = when (themeStr) {
@@ -109,7 +110,7 @@ fun XvoxAppRoot(
         cardBorder = chrome.cardBorder,
         cardBorderAlpha = chrome.cardBorderAlpha
     ) {
-        val haptics = rememberXvoxHaptics(strength = hapticIntensity)
+        val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,

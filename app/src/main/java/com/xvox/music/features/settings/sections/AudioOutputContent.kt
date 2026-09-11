@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -31,18 +30,23 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 
 /**
- * Audio output — where playback should sound. Auto lets Android follow whatever is connected;
- * Phone forces the built-in speaker, Headset forces a connected Bluetooth / wired headset (falling
- * back to Auto when none is attached). The current physical device is shown underneath.
+ * Audio output routing:
+ * - Auto: follows connected accessory or phone speaker dynamically.
+ * - Phone: forces sound to phone speaker even when Bluetooth is connected.
+ * - Headset: routes to Bluetooth / wired headphones; prompts to connect if none attached.
  */
 @Composable
 fun AudioOutputContent(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
+    val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
     val device = rememberHeadset(context)
     val currentName = device?.let(::describeDevice) ?: "Phone speaker"
 
@@ -64,14 +68,21 @@ fun AudioOutputContent(state: SettingsState, viewModel: SettingsViewModel) {
             }
         }
 
-        OutputChip("Auto", "Android chooses", state.audioOutputRoute == "auto") {
+        OutputChip("Auto", "Route according to connected audio device", state.audioOutputRoute == "auto") {
+            haptics.tap()
             viewModel.setAudioOutputRoute("auto")
         }
-        OutputChip("Phone", "Built-in speaker", state.audioOutputRoute == "phone") {
+        OutputChip("Phone", "Play from built-in phone speaker", state.audioOutputRoute == "phone") {
+            haptics.tap()
             viewModel.setAudioOutputRoute("phone")
         }
-        OutputChip("Headset", if (device != null) "Connected headset" else "Bluetooth / wired", state.audioOutputRoute == "headset") {
-            viewModel.setAudioOutputRoute("headset")
+        OutputChip("Headset", if (device != null) "Connected: $currentName" else "Bluetooth / wired headset", state.audioOutputRoute == "headset") {
+            haptics.tap()
+            if (device != null) {
+                viewModel.setAudioOutputRoute("headset")
+            } else {
+                overlays.showP("Connect to Bluetooth first")
+            }
         }
 
         Spacer(Modifier.height(2.dp))
@@ -79,6 +90,7 @@ fun AudioOutputContent(state: SettingsState, viewModel: SettingsViewModel) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .background(colors.cardElevated)
                 .xvoxPressScale {
+                    haptics.tap()
                     runCatching { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
                 }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -105,8 +117,8 @@ private fun OutputChip(title: String, subtitle: String, active: Boolean, onClick
 }
 
 /** The currently connected headset/BT output, or null when only the phone speaker is available. */
-@androidx.compose.runtime.Composable
-private fun rememberHeadset(context: Context): AudioDeviceInfo? = androidx.compose.runtime.remember(context) {
+@Composable
+private fun rememberHeadset(context: Context): AudioDeviceInfo? = remember(context) {
     val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isHeadsetOutput(it) }
 }

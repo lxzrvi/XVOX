@@ -45,7 +45,12 @@ private val RowHeight = 54.dp
 private val RowSpacing = 4.dp
 
 @Composable
-fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (Int) -> Unit, onMoveItem: (Int, Int) -> Unit) {
+fun XvoxQueueBoxContent(
+    queue: List<Song>,
+    currentSongId: Long?,
+    onPlayIndex: (Int) -> Unit,
+    onMoveItem: (Int, Int) -> Unit
+) {
     val colors = XvoxTheme.colors
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -65,7 +70,10 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
 
     LaunchedEffect(queue, draggedId) {
         if (draggedId != null && queue.none { it.id == draggedId }) draggedId = null
-        if (draggedId == null && local.toList() != queue) { local.clear(); local.addAll(queue) }
+        if (draggedId == null && local.toList() != queue) {
+            local.clear()
+            local.addAll(queue)
+        }
     }
 
     fun targetIndex(): Int {
@@ -94,32 +102,40 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
         dragStartIndex = -1
     }
 
+    // Auto-scroll loop when item is dragged near top or bottom edges
     LaunchedEffect(draggedId) {
         if (draggedId == null) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }
         while (isActive && draggedId != null) {
             val frame = withFrameNanos { it }
-            val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, .05f)
+            val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
             previousFrame = frame
-            val edge = (rowHeightPx * 1.5f).coerceAtMost(viewportHeight / 3f)
+
+            val edgeZone = (rowHeightPx * 1.8f).coerceAtMost(viewportHeight * 0.35f).coerceAtLeast(40f)
             val strength = when {
-                edge <= 0 -> 0f
-                pointerY < edge -> -((edge - pointerY) / edge).coerceIn(0f, 1f)
-                pointerY > viewportHeight - edge -> ((pointerY - viewportHeight + edge) / edge).coerceIn(0f, 1f)
+                edgeZone <= 0f -> 0f
+                pointerY < edgeZone -> -((edgeZone - pointerY) / edgeZone).coerceIn(0f, 1.2f)
+                pointerY > viewportHeight - edgeZone -> ((pointerY - (viewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.2f)
                 else -> 0f
             }
+
             if (strength != 0f) {
-                val t = strength.coerceIn(-1f, 1f)
-                val eased = t * t * (3f - 2f * abs(t)) * (if (t < 0f) -1f else 1f)
-                val consumed = listState.scrollBy(eased * rowHeightPx * 16f * seconds)
-                if (consumed != 0f) reorderAtPointer()
+                val scrollSpeed = strength * rowHeightPx * 18f
+                val consumed = listState.scrollBy(scrollSpeed * seconds)
+                if (abs(consumed) > 0.1f) {
+                    reorderAtPointer()
+                }
             }
         }
     }
 
     Column(Modifier.fillMaxWidth()) {
-        Text("${local.size} songs · Hold the dots to reorder", color = colors.secondaryText, fontSize = 11.sp,
-            modifier = Modifier.padding(bottom = 10.dp))
+        Text(
+            "${local.size} songs · Hold the dots to reorder",
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 10.dp)
+        )
         if (local.isEmpty()) {
             Text("Your queue is empty", color = colors.mutedText, modifier = Modifier.padding(20.dp))
         } else Box(Modifier.fillMaxWidth().heightIn(max = 600.dp)) {
@@ -149,7 +165,7 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                             scope.launch { listState.stopScroll() }
                         },
                         onDragDelta = { deltaY ->
-                            pointerY = (pointerY + deltaY).coerceIn(0f, viewportHeight.toFloat())
+                            pointerY += deltaY
                             reorderAtPointer()
                         },
                         onEndDrag = { finishDrag(commit = true) },
@@ -160,11 +176,17 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                                 customActions = listOf(
                                     CustomAccessibilityAction("Move up") {
                                         val index = local.indexOfFirst { it.id == song.id }
-                                        if (index > 0) { move(index, index - 1); true } else false
+                                        if (index > 0) {
+                                            move(index, index - 1)
+                                            true
+                                        } else false
                                     },
                                     CustomAccessibilityAction("Move down") {
                                         val index = local.indexOfFirst { it.id == song.id }
-                                        if (index >= 0 && index < local.lastIndex) { move(index, index + 1); true } else false
+                                        if (index >= 0 && index < local.lastIndex) {
+                                            move(index, index + 1)
+                                            true
+                                        } else false
                                     }
                                 )
                             }
@@ -176,8 +198,13 @@ fun XvoxQueueBoxContent(queue: List<Song>, currentSongId: Long?, onPlayIndex: (I
                     song = song,
                     current = song.id == currentSongId,
                     onClick = null,
-                    modifier = Modifier.offset { IntOffset(0, overlayY.roundToInt()) }
-                        .shadow(10.dp, RoundedCornerShape(14.dp)).graphicsLayer { scaleX = 1.015f; scaleY = 1.015f }
+                    modifier = Modifier
+                        .offset { IntOffset(0, overlayY.roundToInt()) }
+                        .shadow(10.dp, RoundedCornerShape(14.dp))
+                        .graphicsLayer {
+                            scaleX = 1.015f
+                            scaleY = 1.015f
+                        }
                 )
             }
         }
@@ -207,11 +234,27 @@ private fun QueueRow(
             .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        XvoxSongArtwork(song.artworkUri, requestSize = 96, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp)))
+        XvoxSongArtwork(
+            song.artworkUri,
+            requestSize = 96,
+            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
+        )
         Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-            Text(song.title, color = if (current) colors.primaryAccent else colors.primaryText,
-                fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(song.artist, color = colors.secondaryText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                song.title,
+                color = if (current) colors.primaryAccent else colors.primaryText,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                song.artist,
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         Box(
             modifier = Modifier
@@ -237,7 +280,6 @@ private fun QueueRow(
     }
 }
 
-/** The only affordance on a queue row: a plain six-dot drag handle. */
 @Composable
 private fun XvoxDragDots(modifier: Modifier = Modifier) {
     val tint = XvoxTheme.colors.mutedText

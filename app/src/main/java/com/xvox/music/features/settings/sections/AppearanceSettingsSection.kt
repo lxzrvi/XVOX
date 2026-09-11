@@ -50,8 +50,9 @@ import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
 /**
- * Appearance settings — organized into accordion label cards.
- * Tapping a card expands it and collapses the previous one.
+ * Appearance settings:
+ * Accordion items start closed by default.
+ * Includes Header transparency slider, Background settings, and dynamic Haptic feedback controls.
  */
 @Composable
 fun AppearanceSettingsSection(
@@ -59,8 +60,9 @@ fun AppearanceSettingsSection(
     viewModel: SettingsViewModel
 ) {
     val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
     val chrome = state.chromeStyle
-    var expandedGroup by remember { mutableStateOf<String?>("Theme") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group
@@ -127,6 +129,22 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Header") }
         ) {
             HeaderPhotoRow(state, viewModel)
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.width(118.dp))
+                XvoxThinLineSlider(
+                    value = chrome.headerBgAlpha,
+                    onValueChange = { a ->
+                        viewModel.setChromeStyle { it.copy(headerBgAlpha = a) }
+                    },
+                    valueRange = 0f..1f,
+                    defaultValue = 0.92f,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
+            }
         }
 
         SettingsAccordionItem(
@@ -156,16 +174,27 @@ fun AppearanceSettingsSection(
             expanded = expandedGroup == "Haptic intensity",
             onToggle = { toggle("Haptic intensity") }
         ) {
-            SettingsChoiceRow(
-                listOf(
-                    "Very Low" to "very_low",
-                    "Low" to "low",
-                    "Medium" to "medium",
-                    "High" to "high"
-                ),
-                state.hapticIntensity
-            ) { intensity ->
-                viewModel.setHapticIntensity(intensity)
+            SettingsToggle(
+                title = "Haptic feedback",
+                subtitle = "Vibrations on tap, drags, and playback controls",
+                checked = state.hapticFeedbackEnabled,
+                onChange = viewModel::setHapticFeedbackEnabled
+            )
+            if (state.hapticFeedbackEnabled) {
+                Spacer(Modifier.height(10.dp))
+                SettingsChoiceRow(
+                    listOf(
+                        "very_low" to "Soft",
+                        "low" to "Medium",
+                        "medium" to "Strong",
+                        "high" to "Sharp"
+                    ),
+                    state.hapticIntensity
+                ) { intensity ->
+                    viewModel.setHapticIntensity(intensity)
+                    haptics.strength = intensity
+                    haptics.heavy()
+                }
             }
         }
 

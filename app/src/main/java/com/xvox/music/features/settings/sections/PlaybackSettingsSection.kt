@@ -40,7 +40,7 @@ fun PlaybackSettingsSection(
     viewModel: SettingsViewModel,
     showPreview: Boolean = true
 ) {
-    var expandedGroup by remember { mutableStateOf<String?>("Duration") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group

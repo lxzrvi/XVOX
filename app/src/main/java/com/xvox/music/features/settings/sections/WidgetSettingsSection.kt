@@ -1,5 +1,8 @@
 package com.xvox.music.features.settings.sections
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,21 +25,25 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.widget.WidgetCustomization
+import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlin.math.roundToInt
 
 @Composable
 fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
+    val context = LocalContext.current
     val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
     var editingCategory by remember { mutableStateOf("Horizontal") }
     var editingSize by remember { mutableStateOf(state.widgetPreviewSize) }
     var labelId by remember { mutableStateOf("title") }
     var buttonId by remember { mutableStateOf("all") }
-    var expandedGroup by remember { mutableStateOf<String?>("Size") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group
@@ -71,6 +78,31 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     }
 
     SettingsControlsEditor(controls = {
+        // Quick Action: Add Widget to Home Screen
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.cardElevated)
+                .xvoxPressScale {
+                    haptics.tap()
+                    val manager = context.getSystemService(AppWidgetManager::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null && manager.isRequestPinAppWidgetSupported) {
+                        val provider = ComponentName(context, XvoxAppWidgetProvider::class.java)
+                        manager.requestPinAppWidget(provider, null, null)
+                        overlays.showP("Pin widget requested")
+                    } else {
+                        overlays.showP("Long-press home screen to add widget")
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Add Widget to Home Screen", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(4.dp))
+
         SettingsAccordionItem(
             title = "Widget size · $editingSize",
             expanded = expandedGroup == "Size",
@@ -106,7 +138,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Surface & Transparency",
+            title = "Surface & Positioning",
             expanded = expandedGroup == "Surface",
             onToggle = { toggle("Surface") }
         ) {
@@ -114,13 +146,14 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             Spacer(Modifier.height(8.dp))
             WidgetSlider("Corner radius", state.widgetCornerRadius.toFloat(), 0f..32f, "dp") { v -> viewModel.setWidgetCornerRadius(v.roundToInt()) }
             Spacer(Modifier.height(8.dp))
-            WidgetSlider("Border", c.borderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+            WidgetSlider("Border width", c.borderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
             Spacer(Modifier.height(8.dp))
             WidgetColourEditor("Border colour", c.borderColor) { value -> editWidget { it.copy(borderColor = value) } }
             Spacer(Modifier.height(8.dp))
-            WidgetSlider("Padding X", state.widgetPaddingX.toFloat(), 0f..32f, "dp") { v -> viewModel.setWidgetPaddingX(v.roundToInt()) }
-            Spacer(Modifier.height(8.dp))
-            WidgetSlider("Padding Y", state.widgetPaddingY.toFloat(), 0f..32f, "dp") { v -> viewModel.setWidgetPaddingY(v.roundToInt()) }
+            Group("Surface Margins & Offsets")
+            WidgetSlider("Margin X", state.widgetPaddingX.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingX(v.roundToInt()) }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Margin Y", state.widgetPaddingY.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingY(v.roundToInt()) }
         }
 
         SettingsAccordionItem(
@@ -135,20 +168,16 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             }
 
             Spacer(Modifier.height(8.dp))
-            Group("Placement")
+            Group("Placement & Free Movement")
             SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> editWidget { it.copy(coverPlacement = value) } }
             Spacer(Modifier.height(8.dp))
             SettingsChoiceRow(listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> editWidget { it.copy(coverSize = value.toInt()) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Surface offsets & Margins")
-            WidgetSlider("Margin X", c.coverMarginX.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+            Group("Surface Offsets")
+            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Margin Y", c.coverMarginY.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Padding X", c.coverPaddingX.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverPaddingX = v.roundToInt()) } }
-            Spacer(Modifier.height(6.dp))
-            WidgetSlider("Padding Y", c.coverPaddingY.toFloat(), -96f..96f, "dp") { v -> editWidget { it.copy(coverPaddingY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Shape")
@@ -177,9 +206,9 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             Group("Placement & Surface Offset")
             SettingsChoiceRow(listOf("left" to "Left", "center" to "Center", "right" to "Right"), l.alignment) { v -> label { it.copy(alignment = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset X", l.offsetX.toFloat(), -96f..96f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", l.offsetX.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", l.offsetY.toFloat(), -96f..96f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", l.offsetY.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsAccordionItem(
@@ -198,9 +227,9 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
             Spacer(Modifier.height(8.dp))
             Group("Surface Offset")
-            WidgetSlider("Offset X", b.offsetX.toFloat(), -96f..96f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", b.offsetX.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", b.offsetY.toFloat(), -96f..96f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", b.offsetY.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsChoiceRow(listOf("reset_all" to "Reset size", "reset_base" to "Reset defaults"), "") { key ->

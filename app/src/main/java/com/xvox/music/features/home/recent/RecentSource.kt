@@ -57,7 +57,7 @@ fun RecentSourceBadge(source: String?, onClick: () -> Unit, modifier: Modifier =
         Icon(
             painter = painterResource(RecentSource.icon(source)),
             contentDescription = RecentSource.describe(source),
-            tint = XvoxTheme.colors.primaryAccent,
+            tint = Color.White,
             modifier = Modifier.size(12.dp)
         )
     }

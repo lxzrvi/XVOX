@@ -18,7 +18,7 @@ import com.xvox.music.features.settings.components.SettingsControlsEditor
 
 @Composable
 fun HeadsetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
-    var expandedGroup by remember { mutableStateOf<String?>("Routing") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group

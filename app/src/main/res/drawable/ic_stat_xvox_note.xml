@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pure white silhouette for status-bar notifications (Android tints to white anyway). -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,3v10.55c-0.59,-0.34 -1.27,-0.55 -2,-0.55 -2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4V7h4V3h-6z" />
+        android:pathData="M11,3 L11,13.18 C10.43,12.76 9.74,12.5 9,12.5 C7.07,12.5 5.5,14.07 5.5,16 C5.5,17.93 7.07,19.5 9,19.5 C10.93,19.5 12.5,17.93 12.5,16 L12.5,6.5 L18,6.5 L18,3 L11,3 Z" />
 </vector>

@@ -10,6 +10,7 @@ data class SettingsState(
     val backgroundImageUri: String? = null,
     val cardTransparency: Float = 0f,
     val fontSizeScale: Float = 1.0f,
+    val hapticFeedbackEnabled: Boolean = true,
     val hapticIntensity: String = "medium",
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",

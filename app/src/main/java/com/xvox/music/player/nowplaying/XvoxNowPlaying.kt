@@ -210,11 +210,10 @@ fun XvoxNowPlaying(
         return
     }
 
-    // As the player slides down the top corners round off, so the closing sheet always reads
-    // as one soft-edged card peeling away from the Home screen behind it. The rounding eases in
-    // — small while you nudge it, fullest as the sheet is about to let go.
+    // As the player slides down the top corners round off with a top-side rounded border,
+    // so the sheet reads as a soft-edged card peeling away smoothly.
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val cornerRadiusDp = if (screenY <= 0.5f) 0.dp else (32.dp * slideFraction.coerceIn(0f, 1f))
+    val cornerRadiusDp = if (screenY <= 1f) 0.dp else (24.dp + 12.dp * slideFraction).coerceIn(0.dp, 36.dp)
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
         topEnd = cornerRadiusDp
@@ -223,9 +222,14 @@ fun XvoxNowPlaying(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clip(sheetCorner)
             .graphicsLayer { translationY = screenY }
+            .clip(sheetCorner)
             .background(paletteState.color)
+            .border(
+                width = if (screenY > 1f) 1.dp else 0.dp,
+                color = colors.cardBorder.copy(alpha = if (screenY > 1f) (0.35f + slideFraction * 0.45f) else 0f),
+                shape = sheetCorner
+            )
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
@@ -233,23 +237,7 @@ fun XvoxNowPlaying(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onVerticalDrag = { _, dragAmount ->
-                            screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                        },
-                        onDragEnd = {
-                            if (screenY > screenHeight * 0.25f) {
-                                dismiss()
-                            } else {
-                                returnToRest()
-                            }
-                        },
-                        onDragCancel = { returnToRest() }
-                    )
-                }
+            modifier = Modifier.fillMaxSize()
         ) {
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
@@ -258,7 +246,22 @@ fun XvoxNowPlaying(
                     quickPage = null
                     showQuickSettingsSheet = true
                 },
-                playingSource = playingSource
+                playingSource = playingSource,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            screenY = (screenY + dragAmount).coerceAtLeast(0f)
+                        },
+                        onDragEnd = {
+                            if (screenY > screenHeight * 0.18f) {
+                                dismiss()
+                            } else {
+                                returnToRest()
+                            }
+                        },
+                        onDragCancel = { returnToRest() }
+                    )
+                }
             )
 
             Box(

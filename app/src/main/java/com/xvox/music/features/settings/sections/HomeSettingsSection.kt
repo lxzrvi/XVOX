@@ -38,7 +38,7 @@ fun HomeSettingsSection(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    var expandedGroup by remember { mutableStateOf<String?>("Card style") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group

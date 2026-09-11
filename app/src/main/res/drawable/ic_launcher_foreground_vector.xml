@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- XVOX Bold Modern Music Note & Waveform Logo -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M49,24 L49,57.5 C46.8,55.7 44,54.5 41,54.5 C33.3,54.5 27,60.8 27,68.5 C27,76.2 33.3,82.5 41,82.5 C48.7,82.5 55,76.2 55,68.5 L55,38 L77,38 L77,24 L49,24 Z" />
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M63,44 L77,44 L77,54 L63,54 Z" />
+    <path
+        android:fillColor="#B3FFFFFF"
+        android:pathData="M63,60 L73,60 L73,70 L63,70 Z" />
+</vector>

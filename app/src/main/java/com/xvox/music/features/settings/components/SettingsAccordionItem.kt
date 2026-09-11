@@ -39,11 +39,12 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 
-private val XvoxSettingsEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+private val XvoxSettingsEasing = CubicBezierEasing(0.2f, 0.9f, 0.15f, 1f)
 
 /**
- * An accordion label card for Settings with a smooth organic reveal animation.
- * Tapping expands its controls; tapping another collapses this one.
+ * An accordion item for Settings:
+ * Natural organic expand animation, clean card border (no distracting bright accent border),
+ * and starts collapsed by default until user taps.
  */
 @Composable
 fun SettingsAccordionItem(
@@ -62,12 +63,12 @@ fun SettingsAccordionItem(
     )
     val surface by animateColorAsState(
         targetValue = if (expanded) colors.cardElevated else colors.card,
-        animationSpec = tween(240, easing = XvoxSettingsEasing),
+        animationSpec = tween(220, easing = XvoxSettingsEasing),
         label = "accordion_surface"
     )
     val accent by animateColorAsState(
         targetValue = if (expanded) colors.primaryAccent else colors.primaryText,
-        animationSpec = tween(240, easing = XvoxSettingsEasing),
+        animationSpec = tween(220, easing = XvoxSettingsEasing),
         label = "accordion_accent"
     )
 
@@ -76,7 +77,7 @@ fun SettingsAccordionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(surface)
-            .border(0.7.dp, if (expanded) colors.primaryAccent.copy(alpha = 0.35f) else colors.cardBorder, RoundedCornerShape(14.dp))
+            .border(0.7.dp, colors.cardBorder, RoundedCornerShape(14.dp))
     ) {
         Row(
             modifier = Modifier
@@ -124,16 +125,18 @@ fun SettingsAccordionItem(
         AnimatedVisibility(
             visible = expanded,
             enter = expandVertically(
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = 380f),
-                expandFrom = Alignment.Top
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f),
+                expandFrom = Alignment.Top,
+                clip = false
             ) + fadeIn(
-                animationSpec = tween(280, delayMillis = 40, easing = XvoxSettingsEasing)
+                animationSpec = tween(240, easing = XvoxSettingsEasing)
             ),
             exit = shrinkVertically(
                 animationSpec = spring(dampingRatio = 0.88f, stiffness = 450f),
-                shrinkTowards = Alignment.Top
+                shrinkTowards = Alignment.Top,
+                clip = false
             ) + fadeOut(
-                animationSpec = tween(160, easing = XvoxSettingsEasing)
+                animationSpec = tween(150, easing = XvoxSettingsEasing)
             )
         ) {
             Column(

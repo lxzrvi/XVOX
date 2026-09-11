@@ -278,11 +278,16 @@ fun LyricsStagePreview(state: SettingsState) {
                     sample.lastIndex -> 1f - lyrics.fadeBottom.coerceIn(0f, .45f)
                     else -> 1f
                 }
+                val lineFontSize = when {
+                    current -> lyrics.currentSize
+                    index < active -> lyrics.topSize
+                    else -> lyrics.bottomSize
+                }
                 Text(
                     text = line,
                     color = if (current) colors.primaryAccent
                     else colors.primaryText.copy(alpha = (otherAlpha * edgeFade).coerceIn(.08f, 1f)),
-                    fontSize = (if (current) lyrics.currentSize else lyrics.otherSize).sp,
+                    fontSize = lineFontSize.sp,
                     fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
                     textAlign = textAlign,

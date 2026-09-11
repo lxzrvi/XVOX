@@ -25,22 +25,34 @@ class XvoxHaptics(
             val level = strength.lowercase()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val (ms, amp) = when (level) {
-                    "very_low" -> 5L to 25
-                    "low" -> 8L to 60
-                    "high" -> 20L to 255
-                    else -> 12L to 120 // medium
+                    "very_low" -> 6L to 30 // Soft
+                    "low" -> 12L to 85 // Medium
+                    "high" -> 28L to 255 // Sharp
+                    else -> 18L to 160 // Strong (default)
                 }
                 if (vibrator?.hasAmplitudeControl() == true) {
                     vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                    val effect = when (level) {
+                        "very_low" -> VibrationEffect.EFFECT_TICK
+                        "low" -> VibrationEffect.EFFECT_CLICK
+                        "high" -> VibrationEffect.EFFECT_HEAVY_CLICK
+                        else -> VibrationEffect.EFFECT_CLICK
+                    }
+                    vibrator?.vibrate(VibrationEffect.createPredefined(effect))
                 } else {
                     @Suppress("DEPRECATION")
                     vibrator?.vibrate(ms)
                 }
             } else {
                 @Suppress("DEPRECATION")
-                vibrator?.vibrate(10L)
+                val ms = when (level) {
+                    "very_low" -> 5L
+                    "low" -> 10L
+                    "high" -> 25L
+                    else -> 15L
+                }
+                vibrator?.vibrate(ms)
             }
         }
     }
@@ -63,10 +75,10 @@ class XvoxHaptics(
             val level = strength.lowercase()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val (ms, amp) = when (level) {
-                    "very_low" -> 14L to 55
-                    "low" -> 22L to 110
-                    "high" -> 45L to 255
-                    else -> 30L to 180 // medium
+                    "very_low" -> 16L to 60
+                    "low" -> 26L to 130
+                    "high" -> 50L to 255
+                    else -> 36L to 200
                 }
                 if (vibrator?.hasAmplitudeControl() == true) {
                     vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
