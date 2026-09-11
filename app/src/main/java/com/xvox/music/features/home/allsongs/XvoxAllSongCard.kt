@@ -60,7 +60,7 @@ fun XvoxAllSongCard(
             .clip(cardShape)
             .background(cardColor)
             .border(width = borderWidth, color = borderColor, shape = cardShape)
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 1f, hapticOnTap = false)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.96f, hapticOnTap = false)
             .padding(5.dp)
     ) {
         Box(

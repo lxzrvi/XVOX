@@ -58,12 +58,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
 import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.data.preferences.LyricsSettings
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.nowplaying.XvoxNowPlayingProgress
@@ -72,12 +75,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
-/**
- * Full-screen lyrics:
- * - Header styling inherits Home header background & opacity settings.
- * - Moving gradient preference is stored and built from the song's dominant color.
- * - First tap reveals header/chrome; when visible, tapping a lyric seeks the song.
- */
 @Composable
 fun XvoxFullscreenLyrics(
     song: Song,
@@ -93,16 +90,20 @@ fun XvoxFullscreenLyrics(
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
     onClose: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val colors = XvoxTheme.colors
     val chrome = LocalXvoxChromeStyle.current
     val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
     val prefs = remember(context) { UserPreferencesRepository(context) }
     val scope = rememberCoroutineScope()
-    val savedGradient by prefs.fullscreenLyricsGradient.collectAsState(initial = true)
-    var gradientEnabled by remember(savedGradient) { mutableStateOf(savedGradient) }
+
+    val profilePrefs by prefs.userPreferences.collectAsState(initial = null)
+    val lyricsSettings by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
+    val gradientAnim = lyricsSettings.gradientAnimation
 
     val view = LocalView.current
     val statusBarPx = remember(view) {
@@ -153,41 +154,145 @@ fun XvoxFullscreenLyrics(
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "lyricGradient")
-    val gradientPhase by infiniteTransition.animateFloat(
+    val phase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.28318f,
         animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
+            animation = tween(11000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "phase"
     )
+
+    fun cycleGradient() {
+        val next = when (gradientAnim) {
+            "off" -> "wave"
+            "wave" -> "aurora"
+            "aurora" -> "pulse"
+            "pulse" -> "orbital"
+            "orbital" -> "prism"
+            else -> "off"
+        }
+        scope.launch { prefs.setLyricsSettings(lyricsSettings.copy(gradientAnimation = next)) }
+        haptics.tap()
+        val label = when (next) {
+            "wave" -> "Gradient: Wave"
+            "aurora" -> "Gradient: Aurora"
+            "pulse" -> "Gradient: Radial Pulse"
+            "orbital" -> "Gradient: Orbital Glow"
+            "prism" -> "Gradient: Prism Drift"
+            else -> "Gradient: Off"
+        }
+        overlays.showP(label)
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Dynamic moving gradient built from song's dominant color
-        if (gradientEnabled) {
-            Canvas(Modifier.fillMaxSize()) {
-                val cx = size.width / 2f + (size.width * 0.35f * cos(gradientPhase))
-                val cy = size.height / 2f + (size.height * 0.35f * sin(gradientPhase))
-                val start = Offset(cx - size.width * 0.55f, cy - size.height * 0.55f)
-                val end = Offset(cx + size.width * 0.55f, cy + size.height * 0.55f)
-                val dominantPrimary = backgroundColor
-                val dominantSecondary = backgroundColor.copy(alpha = 0.50f)
-                val baseDark = colors.background
-                drawRect(
-                    brush = Brush.linearGradient(
-                        colors = listOf(dominantPrimary, dominantSecondary, baseDark),
-                        start = start,
-                        end = end
+        // Render one of 5 distinct dynamic gradient background effects
+        when (gradientAnim) {
+            "wave" -> {
+                Canvas(Modifier.fillMaxSize()) {
+                    val cx = size.width / 2f + (size.width * 0.35f * cos(phase))
+                    val cy = size.height / 2f + (size.height * 0.35f * sin(phase))
+                    val start = Offset(cx - size.width * 0.55f, cy - size.height * 0.55f)
+                    val end = Offset(cx + size.width * 0.55f, cy + size.height * 0.55f)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                backgroundColor,
+                                backgroundColor.copy(alpha = 0.55f),
+                                colors.primaryAccent.copy(alpha = 0.25f),
+                                colors.background
+                            ),
+                            start = start,
+                            end = end
+                        )
                     )
-                )
+                }
             }
-        } else {
-            Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.30f)))
+            "aurora" -> {
+                Canvas(Modifier.fillMaxSize()) {
+                    val radius = size.maxDimension * 0.75f
+                    val x1 = size.width * (0.3f + 0.25f * sin(phase))
+                    val y1 = size.height * (0.25f + 0.20f * cos(phase))
+                    val x2 = size.width * (0.7f + 0.25f * cos(phase * 0.8f))
+                    val y2 = size.height * (0.65f + 0.20f * sin(phase * 0.8f))
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(backgroundColor.copy(alpha = 0.85f), Color.Transparent),
+                            center = Offset(x1, y1),
+                            radius = radius
+                        )
+                    )
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(colors.primaryAccent.copy(alpha = 0.45f), Color.Transparent),
+                            center = Offset(x2, y2),
+                            radius = radius * 0.85f
+                        )
+                    )
+                }
+            }
+            "pulse" -> {
+                Canvas(Modifier.fillMaxSize()) {
+                    val pulseScale = 0.85f + 0.25f * sin(phase * 1.5f)
+                    val radius = (size.minDimension * 0.65f) * pulseScale
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                backgroundColor.copy(alpha = 0.90f),
+                                backgroundColor.copy(alpha = 0.40f),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width / 2f, size.height / 2f),
+                            radius = radius
+                        )
+                    )
+                }
+            }
+            "orbital" -> {
+                Canvas(Modifier.fillMaxSize()) {
+                    val orbitR = size.minDimension * 0.38f
+                    val ox = size.width / 2f + orbitR * cos(phase)
+                    val oy = size.height / 2f + orbitR * sin(phase)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                backgroundColor.copy(alpha = 0.95f),
+                                colors.primaryAccent.copy(alpha = 0.40f),
+                                Color.Transparent
+                            ),
+                            center = Offset(ox, oy),
+                            radius = size.minDimension * 0.55f
+                        )
+                    )
+                }
+            }
+            "prism" -> {
+                Canvas(Modifier.fillMaxSize()) {
+                    val angle = phase * 25f
+                    val start = Offset(size.width * (0.5f + 0.4f * cos(phase)), 0f)
+                    val end = Offset(size.width * (0.5f - 0.4f * cos(phase)), size.height)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                backgroundColor,
+                                colors.primaryAccent.copy(alpha = 0.5f),
+                                Color(0xFF007AFF).copy(alpha = 0.35f),
+                                colors.background
+                            ),
+                            start = start,
+                            end = end
+                        )
+                    )
+                }
+            }
+            else -> {
+                Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.30f)))
+            }
         }
 
         // Lyric Stage
@@ -196,11 +301,7 @@ fun XvoxFullscreenLyrics(
                 .fillMaxSize()
                 .pointerInput(chromeVisible) {
                     detectTapGestures {
-                        if (!chromeVisible) {
-                            chromeVisible = true
-                        } else {
-                            chromeVisible = false
-                        }
+                        chromeVisible = !chromeVisible
                     }
                 }
         ) {
@@ -262,9 +363,10 @@ fun XvoxFullscreenLyrics(
             }
         }
 
-        // Header and Status Bar overlay (inherits Home's header settings)
+        // Top Header Overlay (inherits Home's header settings and photo)
         val headerBg = colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
         val headerEdge = parseHexColor(chrome.headerBorder) ?: colors.cardBorder
+        val headerPhoto = profilePrefs?.headerImageUri?.takeIf { it.isNotBlank() }
 
         AnimatedVisibility(
             visible = chromeVisible,
@@ -283,6 +385,20 @@ fun XvoxFullscreenLyrics(
                     .fillMaxWidth()
                     .background(headerBg)
             ) {
+                if (headerPhoto != null) {
+                    AsyncImage(
+                        model = headerPhoto,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.matchParentSize()
+                    )
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .background(headerBg)
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -330,6 +446,42 @@ fun XvoxFullscreenLyrics(
                         Spacer(Modifier.size(6.dp))
                     }
 
+                    // Effect / Sparkles button (cycles 5 gradients)
+                    val gradientIsActive = gradientAnim != "off"
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (gradientIsActive) colors.primaryAccent.copy(alpha = 0.28f)
+                                else colors.card.copy(alpha = 0.32f)
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = ::cycleGradient
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_sparkle),
+                            contentDescription = "Cycle gradient effect",
+                            tint = if (gradientIsActive) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.size(6.dp))
+
+                    if (onOpenSettings != null) {
+                        FullscreenCircle(
+                            resource = R.drawable.ic_xvox_settings,
+                            description = "Lyrics settings",
+                            onClick = onOpenSettings
+                        )
+                        Spacer(Modifier.size(6.dp))
+                    }
+
                     FullscreenCircle(
                         resource = R.drawable.ic_xvox_lyrics_add,
                         description = "Add or change lyrics",
@@ -337,7 +489,6 @@ fun XvoxFullscreenLyrics(
                     )
                 }
 
-                // Border matching header chrome
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -375,12 +526,6 @@ fun XvoxFullscreenLyrics(
 
                     LyricsTransport(
                         isPlaying = isPlaying,
-                        gradientEnabled = gradientEnabled,
-                        onToggleGradient = {
-                            val next = !gradientEnabled
-                            gradientEnabled = next
-                            scope.launch { prefs.setFullscreenLyricsGradient(next) }
-                        },
                         onPrevious = onPrevious,
                         onTogglePlay = onTogglePlay,
                         onNext = onNext
@@ -409,8 +554,6 @@ fun XvoxFullscreenLyrics(
 @Composable
 private fun LyricsTransport(
     isPlaying: Boolean,
-    gradientEnabled: Boolean,
-    onToggleGradient: () -> Unit,
     onPrevious: () -> Unit,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit
@@ -423,23 +566,6 @@ private fun LyricsTransport(
             .background(colors.card.copy(alpha = 0.38f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onToggleGradient
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_sparkle),
-                contentDescription = "Toggle moving gradient",
-                tint = if (gradientEnabled) colors.primaryAccent else colors.mutedText,
-                modifier = Modifier.size(17.dp)
-            )
-        }
         TransportButton(R.drawable.ic_xvox_skip_previous, onPrevious)
         TransportButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onTogglePlay)
         TransportButton(R.drawable.ic_xvox_skip_next, onNext)

@@ -140,20 +140,29 @@ private fun HeaderPhotoRow(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val context = LocalContext.current
+    var croppingUri by remember { mutableStateOf<Uri?>(null) }
+
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            viewModel.setHeaderImageUri(uri.toString())
-            if (viewModel.state.value.chromeStyle.headerBgAlpha >= 0.9f) {
-                viewModel.setChromeStyle { it.copy(headerBgAlpha = 0.28f) }
-            }
+            croppingUri = uri
         }
+    }
+
+    if (croppingUri != null) {
+        com.xvox.music.core.ui.components.XvoxImageCropDialog(
+            sourceUri = croppingUri!!,
+            isCircle = false,
+            onCropped = { croppedUri ->
+                croppingUri = null
+                viewModel.setHeaderImageUri(croppedUri.toString())
+                if (viewModel.state.value.chromeStyle.headerBgAlpha >= 0.9f) {
+                    viewModel.setChromeStyle { it.copy(headerBgAlpha = 0.28f) }
+                }
+            },
+            onDismiss = { croppingUri = null }
+        )
     }
 
     Column(Modifier.fillMaxWidth()) {

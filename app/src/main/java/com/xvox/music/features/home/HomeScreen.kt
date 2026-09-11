@@ -109,6 +109,10 @@ fun HomeScreen(
         val currentArtist = showArtistInfo!!
         ArtistInfoDialog(
             artist = currentArtist,
+            columns = config.artistColumns,
+            gap = config.artistGap,
+            onColumnsChange = { viewModel.setArtistColumns(it) },
+            onGapChange = { viewModel.setArtistGap(it) },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
                 playerViewModel.playNextInQueue(currentArtist.songs)
@@ -267,9 +271,11 @@ fun HomeScreen(
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
+                columns = config.artistColumns,
+                gap = config.artistGap,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
-                modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp)
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

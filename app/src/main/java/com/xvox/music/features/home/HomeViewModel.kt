@@ -396,6 +396,10 @@ class HomeViewModel(
         return ids.mapNotNull { byId[it] }
     }
 
+    fun setArtistColumns(value: Int) = viewModelScope.launch { preferencesRepository.setArtistColumns(value) }
+    fun setArtistGap(value: Int) = viewModelScope.launch { preferencesRepository.setArtistGap(value) }
+    fun setArtistRows(value: Int) = viewModelScope.launch { preferencesRepository.setArtistRows(value) }
+
     override fun onCleared() {
         prefetchJob?.cancel()
         super.onCleared()

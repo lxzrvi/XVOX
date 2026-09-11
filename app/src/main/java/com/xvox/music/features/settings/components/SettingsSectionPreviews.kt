@@ -76,6 +76,7 @@ fun SettingsSectionPreview(title: String, state: SettingsState, modifier: Modifi
                 rows = state.widgetPreviewSize.substringAfter('x').toIntOrNull() ?: 1
             )
             "Headset", "Bluetooth" -> HeadsetPreview(state)
+            "Notify", "Notifications" -> NotifyPreview(state)
             else -> AppearancePreview(state)
         }
     }
@@ -426,6 +427,89 @@ fun HeadsetPreview(state: SettingsState) {
                     tint = if (toHeadset) colors.primaryAccent else colors.mutedText,
                     modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Notifications preview:
+ * Realistic rich music reminder notification with 20-30 words rich description and quick action buttons.
+ */
+@Composable
+fun NotifyPreview(state: SettingsState) {
+    val colors = XvoxTheme.colors
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.cardElevated)
+            .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(colors.primaryAccent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_music_note),
+                        contentDescription = null,
+                        tint = colors.background,
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+                Text("XVOX · Music Reminder", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Text("Just now", color = colors.mutedText, fontSize = 10.sp)
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = "Time to reconnect with your rhythm",
+            color = colors.primaryText,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(3.dp))
+
+        Text(
+            text = "Take a breather and dive into your personal audio universe. Your favorite playlists and immersive 3D beats are ready whenever you want to escape into crystal clear rhythm.",
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            lineHeight = 15.sp
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.primaryAccent)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text("Play Music", color = colors.background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surface)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text("Open Library", color = colors.primaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
             }
         }
     }

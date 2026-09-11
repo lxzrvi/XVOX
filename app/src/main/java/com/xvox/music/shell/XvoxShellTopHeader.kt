@@ -158,44 +158,53 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    Icon(
-                        painter = painterResource(
-                            if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
-                            else R.drawable.ic_xvox_heart_outline
-                        ),
-                        contentDescription = "Liked Songs",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
-                            .padding(8.dp)
-                    )
+                    if (!mergedHome && !likedSectionHidden) {
+                        Icon(
+                            painter = painterResource(
+                                if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
+                                else R.drawable.ic_xvox_heart_outline
+                            ),
+                            contentDescription = "Liked Songs",
+                            tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
+                                .padding(8.dp)
+                        )
+                    }
 
-                    Icon(
-                        painter = painterResource(
-                            if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
-                                R.drawable.ic_xvox_music_note
-                            } else {
-                                R.drawable.ic_xvox_playlist
-                            }
-                        ),
-                        contentDescription = "Playlists",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
-                            .padding(8.dp)
-                    )
+                    if (!mergedHome && !playlistsSectionHidden) {
+                        Icon(
+                            painter = painterResource(
+                                if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
+                                    R.drawable.ic_xvox_music_note
+                                } else {
+                                    R.drawable.ic_xvox_playlist
+                                }
+                            ),
+                            contentDescription = "Playlists",
+                            tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
+                                .padding(8.dp)
+                        )
+                    }
 
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_microphone),
-                        contentDescription = "Artists",
-                        tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .xvoxPressScale(pressedScale = 0.90f) { onArtistClick() }
-                            .padding(8.dp)
-                    )
+                    if (!mergedHome) {
+                        Icon(
+                            painter = painterResource(
+                                if (libraryMode == XvoxHomeLibraryMode.ARTISTS) R.drawable.ic_xvox_microphone
+                                else R.drawable.ic_xvox_microphone_outline
+                            ),
+                            contentDescription = "Artists",
+                            tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .xvoxPressScale(pressedScale = 0.90f) { onArtistClick() }
+                                .padding(8.dp)
+                        )
+                    }
                 }
             }
         }

@@ -37,6 +37,7 @@ fun XvoxArtworkLyrics(
     onDelete: () -> Unit,
     onClose: () -> Unit,
     onFullscreen: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -57,11 +58,7 @@ fun XvoxArtworkLyrics(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                colors.background.copy(
-                    alpha = 0.27f
-                )
-            )
+            .background(colors.background.copy(alpha = 0.27f))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, _ ->
@@ -76,10 +73,7 @@ fun XvoxArtworkLyrics(
                     text = "Loading lyrics…",
                     color = colors.secondaryText,
                     fontSize = 12.sp,
-                    modifier =
-                        Modifier.align(
-                            Alignment.Center
-                        )
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
 
@@ -88,8 +82,7 @@ fun XvoxArtworkLyrics(
                     lyrics = state.lyrics,
                     position = position,
                     onSeek = onSeek,
-                    modifier =
-                        Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
@@ -98,84 +91,60 @@ fun XvoxArtworkLyrics(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(54.dp)
-                        .background(
-                            colors.card.copy(
-                                alpha = 0.25f
-                            ),
-                            CircleShape
-                        )
+                        .background(colors.card.copy(alpha = 0.25f), CircleShape)
                         .clickable(
-                            interactionSource =
-                                remember {
-                                    MutableInteractionSource()
-                                },
+                            interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
-                            launcher.launch(
-                                arrayOf("*/*")
-                            )
+                            launcher.launch(arrayOf("*/*"))
                         },
-                    contentAlignment =
-                        Alignment.Center
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter =
-                            painterResource(
-                                R.drawable
-                                    .ic_xvox_lyrics_add
-                            ),
-                        contentDescription =
-                            "Add lyrics",
+                        painter = painterResource(R.drawable.ic_xvox_lyrics_add),
+                        contentDescription = "Add lyrics",
                         tint = colors.primaryText,
-                        modifier =
-                            Modifier.size(23.dp)
+                        modifier = Modifier.size(23.dp)
                     )
                 }
             }
         }
 
+        // Top right actions pill
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(9.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             if (custom) {
-                LyricsDeleteButton(
-                    onClick = onDelete
-                )
-
-                Spacer(
-                    Modifier.size(7.dp)
-                )
+                LyricsDeleteButton(onClick = onDelete)
+                Spacer(Modifier.size(7.dp))
             }
 
             Row(
                 modifier = Modifier
                     .background(
-                        colors.card.copy(
-                            alpha = 0.20f
-                        ),
-                        RoundedCornerShape(
-                            18.dp
-                        )
+                        colors.card.copy(alpha = 0.20f),
+                        RoundedCornerShape(18.dp)
                     )
                     .padding(horizontal = 3.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 LyricsAction(
-                    resource =
-                        R.drawable
-                            .ic_xvox_fullscreen,
+                    resource = R.drawable.ic_xvox_fullscreen,
                     onClick = onFullscreen
                 )
 
+                if (onOpenSettings != null) {
+                    LyricsAction(
+                        resource = R.drawable.ic_xvox_settings,
+                        onClick = onOpenSettings
+                    )
+                }
+
                 LyricsAction(
-                    resource =
-                        R.drawable
-                            .ic_xvox_close,
+                    resource = R.drawable.ic_xvox_close,
                     onClick = onClose
                 )
             }
@@ -184,38 +153,23 @@ fun XvoxArtworkLyrics(
 }
 
 @Composable
-private fun LyricsDeleteButton(
-    onClick: () -> Unit
-) {
+private fun LyricsDeleteButton(onClick: () -> Unit) {
     val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
             .size(36.dp)
-            .background(
-                colors.card.copy(
-                    alpha = 0.20f
-                ),
-                CircleShape
-            )
+            .background(colors.card.copy(alpha = 0.20f), CircleShape)
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    R.drawable.ic_xvox_delete
-                ),
-            contentDescription =
-                "Remove custom lyrics",
+            painter = painterResource(R.drawable.ic_xvox_delete),
+            contentDescription = "Remove custom lyrics",
             tint = colors.primaryText,
             modifier = Modifier.size(17.dp)
         )
@@ -233,19 +187,14 @@ private fun LyricsAction(
         modifier = Modifier
             .size(36.dp)
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = colors.primaryText,
             modifier = Modifier.size(18.dp)

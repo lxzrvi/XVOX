@@ -6,14 +6,11 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -21,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -36,23 +32,41 @@ import com.xvox.music.features.home.XvoxSongArtwork
 @Composable
 fun XvoxArtistGrid(
     artists: List<XvoxArtist>,
+    columns: Int = 5,
+    gap: Int = 8,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(5),
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    val colCount = columns.coerceIn(2, 8)
+    val chunked = artists.chunked(colCount)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(gap.dp)
     ) {
-        items(artists, key = { it.name }) { artist ->
-            ArtistCircleItem(
-                artist = artist,
-                onClick = { onArtistClick(artist) },
-                onLongClick = { onArtistLongClick(artist) }
-            )
+        chunked.forEach { rowArtists ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap.dp)
+            ) {
+                rowArtists.forEach { artist ->
+                    ArtistCircleItem(
+                        artist = artist,
+                        onClick = { onArtistClick(artist) },
+                        onLongClick = { onArtistLongClick(artist) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                // Fill empty slots so rows stay evenly spaced
+                if (rowArtists.size < colCount) {
+                    repeat(colCount - rowArtists.size) {
+                        Box(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
         }
     }
 }
@@ -69,7 +83,6 @@ fun ArtistCircleItem(
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick

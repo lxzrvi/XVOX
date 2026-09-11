@@ -286,7 +286,7 @@ private fun SettingsSectionCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.card)
-            .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, if (expanded) colors.primaryAccent.copy(alpha = 0.35f) else colors.cardBorder, RoundedCornerShape(16.dp))
     ) {
         Row(
             modifier = Modifier
@@ -323,8 +323,18 @@ private fun SettingsSectionCard(
 
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(tween(220)),
-            exit = shrinkVertically(tween(180))
+            enter = expandVertically(
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.85f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                )
+            ),
+            exit = shrinkVertically(
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.85f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                )
+            )
         ) {
             Column(
                 modifier = Modifier

@@ -50,8 +50,14 @@ fun XvoxRecentCarousel(
                             .animateItem(fadeInSpec = tween(160), placementSpec = tween(200), fadeOutSpec = tween(120)))
                 }
             }
-            XvoxRecentPositionRail(songs.size, state, itemWidth, edge * 2, itemWidth * .22f,
-                Modifier.padding(top = HomeGeometry.sectionGap))
+            XvoxRecentPositionRail(
+                songs.size,
+                state,
+                itemWidth,
+                edge * 2,
+                itemWidth * .22f,
+                Modifier.padding(top = 8.dp, bottom = 8.dp)
+            )
         }
     }
 }

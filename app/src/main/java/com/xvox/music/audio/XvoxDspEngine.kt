@@ -169,13 +169,10 @@ class XvoxDspEngine {
         targetRoom = if (spatialActive) s.roomAmount.toDouble().coerceIn(0.0, 1.0) * 2.0 else 1.0
         targetHrtf = if (spatialActive) s.hrtf.toDouble().coerceIn(0.0, 1.0) else 0.6
         targetCenter = if (spatialActive) s.centerPreservation.toDouble().coerceIn(0.0, 1.0) else 0.0
-        // Room size is intensity, not a mode: it scales how big the selected hall/room sounds
-        // while the chosen reverb preset stays exactly where the user put it.
-        targetReverb = (s.reverbAmount.toDouble().coerceIn(0.0, 1.0) *
-            (0.55 + 0.90 * s.roomAmount.toDouble().coerceIn(0.0, 1.0))).coerceIn(0.0, 1.0)
+        targetReverb = s.reverbAmount.toDouble().coerceIn(0.0, 1.0)
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
-        targetPeriod = s.orbitSeconds.toDouble().coerceIn(2.0, 10.0)
+        targetPeriod = s.orbitSeconds.toDouble().coerceIn(1.0, 15.0)
     }
 
     fun process(inputLeft: Float, inputRight: Float) {

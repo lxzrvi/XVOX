@@ -76,27 +76,30 @@ fun XvoxPlaylistCoverEditor(
     val scope = rememberCoroutineScope()
     val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
     val savedCovers by prefs.customCoverUris.collectAsState(initial = emptyList())
+    var croppingUri by remember { mutableStateOf<Uri?>(null) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            // Photo picker grants may not outlive the activity by default; keep the read grant so
-            // a second pick (or a restore) always works — the old bug where only the first image
-            // could be applied was exactly this lost grant.
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            scope.launch {
-                val stored = prefs.addCustomCover(uri.toString())
-                selected.clear()
-                // If copying into app storage failed for any reason, keep the raw picker URI so the
-                // chosen image still applies instead of silently doing nothing.
-                customUri = Uri.parse(stored ?: uri.toString())
-            }
+            croppingUri = uri
         }
+    }
+
+    if (croppingUri != null) {
+        com.xvox.music.core.ui.components.XvoxImageCropDialog(
+            sourceUri = croppingUri!!,
+            isCircle = false,
+            onCropped = { croppedUri ->
+                croppingUri = null
+                scope.launch {
+                    val stored = prefs.addCustomCover(croppedUri.toString())
+                    selected.clear()
+                    customUri = Uri.parse(stored ?: croppedUri.toString())
+                }
+            },
+            onDismiss = { croppingUri = null }
+        )
     }
 
     // Any pick between 1 and 4 covers is valid; the mosaic renders whichever count is kept.

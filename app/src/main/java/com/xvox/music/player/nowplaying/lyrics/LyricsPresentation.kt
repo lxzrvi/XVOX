@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.data.preferences.LyricsSettings
 import kotlin.math.abs
 
@@ -85,19 +86,27 @@ fun LyricPresentationLine(
 
     val shiftY by animateFloatAsState(
         when (animation) {
-            "slide" -> if (active) 0f else distance.coerceIn(-1, 1) * 18f
-            "rise" -> if (active) 0f else distance.coerceIn(-2, 4) * 22f
-            "spring" -> if (active) 0f else distance.coerceIn(-1, 1) * 10f
-            "wave" -> if (active) -4f else distance.coerceIn(-1, 1) * 14f
+            "slide" -> if (active) 0f else distance.coerceIn(-1, 1) * 22f
+            "rise" -> if (active) 0f else distance.coerceIn(-2, 4) * 26f
+            "spring" -> if (active) 0f else distance.coerceIn(-1, 1) * 14f
+            "wave" -> if (active) -5f else distance.coerceIn(-1, 1) * 16f
             else -> 0f
         },
         scaleSpec,
         label = "lyricShiftY"
     )
 
+    val resolvedColor = if (active) {
+        parseHexColor(settings.customCurrentColor) ?: color
+    } else {
+        parseHexColor(settings.customOtherColor) ?: color
+    }
+
+    val linePaddingVertical = (settings.lineGap / 2f).dp
+
     Text(
         text = text.ifBlank { "♪" },
-        color = color,
+        color = resolvedColor,
         style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = maximumSize.sp,
             lineHeight = (maximumSize * 1.3f).sp,
@@ -113,6 +122,9 @@ fun LyricPresentationLine(
                 this.translationY = shiftY.dp.toPx()
                 this.transformOrigin = transformOrigin
             }
-            .padding(horizontal = if (settings.alignment == "center") 16.dp else 10.dp, vertical = 7.dp)
+            .padding(
+                horizontal = if (settings.alignment == "center") 16.dp else 10.dp,
+                vertical = linePaddingVertical
+            )
     )
 }

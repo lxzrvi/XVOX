@@ -24,8 +24,12 @@ import com.xvox.music.features.playlist.XvoxPlaylistCard
 @Composable
 fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null) {
     val colors = XvoxTheme.colors
-    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 12.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title, color = colors.primaryAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Text("$count ${if (title == "Playlists") "playlists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)

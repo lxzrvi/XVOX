@@ -14,8 +14,11 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 enum class HomeHeaderIconType {
     SCAN,
     HEART,
+    HEART_OUTLINE,
     PLAYLIST,
-    SONGS
+    SONGS,
+    ARTIST_OUTLINE,
+    ARTIST_FILLED
 }
 
 @Composable
@@ -23,27 +26,20 @@ fun HomeHeaderIcon(
     type: HomeHeaderIconType,
     onClick: () -> Unit
 ) {
-    val color =
-        XvoxTheme.colors.primaryText
+    val color = XvoxTheme.colors.primaryText
 
-    val resource =
-        when (type) {
-            HomeHeaderIconType.SCAN ->
-                R.drawable.ic_xvox_refresh
-
-            HomeHeaderIconType.HEART ->
-                R.drawable.ic_xvox_heart
-
-            HomeHeaderIconType.PLAYLIST ->
-                R.drawable.ic_xvox_playlist
-
-            HomeHeaderIconType.SONGS ->
-                R.drawable.ic_xvox_music_note
-        }
+    val resource = when (type) {
+        HomeHeaderIconType.SCAN -> R.drawable.ic_xvox_refresh
+        HomeHeaderIconType.HEART -> R.drawable.ic_xvox_heart
+        HomeHeaderIconType.HEART_OUTLINE -> R.drawable.ic_xvox_heart_outline
+        HomeHeaderIconType.PLAYLIST -> R.drawable.ic_xvox_playlist
+        HomeHeaderIconType.SONGS -> R.drawable.ic_xvox_music_note
+        HomeHeaderIconType.ARTIST_OUTLINE -> R.drawable.ic_xvox_microphone_outline
+        HomeHeaderIconType.ARTIST_FILLED -> R.drawable.ic_xvox_microphone
+    }
 
     Icon(
-        painter =
-            painterResource(resource),
+        painter = painterResource(resource),
         contentDescription = null,
         tint = color,
         modifier = Modifier

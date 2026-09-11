@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -37,10 +38,15 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.features.settings.components.SettingsChoiceRow
 
 @Composable
 fun ArtistInfoDialog(
     artist: XvoxArtist,
+    columns: Int = 5,
+    gap: Int = 8,
+    onColumnsChange: (Int) -> Unit = {},
+    onGapChange: (Int) -> Unit = {},
     onDismiss: () -> Unit,
     onPlayNext: () -> Unit,
     onEditPhoto: () -> Unit,
@@ -50,22 +56,24 @@ fun ArtistInfoDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             color = colors.card,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Circle Photo
+                // Circle Photo with quick tap to edit
                 Box(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(CircleShape)
-                        .background(colors.surface),
+                        .background(colors.surface)
+                        .xvoxPressScale { onEditPhoto() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (artist.customImageUri != null) {
@@ -91,12 +99,12 @@ fun ArtistInfoDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
                     text = artist.name,
                     color = colors.primaryText,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
@@ -106,38 +114,61 @@ fun ArtistInfoDialog(
                 Text(
                     text = "${artist.songs.size} ${if (artist.songs.size == 1) "Song" else "Songs"}",
                     color = colors.secondaryText,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
+                )
+
+                // Layout Controls
+                Text(
+                    text = "Section Layout",
+                    color = colors.primaryAccent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                )
+
+                SettingsChoiceRow(
+                    options = listOf("3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
+                    selected = columns.toString(),
+                    onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+
+                SettingsChoiceRow(
+                    options = listOf("4" to "Compact", "8" to "Normal", "12" to "Spacious"),
+                    selected = gap.toString(),
+                    onSelect = { onGapChange(it.toIntOrNull() ?: 8) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
                 )
 
                 // Actions
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(colors.surface.copy(alpha = 0.5f))
+                            .background(colors.surface.copy(alpha = 0.6f))
                             .xvoxPressScale {
                                 onPlayNext()
                                 onDismiss()
                             }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_xvox_playlist),
                             contentDescription = null,
                             tint = colors.primaryAccent,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Play this artist next",
                             color = colors.primaryText,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -146,24 +177,24 @@ fun ArtistInfoDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(colors.surface.copy(alpha = 0.5f))
+                            .background(colors.surface.copy(alpha = 0.6f))
                             .xvoxPressScale {
                                 onEditPhoto()
                             }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_xvox_edit),
                             contentDescription = null,
                             tint = colors.primaryAccent,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Edit artist photo",
+                            text = "Crop & edit custom artist photo",
                             color = colors.primaryText,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -172,31 +203,31 @@ fun ArtistInfoDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(colors.surface.copy(alpha = 0.5f))
+                            .background(colors.surface.copy(alpha = 0.6f))
                             .xvoxPressScale {
                                 onHideArtist()
                                 onDismiss()
                             }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_xvox_delete),
                             contentDescription = null,
                             tint = Color(0xFFFF5252),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Delete / Hide artist",
                             color = Color(0xFFFF5252),
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 OutlinedButton(
                     onClick = onDismiss,
@@ -204,7 +235,7 @@ fun ArtistInfoDialog(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.secondaryText),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Close")
+                    Text("Done")
                 }
             }
         }

@@ -84,6 +84,19 @@ fun NowPlayingActions(
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
     var pageIndex by remember { mutableIntStateOf(0) }
+    var showIndicator by remember { mutableStateOf(true) }
+
+    LaunchedEffect(pageIndex) {
+        showIndicator = true
+        kotlinx.coroutines.delay(2200)
+        showIndicator = false
+    }
+
+    val dotsAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (showIndicator) 1f else 0f,
+        animationSpec = tween(400),
+        label = "dotsAlpha"
+    )
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -257,7 +270,9 @@ fun NowPlayingActions(
 
             // 3 indicator dots
             Row(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .androidx.compose.ui.graphics.graphicsLayer { alpha = dotsAlpha },
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

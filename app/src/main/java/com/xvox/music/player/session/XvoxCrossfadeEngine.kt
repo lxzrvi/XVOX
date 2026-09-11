@@ -175,7 +175,7 @@ class XvoxCrossfadeEngine(
     @Volatile private var outputPitch = 1f
     @Volatile private var preferredOutputDevice: AudioDeviceInfo? = null
 
-    /** Where audio should physically leave the phone. "phone" forces the built-in speaker (null). */
+    /** Where audio should physically leave the phone. "phone" forces the built-in speaker. */
     fun setOutputRoute(route: String) {
         val device = when (route) {
             "headset" -> audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isHeadsetOutput(it) }
@@ -183,8 +183,22 @@ class XvoxCrossfadeEngine(
             else -> null
         }
         preferredOutputDevice = device
-        decks().forEach { deck ->
-            runCatching { deck.sink.setPreferredDevice(device) }
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            decks().forEach { deck ->
+                runCatching { deck.sink.setPreferredDevice(device) }
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        deck.player.setPreferredAudioDevice(device)
+                    }
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (device != null) {
+                    runCatching { audioManager.setCommunicationDevice(device) }
+                } else {
+                    runCatching { audioManager.clearCommunicationDevice() }
+                }
+            }
         }
     }
 

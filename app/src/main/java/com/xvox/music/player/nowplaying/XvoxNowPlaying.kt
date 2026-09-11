@@ -206,8 +206,18 @@ fun XvoxNowPlaying(
             onNext = ::requestNext,
             onSeek = onSeek,
             onClose = lyricsViewModel::closeFullscreen,
+            onOpenSettings = { quickPage = "Lyrics"; showQuickSettingsSheet = true },
             modifier = Modifier.fillMaxSize()
         )
+        if (showQuickSettingsSheet && quickPage != null) {
+            NowPlayingOptionsBox(
+                page = quickPage!!,
+                state = settingsState,
+                viewModel = settingsViewModel,
+                homeViewModel = homeViewModel,
+                onDismiss = { showQuickSettingsSheet = false; quickPage = null }
+            )
+        }
         return
     }
 
@@ -229,15 +239,6 @@ fun XvoxNowPlaying(
             .graphicsLayer { translationY = screenY }
             .clip(sheetCorner)
             .background(paletteState.color)
-            .then(
-                if (isSlidingDown) {
-                    Modifier.border(
-                        width = 1.dp,
-                        color = colors.cardBorder.copy(alpha = (0.2f + slideFraction * 0.4f)),
-                        shape = sheetCorner
-                    )
-                } else Modifier
-            )
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
@@ -288,6 +289,7 @@ fun XvoxNowPlaying(
                         onDelete = lyricsViewModel::removeCustom,
                         onClose = { showLyrics = false },
                         onFullscreen = lyricsViewModel::openFullscreen,
+                        onOpenSettings = { quickPage = "Lyrics"; showQuickSettingsSheet = true },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 8.dp, vertical = 8.dp)

@@ -82,7 +82,7 @@ fun XvoxAllSongMosaicCard(
             modifier = modifier.clip(artShape))
     }
 
-    Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 1f, hapticOnTap = false).clip(shape).background(background)
+    Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape).background(background)
         .border(if (selected) 2.dp else .7.dp, if (selected) colors.primaryAccent else colors.cardBorder, shape)) {
         when {
             presentation == 1 -> {

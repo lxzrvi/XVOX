@@ -154,9 +154,30 @@ fun EqSettingsPreview(state: SettingsState) {
             val noiseHeight = 24.dp.toPx() * (1f - state.noiseReduction.coerceIn(0f, 1f))
             if (noiseHeight > 1f) {
                 drawRect(
-                    color = Color.Red.copy(alpha = 0.12f),
+                    color = Color.Red.copy(alpha = 0.14f * (1f - state.noiseReduction)),
                     topLeft = Offset(0f, h - noiseHeight),
                     size = Size(w, noiseHeight)
+                )
+                drawLine(
+                    color = Color.Red.copy(alpha = 0.4f),
+                    start = Offset(0f, h - noiseHeight),
+                    end = Offset(w, h - noiseHeight),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Grain control visualization: high-frequency smoothing & grain particle ripples
+            val grainSmooth = state.softenHighs.coerceIn(0f, 1f)
+            if (grainSmooth > 0.05f) {
+                val grainWidth = w * 0.4f
+                drawRect(
+                    brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, colors.primaryAccent.copy(alpha = 0.12f * grainSmooth)),
+                        startX = w * 0.6f,
+                        endX = w
+                    ),
+                    topLeft = Offset(w * 0.6f, ceilingY),
+                    size = Size(grainWidth, h - ceilingY)
                 )
             }
 
@@ -176,7 +197,7 @@ fun EqSettingsPreview(state: SettingsState) {
                     val pt = Offset(w * f, (middle - (db / 36f) * h * 0.8f + ripple).coerceIn(ceilingY, h - 4f))
                     if (i == 0) echoPath.moveTo(pt.x, pt.y) else echoPath.lineTo(pt.x, pt.y)
                 }
-                drawPath(echoPath, colors.primaryAccent.copy(alpha = reverbGlow * 0.35f), style = Stroke(4.dp.toPx()))
+                drawPath(echoPath, colors.primaryAccent.copy(alpha = reverbGlow * 0.40f), style = Stroke(4.dp.toPx()))
             }
 
             // Main EQ curve with volume & balance scaling and frequency nodes
@@ -210,14 +231,14 @@ fun EqSettingsPreview(state: SettingsState) {
 
 /**
  * 3D sound visualizer:
- * Reacts to Orbit Speed, Spatial Width, Elevation, Sound Position, and Center Core.
+ * Reacts to Orbit Speed, Spatial Width, Elevation, and Center Core.
  */
 @Composable
 fun SurroundSettingsPreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     val on = state.stereoWidening
     val transition = rememberInfiniteTransition(label = "orbitPreview")
-    val orbitDuration = ((12 - state.surroundPanSpeed).coerceIn(2, 10) * 800)
+    val orbitDuration = (state.surroundPanSpeed.coerceIn(1, 15) * 500).coerceAtLeast(300)
     val animated by transition.animateFloat(
         0f, (2 * PI).toFloat(),
         infiniteRepeatable(tween(orbitDuration, easing = LinearEasing)),
@@ -226,12 +247,12 @@ fun SurroundSettingsPreview(state: SettingsState) {
     val phase = if (on) animated else 0f
     val level = (state.appVolume * state.volumeLimit).coerceIn(0f, 1f)
 
-    SettingsPreviewFrame(if (on) "3D sound · ${state.surroundPanSpeed} speed orbit" else "3D sound · off") {
+    SettingsPreviewFrame(if (on) "3D sound · ${state.surroundPanSpeed}s orbit sweep" else "3D sound · off") {
         Canvas(Modifier.fillMaxWidth().height(96.dp)) {
-            val centerOffset = Offset(center.x + state.surroundPosition * (size.width * 0.22f), center.y)
+            val centerOffset = center
             val radius = size.height * .36f * (0.6f + state.surroundWidth * 0.4f)
 
-            // Spatial orbit ring (moves with surroundPosition)
+            // Spatial orbit ring
             drawCircle(colors.cardBorder, radius, centerOffset, style = Stroke(1.dp.toPx()))
             if (state.hrtf > 0.2f) {
                 drawCircle(colors.primaryAccent.copy(alpha = 0.15f * state.hrtf), radius * 1.25f, centerOffset, style = Stroke(1.dp.toPx()))

@@ -22,7 +22,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +64,6 @@ fun XvoxQueueBoxContent(
     var grabOffset by remember { mutableFloatStateOf(0f) }
     var viewportHeight by remember { mutableIntStateOf(0) }
     val rowHeightPx = with(density) { RowHeight.toPx() }
-    val stridePx = with(density) { (RowHeight + RowSpacing).toPx() }
     val overlayY = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - rowHeightPx).coerceAtLeast(0f))
 
     LaunchedEffect(queue, draggedId) {
@@ -77,10 +75,18 @@ fun XvoxQueueBoxContent(
     }
 
     fun targetIndex(): Int {
-        if (local.isEmpty()) return -1
-        val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
-        val centre = pointerY + scrolledPx
-        return ((centre - rowHeightPx / 2f) / stridePx).roundToInt().coerceIn(0, local.lastIndex)
+        val visibleItems = listState.layoutInfo.visibleItemsInfo
+        if (visibleItems.isEmpty()) return -1
+        val item = visibleItems.firstOrNull { itm ->
+            pointerY >= itm.offset && pointerY <= itm.offset + itm.size
+        }
+        return if (item != null) {
+            item.index.coerceIn(0, local.lastIndex)
+        } else if (pointerY < visibleItems.first().offset) {
+            visibleItems.first().index.coerceIn(0, local.lastIndex)
+        } else {
+            visibleItems.last().index.coerceIn(0, local.lastIndex)
+        }
     }
 
     fun reorderAtPointer() {
@@ -157,8 +163,8 @@ fun XvoxQueueBoxContent(
                         onStartDrag = {
                             draggedId = song.id
                             dragStartIndex = idx
-                            val scrolledPx = listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset
-                            val itemTop = idx * stridePx - scrolledPx
+                            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
+                            val itemTop = item?.offset?.toFloat() ?: (idx * rowHeightPx)
                             grabOffset = rowHeightPx / 2f
                             pointerY = itemTop + grabOffset
                             haptics.heavy()
@@ -223,74 +229,83 @@ private fun QueueRow(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val color = rememberSongCardColor(song, current)
+    val cardBg = rememberSongCardColor(song, current)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(RowHeight)
-            .clip(RoundedCornerShape(14.dp))
-            .background(color)
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardBg)
             .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         XvoxSongArtwork(
-            song.artworkUri,
+            artwork = song.artworkUri,
             requestSize = 96,
-            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(8.dp))
         )
-        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 10.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
-                song.title,
+                text = song.title,
                 color = if (current) colors.primaryAccent else colors.primaryText,
-                fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
+                fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                song.artist,
+                text = song.artist,
                 color = colors.secondaryText,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Box(
-            modifier = Modifier
-                .padding(end = 4.dp)
-                .then(
-                    if (onStartDrag != null) {
-                        Modifier.pointerInput(song.id) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { onStartDrag() },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    onDragDelta?.invoke(dragAmount.y)
-                                },
-                                onDragEnd = { onEndDrag?.invoke() },
-                                onDragCancel = { onCancelDrag?.invoke() }
-                            )
-                        }
-                    } else Modifier
-                )
-        ) {
-            XvoxDragDots(modifier = Modifier.semantics { contentDescription = "Reorder ${song.title}" })
+
+        // Six dots drag handle
+        if (onStartDrag != null && onDragDelta != null) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { onStartDrag() },
+                            onDragEnd = { onEndDrag?.invoke() },
+                            onDragCancel = { onCancelDrag?.invoke() },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                onDragDelta(dragAmount.y)
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.6f))
+            }
         }
     }
 }
 
 @Composable
-private fun XvoxDragDots(modifier: Modifier = Modifier) {
-    val tint = XvoxTheme.colors.mutedText
-    Canvas(modifier.size(width = 18.dp, height = 20.dp)) {
-        val radius = 1.6.dp.toPx()
-        val columnGap = 6.dp.toPx()
-        val rowGap = 6.dp.toPx()
-        val startX = (size.width - columnGap) / 2f
+private fun SixDotsHandle(tint: androidx.compose.ui.graphics.Color) {
+    Canvas(Modifier.size(width = 12.dp, height = 18.dp)) {
+        val radius = 1.4.dp.toPx()
+        val colGap = 4.5.dp.toPx()
+        val rowGap = 4.5.dp.toPx()
+        val startX = (size.width - colGap) / 2f
         val startY = (size.height - rowGap * 2) / 2f
-        for (column in 0..1) for (row in 0..2) {
-            drawCircle(tint, radius, Offset(startX + column * columnGap, startY + row * rowGap))
+        for (c in 0..1) for (r in 0..2) {
+            drawCircle(tint, radius, Offset(startX + c * colGap, startY + r * rowGap))
         }
     }
 }

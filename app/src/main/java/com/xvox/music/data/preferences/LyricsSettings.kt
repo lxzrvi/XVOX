@@ -10,11 +10,15 @@ data class LyricsSettings(
     val otherSize: Int = 14,
     val fadeTop: Float = .22f,
     val fadeBottom: Float = .22f,
-    val animation: String = "fade",
+    val animation: String = "wave",
     val fadeEqual: Boolean = false,
     val fadeIntensity: Float = 1f,
     /** "left" | "center" | "right" — where lyric lines sit. */
-    val alignment: String = "center"
+    val alignment: String = "center",
+    val lineGap: Int = 14,
+    val customCurrentColor: String = "",
+    val customOtherColor: String = "",
+    val gradientAnimation: String = "wave"
 ) {
     fun sanitized() = copy(
         offsetMs = offsetMs.coerceIn(-1000, 1000),
@@ -24,9 +28,11 @@ data class LyricsSettings(
         otherSize = otherSize.coerceIn(10, 36),
         fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
         fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        animation = animation.takeIf { it in LyricsSettings.ANIMATIONS } ?: "fade",
+        animation = animation.takeIf { it in ANIMATIONS } ?: "wave",
         fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
-        alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center"
+        alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
+        lineGap = lineGap.coerceIn(4, 40),
+        gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "wave"
     )
 
     fun position(playbackMs: Long): Long = (playbackMs - offsetMs).coerceAtLeast(0)
@@ -44,10 +50,15 @@ data class LyricsSettings(
         .put("equal", fadeEqual)
         .put("intensity", fadeIntensity.toDouble())
         .put("align", alignment)
+        .put("lineGap", lineGap)
+        .put("customCurrentColor", customCurrentColor)
+        .put("customOtherColor", customOtherColor)
+        .put("gradientAnimation", gradientAnimation)
         .toString()
 
     companion object {
-        val ANIMATIONS = listOf("fade", "slide", "spring", "wave", "rise")
+        val ANIMATIONS = listOf("wave", "spring", "slide", "rise", "fade")
+        val GRADIENT_ANIMATIONS = listOf("off", "wave", "aurora", "pulse", "orbital", "prism")
         val ALIGNMENTS = listOf("left", "center", "right")
 
         fun decode(raw: String): LyricsSettings = runCatching {
@@ -61,10 +72,14 @@ data class LyricsSettings(
                 otherSize = other,
                 fadeTop = j.optDouble("top", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
                 fadeBottom = j.optDouble("bottom", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
-                animation = j.optString("animation", "fade"),
+                animation = j.optString("animation", "wave"),
                 fadeEqual = j.optBoolean("equal", false),
                 fadeIntensity = j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f,
-                alignment = j.optString("align", "center")
+                alignment = j.optString("align", "center"),
+                lineGap = j.optInt("lineGap", 14),
+                customCurrentColor = j.optString("customCurrentColor", ""),
+                customOtherColor = j.optString("customOtherColor", ""),
+                gradientAnimation = j.optString("gradientAnimation", "wave")
             ).sanitized()
         }.getOrDefault(LyricsSettings())
     }

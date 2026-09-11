@@ -51,9 +51,6 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 Spacer(Modifier.height(8.dp))
                 EqL("Depth · ${(state.surroundDepth * 100).roundToInt()}%")
                 XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
-                Spacer(Modifier.height(8.dp))
-                EqL("Position · ${(state.surroundPosition * 57.2958f).roundToInt()}°")
-                XvoxThinLineSlider(state.surroundPosition, viewModel::setSurroundPosition, -1.5f..1.5f, defaultValue = 0f)
             }
 
             SettingsAccordionItem(
@@ -61,8 +58,8 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 expanded = expandedGroup == "Motion",
                 onToggle = { toggle("Motion") }
             ) {
-                EqL("Movement · ${state.surroundPanSpeed}s per orbit")
-                XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 2f..10f, defaultValue = 6f)
+                EqL("Orbit speed · ${state.surroundPanSpeed}s per sweep")
+                XvoxThinLineSlider(state.surroundPanSpeed.toFloat(), { viewModel.setSurroundPanSpeed(it.roundToInt()) }, 1f..15f, defaultValue = 6f)
             }
 
             SettingsAccordionItem(
@@ -70,7 +67,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 expanded = expandedGroup == "Acoustics",
                 onToggle = { toggle("Acoustics") }
             ) {
-                EqL("HRTF / Spatial · ${(state.hrtf * 100).roundToInt()}%")
+                EqL("HRTF / Spatial binaural · ${(state.hrtf * 100).roundToInt()}%")
                 XvoxThinLineSlider(state.hrtf, viewModel::setHrtf, 0f..1f, defaultValue = .6f)
                 Spacer(Modifier.height(8.dp))
                 val balText = if (state.balance < -0.05f) "Left ${(abs(state.balance) * 100).roundToInt()}%"
@@ -80,7 +77,6 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
             }
         } else {
-            // Options when 3D sound is disabled
             SettingsAccordionItem(
                 title = "Acoustics & Balance",
                 expanded = expandedGroup == "Acoustics",
@@ -91,9 +87,6 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 else "Center"
                 EqL("Stereo Balance · $balText")
                 XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
-                Spacer(Modifier.height(8.dp))
-                EqL("Room acoustic size · ${(state.roomAmount * 100).roundToInt()}%")
-                XvoxThinLineSlider(state.roomAmount, viewModel::setRoomAmount, 0f..1f, defaultValue = .5f)
             }
         }
     })

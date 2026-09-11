@@ -47,11 +47,61 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         ) {
             SettingsChoiceRow(
                 listOf(
-                    "fade" to "Fade", "slide" to "Slide", "spring" to "Spring",
-                    "wave" to "Wave", "rise" to "Rise"
+                    "wave" to "Wave", "spring" to "Spring", "slide" to "Slide",
+                    "rise" to "Rise", "fade" to "Fade"
                 ),
                 settings.animation
             ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
+        }
+
+        SettingsAccordionItem(
+            title = "Moving gradient background",
+            expanded = expandedGroup == "Gradient",
+            onToggle = { toggle("Gradient") }
+        ) {
+            SettingsChoiceRow(
+                listOf(
+                    "wave" to "Wave", "aurora" to "Aurora", "pulse" to "Pulse",
+                    "orbital" to "Orbital", "prism" to "Prism", "off" to "Off"
+                ),
+                settings.gradientAnimation
+            ) { value -> viewModel.updateLyrics { it.copy(gradientAnimation = value) } }
+        }
+
+        SettingsAccordionItem(
+            title = "Line spacing & Gap",
+            expanded = expandedGroup == "Gap",
+            onToggle = { toggle("Gap") }
+        ) {
+            Label("Lines gap · ${settings.lineGap} dp")
+            XvoxThinLineSlider(
+                settings.lineGap.toFloat(),
+                { v -> viewModel.updateLyrics { it.copy(lineGap = v.roundToInt()) } },
+                4f..40f,
+                defaultValue = 14f
+            )
+        }
+
+        SettingsAccordionItem(
+            title = "Custom line colours",
+            expanded = expandedGroup == "Colours",
+            onToggle = { toggle("Colours") }
+        ) {
+            ColorPickerRow(
+                label = "Current line color",
+                hex = settings.customCurrentColor,
+                onColorChange = { hex -> viewModel.updateLyrics { it.copy(customCurrentColor = hex) } },
+                subtitle = if (settings.customCurrentColor.isNotBlank()) "Active line text" else "Theme default"
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            ColorPickerRow(
+                label = "Other lines color",
+                hex = settings.customOtherColor,
+                onColorChange = { hex -> viewModel.updateLyrics { it.copy(customOtherColor = hex) } },
+                subtitle = if (settings.customOtherColor.isNotBlank()) "Upcoming & previous lines" else "Theme default"
+            )
         }
 
         SettingsAccordionItem(

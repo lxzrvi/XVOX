@@ -100,8 +100,23 @@ fun SetupScreen(
         viewModel.updatePermissions(audioGranted(), notificationGranted())
     }
 
+    var croppingSetupUri by remember { mutableStateOf<Uri?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(viewModel::setCustomPfp)
+        if (uri != null) {
+            croppingSetupUri = uri
+        }
+    }
+
+    if (croppingSetupUri != null) {
+        com.xvox.music.core.ui.components.XvoxImageCropDialog(
+            sourceUri = croppingSetupUri!!,
+            isCircle = true,
+            onCropped = { croppedUri ->
+                croppingSetupUri = null
+                viewModel.setCustomPfp(croppedUri)
+            },
+            onDismiss = { croppingSetupUri = null }
+        )
     }
 
     LaunchedEffect(Unit) {

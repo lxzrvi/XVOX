@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -35,11 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.UserPreferences
@@ -49,8 +53,9 @@ import com.xvox.music.features.setup.XvoxAvatarPicker
 import kotlinx.coroutines.launch
 
 /**
- * Profile editor:
- * Avatar picker, username, greeting lines ON/OFF toggle, and interval slider.
+ * Profile & Header Editor Box:
+ * Avatar picker with crop, username, greeting lines ON/OFF toggle, interval slider,
+ * and integrated Header photo customizer.
  */
 @Composable
 fun ProfileEditorBox(
@@ -65,20 +70,57 @@ fun ProfileEditorBox(
     val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
     val storedCustoms by prefs.customPfpUris.collectAsState(initial = profile.customPfpUris)
     val greetingInterval by prefs.greetingIntervalMs.collectAsState(initial = profile.greetingIntervalMs)
+    val currentHeaderUri by prefs.headerImageUri.collectAsState(initial = null)
 
     var name by remember(profile.username) { mutableStateOf(profile.username) }
     var selected by remember(profile.selectedPfp) {
         mutableStateOf(runCatching { PfpType.valueOf(profile.selectedPfp) }.getOrDefault(PfpType.DEFAULT))
     }
     var customUri by remember(profile.customPfpUri) { mutableStateOf(profile.customPfpUri) }
+    var croppingAvatarUri by remember { mutableStateOf<Uri?>(null) }
+    var croppingHeaderUri by remember { mutableStateOf<Uri?>(null) }
 
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch {
-            prefs.addCustomPfp(uri.toString())?.let { stored ->
-                customUri = stored
-                selected = PfpType.CUSTOM
-            }
+    val avatarPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            croppingAvatarUri = uri
         }
+    }
+
+    val headerPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            croppingHeaderUri = uri
+        }
+    }
+
+    if (croppingAvatarUri != null) {
+        XvoxImageCropDialog(
+            sourceUri = croppingAvatarUri!!,
+            isCircle = true,
+            onCropped = { croppedUri ->
+                croppingAvatarUri = null
+                scope.launch {
+                    prefs.addCustomPfp(croppedUri.toString())?.let { stored ->
+                        customUri = stored
+                        selected = PfpType.CUSTOM
+                    }
+                }
+            },
+            onDismiss = { croppingAvatarUri = null }
+        )
+    }
+
+    if (croppingHeaderUri != null) {
+        XvoxImageCropDialog(
+            sourceUri = croppingHeaderUri!!,
+            isCircle = false,
+            onCropped = { croppedUri ->
+                croppingHeaderUri = null
+                scope.launch {
+                    prefs.setHeaderImageUri(croppedUri.toString())
+                }
+            },
+            onDismiss = { croppingHeaderUri = null }
+        )
     }
 
     LaunchedEffect(storedCustoms) {
@@ -103,7 +145,7 @@ fun ProfileEditorBox(
             onSelectCustom = { haptics.tap(); selected = PfpType.CUSTOM; customUri = it },
             onAddCustom = {
                 haptics.tap()
-                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                avatarPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onDeleteCustom = { uri -> haptics.tap(); scope.launch { prefs.removeCustomPfp(uri) } }
         )
@@ -167,7 +209,82 @@ fun ProfileEditorBox(
             )
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Header Background Photo Section in Profile Box
+        Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (currentHeaderUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.cardElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        XvoxSongArtwork(
+                            artwork = Uri.parse(currentHeaderUri),
+                            requestSize = 128,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        if (currentHeaderUri != null) "Header Photo Active" else "No Header Photo",
+                        color = colors.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "Custom backdrop above home",
+                        color = colors.mutedText,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (currentHeaderUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.cardElevated)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                scope.launch { prefs.setHeaderImageUri(null) }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text("Remove", color = colors.secondaryText, fontSize = 11.sp)
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colors.primaryAccent)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(if (currentHeaderUri != null) "Change" else "Pick Photo", color = colors.background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
