@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.xvox.music.R
-import com.xvox.music.artwork.XvoxSongArtwork
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
 fun ArtistInfoDialog(
@@ -77,8 +77,8 @@ fun ArtistInfoDialog(
                         )
                     } else if (artist.coverSong != null) {
                         XvoxSongArtwork(
-                            song = artist.coverSong,
-                            contentDescription = artist.name,
+                            artwork = artist.coverSong.artworkUri,
+                            requestSize = 180,
                             modifier = Modifier.size(88.dp)
                         )
                     } else {

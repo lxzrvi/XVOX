@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
-import com.xvox.music.artwork.XvoxSongArtwork
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
 fun XvoxArtistGrid(
@@ -93,8 +93,8 @@ fun ArtistCircleItem(
                 )
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
-                    song = artist.coverSong,
-                    contentDescription = artist.name,
+                    artwork = artist.coverSong.artworkUri,
+                    requestSize = 128,
                     modifier = Modifier.matchParentSize()
                 )
             } else {

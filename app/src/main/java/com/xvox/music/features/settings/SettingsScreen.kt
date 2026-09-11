@@ -309,12 +309,14 @@ private fun SettingsSectionCard(
             )
 
             Icon(
-                painter = painterResource(
-                    if (expanded) R.drawable.ic_xvox_chevron_up else R.drawable.ic_xvox_chevron_down
-                ),
+                painter = painterResource(R.drawable.ic_xvox_caret_right),
                 contentDescription = null,
                 tint = if (expanded) colors.primaryAccent else colors.secondaryText,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier
+                    .size(16.dp)
+                    .androidx.compose.ui.graphics.graphicsLayer {
+                        rotationZ = if (expanded) 90f else 0f
+                    }
             )
         }
 

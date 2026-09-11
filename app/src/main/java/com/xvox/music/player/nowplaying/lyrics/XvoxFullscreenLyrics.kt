@@ -292,8 +292,8 @@ fun XvoxFullscreenLyrics(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     XvoxSongArtwork(
-                        song = song,
-                        contentDescription = song.title,
+                        artwork = song.artworkUri,
+                        requestSize = 128,
                         modifier = Modifier
                             .size(42.dp)
                             .clip(RoundedCornerShape(10.dp))

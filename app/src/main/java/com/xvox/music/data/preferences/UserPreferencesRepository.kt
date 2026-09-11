@@ -252,6 +252,7 @@ class UserPreferencesRepository(
     val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
     val hapticIntensity: Flow<String> = context.xvoxDataStore.data.map { it[Keys.hapticIntensity] ?: "medium" }.distinctUntilChanged()
     val theme: Flow<String> = context.xvoxDataStore.data.map { it[Keys.theme] ?: "System" }.distinctUntilChanged()
+    val accentColor: Flow<String> = context.xvoxDataStore.data.map { it[Keys.accentColor] ?: "White" }.distinctUntilChanged()
     val fullscreenLyricsGradient: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.fullscreenLyricsGradient] ?: true }.distinctUntilChanged()
 

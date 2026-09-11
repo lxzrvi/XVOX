@@ -20,9 +20,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
-import com.xvox.music.artwork.XvoxSongArtwork
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.home.XvoxSongArtwork
 
 /** "Deleted songs": what "Delete from XVOX" moves aside. Restoring puts a song or artist straight back. */
 @Composable
@@ -124,8 +124,8 @@ fun HiddenSongsSettingsSection(viewModel: HomeViewModel) {
                         ) {
                             if (song != null) {
                                 XvoxSongArtwork(
-                                    song = song,
-                                    contentDescription = null,
+                                    artwork = song.artworkUri,
+                                    requestSize = 96,
                                     modifier = Modifier.size(38.dp).clip(RoundedCornerShape(6.dp))
                                 )
                             }

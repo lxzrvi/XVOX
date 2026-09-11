@@ -93,3 +93,18 @@ fun XvoxSongArtwork(
         modifier = modifier.background(colors.cardElevated)
     )
 }
+
+@Composable
+fun XvoxSongArtwork(
+    song: com.xvox.music.core.model.Song?,
+    modifier: Modifier = Modifier,
+    requestSize: Int = XvoxGridArtworkSize,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    XvoxSongArtwork(
+        artwork = song?.artworkUri,
+        modifier = modifier,
+        requestSize = requestSize,
+        contentScale = contentScale
+    )
+}
