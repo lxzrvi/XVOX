@@ -79,58 +79,6 @@ fun SongOptionsBox(
 
     val options =
         buildList {
-            if (sectionSettingsLabel != null && onSectionSettings != null) {
-                add(SongOption(sectionSettingsLabel, R.drawable.ic_xvox_settings, onSectionSettings))
-            }
-            onSelect?.let { add(SongOption("Select", R.drawable.ic_xvox_check, it)) }
-            add(
-                SongOption(
-                    "Play next",
-                    R.drawable.ic_xvox_skip_next,
-                    onPlayNext
-                )
-            )
-
-            add(
-                SongOption(
-                    "Add to queue",
-                    R.drawable.ic_xvox_queue,
-                    onAddQueue
-                )
-            )
-
-            addAll(playlistOptions)
-
-            add(
-                SongOption(
-                    if (liked) {
-                        "Remove from liked"
-                    } else {
-                        "Add to liked"
-                    },
-                    R.drawable.ic_xvox_heart,
-                    onLiked
-                )
-            )
-
-            if (onRemoveRecent != null) {
-                add(
-                    SongOption(
-                        "Remove from recent",
-                        R.drawable.ic_xvox_delete,
-                        onRemoveRecent
-                    )
-                )
-            }
-
-            add(
-                SongOption(
-                    "Delete",
-                    R.drawable.ic_xvox_delete,
-                    onDelete
-                )
-            )
-
             add(
                 SongOption(
                     "Info",
@@ -138,6 +86,10 @@ fun SongOptionsBox(
                     onInfo
                 )
             )
+
+            if (sectionSettingsLabel != null && onSectionSettings != null) {
+                add(SongOption(sectionSettingsLabel, R.drawable.ic_xvox_settings, onSectionSettings))
+            }
 
             add(
                 SongOption(

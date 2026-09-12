@@ -54,7 +54,7 @@ fun NowPlayingOptionsBox(
                 .verticalScroll(scrollState)
         ) {
             // Single live preview at the top
-            page?.takeIf { it != "Bluetooth" }?.let { title ->
+            page?.takeIf { it != "Bluetooth" && it != "Lyrics" }?.let { title ->
                 SettingsSectionPreview(
                     title = title,
                     state = state,

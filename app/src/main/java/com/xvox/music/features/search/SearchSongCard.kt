@@ -35,7 +35,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchSongCard(
     song: Song,
@@ -56,11 +55,6 @@ fun SearchSongCard(
             .height(64.dp)
             .clip(shape)
             .background(cardColor)
-            .border(
-                width = if (selected) 2.dp else 0.7.dp,
-                color = if (selected) colors.primaryAccent else colors.cardBorder,
-                shape = shape
-            )
             .xvoxSongPress(onClick = onClick, onLongClick = onOptions)
             .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -101,12 +95,10 @@ fun SearchSongCard(
             modifier = Modifier
                 .size(36.dp)
                 .background(colors.cardElevated, CircleShape)
-                .combinedClickable(
-                hapticFeedbackEnabled = false,
+                .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onOptions,
-                    onLongClick = onOptions
+                    onClick = onOptions
                 ),
             contentAlignment = Alignment.Center
         ) {

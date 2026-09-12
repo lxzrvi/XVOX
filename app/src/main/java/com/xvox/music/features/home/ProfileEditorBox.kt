@@ -215,20 +215,54 @@ fun ProfileEditorBox(
         // Header Background Photo Section in Profile Box
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.card)
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (currentHeaderUri != null) {
+        if (currentHeaderUri == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card)
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        haptics.tap()
+                        headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_add),
+                        contentDescription = "Add Header Photo",
+                        tint = colors.primaryAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        "Add Header Photo",
+                        color = colors.primaryAccent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(colors.cardElevated),
                         contentAlignment = Alignment.Center
@@ -236,27 +270,25 @@ fun ProfileEditorBox(
                         XvoxSongArtwork(
                             artwork = Uri.parse(currentHeaderUri),
                             requestSize = 128,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            "Header Photo Active",
+                            color = colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Custom backdrop above home",
+                            color = colors.mutedText,
+                            fontSize = 10.sp
                         )
                     }
                 }
-                Column {
-                    Text(
-                        if (currentHeaderUri != null) "Header Photo Active" else "No Header Photo",
-                        color = colors.primaryText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        "Custom backdrop above home",
-                        color = colors.mutedText,
-                        fontSize = 10.sp
-                    )
-                }
-            }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (currentHeaderUri != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -267,20 +299,20 @@ fun ProfileEditorBox(
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        Text("Remove", color = colors.secondaryText, fontSize = 11.sp)
+                        Text("Remove", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(colors.primaryAccent)
-                        .xvoxPressScale {
-                            haptics.tap()
-                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(if (currentHeaderUri != null) "Change" else "Pick Photo", color = colors.background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.primaryAccent)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text("Change", color = colors.background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -293,7 +325,7 @@ fun ProfileEditorBox(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Header Transparency / Tint", color = colors.secondaryText, fontSize = 11.sp)
+            Text("Header Transparency", color = colors.secondaryText, fontSize = 11.sp)
             Text("${((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
 

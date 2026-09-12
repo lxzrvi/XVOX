@@ -55,8 +55,8 @@ data class LyricsSettings(
         .toString()
 
     companion object {
-        val ANIMATIONS = listOf("wave", "string", "spring", "slide", "rise", "fade")
-        val GRADIENT_ANIMATIONS = listOf("off", "wave", "aurora", "pulse", "orbital", "prism")
+        val ANIMATIONS = listOf("wave", "drift", "aurora", "off")
+        val GRADIENT_ANIMATIONS = listOf("wave", "drift", "aurora", "off")
         val ALIGNMENTS = listOf("left", "center", "right")
 
         fun decode(raw: String): LyricsSettings = runCatching {

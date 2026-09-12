@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -43,9 +45,16 @@ fun XvoxThinLineSlider(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
-    var localValue by remember(value) { mutableFloatStateOf(value) }
+    var localValue by remember { mutableFloatStateOf(value) }
+    var isDragging by remember { mutableStateOf(false) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
+
+    LaunchedEffect(value) {
+        if (!isDragging) {
+            localValue = value
+        }
+    }
 
     val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
     var lastHapticStep by remember { mutableIntStateOf((fraction * 10).roundToInt()) }
@@ -89,11 +98,11 @@ fun XvoxThinLineSlider(
                     currentOnFinish?.invoke()
                 }
             }
-            .pointerInput(valueRange, defaultValue, onValueChangeFinished) {
+            .pointerInput(valueRange, defaultValue) {
                 fun settle(x: Float) {
                     val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
+                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.03f)) {
                         newValue = defaultValue
                     }
                     val step = (newFraction * 10).roundToInt()
@@ -101,15 +110,22 @@ fun XvoxThinLineSlider(
                         lastHapticStep = step
                         haptics.tap()
                     }
-                    if (newValue != localValue) {
-                        localValue = newValue
-                        currentOnValueChange(newValue)
-                    }
+                    localValue = newValue
+                    currentOnValueChange(newValue)
                 }
                 detectHorizontalDragGestures(
-                    onDragStart = { offset -> settle(offset.x) },
-                    onDragEnd = { currentOnFinish?.invoke() },
-                    onDragCancel = { currentOnFinish?.invoke() },
+                    onDragStart = { offset ->
+                        isDragging = true
+                        settle(offset.x)
+                    },
+                    onDragEnd = {
+                        isDragging = false
+                        currentOnFinish?.invoke()
+                    },
+                    onDragCancel = {
+                        isDragging = false
+                        currentOnFinish?.invoke()
+                    },
                     onHorizontalDrag = { change, _ ->
                         change.consume()
                         settle(change.position.x)

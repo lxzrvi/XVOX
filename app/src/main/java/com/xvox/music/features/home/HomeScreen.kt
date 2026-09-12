@@ -112,6 +112,9 @@ fun HomeScreen(
         val currentArtist = showArtistInfo!!
         ArtistInfoDialog(
             artist = currentArtist,
+            allArtists = artists,
+            config = config,
+            homeViewModel = viewModel,
             columns = config.artistColumns,
             gap = config.artistGap,
             hideText = config.artistHideText,
@@ -127,12 +130,21 @@ fun HomeScreen(
                     viewModel.setHomeSectionVisible(HomeSections.ARTISTS, false)
                 }
             },
+            onRenameArtist = { oldName, newName, merge ->
+                viewModel.renameArtist(oldName, newName, merge)
+                overlays.showP("Artist renamed to $newName")
+            },
+            onSaveArtistPhoto = { name, uri ->
+                viewModel.setArtistPhoto(name, uri)
+                overlays.showP("Artist photo updated")
+            },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
                 playerViewModel.playNextInQueue(currentArtist.songs)
                 overlays.showP("Playing by ${currentArtist.name}")
             },
             onEditPhoto = {
+                croppingArtistPhotoFor = currentArtist.name
                 artistPhotoPicker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )

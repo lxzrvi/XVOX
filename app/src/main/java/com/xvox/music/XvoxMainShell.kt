@@ -393,7 +393,13 @@ fun XvoxMainShell(
                         hoistedSelectedPlaylistId = null
                         homeResetKey = System.currentTimeMillis()
                     }
-                    if (next != destination) tabEpoch++
+                    if (next != destination) {
+                        tabEpoch++
+                        if (next == XvoxDestination.HOME) {
+                            hoistedSelectedPlaylistId = null
+                            homeResetKey = System.currentTimeMillis()
+                        }
+                    }
                     destination = next
                 }
             )

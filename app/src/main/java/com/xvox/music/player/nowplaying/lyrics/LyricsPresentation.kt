@@ -64,12 +64,10 @@ fun LyricPresentationLine(
     val animation = settings.animation
 
     val scaleSpec: AnimationSpec<Float> = when (animation) {
-        "string" -> spring(dampingRatio = 0.65f, stiffness = 600f)
-        "spring" -> spring(dampingRatio = 0.52f, stiffness = 460f)
-        "slide" -> tween(280, easing = FastOutSlowInEasing)
-        "rise" -> tween(340, easing = LinearOutSlowInEasing)
+        "drift" -> tween(300, easing = FastOutSlowInEasing)
+        "aurora" -> spring(dampingRatio = 0.58f, stiffness = 420f)
         "wave" -> tween(380, easing = CubicBezierEasing(0.34f, 1.35f, 0.64f, 1f))
-        else -> tween(220, easing = LinearEasing) // "fade"
+        else -> tween(200, easing = LinearEasing)
     }
 
     val scale by animateFloatAsState(wantedScale, scaleSpec, label = "lyricScale")
@@ -85,13 +83,20 @@ fun LyricPresentationLine(
         label = "lyricAlpha"
     )
 
+    val shiftX by animateFloatAsState(
+        when (animation) {
+            "drift" -> if (active) 0f else (if (distance < 0) -18f else 18f)
+            else -> 0f
+        },
+        scaleSpec,
+        label = "lyricShiftX"
+    )
+
     val shiftY by animateFloatAsState(
         when (animation) {
-            "slide" -> if (active) 0f else distance.coerceIn(-1, 1) * 22f
-            "rise" -> if (active) 0f else distance.coerceIn(-2, 4) * 26f
-            "spring" -> if (active) 0f else distance.coerceIn(-1, 1) * 14f
-            "wave" -> if (active) -5f else distance.coerceIn(-1, 1) * 16f
-            "string" -> if (active) 0f else distance.coerceIn(-1, 1) * 8f
+            "wave" -> if (active) -6f else distance.coerceIn(-1, 1) * 14f
+            "aurora" -> if (active) -2f else distance.coerceIn(-1, 1) * 8f
+            "drift" -> if (active) 0f else distance.coerceIn(-1, 1) * 10f
             else -> 0f
         },
         scaleSpec,
@@ -121,6 +126,7 @@ fun LyricPresentationLine(
                 this.alpha = alpha
                 this.scaleX = scale
                 this.scaleY = scale
+                this.translationX = shiftX.dp.toPx()
                 this.translationY = shiftY.dp.toPx()
                 this.transformOrigin = transformOrigin
             }

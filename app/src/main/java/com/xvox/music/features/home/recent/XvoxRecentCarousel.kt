@@ -1,6 +1,5 @@
 package com.xvox.music.features.home.recent
 
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.HomeGeometry
 
 /** Keep the LazyRow mounted, including during updates. Never replace it with an inert transition card. */
 @Composable
@@ -28,36 +26,35 @@ fun XvoxRecentCarousel(
     val click by rememberUpdatedState(onSongClick)
     val options by rememberUpdatedState(onSongOptions)
     val sourceClick by rememberUpdatedState(onSourceClick)
-    LaunchedEffect(transition.id) {
-        if (transition.id != 0L && transition.mode == RecentTransitionMode.LIBRARY && !state.isScrollInProgress) {
-            val index = songs.indexOfFirst { it.id == transition.songId }
-            if (index >= 0) state.animateScrollToItem(index)
-        }
-    }
+
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val edge = 6.dp
         val itemWidth = maxWidth - edge * 2
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (songs.isEmpty()) Box(Modifier.fillMaxWidth().height(122.dp), contentAlignment = Alignment.Center) {
+        if (songs.isEmpty()) {
+            Box(Modifier.fillMaxWidth().height(122.dp), contentAlignment = Alignment.Center) {
                 Text("Nothing played yet", color = XvoxTheme.colors.secondaryText, fontSize = 12.sp)
-            } else LazyRow(state = state, flingBehavior = fling, modifier = Modifier.fillMaxWidth().height(122.dp),
-                contentPadding = PaddingValues(horizontal = edge), horizontalArrangement = Arrangement.spacedBy(edge * 2)) {
+            }
+        } else {
+            LazyRow(
+                state = state,
+                flingBehavior = fling,
+                modifier = Modifier.fillMaxWidth().height(122.dp),
+                contentPadding = PaddingValues(horizontal = edge),
+                horizontalArrangement = Arrangement.spacedBy(edge * 2)
+            ) {
                 items(songs, key = { it.id }, contentType = { "recent_song" }) { song ->
-                    XvoxRecentArtwork(song, song.id == currentSongId, song.id == currentSongId && isPlaying,
-                        onClick = { click(song) }, onLongClick = { options(song) },
-                        source = sources[song.id], onSourceClick = { sourceClick(song) },
+                    XvoxRecentArtwork(
+                        song = song,
+                        current = song.id == currentSongId,
+                        playing = song.id == currentSongId && isPlaying,
+                        onClick = { click(song) },
+                        onLongClick = { options(song) },
+                        source = sources[song.id],
+                        onSourceClick = { sourceClick(song) },
                         modifier = Modifier.width(itemWidth).height(122.dp)
-                            .animateItem(fadeInSpec = tween(160), placementSpec = tween(200), fadeOutSpec = tween(120)))
+                    )
                 }
             }
-            XvoxRecentPositionRail(
-                songs.size,
-                state,
-                itemWidth,
-                edge * 2,
-                itemWidth * .22f,
-                Modifier.padding(top = 8.dp, bottom = 8.dp)
-            )
         }
     }
 }

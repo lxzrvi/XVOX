@@ -92,13 +92,14 @@ private fun ActionButton(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
     Box(
         modifier = Modifier
             .size(38.dp)
+            .clip(CircleShape)
             .background(
-                colors.cardElevated,
-                CircleShape
+                colors.cardElevated.copy(alpha = chrome.miniPlayerBgAlpha.coerceIn(0.25f, 1f))
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

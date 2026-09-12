@@ -98,6 +98,11 @@ private fun playlistRelevance(pl: XvoxPlaylist, query: String): Int {
     }
 }
 
+import androidx.compose.foundation.lazy.LazyRow
+import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import com.xvox.music.core.ui.effects.xvoxSongPress
+
 @Composable
 fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
@@ -151,6 +156,26 @@ fun SearchScreen(
         if (query.isBlank()) emptyList()
         else homeState.playlists.filter { it.name.contains(query, ignoreCase = true) }
             .sortedByDescending { playlistRelevance(it, query) }
+    }
+
+    val allArtists = remember(homeState.songs, homeState.customArtistImages, homeState.hiddenArtists) {
+        homeState.songs
+            .filterNot { it.artist in homeState.hiddenArtists }
+            .groupBy { it.artist.ifBlank { "Unknown Artist" } }
+            .map { (artistName, songList) ->
+                com.xvox.music.features.artist.XvoxArtist(
+                    name = artistName,
+                    songs = songList,
+                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    customImageUri = homeState.customArtistImages[artistName]
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    val filteredArtists = remember(allArtists, query) {
+        if (query.isBlank()) emptyList()
+        else allArtists.filter { it.name.contains(query, ignoreCase = true) }
     }
 
     fun addRecent(q: String) {
@@ -330,6 +355,92 @@ fun SearchScreen(
                 }
             }
         } else {
+            if (filteredArtists.isNotEmpty()) {
+                item(key = "search_artists_header") {
+                    Text(
+                        text = "Artists (${filteredArtists.size})",
+                        color = colors.primaryAccent,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
+                    )
+                }
+
+                item(key = "search_artists_row") {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val gap = 8.dp
+                        val artistWidth = ((maxWidth - gap * 4 - 24.dp) / 5).coerceAtLeast(64.dp)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(gap)
+                        ) {
+                            items(filteredArtists, key = { "search_artist_${it.name}" }) { artist ->
+                                Column(
+                                    modifier = Modifier
+                                        .width(artistWidth)
+                                        .xvoxSongPress(
+                                            onClick = {
+                                                addRecent(query)
+                                                val song = artist.songs.firstOrNull()
+                                                if (song != null) {
+                                                    homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
+                                                    playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
+                                                }
+                                            },
+                                            onLongClick = { }
+                                        ),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(artistWidth)
+                                            .clip(CircleShape)
+                                            .background(colors.card),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (artist.customImageUri != null) {
+                                            AsyncImage(
+                                                model = artist.customImageUri,
+                                                contentDescription = artist.name,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.size(artistWidth)
+                                            )
+                                        } else if (artist.coverSong != null) {
+                                            XvoxSongArtwork(
+                                                artwork = artist.coverSong.artworkUri,
+                                                requestSize = 128,
+                                                modifier = Modifier.size(artistWidth)
+                                            )
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_xvox_microphone),
+                                                contentDescription = null,
+                                                tint = colors.primaryAccent,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    Text(
+                                        text = artist.name,
+                                        color = colors.primaryText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item(key = "search_artist_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
+            }
+
             if (filteredPlaylists.isNotEmpty()) {
                 item(key = "playlists_header") {
                     Text(

@@ -396,6 +396,15 @@ class HomeViewModel(
         return ids.mapNotNull { byId[it] }
     }
 
+    fun renameArtist(oldName: String, newName: String, mergeDuplicates: Boolean = false) = viewModelScope.launch {
+        val existingPhoto = state.value.customArtistImages[oldName]
+        if (existingPhoto != null) {
+            preferencesRepository.setArtistImage(newName, existingPhoto)
+            preferencesRepository.setArtistImage(oldName, null)
+        }
+        refresh()
+    }
+
     fun setArtistColumns(value: Int) = viewModelScope.launch { preferencesRepository.setArtistColumns(value) }
     fun setArtistGap(value: Int) = viewModelScope.launch { preferencesRepository.setArtistGap(value) }
     fun setArtistRows(value: Int) = viewModelScope.launch { preferencesRepository.setArtistRows(value) }

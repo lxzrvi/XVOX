@@ -235,6 +235,11 @@ private fun PlaylistActionsMain(
 
         Spacer(Modifier.height(12.dp))
 
+        PlaylistAction(
+            title = "Playlist info",
+            onClick = onInfo
+        )
+
         // Card layout lives on the card: how the playlist reads on Home, and how tall it gets.
         PlaylistAction(
             title = "Card layout",
@@ -244,11 +249,6 @@ private fun PlaylistActionsMain(
         PlaylistAction(
             title = "Delete playlist",
             onClick = onDelete
-        )
-
-        PlaylistAction(
-            title = "Playlist info",
-            onClick = onInfo
         )
     }
 }
@@ -282,11 +282,14 @@ private fun PlaylistAction(
 @Composable
 private fun PlaylistLayoutEditor(
     onDone: () -> Unit,
+    homeViewModel: com.xvox.music.features.home.HomeViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(),
     settingsViewModel: com.xvox.music.features.settings.SettingsViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
+    val homeState by homeViewModel.state.collectAsState()
     val auto = state.playlistLongHeight <= 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -304,30 +307,6 @@ private fun PlaylistLayoutEditor(
         )
 
         Spacer(Modifier.height(12.dp))
-
-        // Merge to Home Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Merge to Home", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
-            }
-            androidx.compose.material3.Switch(
-                checked = state.homeMerge,
-                onCheckedChange = { settingsViewModel.setHomeMerge(it) },
-                colors = androidx.compose.material3.SwitchDefaults.colors(
-                    checkedThumbColor = colors.background,
-                    checkedTrackColor = colors.primaryAccent,
-                    uncheckedThumbColor = colors.secondaryText,
-                    uncheckedTrackColor = colors.cardElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
 
         Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
@@ -368,6 +347,37 @@ private fun PlaylistLayoutEditor(
             )
             Spacer(Modifier.height(8.dp))
             LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // Merge to Home Toggle (at the end)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Merge to Home", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
+            }
+            androidx.compose.material3.Switch(
+                checked = state.homeMerge,
+                onCheckedChange = { settingsViewModel.setHomeMerge(it) },
+                colors = androidx.compose.material3.SwitchDefaults.colors(
+                    checkedThumbColor = colors.background,
+                    checkedTrackColor = colors.primaryAccent,
+                    uncheckedThumbColor = colors.secondaryText,
+                    uncheckedTrackColor = colors.cardElevated
+                )
+            )
+        }
+
+        if (state.homeMerge) {
+            com.xvox.music.features.home.HomeSectionReorderControls(
+                config = homeState.presentation,
+                viewModel = homeViewModel
+            )
         }
 
         Spacer(Modifier.height(16.dp))

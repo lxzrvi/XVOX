@@ -43,14 +43,13 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Animation style",
+            title = "Text animation style",
             expanded = expandedGroup == "Animation",
             onToggle = { toggle("Animation") }
         ) {
             SettingsChoiceRow(
                 listOf(
-                    "wave" to "Wave", "string" to "String", "spring" to "Spring",
-                    "slide" to "Slide", "rise" to "Rise", "fade" to "Fade"
+                    "wave" to "Wave", "drift" to "Drift", "aurora" to "Aurora", "off" to "Off"
                 ),
                 settings.animation
             ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
@@ -63,8 +62,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         ) {
             SettingsChoiceRow(
                 listOf(
-                    "wave" to "Wave", "aurora" to "Aurora", "pulse" to "Pulse",
-                    "orbital" to "Orbital", "prism" to "Prism", "off" to "Off"
+                    "wave" to "Wave", "drift" to "Drift", "aurora" to "Aurora", "off" to "Off"
                 ),
                 settings.gradientAnimation
             ) { value -> viewModel.updateLyrics { it.copy(gradientAnimation = value) } }

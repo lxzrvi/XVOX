@@ -3,7 +3,7 @@ package com.xvox.music.features.home
 /** Persisted presentation only. It must never rebuild the playback queue or re-scan MediaStore. */
 data class HomePresentation(
     val style: String = "uniform",
-    val direction: String = "horizontal",
+    val direction: String = "vertical",
     val rows: Int = 4,
     val hideRecents: Boolean = false,
     val recentsPlacement: String = "bottom",
