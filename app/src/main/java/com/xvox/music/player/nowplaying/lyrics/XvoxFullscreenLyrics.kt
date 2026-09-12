@@ -488,98 +488,99 @@ fun XvoxFullscreenLyrics(
             ) + fadeOut(tween(160)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(headerBg)
             ) {
                 if (headerPhoto != null) {
-                    Box(Modifier.matchParentSize()) {
-                        AsyncImage(
-                            model = headerPhoto,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.matchParentSize()
-                        )
-                        Box(
-                            Modifier
-                                .matchParentSize()
-                                .background(headerBg)
-                        )
-                    }
+                    AsyncImage(
+                        model = headerPhoto,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.matchParentSize()
+                    )
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .background(headerBg)
+                    )
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = topPadding)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .height(54.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    XvoxSongArtwork(
-                        artwork = song.artworkUri,
-                        requestSize = 128,
+                    Row(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
+                            .fillMaxWidth()
+                            .padding(top = topPadding)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .height(54.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = song.title,
-                            color = colors.primaryText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        XvoxSongArtwork(
+                            artwork = song.artworkUri,
+                            requestSize = 128,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
                         )
-                        Text(
-                            text = song.artist,
-                            color = colors.secondaryText,
-                            fontSize = 10.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
 
-                    // Transport: Previous
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(colors.card.copy(alpha = 0.35f))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    pingInteraction()
-                                    haptics.tap()
-                                    onPrevious()
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_skip_previous),
-                            contentDescription = "Previous",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = song.title,
+                                color = colors.primaryText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.artist,
+                                color = colors.secondaryText,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-                    Spacer(Modifier.size(4.dp))
+                        // Transport: Previous
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(colors.card.copy(alpha = 0.35f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        pingInteraction()
+                                        haptics.tap()
+                                        onPrevious()
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_skip_previous),
+                                contentDescription = "Previous",
+                                tint = colors.primaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
 
-                    // Transport: Play / Pause toggle
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(colors.card.copy(alpha = 0.40f))
+                        Spacer(Modifier.size(4.dp))
+
+                        // Transport: Play / Pause toggle
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(colors.card.copy(alpha = 0.40f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -589,129 +590,130 @@ fun XvoxFullscreenLyrics(
                                     onTogglePlay()
                                 }
                             ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play),
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.size(4.dp))
-
-                    // Transport: Next
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(colors.card.copy(alpha = 0.35f))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    pingInteraction()
-                                    haptics.tap()
-                                    onNext()
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_skip_next),
-                            contentDescription = "Next",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.size(4.dp))
-
-                    // Gradient cycle button
-                    val gradientIsActive = gradientAnim != "off"
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (gradientIsActive) colors.primaryAccent.copy(alpha = 0.28f)
-                                else colors.card.copy(alpha = 0.32f)
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play),
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(18.dp)
                             )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
+                        }
+
+                        Spacer(Modifier.size(4.dp))
+
+                        // Transport: Next
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(colors.card.copy(alpha = 0.35f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        pingInteraction()
+                                        haptics.tap()
+                                        onNext()
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_skip_next),
+                                contentDescription = "Next",
+                                tint = colors.primaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.size(4.dp))
+
+                        // Gradient cycle button
+                        val gradientIsActive = gradientAnim != "off"
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (gradientIsActive) colors.primaryAccent.copy(alpha = 0.28f)
+                                    else colors.card.copy(alpha = 0.32f)
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        pingInteraction()
+                                        cycleGradient()
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_sparkle),
+                                contentDescription = "Cycle gradient",
+                                tint = if (gradientIsActive) colors.primaryAccent else colors.primaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.size(4.dp))
+
+                        if (onOpenSettings != null) {
+                            FullscreenCircle(
+                                resource = R.drawable.ic_xvox_settings,
+                                description = "Lyrics settings",
                                 onClick = {
                                     pingInteraction()
-                                    cycleGradient()
+                                    onOpenSettings()
                                 }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_sparkle),
-                            contentDescription = "Cycle gradient",
-                            tint = if (gradientIsActive) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.size(4.dp))
-
-                    if (onOpenSettings != null) {
-                        FullscreenCircle(
-                            resource = R.drawable.ic_xvox_settings,
-                            description = "Lyrics settings",
-                            onClick = {
-                                pingInteraction()
-                                onOpenSettings()
-                            }
-                        )
-                        Spacer(Modifier.size(4.dp))
-                    }
-
-                    FullscreenCircle(
-                        resource = R.drawable.ic_xvox_close,
-                        description = "Close",
-                        onClick = onClose
-                    )
-                }
-
-                // Header Progress Bar
-                val progressFraction = (position.toFloat() / duration.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .pointerInput(duration) {
-                            detectHorizontalDragGestures { change, _ ->
-                                change.consume()
-                                pingInteraction()
-                                val seekRatio = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                onSeek((seekRatio * duration).toLong())
-                            }
+                            )
+                            Spacer(Modifier.size(4.dp))
                         }
-                        .pointerInput(duration) {
-                            detectTapGestures { offset ->
-                                pingInteraction()
-                                val seekRatio = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                onSeek((seekRatio * duration).toLong())
-                            }
-                        },
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Box(
-                        Modifier
+
+                        FullscreenCircle(
+                            resource = R.drawable.ic_xvox_close,
+                            description = "Close",
+                            onClick = onClose
+                        )
+                    }
+
+                    // Header Progress Bar
+                    val progressFraction = (position.toFloat() / duration.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
+                    BoxWithConstraints(
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .height(2.5.dp)
-                            .background(colors.cardBorder.copy(alpha = 0.45f))
-                    )
-                    Box(
-                        Modifier
-                            .fillMaxWidth(progressFraction)
-                            .height(2.5.dp)
-                            .background(colors.primaryAccent)
-                    )
+                            .height(6.dp)
+                            .pointerInput(duration) {
+                                detectHorizontalDragGestures { change, _ ->
+                                    change.consume()
+                                    pingInteraction()
+                                    val seekRatio = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                    onSeek((seekRatio * duration).toLong())
+                                }
+                            }
+                            .pointerInput(duration) {
+                                detectTapGestures { offset ->
+                                    pingInteraction()
+                                    val seekRatio = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                    onSeek((seekRatio * duration).toLong())
+                                }
+                            },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(2.5.dp)
+                                .background(colors.cardBorder.copy(alpha = 0.45f))
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth(progressFraction)
+                                .height(2.5.dp)
+                                .background(colors.primaryAccent)
+                        )
+                    }
                 }
             }
         }

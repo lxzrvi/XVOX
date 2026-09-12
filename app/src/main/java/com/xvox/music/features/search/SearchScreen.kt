@@ -307,41 +307,13 @@ fun SearchScreen(
         if (selecting) {
             HomeMultiSelectBar(
                 selectedSongs = selectedSongs,
-                onClear = { selectedIds = emptySet() },
-                onSelectAll = {
-                    selectedIds = (filteredSongs.ifEmpty { homeState.songs }).mapTo(HashSet()) { it.id }
-                },
-                onPlayNext = {
-                    playerViewModel.playNextInQueue(selectedSongs)
-                    selectedIds = emptySet()
-                    overlays.showP("Added ${selectedSongs.size} to queue")
-                },
-                onAddToPlaylist = {
-                    overlays.showBox("Add to playlist") {
-                        com.xvox.music.shell.XvoxPlaylistPickerBoxContent(
-                            song = selectedSongs.first(),
-                            playlists = homeState.playlists,
-                            onAddToPlaylist = { playlistId ->
-                                homeViewModel.addMultipleToPlaylist(playlistId, selectedSongs) { updated ->
-                                    if (updated != null) {
-                                        overlays.hideBox()
-                                        overlays.showP("Added ${selectedSongs.size} to ${updated.name}")
-                                        selectedIds = emptySet()
-                                    }
-                                }
-                            },
-                            onCreatePlaylist = {
-                                overlays.hideBox()
-                                com.xvox.music.features.home.showCreatePlaylistOverlay(
-                                    overlays, homeViewModel, homeState.songs, selectedSongs.first()
-                                )
-                            },
-                            onRemoveFromPlaylist = {},
-                            onCancel = overlays::hideBox
-                        )
-                    }
-                },
-                onDelete = ::requestDeleteSelected
+                selectedPlaylist = null,
+                libraryMode = com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS,
+                viewModel = homeViewModel,
+                overlays = overlays,
+                context = context,
+                onClearSelection = { selectedIds = emptySet() },
+                onDeleteSelected = ::requestDeleteSelected
             )
         }
 
@@ -386,7 +358,7 @@ fun SearchScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_xvox_recent),
+                                painter = painterResource(R.drawable.ic_xvox_search),
                                 contentDescription = null,
                                 tint = colors.secondaryText,
                                 modifier = Modifier.size(16.dp)

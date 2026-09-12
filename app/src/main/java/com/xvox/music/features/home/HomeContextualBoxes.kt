@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -255,10 +256,10 @@ fun HomeSectionReorderControls(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_xvox_arrow_up),
+                            painter = painterResource(R.drawable.ic_xvox_caret_right),
                             contentDescription = "Move Up",
                             tint = if (index > 0) colors.primaryAccent else colors.mutedText.copy(alpha = 0.4f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = -90f }
                         )
                     }
 
@@ -283,10 +284,10 @@ fun HomeSectionReorderControls(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_xvox_arrow_down),
+                            painter = painterResource(R.drawable.ic_xvox_caret_right),
                             contentDescription = "Move Down",
                             tint = if (index < visibleOrder.lastIndex) colors.primaryAccent else colors.mutedText.copy(alpha = 0.4f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = 90f }
                         )
                     }
                 }

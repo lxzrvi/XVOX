@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 
@@ -99,7 +100,7 @@ private fun ActionButton(
             .size(38.dp)
             .clip(CircleShape)
             .background(
-                colors.cardElevated.copy(alpha = chrome.miniPlayerBgAlpha.coerceIn(0.25f, 1f))
+                colors.cardElevated.copy(alpha = chrome.miniBgAlpha.coerceIn(0.25f, 1f))
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

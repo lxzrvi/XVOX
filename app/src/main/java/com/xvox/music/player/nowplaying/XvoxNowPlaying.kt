@@ -287,7 +287,7 @@ fun XvoxNowPlaying(
                         onClose = { showLyrics = false },
                         onFullscreen = lyricsViewModel::openFullscreen,
                         onOpenSettings = { quickPage = "Lyrics"; showQuickSettingsSheet = true },
-                        textColor = paletteState.current.lightBackground,
+                        textColor = paletteState.color,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 8.dp, vertical = 8.dp)

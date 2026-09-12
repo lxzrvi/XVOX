@@ -108,6 +108,21 @@ fun HomeScreen(
         )
     }
 
+    val artists = remember(state.songs, state.customArtistImages, state.hiddenArtists) {
+        state.songs
+            .filterNot { it.artist in state.hiddenArtists }
+            .groupBy { it.artist.ifBlank { "Unknown Artist" } }
+            .map { (artistName, songList) ->
+                XvoxArtist(
+                    name = artistName,
+                    songs = songList,
+                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    customImageUri = state.customArtistImages[artistName]
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
     if (showArtistInfo != null) {
         val currentArtist = showArtistInfo!!
         ArtistInfoDialog(
@@ -181,21 +196,6 @@ fun HomeScreen(
     val songsById = remember(state.songs) { state.songs.associateBy { it.id } }
     val playlistContents = remember(songsById, state.playlists) {
         state.playlists.associate { it.id to it.songIds.mapNotNull(songsById::get) }
-    }
-
-    val artists = remember(state.songs, state.customArtistImages, state.hiddenArtists) {
-        state.songs
-            .filterNot { it.artist in state.hiddenArtists }
-            .groupBy { it.artist.ifBlank { "Unknown Artist" } }
-            .map { (artistName, songList) ->
-                XvoxArtist(
-                    name = artistName,
-                    songs = songList,
-                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
-                    customImageUri = state.customArtistImages[artistName]
-                )
-            }
-            .sortedBy { it.name.lowercase() }
     }
 
     LaunchedEffect(state.songs) {
