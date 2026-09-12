@@ -144,7 +144,6 @@ fun HomeScreen(
                 overlays.showP("Playing by ${currentArtist.name}")
             },
             onEditPhoto = {
-                croppingArtistPhotoFor = currentArtist.name
                 artistPhotoPicker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )

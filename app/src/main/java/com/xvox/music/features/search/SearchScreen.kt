@@ -1,24 +1,18 @@
 package com.xvox.music.features.search
 
-import android.os.Build
-import androidx.activity.result.IntentSenderRequest
-import com.xvox.music.features.home.XvoxSongActions
-
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Column
-import androidx.compose.runtime.LaunchedEffect
-import com.xvox.music.features.home.HomeMultiSelectBar
-import com.xvox.music.features.playlist.XvoxHomeLibraryMode
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
-import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import android.app.Activity
+import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,8 +22,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -37,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,22 +46,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.HomeGeometry
+import com.xvox.music.features.home.HomeMultiSelectBar
+import com.xvox.music.features.home.HomeScreenMode
 import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.home.XvoxSongActions
+import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.showPlaylistActions
 import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.playlist.XvoxPlaylistCard
@@ -98,11 +107,6 @@ private fun playlistRelevance(pl: XvoxPlaylist, query: String): Int {
     }
 }
 
-import androidx.compose.foundation.lazy.LazyRow
-import coil3.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
-import com.xvox.music.core.ui.effects.xvoxSongPress
-
 @Composable
 fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
@@ -126,12 +130,18 @@ fun SearchScreen(
     val selecting = selectedIds.isNotEmpty()
     val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // Every fresh entry into the Search tab lands on the top, wherever it was left.
-    LaunchedEffect(topResetKey) { if (topResetKey > 0L) listState.scrollToItem(0) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(topResetKey) {
+        if (topResetKey > 0L) listState.scrollToItem(0)
+    }
+
     BackHandler(selecting) { selectedIds = emptySet() }
     LaunchedEffect(query) { selectedIds = emptySet() }
-    LaunchedEffect(homeState.songs) { selectedIds = selectedIds.intersect(homeState.songs.mapTo(HashSet()) { it.id }) }
+    LaunchedEffect(homeState.songs) {
+        selectedIds = selectedIds.intersect(homeState.songs.mapTo(HashSet()) { it.id })
+    }
+
     var pendingDelete by remember { mutableStateOf<List<Song>>(emptyList()) }
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -221,330 +231,372 @@ fun SearchScreen(
                 )
             }
         }
-        if (selecting) {
-            Spacer(Modifier.height(topInset))
-            HomeMultiSelectBar(selectedSongs, null, XvoxHomeLibraryMode.ALL_SONGS, homeViewModel,
-                overlays, context, onClearSelection = { selectedIds = emptySet() },
-                onDeleteSelected = ::requestDeleteSelected)
-        }
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = if (selecting) 8.dp else topInset + 14.dp, bottom = bottomInset)
+
+        Spacer(Modifier.height(topInset))
+
+        // Search Input Bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
-        item(key = "search_header_title") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colors.card)
+                    .border(0.6.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Search",
-                    color = colors.primaryAccent,
-                    fontSize = 16.sp,
-                    lineHeight = 19.sp,
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_search),
+                    contentDescription = null,
+                    tint = if (query.isNotBlank()) colors.primaryAccent else colors.mutedText,
+                    modifier = Modifier.size(18.dp)
                 )
-            }
-        }
 
-        item(key = "search_bar") {
-            val searchBarShape = RoundedCornerShape(12.dp)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .clip(searchBarShape)
-                    .background(colors.card)
-                    .border(0.7.dp, colors.cardBorder, searchBarShape)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_search),
-                        contentDescription = null,
-                        tint = colors.secondaryText,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    BasicTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { addRecent(query) }),
-                        textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-                        cursorBrush = SolidColor(colors.primaryAccent),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 8.dp),
-                        decorationBox = { inner ->
-                            Box {
-                                if (query.isEmpty()) {
-                                    Text(text = "Search songs or playlists", color = colors.mutedText, fontSize = 14.sp)
-                                }
-                                inner()
-                            }
+                Spacer(Modifier.width(10.dp))
+
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = colors.primaryText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    cursorBrush = SolidColor(colors.primaryAccent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { addRecent(query) }),
+                    decorationBox = { innerTextField ->
+                        if (query.isEmpty()) {
+                            Text(
+                                text = "Search songs, artists, playlists…",
+                                color = colors.mutedText,
+                                fontSize = 14.sp
+                            )
                         }
-                    )
-                    if (query.isNotEmpty()) {
+                        innerTextField()
+                    }
+                )
+
+                if (query.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(colors.cardElevated)
+                            .clickable { query = "" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_xvox_close),
                             contentDescription = "Clear",
                             tint = colors.secondaryText,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable { query = "" }
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
         }
 
-        if (query.isEmpty()) {
-            if (recentSearches.isNotEmpty()) {
-                item(key = "recent_searches_header") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+        if (selecting) {
+            HomeMultiSelectBar(
+                selectedSongs = selectedSongs,
+                onClear = { selectedIds = emptySet() },
+                onSelectAll = {
+                    selectedIds = (filteredSongs.ifEmpty { homeState.songs }).mapTo(HashSet()) { it.id }
+                },
+                onPlayNext = {
+                    playerViewModel.playNextInQueue(selectedSongs)
+                    selectedIds = emptySet()
+                    overlays.showP("Added ${selectedSongs.size} to queue")
+                },
+                onAddToPlaylist = {
+                    overlays.showBox("Add to playlist") {
+                        com.xvox.music.shell.XvoxPlaylistPickerBoxContent(
+                            song = selectedSongs.first(),
+                            playlists = homeState.playlists,
+                            onAddToPlaylist = { playlistId ->
+                                homeViewModel.addMultipleToPlaylist(playlistId, selectedSongs) { updated ->
+                                    if (updated != null) {
+                                        overlays.hideBox()
+                                        overlays.showP("Added ${selectedSongs.size} to ${updated.name}")
+                                        selectedIds = emptySet()
+                                    }
+                                }
+                            },
+                            onCreatePlaylist = {
+                                overlays.hideBox()
+                                com.xvox.music.features.home.showCreatePlaylistOverlay(
+                                    overlays, homeViewModel, homeState.songs, selectedSongs.first()
+                                )
+                            },
+                            onRemoveFromPlaylist = {},
+                            onCancel = overlays::hideBox
+                        )
+                    }
+                },
+                onDelete = ::requestDeleteSelected
+            )
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = bottomInset + 30.dp)
+        ) {
+            if (query.isBlank()) {
+                if (recentSearches.isNotEmpty()) {
+                    item(key = "recents_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recent Searches",
+                                color = colors.primaryAccent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Clear",
+                                color = colors.secondaryText,
+                                fontSize = 12.sp,
+                                modifier = Modifier.clickable {
+                                    scope.launch { prefs.clearRecentSearches() }
+                                }
+                            )
+                        }
+                    }
+
+                    items(recentSearches, key = { "recent_$it" }) { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { query = item }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_recent),
+                                contentDescription = null,
+                                tint = colors.secondaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = item,
+                                color = colors.primaryText,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_close),
+                                contentDescription = "Remove",
+                                tint = colors.mutedText,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable {
+                                        scope.launch { prefs.removeRecentSearch(item) }
+                                    }
+                            )
+                        }
+                    }
+                }
+            } else {
+                if (filteredArtists.isNotEmpty()) {
+                    item(key = "artists_header") {
                         Text(
-                            text = "Recent Searches",
+                            text = "Artists (${filteredArtists.size})",
                             color = colors.primaryAccent,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "Clear",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            modifier = Modifier.clickable {
-                                scope.launch { prefs.clearRecentSearches() }
-                            }
+                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
                         )
                     }
-                }
-                items(recentSearches, key = { "recent_$it" }) { item ->
-                    val recentShape = RoundedCornerShape(8.dp)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 3.dp)
-                            .clip(recentShape)
-                            .background(colors.card)
-                            .border(0.7.dp, colors.cardBorder, recentShape)
-                            .clickable { query = item }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(painter = painterResource(R.drawable.ic_xvox_search), contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(14.dp))
-                        Text(text = item, color = colors.primaryText, fontSize = 13.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_close),
-                            contentDescription = null,
-                            tint = colors.mutedText,
-                            modifier = Modifier.size(13.dp).clickable {
-                                scope.launch { prefs.removeRecentSearch(item) }
-                            }
-                        )
-                    }
-                }
-            }
-        } else {
-            if (filteredArtists.isNotEmpty()) {
-                item(key = "search_artists_header") {
-                    Text(
-                        text = "Artists (${filteredArtists.size})",
-                        color = colors.primaryAccent,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
-                    )
-                }
 
-                item(key = "search_artists_row") {
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        val gap = 8.dp
-                        val artistWidth = ((maxWidth - gap * 4 - 24.dp) / 5).coerceAtLeast(64.dp)
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(gap)
-                        ) {
-                            items(filteredArtists, key = { "search_artist_${it.name}" }) { artist ->
-                                Column(
-                                    modifier = Modifier
-                                        .width(artistWidth)
-                                        .xvoxSongPress(
-                                            onClick = {
-                                                addRecent(query)
-                                                val song = artist.songs.firstOrNull()
-                                                if (song != null) {
-                                                    homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
-                                                    playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
-                                                }
-                                            },
-                                            onLongClick = { }
-                                        ),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
+                    item(key = "search_artists_row") {
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val gap = 8.dp
+                            val artistWidth = ((maxWidth - gap * 4 - 24.dp) / 5).coerceAtLeast(64.dp)
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(gap)
+                            ) {
+                                items(filteredArtists, key = { "search_artist_${it.name}" }) { artist ->
+                                    Column(
                                         modifier = Modifier
-                                            .size(artistWidth)
-                                            .clip(CircleShape)
-                                            .background(colors.card),
-                                        contentAlignment = Alignment.Center
+                                            .width(artistWidth)
+                                            .xvoxSongPress(
+                                                onClick = {
+                                                    addRecent(query)
+                                                    val song = artist.songs.firstOrNull()
+                                                    if (song != null) {
+                                                        homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
+                                                        playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
+                                                    }
+                                                },
+                                                onLongClick = { }
+                                            ),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        if (artist.customImageUri != null) {
-                                            AsyncImage(
-                                                model = artist.customImageUri,
-                                                contentDescription = artist.name,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.size(artistWidth)
-                                            )
-                                        } else if (artist.coverSong != null) {
-                                            XvoxSongArtwork(
-                                                artwork = artist.coverSong.artworkUri,
-                                                requestSize = 128,
-                                                modifier = Modifier.size(artistWidth)
-                                            )
-                                        } else {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_xvox_microphone),
-                                                contentDescription = null,
-                                                tint = colors.primaryAccent,
-                                                modifier = Modifier.size(24.dp)
-                                            )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(artistWidth)
+                                                .clip(CircleShape)
+                                                .background(colors.card),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (artist.customImageUri != null) {
+                                                AsyncImage(
+                                                    model = artist.customImageUri,
+                                                    contentDescription = artist.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.size(artistWidth)
+                                                )
+                                            } else if (artist.coverSong != null) {
+                                                XvoxSongArtwork(
+                                                    artwork = artist.coverSong.artworkUri,
+                                                    requestSize = 128,
+                                                    modifier = Modifier.size(artistWidth)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_xvox_microphone),
+                                                    contentDescription = null,
+                                                    tint = colors.primaryAccent,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
                                         }
+
+                                        Spacer(Modifier.height(4.dp))
+
+                                        Text(
+                                            text = artist.name,
+                                            color = colors.primaryText,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center
+                                        )
                                     }
-
-                                    Spacer(Modifier.height(4.dp))
-
-                                    Text(
-                                        text = artist.name,
-                                        color = colors.primaryText,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
                                 }
                             }
                         }
                     }
-                }
-                item(key = "search_artist_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
-            }
-
-            if (filteredPlaylists.isNotEmpty()) {
-                item(key = "playlists_header") {
-                    Text(
-                        text = "Playlists (${filteredPlaylists.size})",
-                        color = colors.primaryAccent,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
-                    )
+                    item(key = "search_artist_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
                 }
 
-                val playlistChunks = filteredPlaylists.chunked(2)
-                items(playlistChunks, key = { chunk -> "pl_row_${chunk.first().id}" }) { chunk ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        chunk.forEach { playlist ->
-                            val coverSongs = homeViewModel.playlistSongs(playlist)
-                            XvoxPlaylistCard(
-                                playlist = playlist,
-                                songs = coverSongs,
-                                onClick = {
-                                    addRecent(query)
-                                    onPlaylistSelected?.invoke(playlist.id)
-                                },
-                                onLongClick = {
-                                    showPlaylistActions(overlays, homeViewModel, playlist) {}
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        if (chunk.size == 1) {
-                            Spacer(Modifier.weight(1f))
-                        }
+                if (filteredPlaylists.isNotEmpty()) {
+                    item(key = "playlists_header") {
+                        Text(
+                            text = "Playlists (${filteredPlaylists.size})",
+                            color = colors.primaryAccent,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
+                        )
                     }
-                }
-                item(key = "playlist_bottom_spacer") { Spacer(Modifier.height(10.dp)) }
-            }
 
-            if (filteredSongs.isNotEmpty()) {
-                item(key = "songs_header") {
-                    Text(
-                        text = "Songs (${filteredSongs.size})",
-                        color = colors.primaryAccent,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
-                    )
-                }
-                items(filteredSongs, key = { it.id }) { song ->
-                    val isCurrent = song.id == playerState.currentSongId
-                    val isPlaying = isCurrent && playerState.isPlaying
-                    SearchSongCard(
-                        song = song,
-                        current = isCurrent,
-                        playing = isPlaying,
-                        selected = song.id in selectedIds,
-                        onClick = {
-                            if (selecting) selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
-                            else {
-                                addRecent(query)
-                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Search")
-                                val songQueue = if (homeState.songs.isNotEmpty()) homeState.songs else filteredSongs
-                                playerViewModel.playFromSource(song, songQueue, "Search")
+                    val playlistChunks = filteredPlaylists.chunked(2)
+                    items(playlistChunks, key = { chunk -> "pl_row_${chunk.first().id}" }) { chunk ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 5.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            chunk.forEach { playlist ->
+                                val coverSongs = homeViewModel.playlistSongs(playlist)
+                                XvoxPlaylistCard(
+                                    playlist = playlist,
+                                    songs = coverSongs,
+                                    onClick = {
+                                        addRecent(query)
+                                        onPlaylistSelected?.invoke(playlist.id)
+                                    },
+                                    onLongClick = {
+                                        showPlaylistActions(overlays, homeViewModel, playlist) {}
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
-                        },
-                        onOptions = {
-                            showSongOptionsOverlay(
-                                overlays = overlays,
-                                context = context,
-                                song = song,
-                                isLiked = song.id in homeState.likedSongIds,
-                                playlist = null,
-                                recent = false,
-                                viewModel = homeViewModel,
-                                playerViewModel = playerViewModel,
-                                playlists = homeState.playlists,
-                                songs = homeState.songs,
-                                deleteLauncher = deleteLauncher,
-                                onPendingDelete = { pendingDelete = listOf(it) },
-                                onSelect = { selectedIds = selectedIds + song.id }
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
-                    )
+                            if (chunk.size == 1) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    item(key = "playlist_bottom_spacer") { Spacer(Modifier.height(10.dp)) }
                 }
-            }
 
-            if (filteredPlaylists.isEmpty() && filteredSongs.isEmpty()) {
-                item(key = "no_results") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
-                        Text(text = "No songs or playlists found", color = colors.mutedText, fontSize = 13.sp)
+                if (filteredSongs.isNotEmpty()) {
+                    item(key = "songs_header") {
+                        Text(
+                            text = "Songs (${filteredSongs.size})",
+                            color = colors.primaryAccent,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
+                        )
+                    }
+                    items(filteredSongs, key = { it.id }) { song ->
+                        val isCurrent = song.id == playerState.currentSongId
+                        val isPlaying = isCurrent && playerState.isPlaying
+                        SearchSongCard(
+                            song = song,
+                            current = isCurrent,
+                            playing = isPlaying,
+                            selected = song.id in selectedIds,
+                            onClick = {
+                                if (selecting) selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
+                                else {
+                                    addRecent(query)
+                                    homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Search")
+                                    val songQueue = if (homeState.songs.isNotEmpty()) homeState.songs else filteredSongs
+                                    playerViewModel.playFromSource(song, songQueue, "Search")
+                                }
+                            },
+                            onOptions = {
+                                showSongOptionsOverlay(
+                                    overlays = overlays,
+                                    context = context,
+                                    song = song,
+                                    isLiked = song.id in homeState.likedSongIds,
+                                    playlist = null,
+                                    recent = false,
+                                    viewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    playlists = homeState.playlists,
+                                    songs = homeState.songs,
+                                    deleteLauncher = deleteLauncher,
+                                    onPendingDelete = { pendingDelete = listOf(it) },
+                                    onSelect = { selectedIds = selectedIds + song.id }
+                                )
+                            },
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                if (filteredArtists.isEmpty() && filteredPlaylists.isEmpty() && filteredSongs.isEmpty()) {
+                    item(key = "no_results") {
+                        Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                            Text(text = "No songs, artists, or playlists found", color = colors.mutedText, fontSize = 13.sp)
+                        }
                     }
                 }
             }
-        }
-
-        item(key = "search_bottom_spacer") {
-            Spacer(Modifier.height(8.dp))
         }
     }
-}
-
 }

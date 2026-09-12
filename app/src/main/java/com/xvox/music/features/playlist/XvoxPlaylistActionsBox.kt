@@ -288,8 +288,10 @@ private fun PlaylistLayoutEditor(
         androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val colors = XvoxTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember(context) { com.xvox.music.data.preferences.UserPreferencesRepository(context) }
+    val homeConfig by prefs.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val state by settingsViewModel.state.collectAsState()
-    val homeState by homeViewModel.state.collectAsState()
     val auto = state.playlistLongHeight <= 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -375,7 +377,7 @@ private fun PlaylistLayoutEditor(
 
         if (state.homeMerge) {
             com.xvox.music.features.home.HomeSectionReorderControls(
-                config = homeState.presentation,
+                config = homeConfig,
                 viewModel = homeViewModel
             )
         }
