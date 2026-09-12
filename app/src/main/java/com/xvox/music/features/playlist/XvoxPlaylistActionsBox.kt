@@ -291,19 +291,46 @@ private fun PlaylistLayoutEditor(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Card layout",
-            color = colors.primaryText,
+            text = "Playlist Layout & Settings",
+            color = colors.primaryAccent,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "How this playlist sits in Home",
+            text = "How playlists appear on your Home screen",
             color = colors.secondaryText,
             fontSize = 11.sp
         )
 
         Spacer(Modifier.height(12.dp))
+
+        // Merge to Home Toggle
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Merge to Home", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
+            }
+            androidx.compose.material3.Switch(
+                checked = state.mergeSections,
+                onCheckedChange = { settingsViewModel.setMergeSections(it) },
+                colors = androidx.compose.material3.SwitchDefaults.colors(
+                    checkedThumbColor = colors.background,
+                    checkedTrackColor = colors.primaryAccent,
+                    uncheckedThumbColor = colors.secondaryText,
+                    uncheckedTrackColor = colors.cardElevated
+                )
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LayoutChoice("Swipe cards", state.playlistStyle == "cards") {
@@ -350,7 +377,7 @@ private fun PlaylistLayoutEditor(
                 .fillMaxWidth()
                 .height(40.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(colors.cardElevated)
+                .background(colors.primaryAccent)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -358,7 +385,7 @@ private fun PlaylistLayoutEditor(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text("Done", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Done", color = colors.background, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

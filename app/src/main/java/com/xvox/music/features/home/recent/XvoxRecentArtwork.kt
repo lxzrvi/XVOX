@@ -60,6 +60,7 @@ fun XvoxRecentArtwork(
 
     Box(
         modifier = modifier
+            .xvoxSongPress(onClick, onLongClick, pressedScale = 0.95f)
             .clip(shape)
             .background(cardColor)
             .border(
@@ -67,7 +68,6 @@ fun XvoxRecentArtwork(
                 color = colors.cardBorder,
                 shape = shape
             )
-            .xvoxSongPress(onClick, onLongClick, pressedScale = 0.97f)
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,

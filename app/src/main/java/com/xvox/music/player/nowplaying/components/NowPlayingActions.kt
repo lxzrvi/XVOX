@@ -109,9 +109,10 @@ fun NowPlayingActions(
         // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(22.dp))
+                .height(42.dp)
+                .clip(RoundedCornerShape(21.dp))
                 .background(colors.card.copy(alpha = 0.22f))
-                .padding(horizontal = 6.dp, vertical = 3.dp),
+                .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -138,8 +139,9 @@ fun NowPlayingActions(
         ) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(22.dp))
-                    .padding(horizontal = 2.dp, vertical = 2.dp)
+                    .height(42.dp)
+                    .clip(RoundedCornerShape(21.dp))
+                    .padding(horizontal = 2.dp)
                     .pointerInput(Unit) {
                         var drag = 0f
                         detectHorizontalDragGestures(

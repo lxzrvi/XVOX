@@ -13,7 +13,8 @@ enum class XvoxMiniIcon {
     HEART,
     ADD,
     DELETE,
-    CLOSE
+    CLOSE,
+    SETTINGS
 }
 
 @Composable
@@ -22,15 +23,15 @@ fun XvoxMiniPlayerIcon(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    val resource =
-        when (icon) {
-            XvoxMiniIcon.PLAY -> R.drawable.ic_xvox_play
-            XvoxMiniIcon.PAUSE -> R.drawable.ic_xvox_pause
-            XvoxMiniIcon.HEART -> R.drawable.ic_xvox_heart
-            XvoxMiniIcon.ADD -> R.drawable.ic_xvox_add
-            XvoxMiniIcon.DELETE -> R.drawable.ic_xvox_delete
-            XvoxMiniIcon.CLOSE -> R.drawable.ic_xvox_close
-        }
+    val resource = when (icon) {
+        XvoxMiniIcon.PLAY -> R.drawable.ic_xvox_play
+        XvoxMiniIcon.PAUSE -> R.drawable.ic_xvox_pause
+        XvoxMiniIcon.HEART -> R.drawable.ic_xvox_heart
+        XvoxMiniIcon.ADD -> R.drawable.ic_xvox_add
+        XvoxMiniIcon.DELETE -> R.drawable.ic_xvox_delete
+        XvoxMiniIcon.CLOSE -> R.drawable.ic_xvox_close
+        XvoxMiniIcon.SETTINGS -> R.drawable.ic_xvox_settings
+    }
 
     Icon(
         painter = painterResource(resource),

@@ -55,7 +55,9 @@ fun SongOptionsBox(
     onInfo: () -> Unit,
     onRingtone: () -> Unit,
     onShare: () -> Unit,
-    onSelect: (() -> Unit)? = null
+    onSelect: (() -> Unit)? = null,
+    sectionSettingsLabel: String? = null,
+    onSectionSettings: (() -> Unit)? = null
 ) {
     val colors =
         XvoxTheme.colors
@@ -77,6 +79,9 @@ fun SongOptionsBox(
 
     val options =
         buildList {
+            if (sectionSettingsLabel != null && onSectionSettings != null) {
+                add(SongOption(sectionSettingsLabel, R.drawable.ic_xvox_settings, onSectionSettings))
+            }
             onSelect?.let { add(SongOption("Select", R.drawable.ic_xvox_check, it)) }
             add(
                 SongOption(

@@ -64,6 +64,7 @@ fun LyricPresentationLine(
     val animation = settings.animation
 
     val scaleSpec: AnimationSpec<Float> = when (animation) {
+        "string" -> spring(dampingRatio = 0.65f, stiffness = 600f)
         "spring" -> spring(dampingRatio = 0.52f, stiffness = 460f)
         "slide" -> tween(280, easing = FastOutSlowInEasing)
         "rise" -> tween(340, easing = LinearOutSlowInEasing)
@@ -90,6 +91,7 @@ fun LyricPresentationLine(
             "rise" -> if (active) 0f else distance.coerceIn(-2, 4) * 26f
             "spring" -> if (active) 0f else distance.coerceIn(-1, 1) * 14f
             "wave" -> if (active) -5f else distance.coerceIn(-1, 1) * 16f
+            "string" -> if (active) 0f else distance.coerceIn(-1, 1) * 8f
             else -> 0f
         },
         scaleSpec,
@@ -97,9 +99,9 @@ fun LyricPresentationLine(
     )
 
     val resolvedColor = if (active) {
-        parseHexColor(settings.customCurrentColor) ?: color
+        if (settings.matchCoverColor) color else Color.White
     } else {
-        parseHexColor(settings.customOtherColor) ?: color
+        if (settings.matchCoverColor) color.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f)
     }
 
     val linePaddingVertical = (settings.lineGap / 2f).dp

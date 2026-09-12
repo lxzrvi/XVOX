@@ -30,6 +30,7 @@ fun XvoxMiniPlayerActions(
     onAdd: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    onSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -54,7 +55,7 @@ fun XvoxMiniPlayerActions(
                 slideOutVertically { 14 }
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ActionButton(
@@ -65,6 +66,11 @@ fun XvoxMiniPlayerActions(
             ActionButton(
                 icon = XvoxMiniIcon.ADD,
                 onClick = onAdd
+            )
+
+            ActionButton(
+                icon = XvoxMiniIcon.SETTINGS,
+                onClick = onSettings
             )
 
             ActionButton(
@@ -89,7 +95,7 @@ private fun ActionButton(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(38.dp)
             .background(
                 colors.cardElevated,
                 CircleShape
@@ -104,7 +110,7 @@ private fun ActionButton(
         XvoxMiniPlayerIcon(
             icon = icon,
             color = if (icon == XvoxMiniIcon.DELETE) colors.primaryAccent else colors.primaryText,
-            modifier = Modifier.size(19.dp)
+            modifier = Modifier.size(18.dp)
         )
     }
 }

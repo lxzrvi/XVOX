@@ -399,6 +399,17 @@ class HomeViewModel(
     fun setArtistColumns(value: Int) = viewModelScope.launch { preferencesRepository.setArtistColumns(value) }
     fun setArtistGap(value: Int) = viewModelScope.launch { preferencesRepository.setArtistGap(value) }
     fun setArtistRows(value: Int) = viewModelScope.launch { preferencesRepository.setArtistRows(value) }
+    fun setArtistHideText(hide: Boolean) = viewModelScope.launch { preferencesRepository.setArtistHideText(hide) }
+    fun setPlaylistRows(rows: Int) = viewModelScope.launch { preferencesRepository.setPlaylistRows(rows) }
+    fun setHomeMerge(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setHomeMerge(enabled) }
+    fun setHomeSectionOrder(order: List<String>) = viewModelScope.launch { preferencesRepository.setHomeSectionOrder(order) }
+    fun setHomeSectionVisible(id: String, visible: Boolean) = viewModelScope.launch { preferencesRepository.setHomeSectionVisible(id, visible) }
+    fun setPlaylistStyle(style: String) = viewModelScope.launch { preferencesRepository.setPlaylistStyle(style) }
+    fun setPlaylistLongHeight(height: Int) = viewModelScope.launch { preferencesRepository.setPlaylistLongHeight(height) }
+    fun setHomeLayoutStyle(style: String) = viewModelScope.launch { preferencesRepository.setHomeLayoutStyle(style) }
+    fun setHomeScrollDirection(direction: String) = viewModelScope.launch { preferencesRepository.setHomeScrollDirection(direction) }
+    fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { preferencesRepository.setHomeHorizontalRows(rows) }
+    fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 
     override fun onCleared() {
         prefetchJob?.cancel()

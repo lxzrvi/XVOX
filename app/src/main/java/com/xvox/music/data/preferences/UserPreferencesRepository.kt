@@ -48,9 +48,11 @@ class UserPreferencesRepository(
         val splitHideCollection = booleanPreferencesKey("split_hide_collection")
         val playlistStyle = stringPreferencesKey("home_playlist_style")
         val playlistLongHeight = intPreferencesKey("home_playlist_long_height")
+        val playlistRows = intPreferencesKey("home_playlist_rows")
         val artistColumns = intPreferencesKey("artist_columns")
         val artistGap = intPreferencesKey("artist_gap")
         val artistRows = intPreferencesKey("artist_rows")
+        val artistHideText = booleanPreferencesKey("artist_hide_text")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
@@ -216,9 +218,11 @@ class UserPreferencesRepository(
             playlistStyle = if (it[Keys.playlistStyle] == "cards") "cards" else "long", hideSplit = it[Keys.splitHideCollection] ?: false,
             playlistCardOrientation = if (it[Keys.playlistCardOrientation] == "horizontal") "horizontal" else "vertical",
             playlistLongHeight = (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260),
+            playlistRows = (it[Keys.playlistRows] ?: 2).coerceIn(1, 6),
             artistColumns = (it[Keys.artistColumns] ?: 5).coerceIn(2, 8),
             artistGap = (it[Keys.artistGap] ?: 8).coerceIn(2, 24),
             artistRows = (it[Keys.artistRows] ?: 4).coerceIn(1, 8),
+            artistHideText = it[Keys.artistHideText] ?: false,
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
     }.distinctUntilChanged()
@@ -367,9 +371,11 @@ class UserPreferencesRepository(
     suspend fun setSplitHideCollection(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitHideCollection] = v } }
     suspend fun setPlaylistStyle(value: String) { context.xvoxDataStore.edit { it[Keys.playlistStyle] = if (value == "cards") "cards" else "long" } }
     suspend fun setPlaylistLongHeight(value: Int) { context.xvoxDataStore.edit { it[Keys.playlistLongHeight] = value.coerceIn(0, 260) } }
+    suspend fun setPlaylistRows(value: Int) { context.xvoxDataStore.edit { it[Keys.playlistRows] = value.coerceIn(1, 6) } }
     suspend fun setArtistColumns(value: Int) { context.xvoxDataStore.edit { it[Keys.artistColumns] = value.coerceIn(2, 8) } }
     suspend fun setArtistGap(value: Int) { context.xvoxDataStore.edit { it[Keys.artistGap] = value.coerceIn(2, 24) } }
     suspend fun setArtistRows(value: Int) { context.xvoxDataStore.edit { it[Keys.artistRows] = value.coerceIn(1, 8) } }
+    suspend fun setArtistHideText(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.artistHideText] = hide } }
     suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {

@@ -63,6 +63,10 @@ import com.xvox.music.features.settings.sections.PlaybackSettingsEditor
 import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
 import com.xvox.music.features.settings.sections.WidgetSettingsSection
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -87,7 +91,8 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(top = LocalXvoxTopInset.current + 4.dp)
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(top = 14.dp)
     ) {
         Text(
             text = "Settings",
@@ -95,7 +100,7 @@ fun SettingsScreen(
             fontSize = 18.sp,
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
         )
 
         LazyColumn(
@@ -282,11 +287,7 @@ private fun SettingsSectionCard(
     val haptics = LocalXvoxHaptics.current
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
-            .border(1.dp, if (expanded) colors.primaryAccent.copy(alpha = 0.35f) else colors.cardBorder, RoundedCornerShape(16.dp))
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -298,14 +299,14 @@ private fun SettingsSectionCard(
                     haptics.tap()
                     onToggle()
                 }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = title,
-                color = if (expanded) colors.primaryAccent else colors.primaryText,
-                fontSize = 15.sp,
+                color = colors.primaryAccent,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
 
@@ -339,7 +340,10 @@ private fun SettingsSectionCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, bottom = 14.dp)
+                    .padding(top = 2.dp, bottom = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(colors.card)
+                    .padding(14.dp)
             ) {
                 content()
             }

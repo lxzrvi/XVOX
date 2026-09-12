@@ -2,9 +2,12 @@ package com.xvox.music
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -144,6 +147,12 @@ fun XvoxMainShell(
                     }
                 )
             }
+        }
+    }
+
+    fun showMiniPlayerSettings() {
+        overlays.showBox("Mini Player & Nav Bar") {
+            com.xvox.music.features.settings.components.MiniPlayerSettingsBoxContent(settingsViewModel)
         }
     }
 
@@ -295,6 +304,17 @@ fun XvoxMainShell(
                 }
             }
         }
+        AnimatedVisibility(
+            visible = destination != XvoxDestination.SETTINGS,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(360, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            ) + fadeIn(tween(260)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            ) + fadeOut(tween(220))
+        ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
                 destination = destination,
@@ -317,6 +337,7 @@ fun XvoxMainShell(
                     homeViewModel.toggleArtistMode()
                 }
             )
+        }
 
         val currentSongId = player.currentSongId
         val miniVisibleBase = player.miniPlayerVisible && !player.nowPlayingVisible && currentSongId != null && player.queue.isNotEmpty()
@@ -350,7 +371,8 @@ fun XvoxMainShell(
                     homeViewModel.hideSong(song)
                     overlays.showP("Song deleted")
                 }
-            }
+            },
+            onSettings = ::showMiniPlayerSettings
         )
 
         Box(
@@ -374,18 +396,8 @@ fun XvoxMainShell(
 
         AnimatedVisibility(
             visible = player.nowPlayingVisible && currentSong != null,
-            enter = fadeIn(
-                animationSpec = tween(
-                    durationMillis = XvoxPlayerTransitionMotion.Duration,
-                    easing = XvoxPlayerTransitionMotion.easing
-                )
-            ),
-            exit = fadeOut(
-                animationSpec = tween(
-                    durationMillis = XvoxPlayerTransitionMotion.Duration,
-                    easing = XvoxPlayerTransitionMotion.easing
-                )
-            ),
+            enter = androidx.compose.animation.EnterTransition.None,
+            exit = androidx.compose.animation.ExitTransition.None,
             modifier = Modifier.fillMaxSize()
         ) {
             val playingSong = currentSong ?: return@AnimatedVisibility

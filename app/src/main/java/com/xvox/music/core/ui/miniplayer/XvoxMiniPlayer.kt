@@ -43,6 +43,7 @@ fun XvoxMiniPlayer(
     onLike: () -> Unit,
     onAdd: () -> Unit,
     onDelete: () -> Unit = {},
+    onSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -130,6 +131,10 @@ fun XvoxMiniPlayer(
             onAdd = {
                 actionsVisible = false
                 onAdd()
+            },
+            onSettings = {
+                actionsVisible = false
+                onSettings()
             },
             onDelete = {
                 actionsVisible = false

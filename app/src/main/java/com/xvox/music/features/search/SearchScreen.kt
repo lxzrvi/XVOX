@@ -283,13 +283,13 @@ fun SearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "Recent Searches",
-                            color = colors.primaryText,
-                            fontSize = 15.sp,
+                            color = colors.primaryAccent,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
@@ -334,10 +334,10 @@ fun SearchScreen(
                 item(key = "playlists_header") {
                     Text(
                         text = "Playlists (${filteredPlaylists.size})",
-                        color = colors.primaryText,
+                        color = colors.primaryAccent,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
                     )
                 }
 
@@ -376,10 +376,10 @@ fun SearchScreen(
                 item(key = "songs_header") {
                     Text(
                         text = "Songs (${filteredSongs.size})",
-                        color = colors.primaryText,
+                        color = colors.primaryAccent,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
                     )
                 }
                 items(filteredSongs, key = { it.id }) { song ->

@@ -71,6 +71,7 @@ fun ProfileEditorBox(
     val storedCustoms by prefs.customPfpUris.collectAsState(initial = profile.customPfpUris)
     val greetingInterval by prefs.greetingIntervalMs.collectAsState(initial = profile.greetingIntervalMs)
     val currentHeaderUri by prefs.headerImageUri.collectAsState(initial = null)
+    val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
 
     var name by remember(profile.username) { mutableStateOf(profile.username) }
     var selected by remember(profile.selectedPfp) {
@@ -283,6 +284,28 @@ fun ProfileEditorBox(
                 }
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Header Background Transparency Slider
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Header Transparency / Tint", color = colors.secondaryText, fontSize = 11.sp)
+            Text("${((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+
+        com.xvox.music.features.settings.components.XvoxThinLineSlider(
+            value = chrome.headerBgAlpha.coerceIn(0f, 1f),
+            onValueChange = { alpha ->
+                scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = alpha)) }
+            },
+            valueRange = 0f..1f,
+            defaultValue = 1f,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+        )
 
         Spacer(Modifier.height(20.dp))
 

@@ -16,8 +16,7 @@ data class LyricsSettings(
     /** "left" | "center" | "right" — where lyric lines sit. */
     val alignment: String = "center",
     val lineGap: Int = 14,
-    val customCurrentColor: String = "",
-    val customOtherColor: String = "",
+    val matchCoverColor: Boolean = true,
     val gradientAnimation: String = "wave"
 ) {
     fun sanitized() = copy(
@@ -51,13 +50,12 @@ data class LyricsSettings(
         .put("intensity", fadeIntensity.toDouble())
         .put("align", alignment)
         .put("lineGap", lineGap)
-        .put("customCurrentColor", customCurrentColor)
-        .put("customOtherColor", customOtherColor)
+        .put("matchCover", matchCoverColor)
         .put("gradientAnimation", gradientAnimation)
         .toString()
 
     companion object {
-        val ANIMATIONS = listOf("wave", "spring", "slide", "rise", "fade")
+        val ANIMATIONS = listOf("wave", "string", "spring", "slide", "rise", "fade")
         val GRADIENT_ANIMATIONS = listOf("off", "wave", "aurora", "pulse", "orbital", "prism")
         val ALIGNMENTS = listOf("left", "center", "right")
 
@@ -77,8 +75,7 @@ data class LyricsSettings(
                 fadeIntensity = j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f,
                 alignment = j.optString("align", "center"),
                 lineGap = j.optInt("lineGap", 14),
-                customCurrentColor = j.optString("customCurrentColor", ""),
-                customOtherColor = j.optString("customOtherColor", ""),
+                matchCoverColor = j.optBoolean("matchCover", true),
                 gradientAnimation = j.optString("gradientAnimation", "wave")
             ).sanitized()
         }.getOrDefault(LyricsSettings())

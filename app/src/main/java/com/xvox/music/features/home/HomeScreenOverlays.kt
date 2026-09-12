@@ -145,13 +145,17 @@ fun showSongOptionsOverlay(
     songs: List<Song>,
     deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
     onPendingDelete: (Song) -> Unit,
-    onSelect: (() -> Unit)? = null
+    onSelect: (() -> Unit)? = null,
+    sectionSettingsLabel: String? = null,
+    onSectionSettings: (() -> Unit)? = null
 ) {
     overlays.showBox("Song options") {
         SongOptionsBox(
             song = song,
             liked = isLiked,
             onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
+            sectionSettingsLabel = sectionSettingsLabel,
+            onSectionSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } },
             playlistName = playlist?.name,
             membership = playlistMembership.map { pl ->
                 pl.name to {

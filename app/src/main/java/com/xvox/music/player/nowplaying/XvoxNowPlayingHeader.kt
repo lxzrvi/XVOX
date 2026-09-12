@@ -76,6 +76,16 @@ fun XvoxNowPlayingHeader(
             )
         }
 
+        val isArtistSource = playingSource.startsWith("Artist · ") || playingSource.startsWith("Playing by ")
+        val sourceTitle = if (isArtistSource) "PLAYING BY" else "PLAYING FROM"
+        val displaySource = if (playingSource.startsWith("Artist · ")) {
+            playingSource.removePrefix("Artist · ")
+        } else if (playingSource.startsWith("Playing by ")) {
+            playingSource.removePrefix("Playing by ")
+        } else {
+            playingSource
+        }
+
         Column(
             modifier = Modifier
                 .padding(horizontal = 56.dp)
@@ -83,7 +93,7 @@ fun XvoxNowPlayingHeader(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "PLAYING FROM",
+                text = sourceTitle,
                 color = colors.secondaryText,
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
@@ -91,7 +101,7 @@ fun XvoxNowPlayingHeader(
             )
 
             Text(
-                text = playingSource,
+                text = displaySource,
                 color = colors.primaryText,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,

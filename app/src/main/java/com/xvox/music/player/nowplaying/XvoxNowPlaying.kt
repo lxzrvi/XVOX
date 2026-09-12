@@ -161,7 +161,7 @@ fun XvoxNowPlaying(
             val target = if (atFirst) queue.lastIndex else currentIndex - 1
             onPlayQueueIndex(target)
         } else {
-            onPrevious()
+            navigationRequest--
         }
     }
 
@@ -174,7 +174,7 @@ fun XvoxNowPlaying(
             val target = if (atLast) 0 else currentIndex + 1
             onPlayQueueIndex(target)
         } else {
-            onNext()
+            navigationRequest++
         }
     }
 

@@ -100,7 +100,6 @@ fun XvoxBox(
                         Modifier.widthIn(max = if (mini) 520.dp else 560.dp)
                             .fillMaxWidth().heightIn(max = availableHeight)
                             .clip(shape).background(boxFill)
-                            .border(0.8.dp, boxBorder, shape)
                             .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {

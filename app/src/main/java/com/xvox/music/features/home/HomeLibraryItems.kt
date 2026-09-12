@@ -27,7 +27,7 @@ fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {

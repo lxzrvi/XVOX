@@ -127,9 +127,9 @@ fun XvoxMiniPlayerCard(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                colors.surface.copy(alpha = 0.88f),
-                                colors.surface.copy(alpha = 0.60f),
-                                colors.surface.copy(alpha = 0.92f)
+                                Color.Black.copy(alpha = 0.40f),
+                                Color.Black.copy(alpha = 0.15f),
+                                Color.Black.copy(alpha = 0.55f)
                             )
                         )
                     )

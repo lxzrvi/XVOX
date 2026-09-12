@@ -77,6 +77,9 @@ fun XvoxQueueBoxContent(
     fun targetIndex(): Int {
         val visibleItems = listState.layoutInfo.visibleItemsInfo
         if (visibleItems.isEmpty()) return -1
+        if (pointerY <= (visibleItems.firstOrNull()?.offset?.toFloat() ?: 0f)) {
+            return visibleItems.first().index.coerceIn(0, local.lastIndex)
+        }
         val item = visibleItems.firstOrNull { itm ->
             pointerY >= itm.offset && pointerY <= itm.offset + itm.size
         }
@@ -95,7 +98,8 @@ fun XvoxQueueBoxContent(
         val to = targetIndex()
         if (from >= 0 && to >= 0 && to != from) {
             haptics.tap()
-            local.add(to, local.removeAt(from))
+            val moved = local.removeAt(from)
+            local.add(to.coerceIn(0, local.size), moved)
         }
     }
 

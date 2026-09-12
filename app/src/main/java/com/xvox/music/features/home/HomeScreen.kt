@@ -114,8 +114,19 @@ fun HomeScreen(
             artist = currentArtist,
             columns = config.artistColumns,
             gap = config.artistGap,
+            hideText = config.artistHideText,
+            mergedToHome = config.merge && HomeSections.ARTISTS in HomeSections.visible(config),
             onColumnsChange = { viewModel.setArtistColumns(it) },
             onGapChange = { viewModel.setArtistGap(it) },
+            onHideTextChange = { viewModel.setArtistHideText(it) },
+            onMergeToHomeChange = { mergeOn ->
+                if (mergeOn) {
+                    viewModel.setHomeMerge(true)
+                    viewModel.setHomeSectionVisible(HomeSections.ARTISTS, true)
+                } else {
+                    viewModel.setHomeSectionVisible(HomeSections.ARTISTS, false)
+                }
+            },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
                 playerViewModel.playNextInQueue(currentArtist.songs)
@@ -192,6 +203,7 @@ fun HomeScreen(
 
     LaunchedEffect(effectiveSelectedPlaylistId, state.libraryMode) {
         selectedSongIds = emptySet()
+        selectedArtist = null
     }
 
     BackHandler(enabled = isSelectionMode) { selectedSongIds = emptySet() }
@@ -202,6 +214,24 @@ fun HomeScreen(
     }
 
     fun openSingleSongOptions(song: Song, playlist: XvoxPlaylist? = null, recent: Boolean = false, selectionSource: XvoxHomeLibraryMode = state.libraryMode) {
+        val (settingsLabel, settingsAction) = when {
+            recent -> "Recently Played Settings" to {
+                overlays.showBox("Recently Played") {
+                    RecentLayoutBoxContent(config, viewModel)
+                }
+            }
+            selectionSource == XvoxHomeLibraryMode.LIKED -> "Liked Songs Settings" to {
+                overlays.showBox("Liked Songs") {
+                    LikedSongsLayoutBoxContent(config, viewModel)
+                }
+            }
+            else -> "All Songs Settings" to {
+                overlays.showBox("All Songs Layout") {
+                    AllSongsLayoutBoxContent(config, viewModel)
+                }
+            }
+        }
+
         showSongOptionsOverlay(
             overlays = overlays,
             context = context,
@@ -218,7 +248,9 @@ fun HomeScreen(
             songs = state.songs,
             deleteLauncher = deleteLauncher,
             onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
-            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id }
+            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id },
+            sectionSettingsLabel = settingsLabel,
+            onSectionSettings = settingsAction
         )
     }
 
@@ -274,6 +306,7 @@ fun HomeScreen(
                 artists = artists,
                 columns = config.artistColumns,
                 gap = config.artistGap,
+                hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
                 modifier = Modifier.fillMaxWidth()

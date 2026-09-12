@@ -56,10 +56,10 @@ fun XvoxLikedSongRow(
         modifier = modifier
             .fillMaxWidth()
             .height(64.dp)
+            .xvoxSongPress(onClick = onClick, onLongClick = onOptions, pressedScale = 0.95f)
             .clip(shape)
             .background(cardColor)
             .border(width = borderWidth, color = borderColor, shape = shape)
-            .xvoxSongPress(onClick = onClick, onLongClick = onOptions)
             .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

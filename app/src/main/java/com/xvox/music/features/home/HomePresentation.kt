@@ -16,9 +16,11 @@ data class HomePresentation(
     val playlistLongHeight: Int = 0,
     /** "horizontal" = full-width cards on a sideways row; "vertical" = stacked cards. */
     val playlistCardOrientation: String = "vertical",
+    val playlistRows: Int = 2,
     val artistColumns: Int = 5,
     val artistGap: Int = 8,
-    val artistRows: Int = 4
+    val artistRows: Int = 4,
+    val artistHideText: Boolean = false
 )
 
 object HomeSections {

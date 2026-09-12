@@ -21,7 +21,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
-    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(if (selectedCount > 0) "$selectedCount selected" else "All Songs",
             color = XvoxTheme.colors.primaryAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)

@@ -23,6 +23,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxPlaylistCard(
@@ -38,19 +40,13 @@ fun XvoxPlaylistCard(
 
     Column(
         modifier = modifier
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f)
             .clip(shape)
             .background(colors.card)
             .border(
                 width = 0.7.dp,
                 color = colors.cardBorder,
                 shape = shape
-            )
-            .combinedClickable(
-                hapticFeedbackEnabled = false,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick
             )
             .padding(6.dp)
     ) {

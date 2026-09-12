@@ -2,7 +2,6 @@ package com.xvox.music.features.artist
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -34,6 +34,7 @@ fun XvoxArtistGrid(
     artists: List<XvoxArtist>,
     columns: Int = 5,
     gap: Int = 8,
+    hideText: Boolean = false,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
     modifier: Modifier = Modifier
@@ -55,6 +56,7 @@ fun XvoxArtistGrid(
                 rowArtists.forEach { artist ->
                     ArtistCircleItem(
                         artist = artist,
+                        showText = !hideText,
                         onClick = { onArtistClick(artist) },
                         onLongClick = { onArtistLongClick(artist) },
                         modifier = Modifier.weight(1f)
@@ -75,6 +77,7 @@ fun XvoxArtistGrid(
 @Composable
 fun ArtistCircleItem(
     artist: XvoxArtist,
+    showText: Boolean = true,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -83,9 +86,10 @@ fun ArtistCircleItem(
 
     Column(
         modifier = modifier
-            .combinedClickable(
+            .xvoxSongPress(
                 onClick = onClick,
-                onLongClick = onLongClick
+                onLongClick = onLongClick,
+                pressedScale = 0.94f
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -120,15 +124,17 @@ fun ArtistCircleItem(
             }
         }
 
-        Text(
-            text = artist.name,
-            color = colors.primaryText,
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
-        )
+        if (showText) {
+            Text(
+                text = artist.name,
+                color = colors.primaryText,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
+            )
+        }
     }
 }

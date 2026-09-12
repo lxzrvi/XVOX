@@ -3,6 +3,8 @@ package com.xvox.music.features.settings.sections
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,8 +49,8 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         ) {
             SettingsChoiceRow(
                 listOf(
-                    "wave" to "Wave", "spring" to "Spring", "slide" to "Slide",
-                    "rise" to "Rise", "fade" to "Fade"
+                    "wave" to "Wave", "string" to "String", "spring" to "Spring",
+                    "slide" to "Slide", "rise" to "Rise", "fade" to "Fade"
                 ),
                 settings.animation
             ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
@@ -83,25 +85,30 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Custom line colours",
-            expanded = expandedGroup == "Colours",
-            onToggle = { toggle("Colours") }
+            title = "Color & Contrast",
+            expanded = expandedGroup == "Color",
+            onToggle = { toggle("Color") }
         ) {
-            ColorPickerRow(
-                label = "Current line color",
-                hex = settings.customCurrentColor,
-                onColorChange = { hex -> viewModel.updateLyrics { it.copy(customCurrentColor = hex) } },
-                subtitle = if (settings.customCurrentColor.isNotBlank()) "Active line text" else "Theme default"
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            ColorPickerRow(
-                label = "Other lines color",
-                hex = settings.customOtherColor,
-                onColorChange = { hex -> viewModel.updateLyrics { it.copy(customOtherColor = hex) } },
-                subtitle = if (settings.customOtherColor.isNotBlank()) "Upcoming & previous lines" else "Theme default"
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Match text with cover color", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Extract vibrant, readable color from current song artwork", color = colors.secondaryText, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = settings.matchCoverColor,
+                    onCheckedChange = { on -> viewModel.updateLyrics { it.copy(matchCoverColor = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.background,
+                        checkedTrackColor = colors.primaryAccent,
+                        uncheckedThumbColor = colors.secondaryText,
+                        uncheckedTrackColor = colors.cardElevated
+                    )
+                )
+            }
         }
 
         SettingsAccordionItem(
