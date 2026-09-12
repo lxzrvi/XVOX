@@ -62,8 +62,6 @@ import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
-import com.xvox.music.data.lyrics.LyricLine
-import com.xvox.music.data.lyrics.SyncedLyrics
 import com.xvox.music.data.preferences.LyricsSettings
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -78,12 +76,11 @@ import kotlin.math.sin
 @Composable
 fun XvoxFullscreenLyrics(
     song: Song,
-    queue: List<Song>,
-    currentIndex: Int,
-    state: LyricsUiState,
+    state: XvoxLyricsUiState,
     position: Long,
     duration: Long,
     isPlaying: Boolean,
+    backgroundColor: Color = Color.Transparent,
     onSeek: (Long) -> Unit,
     onAttach: (Uri) -> Unit,
     onDelete: () -> Unit,
@@ -199,7 +196,7 @@ fun XvoxFullscreenLyrics(
         label = "ambientPhase"
     )
 
-    val custom = state.isCustom
+    val custom = state.lyrics?.source != null && state.lyrics.source != XvoxLyricsSource.EMBEDDED
 
     fun cycleGradient() {
         val current = lyricsSettings.gradientAnimation
@@ -343,12 +340,11 @@ fun XvoxFullscreenLyrics(
                         CircularProgressIndicator(color = colors.primaryAccent, strokeWidth = 2.dp)
                     }
                 }
-                state.lyrics is SyncedLyrics -> {
-                    val synced = state.lyrics as SyncedLyrics
-                    val lines = synced.lines
+                state.lyrics != null && state.lyrics.synchronized -> {
+                    val lines = state.lyrics.lines
                     val activeIndex = remember(position, lines, lyricsSettings.offsetMs) {
                         val currentMs = lyricsSettings.position(position)
-                        val idx = lines.indexOfLast { it.timeMs <= currentMs }
+                        val idx = lines.indexOfLast { (it.timeMs ?: 0L) <= currentMs }
                         if (idx >= 0) idx else 0
                     }
 
@@ -385,7 +381,7 @@ fun XvoxFullscreenLyrics(
                                     ) {
                                         revealChrome()
                                         haptics.tap()
-                                        onSeek(lyricsSettings.seekPosition(line.timeMs))
+                                        onSeek(lyricsSettings.seekPosition(line.timeMs ?: 0L))
                                     }
                             ) {
                                 LyricPresentationLine(
@@ -400,8 +396,8 @@ fun XvoxFullscreenLyrics(
                         }
                     }
                 }
-                state.lyrics != null -> {
-                    val rawLines = remember(state.lyrics) { state.lyrics.text.lines() }
+                state.lyrics != null && state.lyrics.lines.isNotEmpty() -> {
+                    val rawLines = state.lyrics.lines
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
@@ -417,15 +413,13 @@ fun XvoxFullscreenLyrics(
                         itemsIndexed(rawLines) { index, rawLine ->
                             Box(modifier = Modifier.fillMaxWidth().padding(vertical = (lyricsSettings.lineGap / 2f).dp)) {
                                 Text(
-                                    text = rawLine.ifBlank { "♪" },
-                                    color = Color.White.copy(alpha = 0.85f),
-                                    fontSize = lyricsSettings.currentSize.sp,
-                                    lineHeight = (lyricsSettings.currentSize * 1.35f).sp,
-                                    fontWeight = FontWeight.Medium,
+                                    text = rawLine.text.ifBlank { "♪" },
+                                    color = lyricColor.copy(alpha = 0.85f),
+                                    fontSize = lyricsSettings.fontSize.sp,
                                     textAlign = when (lyricsSettings.alignment) {
-                                        "left" -> TextAlign.Start
-                                        "right" -> TextAlign.End
-                                        else -> TextAlign.Center
+                                        "start" -> androidx.compose.ui.text.style.TextAlign.Start
+                                        "end" -> androidx.compose.ui.text.style.TextAlign.End
+                                        else -> androidx.compose.ui.text.style.TextAlign.Center
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )

@@ -76,6 +76,7 @@ import com.xvox.music.shell.XvoxShellTopHeader
 fun XvoxMainShell(
     homeViewModel: HomeViewModel = viewModel(),
     playerViewModel: MainPlayerViewModel = viewModel(),
+    settingsViewModel: com.xvox.music.features.settings.SettingsViewModel = viewModel(),
     backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
@@ -297,7 +298,11 @@ fun XvoxMainShell(
                             )
                         }
                         XvoxDestination.SETTINGS -> {
-                            SettingsScreen(homeViewModel = homeViewModel, topResetKey = tabEpoch)
+                            SettingsScreen(
+                                homeViewModel = homeViewModel,
+                                settingsViewModel = settingsViewModel,
+                                topResetKey = tabEpoch
+                            )
                         }
                     }
                     }

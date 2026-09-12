@@ -316,8 +316,8 @@ private fun PlaylistLayoutEditor(
                 Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
             }
             androidx.compose.material3.Switch(
-                checked = state.mergeSections,
-                onCheckedChange = { settingsViewModel.setMergeSections(it) },
+                checked = state.homeMerge,
+                onCheckedChange = { settingsViewModel.setHomeMerge(it) },
                 colors = androidx.compose.material3.SwitchDefaults.colors(
                     checkedThumbColor = colors.background,
                     checkedTrackColor = colors.primaryAccent,
