@@ -144,9 +144,8 @@ fun XvoxFullscreenLyrics(
         }
     }
 
-    val palette = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
-    val baseColor = palette.color
-    val backgroundColor = baseColor.copy(alpha = 0.90f)
+    val baseColor = if (backgroundColor != Color.Transparent) backgroundColor else colors.surface
+    val surfaceBg = baseColor.copy(alpha = 0.90f)
 
     // Readable text color extracted from artwork with balanced contrast
     val lyricColor = remember(baseColor) {
@@ -237,8 +236,8 @@ fun XvoxFullscreenLyrics(
                     drawRect(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                backgroundColor,
-                                backgroundColor.copy(alpha = 0.6f),
+                                baseColor,
+                                baseColor.copy(alpha = 0.6f),
                                 colors.primaryAccent.copy(alpha = 0.25f),
                                 colors.background
                             ),
@@ -266,7 +265,7 @@ fun XvoxFullscreenLyrics(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 colors.primaryAccent.copy(alpha = 0.35f),
-                                backgroundColor.copy(alpha = 0.65f),
+                                baseColor.copy(alpha = 0.65f),
                                 colors.background
                             )
                         )
@@ -280,7 +279,7 @@ fun XvoxFullscreenLyrics(
                     drawRect(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                backgroundColor.copy(alpha = 0.4f + pulse * 0.4f),
+                                baseColor.copy(alpha = 0.4f + pulse * 0.4f),
                                 colors.primaryAccent.copy(alpha = 0.2f + pulse * 0.2f),
                                 colors.background
                             ),
@@ -298,7 +297,7 @@ fun XvoxFullscreenLyrics(
                     drawRect(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                backgroundColor.copy(alpha = 0.75f),
+                                baseColor.copy(alpha = 0.75f),
                                 colors.primaryAccent.copy(alpha = 0.3f),
                                 Color.Transparent
                             ),
@@ -316,7 +315,7 @@ fun XvoxFullscreenLyrics(
                     drawRect(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                backgroundColor,
+                                baseColor,
                                 colors.primaryAccent.copy(alpha = 0.4f),
                                 Color(0xFF007AFF).copy(alpha = 0.3f),
                                 colors.background
@@ -328,7 +327,7 @@ fun XvoxFullscreenLyrics(
                 }
             }
             else -> {
-                Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = 0.30f)))
+                Box(Modifier.fillMaxSize().background(baseColor.copy(alpha = 0.30f)))
             }
         }
 
@@ -415,7 +414,7 @@ fun XvoxFullscreenLyrics(
                                 Text(
                                     text = rawLine.text.ifBlank { "♪" },
                                     color = lyricColor.copy(alpha = 0.85f),
-                                    fontSize = lyricsSettings.fontSize.sp,
+                                    fontSize = lyricsSettings.currentSize.sp,
                                     textAlign = when (lyricsSettings.alignment) {
                                         "start" -> androidx.compose.ui.text.style.TextAlign.Start
                                         "end" -> androidx.compose.ui.text.style.TextAlign.End
