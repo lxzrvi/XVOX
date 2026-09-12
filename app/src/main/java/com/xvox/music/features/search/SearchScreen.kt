@@ -68,7 +68,6 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.HomeMultiSelectBar
-import com.xvox.music.features.home.HomeScreenMode
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.XvoxSongArtwork
