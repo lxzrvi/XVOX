@@ -6,14 +6,14 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxLogoFont
@@ -219,22 +220,16 @@ fun XvoxNowPlaying(
         label = "animBottomPadBottom"
     )
 
-    // Smooth Fullscreen Expansion Morphing: Equal top/bottom/sides expansion from 16dp to 0dp
-    val animMiddlePadH by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 16.dp,
-        animationSpec = tween(320, easing = XvoxSmoothEasing),
-        label = "middlePadH"
+    // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
+    val fullscreenProgress by animateFloatAsState(
+        targetValue = if (lyricsExpanded) 1f else 0f,
+        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        label = "fullscreenProgress"
     )
-    val animMiddlePadV by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 16.dp,
-        animationSpec = tween(320, easing = XvoxSmoothEasing),
-        label = "middlePadV"
-    )
-    val animMiddleRadius by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 20.dp,
-        animationSpec = tween(320, easing = XvoxSmoothEasing),
-        label = "middleRadius"
-    )
+
+    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
+    val currentPadV = lerp(6.dp, 0.dp, fullscreenProgress)
+    val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
 
     Box(
         modifier = modifier
@@ -242,6 +237,10 @@ fun XvoxNowPlaying(
             .graphicsLayer { translationY = screenY }
             .clip(sheetCorner)
             .background(paletteState.color)
+            .pointerInput(Unit) {
+                // Consume clicks on backdrop to prevent click-through to home screen below
+                detectTapGestures { }
+            }
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
@@ -252,50 +251,47 @@ fun XvoxNowPlaying(
             modifier = Modifier.fillMaxSize()
         ) {
             // Header: hidden smoothly when lyrics are expanded
-            AnimatedVisibility(
-                visible = !lyricsExpanded,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(280, easing = XvoxSmoothEasing)
-                ) + fadeIn(tween(200)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(240, easing = XvoxSmoothEasing)
-                ) + fadeOut(tween(160))
-            ) {
-                XvoxNowPlayingHeader(
-                    onClose = ::dismiss,
-                    onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
-                    onMore = { showStyleSheet = true },
-                    playingSource = playingSource,
-                    modifier = Modifier.pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { _, dragAmount ->
-                                screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                            },
-                            onDragEnd = {
-                                if (screenY > screenHeight * 0.18f) {
-                                    dismiss()
-                                } else {
-                                    returnToRest()
-                                }
-                            },
-                            onDragCancel = { returnToRest() }
-                        )
-                    }
-                )
+            if (fullscreenProgress < 0.99f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            translationY = -fullscreenProgress * 120.dp.toPx()
+                            alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                        }
+                ) {
+                    XvoxNowPlayingHeader(
+                        onClose = ::dismiss,
+                        onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
+                        onMore = { showStyleSheet = true },
+                        playingSource = playingSource,
+                        modifier = Modifier.pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onVerticalDrag = { _, dragAmount ->
+                                    screenY = (screenY + dragAmount).coerceAtLeast(0f)
+                                },
+                                onDragEnd = {
+                                    if (screenY > screenHeight * 0.18f) {
+                                        dismiss()
+                                    } else {
+                                        returnToRest()
+                                    }
+                                },
+                                onDragCancel = { returnToRest() }
+                            )
+                        }
+                    )
+                }
             }
 
-            // Middle Container: Equal 16dp gap on Top, Bottom, Left, Right — smoothly expands on fullscreen
+            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 6dp gaps
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
-                        start = animMiddlePadH,
-                        end = animMiddlePadH,
                         top = if (lyricsExpanded) 0.dp else 4.dp,
-                        bottom = animMiddlePadV
+                        bottom = if (lyricsExpanded) 0.dp else 6.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -332,7 +328,8 @@ fun XvoxNowPlaying(
                             textColor = paletteState.color,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(animMiddleRadius))
+                                .padding(horizontal = currentPadH)
+                                .clip(RoundedCornerShape(currentCardRadius))
                         )
                     } else {
                         XvoxNowPlayingArtworkPager(
@@ -344,9 +341,7 @@ fun XvoxNowPlaying(
                                 scope.launch { paletteState.blend(base, adjacent, fraction) }
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(animMiddleRadius)),
+                            modifier = Modifier.fillMaxSize(),
                             repeatMode = repeatMode
                         )
                     }
@@ -356,20 +351,14 @@ fun XvoxNowPlaying(
             // Bottom Controls Area: hidden smoothly when lyrics are expanded
             val bottomBoxShape = RoundedCornerShape(topStart = animTopRadius, topEnd = animTopRadius)
 
-            AnimatedVisibility(
-                visible = !lyricsExpanded,
-                enter = slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(280, easing = XvoxSmoothEasing)
-                ) + fadeIn(tween(200)),
-                exit = slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(240, easing = XvoxSmoothEasing)
-                ) + fadeOut(tween(160))
-            ) {
+            if (fullscreenProgress < 0.99f) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .graphicsLayer {
+                            translationY = fullscreenProgress * 300.dp.toPx()
+                            alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                        }
                         .clip(bottomBoxShape)
                         .background(colors.background.copy(alpha = 0.35f))
                         .windowInsetsPadding(WindowInsets.navigationBars)

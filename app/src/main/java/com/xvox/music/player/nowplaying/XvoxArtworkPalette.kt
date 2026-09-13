@@ -23,7 +23,7 @@ class XvoxArtworkPaletteLoader(
     }
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
-        val key = uri?.toString() ?: songKey
+        val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
         if (key.isBlank()) return fallback(songKey)
         cache[key]?.let { return it }
 
@@ -38,7 +38,7 @@ class XvoxArtworkPaletteLoader(
                 }
             }
 
-            // Next decode via Coil for 100% reliable image loading
+            // Decode bitmap via Coil for 100% reliable image loading
             if (uri != null) {
                 runCatching {
                     val loader = SingletonImageLoader.get(appContext)
@@ -67,11 +67,16 @@ class XvoxArtworkPaletteLoader(
         if (width <= 0 || height <= 0) return fallback("")
 
         val sampleStep = max(1, min(width, height) / 48)
-        val counts = IntArray(4096)
-        val red = LongArray(4096)
-        val green = LongArray(4096)
-        val blue = LongArray(4096)
-        val scores = FloatArray(4096)
+        val hueBins = 36 // 10 degrees each
+        val binCounts = IntArray(hueBins)
+        val binRed = LongArray(hueBins)
+        val binGreen = LongArray(hueBins)
+        val binBlue = LongArray(hueBins)
+        val binScores = FloatArray(hueBins)
+
+        var totalColorfulPixels = 0
+        var totalPixels = 0
+        val hsv = FloatArray(3)
 
         for (y in 0 until height step sampleStep) {
             for (x in 0 until width step sampleStep) {
@@ -80,64 +85,63 @@ class XvoxArtworkPaletteLoader(
                 val r = android.graphics.Color.red(pixel)
                 val g = android.graphics.Color.green(pixel)
                 val b = android.graphics.Color.blue(pixel)
+                totalPixels++
 
-                val maxC = max(r, max(g, b))
-                val minC = min(r, min(g, b))
-                // Ignore extreme near-blacks and near-whites to find the true colorful dominant hue
-                if (maxC < 12 || minC > 252) continue
+                android.graphics.Color.colorToHSV(pixel, hsv)
+                val h = hsv[0]
+                val s = hsv[1]
+                val v = hsv[2]
 
-                val delta = (maxC - minC).toFloat()
-                val saturation = if (maxC == 0) 0f else delta / maxC
-                val bin = ((r shr 4) shl 8) or ((g shr 4) shl 4) or (b shr 4)
+                // Filter near-black and near-white extremes
+                if (v < 0.08f || v > 0.96f) continue
 
-                counts[bin]++
-                red[bin] += r.toLong()
-                green[bin] += g.toLong()
-                blue[bin] += b.toLong()
-                // Weight vibrant dominant colors faithfully
-                scores[bin] += (1f + saturation * 3.8f)
+                // Check colorfulness
+                if (s >= 0.12f) {
+                    totalColorfulPixels++
+                    val bin = ((h / 360f) * hueBins).toInt().coerceIn(0, hueBins - 1)
+                    binCounts[bin]++
+                    binRed[bin] += r.toLong()
+                    binGreen[bin] += g.toLong()
+                    binBlue[bin] += b.toLong()
+                    // Score with saturation and brightness weighting
+                    binScores[bin] += (s * 3.5f + v * 1.5f)
+                }
             }
+        }
+
+        // If the artwork is mostly grayscale / Black & White, return clean dark slate
+        if (totalPixels > 0 && totalColorfulPixels.toFloat() / totalPixels < 0.06f) {
+            return Color(0xFF22222A)
         }
 
         var bestBin = -1
         var bestScore = -1f
-        for (i in 0 until 4096) {
-            if (counts[i] > 0 && scores[i] > bestScore) {
-                bestScore = scores[i]
+        for (i in 0 until hueBins) {
+            if (binCounts[i] > 0 && binScores[i] > bestScore) {
+                bestScore = binScores[i]
                 bestBin = i
             }
         }
 
-        if (bestBin < 0 || counts[bestBin] == 0) return fallback("")
-        val count = counts[bestBin]
-        val rawR = (red[bestBin] / count).toInt()
-        val rawG = (green[bestBin] / count).toInt()
-        val rawB = (blue[bestBin] / count).toInt()
-        return tuneDominant(Color(rawR, rawG, rawB))
-    }
+        if (bestBin < 0 || binCounts[bestBin] == 0) return fallback("")
+        val count = binCounts[bestBin]
+        val avgR = (binRed[bestBin] / count).toInt().coerceIn(0, 255)
+        val avgG = (binGreen[bestBin] / count).toInt().coerceIn(0, 255)
+        val avgB = (binBlue[bestBin] / count).toInt().coerceIn(0, 255)
 
-    /**
-     * Preserves the live dominant artwork color directly, gently ensuring readability.
-     */
-    private fun tuneDominant(source: Color): Color {
-        val hsv = FloatArray(3)
-        android.graphics.Color.RGBToHSV(
-            (source.red * 255).toInt(),
-            (source.green * 255).toInt(),
-            (source.blue * 255).toInt(),
-            hsv
-        )
-        // Ensure color has sufficient presence and readable lightness
-        hsv[1] = hsv[1].coerceIn(0.28f, 0.88f)
-        hsv[2] = hsv[2].coerceIn(0.35f, 0.75f)
-        return Color(android.graphics.Color.HSVToColor(hsv))
+        // Tune final dominant color for rich, vibrant, readable Now Playing background
+        val finalHsv = FloatArray(3)
+        android.graphics.Color.RGBToHSV(avgR, avgG, avgB, finalHsv)
+        finalHsv[1] = finalHsv[1].coerceIn(0.35f, 0.85f)
+        finalHsv[2] = finalHsv[2].coerceIn(0.32f, 0.68f)
+        return Color(android.graphics.Color.HSVToColor(finalHsv))
     }
 
     private fun fallback(seed: String): Color {
-        if (seed.isBlank()) return Color(0xFF323240)
+        if (seed.isBlank()) return Color(0xFF282834)
         val hash = seed.hashCode()
         val hue = (abs(hash) % 360).toFloat()
-        val hsv = floatArrayOf(hue, 0.52f, 0.45f)
+        val hsv = floatArrayOf(hue, 0.45f, 0.40f)
         return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }
