@@ -20,7 +20,10 @@ import kotlin.math.abs
 
 private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song: Song)
 
-/** A song-identity anchored pager. Next and previous songs glide in from the sides. */
+/**
+ * A song-identity anchored pager.
+ * Next and previous songs glide directly edge-to-edge without gaps or borders.
+ */
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
@@ -94,7 +97,7 @@ fun XvoxNowPlayingArtworkPager(
         HorizontalPager(
             state = pager,
             beyondViewportPageCount = 1,
-            pageSpacing = 16.dp,
+            pageSpacing = 0.dp,
             modifier = modifier.fillMaxSize(),
             key = { page -> "${slots.getOrNull(page)?.pageType}:${slots.getOrNull(page)?.song?.id ?: page}" }
         ) { page ->

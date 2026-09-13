@@ -2,9 +2,12 @@ package com.xvox.music.shell
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.stopScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -31,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
@@ -77,12 +79,18 @@ fun XvoxQueueBoxContent(
     fun targetIndex(): Int {
         val visibleItems = listState.layoutInfo.visibleItemsInfo
         if (visibleItems.isEmpty()) return 0
-        if (pointerY <= 0f || pointerY <= (visibleItems.firstOrNull()?.offset?.toFloat() ?: 0f)) {
-            return 0
+        val firstItem = visibleItems.first()
+        val lastItem = visibleItems.last()
+
+        if (pointerY <= firstItem.offset) {
+            return firstItem.index.coerceIn(0, local.lastIndex)
+        }
+        if (pointerY >= lastItem.offset + lastItem.size) {
+            return lastItem.index.coerceIn(0, local.lastIndex)
         }
         for (item in visibleItems) {
             val itemTop = item.offset.toFloat()
-            val itemBottom = itemTop + item.size
+            val itemBottom = itemTop + item.size.toFloat()
             if (pointerY in itemTop..itemBottom) {
                 return item.index.coerceIn(0, local.lastIndex)
             }
@@ -95,7 +103,6 @@ fun XvoxQueueBoxContent(
         val from = local.indexOfFirst { it.id == id }
         val to = targetIndex()
         if (from >= 0 && to >= 0 && to != from) {
-            haptics.tap()
             val moved = local.removeAt(from)
             local.add(to.coerceIn(0, local.size), moved)
         }
@@ -106,11 +113,13 @@ fun XvoxQueueBoxContent(
         draggedId = null
         if (!commit || id == null) return
         val to = local.indexOfFirst { it.id == id }
-        if (dragStartIndex >= 0 && to >= 0 && to != dragStartIndex) move(dragStartIndex, to)
+        if (dragStartIndex >= 0 && to >= 0 && to != dragStartIndex) {
+            move(dragStartIndex, to)
+        }
         dragStartIndex = -1
     }
 
-    // Auto-scroll loop when item is dragged near top or bottom edges
+    // Smooth auto-scroll loop during active drag near edges
     LaunchedEffect(draggedId) {
         if (draggedId == null) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }
@@ -139,7 +148,7 @@ fun XvoxQueueBoxContent(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            "${local.size} songs · Hold and drag to reorder",
+            "${local.size} songs · Drag handle or long press to reorder",
             color = colors.secondaryText,
             fontSize = 11.sp,
             modifier = Modifier.padding(bottom = 10.dp)
@@ -169,7 +178,7 @@ fun XvoxQueueBoxContent(
                             val itemTop = item?.offset?.toFloat() ?: (idx * rowHeightPx)
                             grabOffset = rowHeightPx / 2f
                             pointerY = itemTop + grabOffset
-                            haptics.tap()
+                            haptics.tap() // Single gentle haptic on drag start
                             scope.launch { listState.stopScroll() }
                         },
                         onDragDelta = { deltaY ->
@@ -201,6 +210,8 @@ fun XvoxQueueBoxContent(
                     )
                 }
             }
+
+            // Floating lifted row overlay
             local.firstOrNull { it.id == draggedId }?.let { song ->
                 QueueRow(
                     song = song,
@@ -208,10 +219,11 @@ fun XvoxQueueBoxContent(
                     onClick = null,
                     modifier = Modifier
                         .offset { IntOffset(0, overlayY.roundToInt()) }
-                        .shadow(12.dp, RoundedCornerShape(14.dp))
+                        .shadow(16.dp, RoundedCornerShape(12.dp))
                         .graphicsLayer {
-                            scaleX = 1.02f
-                            scaleY = 1.02f
+                            scaleX = 1.03f
+                            scaleY = 1.03f
+                            alpha = 0.96f
                         }
                 )
             }
@@ -239,62 +251,114 @@ private fun QueueRow(
             .height(RowHeight)
             .clip(RoundedCornerShape(12.dp))
             .background(cardBg)
-            .then(
-                if (onStartDrag != null && onDragDelta != null) {
-                    Modifier.pointerInput(Unit) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { onStartDrag() },
-                            onDragEnd = { onEndDrag?.invoke() },
-                            onDragCancel = { onCancelDrag?.invoke() },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                onDragDelta(dragAmount.y)
-                            }
-                        )
-                    }
-                } else Modifier
-            )
-            .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        XvoxSongArtwork(
-            artwork = song.artworkUri,
-            requestSize = 96,
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(8.dp))
-        )
-
-        Column(
+        // Main card body: Clickable for song play + Long press to drag
+        Row(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 10.dp),
-            verticalArrangement = Arrangement.Center
+                .fillMaxHeight()
+                .then(
+                    if (onStartDrag != null && onDragDelta != null) {
+                        Modifier.pointerInput(song.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { onStartDrag() },
+                                onDragEnd = { onEndDrag?.invoke() },
+                                onDragCancel = { onCancelDrag?.invoke() },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    onDragDelta(dragAmount.y)
+                                }
+                            )
+                        }
+                    } else Modifier
+                )
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onClick
+                        )
+                    } else Modifier
+                ),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = song.title,
-                color = if (current) colors.primaryAccent else colors.primaryText,
-                fontSize = 13.sp,
-                fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 96,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
             )
-            Text(
-                text = song.artist,
-                color = colors.secondaryText,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp, end = 6.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = song.title,
+                    color = if (current) colors.primaryAccent else colors.primaryText,
+                    fontSize = 13.sp,
+                    fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    color = colors.secondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Visual indicator: "Playing" tag before the six-dot handle
+            if (current) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(colors.primaryAccent.copy(alpha = 0.15f))
+                        .padding(horizontal = 6.dp, vertical = 2.5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Playing",
+                        color = colors.primaryAccent,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp
+                    )
+                }
+            }
         }
 
-        // Six dots drag handle
+        // Six-dots drag handle: Immediate direct drag on touch (no long press delay)
         Box(
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier
+                .size(40.dp)
+                .then(
+                    if (onStartDrag != null && onDragDelta != null) {
+                        Modifier.pointerInput(song.id) {
+                            detectDragGestures(
+                                onDragStart = { onStartDrag() },
+                                onDragEnd = { onEndDrag?.invoke() },
+                                onDragCancel = { onCancelDrag?.invoke() },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    onDragDelta(dragAmount.y)
+                                }
+                            )
+                        }
+                    } else Modifier
+                ),
             contentAlignment = Alignment.Center
         ) {
-            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.6f))
+            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.65f))
         }
     }
 }

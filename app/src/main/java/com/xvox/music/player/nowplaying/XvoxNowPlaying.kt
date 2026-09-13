@@ -273,8 +273,8 @@ fun XvoxNowPlaying(
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
-                        horizontal = if (lyricsExpanded) 0.dp else 4.dp,
-                        vertical = if (lyricsExpanded) 0.dp else 2.dp
+                        horizontal = if (lyricsExpanded) 0.dp else 16.dp,
+                        vertical = if (lyricsExpanded) 0.dp else 8.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -311,10 +311,6 @@ fun XvoxNowPlaying(
                             textColor = paletteState.color,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(
-                                    horizontal = if (lyricsExpanded) 0.dp else 6.dp,
-                                    vertical = if (lyricsExpanded) 0.dp else 4.dp
-                                )
                                 .clip(if (lyricsExpanded) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp))
                         )
                     } else {
@@ -327,9 +323,7 @@ fun XvoxNowPlaying(
                                 scope.launch { paletteState.blend(base, adjacent, fraction) }
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            modifier = Modifier.fillMaxSize(),
                             repeatMode = repeatMode
                         )
                     }
