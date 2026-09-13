@@ -17,6 +17,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
@@ -24,7 +25,7 @@ import kotlin.math.abs
  * Full-queue smooth HorizontalPager.
  * Rests cleanly with 11dp side gaps and 11dp page spacing.
  * Enables ultra-fast continuous swiping, immediate Next/Prev button navigation,
- * and live real-time backdrop palette crossfading.
+ * real-time palette crossfade, and debounced playback commit during rapid continuous flipping.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -91,11 +92,16 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Commit playback when user finishes swiping to a new page
+    // Debounced playback commit during rapid continuous flipping:
+    // Single swipe switches after short settle (280ms).
+    // Rapid continuous swiping (A -> B -> C -> D -> E -> F) keeps playing A until user stops on F, then plays F!
     LaunchedEffect(pager, queue) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
             if (page in queue.indices && page != currentIndex) {
-                settled(page)
+                delay(280)
+                if (pager.settledPage == page) {
+                    settled(page)
+                }
             }
         }
     }

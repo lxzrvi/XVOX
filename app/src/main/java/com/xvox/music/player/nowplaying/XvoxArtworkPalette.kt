@@ -113,25 +113,24 @@ class XvoxArtworkPaletteLoader(
                 val v = hsv[2]
 
                 // Filter extreme black/white for colorful hue search
-                if (v < 0.06f || v > 0.98f) continue
+                if (v < 0.08f || v > 0.96f) continue
 
                 // Check colorfulness
-                if (s >= 0.10f) {
+                if (s >= 0.12f) {
                     totalColorfulPixels++
                     val bin = ((h / 360f) * hueBins).toInt().coerceIn(0, hueBins - 1)
                     binCounts[bin]++
                     binRed[bin] += r.toLong()
                     binGreen[bin] += g.toLong()
                     binBlue[bin] += b.toLong()
-                    // Weight colorful pixels
-                    binScores[bin] += (s * 4.0f + v * 1.5f)
+                    binScores[bin] += (s * 4.2f + v * 1.6f)
                 }
             }
         }
 
-        // For Black & White / Grayscale / Dark covers: return sleek soft light gray so text and cover shine
+        // For Black & White / Grayscale / Dark covers: return sleek soft light slate gray
         if (totalPixels > 0 && totalColorfulPixels.toFloat() / totalPixels < 0.08f) {
-            return Color(0xFF42424E)
+            return Color(0xFF484856)
         }
 
         var bestBin = -1
@@ -143,7 +142,7 @@ class XvoxArtworkPaletteLoader(
             }
         }
 
-        if (bestBin < 0 || binCounts[bestBin] == 0) return Color(0xFF42424E)
+        if (bestBin < 0 || binCounts[bestBin] == 0) return Color(0xFF484856)
         val count = binCounts[bestBin]
         val avgR = (binRed[bestBin] / count).toInt().coerceIn(0, 255)
         val avgG = (binGreen[bestBin] / count).toInt().coerceIn(0, 255)
@@ -152,16 +151,16 @@ class XvoxArtworkPaletteLoader(
         // Tune dominant color with light, vibrant luminance so text in both themes is 100% visible
         val finalHsv = FloatArray(3)
         android.graphics.Color.RGBToHSV(avgR, avgG, avgB, finalHsv)
-        finalHsv[1] = finalHsv[1].coerceIn(0.35f, 0.78f)
-        finalHsv[2] = finalHsv[2].coerceIn(0.48f, 0.72f)
+        finalHsv[1] = finalHsv[1].coerceIn(0.40f, 0.72f)
+        finalHsv[2] = finalHsv[2].coerceIn(0.50f, 0.75f)
         return Color(android.graphics.Color.HSVToColor(finalHsv))
     }
 
     private fun fallback(seed: String): Color {
-        if (seed.isBlank()) return Color(0xFF42424E)
+        if (seed.isBlank()) return Color(0xFF484856)
         val hash = seed.hashCode()
         val hue = (abs(hash) % 360).toFloat()
-        val hsv = floatArrayOf(hue, 0.40f, 0.52f)
+        val hsv = floatArrayOf(hue, 0.45f, 0.58f)
         return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }
