@@ -16,7 +16,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -217,26 +219,21 @@ fun XvoxNowPlaying(
         label = "animBottomPadBottom"
     )
 
-    // Smooth Fullscreen Expansion Morphing (Bounds & Corners)
-    val animMiddlePadHorizontal by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 0.dp, // Pager is full-width, inner items have 14dp padding
-        animationSpec = tween(340, easing = XvoxSmoothEasing),
+    // Smooth Fullscreen Expansion Morphing: Equal top/bottom/sides expansion from 16dp to 0dp
+    val animMiddlePadH by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 16.dp,
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
         label = "middlePadH"
     )
-    val animMiddlePadBottom by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 14.dp, // Exactly matches 14dp side gap
-        animationSpec = tween(340, easing = XvoxSmoothEasing),
-        label = "middlePadB"
+    val animMiddlePadV by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 16.dp,
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
+        label = "middlePadV"
     )
-    val animLyricsCardRadius by animateDpAsState(
+    val animMiddleRadius by animateDpAsState(
         targetValue = if (lyricsExpanded) 0.dp else 20.dp,
-        animationSpec = tween(340, easing = XvoxSmoothEasing),
-        label = "lyricsCardRadius"
-    )
-    val animLyricsPadH by animateDpAsState(
-        targetValue = if (lyricsExpanded) 0.dp else 14.dp,
-        animationSpec = tween(340, easing = XvoxSmoothEasing),
-        label = "lyricsPadH"
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
+        label = "middleRadius"
     )
 
     Box(
@@ -289,15 +286,16 @@ fun XvoxNowPlaying(
                 )
             }
 
-            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 14dp side/bottom gap
+            // Middle Container: Equal 16dp gap on Top, Bottom, Left, Right — smoothly expands on fullscreen
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
-                        start = animMiddlePadHorizontal,
-                        end = animMiddlePadHorizontal,
-                        bottom = animMiddlePadBottom
+                        start = animMiddlePadH,
+                        end = animMiddlePadH,
+                        top = if (lyricsExpanded) 0.dp else 4.dp,
+                        bottom = animMiddlePadV
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -334,8 +332,7 @@ fun XvoxNowPlaying(
                             textColor = paletteState.color,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = animLyricsPadH)
-                                .clip(RoundedCornerShape(animLyricsCardRadius))
+                                .clip(RoundedCornerShape(animMiddleRadius))
                         )
                     } else {
                         XvoxNowPlayingArtworkPager(
@@ -347,7 +344,9 @@ fun XvoxNowPlaying(
                                 scope.launch { paletteState.blend(base, adjacent, fraction) }
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(animMiddleRadius)),
                             repeatMode = repeatMode
                         )
                     }
@@ -488,10 +487,16 @@ fun XvoxNowPlaying(
                 onDismiss = { showLyricsSettingsSheet = false },
                 title = "Lyrics Settings"
             ) {
-                LyricsSettingsSection(
-                    state = settingsState,
-                    viewModel = settingsViewModel
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    LyricsSettingsSection(
+                        state = settingsState,
+                        viewModel = settingsViewModel
+                    )
+                }
             }
         }
     }

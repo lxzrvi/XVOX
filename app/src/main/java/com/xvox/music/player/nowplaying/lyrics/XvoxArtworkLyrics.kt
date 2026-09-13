@@ -19,7 +19,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -40,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -205,8 +205,11 @@ fun XvoxArtworkLyrics(
                 }
             }
     ) {
-        // Mathematical Vertical Center Padding for Default, Compact, and Fullscreen modes
-        val verticalCenterPadding = (maxHeight / 2 - 24.dp).coerceAtLeast(16.dp)
+        val density = LocalDensity.current
+        val currentLineHalfHeight = with(density) {
+            ((lyricsSettings.currentSize * 1.35f).sp.toDp() + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2) / 2f
+        }
+        val verticalCenterPadding = (maxHeight / 2 - currentLineHalfHeight).coerceAtLeast(16.dp)
 
         // Dynamic Canvas Gradient Effects (Off, Large Glowing Orb, Organic Non-Mirrored Aurora Loop)
         if (gradientAnim != "off") {
@@ -330,8 +333,8 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression: auto-scroll without waking up the pill
-                LaunchedEffect(activeIndex) {
+                // Automatic lyric progression & dynamic font size changes: auto-scroll without waking up the pill
+                LaunchedEffect(activeIndex, lyricsSettings.currentSize, lyricsSettings.topSize, lyricsSettings.bottomSize, lyricsSettings.lineGap) {
                     if (activeIndex in lines.indices && !isUserTouching) {
                         listState.animateScrollToItem(activeIndex)
                     }
