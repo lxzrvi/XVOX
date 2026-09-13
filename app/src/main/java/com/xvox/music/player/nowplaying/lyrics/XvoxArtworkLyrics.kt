@@ -17,6 +17,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -344,7 +345,7 @@ fun XvoxArtworkLyrics(
                             if (abs(scrollNeeded) > 1f) {
                                 listState.animateScrollBy(
                                     value = scrollNeeded,
-                                    animationSpec = tween(360, easing = FastOutSlowInEasing)
+                                    animationSpec = tween<Float>(360, easing = FastOutSlowInEasing)
                                 )
                             }
                         }
