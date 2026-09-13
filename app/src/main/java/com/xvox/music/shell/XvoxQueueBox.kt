@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,7 +43,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
-import kotlin.math.roundToInt
 
 private val RowHeight = 54.dp
 private val RowSpacing = 4.dp
@@ -63,8 +63,8 @@ fun XvoxQueueBoxContent(
     val local = remember { mutableStateListOf<Song>().apply { addAll(queue) } }
 
     var draggingSongId by remember { mutableStateOf<Long?>(null) }
-    var dragStartIndex by remember { mutableIntStateOf(-1) }
-    var dragCurrentIndex by remember { mutableIntStateOf(-1) }
+    var initialDragIndex by remember { mutableIntStateOf(-1) }
+    var currentDragIndex by remember { mutableIntStateOf(-1) }
     var dragAccumulatedY by remember { mutableFloatStateOf(0f) }
     var pointerViewportY by remember { mutableFloatStateOf(0f) }
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
@@ -78,18 +78,54 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    fun commitDrag() {
-        val from = dragStartIndex
-        val to = dragCurrentIndex
-        draggingSongId = null
-        dragStartIndex = -1
-        dragCurrentIndex = -1
-        dragAccumulatedY = 0f
+    fun startDrag(song: Song, initialY: Float = 0f) {
+        val idx = local.indexOfFirst { it.id == song.id }
+        if (idx >= 0) {
+            draggingSongId = song.id
+            initialDragIndex = idx
+            currentDragIndex = idx
+            dragAccumulatedY = 0f
+            pointerViewportY = initialY
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
 
-        if (from in 0..local.lastIndex && to in 0..local.lastIndex && from != to) {
+    fun onDrag(deltaY: Float) {
+        if (draggingSongId == null) return
+        dragAccumulatedY += deltaY
+        pointerViewportY += deltaY
+
+        val threshold = rowTotalHeightPx * 0.52f
+        while (dragAccumulatedY > threshold && currentDragIndex < local.lastIndex) {
+            val from = currentDragIndex
+            val to = currentDragIndex + 1
             val item = local.removeAt(from)
             local.add(to, item)
-            move(from, to)
+            dragAccumulatedY -= rowTotalHeightPx
+            currentDragIndex = to
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+        while (dragAccumulatedY < -threshold && currentDragIndex > 0) {
+            val from = currentDragIndex
+            val to = currentDragIndex - 1
+            val item = local.removeAt(from)
+            local.add(to, item)
+            dragAccumulatedY += rowTotalHeightPx
+            currentDragIndex = to
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+
+    fun finishDrag() {
+        val initial = initialDragIndex
+        val final = currentDragIndex
+        draggingSongId = null
+        initialDragIndex = -1
+        currentDragIndex = -1
+        dragAccumulatedY = 0f
+
+        if (initial >= 0 && final >= 0 && initial != final) {
+            move(initial, final)
         }
     }
 
@@ -112,7 +148,29 @@ fun XvoxQueueBoxContent(
 
             if (strength != 0f) {
                 val scrollSpeed = strength * rowTotalHeightPx * 16f
-                listState.scrollBy(scrollSpeed * seconds)
+                val delta = scrollSpeed * seconds
+                listState.scrollBy(delta)
+                dragAccumulatedY += delta
+
+                val threshold = rowTotalHeightPx * 0.52f
+                while (dragAccumulatedY > threshold && currentDragIndex < local.lastIndex) {
+                    val from = currentDragIndex
+                    val to = currentDragIndex + 1
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    dragAccumulatedY -= rowTotalHeightPx
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                while (dragAccumulatedY < -threshold && currentDragIndex > 0) {
+                    val from = currentDragIndex
+                    val to = currentDragIndex - 1
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    dragAccumulatedY += rowTotalHeightPx
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
             }
         }
     }
@@ -134,32 +192,13 @@ fun XvoxQueueBoxContent(
         ) {
             LazyColumn(
                 state = listState,
+                userScrollEnabled = draggingSongId == null,
                 contentPadding = PaddingValues(vertical = 3.dp),
                 verticalArrangement = Arrangement.spacedBy(RowSpacing),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 itemsIndexed(local, key = { _, it -> it.id }, contentType = { _, _ -> "queue_row" }) { idx, song ->
                     val isDragging = draggingSongId == song.id
-
-                    // Calculate space-making visual displacement for non-dragged rows
-                    val targetVisualDisplacementY = when {
-                        isDragging -> dragAccumulatedY
-                        draggingSongId == null -> 0f
-                        dragStartIndex >= 0 && dragCurrentIndex >= 0 -> {
-                            when {
-                                dragCurrentIndex > dragStartIndex && idx in (dragStartIndex + 1)..dragCurrentIndex -> -rowTotalHeightPx
-                                dragCurrentIndex < dragStartIndex && idx in dragCurrentIndex until dragStartIndex -> rowTotalHeightPx
-                                else -> 0f
-                            }
-                        }
-                        else -> 0f
-                    }
-
-                    val animatedDisplacementY by animateFloatAsState(
-                        targetValue = targetVisualDisplacementY,
-                        animationSpec = if (isDragging) spring(dampingRatio = 1f, stiffness = 1000f) else spring(dampingRatio = 0.82f, stiffness = 420f),
-                        label = "rowDisplacement"
-                    )
 
                     val animatedElevation by animateDpAsState(
                         targetValue = if (isDragging) 16.dp else 0.dp,
@@ -171,32 +210,15 @@ fun XvoxQueueBoxContent(
                         song = song,
                         isDragging = isDragging,
                         elevationDp = animatedElevation,
-                        translationY = animatedDisplacementY,
+                        translationY = if (isDragging) dragAccumulatedY else 0f,
                         current = song.id == currentSongId,
                         onClick = {
                             val target = local.indexOfFirst { it.id == song.id }
                             if (target >= 0 && draggingSongId == null) play(target)
                         },
-                        onStartDrag = {
-                            val initialIdx = local.indexOfFirst { it.id == song.id }
-                            if (initialIdx >= 0) {
-                                draggingSongId = song.id
-                                dragStartIndex = initialIdx
-                                dragCurrentIndex = initialIdx
-                                dragAccumulatedY = 0f
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                        },
-                        onDragDelta = { deltaY ->
-                            dragAccumulatedY += deltaY
-                            pointerViewportY += deltaY
-
-                            if (dragStartIndex >= 0) {
-                                val deltaSlots = (dragAccumulatedY / rowTotalHeightPx).roundToInt()
-                                dragCurrentIndex = (dragStartIndex + deltaSlots).coerceIn(0, local.lastIndex)
-                            }
-                        },
-                        onEndDrag = ::commitDrag,
+                        onStartDrag = { startY -> startDrag(song, startY) },
+                        onDragDelta = ::onDrag,
+                        onEndDrag = ::finishDrag,
                         modifier = Modifier
                             .zIndex(if (isDragging) 100f else 1f)
                             .semantics {
@@ -236,7 +258,7 @@ private fun QueueRow(
     translationY: Float,
     current: Boolean,
     onClick: () -> Unit,
-    onStartDrag: () -> Unit,
+    onStartDrag: (Float) -> Unit,
     onDragDelta: (Float) -> Unit,
     onEndDrag: () -> Unit,
     modifier: Modifier = Modifier
@@ -266,7 +288,7 @@ private fun QueueRow(
                 .fillMaxHeight()
                 .pointerInput(song.id) {
                     detectDragGesturesAfterLongPress(
-                        onDragStart = { onStartDrag() },
+                        onDragStart = { offset -> onStartDrag(offset.y) },
                         onDragCancel = { onEndDrag() },
                         onDragEnd = { onEndDrag() },
                         onDrag = { change, amount ->
@@ -337,10 +359,10 @@ private fun QueueRow(
         // Six-dots drag handle: Immediate direct drag on touch
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .pointerInput(song.id) {
                     detectDragGestures(
-                        onDragStart = { onStartDrag() },
+                        onDragStart = { offset -> onStartDrag(offset.y) },
                         onDragCancel = { onEndDrag() },
                         onDragEnd = { onEndDrag() },
                         onDrag = { change, amount ->
@@ -351,13 +373,13 @@ private fun QueueRow(
                 },
             contentAlignment = Alignment.Center
         ) {
-            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.65f))
+            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.70f))
         }
     }
 }
 
 @Composable
-private fun SixDotsHandle(tint: androidx.compose.ui.graphics.Color) {
+private fun SixDotsHandle(tint: Color) {
     Canvas(Modifier.size(width = 12.dp, height = 18.dp)) {
         val radius = 1.4.dp.toPx()
         val colGap = 4.5.dp.toPx()

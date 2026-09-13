@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -71,6 +73,8 @@ fun XvoxNowPlaying(
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    displayMode: Int = 0,
+    onDisplayModeChange: ((Int) -> Unit)? = null,
     isLiked: Boolean = false,
     onToggleLiked: (() -> Unit)? = null,
     onTimer: (() -> Unit)? = null,
@@ -105,13 +109,21 @@ fun XvoxNowPlaying(
 
     var screenY by rememberSaveable { mutableFloatStateOf(screenHeight) }
     var entered by remember { mutableStateOf(false) }
-    var showLyrics by rememberSaveable { mutableStateOf(false) }
-    var lyricsExpanded by rememberSaveable { mutableStateOf(false) }
+    var internalDisplayMode by rememberSaveable { mutableIntStateOf(0) }
+    val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
+    val setMode: (Int) -> Unit = { mode ->
+        internalDisplayMode = mode
+        onDisplayModeChange?.invoke(mode)
+    }
+
     var showStyleSheet by remember { mutableStateOf(false) }
     var showLyricsSettingsSheet by remember { mutableStateOf(false) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
+
+    var headerHeightDp by remember { mutableStateOf(56.dp) }
+    var bottomHeightDp by remember { mutableStateOf(if (isCompact) 175.dp else 245.dp) }
 
     fun animateScreen(target: Float, finished: (() -> Unit)? = null) {
         motionJob?.cancel()
@@ -157,7 +169,7 @@ fun XvoxNowPlaying(
         val atFirst = currentIndex <= 0
         if (atFirst && repeatMode != RepeatMode.ALL) return
 
-        if (showLyrics) {
+        if (currentMode >= 1) {
             val target = if (atFirst) queue.lastIndex else currentIndex - 1
             onPlayQueueIndex(target)
         } else {
@@ -171,7 +183,7 @@ fun XvoxNowPlaying(
         val atLast = currentIndex >= queue.lastIndex
         if (atLast && repeatMode != RepeatMode.ALL) return
 
-        if (showLyrics) {
+        if (currentMode >= 1) {
             val target = if (atLast) 0 else currentIndex + 1
             onPlayQueueIndex(target)
         } else {
@@ -187,8 +199,8 @@ fun XvoxNowPlaying(
         when {
             showLyricsSettingsSheet -> showLyricsSettingsSheet = false
             showStyleSheet -> showStyleSheet = false
-            lyricsExpanded -> lyricsExpanded = false
-            showLyrics -> showLyrics = false
+            currentMode == 2 -> setMode(1)
+            currentMode == 1 -> setMode(0)
             else -> dismiss()
         }
     }
@@ -221,14 +233,19 @@ fun XvoxNowPlaying(
     )
 
     // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
+    val isFullscreen = currentMode == 2
+    val isLyricsShowing = currentMode >= 1
+
     val fullscreenProgress by animateFloatAsState(
-        targetValue = if (lyricsExpanded) 1f else 0f,
-        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        targetValue = if (isFullscreen) 1f else 0f,
+        animationSpec = tween(260, easing = FastOutSlowInEasing),
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(9.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
+    val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
+    val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
 
     Box(
         modifier = modifier
@@ -246,221 +263,213 @@ fun XvoxNowPlaying(
             modifier = Modifier.fillMaxSize()
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize()
+        // Middle Container: Cover & Lyrics have exact identical sizing & uniform 9dp gaps
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = currentPadH,
+                    end = currentPadH,
+                    top = currentPadTop,
+                    bottom = currentPadBottom
+                )
+                .clip(RoundedCornerShape(currentCardRadius)),
+            contentAlignment = Alignment.Center
         ) {
-            // Header: hidden smoothly when lyrics are expanded
-            if (fullscreenProgress < 0.99f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            translationY = -fullscreenProgress * 120.dp.toPx()
-                            alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
-                        }
-                ) {
-                    XvoxNowPlayingHeader(
-                        onClose = ::dismiss,
-                        onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
-                        onMore = { showStyleSheet = true },
-                        playingSource = playingSource,
-                        modifier = Modifier.pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onVerticalDrag = { _, dragAmount ->
-                                    screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                                },
-                                onDragEnd = {
-                                    if (screenY > screenHeight * 0.18f) {
-                                        dismiss()
-                                    } else {
-                                        returnToRest()
-                                    }
-                                },
-                                onDragCancel = { returnToRest() }
-                            )
-                        }
-                    )
-                }
-            }
-
-            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 12dp gaps
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(
-                        top = if (lyricsExpanded) 0.dp else 4.dp,
-                        bottom = if (lyricsExpanded) 0.dp else 12.dp
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Crossfade(
-                    targetState = showLyrics,
-                    animationSpec = tween(260, easing = XvoxSmoothEasing),
-                    label = "coverLyricsFade"
-                ) { isLyricsShowing ->
-                    if (isLyricsShowing) {
-                        XvoxArtworkLyrics(
-                            state = lyricsState,
-                            position = position,
-                            onSeek = onSeek,
-                            onAttach = lyricsViewModel::attach,
-                            onDelete = lyricsViewModel::removeCustom,
-                            onClose = {
-                                lyricsExpanded = false
-                                showLyrics = false
-                            },
-                            expanded = lyricsExpanded,
-                            onToggleExpand = { lyricsExpanded = !lyricsExpanded },
-                            onOpenSettings = { showLyricsSettingsSheet = true },
-                            onDismissNowPlaying = ::dismiss,
-                            onSwipeDownDelta = { delta ->
-                                screenY = (screenY + delta).coerceAtLeast(0f)
-                            },
-                            onSwipeDownEnd = {
-                                if (screenY > screenHeight * 0.18f) {
-                                    dismiss()
-                                } else {
-                                    returnToRest()
-                                }
-                            },
-                            textColor = paletteState.color,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = currentPadH)
-                                .clip(RoundedCornerShape(currentCardRadius))
-                        )
-                    } else {
-                        XvoxNowPlayingArtworkPager(
-                            queue = queue,
-                            currentIndex = currentIndex,
-                            navigationRequest = navigationRequest,
-                            onArtworkTap = { showLyrics = true },
-                            onSwipePalette = { base, adjacent, fraction ->
-                                scope.launch { paletteState.blend(base, adjacent, fraction) }
-                            },
-                            onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier.fillMaxSize(),
-                            repeatMode = repeatMode
-                        )
-                    }
-                }
-            }
-
-            // Bottom Controls Area: hidden smoothly when lyrics are expanded
-            val bottomBoxShape = RoundedCornerShape(topStart = animTopRadius, topEnd = animTopRadius)
-
-            if (fullscreenProgress < 0.99f) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            translationY = fullscreenProgress * 300.dp.toPx()
-                            alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
-                        }
-                        .clip(bottomBoxShape)
-                        .background(colors.background.copy(alpha = 0.35f))
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(
-                            start = 14.dp,
-                            top = animBottomPadTop,
-                            end = 14.dp,
-                            bottom = animBottomPadBottom
-                        )
-                ) {
-                    AnimatedVisibility(
-                        visible = !isCompact,
-                        enter = expandVertically(tween(280, easing = XvoxSmoothEasing)) + fadeIn(tween(200)),
-                        exit = shrinkVertically(tween(240, easing = XvoxSmoothEasing)) + fadeOut(tween(160))
-                    ) {
-                        Column {
-                            NowPlayingActions(
-                                isLiked = isLiked,
-                                isInPlaylist = isInPlaylist,
-                                onTimer = { onTimer?.invoke() },
-                                onQueue = { onQueue?.invoke() },
-                                onInfo = { onInfo?.invoke() },
-                                onToggleLiked = { onToggleLiked?.invoke() },
-                                onStarPlaylist = { onStarPlaylist?.invoke() },
-                                timerProgress = sleepTimerProgress,
-                                crossfadeOn = settingsState.crossfade,
-                                onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
-                                equalizerOn = settingsState.equalizerEnabled,
-                                spaceOn = settingsState.stereoWidening,
-                                lyricsOn = showLyrics,
-                                onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
-                                onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
-                                onToggleLyrics = { showLyrics = !showLyrics },
-                                onOpenOptions = { showStyleSheet = true }
-                            )
-
-                            Spacer(Modifier.height(14.dp))
-                        }
-                    }
-
-                    Text(
-                        text = song.title,
-                        color = colors.primaryText,
-                        fontSize = if (isCompact) 17.sp else 20.sp,
-                        lineHeight = if (isCompact) 21.sp else 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = song.artist,
-                        color = colors.secondaryText,
-                        fontSize = if (isCompact) 11.sp else 13.sp,
-                        lineHeight = if (isCompact) 15.sp else 17.sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.height(if (isCompact) 8.dp else 12.dp))
-
-                    XvoxNowPlayingProgress(
-                        currentSongId = song.id,
+            Crossfade(
+                targetState = isLyricsShowing,
+                animationSpec = tween(240, easing = FastOutSlowInEasing),
+                label = "coverLyricsFade"
+            ) { lyricsActive ->
+                if (lyricsActive) {
+                    XvoxArtworkLyrics(
+                        state = lyricsState,
                         position = position,
-                        duration = duration,
                         onSeek = onSeek,
-                        showTime = !isCompact
+                        onAttach = lyricsViewModel::attach,
+                        onDelete = lyricsViewModel::removeCustom,
+                        onClose = { setMode(0) },
+                        expanded = isFullscreen,
+                        onToggleExpand = { setMode(if (isFullscreen) 1 else 2) },
+                        onOpenSettings = { showLyricsSettingsSheet = true },
+                        onDismissNowPlaying = ::dismiss,
+                        onSwipeDownDelta = { delta ->
+                            screenY = (screenY + delta).coerceAtLeast(0f)
+                        },
+                        onSwipeDownEnd = {
+                            if (screenY > screenHeight * 0.18f) {
+                                dismiss()
+                            } else {
+                                returnToRest()
+                            }
+                        },
+                        textColor = paletteState.color,
+                        modifier = Modifier.fillMaxSize()
                     )
-
-                    Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
-
-                    XvoxNowPlayingControls(
-                        isPlaying = isPlaying,
-                        isShuffleEnabled = isShuffleEnabled,
-                        repeatMode = repeatMode,
-                        onShuffle = { onToggleShuffle?.invoke() },
-                        onPrevious = ::requestPrevious,
-                        onTogglePlay = onTogglePlay,
-                        onNext = ::requestNext,
-                        onRepeat = { onToggleRepeat?.invoke() },
+                } else {
+                    XvoxNowPlayingArtworkPager(
+                        queue = queue,
                         currentIndex = currentIndex,
-                        queueSize = queue.size,
-                        positionMs = position,
-                        durationMs = duration,
-                        onScrubTo = onSeek,
-                        modifier = Modifier.fillMaxWidth()
+                        navigationRequest = navigationRequest,
+                        onArtworkTap = { setMode(1) },
+                        onSwipePalette = { base, adjacent, fraction ->
+                            scope.launch { paletteState.blend(base, adjacent, fraction) }
+                        },
+                        onSettledPage = onPlayQueueIndex,
+                        modifier = Modifier.fillMaxSize(),
+                        repeatMode = repeatMode
                     )
-
-                    Spacer(Modifier.height(if (isCompact) 6.dp else 10.dp))
-
-                    Text(
-                        text = "XVOX",
-                        color = colors.primaryText.copy(alpha = 0.55f),
-                        fontFamily = XvoxLogoFont,
-                        fontSize = 11.sp,
-                        letterSpacing = 2.sp,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-
-                    Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
                 }
             }
+        }
+
+        // Header: smooth slide up & fade out during fullscreen opening
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .onGloballyPositioned { headerHeightDp = with(density) { it.size.height.toDp() } }
+                .graphicsLayer {
+                    translationY = -fullscreenProgress * 120.dp.toPx()
+                    alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                }
+        ) {
+            XvoxNowPlayingHeader(
+                onClose = ::dismiss,
+                onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
+                onMore = { showStyleSheet = true },
+                playingSource = playingSource,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            screenY = (screenY + dragAmount).coerceAtLeast(0f)
+                        },
+                        onDragEnd = {
+                            if (screenY > screenHeight * 0.18f) {
+                                dismiss()
+                            } else {
+                                returnToRest()
+                            }
+                        },
+                        onDragCancel = { returnToRest() }
+                    )
+                }
+            )
+        }
+
+        // Bottom Controls Area: smooth slide down & fade out during fullscreen opening
+        val bottomBoxShape = RoundedCornerShape(topStart = animTopRadius, topEnd = animTopRadius)
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .onGloballyPositioned { bottomHeightDp = with(density) { it.size.height.toDp() } }
+                .graphicsLayer {
+                    translationY = fullscreenProgress * 300.dp.toPx()
+                    alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                }
+                .clip(bottomBoxShape)
+                .background(colors.background.copy(alpha = 0.35f))
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(
+                    start = 14.dp,
+                    top = animBottomPadTop,
+                    end = 14.dp,
+                    bottom = animBottomPadBottom
+                )
+        ) {
+            AnimatedVisibility(
+                visible = !isCompact,
+                enter = expandVertically(tween(280, easing = XvoxSmoothEasing)) + fadeIn(tween(200)),
+                exit = shrinkVertically(tween(240, easing = XvoxSmoothEasing)) + fadeOut(tween(160))
+            ) {
+                Column {
+                    NowPlayingActions(
+                        isLiked = isLiked,
+                        isInPlaylist = isInPlaylist,
+                        onTimer = { onTimer?.invoke() },
+                        onQueue = { onQueue?.invoke() },
+                        onInfo = { onInfo?.invoke() },
+                        onToggleLiked = { onToggleLiked?.invoke() },
+                        onStarPlaylist = { onStarPlaylist?.invoke() },
+                        timerProgress = sleepTimerProgress,
+                        crossfadeOn = settingsState.crossfade,
+                        onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
+                        equalizerOn = settingsState.equalizerEnabled,
+                        spaceOn = settingsState.stereoWidening,
+                        lyricsOn = isLyricsShowing,
+                        onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
+                        onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
+                        onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
+                        onOpenOptions = { showStyleSheet = true }
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+
+            Text(
+                text = song.title,
+                color = colors.primaryText,
+                fontSize = if (isCompact) 17.sp else 20.sp,
+                lineHeight = if (isCompact) 21.sp else 24.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = song.artist,
+                color = colors.secondaryText,
+                fontSize = if (isCompact) 11.sp else 13.sp,
+                lineHeight = if (isCompact) 15.sp else 17.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(Modifier.height(if (isCompact) 8.dp else 12.dp))
+
+            XvoxNowPlayingProgress(
+                currentSongId = song.id,
+                position = position,
+                duration = duration,
+                onSeek = onSeek,
+                showTime = !isCompact
+            )
+
+            Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
+
+            XvoxNowPlayingControls(
+                isPlaying = isPlaying,
+                isShuffleEnabled = isShuffleEnabled,
+                repeatMode = repeatMode,
+                onShuffle = { onToggleShuffle?.invoke() },
+                onPrevious = ::requestPrevious,
+                onTogglePlay = onTogglePlay,
+                onNext = ::requestNext,
+                onRepeat = { onToggleRepeat?.invoke() },
+                currentIndex = currentIndex,
+                queueSize = queue.size,
+                positionMs = position,
+                durationMs = duration,
+                onScrubTo = onSeek,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(if (isCompact) 6.dp else 10.dp))
+
+            Text(
+                text = "XVOX",
+                color = colors.primaryText.copy(alpha = 0.55f),
+                fontFamily = XvoxLogoFont,
+                fontSize = 11.sp,
+                letterSpacing = 2.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
         }
 
         if (showStyleSheet) {

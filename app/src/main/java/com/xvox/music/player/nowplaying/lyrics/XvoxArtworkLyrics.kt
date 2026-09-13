@@ -57,6 +57,7 @@ import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -187,6 +188,25 @@ fun XvoxArtworkLyrics(
         Color(android.graphics.Color.HSVToColor(hsv))
     } else Color.White
 
+    val vibrantCoverColor = remember(textColor) {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(
+            android.graphics.Color.rgb(
+                (textColor.red * 255).toInt(),
+                (textColor.green * 255).toInt(),
+                (textColor.blue * 255).toInt()
+            ),
+            hsv
+        )
+        if (hsv[1] < 0.15f) {
+            Color(0xFFE2E6FF)
+        } else {
+            hsv[1] = hsv[1].coerceIn(0.60f, 0.95f)
+            hsv[2] = hsv[2].coerceIn(0.80f, 1.0f)
+            Color(android.graphics.Color.HSVToColor(hsv))
+        }
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -210,7 +230,7 @@ fun XvoxArtworkLyrics(
         val activeLineHeightDp = with(density) { (maximumSize * 1.35f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
         val verticalCenterPadding = (maxHeight / 2 - activeLineHeightDp / 2).coerceAtLeast(16.dp)
 
-        // Dynamic Canvas Gradient Effects (Off, Large Glowing Orb from Cover, Seamless Organic Aurora Loop)
+        // Dynamic Canvas Gradient Effects (Off, Rich Glowing Orb from Cover, Seamless Rounded Aurora Loop)
         if (gradientAnim != "off") {
             when (gradientAnim) {
                 "orb" -> {
@@ -222,8 +242,9 @@ fun XvoxArtworkLyrics(
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    textColor.copy(alpha = 0.65f),
-                                    textColor.copy(alpha = 0.35f),
+                                    vibrantCoverColor.copy(alpha = 0.85f),
+                                    vibrantCoverColor.copy(alpha = 0.50f),
+                                    vibrantCoverColor.copy(alpha = 0.18f),
                                     Color.Transparent
                                 ),
                                 center = Offset(cx, cy),
@@ -237,17 +258,15 @@ fun XvoxArtworkLyrics(
                         val w = size.width; val h = size.height
                         val steps = 60
 
-                        // Top wave: independent horizontal flow, seamless periodic trigonometric loop (k * 2π integer phase)
+                        // Top wave: Gentle rounded organic wave, single harmonic, 100% periodic loop
                         val pTop = Path()
                         pTop.moveTo(0f, 0f)
-                        val topBaseY = h * 0.24f + sin(phase) * (h * 0.045f)
+                        val topBaseY = h * 0.22f + sin(phase) * (h * 0.030f)
                         pTop.lineTo(0f, topBaseY)
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
-                            val y = h * 0.24f +
-                                sin(waveProg + phase) * (h * 0.065f) +
-                                cos(waveProg * 2f - phase * 1f) * (h * 0.035f)
+                            val y = h * 0.22f + sin(waveProg + phase) * (h * 0.038f)
                             pTop.lineTo(x, y)
                         }
                         pTop.lineTo(w, 0f)
@@ -257,24 +276,22 @@ fun XvoxArtworkLyrics(
                             path = pTop,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    textColor.copy(alpha = 0.45f),
-                                    textColor.copy(alpha = 0.28f),
+                                    vibrantCoverColor.copy(alpha = 0.55f),
+                                    vibrantCoverColor.copy(alpha = 0.32f),
                                     Color.Transparent
                                 )
                             )
                         )
 
-                        // Bottom wave: completely different integer frequency, organic non-mirrored motion
+                        // Bottom wave: Gentle rounded organic wave, single harmonic, smooth loop
                         val pBot = Path()
                         pBot.moveTo(0f, h)
-                        val botBaseY = h * 0.76f + cos(phase * 1f + 1.57f) * (h * 0.05f)
+                        val botBaseY = h * 0.78f + cos(phase + 1.57f) * (h * 0.030f)
                         pBot.lineTo(0f, botBaseY)
                         for (i in 1..steps) {
                             val x = (w / steps) * i
-                            val waveProg = (x / w) * 3f * PI.toFloat()
-                            val y = h * 0.76f +
-                                cos(waveProg + phase * 1f + 1.57f) * (h * 0.07f) +
-                                sin(waveProg * 2f - phase * 2f) * (h * 0.035f)
+                            val waveProg = (x / w) * 2f * PI.toFloat()
+                            val y = h * 0.78f + cos(waveProg + phase + 1.57f) * (h * 0.040f)
                             pBot.lineTo(x, y)
                         }
                         pBot.lineTo(w, h)
@@ -285,8 +302,8 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    textColor.copy(alpha = 0.28f),
-                                    textColor.copy(alpha = 0.45f)
+                                    vibrantCoverColor.copy(alpha = 0.32f),
+                                    vibrantCoverColor.copy(alpha = 0.55f)
                                 )
                             )
                         )
@@ -311,9 +328,26 @@ fun XvoxArtworkLyrics(
                 }
 
                 // Automatic lyric progression & dynamic font size changes: auto-scroll squarely into true vertical center
-                LaunchedEffect(activeIndex, lyricsSettings.currentSize, lyricsSettings.topSize, lyricsSettings.bottomSize, lyricsSettings.lineGap) {
+                LaunchedEffect(activeIndex, lyricsSettings.currentSize, lyricsSettings.topSize, lyricsSettings.bottomSize, lyricsSettings.lineGap, maxHeight) {
                     if (activeIndex in lines.indices && !isUserTouching) {
-                        listState.animateScrollToItem(activeIndex, scrollOffset = 0)
+                        val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == activeIndex }
+                        if (!isVisible) {
+                            listState.scrollToItem(activeIndex)
+                            delay(16)
+                        }
+                        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+                        if (item != null) {
+                            val viewportHeight = listState.layoutInfo.viewportSize.height
+                            val itemCenter = item.offset + item.size / 2
+                            val targetCenter = viewportHeight / 2
+                            val scrollNeeded = (itemCenter - targetCenter).toFloat()
+                            if (abs(scrollNeeded) > 1f) {
+                                listState.animateScrollBy(
+                                    value = scrollNeeded,
+                                    animationSpec = tween(360, easing = FastOutSlowInEasing)
+                                )
+                            }
+                        }
                     }
                 }
 
