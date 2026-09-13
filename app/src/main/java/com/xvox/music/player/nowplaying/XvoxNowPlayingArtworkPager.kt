@@ -98,11 +98,15 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Live color blending as cover scrolls
+    // Live color blending only while user/pager scroll is actively in progress
     LaunchedEffect(pager, prevSong?.id, nextSong?.id) {
-        snapshotFlow { pager.currentPage to pager.currentPageOffsetFraction }.collect { (page, offset) ->
-            val direction = (page - centerSlotIndex) + offset
-            palette(currSong, if (direction >= 0) nextSong else prevSong, abs(direction).coerceIn(0f, 1f))
+        snapshotFlow {
+            Triple(pager.currentPage, pager.currentPageOffsetFraction, pager.isScrollInProgress)
+        }.collect { (page, offset, inProgress) ->
+            if (inProgress) {
+                val direction = (page - centerSlotIndex) + offset
+                palette(currSong, if (direction >= 0) nextSong else prevSong, abs(direction).coerceIn(0f, 1f))
+            }
         }
     }
 

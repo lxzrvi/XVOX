@@ -17,7 +17,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -58,7 +57,6 @@ import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -328,7 +326,7 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression, font size adjustments, and mode changes: square mathematical centering
+                // Automatic lyric progression: mathematical vertical centering
                 LaunchedEffect(
                     activeIndex,
                     lyricsSettings.currentSize,
@@ -338,35 +336,10 @@ fun XvoxArtworkLyrics(
                     expanded
                 ) {
                     if (activeIndex in lines.indices && !isUserTouching) {
-                        val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
-                        if (visibleItem != null) {
-                            val viewportHeight = listState.layoutInfo.viewportSize.height
-                            val itemCenter = visibleItem.offset + visibleItem.size / 2f
-                            val targetCenter = viewportHeight / 2f
-                            val delta = itemCenter - targetCenter
-                            if (abs(delta) > 1.5f) {
-                                listState.animateScrollBy(
-                                    value = delta,
-                                    animationSpec = tween<Float>(320, easing = FastOutSlowInEasing)
-                                )
-                            }
-                        } else {
-                            listState.animateScrollToItem(activeIndex)
-                            delay(32)
-                            val itemAfterScroll = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
-                            if (itemAfterScroll != null) {
-                                val viewportHeight = listState.layoutInfo.viewportSize.height
-                                val itemCenter = itemAfterScroll.offset + itemAfterScroll.size / 2f
-                                val targetCenter = viewportHeight / 2f
-                                val delta = itemCenter - targetCenter
-                                if (abs(delta) > 1.5f) {
-                                    listState.animateScrollBy(
-                                        value = delta,
-                                        animationSpec = tween<Float>(200, easing = FastOutSlowInEasing)
-                                    )
-                                }
-                            }
-                        }
+                        listState.animateScrollToItem(
+                            index = activeIndex,
+                            scrollOffset = 0
+                        )
                     }
                 }
 

@@ -1,13 +1,11 @@
 package com.xvox.music.features.settings.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,8 +17,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -66,7 +65,7 @@ fun XvoxThinLineSlider(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(38.dp)
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(localValue.coerceIn(valueRange), valueRange)
                 setProgress { requested ->
@@ -76,47 +75,28 @@ fun XvoxThinLineSlider(
                 }
             }
             .pointerInput(valueRange, defaultValue) {
-                detectTapGestures(
-                    onPress = { },
-                    onLongPress = {
-                        val target = (defaultValue ?: (valueRange.start + valueRange.endInclusive) / 2f)
-                            .coerceIn(valueRange)
-                        localValue = target
-                        haptics.heavy()
-                        currentOnValueChange(target)
-                        currentOnFinish?.invoke()
-                    }
-                ) { offset ->
-                    val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                fun updateFromX(x: Float, finish: Boolean = false) {
+                    val thumbRadius = 7.dp.toPx()
+                    val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
+                    val newFraction = ((x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
                     var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.05f)) {
+                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
                         newValue = defaultValue
                     }
-                    localValue = newValue
-                    haptics.tap()
-                    currentOnValueChange(newValue)
-                    currentOnFinish?.invoke()
-                }
-            }
-            .pointerInput(valueRange, defaultValue) {
-                fun settle(x: Float) {
-                    val newFraction = (x / size.width.toFloat()).coerceIn(0f, 1f)
-                    var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.03f)) {
-                        newValue = defaultValue
-                    }
-                    val step = (newFraction * 10).roundToInt()
+                    val step = (newFraction * 12).roundToInt()
                     if (step != lastHapticStep) {
                         lastHapticStep = step
                         haptics.tap()
                     }
                     localValue = newValue
                     currentOnValueChange(newValue)
+                    if (finish) currentOnFinish?.invoke()
                 }
-                detectHorizontalDragGestures(
+
+                detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
-                        settle(offset.x)
+                        updateFromX(offset.x)
                     },
                     onDragEnd = {
                         isDragging = false
@@ -126,48 +106,91 @@ fun XvoxThinLineSlider(
                         isDragging = false
                         currentOnFinish?.invoke()
                     },
-                    onHorizontalDrag = { change, _ ->
+                    onDrag = { change, _ ->
                         change.consume()
-                        settle(change.position.x)
+                        updateFromX(change.position.x)
+                    }
+                )
+            }
+            .pointerInput(valueRange, defaultValue) {
+                detectTapGestures(
+                    onLongPress = {
+                        val target = (defaultValue ?: (valueRange.start + valueRange.endInclusive) / 2f).coerceIn(valueRange)
+                        localValue = target
+                        haptics.heavy()
+                        currentOnValueChange(target)
+                        currentOnFinish?.invoke()
+                    },
+                    onTap = { offset ->
+                        val thumbRadius = 7.dp.toPx()
+                        val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
+                        val newFraction = ((offset.x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
+                        var newValue = valueRange.start + newFraction * totalSpan
+                        if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.05f)) {
+                            newValue = defaultValue
+                        }
+                        localValue = newValue
+                        haptics.tap()
+                        currentOnValueChange(newValue)
+                        currentOnFinish?.invoke()
                     }
                 )
             },
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.Center
     ) {
-        Box(
+        Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(colors.cardBorder)
-        )
+                .height(32.dp)
+        ) {
+            val thumbRadius = 6.5.dp.toPx()
+            val availableWidth = size.width - thumbRadius * 2f
+            val trackHeight = 4.dp.toPx()
+            val cy = size.height / 2f
+            val trackStart = thumbRadius
+            val trackEnd = size.width - thumbRadius
 
-        if (defaultFraction != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(defaultFraction)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .height(10.dp)
-                        .fillMaxWidth(0.015f)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(colors.primaryText.copy(alpha = 0.65f))
+            // Inactive track (full width)
+            drawRoundRect(
+                color = colors.cardBorder,
+                topLeft = Offset(trackStart, cy - trackHeight / 2f),
+                size = Size(availableWidth, trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f, trackHeight / 2f)
+            )
+
+            // Active track fill
+            val activeWidth = availableWidth * fraction
+            if (activeWidth > 0f) {
+                drawRoundRect(
+                    color = colors.primaryAccent,
+                    topLeft = Offset(trackStart, cy - trackHeight / 2f),
+                    size = Size(activeWidth, trackHeight),
+                    cornerRadius = CornerRadius(trackHeight / 2f, trackHeight / 2f)
                 )
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(fraction)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(colors.primaryAccent)
-        )
-        Canvas(Modifier.fillMaxWidth().height(30.dp)) {
-            drawCircle(colors.primaryAccent, 6.dp.toPx(), Offset(size.width * fraction, size.height / 2))
-            drawCircle(colors.background, 2.dp.toPx(), Offset(size.width * fraction, size.height / 2))
+            // Default marker point (circle)
+            if (defaultFraction != null) {
+                val defaultX = trackStart + availableWidth * defaultFraction
+                drawCircle(
+                    color = colors.primaryText.copy(alpha = 0.70f),
+                    radius = 3.dp.toPx(),
+                    center = Offset(defaultX, cy)
+                )
+            }
+
+            // Thumb (stays completely inside [trackStart, trackEnd], 0% cropped!)
+            val thumbX = trackStart + availableWidth * fraction
+            drawCircle(
+                color = colors.primaryAccent,
+                radius = thumbRadius,
+                center = Offset(thumbX, cy)
+            )
+            drawCircle(
+                color = colors.background,
+                radius = 2.2.dp.toPx(),
+                center = Offset(thumbX, cy)
+            )
         }
     }
 }

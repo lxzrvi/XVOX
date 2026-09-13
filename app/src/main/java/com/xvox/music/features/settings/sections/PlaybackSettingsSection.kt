@@ -57,16 +57,19 @@ fun PlaybackSettingsSection(
                 expanded = expandedGroup == "Duration",
                 onToggle = { toggle("Duration") }
             ) {
-                XvoxThinLineSlider(
-                    value = state.crossfadeDuration.toFloat(),
-                    valueRange = 1f..12f,
-                    onValueChange = { viewModel.setCrossfadeDuration(kotlin.math.round(it).toInt()) }
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(2, 3, 5, 7, 10, 12).forEach { sec ->
-                        Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
-                            viewModel.setCrossfadeDuration(sec)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(1, 2, 3, 4, 5).forEach { sec ->
+                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                                viewModel.setCrossfadeDuration(sec)
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(6, 7, 8, 10, 12).forEach { sec ->
+                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                                viewModel.setCrossfadeDuration(sec)
+                            }
                         }
                     }
                 }
