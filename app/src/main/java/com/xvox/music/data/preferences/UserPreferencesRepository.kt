@@ -538,7 +538,8 @@ class UserPreferencesRepository(
         context.xvoxDataStore.edit { it[Keys.headerImageUri] = uri.orEmpty() }
     }
     suspend fun setNowPlayingStyle(style: String) {
-        context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = if (style == "immersive") "immersive" else "default" }
+        val normalized = if (style == "compact" || style == "immersive") "compact" else "default"
+        context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = normalized }
     }
     suspend fun setSettingsPreviewHidden(hidden: Boolean) {
         context.xvoxDataStore.edit { it[Keys.settingsPreviewHidden] = hidden }

@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,29 +16,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 private val RowHeight = 54.dp
 private val RowSpacing = 4.dp
@@ -54,95 +47,14 @@ fun XvoxQueueBoxContent(
 ) {
     val colors = XvoxTheme.colors
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val haptics = LocalXvoxHaptics.current
     val move by rememberUpdatedState(onMoveItem)
     val play by rememberUpdatedState(onPlayIndex)
     val local = remember { mutableStateListOf<Song>().apply { addAll(queue) } }
-    var draggedId by remember { mutableStateOf<Long?>(null) }
-    var dragStartIndex by remember { mutableIntStateOf(-1) }
-    var pointerY by remember { mutableFloatStateOf(0f) }
-    var grabOffset by remember { mutableFloatStateOf(0f) }
-    var viewportHeight by remember { mutableIntStateOf(0) }
-    val rowHeightPx = with(density) { RowHeight.toPx() }
-    val overlayY = (pointerY - grabOffset).coerceIn(0f, (viewportHeight - rowHeightPx).coerceAtLeast(0f))
 
-    LaunchedEffect(queue, draggedId) {
-        if (draggedId != null && queue.none { it.id == draggedId }) draggedId = null
-        if (draggedId == null && local.toList() != queue) {
+    LaunchedEffect(queue) {
+        if (local.toList() != queue) {
             local.clear()
             local.addAll(queue)
-        }
-    }
-
-    fun targetIndex(): Int {
-        val visibleItems = listState.layoutInfo.visibleItemsInfo
-        if (visibleItems.isEmpty()) return 0
-        val firstItem = visibleItems.first()
-        val lastItem = visibleItems.last()
-
-        if (pointerY <= firstItem.offset) {
-            return firstItem.index.coerceIn(0, local.lastIndex)
-        }
-        if (pointerY >= lastItem.offset + lastItem.size) {
-            return lastItem.index.coerceIn(0, local.lastIndex)
-        }
-        for (item in visibleItems) {
-            val itemTop = item.offset.toFloat()
-            val itemBottom = itemTop + item.size.toFloat()
-            if (pointerY in itemTop..itemBottom) {
-                return item.index.coerceIn(0, local.lastIndex)
-            }
-        }
-        return local.lastIndex
-    }
-
-    fun reorderAtPointer() {
-        val id = draggedId ?: return
-        val from = local.indexOfFirst { it.id == id }
-        val to = targetIndex()
-        if (from >= 0 && to >= 0 && to != from) {
-            val moved = local.removeAt(from)
-            local.add(to.coerceIn(0, local.size), moved)
-        }
-    }
-
-    fun finishDrag(commit: Boolean) {
-        val id = draggedId
-        draggedId = null
-        if (!commit || id == null) return
-        val to = local.indexOfFirst { it.id == id }
-        if (dragStartIndex >= 0 && to >= 0 && to != dragStartIndex) {
-            move(dragStartIndex, to)
-        }
-        dragStartIndex = -1
-    }
-
-    // Smooth auto-scroll loop during active drag near edges
-    LaunchedEffect(draggedId) {
-        if (draggedId == null) return@LaunchedEffect
-        var previousFrame = withFrameNanos { it }
-        while (isActive && draggedId != null) {
-            val frame = withFrameNanos { it }
-            val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
-            previousFrame = frame
-
-            val edgeZone = (rowHeightPx * 2.2f).coerceAtMost(viewportHeight * 0.40f).coerceAtLeast(40f)
-            val strength = when {
-                edgeZone <= 0f -> 0f
-                pointerY < edgeZone -> -((edgeZone - pointerY) / edgeZone).coerceIn(0f, 1.8f)
-                pointerY > viewportHeight - edgeZone -> ((pointerY - (viewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.8f)
-                else -> 0f
-            }
-
-            if (strength != 0f) {
-                val scrollSpeed = strength * rowHeightPx * 20f
-                val consumed = listState.scrollBy(scrollSpeed * seconds)
-                if (abs(consumed) > 0.1f) {
-                    reorderAtPointer()
-                }
-            }
         }
     }
 
@@ -158,74 +70,51 @@ fun XvoxQueueBoxContent(
         } else Box(Modifier.fillMaxWidth().heightIn(max = 600.dp)) {
             LazyColumn(
                 state = listState,
-                userScrollEnabled = draggedId == null,
                 contentPadding = PaddingValues(vertical = 3.dp),
                 verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                modifier = Modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }
+                modifier = Modifier.fillMaxWidth()
             ) {
                 itemsIndexed(local, key = { _, it -> it.id }, contentType = { _, _ -> "queue_row" }) { idx, song ->
                     QueueRow(
                         song = song,
+                        index = idx,
+                        totalSize = local.size,
                         current = song.id == currentSongId,
                         onClick = {
-                            val index = local.indexOfFirst { it.id == song.id }
-                            if (draggedId == null && index >= 0) play(index)
+                            val target = local.indexOfFirst { it.id == song.id }
+                            if (target >= 0) play(target)
                         },
-                        onStartDrag = {
-                            draggedId = song.id
-                            dragStartIndex = idx
-                            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
-                            val itemTop = item?.offset?.toFloat() ?: (idx * rowHeightPx)
-                            grabOffset = rowHeightPx / 2f
-                            pointerY = itemTop + grabOffset
-                            haptics.tap() // Single gentle haptic on drag start
-                            scope.launch { listState.stopScroll() }
-                        },
-                        onDragDelta = { deltaY ->
-                            pointerY += deltaY
-                            reorderAtPointer()
-                        },
-                        onEndDrag = { finishDrag(commit = true) },
-                        onCancelDrag = { finishDrag(commit = false) },
-                        modifier = Modifier
-                            .graphicsLayer { alpha = if (draggedId == song.id) 0f else 1f }
-                            .semantics {
-                                customActions = listOf(
-                                    CustomAccessibilityAction("Move up") {
-                                        val index = local.indexOfFirst { it.id == song.id }
-                                        if (index > 0) {
-                                            move(index, index - 1)
-                                            true
-                                        } else false
-                                    },
-                                    CustomAccessibilityAction("Move down") {
-                                        val index = local.indexOfFirst { it.id == song.id }
-                                        if (index >= 0 && index < local.lastIndex) {
-                                            move(index, index + 1)
-                                            true
-                                        } else false
-                                    }
-                                )
+                        onMoveItem = { from, to ->
+                            if (from in 0..local.lastIndex && to in 0..local.lastIndex && from != to) {
+                                val item = local.removeAt(from)
+                                local.add(to, item)
+                                move(from, to)
                             }
+                        },
+                        modifier = Modifier.semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction("Move up") {
+                                    val index = local.indexOfFirst { it.id == song.id }
+                                    if (index > 0) {
+                                        val item = local.removeAt(index)
+                                        local.add(index - 1, item)
+                                        move(index, index - 1)
+                                        true
+                                    } else false
+                                },
+                                CustomAccessibilityAction("Move down") {
+                                    val index = local.indexOfFirst { it.id == song.id }
+                                    if (index >= 0 && index < local.lastIndex) {
+                                        val item = local.removeAt(index)
+                                        local.add(index + 1, item)
+                                        move(index, index + 1)
+                                        true
+                                    } else false
+                                }
+                            )
+                        }
                     )
                 }
-            }
-
-            // Floating lifted row overlay
-            local.firstOrNull { it.id == draggedId }?.let { song ->
-                QueueRow(
-                    song = song,
-                    current = song.id == currentSongId,
-                    onClick = null,
-                    modifier = Modifier
-                        .offset { IntOffset(0, overlayY.roundToInt()) }
-                        .shadow(16.dp, RoundedCornerShape(12.dp))
-                        .graphicsLayer {
-                            scaleX = 1.03f
-                            scaleY = 1.03f
-                            alpha = 0.96f
-                        }
-                )
             }
         }
     }
@@ -234,54 +123,76 @@ fun XvoxQueueBoxContent(
 @Composable
 private fun QueueRow(
     song: Song,
+    index: Int,
+    totalSize: Int,
     current: Boolean,
-    onClick: (() -> Unit)?,
-    onStartDrag: (() -> Unit)? = null,
-    onDragDelta: ((Float) -> Unit)? = null,
-    onEndDrag: (() -> Unit)? = null,
-    onCancelDrag: (() -> Unit)? = null,
+    onClick: () -> Unit,
+    onMoveItem: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val density = LocalDensity.current
+    val hapticFeedback = LocalHapticFeedback.current
     val cardBg = rememberSongCardColor(song, current)
+
+    var dragging by remember { mutableStateOf(false) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    val step = with(density) { 40.dp.toPx() }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(RowHeight)
+            .zIndex(if (dragging) 10f else 0f)
+            .graphicsLayer {
+                translationY = dragY
+                scaleX = if (dragging) 1.02f else 1f
+                scaleY = if (dragging) 1.02f else 1f
+                shadowElevation = if (dragging) 12.dp.toPx() else 0f
+            }
             .clip(RoundedCornerShape(12.dp))
             .background(cardBg)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Main card body: Clickable for song play + Long press to drag
+        // Main card body: Click for playback + Long press to drag
         Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .then(
-                    if (onStartDrag != null && onDragDelta != null) {
-                        Modifier.pointerInput(song.id) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { onStartDrag() },
-                                onDragEnd = { onEndDrag?.invoke() },
-                                onDragCancel = { onCancelDrag?.invoke() },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    onDragDelta(dragAmount.y)
-                                }
-                            )
+                .pointerInput(song.id) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            dragging = true
+                            dragY = 0f
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onDragCancel = {
+                            dragging = false
+                            dragY = 0f
+                        },
+                        onDragEnd = {
+                            dragging = false
+                            dragY = 0f
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            dragY += amount.y
+
+                            if (dragY > step && index < totalSize - 1) {
+                                onMoveItem(index, index + 1)
+                                dragY -= step
+                            } else if (dragY < -step && index > 0) {
+                                onMoveItem(index, index - 1)
+                                dragY += step
+                            }
                         }
-                    } else Modifier
-                )
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onClick
-                        )
-                    } else Modifier
+                    )
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -341,21 +252,35 @@ private fun QueueRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .then(
-                    if (onStartDrag != null && onDragDelta != null) {
-                        Modifier.pointerInput(song.id) {
-                            detectDragGestures(
-                                onDragStart = { onStartDrag() },
-                                onDragEnd = { onEndDrag?.invoke() },
-                                onDragCancel = { onCancelDrag?.invoke() },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    onDragDelta(dragAmount.y)
-                                }
-                            )
+                .pointerInput(song.id) {
+                    detectDragGestures(
+                        onDragStart = {
+                            dragging = true
+                            dragY = 0f
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onDragCancel = {
+                            dragging = false
+                            dragY = 0f
+                        },
+                        onDragEnd = {
+                            dragging = false
+                            dragY = 0f
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            dragY += amount.y
+
+                            if (dragY > step && index < totalSize - 1) {
+                                onMoveItem(index, index + 1)
+                                dragY -= step
+                            } else if (dragY < -step && index > 0) {
+                                onMoveItem(index, index - 1)
+                                dragY += step
+                            }
                         }
-                    } else Modifier
-                ),
+                    )
+                },
             contentAlignment = Alignment.Center
         ) {
             SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.65f))

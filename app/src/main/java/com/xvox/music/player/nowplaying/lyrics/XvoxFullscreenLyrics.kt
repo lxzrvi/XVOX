@@ -194,14 +194,14 @@ fun XvoxFullscreenLyrics(
 
     fun cycleGradient() {
         val current = lyricsSettings.gradientAnimation
-        val list = listOf("wave", "aurora", "off")
+        val list = listOf("orb", "aurora", "off")
         val nextIdx = (list.indexOf(current) + 1).coerceAtLeast(0) % list.size
         val nextVal = list[nextIdx]
         scope.launch {
             prefs.setLyricsSettings(lyricsSettings.copy(gradientAnimation = nextVal))
         }
         val label = when (nextVal) {
-            "wave" -> "Gradient: Wave"
+            "orb" -> "Gradient: Orb"
             "aurora" -> "Gradient: Aurora"
             else -> "Gradient: Off"
         }
@@ -220,37 +220,22 @@ fun XvoxFullscreenLyrics(
     ) {
         // Dynamic Canvas moving gradient effects from BOTH Top and Bottom
         when (gradientAnim) {
-            "wave" -> {
+            "orb", "wave" -> {
                 Canvas(Modifier.fillMaxSize()) {
                     val w = size.width; val h = size.height
-                    val cxTop = w / 2f + (w * 0.30f * cos(phase))
-                    val cyTop = h * 0.2f + (h * 0.15f * sin(phase))
-                    val cxBot = w / 2f - (w * 0.30f * cos(phase))
-                    val cyBot = h * 0.8f - (h * 0.15f * sin(phase))
-
-                    // Top wave
+                    val cx = w / 2f + (w * 0.38f * cos(phase))
+                    val cy = h / 2f + (h * 0.32f * sin(phase))
+                    val radius = (w * 1.35f).coerceAtLeast(h * 0.9f)
                     drawRect(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                baseColor.copy(alpha = 0.55f),
-                                colors.primaryAccent.copy(alpha = 0.25f),
+                                baseColor.copy(alpha = 0.58f),
+                                colors.primaryAccent.copy(alpha = 0.38f),
+                                colors.background.copy(alpha = 0.12f),
                                 Color.Transparent
                             ),
-                            center = Offset(cxTop, cyTop),
-                            radius = w * 0.85f
-                        )
-                    )
-
-                    // Bottom wave
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                baseColor.copy(alpha = 0.50f),
-                                colors.primaryAccent.copy(alpha = 0.22f),
-                                Color.Transparent
-                            ),
-                            center = Offset(cxBot, cyBot),
-                            radius = w * 0.85f
+                            center = Offset(cx, cy),
+                            radius = radius
                         )
                     )
                 }

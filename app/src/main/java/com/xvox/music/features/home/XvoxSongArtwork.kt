@@ -1,16 +1,13 @@
 package com.xvox.music.features.home
 
 import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -55,43 +52,57 @@ fun XvoxSongArtwork(
         return
     }
 
-    val cacheKey = remember(artwork, requestSize) { "${XvoxArtworkCache.keyFor(artwork)}_$requestSize" }
-    val cachedBitmap = remember(cacheKey) { XvoxArtworkCache.get(cacheKey) }
+    val baseKey = remember(artwork) { XvoxArtworkCache.keyFor(artwork) }
+    val cacheKey = remember(baseKey, requestSize) { "${baseKey}_$requestSize" }
+    
+    // Find best available cached bitmap (exact size -> 1024 -> 256 -> 160 -> any)
+    val cachedBitmap = remember(cacheKey, baseKey) {
+        XvoxArtworkCache.get(cacheKey)
+            ?: XvoxArtworkCache.get("${baseKey}_1024")
+            ?: XvoxArtworkCache.get("${baseKey}_256")
+            ?: XvoxArtworkCache.get("${baseKey}_160")
+            ?: XvoxArtworkCache.get(baseKey)
+    }
 
-    if (cachedBitmap != null) {
+    val request = remember(artwork, requestSize, cachedBitmap) {
+        ImageRequest.Builder(context)
+            .data(artwork)
+            .size(requestSize, requestSize)
+            .precision(if (requestSize >= 512) Precision.EXACT else Precision.INEXACT)
+            .crossfade(true)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .networkCachePolicy(CachePolicy.DISABLED)
+            .apply {
+                if (cachedBitmap != null) {
+                    placeholder(BitmapDrawable(context.resources, cachedBitmap))
+                }
+            }
+            .build()
+    }
+
+    if (cachedBitmap != null && (cachedBitmap.width >= requestSize || requestSize <= 256)) {
         Image(
             bitmap = cachedBitmap.asImageBitmap(),
             contentDescription = null,
             contentScale = contentScale,
             modifier = modifier
         )
-        return
+    } else {
+        AsyncImage(
+            model = request,
+            contentDescription = null,
+            contentScale = contentScale,
+            onSuccess = { successResult ->
+                val drawable = successResult.result.image
+                if (drawable is coil3.BitmapImage) {
+                    XvoxArtworkCache.put(cacheKey, drawable.bitmap)
+                    XvoxArtworkCache.put("${baseKey}_1024", drawable.bitmap)
+                }
+            },
+            modifier = modifier
+        )
     }
-
-    val request = remember(artwork, requestSize) {
-        ImageRequest.Builder(context)
-            .data(artwork)
-            .size(requestSize, requestSize)
-            .precision(if (requestSize >= 512) Precision.EXACT else Precision.INEXACT)
-            .crossfade(false)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.DISABLED)
-            .build()
-    }
-
-    AsyncImage(
-        model = request,
-        contentDescription = null,
-        contentScale = contentScale,
-        onSuccess = { successResult ->
-            val drawable = successResult.result.image
-            if (drawable is coil3.BitmapImage) {
-                XvoxArtworkCache.put(cacheKey, drawable.bitmap)
-            }
-        },
-        modifier = modifier.background(colors.cardElevated)
-    )
 }
 
 @Composable

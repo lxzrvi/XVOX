@@ -22,7 +22,7 @@ private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song:
 
 /**
  * A song-identity anchored pager.
- * Next and previous songs glide directly edge-to-edge without gaps or borders.
+ * Next and previous songs glide seamlessly from the edge of the screen.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -106,6 +106,7 @@ fun XvoxNowPlayingArtworkPager(
             Box(
                 Modifier
                     .fillMaxSize()
+                    .padding(horizontal = 14.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } },
                 contentAlignment = Alignment.Center

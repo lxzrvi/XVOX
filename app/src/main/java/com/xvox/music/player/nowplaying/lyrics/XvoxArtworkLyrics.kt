@@ -17,6 +17,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -32,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -41,8 +42,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -85,7 +84,8 @@ fun XvoxArtworkLyrics(
     val scope = rememberCoroutineScope()
     val lyricsSettings by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
     val gradientAnim = when (lyricsSettings.gradientAnimation) {
-        "wave", "aurora" -> lyricsSettings.gradientAnimation
+        "orb", "wave" -> "orb"
+        "aurora" -> "aurora"
         else -> "off"
     }
 
@@ -119,22 +119,25 @@ fun XvoxArtworkLyrics(
         }
     }
 
+    // Pill visibility: visible initially on card open, disappears 3s after user inactivity, reappears on user scroll/touch
     var pillVisible by remember { mutableStateOf(!expanded) }
-    var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var lastUserInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var isUserTouching by remember { mutableStateOf(false) }
 
-    fun pingInteraction() {
+    fun registerUserActivity() {
         if (!expanded) {
-            lastInteractionTime = System.currentTimeMillis()
+            lastUserInteractionTime = System.currentTimeMillis()
             pillVisible = true
         }
     }
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(lastInteractionTime, pillVisible, expanded) {
-        if (!expanded && pillVisible) {
-            delay(3500)
-            if (System.currentTimeMillis() - lastInteractionTime >= 3400) {
+    // 3-second auto-hide timer for pill when user is idle
+    LaunchedEffect(lastUserInteractionTime, isUserTouching, expanded, pillVisible) {
+        if (!expanded && pillVisible && !isUserTouching) {
+            delay(3000)
+            if (System.currentTimeMillis() - lastUserInteractionTime >= 2950 && !isUserTouching) {
                 pillVisible = false
             }
         }
@@ -145,7 +148,7 @@ fun XvoxArtworkLyrics(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(14000, easing = LinearEasing),
+            animation = tween(12000, easing = LinearEasing),
             repeatMode = androidx.compose.animation.core.RepeatMode.Restart
         ),
         label = "ambientPhase"
@@ -153,15 +156,15 @@ fun XvoxArtworkLyrics(
 
     fun cycleGradient() {
         val nextVal = when (gradientAnim) {
-            "off" -> "wave"
-            "wave" -> "aurora"
+            "off" -> "orb"
+            "orb" -> "aurora"
             else -> "off"
         }
         scope.launch {
             prefs.setLyricsSettings(lyricsSettings.copy(gradientAnimation = nextVal))
         }
         val label = when (nextVal) {
-            "wave" -> "Gradient: Wave"
+            "orb" -> "Gradient: Orb"
             "aurora" -> "Gradient: Aurora"
             else -> "Gradient: Off"
         }
@@ -188,31 +191,41 @@ fun XvoxArtworkLyrics(
             .fillMaxSize()
             .background(colors.background.copy(alpha = if (expanded) 0.35f else 0.27f))
             .pointerInput(expanded) {
-                detectTapGestures {
-                    pingInteraction()
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    isUserTouching = true
+                    registerUserActivity()
+                    do {
+                        val event = awaitPointerEvent()
+                        registerUserActivity()
+                    } while (event.changes.any { it.pressed })
+                    isUserTouching = false
+                    registerUserActivity()
                 }
             }
     ) {
-        // True center padding: height / 2 minus half an average line height
-        val verticalCenterPadding = (maxHeight / 2 - 20.dp).coerceAtLeast(32.dp)
+        // Mathematical Vertical Center Padding for Default, Compact, and Fullscreen modes
+        val verticalCenterPadding = (maxHeight / 2 - 24.dp).coerceAtLeast(16.dp)
 
-        // Dynamic Canvas Gradient Effects (Off, Wave, Aurora natural non-mirrored horizontal loop)
+        // Dynamic Canvas Gradient Effects (Off, Large Glowing Orb, Organic Non-Mirrored Aurora Loop)
         if (gradientAnim != "off") {
             when (gradientAnim) {
-                "wave" -> {
+                "orb" -> {
                     Canvas(Modifier.fillMaxSize()) {
                         val w = size.width; val h = size.height
-                        val cx = w / 2f + (w * 0.32f * cos(phase))
-                        val cy = h / 2f + (h * 0.28f * sin(phase))
+                        val cx = w / 2f + (w * 0.38f * cos(phase))
+                        val cy = h / 2f + (h * 0.32f * sin(phase))
+                        val radius = (w * 1.35f).coerceAtLeast(h * 0.9f)
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    textColor.copy(alpha = 0.45f),
-                                    colors.primaryAccent.copy(alpha = 0.25f),
+                                    textColor.copy(alpha = 0.58f),
+                                    colors.primaryAccent.copy(alpha = 0.38f),
+                                    colors.background.copy(alpha = 0.12f),
                                     Color.Transparent
                                 ),
                                 center = Offset(cx, cy),
-                                radius = w * 0.90f
+                                radius = radius
                             )
                         )
                     }
@@ -220,18 +233,18 @@ fun XvoxArtworkLyrics(
                 "aurora" -> {
                     Canvas(Modifier.fillMaxSize()) {
                         val w = size.width; val h = size.height
-                        val steps = 24
+                        val steps = 36
 
-                        // Top wave: independent horizontal flow and organic undulating curve
+                        // Top wave: independent horizontal flow, seamless periodic trigonometric loop
                         val pTop = Path()
                         pTop.moveTo(0f, 0f)
-                        pTop.lineTo(0f, h * 0.22f + sin(phase) * (h * 0.06f))
+                        pTop.lineTo(0f, h * 0.24f + sin(phase) * (h * 0.05f))
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
-                            val y = h * 0.22f +
+                            val y = h * 0.24f +
                                 sin(waveProg + phase) * (h * 0.07f) +
-                                cos(waveProg * 2f - phase * 0.5f) * (h * 0.035f)
+                                cos(waveProg * 2f - phase * 0.6f) * (h * 0.035f)
                             pTop.lineTo(x, y)
                         }
                         pTop.lineTo(w, 0f)
@@ -241,22 +254,22 @@ fun XvoxArtworkLyrics(
                             path = pTop,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    colors.primaryAccent.copy(alpha = 0.38f),
-                                    textColor.copy(alpha = 0.30f),
+                                    colors.primaryAccent.copy(alpha = 0.42f),
+                                    textColor.copy(alpha = 0.34f),
                                     Color.Transparent
                                 )
                             )
                         )
 
-                        // Bottom wave: completely different frequency (3π vs 2π), vertical height and phase
+                        // Bottom wave: non-mirrored frequency, different amplitude & phase
                         val pBot = Path()
                         pBot.moveTo(0f, h)
-                        pBot.lineTo(0f, h * 0.78f + cos(phase * 1.2f + 1.4f) * (h * 0.07f))
+                        pBot.lineTo(0f, h * 0.76f + cos(phase * 1.3f + 1.8f) * (h * 0.065f))
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 3f * PI.toFloat()
-                            val y = h * 0.78f +
-                                cos(waveProg + phase * 1.2f + 1.4f) * (h * 0.075f) +
+                            val y = h * 0.76f +
+                                cos(waveProg + phase * 1.3f + 1.8f) * (h * 0.075f) +
                                 sin(waveProg * 1.5f - phase * 0.8f) * (h * 0.04f)
                             pBot.lineTo(x, y)
                         }
@@ -268,8 +281,8 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    textColor.copy(alpha = 0.30f),
-                                    colors.primaryAccent.copy(alpha = 0.36f)
+                                    textColor.copy(alpha = 0.32f),
+                                    colors.primaryAccent.copy(alpha = 0.40f)
                                 )
                             )
                         )
@@ -283,7 +296,7 @@ fun XvoxArtworkLyrics(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(72.dp)
                     .align(Alignment.TopCenter)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
@@ -316,8 +329,9 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
+                // Automatic lyric progression: auto-scroll without waking up the pill
                 LaunchedEffect(activeIndex) {
-                    if (activeIndex in lines.indices) {
+                    if (activeIndex in lines.indices && !isUserTouching) {
                         listState.animateScrollToItem(activeIndex)
                     }
                 }
@@ -326,12 +340,7 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom)
-                        .pointerInput(expanded) {
-                            detectTapGestures {
-                                pingInteraction()
-                            }
-                        },
+                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
                     contentPadding = PaddingValues(
                         top = verticalCenterPadding,
                         bottom = verticalCenterPadding,
@@ -350,7 +359,7 @@ fun XvoxArtworkLyrics(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    pingInteraction()
+                                    registerUserActivity()
                                     haptics.tap()
                                     onSeek(lyricsSettings.seekPosition(line.timeMs ?: 0L))
                                 }
@@ -374,12 +383,7 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom)
-                        .pointerInput(expanded) {
-                            detectTapGestures {
-                                pingInteraction()
-                            }
-                        },
+                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
                     contentPadding = PaddingValues(
                         top = verticalCenterPadding,
                         bottom = verticalCenterPadding,
@@ -395,7 +399,7 @@ fun XvoxArtworkLyrics(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    pingInteraction()
+                                    registerUserActivity()
                                 }
                                 .padding(vertical = (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp)
                         ) {
@@ -440,7 +444,7 @@ fun XvoxArtworkLyrics(
             }
         }
 
-        // Action pill: ONLY displayed in regular card mode (hidden in fullscreen mode per instruction)
+        // Action pill: ONLY displayed in regular card mode (never in fullscreen)
         if (!expanded) {
             AnimatedVisibility(
                 visible = pillVisible,
@@ -462,7 +466,7 @@ fun XvoxArtworkLyrics(
                     if (custom) {
                         LyricsDeleteButton(
                             onClick = {
-                                pingInteraction()
+                                registerUserActivity()
                                 onDelete()
                             }
                         )
@@ -483,7 +487,7 @@ fun XvoxArtworkLyrics(
                             resource = R.drawable.ic_xvox_sparkle,
                             tint = if (gradientActive) colors.primaryAccent else colors.primaryText,
                             onClick = {
-                                pingInteraction()
+                                registerUserActivity()
                                 cycleGradient()
                             }
                         )
@@ -492,7 +496,7 @@ fun XvoxArtworkLyrics(
                             LyricsAction(
                                 resource = R.drawable.ic_xvox_fullscreen,
                                 onClick = {
-                                    pingInteraction()
+                                    registerUserActivity()
                                     onToggleExpand()
                                 }
                             )
@@ -502,7 +506,7 @@ fun XvoxArtworkLyrics(
                             LyricsAction(
                                 resource = R.drawable.ic_xvox_settings,
                                 onClick = {
-                                    pingInteraction()
+                                    registerUserActivity()
                                     onOpenSettings()
                                 }
                             )
@@ -511,7 +515,7 @@ fun XvoxArtworkLyrics(
                         LyricsAction(
                             resource = R.drawable.ic_xvox_close,
                             onClick = {
-                                pingInteraction()
+                                registerUserActivity()
                                 onClose()
                             }
                         )

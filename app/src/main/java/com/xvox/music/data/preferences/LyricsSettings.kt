@@ -15,11 +15,14 @@ data class LyricsSettings(
     val fadeIntensity: Float = 1f,
     /** "left" | "center" | "right" — where lyric lines sit. */
     val alignment: String = "center",
+    /** Vertical space between lines (dp). */
     val lineGap: Int = 14,
-    val matchCoverColor: Boolean = true,
-    val gradientAnimation: String = "wave"
+    /** "orb" | "aurora" | "off" — moving canvas backdrop in lyrics card. */
+    val gradientAnimation: String = "orb",
+    /** When true, current line takes vivid cover palette color. */
+    val matchCoverColor: Boolean = true
 ) {
-    fun sanitized() = copy(
+    fun normalized(): LyricsSettings = copy(
         offsetMs = offsetMs.coerceIn(-1000, 1000),
         topSize = topSize.coerceIn(10, 36),
         currentSize = currentSize.coerceIn(14, 44),
@@ -31,16 +34,17 @@ data class LyricsSettings(
         fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
         alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
         lineGap = lineGap.coerceIn(4, 40),
-        gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "wave"
+        gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "orb",
+        matchCoverColor = matchCoverColor
     )
 
-    fun position(playbackMs: Long): Long = (playbackMs - offsetMs).coerceAtLeast(0)
-    fun seekPosition(lyricMs: Long): Long = (lyricMs + offsetMs).coerceAtLeast(0)
+    fun position(pos: Long): Long = pos + offsetMs
+    fun seekPosition(pos: Long): Long = (pos - offsetMs).coerceAtLeast(0L)
 
     fun encode(): String = JSONObject()
         .put("offset", offsetMs)
         .put("topSize", topSize)
-        .put("current", currentSize)
+        .put("currentSize", currentSize)
         .put("bottomSize", bottomSize)
         .put("other", otherSize)
         .put("top", fadeTop.toDouble())
@@ -49,14 +53,14 @@ data class LyricsSettings(
         .put("equal", fadeEqual)
         .put("intensity", fadeIntensity.toDouble())
         .put("align", alignment)
-        .put("lineGap", lineGap)
-        .put("matchCover", matchCoverColor)
-        .put("gradientAnimation", gradientAnimation)
+        .put("gap", lineGap)
+        .put("gradient", gradientAnimation)
+        .put("matchColor", matchCoverColor)
         .toString()
 
     companion object {
         val ANIMATIONS = listOf("rise", "glide", "pop", "off", "wave", "drift", "aurora", "classic")
-        val GRADIENT_ANIMATIONS = listOf("wave", "aurora", "off")
+        val GRADIENT_ANIMATIONS = listOf("orb", "aurora", "off", "wave")
         val ALIGNMENTS = listOf("left", "center", "right")
 
         fun decode(raw: String): LyricsSettings = runCatching {
@@ -70,10 +74,15 @@ data class LyricsSettings(
                 "classic" -> "off"
                 else -> animRaw
             }
+            val gradRaw = j.optString("gradient", "orb")
+            val mappedGrad = when (gradRaw) {
+                "wave" -> "orb"
+                else -> gradRaw
+            }
             LyricsSettings(
                 offsetMs = j.optInt("offset", 0),
                 topSize = j.optInt("topSize", other),
-                currentSize = j.optInt("current", 23),
+                currentSize = j.optInt("currentSize", 23),
                 bottomSize = j.optInt("bottomSize", other),
                 otherSize = other,
                 fadeTop = j.optDouble("top", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
@@ -82,10 +91,10 @@ data class LyricsSettings(
                 fadeEqual = j.optBoolean("equal", false),
                 fadeIntensity = j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f,
                 alignment = j.optString("align", "center"),
-                lineGap = j.optInt("lineGap", 14),
-                matchCoverColor = j.optBoolean("matchCover", true),
-                gradientAnimation = j.optString("gradientAnimation", "wave")
-            ).sanitized()
-        }.getOrDefault(LyricsSettings())
+                lineGap = j.optInt("gap", 14),
+                gradientAnimation = mappedGrad,
+                matchCoverColor = j.optBoolean("matchColor", true)
+            ).normalized()
+        }.getOrElse { LyricsSettings() }
     }
 }

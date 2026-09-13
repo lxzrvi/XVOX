@@ -2,8 +2,6 @@ package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -32,7 +30,7 @@ fun NowPlayingOptionsBox(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val state by settingsViewModel.state.collectAsState()
-    val currentStyle = state.nowPlayingStyle
+    val isCompact = state.nowPlayingStyle == "compact" || state.nowPlayingStyle == "immersive"
 
     XvoxBox(
         onDismiss = onDismiss,
@@ -57,7 +55,7 @@ fun NowPlayingOptionsBox(
                 StyleOptionCard(
                     title = "Default",
                     subtitle = "Complete playback controls, info & actions",
-                    selected = currentStyle == "default",
+                    selected = !isCompact,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         haptics.tap()
@@ -66,20 +64,20 @@ fun NowPlayingOptionsBox(
                 )
 
                 StyleOptionCard(
-                    title = "Immersive",
+                    title = "Compact",
                     subtitle = "Tall expanded card with compact minimalist controls",
-                    selected = currentStyle == "immersive",
+                    selected = isCompact,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         haptics.tap()
-                        settingsViewModel.setNowPlayingStyle("immersive")
+                        settingsViewModel.setNowPlayingStyle("compact")
                     }
                 )
             }
 
             Spacer(Modifier.height(14.dp))
 
-            // Notice / Note for immersive style
+            // Notice / Note for compact style
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -99,7 +97,7 @@ fun NowPlayingOptionsBox(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Note: Using this style of Now Playing you can't access all the features in default. Please set your desired settings in default first, then switch to immersive and enjoy.",
+                        text = "Note: In Compact style, you can enjoy a larger artwork view with sleek essential controls. Extra actions can be managed in Default style anytime.",
                         color = colors.secondaryText,
                         fontSize = 11.sp,
                         lineHeight = 15.sp

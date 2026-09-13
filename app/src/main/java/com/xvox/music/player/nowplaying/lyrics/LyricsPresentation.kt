@@ -69,22 +69,23 @@ fun LyricPresentationLine(
 
     // Dynamic Entrance / Exit motion specs
     val transitionSpec: AnimationSpec<Float> = when (animStyle) {
-        "glide" -> tween(320, easing = FastOutSlowInEasing)
-        "rise" -> spring(dampingRatio = 0.68f, stiffness = 420f)
-        "pop" -> spring(dampingRatio = 0.55f, stiffness = 460f)
+        "glide" -> tween(340, easing = FastOutSlowInEasing)
+        "rise" -> spring(dampingRatio = 0.70f, stiffness = 380f)
+        "pop" -> spring(dampingRatio = 0.52f, stiffness = 480f)
         else -> tween(180, easing = LinearEasing)
     }
 
     val animatedScale by animateFloatAsState(
         targetValue = when (animStyle) {
-            "pop" -> if (active) wantedScale else wantedScale * 0.92f
+            "pop" -> if (active) wantedScale * 1.05f else wantedScale * 0.90f
+            "rise" -> if (active) wantedScale else wantedScale * 0.96f
             else -> wantedScale
         },
         animationSpec = transitionSpec,
         label = "lineScale"
     )
 
-    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
+    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .65f; 2 -> .36f; else -> .22f }
     val dimTarget = if (settings.fadeEqual) {
         if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0f, 1f)
     } else baseAlpha
@@ -97,7 +98,7 @@ fun LyricPresentationLine(
 
     val shiftX by animateFloatAsState(
         targetValue = when (animStyle) {
-            "glide" -> if (active) 0f else (if (distance < 0) -22f else 22f)
+            "glide" -> if (active) 0f else (if (distance < 0) -26f else 26f)
             else -> 0f
         },
         animationSpec = transitionSpec,
@@ -106,7 +107,8 @@ fun LyricPresentationLine(
 
     val shiftY by animateFloatAsState(
         targetValue = when (animStyle) {
-            "rise" -> if (active) 0f else (if (distance > 0) 14f else -14f)
+            "rise" -> if (active) 0f else (if (distance > 0) 16f else -16f)
+            "pop" -> if (active) 0f else (if (distance > 0) 6f else -6f)
             else -> 0f
         },
         animationSpec = transitionSpec,

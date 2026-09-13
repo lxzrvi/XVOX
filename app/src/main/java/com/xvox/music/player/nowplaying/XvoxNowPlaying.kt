@@ -98,7 +98,7 @@ fun XvoxNowPlaying(
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
 
-    val isImmersive = settingsState.nowPlayingStyle == "immersive"
+    val isCompact = settingsState.nowPlayingStyle == "compact" || settingsState.nowPlayingStyle == "immersive"
 
     var screenY by rememberSaveable { mutableFloatStateOf(screenHeight) }
     var entered by remember { mutableStateOf(false) }
@@ -200,21 +200,43 @@ fun XvoxNowPlaying(
         bottomEnd = 0.dp
     )
 
-    // Morphing animations for smooth style switching (Default <-> Immersive)
+    // Morphing animations for smooth style switching (Default <-> Compact)
     val animTopRadius by animateDpAsState(
-        targetValue = if (isImmersive) 0.dp else 28.dp,
+        targetValue = if (isCompact) 0.dp else 28.dp,
         animationSpec = tween(320, easing = XvoxSmoothEasing),
         label = "animTopRadius"
     )
     val animBottomPadTop by animateDpAsState(
-        targetValue = if (isImmersive) 6.dp else 12.dp,
+        targetValue = if (isCompact) 6.dp else 12.dp,
         animationSpec = tween(320, easing = XvoxSmoothEasing),
         label = "animBottomPadTop"
     )
     val animBottomPadBottom by animateDpAsState(
-        targetValue = if (isImmersive) 4.dp else 8.dp,
+        targetValue = if (isCompact) 4.dp else 8.dp,
         animationSpec = tween(320, easing = XvoxSmoothEasing),
         label = "animBottomPadBottom"
+    )
+
+    // Smooth Fullscreen Expansion Morphing (Bounds & Corners)
+    val animMiddlePadHorizontal by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 0.dp, // Pager is full-width, inner items have 14dp padding
+        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        label = "middlePadH"
+    )
+    val animMiddlePadBottom by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 14.dp, // Exactly matches 14dp side gap
+        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        label = "middlePadB"
+    )
+    val animLyricsCardRadius by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 20.dp,
+        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        label = "lyricsCardRadius"
+    )
+    val animLyricsPadH by animateDpAsState(
+        targetValue = if (lyricsExpanded) 0.dp else 14.dp,
+        animationSpec = tween(340, easing = XvoxSmoothEasing),
+        label = "lyricsPadH"
     )
 
     Box(
@@ -267,14 +289,14 @@ fun XvoxNowPlaying(
                 )
             }
 
-            // Middle Container: Cover & Lyrics have exact identical sizing & edge positioning
+            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 14dp side/bottom gap
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
-                        horizontal = if (lyricsExpanded) 0.dp else 16.dp,
-                        vertical = if (lyricsExpanded) 0.dp else 8.dp
+                        horizontal = animMiddlePadHorizontal,
+                        bottom = animMiddlePadBottom
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -311,7 +333,8 @@ fun XvoxNowPlaying(
                             textColor = paletteState.color,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(if (lyricsExpanded) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp))
+                                .padding(horizontal = animLyricsPadH)
+                                .clip(RoundedCornerShape(animLyricsCardRadius))
                         )
                     } else {
                         XvoxNowPlayingArtworkPager(
@@ -358,7 +381,7 @@ fun XvoxNowPlaying(
                         )
                 ) {
                     AnimatedVisibility(
-                        visible = !isImmersive,
+                        visible = !isCompact,
                         enter = expandVertically(tween(280, easing = XvoxSmoothEasing)) + fadeIn(tween(200)),
                         exit = shrinkVertically(tween(240, easing = XvoxSmoothEasing)) + fadeOut(tween(160))
                     ) {
@@ -390,8 +413,8 @@ fun XvoxNowPlaying(
                     Text(
                         text = song.title,
                         color = colors.primaryText,
-                        fontSize = if (isImmersive) 17.sp else 20.sp,
-                        lineHeight = if (isImmersive) 21.sp else 24.sp,
+                        fontSize = if (isCompact) 17.sp else 20.sp,
+                        lineHeight = if (isCompact) 21.sp else 24.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -400,24 +423,24 @@ fun XvoxNowPlaying(
                     Text(
                         text = song.artist,
                         color = colors.secondaryText,
-                        fontSize = if (isImmersive) 11.sp else 13.sp,
-                        lineHeight = if (isImmersive) 15.sp else 17.sp,
+                        fontSize = if (isCompact) 11.sp else 13.sp,
+                        lineHeight = if (isCompact) 15.sp else 17.sp,
                         fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(Modifier.height(if (isImmersive) 8.dp else 12.dp))
+                    Spacer(Modifier.height(if (isCompact) 8.dp else 12.dp))
 
                     XvoxNowPlayingProgress(
                         currentSongId = song.id,
                         position = position,
                         duration = duration,
                         onSeek = onSeek,
-                        showTime = !isImmersive
+                        showTime = !isCompact
                     )
 
-                    Spacer(Modifier.height(if (isImmersive) 4.dp else 8.dp))
+                    Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
 
                     XvoxNowPlayingControls(
                         isPlaying = isPlaying,
@@ -436,7 +459,7 @@ fun XvoxNowPlaying(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(Modifier.height(if (isImmersive) 6.dp else 10.dp))
+                    Spacer(Modifier.height(if (isCompact) 6.dp else 10.dp))
 
                     Text(
                         text = "XVOX",
@@ -447,7 +470,7 @@ fun XvoxNowPlaying(
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
 
-                    Spacer(Modifier.height(if (isImmersive) 2.dp else 4.dp))
+                    Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
                 }
             }
         }
