@@ -36,7 +36,8 @@ fun XvoxNowPlayingProgress(
     duration: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    currentSongId: Long? = null
+    currentSongId: Long? = null,
+    showTime: Boolean = true
 ) {
     val colors = XvoxTheme.colors
 
@@ -92,7 +93,7 @@ fun XvoxNowPlayingProgress(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp)
+                .height(if (showTime) 18.dp else 12.dp)
                 .pointerInput(duration) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
@@ -148,7 +149,7 @@ fun XvoxNowPlayingProgress(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(18.dp)
+                    .height(if (showTime) 18.dp else 12.dp)
             ) {
                 val y = size.height / 2f
                 val stroke = 2.5.dp.toPx()
@@ -197,25 +198,27 @@ fun XvoxNowPlayingProgress(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = formatPlayerTime(visiblePosition),
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
+        if (showTime) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formatPlayerTime(visiblePosition),
+                    color = colors.secondaryText,
+                    fontSize = 10.sp
+                )
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
 
-            Text(
-                text = formatPlayerTime(duration),
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
+                Text(
+                    text = formatPlayerTime(duration),
+                    color = colors.secondaryText,
+                    fontSize = 10.sp
+                )
+            }
         }
     }
 }

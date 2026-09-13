@@ -77,19 +77,17 @@ fun XvoxQueueBoxContent(
     fun targetIndex(): Int {
         val visibleItems = listState.layoutInfo.visibleItemsInfo
         if (visibleItems.isEmpty()) return -1
-        if (pointerY <= (visibleItems.firstOrNull()?.offset?.toFloat() ?: 0f)) {
+        for (item in visibleItems) {
+            val itemTop = item.offset.toFloat()
+            val itemBottom = itemTop + item.size
+            if (pointerY in itemTop..itemBottom) {
+                return item.index.coerceIn(0, local.lastIndex)
+            }
+        }
+        if (pointerY < visibleItems.first().offset) {
             return visibleItems.first().index.coerceIn(0, local.lastIndex)
         }
-        val item = visibleItems.firstOrNull { itm ->
-            pointerY >= itm.offset && pointerY <= itm.offset + itm.size
-        }
-        return if (item != null) {
-            item.index.coerceIn(0, local.lastIndex)
-        } else if (pointerY < visibleItems.first().offset) {
-            visibleItems.first().index.coerceIn(0, local.lastIndex)
-        } else {
-            visibleItems.last().index.coerceIn(0, local.lastIndex)
-        }
+        return visibleItems.last().index.coerceIn(0, local.lastIndex)
     }
 
     fun reorderAtPointer() {
@@ -121,7 +119,7 @@ fun XvoxQueueBoxContent(
             val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
             previousFrame = frame
 
-            val edgeZone = (rowHeightPx * 1.8f).coerceAtMost(viewportHeight * 0.35f).coerceAtLeast(40f)
+            val edgeZone = (rowHeightPx * 2.0f).coerceAtMost(viewportHeight * 0.35f).coerceAtLeast(40f)
             val strength = when {
                 edgeZone <= 0f -> 0f
                 pointerY < edgeZone -> -((edgeZone - pointerY) / edgeZone).coerceIn(0f, 1.2f)
@@ -141,7 +139,7 @@ fun XvoxQueueBoxContent(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            "${local.size} songs · Hold the dots to reorder",
+            "${local.size} songs · Hold and drag to reorder",
             color = colors.secondaryText,
             fontSize = 11.sp,
             modifier = Modifier.padding(bottom = 10.dp)
@@ -210,10 +208,10 @@ fun XvoxQueueBoxContent(
                     onClick = null,
                     modifier = Modifier
                         .offset { IntOffset(0, overlayY.roundToInt()) }
-                        .shadow(10.dp, RoundedCornerShape(14.dp))
+                        .shadow(12.dp, RoundedCornerShape(14.dp))
                         .graphicsLayer {
-                            scaleX = 1.015f
-                            scaleY = 1.015f
+                            scaleX = 1.02f
+                            scaleY = 1.02f
                         }
                 )
             }
@@ -241,6 +239,21 @@ private fun QueueRow(
             .height(RowHeight)
             .clip(RoundedCornerShape(12.dp))
             .background(cardBg)
+            .then(
+                if (onStartDrag != null && onDragDelta != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { onStartDrag() },
+                            onDragEnd = { onEndDrag?.invoke() },
+                            onDragCancel = { onCancelDrag?.invoke() },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                onDragDelta(dragAmount.y)
+                            }
+                        )
+                    }
+                } else Modifier
+            )
             .then(if (onClick != null) Modifier.xvoxSongPress(onClick) else Modifier)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -277,25 +290,11 @@ private fun QueueRow(
         }
 
         // Six dots drag handle
-        if (onStartDrag != null && onDragDelta != null) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .pointerInput(Unit) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { onStartDrag() },
-                            onDragEnd = { onEndDrag?.invoke() },
-                            onDragCancel = { onCancelDrag?.invoke() },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                onDragDelta(dragAmount.y)
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.6f))
-            }
+        Box(
+            modifier = Modifier.size(36.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.6f))
         }
     }
 }

@@ -43,8 +43,10 @@ fun XvoxNowPlayingControls(
     onScrubTo: ((Long) -> Unit)? = null,
 ) {
     val colors = XvoxTheme.colors
-    val prevEnabled = repeatMode == RepeatMode.ALL || currentIndex > 0
-    val nextEnabled = repeatMode == RepeatMode.ALL || (queueSize > 0 && currentIndex < queueSize - 1)
+    val isRepeatOne = repeatMode == RepeatMode.ONE
+    val prevEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || currentIndex > 0)
+    val nextEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || (queueSize > 0 && currentIndex < queueSize - 1))
+
     Layout(
         modifier = modifier
             .fillMaxWidth()
@@ -66,8 +68,6 @@ fun XvoxNowPlayingControls(
                 enabled = prevEnabled,
                 scrubTo = onScrubTo,
                 scrubDirection = -1,
-                // Rewinding cannot be seamless on a forward-only decoder, so step back in fewer,
-                // bigger jumps instead of 40 ms ticks — far less chopping of the voice.
                 scrubTickEveryMs = 320,
                 scrubPositionMs = { positionMs },
                 scrubDurationMs = { durationMs }
@@ -176,18 +176,19 @@ private fun BareControl(
                 if (boostHold) {
                     Modifier.xvoxTapOrBoost(
                         enabled = enabled,
-                        onTap = onClick,
+                        onTap = { if (enabled) onClick() },
                         onBoostChange = { boosting: Boolean ->
-                            if (boosting) com.xvox.music.player.session.XvoxTransportBoost.set(2f)
-                            else com.xvox.music.player.session.XvoxTransportBoost.release()
+                            if (enabled) {
+                                if (boosting) com.xvox.music.player.session.XvoxTransportBoost.set(2f)
+                                else com.xvox.music.player.session.XvoxTransportBoost.release()
+                            }
                         }
                     )
                 } else if (scrubTo != null && scrubDurationMs() > 0L) {
-                    // Tap skips the track; holding scrubs at 2× real time in [scrubDirection].
                     Modifier.xvoxTapOrScrub(
-                        enabled = true,
+                        enabled = enabled,
                         onTap = { if (enabled) onClick() },
-                        onScrubTo = scrubTo,
+                        onScrubTo = { if (enabled) scrubTo(it) },
                         direction = scrubDirection,
                         positionMs = scrubPositionMs,
                         durationMs = scrubDurationMs,
@@ -195,26 +196,20 @@ private fun BareControl(
                     )
                 } else {
                     Modifier.clickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
+                        interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         enabled = enabled,
                         onClick = onClick
                     )
                 }
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = tint ?: colors.primaryText,
-            modifier =
-                Modifier.size(iconSize.dp)
+            modifier = Modifier.size(iconSize.dp)
         )
         if (showDot) {
             Box(
@@ -234,20 +229,8 @@ private fun PlayControl(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-
-    val darkMode =
-        colors.background.luminance() < 0.5f
-
-    val circleColor =
-        if (darkMode) {
-            Color.Black.copy(
-                alpha = 0.22f
-            )
-        } else {
-            colors.card.copy(
-                alpha = 0.25f
-            )
-        }
+    val darkMode = colors.background.luminance() < 0.5f
+    val circleColor = if (darkMode) Color.Black.copy(alpha = 0.22f) else colors.card.copy(alpha = 0.25f)
 
     Box(
         modifier = Modifier
@@ -257,31 +240,19 @@ private fun PlayControl(
                 CircleShape
             )
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    if (isPlaying) {
-                        R.drawable
-                            .ic_xvox_pause
-                    } else {
-                        R.drawable
-                            .ic_xvox_play
-                    }
-                ),
+            painter = painterResource(
+                if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play
+            ),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(25.dp)
+            modifier = Modifier.size(25.dp)
         )
     }
 }

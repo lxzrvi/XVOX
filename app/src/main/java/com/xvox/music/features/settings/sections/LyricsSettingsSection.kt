@@ -24,17 +24,10 @@ import kotlin.math.roundToInt
 fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
-    var expandedGroup by remember { mutableStateOf<String?>(null) }
-
-    fun toggle(group: String) {
-        expandedGroup = if (expandedGroup == group) null else group
-    }
 
     SettingsControlsEditor(controls = {
         SettingsAccordionItem(
-            title = "Lines Alignment",
-            expanded = expandedGroup == "Alignment",
-            onToggle = { toggle("Alignment") }
+            title = "Lines Alignment"
         ) {
             SettingsChoiceRow(
                 listOf("left" to "Left", "center" to "Centre", "right" to "Right"),
@@ -43,9 +36,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Text animation style",
-            expanded = expandedGroup == "Animation",
-            onToggle = { toggle("Animation") }
+            title = "Text animation style"
         ) {
             SettingsChoiceRow(
                 listOf(
@@ -56,22 +47,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Moving gradient background",
-            expanded = expandedGroup == "Gradient",
-            onToggle = { toggle("Gradient") }
-        ) {
-            SettingsChoiceRow(
-                listOf(
-                    "wave" to "Wave", "drift" to "Drift", "aurora" to "Aurora", "off" to "Off"
-                ),
-                settings.gradientAnimation
-            ) { value -> viewModel.updateLyrics { it.copy(gradientAnimation = value) } }
-        }
-
-        SettingsAccordionItem(
-            title = "Line spacing & Gap",
-            expanded = expandedGroup == "Gap",
-            onToggle = { toggle("Gap") }
+            title = "Line spacing & Gap"
         ) {
             Label("Lines gap · ${settings.lineGap} dp")
             XvoxThinLineSlider(
@@ -83,9 +59,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Color & Contrast",
-            expanded = expandedGroup == "Color",
-            onToggle = { toggle("Color") }
+            title = "Color & Contrast"
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -110,9 +84,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Font sizes",
-            expanded = expandedGroup == "Font sizes",
-            onToggle = { toggle("Font sizes") }
+            title = "Font sizes"
         ) {
             Label("Top lines font size · ${settings.topSize} sp")
             XvoxThinLineSlider(
@@ -144,9 +116,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Fading",
-            expanded = expandedGroup == "Fading",
-            onToggle = { toggle("Fading") }
+            title = "Fading"
         ) {
             Label("Top fade · ${(settings.fadeTop * 100).roundToInt()}%")
             XvoxThinLineSlider(
@@ -188,9 +158,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms",
-            expanded = expandedGroup == "Timing",
-            onToggle = { toggle("Timing") }
+            title = if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms"
         ) {
             XvoxThinLineSlider(
                 settings.offsetMs.toFloat(),

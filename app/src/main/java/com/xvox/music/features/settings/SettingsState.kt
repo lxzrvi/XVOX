@@ -1,6 +1,7 @@
 package com.xvox.music.features.settings
 
 data class SettingsState(
+    val nowPlayingStyle: String = "default",
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
     val accentColor: String = "White",

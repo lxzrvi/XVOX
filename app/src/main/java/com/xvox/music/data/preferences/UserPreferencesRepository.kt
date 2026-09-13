@@ -134,6 +134,7 @@ class UserPreferencesRepository(
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
+        val nowPlayingStyle = stringPreferencesKey("now_playing_style")
     }
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
@@ -343,6 +344,8 @@ class UserPreferencesRepository(
         .map { (it[Keys.playbackPitch] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
     val headerImageUri: Flow<String?> = context.xvoxDataStore.data.map { it[Keys.headerImageUri] }
         .distinctUntilChanged()
+    val nowPlayingStyle: Flow<String> = context.xvoxDataStore.data
+        .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.settingsPreviewHidden] ?: false }.distinctUntilChanged()
     val lastSettingsTab: Flow<String> = context.xvoxDataStore.data
@@ -533,6 +536,9 @@ class UserPreferencesRepository(
     }
     suspend fun setHeaderImageUri(uri: String?) {
         context.xvoxDataStore.edit { it[Keys.headerImageUri] = uri.orEmpty() }
+    }
+    suspend fun setNowPlayingStyle(style: String) {
+        context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = if (style == "immersive") "immersive" else "default" }
     }
     suspend fun setSettingsPreviewHidden(hidden: Boolean) {
         context.xvoxDataStore.edit { it[Keys.settingsPreviewHidden] = hidden }
