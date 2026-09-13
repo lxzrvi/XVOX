@@ -17,6 +17,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
@@ -25,7 +26,7 @@ private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song:
 /**
  * A song-identity anchored pager.
  * Centered card rests cleanly with 11dp side gaps, sliding in smoothly from the true screen edges
- * with 11dp spacing between adjacent songs, and animates smooth swipe on auto-next tracks.
+ * with 11dp spacing between adjacent songs, and fast, stutter-free navigation.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -44,6 +45,11 @@ fun XvoxNowPlayingArtworkPager(
     val wrap = repeatMode == RepeatMode.ALL && queue.size > 1
 
     var displayedIndex by remember { mutableIntStateOf(index) }
+
+    // Keep displayedIndex aligned when queue updates externally (e.g. initial load or track change)
+    LaunchedEffect(currentIndex) {
+        displayedIndex = currentIndex
+    }
 
     val prevIdx = if (displayedIndex > 0) displayedIndex - 1 else if (wrap) queue.lastIndex else null
     val nextIdx = if (displayedIndex < queue.lastIndex) displayedIndex + 1 else if (wrap) 0 else null
@@ -69,7 +75,7 @@ fun XvoxNowPlayingArtworkPager(
     val pager = rememberPagerState(initialPage = centerSlotIndex, pageCount = { slots.size })
     var isNavigatingInternally by remember { mutableStateOf(false) }
 
-    // External navigation button requests (Next/Prev buttons in UI)
+    // Fast, zero-stutter external navigation button requests (Next/Prev buttons in UI)
     LaunchedEffect(navigationRequest) {
         if (navigationRequest == handledRequest) return@LaunchedEffect
         handledRequest = navigationRequest
@@ -79,7 +85,7 @@ fun XvoxNowPlayingArtworkPager(
             slots.indexOfFirst { it.pageType == 0 }
         }
         if (targetSlot in slots.indices) {
-            pager.animateScrollToPage(targetSlot, animationSpec = tween(320, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(targetSlot, animationSpec = tween(220, easing = FastOutSlowInEasing))
         }
     }
 
@@ -89,7 +95,7 @@ fun XvoxNowPlayingArtworkPager(
         val targetSlot = slots.indexOfFirst { it.targetIndex == currentIndex }
         if (targetSlot in slots.indices && targetSlot != pager.currentPage && !pager.isScrollInProgress) {
             isNavigatingInternally = true
-            pager.animateScrollToPage(targetSlot, animationSpec = tween(340, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(targetSlot, animationSpec = tween(240, easing = FastOutSlowInEasing))
             displayedIndex = currentIndex
             pager.scrollToPage(centerSlotIndex)
             isNavigatingInternally = false
@@ -110,17 +116,23 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // User swipe settle commit
+    // Rapid swipe debounced playback commit: flipping covers is 100% fast and seamless while current song keeps playing
     LaunchedEffect(pager, slots) {
         snapshotFlow { if (pager.isScrollInProgress) null else pager.settledPage }.distinctUntilChanged().collect { page ->
             if (page == null || page == centerSlotIndex || isNavigatingInternally) return@collect
             val slot = slots.getOrNull(page)
             if (slot?.targetIndex != null && slot.pageType != 1) {
                 isNavigatingInternally = true
-                displayedIndex = slot.targetIndex
-                settled(slot.targetIndex)
+                val newIndex = slot.targetIndex
+                displayedIndex = newIndex
                 pager.scrollToPage(centerSlotIndex)
                 isNavigatingInternally = false
+
+                // Debounce audio playback switch so rapid consecutive swipes don't pause or stutter audio
+                delay(260)
+                if (displayedIndex == newIndex) {
+                    settled(newIndex)
+                }
             }
         }
     }

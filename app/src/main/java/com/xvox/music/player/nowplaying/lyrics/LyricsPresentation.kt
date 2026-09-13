@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,8 +57,8 @@ fun LyricPresentationLine(
     }
 
     val transformOrigin = when (settings.alignment) {
-        "left" -> TransformOrigin(0f, 0.5f)
-        "right" -> TransformOrigin(1f, 0.5f)
+        "left" -> TransformOrigin(0.5f, 0.5f)
+        "right" -> TransformOrigin(0.5f, 0.5f)
         else -> TransformOrigin(0.5f, 0.5f)
     }
 
@@ -69,15 +71,15 @@ fun LyricPresentationLine(
 
     // Dynamic Entrance / Exit motion specs
     val transitionSpec: AnimationSpec<Float> = when (animStyle) {
-        "glide" -> tween(340, easing = FastOutSlowInEasing)
-        "rise" -> spring(dampingRatio = 0.70f, stiffness = 380f)
-        "pop" -> spring(dampingRatio = 0.52f, stiffness = 480f)
+        "glide" -> tween(300, easing = FastOutSlowInEasing)
+        "rise" -> spring(dampingRatio = 0.72f, stiffness = 400f)
+        "pop" -> spring(dampingRatio = 0.55f, stiffness = 500f)
         else -> tween(180, easing = LinearEasing)
     }
 
     val animatedScale by animateFloatAsState(
         targetValue = when (animStyle) {
-            "pop" -> if (active) wantedScale * 1.05f else wantedScale * 0.90f
+            "pop" -> if (active) wantedScale * 1.04f else wantedScale * 0.92f
             "rise" -> if (active) wantedScale else wantedScale * 0.96f
             else -> wantedScale
         },
@@ -98,7 +100,7 @@ fun LyricPresentationLine(
 
     val shiftX by animateFloatAsState(
         targetValue = when (animStyle) {
-            "glide" -> if (active) 0f else (if (distance < 0) -26f else 26f)
+            "glide" -> if (active) 0f else (if (distance < 0) -22f else 22f)
             else -> 0f
         },
         animationSpec = transitionSpec,
@@ -107,8 +109,8 @@ fun LyricPresentationLine(
 
     val shiftY by animateFloatAsState(
         targetValue = when (animStyle) {
-            "rise" -> if (active) 0f else (if (distance > 0) 16f else -16f)
-            "pop" -> if (active) 0f else (if (distance > 0) 6f else -6f)
+            "rise" -> if (active) 0f else (if (distance > 0) 14f else -14f)
+            "pop" -> if (active) 0f else (if (distance > 0) 5f else -5f)
             else -> 0f
         },
         animationSpec = transitionSpec,
@@ -126,11 +128,14 @@ fun LyricPresentationLine(
     Text(
         text = text.ifBlank { "♪" },
         color = resolvedColor,
-        style = MaterialTheme.typography.bodyLarge.copy(
+        style = TextStyle(
             fontSize = maximumSize.sp,
-            lineHeight = (maximumSize * 1.35f).sp,
+            lineHeight = (maximumSize * 1.30f).sp,
             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-            textAlign = textAlign
+            textAlign = textAlign,
+            platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(
+                includeFontPadding = false
+            )
         ),
         modifier = modifier
             .fillMaxWidth()

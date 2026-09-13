@@ -75,33 +75,35 @@ fun NowPlayingOptionsBox(
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
+            if (isCompact) {
+                Spacer(Modifier.height(14.dp))
 
-            // Notice / Note for compact style
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardElevated.copy(alpha = 0.6f))
-                    .border(0.6.dp, colors.cardBorder, RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_info),
-                        contentDescription = null,
-                        tint = colors.primaryAccent,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .padding(top = 1.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Note: In Compact style, you can enjoy a larger artwork view with sleek essential controls. Extra actions can be managed in Default style anytime.",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
+                // Notice / Note shown only when Compact style is selected
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.cardElevated.copy(alpha = 0.6f))
+                        .border(0.6.dp, colors.cardBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_info),
+                            contentDescription = null,
+                            tint = colors.primaryAccent,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(top = 1.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Note: In Compact style, you can enjoy a larger artwork view with sleek essential controls. Extra actions can be managed in Default style anytime.",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
                 }
             }
         }

@@ -19,7 +19,27 @@ class XvoxArtworkPaletteLoader(
 ) {
     private val appContext = context.applicationContext
     companion object {
-        private val cache = android.util.LruCache<String, Color>(256)
+        private val cache = android.util.LruCache<String, Color>(512)
+    }
+
+    fun fastEstimate(uri: Uri?, songKey: String = ""): Color {
+        val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
+        if (key.isBlank()) return fallback(songKey)
+        cache[key]?.let { return it }
+
+        if (uri != null) {
+            val cached = XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_256")
+                ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
+                ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_1024")
+            if (cached != null) {
+                val extracted = extract(cached)
+                cache.put(key, extracted)
+                return extracted
+            }
+        }
+        val fb = fallback(songKey)
+        cache.put(key, fb)
+        return fb
     }
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
@@ -38,7 +58,7 @@ class XvoxArtworkPaletteLoader(
                 }
             }
 
-            // Decode bitmap via Coil for 100% reliable image loading
+            // Decode bitmap via Coil for reliable image loading
             if (uri != null) {
                 runCatching {
                     val loader = SingletonImageLoader.get(appContext)

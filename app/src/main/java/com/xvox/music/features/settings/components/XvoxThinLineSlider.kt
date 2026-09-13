@@ -1,8 +1,8 @@
 package com.xvox.music.features.settings.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,14 +49,14 @@ fun XvoxThinLineSlider(
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
 
-    LaunchedEffect(value) {
+    LaunchedEffect(value, isDragging) {
         if (!isDragging) {
             localValue = value
         }
     }
 
     val fraction = ((localValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
-    var lastHapticStep by remember { mutableIntStateOf((fraction * 10).roundToInt()) }
+    var lastHapticStep by remember { mutableIntStateOf((fraction * 12).roundToInt()) }
 
     val defaultFraction = if (defaultValue != null) {
         ((defaultValue - valueRange.start) / totalSpan).coerceIn(0f, 1f)
@@ -75,66 +75,44 @@ fun XvoxThinLineSlider(
                 }
             }
             .pointerInput(valueRange, defaultValue) {
-                fun updateFromX(x: Float, finish: Boolean = false) {
-                    val thumbRadius = 7.dp.toPx()
-                    val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
-                    val newFraction = ((x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
-                    var newValue = valueRange.start + newFraction * totalSpan
-                    if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
-                        newValue = defaultValue
-                    }
-                    val step = (newFraction * 12).roundToInt()
-                    if (step != lastHapticStep) {
-                        lastHapticStep = step
-                        haptics.tap()
-                    }
-                    localValue = newValue
-                    currentOnValueChange(newValue)
-                    if (finish) currentOnFinish?.invoke()
-                }
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    isDragging = true
 
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isDragging = true
-                        updateFromX(offset.x)
-                    },
-                    onDragEnd = {
-                        isDragging = false
-                        currentOnFinish?.invoke()
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                        currentOnFinish?.invoke()
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        updateFromX(change.position.x)
-                    }
-                )
-            }
-            .pointerInput(valueRange, defaultValue) {
-                detectTapGestures(
-                    onLongPress = {
-                        val target = (defaultValue ?: (valueRange.start + valueRange.endInclusive) / 2f).coerceIn(valueRange)
-                        localValue = target
-                        haptics.heavy()
-                        currentOnValueChange(target)
-                        currentOnFinish?.invoke()
-                    },
-                    onTap = { offset ->
+                    fun updatePosition(x: Float) {
                         val thumbRadius = 7.dp.toPx()
                         val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
-                        val newFraction = ((offset.x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
+                        val newFraction = ((x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
                         var newValue = valueRange.start + newFraction * totalSpan
-                        if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.05f)) {
+                        if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
                             newValue = defaultValue
                         }
+                        val step = (newFraction * 12).roundToInt()
+                        if (step != lastHapticStep) {
+                            lastHapticStep = step
+                            haptics.tap()
+                        }
                         localValue = newValue
-                        haptics.tap()
                         currentOnValueChange(newValue)
-                        currentOnFinish?.invoke()
                     }
-                )
+
+                    updatePosition(down.position.x)
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val drag = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!drag.pressed) {
+                            drag.consume()
+                            break
+                        }
+                        drag.consume()
+                        updatePosition(drag.position.x)
+                    }
+
+                    isDragging = false
+                    currentOnFinish?.invoke()
+                }
             },
         contentAlignment = Alignment.Center
     ) {
@@ -148,7 +126,6 @@ fun XvoxThinLineSlider(
             val trackHeight = 4.dp.toPx()
             val cy = size.height / 2f
             val trackStart = thumbRadius
-            val trackEnd = size.width - thumbRadius
 
             // Inactive track (full width)
             drawRoundRect(

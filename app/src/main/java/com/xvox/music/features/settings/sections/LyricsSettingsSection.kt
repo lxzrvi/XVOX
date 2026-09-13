@@ -125,26 +125,6 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         SettingsAccordionItem(
             title = "Fading"
         ) {
-            Label("Top fade · ${(settings.fadeTop * 100).roundToInt()}%")
-            XvoxThinLineSlider(
-                settings.fadeTop,
-                { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } },
-                0f..0.45f,
-                defaultValue = .22f
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Label("Bottom fade · ${(settings.fadeBottom * 100).roundToInt()}%")
-            XvoxThinLineSlider(
-                settings.fadeBottom,
-                { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } },
-                0f..0.45f,
-                defaultValue = .22f
-            )
-
-            Spacer(Modifier.height(8.dp))
-
             SettingsToggle(
                 title = "Equal fade",
                 subtitle = "Fade every line above and below — only the current line stays clear",
@@ -160,6 +140,25 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                     { v -> viewModel.updateLyrics { it.copy(fadeIntensity = (v * 100).roundToInt() / 100f) } },
                     0f..1f,
                     defaultValue = 1f
+                )
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Label("Top fade · ${(settings.fadeTop * 100).roundToInt()}%")
+                XvoxThinLineSlider(
+                    settings.fadeTop,
+                    { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } },
+                    0f..0.45f,
+                    defaultValue = .22f
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Label("Bottom fade · ${(settings.fadeBottom * 100).roundToInt()}%")
+                XvoxThinLineSlider(
+                    settings.fadeBottom,
+                    { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } },
+                    0f..0.45f,
+                    defaultValue = .22f
                 )
             }
         }

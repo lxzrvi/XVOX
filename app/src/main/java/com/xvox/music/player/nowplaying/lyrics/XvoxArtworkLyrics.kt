@@ -42,7 +42,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -226,8 +225,9 @@ fun XvoxArtworkLyrics(
     ) {
         val density = LocalDensity.current
         val maximumSize = maxOf(lyricsSettings.currentSize, maxOf(lyricsSettings.topSize, lyricsSettings.bottomSize))
-        val activeLineHeightDp = with(density) { (maximumSize * 1.35f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
-        val verticalCenterPadding = (maxHeight / 2 - activeLineHeightDp / 2).coerceAtLeast(16.dp)
+        val activeLineHeightDp = with(density) { (maximumSize * 1.30f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
+        // True optical vertical center
+        val verticalCenterPadding = ((maxHeight - activeLineHeightDp) / 2f).coerceAtLeast(16.dp)
 
         // Dynamic Canvas Gradient Effects (Off, Rich Glowing Orb, Seamless Opposite-Moving Aurora)
         if (gradientAnim != "off") {
@@ -257,15 +257,13 @@ fun XvoxArtworkLyrics(
                         val w = size.width; val h = size.height
                         val steps = 60
 
-                        // Top wave: Gentle rounded organic wave moving left (+ phase)
+                        // Top wave: Smooth continuous wave starting right from x = 0 (no triangle corner!)
                         val pTop = Path()
                         pTop.moveTo(0f, 0f)
-                        val topBaseY = h * 0.22f + sin(phase) * (h * 0.030f)
-                        pTop.lineTo(0f, topBaseY)
-                        for (i in 1..steps) {
+                        for (i in 0..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
-                            val y = h * 0.22f + sin(waveProg + phase) * (h * 0.038f)
+                            val y = h * 0.22f + sin(waveProg + phase) * (h * 0.035f)
                             pTop.lineTo(x, y)
                         }
                         pTop.lineTo(w, 0f)
@@ -276,21 +274,19 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     vibrantCoverColor.copy(alpha = 0.55f),
-                                    vibrantCoverColor.copy(alpha = 0.32f),
+                                    vibrantCoverColor.copy(alpha = 0.30f),
                                     Color.Transparent
                                 )
                             )
                         )
 
-                        // Bottom wave: Gentle rounded organic wave moving in the EXACT OPPOSITE direction (- phase)
+                        // Bottom wave: Smooth continuous wave in opposite direction starting right from x = 0 (no triangle corner!)
                         val pBot = Path()
                         pBot.moveTo(0f, h)
-                        val botBaseY = h * 0.78f + cos(-phase + 1.57f) * (h * 0.030f)
-                        pBot.lineTo(0f, botBaseY)
-                        for (i in 1..steps) {
+                        for (i in 0..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
-                            val y = h * 0.78f + cos(waveProg - phase + 1.57f) * (h * 0.040f)
+                            val y = h * 0.78f + cos(waveProg - phase + 1.57f) * (h * 0.035f)
                             pBot.lineTo(x, y)
                         }
                         pBot.lineTo(w, h)
@@ -301,7 +297,7 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    vibrantCoverColor.copy(alpha = 0.32f),
+                                    vibrantCoverColor.copy(alpha = 0.30f),
                                     vibrantCoverColor.copy(alpha = 0.55f)
                                 )
                             )
@@ -326,7 +322,7 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression: mathematical vertical centering
+                // Automatic lyric progression: exact vertical centering
                 LaunchedEffect(
                     activeIndex,
                     lyricsSettings.currentSize,
@@ -414,7 +410,7 @@ fun XvoxArtworkLyrics(
                                 text = rawLine.text.ifBlank { "♪" },
                                 color = effectiveTextColor.copy(alpha = 0.85f),
                                 fontSize = lyricsSettings.currentSize.sp,
-                                lineHeight = (lyricsSettings.currentSize * 1.35f).sp,
+                                lineHeight = (lyricsSettings.currentSize * 1.30f).sp,
                                 textAlign = when (lyricsSettings.alignment) {
                                     "left" -> TextAlign.Start
                                     "right" -> TextAlign.End
@@ -481,11 +477,11 @@ fun XvoxArtworkLyrics(
                 visible = pillVisible,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
-                    animationSpec = tween(240, easing = FastOutSlowInEasing)
-                ) + fadeIn(tween(180)),
+                    animationSpec = tween(200, easing = FastOutSlowInEasing)
+                ) + fadeIn(tween(160)),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
-                    animationSpec = tween(200, easing = FastOutSlowInEasing)
+                    animationSpec = tween(180, easing = FastOutSlowInEasing)
                 ) + fadeOut(tween(140)),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
