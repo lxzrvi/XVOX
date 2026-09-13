@@ -40,6 +40,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
 
 private val RowHeight = 56.dp
 private val RowSpacing = 6.dp
