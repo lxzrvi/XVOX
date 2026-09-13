@@ -227,8 +227,7 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
-    val currentPadV = lerp(6.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
 
     Box(
@@ -284,14 +283,14 @@ fun XvoxNowPlaying(
                 }
             }
 
-            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 6dp gaps
+            // Middle Container: Cover & Lyrics have exact identical sizing & uniform 12dp gaps
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
                         top = if (lyricsExpanded) 0.dp else 4.dp,
-                        bottom = if (lyricsExpanded) 0.dp else 6.dp
+                        bottom = if (lyricsExpanded) 0.dp else 12.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {

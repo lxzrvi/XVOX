@@ -92,26 +92,26 @@ class XvoxArtworkPaletteLoader(
                 val s = hsv[1]
                 val v = hsv[2]
 
-                // Filter near-black and near-white extremes
-                if (v < 0.08f || v > 0.96f) continue
+                // Filter extreme black/white for colorful hue search
+                if (v < 0.06f || v > 0.98f) continue
 
                 // Check colorfulness
-                if (s >= 0.12f) {
+                if (s >= 0.10f) {
                     totalColorfulPixels++
                     val bin = ((h / 360f) * hueBins).toInt().coerceIn(0, hueBins - 1)
                     binCounts[bin]++
                     binRed[bin] += r.toLong()
                     binGreen[bin] += g.toLong()
                     binBlue[bin] += b.toLong()
-                    // Score with saturation and brightness weighting
-                    binScores[bin] += (s * 3.5f + v * 1.5f)
+                    // Weight colorful pixels
+                    binScores[bin] += (s * 4.0f + v * 1.5f)
                 }
             }
         }
 
-        // If the artwork is mostly grayscale / Black & White, return clean dark slate
-        if (totalPixels > 0 && totalColorfulPixels.toFloat() / totalPixels < 0.06f) {
-            return Color(0xFF22222A)
+        // For Black & White / Grayscale / Dark covers: return sleek soft light gray so text and cover shine
+        if (totalPixels > 0 && totalColorfulPixels.toFloat() / totalPixels < 0.08f) {
+            return Color(0xFF42424E)
         }
 
         var bestBin = -1
@@ -123,25 +123,25 @@ class XvoxArtworkPaletteLoader(
             }
         }
 
-        if (bestBin < 0 || binCounts[bestBin] == 0) return fallback("")
+        if (bestBin < 0 || binCounts[bestBin] == 0) return Color(0xFF42424E)
         val count = binCounts[bestBin]
         val avgR = (binRed[bestBin] / count).toInt().coerceIn(0, 255)
         val avgG = (binGreen[bestBin] / count).toInt().coerceIn(0, 255)
         val avgB = (binBlue[bestBin] / count).toInt().coerceIn(0, 255)
 
-        // Tune final dominant color for rich, vibrant, readable Now Playing background
+        // Tune dominant color with light, vibrant luminance so text in both themes is 100% visible
         val finalHsv = FloatArray(3)
         android.graphics.Color.RGBToHSV(avgR, avgG, avgB, finalHsv)
-        finalHsv[1] = finalHsv[1].coerceIn(0.35f, 0.85f)
-        finalHsv[2] = finalHsv[2].coerceIn(0.32f, 0.68f)
+        finalHsv[1] = finalHsv[1].coerceIn(0.35f, 0.78f)
+        finalHsv[2] = finalHsv[2].coerceIn(0.48f, 0.72f)
         return Color(android.graphics.Color.HSVToColor(finalHsv))
     }
 
     private fun fallback(seed: String): Color {
-        if (seed.isBlank()) return Color(0xFF282834)
+        if (seed.isBlank()) return Color(0xFF42424E)
         val hash = seed.hashCode()
         val hue = (abs(hash) % 360).toFloat()
-        val hsv = floatArrayOf(hue, 0.45f, 0.40f)
+        val hsv = floatArrayOf(hue, 0.40f, 0.52f)
         return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }

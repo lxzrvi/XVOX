@@ -22,7 +22,7 @@ private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song:
 
 /**
  * A song-identity anchored pager.
- * Centered card rests cleanly, sliding in from the true screen sides without container clipping.
+ * Centered card rests cleanly with 12dp side gaps, sliding in from the true screen sides.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -106,7 +106,7 @@ fun XvoxNowPlayingArtworkPager(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 6.dp)
+                    .padding(horizontal = 12.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } },
                 contentAlignment = Alignment.Center

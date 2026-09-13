@@ -206,12 +206,11 @@ fun XvoxArtworkLyrics(
             }
     ) {
         val density = LocalDensity.current
-        val currentLineHalfHeight = with(density) {
-            ((lyricsSettings.currentSize * 1.35f).sp.toDp() + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2) / 2f
-        }
-        val verticalCenterPadding = (maxHeight / 2 - currentLineHalfHeight).coerceAtLeast(16.dp)
+        val maximumSize = maxOf(lyricsSettings.currentSize, maxOf(lyricsSettings.topSize, lyricsSettings.bottomSize))
+        val activeLineHeightDp = with(density) { (maximumSize * 1.35f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
+        val verticalCenterPadding = (maxHeight / 2 - activeLineHeightDp / 2).coerceAtLeast(16.dp)
 
-        // Dynamic Canvas Gradient Effects (Off, Large Glowing Orb, Organic Non-Mirrored Aurora Loop)
+        // Dynamic Canvas Gradient Effects (Off, Large Glowing Orb from Cover, Seamless Organic Aurora Loop)
         if (gradientAnim != "off") {
             when (gradientAnim) {
                 "orb" -> {
@@ -223,9 +222,8 @@ fun XvoxArtworkLyrics(
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    textColor.copy(alpha = 0.58f),
-                                    colors.primaryAccent.copy(alpha = 0.38f),
-                                    colors.background.copy(alpha = 0.12f),
+                                    textColor.copy(alpha = 0.65f),
+                                    textColor.copy(alpha = 0.35f),
                                     Color.Transparent
                                 ),
                                 center = Offset(cx, cy),
@@ -237,18 +235,19 @@ fun XvoxArtworkLyrics(
                 "aurora" -> {
                     Canvas(Modifier.fillMaxSize()) {
                         val w = size.width; val h = size.height
-                        val steps = 36
+                        val steps = 60
 
-                        // Top wave: independent horizontal flow, seamless periodic trigonometric loop
+                        // Top wave: independent horizontal flow, seamless periodic trigonometric loop (k * 2π integer phase)
                         val pTop = Path()
                         pTop.moveTo(0f, 0f)
-                        pTop.lineTo(0f, h * 0.24f + sin(phase) * (h * 0.05f))
+                        val topBaseY = h * 0.24f + sin(phase) * (h * 0.045f)
+                        pTop.lineTo(0f, topBaseY)
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
                             val y = h * 0.24f +
-                                sin(waveProg + phase) * (h * 0.07f) +
-                                cos(waveProg * 2f - phase * 0.6f) * (h * 0.035f)
+                                sin(waveProg + phase) * (h * 0.065f) +
+                                cos(waveProg * 2f - phase * 1f) * (h * 0.035f)
                             pTop.lineTo(x, y)
                         }
                         pTop.lineTo(w, 0f)
@@ -258,23 +257,24 @@ fun XvoxArtworkLyrics(
                             path = pTop,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    colors.primaryAccent.copy(alpha = 0.42f),
-                                    textColor.copy(alpha = 0.34f),
+                                    textColor.copy(alpha = 0.45f),
+                                    textColor.copy(alpha = 0.28f),
                                     Color.Transparent
                                 )
                             )
                         )
 
-                        // Bottom wave: non-mirrored frequency, different amplitude & phase
+                        // Bottom wave: completely different integer frequency, organic non-mirrored motion
                         val pBot = Path()
                         pBot.moveTo(0f, h)
-                        pBot.lineTo(0f, h * 0.76f + cos(phase * 1.3f + 1.8f) * (h * 0.065f))
+                        val botBaseY = h * 0.76f + cos(phase * 1f + 1.57f) * (h * 0.05f)
+                        pBot.lineTo(0f, botBaseY)
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 3f * PI.toFloat()
                             val y = h * 0.76f +
-                                cos(waveProg + phase * 1.3f + 1.8f) * (h * 0.075f) +
-                                sin(waveProg * 1.5f - phase * 0.8f) * (h * 0.04f)
+                                cos(waveProg + phase * 1f + 1.57f) * (h * 0.07f) +
+                                sin(waveProg * 2f - phase * 2f) * (h * 0.035f)
                             pBot.lineTo(x, y)
                         }
                         pBot.lineTo(w, h)
@@ -285,37 +285,14 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    textColor.copy(alpha = 0.32f),
-                                    colors.primaryAccent.copy(alpha = 0.40f)
+                                    textColor.copy(alpha = 0.28f),
+                                    textColor.copy(alpha = 0.45f)
                                 )
                             )
                         )
                     }
                 }
             }
-        }
-
-        // Invisible top gesture band in fullscreen mode to pull down and dismiss Now Playing
-        if (expanded) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp)
-                    .align(Alignment.TopCenter)
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { _, dragAmount ->
-                                onSwipeDownDelta?.invoke(dragAmount)
-                            },
-                            onDragEnd = {
-                                onSwipeDownEnd?.invoke()
-                            },
-                            onDragCancel = {
-                                onSwipeDownEnd?.invoke()
-                            }
-                        )
-                    }
-            )
         }
 
         when {
@@ -333,10 +310,10 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression & dynamic font size changes: auto-scroll without waking up the pill
+                // Automatic lyric progression & dynamic font size changes: auto-scroll squarely into true vertical center
                 LaunchedEffect(activeIndex, lyricsSettings.currentSize, lyricsSettings.topSize, lyricsSettings.bottomSize, lyricsSettings.lineGap) {
                     if (activeIndex in lines.indices && !isUserTouching) {
-                        listState.animateScrollToItem(activeIndex)
+                        listState.animateScrollToItem(activeIndex, scrollOffset = 0)
                     }
                 }
 
@@ -446,6 +423,30 @@ fun XvoxArtworkLyrics(
                     )
                 }
             }
+        }
+
+        // Invisible top 10% non-scrollable gesture band in fullscreen mode to pull down and dismiss Now Playing
+        if (expanded) {
+            val topDragHeight = (maxHeight * 0.12f).coerceAtLeast(80.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(topDragHeight)
+                    .align(Alignment.TopCenter)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { _, dragAmount ->
+                                onSwipeDownDelta?.invoke(dragAmount)
+                            },
+                            onDragEnd = {
+                                onSwipeDownEnd?.invoke()
+                            },
+                            onDragCancel = {
+                                onSwipeDownEnd?.invoke()
+                            }
+                        )
+                    }
+            )
         }
 
         // Action pill: ONLY displayed in regular card mode (never in fullscreen)

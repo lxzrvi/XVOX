@@ -94,10 +94,10 @@ fun XvoxNowPlayingHeader(
         ) {
             Text(
                 text = sourceTitle,
-                color = colors.secondaryText,
+                color = colors.primaryText.copy(alpha = 0.85f),
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
 
             Text(
