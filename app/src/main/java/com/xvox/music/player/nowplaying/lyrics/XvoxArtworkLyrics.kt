@@ -58,6 +58,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
@@ -227,7 +228,6 @@ fun XvoxArtworkLyrics(
         val density = LocalDensity.current
         val maximumSize = maxOf(lyricsSettings.currentSize, maxOf(lyricsSettings.topSize, lyricsSettings.bottomSize))
         val activeLineHeightDp = with(density) { (maximumSize * 1.30f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
-        // True optical vertical center
         val verticalCenterPadding = ((maxHeight - activeLineHeightDp) / 2f).coerceAtLeast(16.dp)
 
         // Dynamic Canvas Gradient Effects (Off, Rich Glowing Orb, Seamless Opposite-Moving Aurora)
@@ -323,7 +323,7 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression: exact vertical centering
+                // Automatic lyric progression: dynamic multi-line geometric centering (1-line, 2-lines, 3-lines, etc.)
                 LaunchedEffect(
                     activeIndex,
                     lyricsSettings.currentSize,
@@ -333,9 +333,14 @@ fun XvoxArtworkLyrics(
                     expanded
                 ) {
                     if (activeIndex in lines.indices && !isUserTouching) {
+                        val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+                        val baseLineHeightPx = with(density) { activeLineHeightDp.toPx() }
+                        val actualItemHeightPx = visibleItem?.size?.toFloat() ?: baseLineHeightPx
+                        val multiLineOffsetPx = ((actualItemHeightPx - baseLineHeightPx) / 2f).roundToInt().coerceAtLeast(0)
+
                         listState.animateScrollToItem(
                             index = activeIndex,
-                            scrollOffset = 0
+                            scrollOffset = multiLineOffsetPx
                         )
                     }
                 }

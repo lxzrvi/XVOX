@@ -2,6 +2,7 @@ package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,7 +11,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
-/** One app-wide modal: solid opaque card (0 transparency), never see-through. */
+/** One app-wide modal: solid opaque card (0 transparency), never see-through with perfectly synchronized backdrop dimming. */
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
@@ -59,47 +59,70 @@ fun XvoxBox(
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
     val swallowInteraction = remember { MutableInteractionSource() }
+
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (visible) 0.40f else 0f,
+        animationSpec = tween(220, easing = XvoxBoxEasing),
+        label = "scrimAlpha"
+    )
+
     fun close() {
         if (closing) return
         closing = true
         visible = false
-        scope.launch { delay(180); dismiss() }
+        scope.launch {
+            delay(210)
+            dismiss()
+        }
     }
-    LaunchedEffect(Unit) { visible = true }
+
+    LaunchedEffect(Unit) {
+        visible = true
+    }
 
     Dialog(
         onDismissRequest = ::close,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         Box(modifier.fillMaxSize()) {
+            // Synchronized background scrim dim
             Box(
-                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = scrimAlpha))
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
+
             BoxWithConstraints(
-                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)
-                    .imePadding().padding(horizontal = if (mini) 0.dp else 20.dp, vertical = if (mini) 0.dp else 16.dp),
+                Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .imePadding()
+                    .padding(
+                        horizontal = if (mini) 0.dp else 20.dp,
+                        vertical = if (mini) 0.dp else 16.dp
+                    ),
                 contentAlignment = if (mini) Alignment.BottomCenter else Alignment.Center
             ) {
                 val availableHeight = maxHeight
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(tween(180)) + if (mini) slideInVertically(tween(220, easing = XvoxBoxEasing)) { it }
-                        else scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.96f),
-                    exit = fadeOut(tween(180)) + if (mini) slideOutVertically(tween(180)) { it }
-                        else scaleOut(tween(180), targetScale = 0.97f)
+                    enter = fadeIn(tween(220, easing = XvoxBoxEasing)) + if (mini) slideInVertically(tween(220, easing = XvoxBoxEasing)) { it }
+                    else scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.95f),
+                    exit = fadeOut(tween(200, easing = XvoxBoxEasing)) + if (mini) slideOutVertically(tween(200, easing = XvoxBoxEasing)) { it }
+                    else scaleOut(tween(200, easing = XvoxBoxEasing), targetScale = 0.96f)
                 ) {
                     val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
-                        else RoundedCornerShape(26.dp)
-                    // Solid fill: option box transparency is fixed at 0.
+                    else RoundedCornerShape(26.dp)
                     val boxFill = colors.cardElevated
-                    val borderBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder)
-                        ?: colors.cardBorder
-                    val boxBorder = borderBase.copy(alpha = chrome.optionBoxBorderAlpha.coerceIn(0.2f, 1f))
+
                     Column(
-                        Modifier.widthIn(max = if (mini) 520.dp else 560.dp)
-                            .fillMaxWidth().heightIn(max = availableHeight)
-                            .clip(shape).background(boxFill)
+                        Modifier
+                            .widthIn(max = if (mini) 520.dp else 560.dp)
+                            .fillMaxWidth()
+                            .heightIn(max = availableHeight)
+                            .clip(shape)
+                            .background(boxFill)
                             .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {
@@ -117,31 +140,84 @@ fun XvoxBox(
                                 )
                             }
                         }
+
                         Row(
-                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             onBack?.let { back ->
-                                Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryText,
-                                    modifier = Modifier.size(40.dp).xvoxPressScale(onClick = back).padding(10.dp))
+                                Icon(
+                                    painterResource(R.drawable.ic_xvox_arrow_left),
+                                    "Back",
+                                    tint = colors.primaryText,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .xvoxPressScale(onClick = back)
+                                        .padding(10.dp)
+                                )
                             }
-                            Text(title, color = colors.primaryText, fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f))
+                            Text(
+                                title,
+                                color = colors.primaryText,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
                             if (onAddClick != null) {
-                                Icon(painterResource(R.drawable.ic_xvox_add), "Add", tint = colors.primaryAccent,
-                                    modifier = Modifier.size(48.dp).xvoxPressScale(onClick = onAddClick).padding(14.dp))
+                                Icon(
+                                    painterResource(R.drawable.ic_xvox_add),
+                                    "Add",
+                                    tint = colors.primaryAccent,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .xvoxPressScale(onClick = onAddClick)
+                                        .padding(14.dp)
+                                )
                             }
-                            Box(Modifier.size(48.dp).clip(CircleShape).xvoxPressScale { close() },
-                                contentAlignment = Alignment.Center) {
-                                Icon(painterResource(R.drawable.ic_xvox_close), "Close $title",
-                                    tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                            Box(
+                                Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .xvoxPressScale { close() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_xvox_close),
+                                    "Close $title",
+                                    tint = colors.primaryText,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
-                        Box(Modifier.fillMaxWidth().height(0.7.dp).background(colors.cardBorder.copy(alpha = 0.55f)))
-                        Box(Modifier.weight(1f, fill = false).fillMaxWidth().padding(14.dp)) { content() }
+
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(0.7.dp)
+                                .background(colors.cardBorder.copy(alpha = 0.55f))
+                        )
+
+                        Box(
+                            Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth()
+                                .padding(14.dp)
+                        ) {
+                            content()
+                        }
+
                         if (bottomAction != null) {
-                            Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { bottomAction() }
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+                            ) {
+                                bottomAction()
+                            }
                         }
                     }
                 }

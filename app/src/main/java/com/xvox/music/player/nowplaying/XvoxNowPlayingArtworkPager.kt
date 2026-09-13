@@ -17,16 +17,14 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
-private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song: Song)
-
 /**
- * A song-identity anchored pager.
- * Centered card rests cleanly with 11dp side gaps, sliding in smoothly from the true screen edges
- * with 11dp spacing between adjacent songs, and fast, stutter-free navigation.
+ * Full-queue smooth HorizontalPager.
+ * Rests cleanly with 11dp side gaps and 11dp page spacing.
+ * Enables ultra-fast continuous swiping, immediate Next/Prev button navigation,
+ * and live real-time backdrop palette crossfading.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -40,99 +38,64 @@ fun XvoxNowPlayingArtworkPager(
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
-    val index = currentIndex.coerceIn(queue.indices)
-    val current = queue[index]
-    val wrap = repeatMode == RepeatMode.ALL && queue.size > 1
+    val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
 
-    var displayedIndex by remember { mutableIntStateOf(index) }
+    val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
 
-    // Keep displayedIndex aligned when queue updates externally (e.g. initial load or track change)
-    LaunchedEffect(currentIndex) {
-        displayedIndex = currentIndex
-    }
-
-    val prevIdx = if (displayedIndex > 0) displayedIndex - 1 else if (wrap) queue.lastIndex else null
-    val nextIdx = if (displayedIndex < queue.lastIndex) displayedIndex + 1 else if (wrap) 0 else null
-
-    val prevSong = prevIdx?.let { queue.getOrNull(it) }
-    val currSong = queue.getOrNull(displayedIndex) ?: current
-    val nextSong = nextIdx?.let { queue.getOrNull(it) }
-
-    val slots = remember(currSong.id, prevSong?.id, nextSong?.id) {
-        buildList {
-            if (prevSong != null) add(PagerSlot(pageType = 0, targetIndex = prevIdx, song = prevSong))
-            add(PagerSlot(pageType = 1, targetIndex = displayedIndex, song = currSong))
-            if (nextSong != null) add(PagerSlot(pageType = 2, targetIndex = nextIdx, song = nextSong))
-        }
-    }
-    val centerSlotIndex = remember(slots) { slots.indexOfFirst { it.pageType == 1 }.coerceAtLeast(0) }
-
-    var handledRequest by remember { mutableIntStateOf(navigationRequest) }
+    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
     val settled by rememberUpdatedState(onSettledPage)
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
-    val pager = rememberPagerState(initialPage = centerSlotIndex, pageCount = { slots.size })
-    var isNavigatingInternally by remember { mutableStateOf(false) }
-
-    // Fast, zero-stutter external navigation button requests (Next/Prev buttons in UI)
+    // Handle external Next/Prev navigation requests (Buttons in UI)
     LaunchedEffect(navigationRequest) {
-        if (navigationRequest == handledRequest) return@LaunchedEffect
-        handledRequest = navigationRequest
-        val targetSlot = if (navigationRequest > 0) {
-            slots.indexOfFirst { it.pageType == 2 }
+        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
+        val isForward = navigationRequest > lastHandledRequest
+        lastHandledRequest = navigationRequest
+
+        val targetPage = if (isForward) {
+            if (pager.currentPage < queue.lastIndex) pager.currentPage + 1
+            else if (repeatMode == RepeatMode.ALL) 0
+            else pager.currentPage
         } else {
-            slots.indexOfFirst { it.pageType == 0 }
+            if (pager.currentPage > 0) pager.currentPage - 1
+            else if (repeatMode == RepeatMode.ALL) queue.lastIndex
+            else pager.currentPage
         }
-        if (targetSlot in slots.indices) {
-            pager.animateScrollToPage(targetSlot, animationSpec = tween(220, easing = FastOutSlowInEasing))
+
+        if (targetPage != pager.currentPage && targetPage in queue.indices) {
+            pager.animateScrollToPage(targetPage, animationSpec = tween(220, easing = FastOutSlowInEasing))
         }
     }
 
-    // Auto-advance or external track changes: animate smooth cover swipe transition!
-    LaunchedEffect(currentIndex, queue) {
-        if (currentIndex == displayedIndex) return@LaunchedEffect
-        val targetSlot = slots.indexOfFirst { it.targetIndex == currentIndex }
-        if (targetSlot in slots.indices && targetSlot != pager.currentPage && !pager.isScrollInProgress) {
-            isNavigatingInternally = true
-            pager.animateScrollToPage(targetSlot, animationSpec = tween(240, easing = FastOutSlowInEasing))
-            displayedIndex = currentIndex
-            pager.scrollToPage(centerSlotIndex)
-            isNavigatingInternally = false
-        } else {
-            displayedIndex = currentIndex
+    // Auto-advance or external track changes (from queue/service): animate smooth cover swipe transition
+    LaunchedEffect(currentIndex) {
+        if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
+            pager.animateScrollToPage(currentIndex, animationSpec = tween(240, easing = FastOutSlowInEasing))
         }
     }
 
-    // Live color blending only while user/pager scroll is actively in progress
-    LaunchedEffect(pager, prevSong?.id, nextSong?.id) {
+    // Real-time backdrop color crossfading matching finger/pager position with zero latency
+    LaunchedEffect(pager, queue) {
         snapshotFlow {
-            Triple(pager.currentPage, pager.currentPageOffsetFraction, pager.isScrollInProgress)
-        }.collect { (page, offset, inProgress) ->
-            if (inProgress) {
-                val direction = (page - centerSlotIndex) + offset
-                palette(currSong, if (direction >= 0) nextSong else prevSong, abs(direction).coerceIn(0f, 1f))
+            Pair(pager.currentPage, pager.currentPageOffsetFraction)
+        }.collect { (page, offset) ->
+            val curr = queue.getOrNull(page)
+            val adj = if (offset > 0.001f) queue.getOrNull(page + 1)
+            else if (offset < -0.001f) queue.getOrNull(page - 1)
+            else null
+
+            if (curr != null) {
+                palette(curr, adj, abs(offset))
             }
         }
     }
 
-    // Rapid swipe debounced playback commit: flipping covers is 100% fast and seamless while current song keeps playing
-    LaunchedEffect(pager, slots) {
-        snapshotFlow { if (pager.isScrollInProgress) null else pager.settledPage }.distinctUntilChanged().collect { page ->
-            if (page == null || page == centerSlotIndex || isNavigatingInternally) return@collect
-            val slot = slots.getOrNull(page)
-            if (slot?.targetIndex != null && slot.pageType != 1) {
-                isNavigatingInternally = true
-                val newIndex = slot.targetIndex
-                displayedIndex = newIndex
-                pager.scrollToPage(centerSlotIndex)
-                isNavigatingInternally = false
-
-                // Debounce audio playback switch so rapid consecutive swipes don't pause or stutter audio
-                delay(260)
-                if (displayedIndex == newIndex) {
-                    settled(newIndex)
-                }
+    // Commit playback when user finishes swiping to a new page
+    LaunchedEffect(pager, queue) {
+        snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
+            if (page in queue.indices && page != currentIndex) {
+                settled(page)
             }
         }
     }
@@ -143,15 +106,18 @@ fun XvoxNowPlayingArtworkPager(
         contentPadding = PaddingValues(horizontal = 11.dp),
         pageSpacing = 11.dp,
         modifier = modifier.fillMaxSize(),
-        key = { page -> "${slots.getOrNull(page)?.pageType}:${slots.getOrNull(page)?.song?.id ?: page}" }
+        key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
-        val slot = slots.getOrNull(page) ?: return@HorizontalPager
-        val song = slot.song
+        val song = queue.getOrNull(page) ?: return@HorizontalPager
         Box(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(20.dp))
-                .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } },
+                .pointerInput(song.id) {
+                    detectTapGestures {
+                        if (!pager.isScrollInProgress) tap()
+                    }
+                },
             contentAlignment = Alignment.Center
         ) {
             XvoxSongArtwork(
