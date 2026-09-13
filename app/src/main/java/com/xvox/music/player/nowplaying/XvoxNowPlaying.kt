@@ -2,7 +2,9 @@ package com.xvox.music.player.nowplaying
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -37,6 +39,8 @@ import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.sections.LyricsSettingsSection
+import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
@@ -44,6 +48,8 @@ import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
+private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
 fun XvoxNowPlaying(
@@ -97,6 +103,7 @@ fun XvoxNowPlaying(
     var showLyrics by rememberSaveable { mutableStateOf(false) }
     var lyricsExpanded by rememberSaveable { mutableStateOf(false) }
     var showStyleSheet by remember { mutableStateOf(false) }
+    var showLyricsSettingsSheet by remember { mutableStateOf(false) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
@@ -173,6 +180,7 @@ fun XvoxNowPlaying(
 
     BackHandler {
         when {
+            showLyricsSettingsSheet -> showLyricsSettingsSheet = false
             showStyleSheet -> showStyleSheet = false
             lyricsExpanded -> lyricsExpanded = false
             showLyrics -> showLyrics = false
@@ -205,11 +213,17 @@ fun XvoxNowPlaying(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header: hidden when lyrics is expanded into full screen
+            // Header: hidden smoothly when lyrics are expanded
             AnimatedVisibility(
                 visible = !lyricsExpanded,
-                enter = slideInVertically { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut()
+                enter = slideInVertically(
+                    initialOffsetY = { -it },
+                    animationSpec = tween(280, easing = XvoxSmoothEasing)
+                ) + fadeIn(tween(200)),
+                exit = slideOutVertically(
+                    targetOffsetY = { -it },
+                    animationSpec = tween(240, easing = XvoxSmoothEasing)
+                ) + fadeOut(tween(160))
             ) {
                 XvoxNowPlayingHeader(
                     onClose = ::dismiss,
@@ -234,67 +248,87 @@ fun XvoxNowPlaying(
                 )
             }
 
-            // Middle Card (Artwork or Lyrics)
+            // Middle Container: Cover & Lyrics have exact identical sizing & edge positioning
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
                         horizontal = if (lyricsExpanded) 0.dp else 4.dp,
-                        vertical = if (lyricsExpanded) 0.dp else 4.dp
+                        vertical = if (lyricsExpanded) 0.dp else 2.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (showLyrics) {
-                    XvoxArtworkLyrics(
-                        state = lyricsState,
-                        position = position,
-                        onSeek = onSeek,
-                        onAttach = lyricsViewModel::attach,
-                        onDelete = lyricsViewModel::removeCustom,
-                        onClose = {
-                            lyricsExpanded = false
-                            showLyrics = false
-                        },
-                        expanded = lyricsExpanded,
-                        onToggleExpand = { lyricsExpanded = !lyricsExpanded },
-                        textColor = paletteState.color,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = if (lyricsExpanded) 0.dp else 8.dp, vertical = if (lyricsExpanded) 0.dp else 6.dp)
-                            .clip(if (lyricsExpanded) RoundedCornerShape(0.dp) else RoundedCornerShape(22.dp))
-                    )
-                } else {
-                    XvoxNowPlayingArtworkPager(
-                        queue = queue,
-                        currentIndex = currentIndex,
-                        navigationRequest = navigationRequest,
-                        onArtworkTap = { showLyrics = true },
-                        onSwipePalette = { base, adjacent, fraction ->
-                            scope.launch { paletteState.blend(base, adjacent, fraction) }
-                        },
-                        onSettledPage = onPlayQueueIndex,
-                        modifier = Modifier.fillMaxSize(),
-                        repeatMode = repeatMode
-                    )
+                Crossfade(
+                    targetState = showLyrics,
+                    animationSpec = tween(260, easing = XvoxSmoothEasing),
+                    label = "coverLyricsFade"
+                ) { isLyricsShowing ->
+                    if (isLyricsShowing) {
+                        XvoxArtworkLyrics(
+                            state = lyricsState,
+                            position = position,
+                            onSeek = onSeek,
+                            onAttach = lyricsViewModel::attach,
+                            onDelete = lyricsViewModel::removeCustom,
+                            onClose = {
+                                lyricsExpanded = false
+                                showLyrics = false
+                            },
+                            expanded = lyricsExpanded,
+                            onToggleExpand = { lyricsExpanded = !lyricsExpanded },
+                            onOpenSettings = { showLyricsSettingsSheet = true },
+                            textColor = paletteState.color,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(
+                                    horizontal = if (lyricsExpanded) 0.dp else 6.dp,
+                                    vertical = if (lyricsExpanded) 0.dp else 4.dp
+                                )
+                                .clip(if (lyricsExpanded) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp))
+                        )
+                    } else {
+                        XvoxNowPlayingArtworkPager(
+                            queue = queue,
+                            currentIndex = currentIndex,
+                            navigationRequest = navigationRequest,
+                            onArtworkTap = { showLyrics = true },
+                            onSwipePalette = { base, adjacent, fraction ->
+                                scope.launch { paletteState.blend(base, adjacent, fraction) }
+                            },
+                            onSettledPage = onPlayQueueIndex,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            repeatMode = repeatMode
+                        )
+                    }
                 }
             }
 
-            // Bottom Controls Area: hidden when lyrics is expanded into full screen
+            // Bottom Controls Area: hidden smoothly when lyrics are expanded
+            val bottomBoxShape = if (isImmersive) RoundedCornerShape(0.dp) else RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
             AnimatedVisibility(
                 visible = !lyricsExpanded,
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut()
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(280, easing = XvoxSmoothEasing)
+                ) + fadeIn(tween(200)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(240, easing = XvoxSmoothEasing)
+                ) + fadeOut(tween(160))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                        .clip(bottomBoxShape)
                         .background(colors.background.copy(alpha = 0.35f))
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(
                             start = 14.dp,
-                            top = if (isImmersive) 8.dp else 12.dp,
+                            top = if (isImmersive) 6.dp else 12.dp,
                             end = 14.dp,
                             bottom = if (isImmersive) 4.dp else 8.dp
                         )
@@ -395,6 +429,18 @@ fun XvoxNowPlaying(
                 onDismiss = { showStyleSheet = false },
                 settingsViewModel = settingsViewModel
             )
+        }
+
+        if (showLyricsSettingsSheet) {
+            XvoxBox(
+                onDismiss = { showLyricsSettingsSheet = false },
+                title = "Lyrics Settings"
+            ) {
+                LyricsSettingsSection(
+                    state = settingsState,
+                    viewModel = settingsViewModel
+                )
+            }
         }
     }
 }
