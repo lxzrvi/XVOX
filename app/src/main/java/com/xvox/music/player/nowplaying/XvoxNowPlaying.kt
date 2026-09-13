@@ -295,7 +295,8 @@ fun XvoxNowPlaying(
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(
-                        horizontal = animMiddlePadHorizontal,
+                        start = animMiddlePadHorizontal,
+                        end = animMiddlePadHorizontal,
                         bottom = animMiddlePadBottom
                     ),
                 contentAlignment = Alignment.Center

@@ -38,6 +38,8 @@ data class LyricsSettings(
         matchCoverColor = matchCoverColor
     )
 
+    fun sanitized(): LyricsSettings = normalized()
+
     fun position(pos: Long): Long = pos + offsetMs
     fun seekPosition(pos: Long): Long = (pos - offsetMs).coerceAtLeast(0L)
 
