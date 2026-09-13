@@ -338,24 +338,33 @@ fun XvoxArtworkLyrics(
                     expanded
                 ) {
                     if (activeIndex in lines.indices && !isUserTouching) {
-                        // Allow layout measurement pass to stabilize on font size or mode transition
-                        delay(24)
-                        val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == activeIndex }
-                        if (!isVisible) {
-                            listState.scrollToItem(activeIndex)
-                            delay(24)
-                        }
-                        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
-                        if (item != null) {
+                        val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+                        if (visibleItem != null) {
                             val viewportHeight = listState.layoutInfo.viewportSize.height
-                            val itemCenter = item.offset + item.size / 2f
+                            val itemCenter = visibleItem.offset + visibleItem.size / 2f
                             val targetCenter = viewportHeight / 2f
-                            val scrollNeeded = itemCenter - targetCenter
-                            if (abs(scrollNeeded) > 1f) {
+                            val delta = itemCenter - targetCenter
+                            if (abs(delta) > 1.5f) {
                                 listState.animateScrollBy(
-                                    value = scrollNeeded,
-                                    animationSpec = tween<Float>(300, easing = FastOutSlowInEasing)
+                                    value = delta,
+                                    animationSpec = tween<Float>(320, easing = FastOutSlowInEasing)
                                 )
+                            }
+                        } else {
+                            listState.animateScrollToItem(activeIndex)
+                            delay(32)
+                            val itemAfterScroll = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+                            if (itemAfterScroll != null) {
+                                val viewportHeight = listState.layoutInfo.viewportSize.height
+                                val itemCenter = itemAfterScroll.offset + itemAfterScroll.size / 2f
+                                val targetCenter = viewportHeight / 2f
+                                val delta = itemCenter - targetCenter
+                                if (abs(delta) > 1.5f) {
+                                    listState.animateScrollBy(
+                                        value = delta,
+                                        animationSpec = tween<Float>(200, easing = FastOutSlowInEasing)
+                                    )
+                                }
                             }
                         }
                     }

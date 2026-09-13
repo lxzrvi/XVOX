@@ -46,7 +46,11 @@ import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.sections.EqualizerSettingsSection
+import com.xvox.music.features.settings.sections.HeadsetSettingsSection
 import com.xvox.music.features.settings.sections.LyricsSettingsSection
+import com.xvox.music.features.settings.sections.PlaybackSettingsSection
+import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
@@ -116,8 +120,7 @@ fun XvoxNowPlaying(
         onDisplayModeChange?.invoke(mode)
     }
 
-    var showStyleSheet by remember { mutableStateOf(false) }
-    var showLyricsSettingsSheet by remember { mutableStateOf(false) }
+    var activeSettingsBox by remember { mutableStateOf<String?>(null) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
@@ -197,8 +200,7 @@ fun XvoxNowPlaying(
 
     BackHandler {
         when {
-            showLyricsSettingsSheet -> showLyricsSettingsSheet = false
-            showStyleSheet -> showStyleSheet = false
+            activeSettingsBox != null -> activeSettingsBox = null
             currentMode == 2 -> setMode(1)
             currentMode == 1 -> setMode(0)
             else -> dismiss()
@@ -238,11 +240,11 @@ fun XvoxNowPlaying(
 
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
-        animationSpec = tween(260, easing = FastOutSlowInEasing),
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(11.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
@@ -275,7 +277,7 @@ fun XvoxNowPlaying(
         ) {
             Crossfade(
                 targetState = isLyricsShowing,
-                animationSpec = tween(240, easing = FastOutSlowInEasing),
+                animationSpec = tween(220, easing = FastOutSlowInEasing),
                 label = "coverLyricsFade"
             ) { lyricsActive ->
                 if (lyricsActive) {
@@ -288,7 +290,7 @@ fun XvoxNowPlaying(
                         onClose = { setMode(0) },
                         expanded = isFullscreen,
                         onToggleExpand = { setMode(if (isFullscreen) 1 else 2) },
-                        onOpenSettings = { showLyricsSettingsSheet = true },
+                        onOpenSettings = { activeSettingsBox = "Lyrics" },
                         onDismissNowPlaying = ::dismiss,
                         onSwipeDownDelta = { delta ->
                             screenY = (screenY + delta).coerceAtLeast(0f)
@@ -337,7 +339,7 @@ fun XvoxNowPlaying(
             XvoxNowPlayingHeader(
                 onClose = ::dismiss,
                 onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
-                onMore = { showStyleSheet = true },
+                onMore = { activeSettingsBox = "Style" },
                 playingSource = playingSource,
                 modifier = Modifier.pointerInput(Unit) {
                     detectVerticalDragGestures(
@@ -402,7 +404,7 @@ fun XvoxNowPlaying(
                         onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
                         onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
                         onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
-                        onOpenOptions = { showStyleSheet = true }
+                        onOpenOptions = { optionName -> activeSettingsBox = optionName }
                     )
 
                     Spacer(Modifier.height(14.dp))
@@ -472,27 +474,40 @@ fun XvoxNowPlaying(
             Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
         }
 
-        if (showStyleSheet) {
-            NowPlayingOptionsBox(
-                onDismiss = { showStyleSheet = false },
-                settingsViewModel = settingsViewModel
-            )
-        }
+        // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
+        if (activeSettingsBox != null) {
+            if (activeSettingsBox == "Style") {
+                NowPlayingOptionsBox(
+                    onDismiss = { activeSettingsBox = null },
+                    settingsViewModel = settingsViewModel
+                )
+            } else {
+                val boxTitle = when (activeSettingsBox) {
+                    "Equalizer" -> "Equalizer"
+                    "3D sound" -> "3D Sound"
+                    "Crossfade" -> "Playback & Crossfade"
+                    "Bluetooth" -> "Audio Output"
+                    "Lyrics" -> "Lyrics Settings"
+                    else -> activeSettingsBox!!
+                }
 
-        if (showLyricsSettingsSheet) {
-            XvoxBox(
-                onDismiss = { showLyricsSettingsSheet = false },
-                title = "Lyrics Settings"
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
+                XvoxBox(
+                    onDismiss = { activeSettingsBox = null },
+                    title = boxTitle
                 ) {
-                    LyricsSettingsSection(
-                        state = settingsState,
-                        viewModel = settingsViewModel
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        when (activeSettingsBox) {
+                            "Equalizer" -> EqualizerSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "3D sound" -> ThreeDSoundSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "Crossfade" -> PlaybackSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "Bluetooth" -> HeadsetSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "Lyrics" -> LyricsSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                        }
+                    }
                 }
             }
         }
