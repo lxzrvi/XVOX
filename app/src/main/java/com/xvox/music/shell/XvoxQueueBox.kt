@@ -76,7 +76,10 @@ fun XvoxQueueBoxContent(
 
     fun targetIndex(): Int {
         val visibleItems = listState.layoutInfo.visibleItemsInfo
-        if (visibleItems.isEmpty()) return -1
+        if (visibleItems.isEmpty()) return 0
+        if (pointerY <= 0f || pointerY <= (visibleItems.firstOrNull()?.offset?.toFloat() ?: 0f)) {
+            return 0
+        }
         for (item in visibleItems) {
             val itemTop = item.offset.toFloat()
             val itemBottom = itemTop + item.size
@@ -84,10 +87,7 @@ fun XvoxQueueBoxContent(
                 return item.index.coerceIn(0, local.lastIndex)
             }
         }
-        if (pointerY < visibleItems.first().offset) {
-            return visibleItems.first().index.coerceIn(0, local.lastIndex)
-        }
-        return visibleItems.last().index.coerceIn(0, local.lastIndex)
+        return local.lastIndex
     }
 
     fun reorderAtPointer() {
@@ -119,16 +119,16 @@ fun XvoxQueueBoxContent(
             val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
             previousFrame = frame
 
-            val edgeZone = (rowHeightPx * 2.0f).coerceAtMost(viewportHeight * 0.35f).coerceAtLeast(40f)
+            val edgeZone = (rowHeightPx * 2.2f).coerceAtMost(viewportHeight * 0.40f).coerceAtLeast(40f)
             val strength = when {
                 edgeZone <= 0f -> 0f
-                pointerY < edgeZone -> -((edgeZone - pointerY) / edgeZone).coerceIn(0f, 1.2f)
-                pointerY > viewportHeight - edgeZone -> ((pointerY - (viewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.2f)
+                pointerY < edgeZone -> -((edgeZone - pointerY) / edgeZone).coerceIn(0f, 1.8f)
+                pointerY > viewportHeight - edgeZone -> ((pointerY - (viewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.8f)
                 else -> 0f
             }
 
             if (strength != 0f) {
-                val scrollSpeed = strength * rowHeightPx * 18f
+                val scrollSpeed = strength * rowHeightPx * 20f
                 val consumed = listState.scrollBy(scrollSpeed * seconds)
                 if (abs(consumed) > 0.1f) {
                     reorderAtPointer()
@@ -169,7 +169,7 @@ fun XvoxQueueBoxContent(
                             val itemTop = item?.offset?.toFloat() ?: (idx * rowHeightPx)
                             grabOffset = rowHeightPx / 2f
                             pointerY = itemTop + grabOffset
-                            haptics.heavy()
+                            haptics.tap()
                             scope.launch { listState.stopScroll() }
                         },
                         onDragDelta = { deltaY ->

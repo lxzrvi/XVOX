@@ -20,12 +20,17 @@ import kotlin.math.abs
 
 private data class PagerSlot(val pageType: Int, val targetIndex: Int?, val song: Song)
 
-/** A song-identity anchored pager. No duplicated artwork at boundaries. */
+/** A song-identity anchored pager. Next and previous songs glide in from the sides. */
 @Composable
 fun XvoxNowPlayingArtworkPager(
-    queue: List<Song>, currentIndex: Int, navigationRequest: Int, onArtworkTap: () -> Unit,
-    onSwipePalette: (Song, Song?, Float) -> Unit, onSettledPage: (Int) -> Unit,
-    modifier: Modifier = Modifier, repeatMode: RepeatMode = RepeatMode.OFF
+    queue: List<Song>,
+    currentIndex: Int,
+    navigationRequest: Int,
+    onArtworkTap: () -> Unit,
+    onSwipePalette: (Song, Song?, Float) -> Unit,
+    onSettledPage: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
     val index = currentIndex.coerceIn(queue.indices)
@@ -89,6 +94,7 @@ fun XvoxNowPlayingArtworkPager(
         HorizontalPager(
             state = pager,
             beyondViewportPageCount = 1,
+            pageSpacing = 16.dp,
             modifier = modifier.fillMaxSize(),
             key = { page -> "${slots.getOrNull(page)?.pageType}:${slots.getOrNull(page)?.song?.id ?: page}" }
         ) { page ->
@@ -97,12 +103,15 @@ fun XvoxNowPlayingArtworkPager(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(8.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .pointerInput(song.id) { detectTapGestures { if (!pager.isScrollInProgress) tap() } },
                 contentAlignment = Alignment.Center
             ) {
-                XvoxSongArtwork(song.artworkUri, requestSize = XvoxNowPlayingArtworkSize, modifier = Modifier.fillMaxSize())
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    requestSize = XvoxNowPlayingArtworkSize,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }

@@ -3,7 +3,9 @@
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,7 +32,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,14 +56,8 @@ import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlinx.coroutines.delay
 
-/**
- * The Now Playing action bar.
- * Left side: Timer / Queue / Info in a pill.
- * Right side: 2-by-2 action buttons across 3 pages with 3 indicator dots.
- *   Page 0: Star / Like
- *   Page 1: EQ / 3D Sound
- *   Page 2: Bluetooth / Crossfade
- */
+private val XvoxActionEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingActions(
@@ -88,17 +83,18 @@ fun NowPlayingActions(
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
     var pageIndex by remember { mutableIntStateOf(0) }
+    var swipeForward by remember { mutableStateOf(true) }
     var showIndicator by remember { mutableStateOf(true) }
 
     LaunchedEffect(pageIndex) {
         showIndicator = true
-        kotlinx.coroutines.delay(2200)
+        delay(2200)
         showIndicator = false
     }
 
-    val dotsAlpha by androidx.compose.animation.core.animateFloatAsState(
+    val dotsAlpha by animateFloatAsState(
         targetValue = if (showIndicator) 1f else 0f,
-        animationSpec = tween(400),
+        animationSpec = tween(350),
         label = "dotsAlpha"
     )
 
@@ -133,7 +129,7 @@ fun NowPlayingActions(
 
         Spacer(Modifier.weight(1f))
 
-        // Right cluster: 2 action buttons with 3 indicator dots
+        // Right cluster: 2 action buttons with continuous bidirectional infinite swiping
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -151,10 +147,12 @@ fun NowPlayingActions(
                                 drag += dragAmount
                             },
                             onDragEnd = {
-                                if (drag <= -24f) {
+                                if (drag <= -20f) {
+                                    swipeForward = true
                                     pageIndex = (pageIndex + 1) % 3
                                     haptics.tap()
-                                } else if (drag >= 24f) {
+                                } else if (drag >= 20f) {
+                                    swipeForward = false
                                     pageIndex = (pageIndex - 1 + 3) % 3
                                     haptics.tap()
                                 }
@@ -166,9 +164,13 @@ fun NowPlayingActions(
                 AnimatedContent(
                     targetState = pageIndex,
                     transitionSpec = {
-                        val forward = targetState > initialState || (initialState == 2 && targetState == 0)
-                        (slideInHorizontally(tween(220)) { if (forward) it else -it } + fadeIn(tween(140)))
-                            .togetherWith(slideOutHorizontally(tween(220)) { if (forward) -it else it } + fadeOut(tween(140)))
+                        if (swipeForward) {
+                            (slideInHorizontally(tween(240, easing = XvoxActionEasing)) { it } + fadeIn(tween(140)))
+                                .togetherWith(slideOutHorizontally(tween(240, easing = XvoxActionEasing)) { -it } + fadeOut(tween(140)))
+                        } else {
+                            (slideInHorizontally(tween(240, easing = XvoxActionEasing)) { -it } + fadeIn(tween(140)))
+                                .togetherWith(slideOutHorizontally(tween(240, easing = XvoxActionEasing)) { it } + fadeOut(tween(140)))
+                        }
                     },
                     label = "nowPlaying2by2Cluster"
                 ) { targetPage ->
@@ -220,7 +222,7 @@ fun NowPlayingActions(
                                     resource = R.drawable.ic_xvox_waveform,
                                     tint = if (spaceOn) colors.primaryAccent else colors.primaryText,
                                     active = spaceOn,
-                                    contentDescription = "3D sound",
+                                    contentDescription = "3D Sound",
                                     onClick = {
                                         haptics.tap()
                                         onToggleSpace?.invoke()
@@ -303,6 +305,7 @@ fun NowPlayingActions(
                                 indication = null
                             ) {
                                 haptics.tap()
+                                swipeForward = dotIdx >= pageIndex
                                 pageIndex = dotIdx
                             }
                     )

@@ -13,9 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.data.preferences.LyricsSettings
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.sin
 
 /** Keep the background intact; only the lyric layer fades, with independently visible edge regions. */
 fun Modifier.lyricsEdgeFade(top: Float, bottom: Float): Modifier = graphicsLayer {
@@ -62,38 +60,29 @@ fun LyricPresentationLine(
         else -> TransformOrigin(0.5f, 0.5f)
     }
 
-    val animation = settings.animation
-
-    // Dynamic continuous looping animation transitions for active line
-    val infiniteTransition = rememberInfiniteTransition(label = "lyricMotionLoop")
-    val continuousPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "continuousPhase"
-    )
-
-    val scaleSpec: AnimationSpec<Float> = when (animation) {
-        "drift" -> tween(320, easing = FastOutSlowInEasing)
-        "aurora" -> spring(dampingRatio = 0.65f, stiffness = 380f)
-        "wave" -> spring(dampingRatio = 0.70f, stiffness = 350f)
-        else -> tween(200, easing = LinearEasing)
+    val animStyle = when (settings.animation) {
+        "glide", "drift" -> "glide"
+        "rise", "wave" -> "rise"
+        "pop", "aurora" -> "pop"
+        else -> "off"
     }
 
-    val baseScale by animateFloatAsState(wantedScale, scaleSpec, label = "lyricBaseScale")
+    // Dynamic Entrance / Exit motion specs
+    val transitionSpec: AnimationSpec<Float> = when (animStyle) {
+        "glide" -> tween(320, easing = FastOutSlowInEasing)
+        "rise" -> spring(dampingRatio = 0.68f, stiffness = 420f)
+        "pop" -> spring(dampingRatio = 0.55f, stiffness = 460f)
+        else -> tween(180, easing = LinearEasing)
+    }
 
-    val activeScaleMultiplier = if (active && synchronized) {
-        when (animation) {
-            "aurora" -> 1f + 0.035f * sin(continuousPhase * 1.5f)
-            "wave" -> 1f + 0.02f * sin(continuousPhase)
-            else -> 1f
-        }
-    } else 1f
-
-    val finalScale = baseScale * activeScaleMultiplier
+    val animatedScale by animateFloatAsState(
+        targetValue = when (animStyle) {
+            "pop" -> if (active) wantedScale else wantedScale * 0.92f
+            else -> wantedScale
+        },
+        animationSpec = transitionSpec,
+        label = "lineScale"
+    )
 
     val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .62f; 2 -> .34f; else -> .2f }
     val dimTarget = if (settings.fadeEqual) {
@@ -103,38 +92,26 @@ fun LyricPresentationLine(
     val alpha by animateFloatAsState(
         if (!synchronized) .85f else dimTarget,
         tween(240, easing = FastOutSlowInEasing),
-        label = "lyricAlpha"
+        label = "lineAlpha"
     )
 
-    val dynamicShiftX = if (active && synchronized && animation == "drift") {
-        sin(continuousPhase) * 6f
-    } else 0f
-
-    val dynamicShiftY = if (active && synchronized && animation == "wave") {
-        sin(continuousPhase) * 4.5f
-    } else 0f
-
-    val stepShiftX by animateFloatAsState(
-        when (animation) {
-            "drift" -> if (active) 0f else (if (distance < 0) -14f else 14f)
+    val shiftX by animateFloatAsState(
+        targetValue = when (animStyle) {
+            "glide" -> if (active) 0f else (if (distance < 0) -22f else 22f)
             else -> 0f
         },
-        scaleSpec,
-        label = "lyricStepShiftX"
+        animationSpec = transitionSpec,
+        label = "lineShiftX"
     )
 
-    val stepShiftY by animateFloatAsState(
-        when (animation) {
-            "wave" -> if (active) 0f else distance.coerceIn(-1, 1) * 8f
-            "aurora" -> if (active) 0f else distance.coerceIn(-1, 1) * 6f
+    val shiftY by animateFloatAsState(
+        targetValue = when (animStyle) {
+            "rise" -> if (active) 0f else (if (distance > 0) 14f else -14f)
             else -> 0f
         },
-        scaleSpec,
-        label = "lyricStepShiftY"
+        animationSpec = transitionSpec,
+        label = "lineShiftY"
     )
-
-    val totalShiftX = stepShiftX + dynamicShiftX
-    val totalShiftY = stepShiftY + dynamicShiftY
 
     val resolvedColor = if (active) {
         if (settings.matchCoverColor) color else Color.White
@@ -142,14 +119,14 @@ fun LyricPresentationLine(
         if (settings.matchCoverColor) color.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f)
     }
 
-    val linePaddingVertical = (settings.lineGap / 2f).dp
+    val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp
 
     Text(
         text = text.ifBlank { "♪" },
         color = resolvedColor,
         style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = maximumSize.sp,
-            lineHeight = (maximumSize * 1.32f).sp,
+            lineHeight = (maximumSize * 1.35f).sp,
             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
             textAlign = textAlign
         ),
@@ -157,10 +134,10 @@ fun LyricPresentationLine(
             .fillMaxWidth()
             .graphicsLayer {
                 this.alpha = alpha
-                this.scaleX = finalScale
-                this.scaleY = finalScale
-                this.translationX = totalShiftX.dp.toPx()
-                this.translationY = totalShiftY.dp.toPx()
+                this.scaleX = animatedScale
+                this.scaleY = animatedScale
+                this.translationX = shiftX.dp.toPx()
+                this.translationY = shiftY.dp.toPx()
                 this.transformOrigin = transformOrigin
             }
             .padding(

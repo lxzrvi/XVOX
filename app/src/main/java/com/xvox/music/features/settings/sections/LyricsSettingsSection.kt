@@ -36,13 +36,20 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Text animation style"
+            title = "Line transition entrance style"
         ) {
+            val currentAnim = when (settings.animation) {
+                "wave" -> "rise"
+                "drift" -> "glide"
+                "aurora" -> "pop"
+                "classic" -> "off"
+                else -> settings.animation
+            }
             SettingsChoiceRow(
                 listOf(
-                    "wave" to "Wave", "drift" to "Drift", "aurora" to "Aurora", "off" to "Off"
+                    "rise" to "Rise", "glide" to "Glide", "pop" to "Pop", "off" to "Classic"
                 ),
-                settings.animation
+                currentAnim
             ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
         }
 

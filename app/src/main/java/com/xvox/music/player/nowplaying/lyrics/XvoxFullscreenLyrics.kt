@@ -194,15 +194,14 @@ fun XvoxFullscreenLyrics(
 
     fun cycleGradient() {
         val current = lyricsSettings.gradientAnimation
-        val list = listOf("wave", "drift", "aurora", "off")
-        val nextIdx = (list.indexOf(current) + 1) % list.size
+        val list = listOf("wave", "aurora", "off")
+        val nextIdx = (list.indexOf(current) + 1).coerceAtLeast(0) % list.size
         val nextVal = list[nextIdx]
         scope.launch {
             prefs.setLyricsSettings(lyricsSettings.copy(gradientAnimation = nextVal))
         }
         val label = when (nextVal) {
             "wave" -> "Gradient: Wave"
-            "drift" -> "Gradient: Drift"
             "aurora" -> "Gradient: Aurora"
             else -> "Gradient: Off"
         }

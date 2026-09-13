@@ -10,7 +10,7 @@ data class LyricsSettings(
     val otherSize: Int = 14,
     val fadeTop: Float = .22f,
     val fadeBottom: Float = .22f,
-    val animation: String = "wave",
+    val animation: String = "rise",
     val fadeEqual: Boolean = false,
     val fadeIntensity: Float = 1f,
     /** "left" | "center" | "right" — where lyric lines sit. */
@@ -27,7 +27,7 @@ data class LyricsSettings(
         otherSize = otherSize.coerceIn(10, 36),
         fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
         fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        animation = animation.takeIf { it in ANIMATIONS } ?: "wave",
+        animation = animation.takeIf { it in ANIMATIONS } ?: "rise",
         fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
         alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
         lineGap = lineGap.coerceIn(4, 40),
@@ -55,13 +55,21 @@ data class LyricsSettings(
         .toString()
 
     companion object {
-        val ANIMATIONS = listOf("wave", "drift", "aurora", "off")
-        val GRADIENT_ANIMATIONS = listOf("wave", "drift", "aurora", "off")
+        val ANIMATIONS = listOf("rise", "glide", "pop", "off", "wave", "drift", "aurora", "classic")
+        val GRADIENT_ANIMATIONS = listOf("wave", "aurora", "off")
         val ALIGNMENTS = listOf("left", "center", "right")
 
         fun decode(raw: String): LyricsSettings = runCatching {
             val j = JSONObject(raw)
             val other = j.optInt("other", 14)
+            val animRaw = j.optString("animation", "rise")
+            val mappedAnim = when (animRaw) {
+                "wave" -> "rise"
+                "drift" -> "glide"
+                "aurora" -> "pop"
+                "classic" -> "off"
+                else -> animRaw
+            }
             LyricsSettings(
                 offsetMs = j.optInt("offset", 0),
                 topSize = j.optInt("topSize", other),
@@ -70,7 +78,7 @@ data class LyricsSettings(
                 otherSize = other,
                 fadeTop = j.optDouble("top", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
                 fadeBottom = j.optDouble("bottom", .22).toFloat().takeIf { it.isFinite() } ?: .22f,
-                animation = j.optString("animation", "wave"),
+                animation = mappedAnim,
                 fadeEqual = j.optBoolean("equal", false),
                 fadeIntensity = j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f,
                 alignment = j.optString("align", "center"),

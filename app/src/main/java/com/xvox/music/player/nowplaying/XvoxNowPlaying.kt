@@ -5,10 +5,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -198,6 +200,23 @@ fun XvoxNowPlaying(
         bottomEnd = 0.dp
     )
 
+    // Morphing animations for smooth style switching (Default <-> Immersive)
+    val animTopRadius by animateDpAsState(
+        targetValue = if (isImmersive) 0.dp else 28.dp,
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
+        label = "animTopRadius"
+    )
+    val animBottomPadTop by animateDpAsState(
+        targetValue = if (isImmersive) 6.dp else 12.dp,
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
+        label = "animBottomPadTop"
+    )
+    val animBottomPadBottom by animateDpAsState(
+        targetValue = if (isImmersive) 4.dp else 8.dp,
+        animationSpec = tween(320, easing = XvoxSmoothEasing),
+        label = "animBottomPadBottom"
+    )
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -278,6 +297,17 @@ fun XvoxNowPlaying(
                             expanded = lyricsExpanded,
                             onToggleExpand = { lyricsExpanded = !lyricsExpanded },
                             onOpenSettings = { showLyricsSettingsSheet = true },
+                            onDismissNowPlaying = ::dismiss,
+                            onSwipeDownDelta = { delta ->
+                                screenY = (screenY + delta).coerceAtLeast(0f)
+                            },
+                            onSwipeDownEnd = {
+                                if (screenY > screenHeight * 0.18f) {
+                                    dismiss()
+                                } else {
+                                    returnToRest()
+                                }
+                            },
                             textColor = paletteState.color,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -307,7 +337,7 @@ fun XvoxNowPlaying(
             }
 
             // Bottom Controls Area: hidden smoothly when lyrics are expanded
-            val bottomBoxShape = if (isImmersive) RoundedCornerShape(0.dp) else RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            val bottomBoxShape = RoundedCornerShape(topStart = animTopRadius, topEnd = animTopRadius)
 
             AnimatedVisibility(
                 visible = !lyricsExpanded,
@@ -328,33 +358,39 @@ fun XvoxNowPlaying(
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(
                             start = 14.dp,
-                            top = if (isImmersive) 6.dp else 12.dp,
+                            top = animBottomPadTop,
                             end = 14.dp,
-                            bottom = if (isImmersive) 4.dp else 8.dp
+                            bottom = animBottomPadBottom
                         )
                 ) {
-                    if (!isImmersive) {
-                        NowPlayingActions(
-                            isLiked = isLiked,
-                            isInPlaylist = isInPlaylist,
-                            onTimer = { onTimer?.invoke() },
-                            onQueue = { onQueue?.invoke() },
-                            onInfo = { onInfo?.invoke() },
-                            onToggleLiked = { onToggleLiked?.invoke() },
-                            onStarPlaylist = { onStarPlaylist?.invoke() },
-                            timerProgress = sleepTimerProgress,
-                            crossfadeOn = settingsState.crossfade,
-                            onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
-                            equalizerOn = settingsState.equalizerEnabled,
-                            spaceOn = settingsState.stereoWidening,
-                            lyricsOn = showLyrics,
-                            onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
-                            onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
-                            onToggleLyrics = { showLyrics = !showLyrics },
-                            onOpenOptions = { showStyleSheet = true }
-                        )
+                    AnimatedVisibility(
+                        visible = !isImmersive,
+                        enter = expandVertically(tween(280, easing = XvoxSmoothEasing)) + fadeIn(tween(200)),
+                        exit = shrinkVertically(tween(240, easing = XvoxSmoothEasing)) + fadeOut(tween(160))
+                    ) {
+                        Column {
+                            NowPlayingActions(
+                                isLiked = isLiked,
+                                isInPlaylist = isInPlaylist,
+                                onTimer = { onTimer?.invoke() },
+                                onQueue = { onQueue?.invoke() },
+                                onInfo = { onInfo?.invoke() },
+                                onToggleLiked = { onToggleLiked?.invoke() },
+                                onStarPlaylist = { onStarPlaylist?.invoke() },
+                                timerProgress = sleepTimerProgress,
+                                crossfadeOn = settingsState.crossfade,
+                                onToggleCrossfade = { settingsViewModel.setCrossfade(!settingsState.crossfade) },
+                                equalizerOn = settingsState.equalizerEnabled,
+                                spaceOn = settingsState.stereoWidening,
+                                lyricsOn = showLyrics,
+                                onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
+                                onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
+                                onToggleLyrics = { showLyrics = !showLyrics },
+                                onOpenOptions = { showStyleSheet = true }
+                            )
 
-                        Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(14.dp))
+                        }
                     }
 
                     Text(
@@ -406,20 +442,18 @@ fun XvoxNowPlaying(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    if (!isImmersive) {
-                        Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(if (isImmersive) 6.dp else 10.dp))
 
-                        Text(
-                            text = "XVOX",
-                            color = colors.primaryText.copy(alpha = 0.55f),
-                            fontFamily = XvoxLogoFont,
-                            fontSize = 11.sp,
-                            letterSpacing = 2.sp,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
+                    Text(
+                        text = "XVOX",
+                        color = colors.primaryText.copy(alpha = 0.55f),
+                        fontFamily = XvoxLogoFont,
+                        fontSize = 11.sp,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
 
-                        Spacer(Modifier.height(4.dp))
-                    }
+                    Spacer(Modifier.height(if (isImmersive) 2.dp else 4.dp))
                 }
             }
         }
