@@ -4,10 +4,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -44,8 +40,8 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 
-private val RowHeight = 54.dp
-private val RowSpacing = 4.dp
+private val RowHeight = 56.dp
+private val RowSpacing = 6.dp
 
 @Composable
 fun XvoxQueueBoxContent(
@@ -95,7 +91,7 @@ fun XvoxQueueBoxContent(
         dragAccumulatedY += deltaY
         pointerViewportY += deltaY
 
-        val threshold = rowTotalHeightPx * 0.52f
+        val threshold = rowTotalHeightPx * 0.50f
         while (dragAccumulatedY > threshold && currentDragIndex < local.lastIndex) {
             val from = currentDragIndex
             val to = currentDragIndex + 1
@@ -138,21 +134,21 @@ fun XvoxQueueBoxContent(
             val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
             previousFrame = frame
 
-            val edgeZone = rowTotalHeightPx * 1.5f
+            val edgeZone = rowTotalHeightPx * 1.6f
             val strength = when {
                 edgeZone <= 0f -> 0f
-                pointerViewportY < edgeZone -> -((edgeZone - pointerViewportY) / edgeZone).coerceIn(0f, 1.8f)
-                pointerViewportY > listViewportHeight - edgeZone -> ((pointerViewportY - (listViewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.8f)
+                pointerViewportY < edgeZone -> -((edgeZone - pointerViewportY) / edgeZone).coerceIn(0f, 1.6f)
+                pointerViewportY > listViewportHeight - edgeZone -> ((pointerViewportY - (listViewportHeight - edgeZone)) / edgeZone).coerceIn(0f, 1.6f)
                 else -> 0f
             }
 
             if (strength != 0f) {
-                val scrollSpeed = strength * rowTotalHeightPx * 16f
+                val scrollSpeed = strength * rowTotalHeightPx * 14f
                 val delta = scrollSpeed * seconds
                 listState.scrollBy(delta)
                 dragAccumulatedY += delta
 
-                val threshold = rowTotalHeightPx * 0.52f
+                val threshold = rowTotalHeightPx * 0.50f
                 while (dragAccumulatedY > threshold && currentDragIndex < local.lastIndex) {
                     val from = currentDragIndex
                     val to = currentDragIndex + 1
@@ -177,7 +173,7 @@ fun XvoxQueueBoxContent(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            "${local.size} songs · Drag handle or long press to reorder",
+            "${local.size} songs · Tap to play · Hold & drag to reorder",
             color = colors.secondaryText,
             fontSize = 11.sp,
             modifier = Modifier.padding(bottom = 10.dp)
@@ -193,7 +189,7 @@ fun XvoxQueueBoxContent(
             LazyColumn(
                 state = listState,
                 userScrollEnabled = draggingSongId == null,
-                contentPadding = PaddingValues(vertical = 3.dp),
+                contentPadding = PaddingValues(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(RowSpacing),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -201,7 +197,7 @@ fun XvoxQueueBoxContent(
                     val isDragging = draggingSongId == song.id
 
                     val animatedElevation by animateDpAsState(
-                        targetValue = if (isDragging) 16.dp else 0.dp,
+                        targetValue = if (isDragging) 14.dp else 0.dp,
                         animationSpec = tween(150),
                         label = "cardElevation"
                     )
@@ -265,6 +261,7 @@ private fun QueueRow(
 ) {
     val colors = XvoxTheme.colors
     val cardBg = rememberSongCardColor(song, current)
+    val interactionSource = remember { MutableInteractionSource() }
 
     Row(
         modifier = modifier
@@ -272,122 +269,78 @@ private fun QueueRow(
             .height(RowHeight)
             .graphicsLayer {
                 this.translationY = translationY
-                this.scaleX = if (isDragging) 1.04f else 1f
-                this.scaleY = if (isDragging) 1.04f else 1f
+                this.scaleX = if (isDragging) 1.03f else 1f
+                this.scaleY = if (isDragging) 1.03f else 1f
             }
             .shadow(elevationDp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(cardBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .pointerInput(song.id) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset -> onStartDrag(offset.y) },
+                    onDragCancel = { onEndDrag() },
+                    onDragEnd = { onEndDrag() },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        onDragDelta(amount.y)
+                    }
+                )
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Main card body: Click for playback + Long press to drag
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .pointerInput(song.id) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { offset -> onStartDrag(offset.y) },
-                        onDragCancel = { onEndDrag() },
-                        onDragEnd = { onEndDrag() },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            onDragDelta(amount.y)
-                        }
-                    )
-                }
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClick
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                requestSize = 160,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-            )
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 10.dp, end = 6.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = song.title,
-                    color = if (current) colors.primaryAccent else colors.primaryText,
-                    fontSize = 13.sp,
-                    fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.artist,
-                    color = colors.secondaryText,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Visual indicator: "Playing" badge before the six-dot handle
-            if (current) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(colors.primaryAccent.copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.5.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Playing",
-                        color = colors.primaryAccent,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.3.sp
-                    )
-                }
-            }
-        }
-
-        // Six-dots drag handle: Immediate direct drag on touch
-        Box(
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            requestSize = 160,
             modifier = Modifier
                 .size(44.dp)
-                .pointerInput(song.id) {
-                    detectDragGestures(
-                        onDragStart = { offset -> onStartDrag(offset.y) },
-                        onDragCancel = { onEndDrag() },
-                        onDragEnd = { onEndDrag() },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            onDragDelta(amount.y)
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            SixDotsHandle(tint = colors.secondaryText.copy(alpha = 0.70f))
-        }
-    }
-}
+                .clip(RoundedCornerShape(8.dp))
+        )
 
-@Composable
-private fun SixDotsHandle(tint: Color) {
-    Canvas(Modifier.size(width = 12.dp, height = 18.dp)) {
-        val radius = 1.4.dp.toPx()
-        val colGap = 4.5.dp.toPx()
-        val rowGap = 4.5.dp.toPx()
-        val startX = (size.width - colGap) / 2f
-        val startY = (size.height - rowGap * 2) / 2f
-        for (c in 0..1) for (r in 0..2) {
-            drawCircle(tint, radius, Offset(startX + c * colGap, startY + r * rowGap))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp, end = 8.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = song.title,
+                color = if (current) colors.primaryAccent else colors.primaryText,
+                fontSize = 13.5.sp,
+                fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = song.artist,
+                color = colors.secondaryText,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (current) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(colors.primaryAccent.copy(alpha = 0.15f))
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Playing",
+                    color = colors.primaryAccent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.3.sp
+                )
+            }
         }
     }
 }

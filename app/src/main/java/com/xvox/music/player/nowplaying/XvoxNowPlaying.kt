@@ -242,7 +242,7 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(9.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
@@ -263,17 +263,14 @@ fun XvoxNowPlaying(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Middle Container: Cover & Lyrics have exact identical sizing & uniform 9dp gaps
+        // Middle Container: Cover & Lyrics
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = currentPadH,
-                    end = currentPadH,
                     top = currentPadTop,
                     bottom = currentPadBottom
-                )
-                .clip(RoundedCornerShape(currentCardRadius)),
+                ),
             contentAlignment = Alignment.Center
         ) {
             Crossfade(
@@ -304,7 +301,10 @@ fun XvoxNowPlaying(
                             }
                         },
                         textColor = paletteState.color,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = currentPadH)
+                            .clip(RoundedCornerShape(currentCardRadius))
                     )
                 } else {
                     XvoxNowPlayingArtworkPager(

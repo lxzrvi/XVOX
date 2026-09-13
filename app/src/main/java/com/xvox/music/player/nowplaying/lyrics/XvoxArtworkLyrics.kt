@@ -231,7 +231,7 @@ fun XvoxArtworkLyrics(
         val activeLineHeightDp = with(density) { (maximumSize * 1.35f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
         val verticalCenterPadding = (maxHeight / 2 - activeLineHeightDp / 2).coerceAtLeast(16.dp)
 
-        // Dynamic Canvas Gradient Effects (Off, Rich Glowing Orb from Cover, Seamless Rounded Aurora Loop)
+        // Dynamic Canvas Gradient Effects (Off, Rich Glowing Orb, Seamless Opposite-Moving Aurora)
         if (gradientAnim != "off") {
             when (gradientAnim) {
                 "orb" -> {
@@ -259,7 +259,7 @@ fun XvoxArtworkLyrics(
                         val w = size.width; val h = size.height
                         val steps = 60
 
-                        // Top wave: Gentle rounded organic wave, single harmonic, 100% periodic loop
+                        // Top wave: Gentle rounded organic wave moving left (+ phase)
                         val pTop = Path()
                         pTop.moveTo(0f, 0f)
                         val topBaseY = h * 0.22f + sin(phase) * (h * 0.030f)
@@ -284,15 +284,15 @@ fun XvoxArtworkLyrics(
                             )
                         )
 
-                        // Bottom wave: Gentle rounded organic wave, single harmonic, smooth loop
+                        // Bottom wave: Gentle rounded organic wave moving in the EXACT OPPOSITE direction (- phase)
                         val pBot = Path()
                         pBot.moveTo(0f, h)
-                        val botBaseY = h * 0.78f + cos(phase + 1.57f) * (h * 0.030f)
+                        val botBaseY = h * 0.78f + cos(-phase + 1.57f) * (h * 0.030f)
                         pBot.lineTo(0f, botBaseY)
                         for (i in 1..steps) {
                             val x = (w / steps) * i
                             val waveProg = (x / w) * 2f * PI.toFloat()
-                            val y = h * 0.78f + cos(waveProg + phase + 1.57f) * (h * 0.040f)
+                            val y = h * 0.78f + cos(waveProg - phase + 1.57f) * (h * 0.040f)
                             pBot.lineTo(x, y)
                         }
                         pBot.lineTo(w, h)
@@ -328,24 +328,33 @@ fun XvoxArtworkLyrics(
                     if (idx >= 0) idx else 0
                 }
 
-                // Automatic lyric progression & dynamic font size changes: auto-scroll squarely into true vertical center
-                LaunchedEffect(activeIndex, lyricsSettings.currentSize, lyricsSettings.topSize, lyricsSettings.bottomSize, lyricsSettings.lineGap, maxHeight) {
+                // Automatic lyric progression, font size adjustments, and mode changes: square mathematical centering
+                LaunchedEffect(
+                    activeIndex,
+                    lyricsSettings.currentSize,
+                    lyricsSettings.topSize,
+                    lyricsSettings.bottomSize,
+                    lyricsSettings.lineGap,
+                    expanded
+                ) {
                     if (activeIndex in lines.indices && !isUserTouching) {
+                        // Allow layout measurement pass to stabilize on font size or mode transition
+                        delay(24)
                         val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == activeIndex }
                         if (!isVisible) {
                             listState.scrollToItem(activeIndex)
-                            delay(16)
+                            delay(24)
                         }
                         val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
                         if (item != null) {
                             val viewportHeight = listState.layoutInfo.viewportSize.height
-                            val itemCenter = item.offset + item.size / 2
-                            val targetCenter = viewportHeight / 2
-                            val scrollNeeded = (itemCenter - targetCenter).toFloat()
+                            val itemCenter = item.offset + item.size / 2f
+                            val targetCenter = viewportHeight / 2f
+                            val scrollNeeded = itemCenter - targetCenter
                             if (abs(scrollNeeded) > 1f) {
                                 listState.animateScrollBy(
                                     value = scrollNeeded,
-                                    animationSpec = tween<Float>(360, easing = FastOutSlowInEasing)
+                                    animationSpec = tween<Float>(300, easing = FastOutSlowInEasing)
                                 )
                             }
                         }
