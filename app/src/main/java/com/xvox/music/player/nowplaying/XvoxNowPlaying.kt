@@ -243,25 +243,19 @@ fun XvoxNowPlaying(
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
 
-    val animBackdropColor by androidx.compose.animation.animateColorAsState(
-        targetValue = paletteState.color,
-        animationSpec = tween(380, easing = androidx.compose.animation.core.LinearEasing),
-        label = "animBackdropColor"
-    )
-
     Box(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer { translationY = screenY }
             .clip(sheetCorner)
-            .background(animBackdropColor)
+            .background(paletteState.color)
             .pointerInput(Unit) {
                 // Consume clicks on backdrop to prevent click-through to home screen below
                 detectTapGestures { }
             }
     ) {
         XvoxNowPlayingBackdrop(
-            dominant = animBackdropColor,
+            dominant = paletteState.color,
             modifier = Modifier.fillMaxSize()
         )
 

@@ -80,9 +80,10 @@ fun XvoxThinLineSlider(
                     down.consume()
                     isDragging = true
 
+                    val thumbRadius = 7.dp.toPx()
+                    val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
+
                     fun updatePosition(x: Float) {
-                        val thumbRadius = 7.dp.toPx()
-                        val availableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
                         val newFraction = ((x - thumbRadius) / availableWidth).coerceIn(0f, 1f)
                         var newValue = valueRange.start + newFraction * totalSpan
                         if (defaultValue != null && abs(newValue - defaultValue) < (totalSpan * 0.04f)) {
@@ -99,6 +100,10 @@ fun XvoxThinLineSlider(
 
                     updatePosition(down.position.x)
 
+                    val downTime = System.currentTimeMillis()
+                    val startX = down.position.x
+                    var didLongPress = false
+
                     while (true) {
                         val event = awaitPointerEvent()
                         val drag = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -107,7 +112,22 @@ fun XvoxThinLineSlider(
                             break
                         }
                         drag.consume()
-                        updatePosition(drag.position.x)
+
+                        // Hold on slider to reset to defaultValue immediately
+                        if (!didLongPress && defaultValue != null && System.currentTimeMillis() - downTime >= 360) {
+                            val dist = abs(drag.position.x - startX)
+                            if (dist < 14.dp.toPx()) {
+                                didLongPress = true
+                                localValue = defaultValue
+                                haptics.heavy()
+                                currentOnValueChange(defaultValue)
+                                continue
+                            }
+                        }
+
+                        if (!didLongPress) {
+                            updatePosition(drag.position.x)
+                        }
                     }
 
                     isDragging = false

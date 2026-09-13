@@ -40,7 +40,6 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.math.roundToInt
 
 private val RowHeight = 56.dp
 private val RowSpacing = 6.dp
@@ -79,15 +78,24 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Mathematically pure, conflict-free slot swapping based on absolute total delta
+    // Mathematically stable slot swapping with hysteresis (zero glitching in middle area)
     fun checkAndSwapSlots() {
         if (draggingSong == null || initialDragIndex < 0 || itemTotalHeightPx <= 0f) return
         val totalDeltaY = (currentTouchY - initialTouchY) + accumulatedScrollDistance
-        val targetIndex = (initialDragIndex + (totalDeltaY / itemTotalHeightPx).roundToInt()).coerceIn(0, local.lastIndex)
+        val currentSlotDelta = (currentDragIndex - initialDragIndex) * itemTotalHeightPx
+        val relativeDelta = totalDeltaY - currentSlotDelta
+        val threshold = itemTotalHeightPx * 0.48f
 
-        if (targetIndex != currentDragIndex && targetIndex in local.indices && currentDragIndex in local.indices) {
+        if (relativeDelta > threshold && currentDragIndex < local.lastIndex) {
             val from = currentDragIndex
-            val to = targetIndex
+            val to = currentDragIndex + 1
+            val item = local.removeAt(from)
+            local.add(to, item)
+            currentDragIndex = to
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        } else if (relativeDelta < -threshold && currentDragIndex > 0) {
+            val from = currentDragIndex
+            val to = currentDragIndex - 1
             val item = local.removeAt(from)
             local.add(to, item)
             currentDragIndex = to

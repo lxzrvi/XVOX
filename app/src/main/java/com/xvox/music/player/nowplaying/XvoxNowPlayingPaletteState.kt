@@ -75,7 +75,7 @@ fun rememberXvoxNowPlayingPalette(
     }
 
     LaunchedEffect(queue, currentIndex) {
-        for (offset in -4..4) {
+        for (offset in -8..8) {
             val s = queue.getOrNull(currentIndex + offset)
             if (s != null) {
                 state.preload(s)
