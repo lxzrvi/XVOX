@@ -7,9 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +37,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,8 +68,6 @@ fun XvoxMiniPlayerCard(
 
     val cardShape = RoundedCornerShape(15.dp)
     val artworkShape = RoundedCornerShape(11.dp)
-    val miniEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
-    val miniEdge = miniEdgeBase.copy(alpha = miniEdgeBase.alpha * chrome.miniBorderAlpha.coerceIn(0f, 1f))
     val isFullCover = chrome.miniCoverStyle == "full"
 
     val controlInteraction = remember { MutableInteractionSource() }
@@ -91,10 +86,9 @@ fun XvoxMiniPlayerCard(
             .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
             .drawWithContent {
                 drawContent()
-                val b = .7.dp.toPx()
                 val radius = 15.dp.toPx()
                 val inside = Path().apply {
-                    addRoundRect(RoundRect(b, b, size.width - b, size.height - b, CornerRadius((radius - b).coerceAtLeast(0f))))
+                    addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(radius)))
                 }
                 clipPath(inside) {
                     val barHeight = 3.dp.toPx()
@@ -106,13 +100,6 @@ fun XvoxMiniPlayerCard(
                     }
                     if (progress > 0) drawRect(colors.primaryAccent, Offset.Zero, Size(size.width * progress, barHeight))
                 }
-                drawRoundRect(
-                    miniEdge,
-                    Offset(b / 2, b / 2),
-                    Size(size.width - b, size.height - b),
-                    CornerRadius(radius - b / 2),
-                    style = Stroke(b)
-                )
             }
     ) {
         if (isFullCover) {
@@ -229,7 +216,6 @@ fun XvoxMiniPlayerCard(
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(colors.cardElevated.copy(alpha = 0.68f))
-                .border(0.7.dp, colors.cardBorder.copy(alpha = 0.72f), CircleShape)
                 .clickable(
                     interactionSource = controlInteraction,
                     indication = null,

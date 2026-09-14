@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.SettingsViewModel
 
 @Composable
@@ -29,10 +30,13 @@ fun MiniPlayerSettingsBoxContent(
     val state by viewModel.state.collectAsState()
     val chrome = state.chromeStyle
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {

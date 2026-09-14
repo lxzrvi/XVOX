@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
@@ -68,6 +69,8 @@ fun XvoxQueueBoxContent(
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
+    val rowSpacingPx = with(density) { RowSpacing.toPx() }
+    val itemTotalHeightPx = rowHeightPx + rowSpacingPx
 
     LaunchedEffect(queue) {
         if (draggingSong == null && local.toList() != queue) {
@@ -76,42 +79,19 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Stepwise slot swapping with hysteresis
+    // Deterministic position-to-slot mapping with zero desync or flickering
     fun checkAndSwapSlots() {
-        if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f) return
+        if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f || itemTotalHeightPx <= 0f) return
         val cardCenterY = dragCardOffsetY + rowHeightPx / 2f
-        val visibleItems = listState.layoutInfo.visibleItemsInfo
+        val scrollY = listState.firstVisibleItemIndex * itemTotalHeightPx + listState.firstVisibleItemScrollOffset
+        val absoluteCenterY = (scrollY + cardCenterY - with(density) { 4.dp.toPx() }).coerceAtLeast(0f)
+        val targetIndex = (absoluteCenterY / itemTotalHeightPx).toInt().coerceIn(0, local.lastIndex)
 
-        // Check if moving down
-        if (currentDragIndex < local.lastIndex) {
-            val nextItem = visibleItems.firstOrNull { it.index == currentDragIndex + 1 }
-            if (nextItem != null && cardCenterY > (nextItem.offset + nextItem.size * 0.50f)) {
-                val from = currentDragIndex
-                val to = currentDragIndex + 1
-                if (from in local.indices && to in local.indices) {
-                    val item = local.removeAt(from)
-                    local.add(to, item)
-                    currentDragIndex = to
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    return
-                }
-            }
-        }
-
-        // Check if moving up
-        if (currentDragIndex > 0) {
-            val prevItem = visibleItems.firstOrNull { it.index == currentDragIndex - 1 }
-            if (prevItem != null && cardCenterY < (prevItem.offset + prevItem.size * 0.50f)) {
-                val from = currentDragIndex
-                val to = currentDragIndex - 1
-                if (from in local.indices && to in local.indices) {
-                    val item = local.removeAt(from)
-                    local.add(to, item)
-                    currentDragIndex = to
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    return
-                }
-            }
+        if (targetIndex != currentDragIndex && currentDragIndex in local.indices && targetIndex in local.indices) {
+            val item = local.removeAt(currentDragIndex)
+            local.add(targetIndex, item)
+            currentDragIndex = targetIndex
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         }
     }
 
@@ -173,7 +153,7 @@ fun XvoxQueueBoxContent(
                             }
 
                             if (hitItem != null && hitItem.index in local.indices) {
-                                val longPressTimeout = 360L
+                                val longPressTimeout = 340L
                                 var passedSlop = false
                                 val longPressed = withTimeoutOrNull(longPressTimeout) {
                                     while (true) {
@@ -237,7 +217,9 @@ fun XvoxQueueBoxContent(
                     userScrollEnabled = draggingSong == null,
                     contentPadding = PaddingValues(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
                         items = local,

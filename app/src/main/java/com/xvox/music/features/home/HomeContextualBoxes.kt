@@ -33,6 +33,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
@@ -42,11 +43,13 @@ fun RecentLayoutBoxContent(
     viewModel: HomeViewModel
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -94,11 +97,13 @@ fun AllSongsLayoutBoxContent(
     viewModel: HomeViewModel
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -153,12 +158,14 @@ fun LikedSongsLayoutBoxContent(
     viewModel: HomeViewModel
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
     val isMerged = config.merge && HomeSections.LIKED !in config.hidden
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {

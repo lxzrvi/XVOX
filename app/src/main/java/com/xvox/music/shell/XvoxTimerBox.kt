@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 @Composable
 fun XvoxTimerBoxContent(
@@ -47,6 +48,7 @@ fun XvoxTimerBoxContent(
     onCancel: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
     var showCustom by remember { mutableStateOf(false) }
     var minText by remember { mutableStateOf("") }
     var secText by remember { mutableStateOf("") }
@@ -55,7 +57,9 @@ fun XvoxTimerBoxContent(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth().verticalScroll(rememberScrollState())
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
             .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Row(
@@ -301,13 +305,13 @@ fun XvoxTimerBoxContent(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(colors.card.copy(alpha = 0.97f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        onCancel()
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    onCancel()
+                }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(

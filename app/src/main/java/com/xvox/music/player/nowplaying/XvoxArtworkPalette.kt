@@ -21,15 +21,24 @@ class XvoxArtworkPaletteLoader(
         private val cache = android.util.LruCache<String, Color>(1024)
     }
 
+    private fun getCachedBitmap(uri: Uri): Bitmap? {
+        val base = XvoxArtworkCache.keyFor(uri)
+        return XvoxArtworkCache.get("${base}_1024")
+            ?: XvoxArtworkCache.get("${base}_640")
+            ?: XvoxArtworkCache.get("${base}_512")
+            ?: XvoxArtworkCache.get("${base}_320")
+            ?: XvoxArtworkCache.get("${base}_256")
+            ?: XvoxArtworkCache.get("${base}_160")
+            ?: XvoxArtworkCache.get(base)
+    }
+
     fun fastEstimate(uri: Uri?, songKey: String = ""): Color {
         val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
         if (key.isBlank()) return fallback(songKey)
         cache[key]?.let { return it }
 
         if (uri != null) {
-            val cached = XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_256")
-                ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
-                ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_1024")
+            val cached = getCachedBitmap(uri)
             if (cached != null) {
                 val extracted = extract(cached)
                 cache.put(key, extracted)
@@ -46,9 +55,7 @@ class XvoxArtworkPaletteLoader(
 
         val result = withContext(Dispatchers.IO) {
             if (uri != null) {
-                val cached = XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_1024")
-                    ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
-                    ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_256")
+                val cached = getCachedBitmap(uri)
                 if (cached != null) {
                     val extracted = extract(cached)
                     cache.put(key, extracted)
@@ -85,19 +92,33 @@ class XvoxArtworkPaletteLoader(
             .maximumColorCount(32)
             .generate()
 
-        val swatch = palette.dominantSwatch
-            ?: palette.vibrantSwatch
-            ?: palette.darkVibrantSwatch
-            ?: palette.mutedSwatch
-            ?: palette.lightVibrantSwatch
+        val dominant = palette.dominantSwatch
+        val vibrant = palette.vibrantSwatch ?: palette.lightVibrantSwatch ?: palette.darkVibrantSwatch
+        val muted = palette.mutedSwatch ?: palette.lightMutedSwatch ?: palette.darkMutedSwatch
 
-        if (swatch != null) {
-            val rgb = swatch.rgb
+        val chosenSwatch = when {
+            dominant != null -> {
+                val hsv = FloatArray(3)
+                android.graphics.Color.colorToHSV(dominant.rgb, hsv)
+                // If dominant is pitch black or near white/grayscale, prefer vibrant or muted if available
+                if ((hsv[1] < 0.10f || hsv[2] < 0.15f) && (vibrant != null || muted != null)) {
+                    vibrant ?: muted ?: dominant
+                } else {
+                    dominant
+                }
+            }
+            vibrant != null -> vibrant
+            muted != null -> muted
+            else -> palette.swatches.maxByOrNull { it.population }
+        }
+
+        if (chosenSwatch != null) {
+            val rgb = chosenSwatch.rgb
             val hsv = FloatArray(3)
             android.graphics.Color.colorToHSV(rgb, hsv)
-            // Ensure pure cover color tone with balanced luminance so all text is clearly visible
-            hsv[1] = hsv[1].coerceIn(0.30f, 0.90f)
-            hsv[2] = hsv[2].coerceIn(0.38f, 0.65f)
+            // Retain accurate cover dominant color, slightly lightened for optimal black and white text visibility
+            hsv[1] = hsv[1].coerceIn(0.22f, 0.88f)
+            hsv[2] = hsv[2].coerceIn(0.44f, 0.64f)
             return Color(android.graphics.Color.HSVToColor(hsv))
         }
 
@@ -108,7 +129,7 @@ class XvoxArtworkPaletteLoader(
         if (seed.isBlank()) return Color(0xFF38384A)
         val hash = seed.hashCode()
         val hue = (abs(hash) % 360).toFloat()
-        val hsv = floatArrayOf(hue, 0.45f, 0.52f)
+        val hsv = floatArrayOf(hue, 0.40f, 0.52f)
         return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }

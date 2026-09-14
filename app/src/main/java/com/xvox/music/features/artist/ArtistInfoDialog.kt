@@ -58,6 +58,7 @@ import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomePresentation
 import com.xvox.music.features.home.HomeSectionReorderControls
 import com.xvox.music.features.home.HomeViewModel
@@ -257,10 +258,12 @@ fun ArtistInfoDialog(
                 }
             }
         } else {
+            val scrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
+                    .xvoxBoxScroll(scrollState)
                     .padding(vertical = 4.dp)
             ) {
                 // Header (like Playlist edit box)

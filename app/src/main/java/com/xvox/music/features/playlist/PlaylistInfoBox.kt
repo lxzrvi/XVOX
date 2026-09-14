@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 import java.text.DateFormat
 import java.util.Date
@@ -23,6 +24,7 @@ fun PlaylistInfoBox(
     songCount: Int
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
 
     val created = if (playlist.createdAt > 0L) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(playlist.createdAt))
@@ -30,7 +32,12 @@ fun PlaylistInfoBox(
         "Unknown"
     }
 
-    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
+    ) {
         Text(
             text = "Playlist info",
             color = colors.primaryText,

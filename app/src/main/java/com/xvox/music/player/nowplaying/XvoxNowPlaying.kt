@@ -52,6 +52,7 @@ import com.xvox.music.features.settings.sections.LyricsSettingsSection
 import com.xvox.music.features.settings.sections.PlaybackSettingsSection
 import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
@@ -495,10 +496,12 @@ fun XvoxNowPlaying(
                     onDismiss = { activeSettingsBox = null },
                     title = boxTitle
                 ) {
+                    val scrollState = rememberScrollState()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(scrollState)
+                            .xvoxBoxScroll(scrollState)
                     ) {
                         when (activeSettingsBox) {
                             "Equalizer" -> EqualizerSettingsSection(state = settingsState, viewModel = settingsViewModel)
