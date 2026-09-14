@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
+import androidx.palette.graphics.Palette
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
@@ -11,15 +12,13 @@ import com.xvox.music.artwork.XvoxArtworkCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 class XvoxArtworkPaletteLoader(
     context: Context
 ) {
     private val appContext = context.applicationContext
     companion object {
-        private val cache = android.util.LruCache<String, Color>(512)
+        private val cache = android.util.LruCache<String, Color>(1024)
     }
 
     fun fastEstimate(uri: Uri?, songKey: String = ""): Color {
@@ -48,7 +47,6 @@ class XvoxArtworkPaletteLoader(
         cache[key]?.let { return it }
 
         val result = withContext(Dispatchers.IO) {
-            // First check memory/disk artwork cache
             if (uri != null) {
                 val cached = XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_1024")
                     ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
@@ -58,7 +56,6 @@ class XvoxArtworkPaletteLoader(
                 }
             }
 
-            // Decode bitmap via Coil for reliable image loading
             if (uri != null) {
                 runCatching {
                     val loader = SingletonImageLoader.get(appContext)
@@ -82,85 +79,35 @@ class XvoxArtworkPaletteLoader(
     }
 
     private fun extract(bitmap: Bitmap): Color {
-        val width = bitmap.width
-        val height = bitmap.height
-        if (width <= 0 || height <= 0) return fallback("")
+        val palette = Palette.from(bitmap)
+            .maximumColorCount(24)
+            .clearFilters()
+            .generate()
 
-        val sampleStep = max(1, min(width, height) / 48)
-        val hueBins = 36 // 10 degrees each
-        val binCounts = IntArray(hueBins)
-        val binRed = LongArray(hueBins)
-        val binGreen = LongArray(hueBins)
-        val binBlue = LongArray(hueBins)
-        val binScores = FloatArray(hueBins)
+        val swatch = palette.dominantSwatch
+            ?: palette.vibrantSwatch
+            ?: palette.mutedSwatch
+            ?: palette.darkVibrantSwatch
+            ?: palette.lightVibrantSwatch
 
-        var totalColorfulPixels = 0
-        var totalPixels = 0
-        val hsv = FloatArray(3)
-
-        for (y in 0 until height step sampleStep) {
-            for (x in 0 until width step sampleStep) {
-                val pixel = bitmap.getPixel(x, y)
-                if (android.graphics.Color.alpha(pixel) < 128) continue
-                val r = android.graphics.Color.red(pixel)
-                val g = android.graphics.Color.green(pixel)
-                val b = android.graphics.Color.blue(pixel)
-                totalPixels++
-
-                android.graphics.Color.colorToHSV(pixel, hsv)
-                val h = hsv[0]
-                val s = hsv[1]
-                val v = hsv[2]
-
-                // Filter extreme black/white for colorful hue search
-                if (v < 0.08f || v > 0.96f) continue
-
-                // Check colorfulness
-                if (s >= 0.12f) {
-                    totalColorfulPixels++
-                    val bin = ((h / 360f) * hueBins).toInt().coerceIn(0, hueBins - 1)
-                    binCounts[bin]++
-                    binRed[bin] += r.toLong()
-                    binGreen[bin] += g.toLong()
-                    binBlue[bin] += b.toLong()
-                    binScores[bin] += (s * 4.2f + v * 1.6f)
-                }
-            }
+        if (swatch != null) {
+            val rgb = swatch.rgb
+            val hsv = FloatArray(3)
+            android.graphics.Color.colorToHSV(rgb, hsv)
+            // Ensure vibrant, accurate tone with balanced luminance so both primary and secondary texts pop
+            hsv[1] = hsv[1].coerceIn(0.35f, 0.85f)
+            hsv[2] = hsv[2].coerceIn(0.40f, 0.68f)
+            return Color(android.graphics.Color.HSVToColor(hsv))
         }
 
-        // For Black & White / Grayscale / Dark covers: return sleek soft light slate gray
-        if (totalPixels > 0 && totalColorfulPixels.toFloat() / totalPixels < 0.08f) {
-            return Color(0xFF484856)
-        }
-
-        var bestBin = -1
-        var bestScore = -1f
-        for (i in 0 until hueBins) {
-            if (binCounts[i] > 0 && binScores[i] > bestScore) {
-                bestScore = binScores[i]
-                bestBin = i
-            }
-        }
-
-        if (bestBin < 0 || binCounts[bestBin] == 0) return Color(0xFF484856)
-        val count = binCounts[bestBin]
-        val avgR = (binRed[bestBin] / count).toInt().coerceIn(0, 255)
-        val avgG = (binGreen[bestBin] / count).toInt().coerceIn(0, 255)
-        val avgB = (binBlue[bestBin] / count).toInt().coerceIn(0, 255)
-
-        // Tune dominant color with light, vibrant luminance so text in both themes is 100% visible
-        val finalHsv = FloatArray(3)
-        android.graphics.Color.RGBToHSV(avgR, avgG, avgB, finalHsv)
-        finalHsv[1] = finalHsv[1].coerceIn(0.40f, 0.72f)
-        finalHsv[2] = finalHsv[2].coerceIn(0.50f, 0.75f)
-        return Color(android.graphics.Color.HSVToColor(finalHsv))
+        return Color(0xFF38384A)
     }
 
     private fun fallback(seed: String): Color {
-        if (seed.isBlank()) return Color(0xFF484856)
+        if (seed.isBlank()) return Color(0xFF38384A)
         val hash = seed.hashCode()
         val hue = (abs(hash) % 360).toFloat()
-        val hsv = floatArrayOf(hue, 0.45f, 0.58f)
+        val hsv = floatArrayOf(hue, 0.45f, 0.52f)
         return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }

@@ -17,7 +17,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
@@ -25,7 +24,7 @@ import kotlin.math.abs
  * Full-queue smooth HorizontalPager.
  * Rests cleanly with 11dp side gaps and 11dp page spacing.
  * Enables ultra-fast continuous swiping, immediate Next/Prev button navigation,
- * real-time palette crossfade, and debounced playback commit during rapid continuous flipping.
+ * and live real-time backdrop palette crossfading.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -43,36 +42,14 @@ fun XvoxNowPlayingArtworkPager(
 
     val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
 
-    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
     val settled by rememberUpdatedState(onSettledPage)
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
-    // Handle external Next/Prev navigation requests (Buttons in UI)
-    LaunchedEffect(navigationRequest) {
-        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
-        val isForward = navigationRequest > lastHandledRequest
-        lastHandledRequest = navigationRequest
-
-        val targetPage = if (isForward) {
-            if (pager.currentPage < queue.lastIndex) pager.currentPage + 1
-            else if (repeatMode == RepeatMode.ALL) 0
-            else pager.currentPage
-        } else {
-            if (pager.currentPage > 0) pager.currentPage - 1
-            else if (repeatMode == RepeatMode.ALL) queue.lastIndex
-            else pager.currentPage
-        }
-
-        if (targetPage != pager.currentPage && targetPage in queue.indices) {
-            pager.animateScrollToPage(targetPage, animationSpec = tween(220, easing = FastOutSlowInEasing))
-        }
-    }
-
-    // Auto-advance or external track changes (from queue/service): animate smooth cover swipe transition
+    // Synchronize pager smoothly when currentIndex changes (via Button, auto-advance, or external track selection)
     LaunchedEffect(currentIndex) {
         if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
-            pager.animateScrollToPage(currentIndex, animationSpec = tween(240, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(currentIndex, animationSpec = tween(220, easing = FastOutSlowInEasing))
         }
     }
 
@@ -92,16 +69,11 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Debounced playback commit during rapid continuous flipping:
-    // Single swipe switches after short settle (280ms).
-    // Rapid continuous swiping (A -> B -> C -> D -> E -> F) keeps playing A until user stops on F, then plays F!
+    // Commit playback when user finishes swiping to a new page
     LaunchedEffect(pager, queue) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
             if (page in queue.indices && page != currentIndex) {
-                delay(280)
-                if (pager.settledPage == page) {
-                    settled(page)
-                }
+                settled(page)
             }
         }
     }
