@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -110,7 +112,7 @@ fun XvoxArtistGrid(
 
 /**
  * Redesigned Artist Card:
- * Square (1:1 aspect ratio), 90% full-width artwork cover without gaps, 10% clean artist name.
+ * Square (1:1 aspect ratio), full cover artwork, with adjustable translucent name overlay at the bottom.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -123,7 +125,7 @@ fun ArtistSquareItem(
 ) {
     val colors = XvoxTheme.colors
 
-    Column(
+    Box(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
@@ -132,58 +134,59 @@ fun ArtistSquareItem(
                 onClick = onClick,
                 onLongClick = onLongClick,
                 pressedScale = 0.94f
-            )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        // Top 90% Cover Artwork (zero horizontal gaps)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(if (showText) 0.90f else 1f)
-                .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = if (showText) 4.dp else 12.dp, bottomEnd = if (showText) 4.dp else 12.dp))
-                .background(colors.cardElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            if (artist.customImageUri != null) {
-                AsyncImage(
-                    model = artist.customImageUri,
-                    contentDescription = artist.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize()
-                )
-            } else if (artist.coverSong != null) {
-                XvoxSongArtwork(
-                    artwork = artist.coverSong.artworkUri,
-                    requestSize = 256,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize()
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_microphone),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+        // Full Square Cover Artwork
+        if (artist.customImageUri != null) {
+            AsyncImage(
+                model = artist.customImageUri,
+                contentDescription = artist.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+        } else if (artist.coverSong != null) {
+            XvoxSongArtwork(
+                artwork = artist.coverSong.artworkUri,
+                requestSize = 256,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_microphone),
+                contentDescription = null,
+                tint = colors.primaryAccent,
+                modifier = Modifier.size(28.dp)
+            )
         }
 
-        // Bottom 10% Artist Name
+        // Bottom translucent name overlay (adjustable height for full legibility)
         if (showText) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .weight(0.10f)
-                    .padding(horizontal = 4.dp),
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                colors.surface.copy(alpha = 0.60f),
+                                colors.surface.copy(alpha = 0.88f)
+                            )
+                        )
+                    )
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = artist.name,
                     color = colors.primaryText,
                     fontSize = 11.sp,
-                    lineHeight = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    lineHeight = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

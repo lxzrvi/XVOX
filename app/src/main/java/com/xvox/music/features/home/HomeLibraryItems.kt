@@ -22,7 +22,12 @@ import com.xvox.music.features.playlist.XvoxLikedSongRow
 import com.xvox.music.features.playlist.XvoxPlaylistCard
 
 @Composable
-fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null) {
+fun HomeCollectionHeader(
+    title: String,
+    count: Int,
+    onAdd: (() -> Unit)? = null,
+    avatarUri: Any? = null
+) {
     val colors = XvoxTheme.colors
     Row(
         Modifier
@@ -31,9 +36,30 @@ fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null)
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f, fill = false)) {
-            Text(title, color = colors.primaryAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("$count ${if (title == "Playlists") "playlists" else if (title == "Artists") "artists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)
+        Row(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (avatarUri != null) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(colors.cardElevated),
+                    contentAlignment = Alignment.Center
+                ) {
+                    XvoxSongArtwork(
+                        artwork = avatarUri,
+                        requestSize = 128,
+                        modifier = Modifier.matchParentSize()
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+            }
+            Column {
+                Text(title, color = colors.primaryAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("$count ${if (title == "Playlists") "playlists" else if (title == "Artists") "artists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)
+            }
         }
         onAdd?.let {
             Icon(
@@ -51,9 +77,10 @@ fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null)
 
 fun LazyListScope.librarySongItems(
     keyPrefix: String, title: String, songs: List<Song>, currentSongId: Long?, playing: Boolean,
-    selected: Set<Long>, onPlay: (Song) -> Unit, onOptions: (Song) -> Unit, onAdd: (() -> Unit)? = null
+    selected: Set<Long>, onPlay: (Song) -> Unit, onOptions: (Song) -> Unit, onAdd: (() -> Unit)? = null,
+    avatarUri: Any? = null
 ) {
-    item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd) }
+    item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd, avatarUri = avatarUri) }
     if (songs.isEmpty()) item(key = "${keyPrefix}_empty") {
         Text("No songs here yet", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
@@ -69,7 +96,7 @@ fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
     layoutStyle: String = "long", longCardHeight: Int = 0,
-    orientation: String = "vertical"
+    orientation: String = "vertical", rows: Int = 2
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
@@ -77,24 +104,33 @@ fun LazyListScope.playlistCollectionItems(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
     if (orientation == "horizontal") {
-        // Full width cards on a horizontal row with no unwanted peek.
+        val rowCount = rows.coerceIn(1, 5)
         item(key = "playlist_horizontal_row") {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val fullCardWidth = (maxWidth - 12.dp).coerceAtLeast(200.dp)
+                val cardH = cardHeight(null, longCardHeight)
+                val chunked = playlists.chunked(rowCount)
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(playlists, key = { "playlist_h_${it.id}" }) { playlist ->
-                        XvoxPlaylistCard(
-                            playlist = playlist,
-                            songs = songsFor(playlist),
-                            onClick = { onOpen(playlist) },
-                            onLongClick = { onOptions(playlist) },
-                            modifier = Modifier.width(fullCardWidth).height(cardHeight(playlist, longCardHeight)),
-                            longCard = true
-                        )
+                    items(chunked, key = { chunk -> chunk.firstOrNull()?.id ?: "empty" }) { colPlaylists ->
+                        Column(
+                            modifier = Modifier.width(fullCardWidth),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            colPlaylists.forEach { playlist ->
+                                XvoxPlaylistCard(
+                                    playlist = playlist,
+                                    songs = songsFor(playlist),
+                                    onClick = { onOpen(playlist) },
+                                    onLongClick = { onOptions(playlist) },
+                                    modifier = Modifier.fillMaxWidth().height(cardH),
+                                    longCard = true
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -116,5 +152,5 @@ fun LazyListScope.playlistCollectionItems(
     }
 }
 
-private fun cardHeight(playlist: XvoxPlaylist, longCardHeight: Int) =
-    if (longCardHeight > 0) longCardHeight.dp else 178.dp
+private fun cardHeight(playlist: XvoxPlaylist?, longCardHeight: Int) =
+    if (longCardHeight > 0) longCardHeight.dp else 140.dp

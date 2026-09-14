@@ -97,7 +97,7 @@ fun HomeScreen(
     if (croppingArtistPhotoFor != null) {
         XvoxImageCropDialog(
             sourceUri = croppingArtistPhotoFor!!.second,
-            isCircle = true,
+            isCircle = false,
             onCropped = { croppedUri ->
                 viewModel.setArtistPhoto(croppingArtistPhotoFor!!.first, croppedUri)
                 croppingArtistPhotoFor = null
@@ -108,15 +108,20 @@ fun HomeScreen(
         )
     }
 
-    val artists = remember(state.songs, state.customArtistImages, state.hiddenArtists) {
-        state.songs
+    val artists = remember(state.songs, state.customArtistImages, state.hiddenArtists, state.artistRenames) {
+        val songsWithRenames = state.songs.map { song ->
+            val renamed = state.artistRenames[song.artist]
+            if (renamed != null) song.copy(artist = renamed) else song
+        }
+        songsWithRenames
             .filterNot { it.artist in state.hiddenArtists }
             .groupBy { it.artist.ifBlank { "Unknown Artist" } }
             .map { (artistName, songList) ->
+                val cover = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull()
                 XvoxArtist(
                     name = artistName,
                     songs = songList,
-                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    coverSong = cover,
                     customImageUri = state.customArtistImages[artistName]
                 )
             }
@@ -312,16 +317,16 @@ fun HomeScreen(
         }
     }
 
-    fun androidx.compose.foundation.lazy.LazyListScope.artistsSection() {
+    fun androidx.compose.foundation.lazy.LazyListScope.artistsSection(standalone: Boolean = false) {
         item(key = "artists_header") {
             HomeCollectionHeader("Artists", artists.size, onAdd = null)
         }
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
-                columns = config.artistColumns,
-                rows = config.artistRows,
-                direction = config.artistDirection,
+                columns = if (standalone) 4 else config.artistColumns,
+                rows = if (standalone) 4 else config.artistRows,
+                direction = if (standalone) "vertical" else config.artistDirection,
                 gap = config.artistGap,
                 hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
@@ -344,13 +349,14 @@ fun HomeScreen(
         )
     }
 
-    fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection() {
+    fun androidx.compose.foundation.lazy.LazyListScope.playlistsSection(standalone: Boolean = false) {
         playlistCollectionItems(
             state.playlists,
             { playlistContents[it.id].orEmpty() },
             layoutStyle = config.playlistStyle,
             longCardHeight = config.playlistLongHeight,
-            orientation = config.playlistCardOrientation,
+            orientation = if (standalone) "vertical" else config.playlistCardOrientation,
+            rows = config.playlistRows,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist ->
@@ -447,6 +453,7 @@ fun HomeScreen(
                 )
             ) {
                 if (currentSelectedArtist != null && target == "artist_${currentSelectedArtist.name}") {
+                    val artistCover = currentSelectedArtist.customImageUri ?: currentSelectedArtist.coverSong?.artworkUri
                     librarySongItems(
                         keyPrefix = "artist_detail",
                         title = currentSelectedArtist.name,
@@ -455,7 +462,8 @@ fun HomeScreen(
                         playing = isPlaying,
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, currentSelectedArtist.songs, "Playing by " + currentSelectedArtist.name) },
-                        onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) }
+                        onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) },
+                        avatarUri = artistCover
                     )
                 } else if (targetPlaylist != null) {
                     librarySongItems(
@@ -471,8 +479,8 @@ fun HomeScreen(
                     )
                 } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                     XvoxHomeLibraryMode.LIKED -> likedSection()
-                    XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection()
-                    XvoxHomeLibraryMode.ARTISTS -> artistsSection()
+                    XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection(standalone = true)
+                    XvoxHomeLibraryMode.ARTISTS -> artistsSection(standalone = true)
                     XvoxHomeLibraryMode.SPLIT -> { }
                     XvoxHomeLibraryMode.ALL_SONGS -> {
                         val sections = HomeSections.visible(config)

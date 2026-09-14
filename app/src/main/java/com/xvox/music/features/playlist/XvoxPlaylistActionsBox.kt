@@ -310,20 +310,10 @@ private fun PlaylistLayoutEditor(
 
         Spacer(Modifier.height(12.dp))
 
-        Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
+        if (state.homeMerge) {
+            Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            LayoutChoice("Swipe cards", state.playlistStyle == "cards") {
-                settingsViewModel.setPlaylistStyle("cards")
-            }
-            LayoutChoice("Long merge", state.playlistStyle == "long") {
-                settingsViewModel.setPlaylistStyle("long")
-            }
-        }
-
-        if (state.playlistStyle == "long") {
-            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 LayoutChoice("Horizontal", state.playlistCardOrientation == "horizontal") {
                     settingsViewModel.setPlaylistCardOrientation("horizontal")
@@ -332,9 +322,22 @@ private fun PlaylistLayoutEditor(
                     settingsViewModel.setPlaylistCardOrientation("vertical")
                 }
             }
+
+            if (state.playlistCardOrientation == "horizontal") {
+                Spacer(Modifier.height(12.dp))
+                Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { r ->
+                        LayoutChoice("$r ${if (r == 1) "Row" else "Rows"}", state.playlistRows == r) {
+                            settingsViewModel.setPlaylistRows(r)
+                        }
+                    }
+                }
+            }
         }
 
-        if (state.playlistStyle == "long") {
+        if (!state.homeMerge || state.playlistCardOrientation == "vertical") {
             Spacer(Modifier.height(14.dp))
             Text(
                 text = if (auto) "Height · Auto" else "Height · ${state.playlistLongHeight} dp",

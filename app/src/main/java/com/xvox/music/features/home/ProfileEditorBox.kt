@@ -216,41 +216,50 @@ fun ProfileEditorBox(
         // Header Background Photo Section in Profile Box
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
-        if (currentHeaderUri == null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null
-                    ) {
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (currentHeaderUri == null) colors.primaryAccent else colors.cardElevated)
+                    .xvoxPressScale {
                         haptics.tap()
-                        headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
-                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                        scope.launch { prefs.setHeaderImageUri(null) }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_add),
-                        contentDescription = "Add Header Photo",
-                        tint = colors.primaryAccent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        "Add Header Photo",
-                        color = colors.primaryAccent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    "Default",
+                    color = if (currentHeaderUri == null) colors.background else colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
-        } else {
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (currentHeaderUri != null) colors.primaryAccent else colors.cardElevated)
+                    .xvoxPressScale {
+                        haptics.tap()
+                        headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Custom",
+                    color = if (currentHeaderUri != null) colors.background else colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        if (currentHeaderUri != null) {
+            Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

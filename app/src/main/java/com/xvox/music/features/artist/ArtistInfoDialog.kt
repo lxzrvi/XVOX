@@ -97,6 +97,7 @@ fun ArtistInfoDialog(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var duplicateTargetArtist by remember { mutableStateOf<String?>(null) }
     var croppingUri by remember { mutableStateOf<Uri?>(null) }
+    var customPhotoUri by remember(artist.customImageUri) { mutableStateOf(artist.customImageUri) }
 
     var nameField by remember(artist.name) {
         mutableStateOf(
@@ -118,9 +119,10 @@ fun ArtistInfoDialog(
     if (croppingUri != null) {
         XvoxImageCropDialog(
             sourceUri = croppingUri!!,
-            isCircle = true,
+            isCircle = false,
             onCropped = { croppedUri ->
                 croppingUri = null
+                customPhotoUri = croppedUri.toString()
                 onSaveArtistPhoto(artist.name, croppedUri)
             },
             onDismiss = { croppingUri = null }
@@ -371,9 +373,9 @@ fun ArtistInfoDialog(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (artist.customImageUri != null) {
+                        if (customPhotoUri != null) {
                             AsyncImage(
-                                model = artist.customImageUri,
+                                model = customPhotoUri,
                                 contentDescription = artist.name,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(58.dp)
@@ -489,35 +491,37 @@ fun ArtistInfoDialog(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Scroll Direction
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
-                        SettingsChoiceRow(
-                            options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
-                            selected = direction,
-                            onSelect = { onDirectionChange(it) }
-                        )
-                    }
-
-                    if (direction == "horizontal") {
-                        // Rows per page only when horizontal
+                    if (mergedToHome) {
+                        // Scroll Direction
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+                            Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
                             SettingsChoiceRow(
-                                options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
-                                selected = rows.toString(),
-                                onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
+                                options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
+                                selected = direction,
+                                onSelect = { onDirectionChange(it) }
                             )
                         }
-                    } else {
-                        // Columns only when vertical
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
-                            SettingsChoiceRow(
-                                options = listOf("2" to "2 Cols", "3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
-                                selected = columns.toString(),
-                                onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
-                            )
+
+                        if (direction == "horizontal") {
+                            // Rows per page only when horizontal
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+                                SettingsChoiceRow(
+                                    options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
+                                    selected = rows.toString(),
+                                    onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
+                                )
+                            }
+                        } else {
+                            // Columns only when vertical
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+                                SettingsChoiceRow(
+                                    options = listOf("2" to "2 Cols", "3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
+                                    selected = columns.toString(),
+                                    onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
+                                )
+                            }
                         }
                     }
 

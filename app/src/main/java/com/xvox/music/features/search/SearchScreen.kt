@@ -168,30 +168,205 @@ fun SearchScreen(
             .sortedByDescending { playlistRelevance(it, query) }
     }
 
-    val allArtists = remember(homeState.songs, homeState.customArtistImages, homeState.hiddenArtists) {
-        homeState.songs
+    val allArtists = remember(homeState.songs, homeState.customArtistImages, homeState.hiddenArtists, homeState.artistRenames) {
+        val songsWithRenames = homeState.songs.map { song ->
+            val renamed = homeState.artistRenames[song.artist]
+            if (renamed != null) song.copy(artist = renamed) else song
+        }
+        songsWithRenames
             .filterNot { it.artist in homeState.hiddenArtists }
             .groupBy { it.artist.ifBlank { "Unknown Artist" } }
             .map { (artistName, songList) ->
+                val cover = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull()
                 com.xvox.music.features.artist.XvoxArtist(
                     name = artistName,
                     songs = songList,
-                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    coverSong = cover,
                     customImageUri = homeState.customArtistImages[artistName]
                 )
             }
             .sortedBy { it.name.lowercase() }
     }
 
-    val filteredArtists = remember(allArtists, query) {
+    val filteredArtists = remember(allArtists, query, homeState.hiddenSearchArtists) {
         if (query.isBlank()) emptyList()
-        else allArtists.filter { it.name.contains(query, ignoreCase = true) }
+        else allArtists
+            .filterNot { it.name in homeState.hiddenSearchArtists }
+            .filter { it.name.contains(query, ignoreCase = true) }
+    }
+
+    val filteredPlaylists = remember(homeState.playlists, query, homeState.hiddenSearchPlaylists) {
+        if (query.isBlank()) emptyList()
+        else homeState.playlists
+            .filterNot { it.id in homeState.hiddenSearchPlaylists }
+            .filter { it.name.contains(query, ignoreCase = true) }
+            .sortedByDescending { playlistRelevance(it, query) }
     }
 
     fun addRecent(q: String) {
         val clean = q.trim()
         if (clean.isNotBlank()) {
             scope.launch { prefs.addRecentSearch(clean) }
+        }
+    }
+
+    fun showSearchArtistOptions(artist: com.xvox.music.features.artist.XvoxArtist) {
+        overlays.showBox(artist.name) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            val song = artist.songs.firstOrNull()
+                            if (song != null) {
+                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
+                                playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
+                            }
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Play ${artist.name}", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            playerViewModel.playNextInQueue(artist.songs)
+                            overlays.showP("Playing after current song")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text("Play next (After current song)", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Inserts at front of queue without clearing", color = colors.mutedText, fontSize = 10.sp)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            playerViewModel.addToQueue(artist.songs)
+                            overlays.showP("Added to queue")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text("Play next (After queue ends)", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Appends artist tracks to end of queue", color = colors.mutedText, fontSize = 10.sp)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            homeViewModel.addHiddenSearchArtist(artist.name)
+                            overlays.showP("${artist.name} hidden from search")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Never show in search", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+
+    fun showSearchPlaylistOptions(playlist: com.xvox.music.data.preferences.XvoxPlaylist, coverSongs: List<Song>) {
+        overlays.showBox(playlist.name) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            val song = coverSongs.firstOrNull()
+                            if (song != null) {
+                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, playlist.name)
+                                playerViewModel.playFromSource(song, coverSongs, playlist.name)
+                            }
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Play ${playlist.name}", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            playerViewModel.playNextInQueue(coverSongs)
+                            overlays.showP("Playing after current song")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text("Play next (After current song)", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Inserts at front of queue without clearing", color = colors.mutedText, fontSize = 10.sp)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            playerViewModel.addToQueue(coverSongs)
+                            overlays.showP("Added to queue")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text("Play next (After queue ends)", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Appends playlist tracks to end of queue", color = colors.mutedText, fontSize = 10.sp)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            homeViewModel.addHiddenSearchPlaylist(playlist.id)
+                            overlays.showP("${playlist.name} hidden from search")
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Never show in search", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
         }
     }
 
@@ -234,19 +409,28 @@ fun SearchScreen(
 
         Spacer(Modifier.height(topInset))
 
+        // Search label matching Home headers exactly
+        Text(
+            text = "Search",
+            color = colors.primaryAccent,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
+        )
+
         // Search Input Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 4.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(23.dp))
                     .background(colors.card)
-                    .border(0.6.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .border(0.6.dp, colors.cardBorder, RoundedCornerShape(23.dp))
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -386,13 +570,26 @@ fun SearchScreen(
             } else {
                 if (filteredArtists.isNotEmpty()) {
                     item(key = "artists_header") {
-                        Text(
-                            text = "Artists (${filteredArtists.size})",
-                            color = colors.primaryAccent,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Artists (${filteredArtists.size})",
+                                color = colors.primaryAccent,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_caret_right),
+                                contentDescription = "Artists",
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
                     item(key = "search_artists_row") {
@@ -415,7 +612,7 @@ fun SearchScreen(
                                                 playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
                                             }
                                         },
-                                        onLongClick = { },
+                                        onLongClick = { showSearchArtistOptions(artist) },
                                         modifier = Modifier.width(artistWidth)
                                     )
                                 }
@@ -427,24 +624,35 @@ fun SearchScreen(
 
                 if (filteredPlaylists.isNotEmpty()) {
                     item(key = "playlists_header") {
-                        Text(
-                            text = "Playlists (${filteredPlaylists.size})",
-                            color = colors.primaryAccent,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
-                        )
-                    }
-
-                    val playlistChunks = filteredPlaylists.chunked(2)
-                    items(playlistChunks, key = { chunk -> "pl_row_${chunk.first().id}" }) { chunk ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 5.dp),
+                                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Playlists (${filteredPlaylists.size})",
+                                color = colors.primaryAccent,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_caret_right),
+                                contentDescription = "Playlists",
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    item(key = "search_playlists_row") {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            chunk.forEach { playlist ->
+                            items(filteredPlaylists, key = { "search_pl_${it.id}" }) { playlist ->
                                 val coverSongs = homeViewModel.playlistSongs(playlist)
                                 XvoxPlaylistCard(
                                     playlist = playlist,
@@ -454,13 +662,11 @@ fun SearchScreen(
                                         onPlaylistSelected?.invoke(playlist.id)
                                     },
                                     onLongClick = {
-                                        showPlaylistActions(overlays, homeViewModel, playlist) {}
+                                        showSearchPlaylistOptions(playlist, coverSongs)
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.width(220.dp).height(140.dp),
+                                    longCard = true
                                 )
-                            }
-                            if (chunk.size == 1) {
-                                Spacer(Modifier.weight(1f))
                             }
                         }
                     }
@@ -474,7 +680,7 @@ fun SearchScreen(
                             color = colors.primaryAccent,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
+                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
                         )
                     }
                     items(filteredSongs, key = { it.id }) { song ->

@@ -44,14 +44,16 @@ fun XvoxThinLineSlider(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val totalSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.001f)
-    var localValue by remember { mutableFloatStateOf(value) }
+    var localValue by remember(value) { mutableFloatStateOf(value) }
     var isDragging by remember { mutableStateOf(false) }
+    var lastEmittedValue by remember { mutableFloatStateOf(value) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnFinish by rememberUpdatedState(onValueChangeFinished)
 
-    LaunchedEffect(value, isDragging) {
-        if (!isDragging) {
+    LaunchedEffect(value) {
+        if (!isDragging && abs(value - lastEmittedValue) > 0.001f) {
             localValue = value
+            lastEmittedValue = value
         }
     }
 
@@ -95,6 +97,7 @@ fun XvoxThinLineSlider(
                             haptics.tap()
                         }
                         localValue = newValue
+                        lastEmittedValue = newValue
                         currentOnValueChange(newValue)
                     }
 

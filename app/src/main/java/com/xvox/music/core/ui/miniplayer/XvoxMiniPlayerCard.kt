@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -103,10 +104,13 @@ fun XvoxMiniPlayerCard(
             }
     ) {
         if (isFullCover) {
+            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
             XvoxSongArtwork(
                 artwork = song.artworkUri,
-                requestSize = 320,
-                modifier = Modifier.fillMaxSize()
+                requestSize = 512,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = alphaFraction }
             )
             Box(
                 modifier = Modifier
@@ -114,9 +118,9 @@ fun XvoxMiniPlayerCard(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.40f),
-                                Color.Black.copy(alpha = 0.15f),
-                                Color.Black.copy(alpha = 0.55f)
+                                Color.Black.copy(alpha = 0.30f * alphaFraction),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.40f * alphaFraction)
                             )
                         )
                     )

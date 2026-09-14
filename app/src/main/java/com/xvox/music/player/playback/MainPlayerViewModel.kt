@@ -168,6 +168,13 @@ class MainPlayerViewModel(
         _state.update { it.copy(queue = queue) }
     }
 
+    fun addToQueue(songs: List<Song>) {
+        songs.forEach { song ->
+            val queue = controller.addToQueue(song)
+            _state.update { it.copy(queue = queue) }
+        }
+    }
+
     fun removeFromQueue(songId: Long) {
         val wasCurrent = _state.value.currentSongId == songId
         val queue = controller.removeFromQueue(songId)

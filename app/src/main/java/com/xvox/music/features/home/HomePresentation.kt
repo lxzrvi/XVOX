@@ -48,15 +48,15 @@ object HomeSections {
 
     fun visible(config: HomePresentation): List<String> {
         val baseOrder = normalize(config.order)
-        val withRecentsPlacement = if (!config.merge && config.recentsPlacement == "top" && baseOrder.indexOf(RECENT) > baseOrder.indexOf(ALL)) {
+        val ordered = if (config.recentsPlacement == "top") {
             placeRecent(baseOrder, "top")
-        } else if (!config.merge && config.recentsPlacement == "bottom" && baseOrder.indexOf(RECENT) < baseOrder.indexOf(ALL)) {
+        } else if (config.recentsPlacement == "bottom") {
             placeRecent(baseOrder, "bottom")
         } else {
             baseOrder
         }
 
-        return withRecentsPlacement.filterNot { section ->
+        return ordered.filterNot { section ->
             (section == SPLIT && config.hideSplit) ||
             (section == RECENT && config.hideRecents) ||
             (section in config.hidden) ||
@@ -66,8 +66,16 @@ object HomeSections {
 
     fun placeRecent(order: List<String>, placement: String): List<String> {
         val result = normalize(order).filterNot { it == RECENT }.toMutableList()
-        val index = (result.indexOf(ALL) + if (placement == "top") 0 else 1).coerceIn(0, result.size)
-        result.add(index, RECENT)
+        if (placement == "top") {
+            result.add(0, RECENT)
+        } else {
+            val allIdx = result.indexOf(ALL)
+            if (allIdx >= 0) {
+                result.add(allIdx + 1, RECENT)
+            } else {
+                result.add(RECENT)
+            }
+        }
         return result
     }
 }

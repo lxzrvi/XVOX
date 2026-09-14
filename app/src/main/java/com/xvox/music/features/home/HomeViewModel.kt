@@ -126,6 +126,24 @@ class HomeViewModel(
                 _state.update { it.copy(customArtistImages = images) }
             }
         }
+
+        viewModelScope.launch {
+            preferencesRepository.artistRenames.collect { renames ->
+                _state.update { it.copy(artistRenames = renames) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.hiddenSearchArtists.collect { hidden ->
+                _state.update { it.copy(hiddenSearchArtists = hidden) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.hiddenSearchPlaylists.collect { hidden ->
+                _state.update { it.copy(hiddenSearchPlaylists = hidden) }
+            }
+        }
     }
 
     private fun observeFilterPreferences() {
@@ -397,12 +415,21 @@ class HomeViewModel(
     }
 
     fun renameArtist(oldName: String, newName: String, mergeDuplicates: Boolean = false) = viewModelScope.launch {
+        preferencesRepository.renameArtist(oldName, newName, mergeDuplicates)
         val existingPhoto = state.value.customArtistImages[oldName]
         if (existingPhoto != null) {
             preferencesRepository.setArtistImage(newName, existingPhoto)
             preferencesRepository.setArtistImage(oldName, null)
         }
         refresh()
+    }
+
+    fun addHiddenSearchArtist(artist: String) = viewModelScope.launch {
+        preferencesRepository.addHiddenSearchArtist(artist)
+    }
+
+    fun addHiddenSearchPlaylist(playlistId: String) = viewModelScope.launch {
+        preferencesRepository.addHiddenSearchPlaylist(playlistId)
     }
 
     fun setArtistColumns(value: Int) = viewModelScope.launch { preferencesRepository.setArtistColumns(value) }

@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,22 +63,26 @@ fun XvoxShellTopHeader(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
+    val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
+            .background(colors.surface.copy(alpha = alphaFraction))
     ) {
         profile.headerImageUri?.takeIf { it.isNotBlank() }?.let { photo ->
             coil3.compose.AsyncImage(
                 model = photo,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer { alpha = alphaFraction }
             )
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
+                    .background(colors.surface.copy(alpha = alphaFraction))
             )
         }
 
@@ -193,10 +198,7 @@ fun XvoxShellTopHeader(
 
                     if (!artistsMergedToHome) {
                         Icon(
-                            painter = painterResource(
-                                if (libraryMode == XvoxHomeLibraryMode.ARTISTS) R.drawable.ic_xvox_microphone
-                                else R.drawable.ic_xvox_microphone_outline
-                            ),
+                            painter = painterResource(R.drawable.ic_xvox_microphone),
                             contentDescription = "Artists",
                             tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
                             modifier = Modifier

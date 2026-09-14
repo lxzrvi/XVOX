@@ -54,6 +54,9 @@ class UserPreferencesRepository(
         val artistRows = intPreferencesKey("artist_rows")
         val artistHideText = booleanPreferencesKey("artist_hide_text")
         val artistDirection = stringPreferencesKey("artist_direction")
+        val artistRenames = stringPreferencesKey("artist_renames")
+        val hiddenSearchArtists = stringPreferencesKey("hidden_search_artists")
+        val hiddenSearchPlaylists = stringPreferencesKey("hidden_search_playlists")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
@@ -173,6 +176,27 @@ class UserPreferencesRepository(
 
     val hiddenArtists: Flow<Set<String>> = context.xvoxDataStore.data.map { prefs ->
         val raw = prefs[Keys.hiddenArtists].orEmpty()
+        if (raw.isBlank()) emptySet()
+        else raw.split(",").filter { it.isNotBlank() }.toSet()
+    }.distinctUntilChanged()
+
+    val artistRenames: Flow<Map<String, String>> = context.xvoxDataStore.data.map { prefs ->
+        val raw = prefs[Keys.artistRenames].orEmpty()
+        if (raw.isBlank()) emptyMap()
+        else raw.split(";").mapNotNull { entry ->
+            val parts = entry.split("=", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else null
+        }.toMap()
+    }.distinctUntilChanged()
+
+    val hiddenSearchArtists: Flow<Set<String>> = context.xvoxDataStore.data.map { prefs ->
+        val raw = prefs[Keys.hiddenSearchArtists].orEmpty()
+        if (raw.isBlank()) emptySet()
+        else raw.split(",").filter { it.isNotBlank() }.toSet()
+    }.distinctUntilChanged()
+
+    val hiddenSearchPlaylists: Flow<Set<String>> = context.xvoxDataStore.data.map { prefs ->
+        val raw = prefs[Keys.hiddenSearchPlaylists].orEmpty()
         if (raw.isBlank()) emptySet()
         else raw.split(",").filter { it.isNotBlank() }.toSet()
     }.distinctUntilChanged()
@@ -809,6 +833,41 @@ class UserPreferencesRepository(
                 map.remove(artist)
             }
             prefs[Keys.customArtistImages] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    suspend fun renameArtist(oldName: String, newName: String, merge: Boolean) {
+        context.xvoxDataStore.edit { prefs ->
+            val raw = prefs[Keys.artistRenames].orEmpty()
+            val map = if (raw.isBlank()) mutableMapOf()
+            else raw.split(";").mapNotNull { entry ->
+                val parts = entry.split("=", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }.toMap().toMutableMap()
+
+            map[oldName] = newName
+            map.entries.forEach { (k, v) ->
+                if (v.equals(oldName, ignoreCase = true)) {
+                    map[k] = newName
+                }
+            }
+            prefs[Keys.artistRenames] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    suspend fun addHiddenSearchArtist(artist: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val set = prefs[Keys.hiddenSearchArtists].orEmpty().split(",").filter { it.isNotBlank() }.toMutableSet()
+            set.add(artist)
+            prefs[Keys.hiddenSearchArtists] = set.joinToString(",")
+        }
+    }
+
+    suspend fun addHiddenSearchPlaylist(playlistId: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val set = prefs[Keys.hiddenSearchPlaylists].orEmpty().split(",").filter { it.isNotBlank() }.toMutableSet()
+            set.add(playlistId)
+            prefs[Keys.hiddenSearchPlaylists] = set.joinToString(",")
         }
     }
 
