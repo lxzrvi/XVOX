@@ -61,6 +61,7 @@ import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.features.artist.ArtistSquareItem
@@ -160,12 +161,6 @@ fun SearchScreen(
         else homeState.songs.filter {
             it.title.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true)
         }.sortedByDescending { songRelevance(it, query) }
-    }
-
-    val filteredPlaylists = remember(homeState.playlists, query) {
-        if (query.isBlank()) emptyList()
-        else homeState.playlists.filter { it.name.contains(query, ignoreCase = true) }
-            .sortedByDescending { playlistRelevance(it, query) }
     }
 
     val allArtists = remember(homeState.songs, homeState.customArtistImages, homeState.hiddenArtists, homeState.artistRenames) {

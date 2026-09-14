@@ -222,6 +222,7 @@ class UserPreferencesRepository(
     val splitShowPill: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitShowPill] ?: true }.distinctUntilChanged()
     val splitHideCollection: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitHideCollection] ?: false }.distinctUntilChanged()
     val playlistStyle: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.playlistStyle] == "cards") "cards" else "long" }.distinctUntilChanged()
+    val playlistRows: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.playlistRows] ?: 2).coerceIn(1, 6) }.distinctUntilChanged()
     /** 0 = original proportional height; otherwise an explicit dp height for long playlist cards. */
     val playlistLongHeight: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260) }.distinctUntilChanged()
     val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()

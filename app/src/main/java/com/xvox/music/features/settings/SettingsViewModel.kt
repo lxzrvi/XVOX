@@ -28,6 +28,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.splitHideCollection.collect { v -> _state.update { it.copy(splitHideCollection = v) } } }
             launch { prefs.playlistStyle.collect { v -> _state.update { it.copy(playlistStyle = v) } } }
             launch { prefs.playlistLongHeight.collect { v -> _state.update { it.copy(playlistLongHeight = v) } } }
+            launch { prefs.playlistRows.collect { v -> _state.update { it.copy(playlistRows = v) } } }
             launch { prefs.playlistCardOrientation.collect { v -> _state.update { it.copy(playlistCardOrientation = v) } } }
             launch { prefs.settingsPreviewHidden.collect { v -> _state.update { it.copy(previewHidden = v) } } }
             launch { prefs.lastSettingsTab.collect { v -> _state.update { it.copy(lastSettingsTab = v) } } }
@@ -123,6 +124,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSplitHideCollection(v: Boolean) = viewModelScope.launch { prefs.setSplitHideCollection(v) }
     fun setPlaylistStyle(v: String) = viewModelScope.launch { prefs.setPlaylistStyle(v) }
     fun setPlaylistLongHeight(v: Int) = viewModelScope.launch { prefs.setPlaylistLongHeight(v) }
+    fun setPlaylistRows(v: Int) = viewModelScope.launch { prefs.setPlaylistRows(v) }
     fun setPlaylistCardOrientation(v: String) = viewModelScope.launch { prefs.setPlaylistCardOrientation(v) }
     fun setPreviewHidden(v: Boolean) = viewModelScope.launch { prefs.setSettingsPreviewHidden(v) }
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
