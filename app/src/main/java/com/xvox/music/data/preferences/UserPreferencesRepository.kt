@@ -53,6 +53,7 @@ class UserPreferencesRepository(
         val artistGap = intPreferencesKey("artist_gap")
         val artistRows = intPreferencesKey("artist_rows")
         val artistHideText = booleanPreferencesKey("artist_hide_text")
+        val artistDirection = stringPreferencesKey("artist_direction")
         val homeMerge = booleanPreferencesKey("home_merge")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
@@ -224,6 +225,7 @@ class UserPreferencesRepository(
             artistGap = (it[Keys.artistGap] ?: 8).coerceIn(2, 24),
             artistRows = (it[Keys.artistRows] ?: 4).coerceIn(1, 8),
             artistHideText = it[Keys.artistHideText] ?: false,
+            artistDirection = if (it[Keys.artistDirection] == "horizontal") "horizontal" else "vertical",
             hidden = it[Keys.homeHiddenSections].orEmpty().split(",").filter { id -> id in HomeSections.defaultOrder }.toSet()
         )
     }.distinctUntilChanged()
@@ -379,6 +381,7 @@ class UserPreferencesRepository(
     suspend fun setArtistGap(value: Int) { context.xvoxDataStore.edit { it[Keys.artistGap] = value.coerceIn(2, 24) } }
     suspend fun setArtistRows(value: Int) { context.xvoxDataStore.edit { it[Keys.artistRows] = value.coerceIn(1, 8) } }
     suspend fun setArtistHideText(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.artistHideText] = hide } }
+    suspend fun setArtistDirection(value: String) { context.xvoxDataStore.edit { it[Keys.artistDirection] = if (value == "horizontal") "horizontal" else "vertical" } }
     suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {

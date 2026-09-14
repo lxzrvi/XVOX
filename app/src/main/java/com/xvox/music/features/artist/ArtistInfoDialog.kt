@@ -73,10 +73,14 @@ fun ArtistInfoDialog(
     config: HomePresentation = HomePresentation(),
     homeViewModel: HomeViewModel? = null,
     columns: Int = 5,
+    rows: Int = 4,
+    direction: String = "vertical",
     gap: Int = 8,
     hideText: Boolean = false,
     mergedToHome: Boolean = false,
     onColumnsChange: (Int) -> Unit = {},
+    onRowsChange: (Int) -> Unit = {},
+    onDirectionChange: (String) -> Unit = {},
     onGapChange: (Int) -> Unit = {},
     onHideTextChange: (Boolean) -> Unit = {},
     onMergeToHomeChange: (Boolean) -> Unit = {},
@@ -485,11 +489,37 @@ fun ArtistInfoDialog(
                         fontWeight = FontWeight.Bold
                     )
 
-                    SettingsChoiceRow(
-                        options = listOf("3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
-                        selected = columns.toString(),
-                        onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
-                    )
+                    // Scroll Direction
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
+                        SettingsChoiceRow(
+                            options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
+                            selected = direction,
+                            onSelect = { onDirectionChange(it) }
+                        )
+                    }
+
+                    if (direction == "horizontal") {
+                        // Rows per page only when horizontal
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+                            SettingsChoiceRow(
+                                options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
+                                selected = rows.toString(),
+                                onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
+                            )
+                        }
+                    } else {
+                        // Columns only when vertical
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+                            SettingsChoiceRow(
+                                options = listOf("2" to "2 Cols", "3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
+                                selected = columns.toString(),
+                                onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
+                            )
+                        }
+                    }
 
                     // Gap Slider
                     Row(

@@ -27,16 +27,24 @@ fun HomeCollectionHeader(title: String, count: Int, onAdd: (() -> Unit)? = null)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f, fill = false)) {
             Text(title, color = colors.primaryAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("$count ${if (title == "Playlists") "playlists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)
+            Text("$count ${if (title == "Playlists") "playlists" else if (title == "Artists") "artists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)
         }
         onAdd?.let {
-            Icon(painterResource(R.drawable.ic_xvox_add), "Add to $title", tint = colors.primaryAccent,
-                modifier = Modifier.size(44.dp).xvoxPressScale(onClick = it).padding(12.dp))
+            Icon(
+                painterResource(R.drawable.ic_xvox_add),
+                contentDescription = "Add to $title",
+                tint = colors.primaryAccent,
+                modifier = Modifier
+                    .size(32.dp)
+                    .xvoxPressScale(onClick = it)
+                    .padding(4.dp)
+            )
         }
     }
 }

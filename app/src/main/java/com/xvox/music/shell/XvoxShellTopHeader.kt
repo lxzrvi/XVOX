@@ -54,9 +54,9 @@ fun XvoxShellTopHeader(
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
-    mergedHome: Boolean = false,
-    likedSectionHidden: Boolean = false,
-    playlistsSectionHidden: Boolean = false,
+    likedMergedToHome: Boolean = false,
+    playlistsMergedToHome: Boolean = false,
+    artistsMergedToHome: Boolean = false,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -158,7 +158,7 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    if (!mergedHome && !likedSectionHidden) {
+                    if (!likedMergedToHome) {
                         Icon(
                             painter = painterResource(
                                 if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
@@ -173,7 +173,7 @@ fun XvoxShellTopHeader(
                         )
                     }
 
-                    if (!mergedHome && !playlistsSectionHidden) {
+                    if (!playlistsMergedToHome) {
                         Icon(
                             painter = painterResource(
                                 if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
@@ -191,7 +191,7 @@ fun XvoxShellTopHeader(
                         )
                     }
 
-                    if (!mergedHome) {
+                    if (!artistsMergedToHome) {
                         Icon(
                             painter = painterResource(
                                 if (libraryMode == XvoxHomeLibraryMode.ARTISTS) R.drawable.ic_xvox_microphone

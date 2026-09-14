@@ -409,6 +409,7 @@ class HomeViewModel(
     fun setArtistGap(value: Int) = viewModelScope.launch { preferencesRepository.setArtistGap(value) }
     fun setArtistRows(value: Int) = viewModelScope.launch { preferencesRepository.setArtistRows(value) }
     fun setArtistHideText(hide: Boolean) = viewModelScope.launch { preferencesRepository.setArtistHideText(hide) }
+    fun setArtistDirection(direction: String) = viewModelScope.launch { preferencesRepository.setArtistDirection(direction) }
     fun setPlaylistRows(rows: Int) = viewModelScope.launch { preferencesRepository.setPlaylistRows(rows) }
     fun setHomeMerge(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setHomeMerge(enabled) }
     fun setHomeSectionOrder(order: List<String>) = viewModelScope.launch { preferencesRepository.setHomeSectionOrder(order) }

@@ -63,6 +63,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.features.artist.ArtistSquareItem
 import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
@@ -397,71 +398,26 @@ fun SearchScreen(
                     item(key = "search_artists_row") {
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             val gap = 8.dp
-                            val artistWidth = ((maxWidth - gap * 4 - 24.dp) / 5).coerceAtLeast(64.dp)
+                            val artistWidth = ((maxWidth - gap * 4 - 24.dp) / 5).coerceAtLeast(72.dp)
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(horizontal = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(gap)
                             ) {
                                 items(filteredArtists, key = { "search_artist_${it.name}" }) { artist ->
-                                    Column(
-                                        modifier = Modifier
-                                            .width(artistWidth)
-                                            .xvoxSongPress(
-                                                onClick = {
-                                                    addRecent(query)
-                                                    val song = artist.songs.firstOrNull()
-                                                    if (song != null) {
-                                                        homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
-                                                        playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
-                                                    }
-                                                },
-                                                onLongClick = { }
-                                            ),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(artistWidth)
-                                                .clip(CircleShape)
-                                                .background(colors.card),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (artist.customImageUri != null) {
-                                                AsyncImage(
-                                                    model = artist.customImageUri,
-                                                    contentDescription = artist.name,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.size(artistWidth)
-                                                )
-                                            } else if (artist.coverSong != null) {
-                                                XvoxSongArtwork(
-                                                    artwork = artist.coverSong.artworkUri,
-                                                    requestSize = 128,
-                                                    modifier = Modifier.size(artistWidth)
-                                                )
-                                            } else {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.ic_xvox_microphone),
-                                                    contentDescription = null,
-                                                    tint = colors.primaryAccent,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
+                                    ArtistSquareItem(
+                                        artist = artist,
+                                        onClick = {
+                                            addRecent(query)
+                                            val song = artist.songs.firstOrNull()
+                                            if (song != null) {
+                                                homeViewModel.recordPlayedFromLibrary(song, playerState.currentSongId, "Playing by " + artist.name)
+                                                playerViewModel.playFromSource(song, artist.songs, "Playing by " + artist.name)
                                             }
-                                        }
-
-                                        Spacer(Modifier.height(4.dp))
-
-                                        Text(
-                                            text = artist.name,
-                                            color = colors.primaryText,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
+                                        },
+                                        onLongClick = { },
+                                        modifier = Modifier.width(artistWidth)
+                                    )
                                 }
                             }
                         }

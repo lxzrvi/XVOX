@@ -131,10 +131,14 @@ fun HomeScreen(
             config = config,
             homeViewModel = viewModel,
             columns = config.artistColumns,
+            rows = config.artistRows,
+            direction = config.artistDirection,
             gap = config.artistGap,
             hideText = config.artistHideText,
             mergedToHome = config.merge && HomeSections.ARTISTS in HomeSections.visible(config),
             onColumnsChange = { viewModel.setArtistColumns(it) },
+            onRowsChange = { viewModel.setArtistRows(it) },
+            onDirectionChange = { viewModel.setArtistDirection(it) },
             onGapChange = { viewModel.setArtistGap(it) },
             onHideTextChange = { viewModel.setArtistHideText(it) },
             onMergeToHomeChange = { mergeOn ->
@@ -316,11 +320,13 @@ fun HomeScreen(
             XvoxArtistGrid(
                 artists = artists,
                 columns = config.artistColumns,
+                rows = config.artistRows,
+                direction = config.artistDirection,
                 gap = config.artistGap,
                 hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
         }
     }
@@ -417,8 +423,10 @@ fun HomeScreen(
             label = "libraryFade"
         ) { target ->
             val listState = rememberLazyListState()
-            LaunchedEffect(homeResetKey, scrollResetKey) {
-                listState.scrollToItem(0)
+            LaunchedEffect(homeResetKey) {
+                if (homeResetKey > 0L) {
+                    listState.scrollToItem(0)
+                }
             }
 
             val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->

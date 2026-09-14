@@ -323,13 +323,17 @@ fun XvoxMainShell(
                 animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
             ) + fadeOut(tween(220))
         ) {
+            val likedMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.LIKED !in hiddenHomeSections
+            val playlistsMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.PLAYLISTS !in hiddenHomeSections
+            val artistsMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.ARTISTS !in hiddenHomeSections
+
             XvoxShellTopHeader(
                 profile = homeState.profile,
                 destination = destination,
                 libraryMode = homeState.libraryMode,
-                mergedHome = mergedHome,
-                likedSectionHidden = com.xvox.music.features.home.HomeSections.LIKED in hiddenHomeSections,
-                playlistsSectionHidden = com.xvox.music.features.home.HomeSections.PLAYLISTS in hiddenHomeSections,
+                likedMergedToHome = likedMergedToHome,
+                playlistsMergedToHome = playlistsMergedToHome,
+                artistsMergedToHome = artistsMergedToHome,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
                 onLikedClick = {
@@ -398,10 +402,6 @@ fun XvoxMainShell(
                     }
                     if (next != destination) {
                         tabEpoch++
-                        if (next == XvoxDestination.HOME) {
-                            hoistedSelectedPlaylistId = null
-                            homeResetKey = System.currentTimeMillis()
-                        }
                     }
                     destination = next
                 }

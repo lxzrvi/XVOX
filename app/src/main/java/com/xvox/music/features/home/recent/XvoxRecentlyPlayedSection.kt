@@ -33,12 +33,12 @@ fun XvoxRecentlyPlayedSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 16.dp),
+            .padding(bottom = 8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -53,11 +53,9 @@ fun XvoxRecentlyPlayedSection(
             Text(
                 text = "Total ${songs.size} played",
                 color = colors.mutedText,
-                fontSize = 9.sp
+                fontSize = 10.sp
             )
         }
-
-        Spacer(Modifier.height(4.dp))
 
         XvoxRecentCarousel(
             songs = songs,

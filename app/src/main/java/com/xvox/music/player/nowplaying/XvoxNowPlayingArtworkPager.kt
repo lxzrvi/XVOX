@@ -84,8 +84,8 @@ fun XvoxNowPlayingArtworkPager(
             Pair(pager.currentPage, pager.currentPageOffsetFraction)
         }.collect { (page, offset) ->
             val curr = queue.getOrNull(page)
-            val adj = if (offset > 0.001f) queue.getOrNull(page + 1)
-            else if (offset < -0.001f) queue.getOrNull(page - 1)
+            val adj = if (offset > 0.0001f) queue.getOrNull(page + 1)
+            else if (offset < -0.0001f) queue.getOrNull(page - 1)
             else null
 
             if (curr != null) {
@@ -95,14 +95,16 @@ fun XvoxNowPlayingArtworkPager(
     }
 
     // Debounced playback commit during rapid continuous flipping:
-    // Single swipe/button switches after short settle (240ms).
-    // Rapid continuous swiping keeps playing current song until user stops, then plays target song!
+    // When rapidly swiping through covers, colors and artwork update instantly.
+    // Playback audio switches only after the swipe finishes and settles on the chosen track.
     LaunchedEffect(pager, queue) {
-        snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
-            if (page in queue.indices && page != currentIndex) {
-                delay(240)
-                if (pager.settledPage == page) {
-                    settled(page)
+        snapshotFlow {
+            Pair(pager.settledPage, pager.isScrollInProgress)
+        }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
+            if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
+                delay(180)
+                if (!pager.isScrollInProgress && pager.settledPage == settledIndex) {
+                    settled(settledIndex)
                 }
             }
         }

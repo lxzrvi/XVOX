@@ -20,7 +20,8 @@ data class HomePresentation(
     val artistColumns: Int = 5,
     val artistGap: Int = 8,
     val artistRows: Int = 4,
-    val artistHideText: Boolean = false
+    val artistHideText: Boolean = false,
+    val artistDirection: String = "vertical"
 )
 
 object HomeSections {
@@ -46,14 +47,26 @@ object HomeSections {
         (order.filter { it in defaultOrder } + defaultOrder).distinct()
 
     fun visible(config: HomePresentation): List<String> {
-        val order = if (config.merge) normalize(config.order) else
-            if (config.recentsPlacement == "top") listOf(RECENT, ALL) else listOf(ALL, RECENT)
-        return order.filterNot { (it == SPLIT && config.hideSplit) || (it == RECENT && config.hideRecents) || (config.merge && it in config.hidden) }
+        val baseOrder = normalize(config.order)
+        val withRecentsPlacement = if (!config.merge && config.recentsPlacement == "top" && baseOrder.indexOf(RECENT) > baseOrder.indexOf(ALL)) {
+            placeRecent(baseOrder, "top")
+        } else if (!config.merge && config.recentsPlacement == "bottom" && baseOrder.indexOf(RECENT) < baseOrder.indexOf(ALL)) {
+            placeRecent(baseOrder, "bottom")
+        } else {
+            baseOrder
+        }
+
+        return withRecentsPlacement.filterNot { section ->
+            (section == SPLIT && config.hideSplit) ||
+            (section == RECENT && config.hideRecents) ||
+            (section in config.hidden) ||
+            (!config.merge && section != ALL && section != RECENT)
+        }
     }
 
     fun placeRecent(order: List<String>, placement: String): List<String> {
         val result = normalize(order).filterNot { it == RECENT }.toMutableList()
-        val index = result.indexOf(ALL) + if (placement == "top") 0 else 1
+        val index = (result.indexOf(ALL) + if (placement == "top") 0 else 1).coerceIn(0, result.size)
         result.add(index, RECENT)
         return result
     }
