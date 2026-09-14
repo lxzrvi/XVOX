@@ -316,7 +316,7 @@ fun XvoxNowPlaying(
                         navigationRequest = navigationRequest,
                         onArtworkTap = { setMode(1) },
                         onSwipePalette = { base, adjacent, fraction ->
-                            scope.launch { paletteState.blend(base, adjacent, fraction) }
+                            paletteState.blend(base, adjacent, fraction)
                         },
                         onSettledPage = onPlayQueueIndex,
                         modifier = Modifier.fillMaxSize(),

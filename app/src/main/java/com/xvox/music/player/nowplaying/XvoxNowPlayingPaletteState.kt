@@ -50,7 +50,7 @@ class XvoxNowPlayingPaletteState internal constructor(
         }
     }
 
-    suspend fun blend(base: Song, adjacent: Song?, fraction: Float) {
+    fun blend(base: Song, adjacent: Song?, fraction: Float) {
         val from = getOrFallback(base)
         val to = adjacent?.let { getOrFallback(it) } ?: from
         color = lerp(from, to, fraction.coerceIn(0f, 1f))

@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import kotlinx.coroutines.isActive
@@ -79,19 +78,41 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Deterministic position-to-slot mapping with zero desync or flickering
+    // Conflict-free step-by-step slot swapping with hysteresis
     fun checkAndSwapSlots() {
         if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f || itemTotalHeightPx <= 0f) return
-        val cardCenterY = dragCardOffsetY + rowHeightPx / 2f
-        val scrollY = listState.firstVisibleItemIndex * itemTotalHeightPx + listState.firstVisibleItemScrollOffset
-        val absoluteCenterY = (scrollY + cardCenterY - with(density) { 4.dp.toPx() }).coerceAtLeast(0f)
-        val targetIndex = (absoluteCenterY / itemTotalHeightPx).toInt().coerceIn(0, local.lastIndex)
 
-        if (targetIndex != currentDragIndex && currentDragIndex in local.indices && targetIndex in local.indices) {
-            val item = local.removeAt(currentDragIndex)
-            local.add(targetIndex, item)
-            currentDragIndex = targetIndex
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        val currentSlotScreenTop = (currentDragIndex - listState.firstVisibleItemIndex) * itemTotalHeightPx - listState.firstVisibleItemScrollOffset
+
+        // Check moving down
+        if (currentDragIndex < local.lastIndex) {
+            if (dragCardOffsetY > currentSlotScreenTop + itemTotalHeightPx * 0.55f) {
+                val from = currentDragIndex
+                val to = currentDragIndex + 1
+                if (from in local.indices && to in local.indices) {
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    return
+                }
+            }
+        }
+
+        // Check moving up
+        if (currentDragIndex > 0) {
+            val isAtVeryTop = dragCardOffsetY <= with(density) { 10.dp.toPx() } && listState.firstVisibleItemIndex == 0
+            if (dragCardOffsetY < currentSlotScreenTop - itemTotalHeightPx * 0.55f || isAtVeryTop) {
+                val from = currentDragIndex
+                val to = currentDragIndex - 1
+                if (from in local.indices && to in local.indices) {
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    return
+                }
+            }
         }
     }
 
@@ -99,8 +120,8 @@ fun XvoxQueueBoxContent(
     LaunchedEffect(draggingSong) {
         if (draggingSong == null) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }
-        val edgeThreshold = with(density) { 56.dp.toPx() }
-        val maxScrollSpeedPxPerSec = with(density) { 450.dp.toPx() }
+        val edgeThreshold = with(density) { 48.dp.toPx() }
+        val maxScrollSpeedPxPerSec = with(density) { 420.dp.toPx() }
 
         while (isActive && draggingSong != null) {
             val frame = withFrameNanos { it }
@@ -126,7 +147,11 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    Column(Modifier.fillMaxWidth()) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+    ) {
         Text(
             "${local.size} songs · Tap to play · Hold & drag to reorder",
             color = colors.secondaryText,
@@ -140,7 +165,7 @@ fun XvoxQueueBoxContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 520.dp)
+                    .wrapContentHeight()
                     .onGloballyPositioned { listViewportHeight = it.size.height.toFloat() }
                     .pointerInput(local.size) {
                         awaitEachGesture {
@@ -219,7 +244,8 @@ fun XvoxQueueBoxContent(
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .xvoxBoxScroll(listState)
+                        .heightIn(max = 480.dp)
+                        .wrapContentHeight()
                 ) {
                     itemsIndexed(
                         items = local,

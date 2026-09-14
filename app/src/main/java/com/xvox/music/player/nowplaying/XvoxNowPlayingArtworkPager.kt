@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -24,8 +25,8 @@ import kotlin.math.abs
 /**
  * Full-queue smooth HorizontalPager.
  * Rests cleanly with 11dp side gaps and 11dp page spacing.
- * Enables ultra-fast continuous swiping, non-blocking rapid button navigation,
- * and live real-time backdrop palette crossfading.
+ * Enables ultra-fast 120fps continuous swiping, non-blocking rapid button navigation,
+ * and live real-time backdrop palette crossfading with zero lag.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -65,7 +66,7 @@ fun XvoxNowPlayingArtworkPager(
         targetPage = nextTarget
 
         if (targetPage in queue.indices) {
-            pager.animateScrollToPage(targetPage, animationSpec = tween(220, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(targetPage, animationSpec = tween(200, easing = FastOutSlowInEasing))
         }
     }
 
@@ -73,7 +74,7 @@ fun XvoxNowPlayingArtworkPager(
     LaunchedEffect(currentIndex) {
         targetPage = currentIndex
         if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
-            pager.animateScrollToPage(currentIndex, animationSpec = tween(240, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(currentIndex, animationSpec = tween(220, easing = FastOutSlowInEasing))
         }
     }
 
@@ -94,12 +95,12 @@ fun XvoxNowPlayingArtworkPager(
     }
 
     // Debounced playback commit during rapid continuous flipping:
-    // Single swipe/button switches after short settle (260ms).
+    // Single swipe/button switches after short settle (240ms).
     // Rapid continuous swiping keeps playing current song until user stops, then plays target song!
     LaunchedEffect(pager, queue) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
             if (page in queue.indices && page != currentIndex) {
-                delay(260)
+                delay(240)
                 if (pager.settledPage == page) {
                     settled(page)
                 }
@@ -109,7 +110,11 @@ fun XvoxNowPlayingArtworkPager(
 
     HorizontalPager(
         state = pager,
-        beyondViewportPageCount = 1,
+        beyondViewportPageCount = 3,
+        flingBehavior = PagerDefaults.flingBehavior(
+            state = pager,
+            snapAnimationSpec = tween(200, easing = FastOutSlowInEasing)
+        ),
         contentPadding = PaddingValues(horizontal = 11.dp),
         pageSpacing = 11.dp,
         modifier = modifier.fillMaxSize(),

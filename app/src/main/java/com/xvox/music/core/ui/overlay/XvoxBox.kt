@@ -14,8 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -42,59 +40,7 @@ import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
 
-class XvoxBoxScrollState {
-    var isScrollable by mutableStateOf(false)
-    var scrollFraction by mutableFloatStateOf(0f)
-    var visibleFraction by mutableFloatStateOf(1f)
-
-    fun update(scrollOffset: Float, maxScroll: Float, viewportSize: Float) {
-        if (maxScroll > 1f && viewportSize > 0f) {
-            isScrollable = true
-            scrollFraction = (scrollOffset / maxScroll).coerceIn(0f, 1f)
-            visibleFraction = (viewportSize / (viewportSize + maxScroll)).coerceIn(0.12f, 0.85f)
-        } else {
-            isScrollable = false
-            scrollFraction = 0f
-            visibleFraction = 1f
-        }
-    }
-}
-
-val LocalXvoxBoxScrollState = compositionLocalOf<XvoxBoxScrollState?> { null }
-
-@Composable
-fun Modifier.xvoxBoxScroll(scrollState: ScrollState): Modifier {
-    val boxScroll = LocalXvoxBoxScrollState.current ?: return this
-    LaunchedEffect(scrollState.value, scrollState.maxValue, scrollState.viewportSize) {
-        val max = if (scrollState.maxValue == Int.MAX_VALUE) 0f else scrollState.maxValue.toFloat()
-        boxScroll.update(
-            scrollOffset = scrollState.value.toFloat(),
-            maxScroll = max,
-            viewportSize = scrollState.viewportSize.toFloat()
-        )
-    }
-    return this
-}
-
-@Composable
-fun Modifier.xvoxBoxScroll(listState: LazyListState): Modifier {
-    val boxScroll = LocalXvoxBoxScrollState.current ?: return this
-    val layoutInfo = listState.layoutInfo
-    LaunchedEffect(layoutInfo.totalItemsCount, layoutInfo.visibleItemsInfo.size, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        val total = layoutInfo.totalItemsCount
-        val visible = layoutInfo.visibleItemsInfo.size
-        if (total > visible && total > 0) {
-            val offset = listState.firstVisibleItemIndex.toFloat() + (listState.firstVisibleItemScrollOffset.toFloat() / 100f)
-            val max = (total - visible).coerceAtLeast(1).toFloat()
-            boxScroll.update(offset, max, visible.toFloat())
-        } else {
-            boxScroll.update(0f, 0f, 100f)
-        }
-    }
-    return this
-}
-
-/** One app-wide modal: solid opaque card (0 transparency), never see-through with synchronized backdrop dimming and adaptive left scroll pill. */
+/** One app-wide modal: solid opaque card with 100% adaptive content height (capped at max 90% screen height). */
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
@@ -107,13 +53,11 @@ fun XvoxBox(
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
     val swallowInteraction = remember { MutableInteractionSource() }
-    val boxScrollState = remember { XvoxBoxScrollState() }
 
     val scrimAlpha by animateFloatAsState(
         targetValue = if (visible) 0.40f else 0f,
@@ -159,7 +103,9 @@ fun XvoxBox(
                     ),
                 contentAlignment = if (mini) Alignment.BottomCenter else Alignment.Center
             ) {
-                val availableHeight = maxHeight
+                // Adaptive height up to maximum 90% of screen height
+                val maxBoxHeight = maxHeight * 0.90f
+
                 AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(220, easing = XvoxBoxEasing)) + if (mini) slideInVertically(tween(220, easing = XvoxBoxEasing)) { it }
@@ -175,27 +121,13 @@ fun XvoxBox(
                         Modifier
                             .widthIn(max = if (mini) 520.dp else 560.dp)
                             .fillMaxWidth()
-                            .heightIn(max = availableHeight)
+                            .heightIn(max = maxBoxHeight)
+                            .wrapContentHeight()
                             .clip(shape)
                             .background(boxFill)
                             .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {
-                        if (mini) {
-                            Box(
-                                Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .padding(top = 9.dp, bottom = 5.dp)
-                            ) {
-                                Box(
-                                    Modifier
-                                        .size(width = 38.dp, height = 4.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.cardBorder.copy(alpha = 0.9f))
-                                )
-                            }
-                        }
-
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -256,59 +188,14 @@ fun XvoxBox(
                                 .background(colors.cardBorder.copy(alpha = 0.55f))
                         )
 
-                        CompositionLocalProvider(LocalXvoxBoxScrollState provides boxScrollState) {
-                            Box(
-                                Modifier
-                                    .weight(1f, fill = false)
-                                    .fillMaxWidth()
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            start = if (boxScrollState.isScrollable) 16.dp else 14.dp,
-                                            end = 14.dp,
-                                            top = 10.dp,
-                                            bottom = 14.dp
-                                        )
-                                ) {
-                                    content()
-                                }
-
-                                // Left-side dynamic pill indicator (visible only when content is scrollable)
-                                if (boxScrollState.isScrollable) {
-                                    BoxWithConstraints(
-                                        Modifier
-                                            .align(Alignment.CenterStart)
-                                            .fillMaxHeight()
-                                            .padding(start = 5.dp, top = 10.dp, bottom = 14.dp)
-                                            .width(3.5.dp)
-                                    ) {
-                                        val totalH = maxHeight
-                                        val pillHeight = (totalH * boxScrollState.visibleFraction).coerceIn(24.dp, (totalH - 4.dp).coerceAtLeast(24.dp))
-                                        val maxTravel = (totalH - pillHeight).coerceAtLeast(0.dp)
-                                        val currentOffset = maxTravel * boxScrollState.scrollFraction
-
-                                        // Subtle background track
-                                        Box(
-                                            Modifier
-                                                .fillMaxHeight()
-                                                .width(3.5.dp)
-                                                .clip(CircleShape)
-                                                .background(colors.cardBorder.copy(alpha = 0.20f))
-                                        )
-
-                                        // Active sliding indicator pill
-                                        Box(
-                                            Modifier
-                                                .offset(y = currentOffset)
-                                                .size(width = 3.5.dp, height = pillHeight)
-                                                .clip(CircleShape)
-                                                .background(colors.primaryAccent.copy(alpha = 0.88f))
-                                        )
-                                    }
-                                }
-                            }
+                        // Adaptive content container: hugs exact content height with no forced expansion
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .padding(14.dp)
+                        ) {
+                            content()
                         }
 
                         if (bottomAction != null) {
@@ -326,3 +213,6 @@ fun XvoxBox(
         }
     }
 }
+
+fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier = this
+
