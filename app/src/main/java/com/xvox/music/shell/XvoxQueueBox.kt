@@ -63,14 +63,11 @@ fun XvoxQueueBoxContent(
     var draggingSong by remember { mutableStateOf<Song?>(null) }
     var initialDragIndex by remember { mutableIntStateOf(-1) }
     var currentDragIndex by remember { mutableIntStateOf(-1) }
-    var initialTouchY by remember { mutableFloatStateOf(0f) }
-    var currentTouchY by remember { mutableFloatStateOf(0f) }
-    var accumulatedScrollDistance by remember { mutableFloatStateOf(0f) }
+    var touchOffsetInCard by remember { mutableFloatStateOf(0f) }
     var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
-    val itemTotalHeightPx = with(density) { (RowHeight + RowSpacing).toPx() }
 
     LaunchedEffect(queue) {
         if (draggingSong == null && local.toList() != queue) {
@@ -79,28 +76,42 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Mathematically stable slot swapping with hysteresis (zero glitching in middle area)
+    // Stepwise slot swapping with hysteresis
     fun checkAndSwapSlots() {
-        if (draggingSong == null || initialDragIndex < 0 || itemTotalHeightPx <= 0f) return
-        val totalDeltaY = (currentTouchY - initialTouchY) + accumulatedScrollDistance
-        val currentSlotDelta = (currentDragIndex - initialDragIndex) * itemTotalHeightPx
-        val relativeDelta = totalDeltaY - currentSlotDelta
-        val threshold = itemTotalHeightPx * 0.48f
+        if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f) return
+        val cardCenterY = dragCardOffsetY + rowHeightPx / 2f
+        val visibleItems = listState.layoutInfo.visibleItemsInfo
 
-        if (relativeDelta > threshold && currentDragIndex < local.lastIndex) {
-            val from = currentDragIndex
-            val to = currentDragIndex + 1
-            val item = local.removeAt(from)
-            local.add(to, item)
-            currentDragIndex = to
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        } else if (relativeDelta < -threshold && currentDragIndex > 0) {
-            val from = currentDragIndex
-            val to = currentDragIndex - 1
-            val item = local.removeAt(from)
-            local.add(to, item)
-            currentDragIndex = to
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        // Check if moving down
+        if (currentDragIndex < local.lastIndex) {
+            val nextItem = visibleItems.firstOrNull { it.index == currentDragIndex + 1 }
+            if (nextItem != null && cardCenterY > (nextItem.offset + nextItem.size * 0.50f)) {
+                val from = currentDragIndex
+                val to = currentDragIndex + 1
+                if (from in local.indices && to in local.indices) {
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    return
+                }
+            }
+        }
+
+        // Check if moving up
+        if (currentDragIndex > 0) {
+            val prevItem = visibleItems.firstOrNull { it.index == currentDragIndex - 1 }
+            if (prevItem != null && cardCenterY < (prevItem.offset + prevItem.size * 0.50f)) {
+                val from = currentDragIndex
+                val to = currentDragIndex - 1
+                if (from in local.indices && to in local.indices) {
+                    val item = local.removeAt(from)
+                    local.add(to, item)
+                    currentDragIndex = to
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    return
+                }
+            }
         }
     }
 
@@ -129,7 +140,6 @@ fun XvoxQueueBoxContent(
                 if (strength != 0f) {
                     val delta = strength * maxScrollSpeedPxPerSec * seconds
                     listState.scrollBy(delta)
-                    accumulatedScrollDistance += delta
                     checkAndSwapSlots()
                 }
             }
@@ -157,14 +167,13 @@ fun XvoxQueueBoxContent(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val downY = down.position.y
 
-                            // Check if down was over a visible item
+                            // Find exact item touched
                             val hitItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
                                 downY >= item.offset && downY <= (item.offset + item.size)
                             }
 
                             if (hitItem != null && hitItem.index in local.indices) {
-                                // Long press detection
-                                val longPressTimeout = 380L
+                                val longPressTimeout = 360L
                                 var passedSlop = false
                                 val longPressed = withTimeoutOrNull(longPressTimeout) {
                                     while (true) {
@@ -172,7 +181,7 @@ fun XvoxQueueBoxContent(
                                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                         if (!change.pressed) break
                                         val movedDistance = kotlin.math.abs(change.position.y - downY)
-                                        if (movedDistance > 14.dp.toPx()) {
+                                        if (movedDistance > 12.dp.toPx()) {
                                             passedSlop = true
                                             break
                                         }
@@ -187,10 +196,8 @@ fun XvoxQueueBoxContent(
                                         draggingSong = song
                                         initialDragIndex = hitItem.index
                                         currentDragIndex = hitItem.index
-                                        initialTouchY = downY
-                                        currentTouchY = downY
-                                        accumulatedScrollDistance = 0f
-                                        dragCardOffsetY = (downY - rowHeightPx / 2f).coerceIn(0f, listViewportHeight - rowHeightPx)
+                                        touchOffsetInCard = downY - hitItem.offset.toFloat()
+                                        dragCardOffsetY = hitItem.offset.toFloat()
                                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
 
                                         // Drag loop: persists unconditionally across the whole queue
@@ -203,8 +210,10 @@ fun XvoxQueueBoxContent(
                                             }
                                             change.consume()
                                             val currentY = change.position.y
-                                            currentTouchY = currentY
-                                            dragCardOffsetY = (currentY - rowHeightPx / 2f).coerceIn(0f, listViewportHeight - rowHeightPx)
+                                            dragCardOffsetY = (currentY - touchOffsetInCard).coerceIn(
+                                                0f,
+                                                (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
+                                            )
                                             checkAndSwapSlots()
                                         }
 
@@ -276,7 +285,7 @@ fun XvoxQueueBoxContent(
                     }
                 }
 
-                // Floating Dragged Card Overlay (Never disappears, clamped cleanly within queue box boundaries)
+                // Floating Dragged Card Overlay (Picks up at exact 1-to-1 pixel offset, zero jump!)
                 if (draggingSong != null) {
                     val activeSong = draggingSong!!
                     Box(

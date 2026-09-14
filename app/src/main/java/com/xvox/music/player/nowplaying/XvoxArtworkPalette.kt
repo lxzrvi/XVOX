@@ -36,9 +36,7 @@ class XvoxArtworkPaletteLoader(
                 return extracted
             }
         }
-        val fb = fallback(songKey)
-        cache.put(key, fb)
-        return fb
+        return fallback(songKey)
     }
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
@@ -52,7 +50,9 @@ class XvoxArtworkPaletteLoader(
                     ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_512")
                     ?: XvoxArtworkCache.get("${XvoxArtworkCache.keyFor(uri)}_256")
                 if (cached != null) {
-                    return@withContext extract(cached)
+                    val extracted = extract(cached)
+                    cache.put(key, extracted)
+                    return@withContext extracted
                 }
             }
 
@@ -61,13 +61,15 @@ class XvoxArtworkPaletteLoader(
                     val loader = SingletonImageLoader.get(appContext)
                     val req = ImageRequest.Builder(appContext)
                         .data(uri)
-                        .size(160, 160)
+                        .size(240, 240)
                         .allowHardware(false)
                         .build()
                     val res = loader.execute(req)
                     (res.image as? coil3.BitmapImage)?.bitmap
                 }.getOrNull()?.let { bitmap ->
-                    return@withContext extract(bitmap)
+                    val extracted = extract(bitmap)
+                    cache.put(key, extracted)
+                    return@withContext extracted
                 }
             }
 
@@ -80,23 +82,22 @@ class XvoxArtworkPaletteLoader(
 
     private fun extract(bitmap: Bitmap): Color {
         val palette = Palette.from(bitmap)
-            .maximumColorCount(24)
-            .clearFilters()
+            .maximumColorCount(32)
             .generate()
 
         val swatch = palette.dominantSwatch
             ?: palette.vibrantSwatch
-            ?: palette.mutedSwatch
             ?: palette.darkVibrantSwatch
+            ?: palette.mutedSwatch
             ?: palette.lightVibrantSwatch
 
         if (swatch != null) {
             val rgb = swatch.rgb
             val hsv = FloatArray(3)
             android.graphics.Color.colorToHSV(rgb, hsv)
-            // Ensure vibrant, accurate tone with balanced luminance so both primary and secondary texts pop
-            hsv[1] = hsv[1].coerceIn(0.35f, 0.85f)
-            hsv[2] = hsv[2].coerceIn(0.40f, 0.68f)
+            // Ensure pure cover color tone with balanced luminance so all text is clearly visible
+            hsv[1] = hsv[1].coerceIn(0.30f, 0.90f)
+            hsv[2] = hsv[2].coerceIn(0.38f, 0.65f)
             return Color(android.graphics.Color.HSVToColor(hsv))
         }
 

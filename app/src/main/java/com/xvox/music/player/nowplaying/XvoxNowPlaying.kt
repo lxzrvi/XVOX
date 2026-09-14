@@ -172,9 +172,12 @@ fun XvoxNowPlaying(
         val atFirst = currentIndex <= 0
         if (atFirst && repeatMode != RepeatMode.ALL) return
 
-        val target = if (atFirst) queue.lastIndex else currentIndex - 1
-        onPlayQueueIndex(target)
-        navigationRequest--
+        if (currentMode >= 1) {
+            val target = if (atFirst) queue.lastIndex else currentIndex - 1
+            onPlayQueueIndex(target)
+        } else {
+            navigationRequest--
+        }
     }
 
     fun requestNext() {
@@ -183,9 +186,12 @@ fun XvoxNowPlaying(
         val atLast = currentIndex >= queue.lastIndex
         if (atLast && repeatMode != RepeatMode.ALL) return
 
-        val target = if (atLast) 0 else currentIndex + 1
-        onPlayQueueIndex(target)
-        navigationRequest++
+        if (currentMode >= 1) {
+            val target = if (atLast) 0 else currentIndex + 1
+            onPlayQueueIndex(target)
+        } else {
+            navigationRequest++
+        }
     }
 
     LaunchedEffect(song.id) {
