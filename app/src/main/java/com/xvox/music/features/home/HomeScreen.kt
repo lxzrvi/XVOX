@@ -257,19 +257,7 @@ fun HomeScreen(
             }
             playlist != null -> {
                 {
-                    showPlaylistActionsOverlay(
-                        overlays = overlays,
-                        playlist = playlist,
-                        songs = state.songs,
-                        onDelete = {
-                            viewModel.deletePlaylist(playlist.id)
-                            overlays.hideBox()
-                        },
-                        onExport = {
-                            val exported = XvoxPlaylistBackup.exportSingle(context, playlist, state.songs)
-                            overlays.showP(if (exported) "Playlist exported" else "Export failed")
-                        }
-                    )
+                    showPlaylistActions(overlays, viewModel, playlist) {}
                 }
             }
             selectedArtist != null -> null
