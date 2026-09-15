@@ -523,8 +523,8 @@ fun ArtistInfoDialog(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                         onClick = {
-                                            customPhotoUri = artUri
-                                            onSaveArtistPhoto(artist.name, Uri.parse(artUri))
+                                            customPhotoUri = artUri.toString()
+                                            onSaveArtistPhoto(artist.name, artUri)
                                         }
                                     )
                             ) {
