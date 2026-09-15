@@ -292,6 +292,7 @@ private fun PlaylistLayoutEditor(
     val prefs = remember(context) { com.xvox.music.data.preferences.UserPreferencesRepository(context) }
     val homeConfig by prefs.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val state by settingsViewModel.state.collectAsState()
+    val isMerged = com.xvox.music.features.home.HomeSections.PLAYLISTS in homeConfig.mergedSections
     val auto = state.playlistLongHeight <= 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -310,7 +311,7 @@ private fun PlaylistLayoutEditor(
 
         Spacer(Modifier.height(12.dp))
 
-        if (state.homeMerge) {
+        if (isMerged) {
             Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
 
@@ -337,7 +338,7 @@ private fun PlaylistLayoutEditor(
             }
         }
 
-        if (!state.homeMerge || state.playlistCardOrientation == "vertical") {
+        if (!isMerged || state.playlistCardOrientation == "vertical") {
             Spacer(Modifier.height(14.dp))
             Text(
                 text = if (auto) "Height · Auto" else "Height · ${state.playlistLongHeight} dp",
@@ -367,8 +368,10 @@ private fun PlaylistLayoutEditor(
                 Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
             }
             androidx.compose.material3.Switch(
-                checked = state.homeMerge,
-                onCheckedChange = { settingsViewModel.setHomeMerge(it) },
+                checked = isMerged,
+                onCheckedChange = {
+                    settingsViewModel.setHomeSectionMerged(com.xvox.music.features.home.HomeSections.PLAYLISTS, it)
+                },
                 colors = androidx.compose.material3.SwitchDefaults.colors(
                     checkedThumbColor = colors.background,
                     checkedTrackColor = colors.primaryAccent,
@@ -378,7 +381,7 @@ private fun PlaylistLayoutEditor(
             )
         }
 
-        if (state.homeMerge) {
+        if (isMerged) {
             com.xvox.music.features.home.HomeSectionReorderControls(
                 config = homeConfig,
                 viewModel = homeViewModel

@@ -37,6 +37,7 @@ data class SettingsState(
     /** Size currently open in the widget editor, so the preview shows the size being edited. */
     val widgetPreviewSize: String = "3x1",
     val homeMerge: Boolean = false,
+    val homeMergedSections: Set<String> = emptySet(),
     val homeSectionOrder: List<String> = com.xvox.music.features.home.HomeSections.defaultOrder,
     val homeHiddenSections: Set<String> = emptySet(),
     val crossfadeSmart: Boolean = true,

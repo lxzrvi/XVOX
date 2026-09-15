@@ -8,6 +8,7 @@ data class HomePresentation(
     val hideRecents: Boolean = false,
     val recentsPlacement: String = "bottom",
     val merge: Boolean = false,
+    val mergedSections: Set<String> = emptySet(),
     val order: List<String> = HomeSections.defaultOrder,
     val hidden: Set<String> = emptySet(),
     val playlistStyle: String = "long",
@@ -60,7 +61,7 @@ object HomeSections {
             (section == SPLIT && config.hideSplit) ||
             (section == RECENT && config.hideRecents) ||
             (section in config.hidden) ||
-            (!config.merge && section != ALL && section != RECENT)
+            (section != ALL && section != RECENT && section !in config.mergedSections)
         }
     }
 

@@ -34,6 +34,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.lastSettingsTab.collect { v -> _state.update { it.copy(lastSettingsTab = v) } } }
             launch { prefs.widgetSizes.collect { v -> _state.update { it.copy(widgetSizes = v) } } }
             launch { prefs.homeMerge.collect { v -> _state.update { it.copy(homeMerge = v) } } }
+            launch { prefs.homeMergedSections.collect { v -> _state.update { it.copy(homeMergedSections = v) } } }
             launch { prefs.homeSectionOrder.collect { v -> _state.update { it.copy(homeSectionOrder = v) } } }
             launch { prefs.homeHiddenSections.collect { v -> _state.update { it.copy(homeHiddenSections = v) } } }
             launch { prefs.crossfadeSmart.collect { v -> _state.update { it.copy(crossfadeSmart = v) } } }
@@ -142,6 +143,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setWidgetCustomization(value: com.xvox.music.widget.WidgetCustomization) =
         updateWidget { value }
     fun setHomeMerge(value: Boolean) = viewModelScope.launch { prefs.setHomeMerge(value) }
+    fun setHomeSectionMerged(id: String, merged: Boolean) = viewModelScope.launch { prefs.setHomeSectionMerged(id, merged) }
     fun moveHomeSection(from: Int, to: Int) = viewModelScope.launch {
         val order = _state.value.homeSectionOrder.toMutableList()
         if (from !in order.indices || to !in order.indices) return@launch

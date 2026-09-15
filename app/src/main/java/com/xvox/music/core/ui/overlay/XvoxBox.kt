@@ -103,8 +103,8 @@ fun XvoxBox(
                     ),
                 contentAlignment = if (mini) Alignment.BottomCenter else Alignment.Center
             ) {
-                // Adaptive height up to maximum 80% of screen height
-                val maxBoxHeight = maxHeight * 0.80f
+                // Adaptive height up to maximum 90% of screen height
+                val maxBoxHeight = maxHeight * 0.90f
 
                 AnimatedVisibility(
                     visible = visible,

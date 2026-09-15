@@ -57,6 +57,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomePresentation
@@ -93,11 +94,20 @@ fun ArtistInfoDialog(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
     var editing by remember(artist.name) { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var duplicateTargetArtist by remember { mutableStateOf<String?>(null) }
     var croppingUri by remember { mutableStateOf<Uri?>(null) }
     var customPhotoUri by remember(artist.customImageUri) { mutableStateOf(artist.customImageUri) }
+
+    val isMergedArtist = remember(artist.name, artist.songs, homeViewModel) {
+        val renames = homeViewModel?.state?.value?.artistRenames.orEmpty()
+        renames.any { (k, v) ->
+            (v.equals(artist.name, ignoreCase = true) && !k.equals(artist.name, ignoreCase = true)) ||
+            (k.equals(artist.name, ignoreCase = true) && !v.equals(artist.name, ignoreCase = true))
+        } || artist.songs.any { it.artist.isNotBlank() && !it.artist.equals(artist.name, ignoreCase = true) }
+    }
 
     var nameField by remember(artist.name) {
         mutableStateOf(
@@ -272,6 +282,56 @@ fun ArtistInfoDialog(
                     .xvoxBoxScroll(scrollState)
                     .padding(vertical = 4.dp)
             ) {
+                if (isMergedArtist) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.cardElevated)
+                            .clickable {
+                                haptics.tap()
+                                homeViewModel?.unmergeArtist(artist.name)
+                                overlays.showP("Artist \"${artist.name}\" unmerged")
+                                onDismiss()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_split),
+                                contentDescription = "Unmerge Artist",
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Unmerge Artist",
+                                    color = colors.primaryAccent,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Separate merged songs back to original artists",
+                                    color = colors.secondaryText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_caret_right),
+                            contentDescription = null,
+                            tint = colors.mutedText,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+
                 // Header (like Playlist edit box)
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -140,19 +140,14 @@ fun HomeScreen(
             direction = config.artistDirection,
             gap = config.artistGap,
             hideText = config.artistHideText,
-            mergedToHome = config.merge && HomeSections.ARTISTS in HomeSections.visible(config),
+            mergedToHome = HomeSections.ARTISTS in config.mergedSections,
             onColumnsChange = { viewModel.setArtistColumns(it) },
             onRowsChange = { viewModel.setArtistRows(it) },
             onDirectionChange = { viewModel.setArtistDirection(it) },
             onGapChange = { viewModel.setArtistGap(it) },
             onHideTextChange = { viewModel.setArtistHideText(it) },
             onMergeToHomeChange = { mergeOn ->
-                if (mergeOn) {
-                    viewModel.setHomeMerge(true)
-                    viewModel.setHomeSectionVisible(HomeSections.ARTISTS, true)
-                } else {
-                    viewModel.setHomeSectionVisible(HomeSections.ARTISTS, false)
-                }
+                viewModel.setHomeSectionMerged(HomeSections.ARTISTS, mergeOn)
             },
             onRenameArtist = { oldName, newName, merge ->
                 viewModel.renameArtist(oldName, newName, merge)
@@ -212,8 +207,8 @@ fun HomeScreen(
         if (!state.loading) onQueueReady(state.songs)
     }
 
-    LaunchedEffect(homeResetKey) {
-        if (homeResetKey > 0L) {
+    LaunchedEffect(homeResetKey, scrollResetKey) {
+        if (homeResetKey > 0L || scrollResetKey > 0L) {
             selectedSongIds = emptySet()
             selectedArtist = null
             setSelectedPlaylistId(null)
@@ -429,8 +424,8 @@ fun HomeScreen(
             label = "libraryFade"
         ) { target ->
             val listState = rememberLazyListState()
-            LaunchedEffect(homeResetKey) {
-                if (homeResetKey > 0L) {
+            LaunchedEffect(homeResetKey, scrollResetKey) {
+                if (homeResetKey > 0L || scrollResetKey > 0L) {
                     listState.scrollToItem(0)
                 }
             }

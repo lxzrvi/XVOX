@@ -34,7 +34,7 @@ fun HomeHeaderIcon(
         HomeHeaderIconType.HEART_OUTLINE -> R.drawable.ic_xvox_heart_outline
         HomeHeaderIconType.PLAYLIST -> R.drawable.ic_xvox_playlist
         HomeHeaderIconType.SONGS -> R.drawable.ic_xvox_music_note
-        HomeHeaderIconType.ARTIST_OUTLINE -> R.drawable.ic_xvox_microphone_outline
+        HomeHeaderIconType.ARTIST_OUTLINE -> R.drawable.ic_xvox_microphone
         HomeHeaderIconType.ARTIST_FILLED -> R.drawable.ic_xvox_microphone
     }
 

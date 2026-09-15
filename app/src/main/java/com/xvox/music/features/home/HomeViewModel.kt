@@ -424,6 +424,15 @@ class HomeViewModel(
         refresh()
     }
 
+    fun unmergeArtist(artistName: String) = viewModelScope.launch {
+        preferencesRepository.unmergeArtist(artistName)
+        refresh()
+    }
+
+    fun setHomeSectionMerged(id: String, merged: Boolean) = viewModelScope.launch {
+        preferencesRepository.setHomeSectionMerged(id, merged)
+    }
+
     fun addHiddenSearchArtist(artist: String) = viewModelScope.launch {
         preferencesRepository.addHiddenSearchArtist(artist)
     }

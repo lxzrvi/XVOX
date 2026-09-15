@@ -85,8 +85,7 @@ fun XvoxMainShell(
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
-    val mergedHome by homePreferences.homeMerge.collectAsState(initial = false)
-    val hiddenHomeSections by homePreferences.homeHiddenSections.collectAsState(initial = emptySet())
+    val homeConfig by homePreferences.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
@@ -107,7 +106,7 @@ fun XvoxMainShell(
     // Bumped on every tab switch so each freshly opened tab lands at the top of its content.
     var tabEpoch by remember { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(mergedHome) {
+    LaunchedEffect(homeConfig.mergedSections) {
         hoistedSelectedPlaylistId = null
         homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
     }
@@ -323,9 +322,9 @@ fun XvoxMainShell(
                 animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
             ) + fadeOut(tween(220))
         ) {
-            val likedMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.LIKED !in hiddenHomeSections
-            val playlistsMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.PLAYLISTS !in hiddenHomeSections
-            val artistsMergedToHome = mergedHome && com.xvox.music.features.home.HomeSections.ARTISTS !in hiddenHomeSections
+            val likedMergedToHome = com.xvox.music.features.home.HomeSections.LIKED in homeConfig.mergedSections
+            val playlistsMergedToHome = com.xvox.music.features.home.HomeSections.PLAYLISTS in homeConfig.mergedSections
+            val artistsMergedToHome = com.xvox.music.features.home.HomeSections.ARTISTS in homeConfig.mergedSections
 
             XvoxShellTopHeader(
                 profile = homeState.profile,
@@ -396,9 +395,10 @@ fun XvoxMainShell(
             XvoxBottomBar(
                 selected = destination,
                 onSelected = { next ->
-                    if (destination == XvoxDestination.HOME && next == XvoxDestination.HOME) {
+                    if (next == XvoxDestination.HOME) {
                         hoistedSelectedPlaylistId = null
                         homeResetKey = System.currentTimeMillis()
+                        homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
                     }
                     if (next != destination) {
                         tabEpoch++

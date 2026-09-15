@@ -159,7 +159,7 @@ fun LikedSongsLayoutBoxContent(
 ) {
     val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
-    val isMerged = config.merge && HomeSections.LIKED !in config.hidden
+    val isMerged = HomeSections.LIKED in config.mergedSections
 
     Column(
         modifier = Modifier
@@ -184,12 +184,7 @@ fun LikedSongsLayoutBoxContent(
             Switch(
                 checked = isMerged,
                 onCheckedChange = { mergeOn ->
-                    if (mergeOn) {
-                        viewModel.setHomeMerge(true)
-                        viewModel.setHomeSectionVisible(HomeSections.LIKED, true)
-                    } else {
-                        viewModel.setHomeSectionVisible(HomeSections.LIKED, false)
-                    }
+                    viewModel.setHomeSectionMerged(HomeSections.LIKED, mergeOn)
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = colors.background,
@@ -200,7 +195,7 @@ fun LikedSongsLayoutBoxContent(
             )
         }
 
-        if (isMerged || config.merge) {
+        if (isMerged) {
             HomeSectionReorderControls(config = config, viewModel = viewModel)
         }
     }

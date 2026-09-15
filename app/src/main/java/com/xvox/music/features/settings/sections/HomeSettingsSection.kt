@@ -190,8 +190,9 @@ fun HomeSettingsSection(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     state.homeSectionOrder.forEachIndexed { index, section ->
-                        val visible = section !in state.homeHiddenSections &&
-                            (section != HomeSections.RECENT || !state.hideRecentlyPlayed)
+                        val visible = if (section == HomeSections.ALL) true
+                        else if (section == HomeSections.RECENT) !state.hideRecentlyPlayed
+                        else section in state.homeMergedSections && section !in state.homeHiddenSections
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -205,6 +206,7 @@ fun HomeSettingsSection(
                                 onCheckedChange = {
                                     haptics.tap()
                                     viewModel.setHomeSectionVisible(section, it)
+                                    viewModel.setHomeSectionMerged(section, it)
                                 },
                                 colors = CheckboxDefaults.colors(
                                     checkedColor = colors.primaryAccent,

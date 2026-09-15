@@ -58,6 +58,7 @@ class UserPreferencesRepository(
         val hiddenSearchArtists = stringPreferencesKey("hidden_search_artists")
         val hiddenSearchPlaylists = stringPreferencesKey("hidden_search_playlists")
         val homeMerge = booleanPreferencesKey("home_merge")
+        val homeMergedSections = stringPreferencesKey("home_merged_sections")
         val homeSectionOrder = stringPreferencesKey("home_section_order")
         val homeHiddenSections = stringPreferencesKey("home_hidden_sections")
         val crossfadeSmart = booleanPreferencesKey("crossfade_smart")
@@ -226,6 +227,17 @@ class UserPreferencesRepository(
     /** 0 = original proportional height; otherwise an explicit dp height for long playlist cards. */
     val playlistLongHeight: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.playlistLongHeight] ?: 0).coerceIn(0, 260) }.distinctUntilChanged()
     val homeMerge: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.homeMerge] ?: false }.distinctUntilChanged()
+    val homeMergedSections: Flow<Set<String>> = context.xvoxDataStore.data.map {
+        val raw = it[Keys.homeMergedSections]
+        if (raw != null) {
+            raw.split(",").filter { id -> id.isNotBlank() && id in HomeSections.defaultOrder }.toSet()
+        } else if (it[Keys.homeMerge] == true) {
+            val hidden = it[Keys.homeHiddenSections].orEmpty().split(",").toSet()
+            setOf(HomeSections.ARTISTS, HomeSections.LIKED, HomeSections.PLAYLISTS) - hidden
+        } else {
+            emptySet()
+        }
+    }.distinctUntilChanged()
     val homeSectionOrder: Flow<List<String>> = context.xvoxDataStore.data.map {
         val raw = it[Keys.homeSectionOrder]
         if (raw.isNullOrBlank()) HomeSections.placeRecent(HomeSections.defaultOrder, it[Keys.recentsPlacement] ?: "bottom")
@@ -236,10 +248,20 @@ class UserPreferencesRepository(
     }.distinctUntilChanged()
     val homePresentation: Flow<HomePresentation> = context.xvoxDataStore.data.map {
         val placement = it[Keys.recentsPlacement] ?: "bottom"
+        val rawMerged = it[Keys.homeMergedSections]
+        val mergedSet = if (rawMerged != null) {
+            rawMerged.split(",").filter { id -> id.isNotBlank() && id in HomeSections.defaultOrder }.toSet()
+        } else if (it[Keys.homeMerge] == true) {
+            val hidden = it[Keys.homeHiddenSections].orEmpty().split(",").toSet()
+            setOf(HomeSections.ARTISTS, HomeSections.LIKED, HomeSections.PLAYLISTS) - hidden
+        } else {
+            emptySet()
+        }
         HomePresentation(
             style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "horizontal",
             rows = (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8), hideRecents = it[Keys.hideRecentlyPlayed] ?: false,
-            recentsPlacement = placement, merge = it[Keys.homeMerge] ?: false,
+            recentsPlacement = placement, merge = mergedSet.isNotEmpty(),
+            mergedSections = mergedSet,
             order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
                 ?: HomeSections.placeRecent(HomeSections.defaultOrder, placement),
             playlistStyle = if (it[Keys.playlistStyle] == "cards") "cards" else "long", hideSplit = it[Keys.splitHideCollection] ?: false,
@@ -407,7 +429,40 @@ class UserPreferencesRepository(
     suspend fun setArtistRows(value: Int) { context.xvoxDataStore.edit { it[Keys.artistRows] = value.coerceIn(1, 8) } }
     suspend fun setArtistHideText(hide: Boolean) { context.xvoxDataStore.edit { it[Keys.artistHideText] = hide } }
     suspend fun setArtistDirection(value: String) { context.xvoxDataStore.edit { it[Keys.artistDirection] = if (value == "horizontal") "horizontal" else "vertical" } }
-    suspend fun setHomeMerge(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.homeMerge] = enabled } }
+    suspend fun setHomeMerge(enabled: Boolean) {
+        context.xvoxDataStore.edit {
+            it[Keys.homeMerge] = enabled
+            if (enabled) {
+                val current = it[Keys.homeMergedSections]?.split(",")?.filter { id -> id.isNotBlank() && id in HomeSections.defaultOrder }?.toSet().orEmpty()
+                if (current.isEmpty()) {
+                    it[Keys.homeMergedSections] = setOf(HomeSections.ARTISTS, HomeSections.LIKED, HomeSections.PLAYLISTS).joinToString(",")
+                }
+            } else {
+                it[Keys.homeMergedSections] = ""
+            }
+        }
+    }
+    suspend fun setHomeSectionMerged(id: String, merged: Boolean) {
+        if (id !in HomeSections.defaultOrder) return
+        context.xvoxDataStore.edit { prefs ->
+            val raw = prefs[Keys.homeMergedSections]
+            val current = if (raw != null) {
+                raw.split(",").filter { it.isNotBlank() && it in HomeSections.defaultOrder }.toSet()
+            } else if (prefs[Keys.homeMerge] == true) {
+                val hidden = prefs[Keys.homeHiddenSections].orEmpty().split(",").toSet()
+                setOf(HomeSections.ARTISTS, HomeSections.LIKED, HomeSections.PLAYLISTS) - hidden
+            } else {
+                emptySet()
+            }
+            val updated = if (merged) current + id else current - id
+            prefs[Keys.homeMergedSections] = updated.joinToString(",")
+            prefs[Keys.homeMerge] = updated.isNotEmpty()
+            if (merged) {
+                val hidden = prefs[Keys.homeHiddenSections].orEmpty().split(",").filter { it.isNotBlank() }.toSet()
+                prefs[Keys.homeHiddenSections] = (hidden - id).joinToString(",")
+            }
+        }
+    }
     suspend fun setHomeSectionOrder(order: List<String>) {
         context.xvoxDataStore.edit {
             val normalized = HomeSections.normalize(order)
@@ -853,6 +908,29 @@ class UserPreferencesRepository(
                 }
             }
             prefs[Keys.artistRenames] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    suspend fun unmergeArtist(artistName: String) {
+        context.xvoxDataStore.edit { prefs ->
+            val raw = prefs[Keys.artistRenames].orEmpty()
+            if (raw.isBlank()) return@edit
+            val map = raw.split(";").mapNotNull { entry ->
+                val parts = entry.split("=", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }.toMap().toMutableMap()
+
+            val keysToRemove = map.filter { (k, v) ->
+                k.equals(artistName, ignoreCase = true) || v.equals(artistName, ignoreCase = true)
+            }.keys
+
+            keysToRemove.forEach { map.remove(it) }
+
+            if (map.isEmpty()) {
+                prefs.remove(Keys.artistRenames)
+            } else {
+                prefs[Keys.artistRenames] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+            }
         }
     }
 
