@@ -76,14 +76,16 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        val isArtistSource = playingSource.startsWith("Artist · ") || playingSource.startsWith("Playing by ")
+        val isArtistSource = playingSource.startsWith("Artist · ") ||
+                playingSource.startsWith("Playing by ") ||
+                playingSource.startsWith("Artist: ")
         val sourceTitle = if (isArtistSource) "PLAYING BY" else "PLAYING FROM"
-        val displaySource = if (playingSource.startsWith("Artist · ")) {
-            playingSource.removePrefix("Artist · ")
-        } else if (playingSource.startsWith("Playing by ")) {
-            playingSource.removePrefix("Playing by ")
-        } else {
-            playingSource
+        val displaySource = when {
+            playingSource.startsWith("Artist · ") -> playingSource.removePrefix("Artist · ")
+            playingSource.startsWith("Playing by ") -> playingSource.removePrefix("Playing by ")
+            playingSource.startsWith("Artist: ") -> playingSource.removePrefix("Artist: ")
+            playingSource.startsWith("Playing from ") -> playingSource.removePrefix("Playing from ")
+            else -> playingSource
         }
 
         Column(

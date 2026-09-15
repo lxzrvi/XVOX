@@ -166,9 +166,9 @@ class MainPlayerViewModel(
 
     fun playFromSource(song: Song, sourceQueue: List<Song>, source: String) {
         val sourcedQueue = (if (sourceQueue.isEmpty()) listOf(song) else sourceQueue).map {
-            if (it.source.isBlank()) it.copy(source = source) else it
+            it.copy(source = source)
         }
-        val targetSong = if (song.source.isBlank()) song.copy(source = source) else song
+        val targetSong = song.copy(source = source)
         controller.setQueue(sourcedQueue)
         libraryQueueSize = sourcedQueue.size
         libraryQueueSignature = queueSignature(sourcedQueue)

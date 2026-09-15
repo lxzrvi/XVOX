@@ -406,14 +406,6 @@ private fun QueueRowView(
     val cardBg = rememberSongCardColor(song, current)
     val interactionSource = remember { MutableInteractionSource() }
 
-    val sourceLabel = remember(song.source) {
-        when {
-            song.source.isNotBlank() && song.source.startsWith("Playing from ", ignoreCase = true) -> song.source
-            song.source.isNotBlank() -> "Playing from ${song.source}"
-            else -> "Playing from All Songs"
-        }
-    }
-
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
@@ -449,9 +441,9 @@ private fun QueueRowView(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "${song.artist} · $sourceLabel",
+                text = song.artist,
                 color = colors.secondaryText,
-                fontSize = 10.5.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
