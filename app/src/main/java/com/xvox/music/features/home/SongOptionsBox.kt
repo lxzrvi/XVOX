@@ -45,7 +45,6 @@ fun SongOptionsBox(
     song: Song,
     liked: Boolean,
     playlistName: String? = null,
-    /** Every playlist that already holds this song, so the menu can offer "Remove from …". */
     membership: List<Pair<String, () -> Unit>> = emptyList(),
     onAddToEach: (() -> Unit)? = null,
     onPlayNext: () -> Unit,
@@ -64,7 +63,7 @@ fun SongOptionsBox(
 ) {
     val colors = XvoxTheme.colors
 
-    // All available song menu options
+    // Clean, direct song menu options
     val options = buildList {
         add(SongOption("Play next", R.drawable.ic_xvox_play, onPlayNext))
         add(SongOption("Add to queue", R.drawable.ic_xvox_queue, onAddQueue))
@@ -75,32 +74,13 @@ fun SongOptionsBox(
                 onLiked
             )
         )
-
-        if (playlistName != null && onRemovePlaylist != null) {
-            add(SongOption("Remove from $playlistName", R.drawable.ic_xvox_delete, onRemovePlaylist))
-        } else if (membership.isNotEmpty()) {
-            membership.forEach { (name, remove) ->
-                add(SongOption("Remove from $name", R.drawable.ic_xvox_delete, remove))
-            }
-            onAddToEach?.let { add(SongOption("Add to playlist", R.drawable.ic_xvox_playlist, it)) }
-        } else {
-            add(SongOption("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist))
-        }
-
-        if (onRemoveRecent != null) {
-            add(SongOption("Remove from Recently Played", R.drawable.ic_xvox_close, onRemoveRecent))
-        }
+        add(SongOption("Add / Remove from Playlist", R.drawable.ic_xvox_playlist, onPlaylist))
 
         if (onSelect != null) {
             add(SongOption("Select", R.drawable.ic_xvox_check, onSelect))
         }
 
         add(SongOption("Info", R.drawable.ic_xvox_info, onInfo))
-
-        if (sectionSettingsLabel != null && onSectionSettings != null) {
-            add(SongOption(sectionSettingsLabel, R.drawable.ic_xvox_settings, onSectionSettings))
-        }
-
         add(SongOption("Set ringtone", R.drawable.ic_xvox_music_note, onRingtone))
         add(SongOption("Share", R.drawable.ic_xvox_share, onShare))
         add(SongOption("Delete from library", R.drawable.ic_xvox_delete, onDelete))
@@ -120,68 +100,68 @@ fun SongOptionsBox(
                 requestSize = 128,
                 modifier = Modifier
                     .size(54.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
             )
 
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 14.dp)
+                    .padding(start = 14.dp),
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = song.title,
                     color = colors.primaryText,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = song.artist,
                     color = colors.secondaryText,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
 
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 420.dp)
                 .wrapContentHeight()
         ) {
-            items(options) { option ->
+            items(options, key = { it.title }) { option ->
+                val isDelete = option.icon == R.drawable.ic_xvox_delete
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .clip(RoundedCornerShape(10.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = option.action
-                        ),
+                        )
+                        .padding(horizontal = 4.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.size(38.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(option.icon),
-                            contentDescription = null,
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
+                    Icon(
+                        painter = painterResource(option.icon),
+                        contentDescription = option.title,
+                        tint = if (isDelete) androidx.compose.ui.graphics.Color(0xFFFF5252) else colors.primaryText,
+                        modifier = Modifier.size(19.dp)
+                    )
                     Text(
                         text = option.title,
-                        color = colors.primaryText,
-                        fontSize = 13.sp
+                        color = if (isDelete) androidx.compose.ui.graphics.Color(0xFFFF5252) else colors.primaryText,
+                        fontSize = 14.sp,
+                        fontWeight = if (isDelete) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.padding(start = 14.dp)
                     )
                 }
             }

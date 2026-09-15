@@ -133,12 +133,12 @@ fun XvoxShellTopHeader(
                 visible = destination == XvoxDestination.HOME,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
-                    animationSpec = tween(220, easing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f))
-                ) + fadeIn(tween(180)),
+                    animationSpec = tween(320, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
+                ) + fadeIn(tween(260)),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
-                    animationSpec = tween(220, easing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f))
-                ) + fadeOut(tween(180))
+                    animationSpec = tween(280, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
+                ) + fadeOut(tween(220))
             ) {
                 val actionShape = RoundedCornerShape(21.dp)
 

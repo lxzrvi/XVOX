@@ -40,7 +40,7 @@ fun showPlaylistPickerOverlay(
     playlists: List<XvoxPlaylist>,
     songs: List<Song>
 ) {
-    overlays.showBox("Add to playlist") {
+    overlays.showBox("Add / Remove from Playlist") {
         PlaylistPickerBox(
             song = song,
             playlists = playlists,
@@ -158,28 +158,12 @@ fun showSongOptionsOverlay(
     val sourcedSong = if (song.source.isBlank()) song.copy(source = actualSource) else song
 
     overlays.showBox(
-        title = "Song options",
-        onSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } }
+        title = "Song options"
     ) {
         SongOptionsBox(
             song = sourcedSong,
             liked = isLiked,
             onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
-            sectionSettingsLabel = sectionSettingsLabel,
-            onSectionSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } },
-            playlistName = playlist?.name,
-            membership = playlistMembership.map { pl ->
-                pl.name to {
-                    viewModel.removeFromPlaylist(pl.id, sourcedSong) {
-                        overlays.hideBox()
-                        overlays.showP("Removed from ${pl.name}")
-                    }
-                }
-            },
-            onAddToEach = {
-                overlays.hideBox()
-                showPlaylistPickerOverlay(overlays, viewModel, sourcedSong, playlists, songs)
-            },
             onPlayNext = {
                 val msg = playerViewModel.playNextInQueue(sourcedSong)
                 overlays.hideBox()
@@ -192,51 +176,35 @@ fun showSongOptionsOverlay(
             },
             onPlaylist = {
                 overlays.hideBox()
-                showPlaylistPickerOverlay(overlays, viewModel, song, playlists, songs)
+                showPlaylistPickerOverlay(overlays, viewModel, sourcedSong, playlists, songs)
             },
-            onRemovePlaylist = playlist?.let { target ->
-                {
-                    viewModel.removeFromPlaylist(target.id, song) {
-                        overlays.hideBox()
-                        overlays.showP("Removed from ${target.name}")
-                    }
-                }
-            },
-            onRemoveRecent = if (recent) {
-                {
-                    viewModel.removeFromRecent(song)
-                    overlays.hideBox()
-                    overlays.showP("Removed from recent")
-                }
-            } else null,
             onLiked = {
-                viewModel.toggleLiked(song)
+                viewModel.toggleLiked(sourcedSong)
                 overlays.hideBox()
                 overlays.showP(if (isLiked) "Removed from liked" else "Added to liked")
             },
             onDelete = {
                 overlays.hideBox()
-                showDeleteOverlay(overlays, context, song, playerViewModel, viewModel, deleteLauncher, onPendingDelete)
+                showDeleteOverlay(overlays, context, sourcedSong, playerViewModel, viewModel, deleteLauncher, onPendingDelete)
             },
             onInfo = {
                 overlays.hideBox()
-                viewModel.loadInfo(song) { info ->
+                viewModel.loadInfo(sourcedSong) { info ->
                     overlays.showBox("Song info") { SongInfoBox(info) }
                 }
             },
             onRingtone = {
                 overlays.hideBox()
                 if (XvoxSongActions.canWriteSettings(context)) {
-                    val success = XvoxSongActions.setRingtone(context, song)
-                    overlays.showP(if (success) "Ringtone set" else "Couldn't set ringtone")
+                    val success = XvoxSongActions.setRingtone(context, sourcedSong)
+                    overlays.showP(if (success) "Ringtone set" else "Failed to set ringtone")
                 } else {
-                    XvoxSongActions.openWriteSettings(context)
-                    overlays.showP("Allow modify system settings")
+                    XvoxSongActions.requestWriteSettingsPermission(context)
                 }
             },
             onShare = {
                 overlays.hideBox()
-                XvoxSongActions.share(context, song)
+                XvoxSongActions.share(context, sourcedSong)
             }
         )
     }

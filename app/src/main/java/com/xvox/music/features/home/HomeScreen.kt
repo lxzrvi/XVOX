@@ -240,24 +240,6 @@ fun HomeScreen(
         }
         val sourcedSong = song.copy(source = actualSource)
 
-        val (settingsLabel, settingsAction) = when {
-            recent -> "Recently Played Settings" to {
-                overlays.showBox("Recently Played") {
-                    RecentLayoutBoxContent(config, viewModel)
-                }
-            }
-            selectionSource == XvoxHomeLibraryMode.LIKED -> "Liked Songs Settings" to {
-                overlays.showBox("Liked Songs") {
-                    LikedSongsLayoutBoxContent(config, viewModel)
-                }
-            }
-            else -> "All Songs Settings" to {
-                overlays.showBox("All Songs Layout") {
-                    AllSongsLayoutBoxContent(config, viewModel)
-                }
-            }
-        }
-
         showSongOptionsOverlay(
             overlays = overlays,
             context = context,
@@ -274,9 +256,7 @@ fun HomeScreen(
             songs = state.songs,
             deleteLauncher = deleteLauncher,
             onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
-            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id },
-            sectionSettingsLabel = settingsLabel,
-            onSectionSettings = settingsAction
+            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id }
         )
     }
 

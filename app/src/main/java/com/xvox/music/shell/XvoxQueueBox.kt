@@ -312,7 +312,6 @@ fun XvoxQueueBoxContent(
                         verticalArrangement = Arrangement.spacedBy(RowSpacing),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 480.dp)
                             .wrapContentHeight()
                     ) {
                         itemsIndexed(

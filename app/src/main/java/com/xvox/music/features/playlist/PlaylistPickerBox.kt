@@ -2,6 +2,7 @@ package com.xvox.music.features.playlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,18 +20,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.data.preferences.XvoxPlaylist
 
@@ -47,143 +54,211 @@ fun PlaylistPickerBox(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
+    var playlistToRemoveFrom by remember { mutableStateOf<XvoxPlaylist?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Add to Playlist",
-                color = colors.primaryText,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(colors.card)
-                    .clickable {
-                        haptics.tap()
-                        onCreate()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_plus),
-                    contentDescription = "Create playlist",
-                    tint = colors.primaryText,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        if (playlists.isEmpty()) {
+        if (playlistToRemoveFrom != null) {
+            val target = playlistToRemoveFrom!!
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable {
-                        haptics.tap()
-                        onCreate()
-                    }
-                    .padding(vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                Text(
+                    text = "Remove from ${target.name}?",
+                    color = colors.primaryAccent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Are you sure you want to remove \"${song.title}\" from ${target.name}?",
+                    color = colors.secondaryText,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colors.cardElevated)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                playlistToRemoveFrom = null
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Cancel", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFFF5252))
+                            .xvoxPressScale {
+                                haptics.success()
+                                playlistToRemoveFrom = null
+                                onRemove(target)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Remove", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Add / Remove Playlist",
+                    color = colors.primaryText,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+
                 Box(
                     modifier = Modifier
-                        .size(46.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(colors.cardElevated),
+                        .background(colors.card)
+                        .clickable {
+                            haptics.tap()
+                            onCreate()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_xvox_plus),
-                        contentDescription = null,
+                        contentDescription = "Create playlist",
                         tint = colors.primaryText,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "Create a new playlist",
-                    color = colors.secondaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
             }
-        } else {
-            val safePlaylists = remember(playlists) { playlists.distinctBy { it.id } }
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 340.dp),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
-                items(items = safePlaylists, key = { "pl_${it.id}" }) { playlist ->
-                    val contains = song.id in playlist.songIds
-                    Row(
+
+            Spacer(Modifier.height(8.dp))
+
+            if (playlists.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            haptics.tap()
+                            onCreate()
+                        }
+                        .padding(vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                haptics.tap()
-                                if (contains) onRemove(playlist) else onAdd(playlist)
-                            }
-                            .padding(horizontal = 6.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(colors.cardElevated),
+                        contentAlignment = Alignment.Center
                     ) {
-                        val coverSongs = if (songsFor != null) {
-                            songsFor(playlist)
-                        } else {
-                            if (songs.isNotEmpty()) songs.filter { it.id in playlist.songIds } else emptyList()
-                        }
-                        XvoxPlaylistCover(
-                            songs = coverSongs,
-                            coverSongIds = playlist.coverSongIds,
-                            customCoverUri = playlist.customCoverUri,
-                            requestSize = 96,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_plus),
+                            contentDescription = null,
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(20.dp)
                         )
-
-                        Column(
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Create a new playlist",
+                        color = colors.secondaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                val safePlaylists = remember(playlists) { playlists.distinctBy { it.id } }
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 340.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(items = safePlaylists, key = { "pl_${it.id}" }) { playlist ->
+                        val contains = song.id in playlist.songIds
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 12.dp, end = 8.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    haptics.tap()
+                                    if (contains) {
+                                        playlistToRemoveFrom = playlist
+                                    } else {
+                                        onAdd(playlist)
+                                    }
+                                }
+                                .padding(horizontal = 6.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = playlist.name,
-                                color = colors.primaryText,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                            val coverSongs = if (songsFor != null) {
+                                songsFor(playlist)
+                            } else {
+                                if (songs.isNotEmpty()) songs.filter { it.id in playlist.songIds } else emptyList()
+                            }
+                            XvoxPlaylistCover(
+                                songs = coverSongs,
+                                coverSongIds = playlist.coverSongIds,
+                                customCoverUri = playlist.customCoverUri,
+                                requestSize = 96,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
-                            Text(
-                                text = if (contains) "Added" else "${playlist.songIds.size} songs",
-                                color = if (contains) colors.primaryAccent else colors.secondaryText,
-                                fontSize = 11.sp,
-                                maxLines = 1
-                            )
-                        }
 
-                        if (contains) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_check),
-                                contentDescription = null,
-                                tint = colors.primaryAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 12.dp, end = 8.dp)
+                            ) {
+                                Text(
+                                    text = playlist.name,
+                                    color = colors.primaryText,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (contains) "Added" else "${playlist.songIds.size} songs",
+                                    color = if (contains) colors.primaryAccent else colors.secondaryText,
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
+
+                            if (contains) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_check),
+                                    contentDescription = null,
+                                    tint = colors.primaryAccent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }
