@@ -222,7 +222,28 @@ fun XvoxMainShell(
     }
 
     fun showQueueBox() {
-        overlays.showBox("Playing queue") {
+        overlays.showBox(
+            title = "Playing queue",
+            onUndo = {
+                if (playerViewModel.canUndoQueue()) {
+                    overlays.showBox("Undo queue change?") {
+                        com.xvox.music.shell.XvoxConfirmBox(
+                            question = "Undo last queue change?",
+                            detail = "Reverts queue back by 1 step.",
+                            confirmLabel = "Undo",
+                            onCancel = { showQueueBox() },
+                            onConfirm = {
+                                val undone = playerViewModel.undoLastQueueAction()
+                                showQueueBox()
+                                if (undone) overlays.showP("Queue change undone")
+                            }
+                        )
+                    }
+                } else {
+                    overlays.showP("No previous queue state to undo")
+                }
+            }
+        ) {
             val livePlayer by playerViewModel.state.collectAsState()
             XvoxQueueBoxContent(
                 queue = livePlayer.queue,
@@ -233,6 +254,9 @@ fun XvoxMainShell(
                 },
                 onMoveItem = { from, to ->
                     playerViewModel.moveQueueItem(from, to)
+                },
+                onRemoveIndex = { index ->
+                    playerViewModel.removeFromQueueAt(index)
                 }
             )
         }
@@ -327,8 +351,14 @@ fun XvoxMainShell(
         }
         AnimatedVisibility(
             visible = destination != XvoxDestination.SETTINGS,
-            enter = fadeIn(tween(140)),
-            exit = fadeOut(tween(100))
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(280, easing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f))
+            ) + fadeIn(tween(200)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(240, easing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f))
+            ) + fadeOut(tween(160))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,

@@ -159,8 +159,9 @@ fun HomeScreen(
             },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
-                playerViewModel.playNextInQueue(currentArtist.songs)
-                overlays.showP("Playing by ${currentArtist.name}")
+                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
+                val msg = playerViewModel.playNextInQueue(artistSongs)
+                overlays.showP(if (msg.isNotBlank()) msg else "Playing by ${currentArtist.name}")
             },
             onEditPhoto = {
                 artistPhotoPicker.launch(
@@ -229,6 +230,16 @@ fun HomeScreen(
     }
 
     fun openSingleSongOptions(song: Song, playlist: XvoxPlaylist? = null, recent: Boolean = false, selectionSource: XvoxHomeLibraryMode = state.libraryMode) {
+        val actualSource = when {
+            recent -> "Recently Played"
+            playlist != null -> playlist.name
+            selectedArtist != null -> selectedArtist!!.name
+            selectionSource == XvoxHomeLibraryMode.LIKED -> "Liked Songs"
+            song.source.isNotBlank() -> song.source
+            else -> "All Songs"
+        }
+        val sourcedSong = song.copy(source = actualSource)
+
         val (settingsLabel, settingsAction) = when {
             recent -> "Recently Played Settings" to {
                 overlays.showBox("Recently Played") {
@@ -250,7 +261,7 @@ fun HomeScreen(
         showSongOptionsOverlay(
             overlays = overlays,
             context = context,
-            song = song,
+            song = sourcedSong,
             isLiked = song.id in state.likedSongIds,
             playlist = playlist,
             playlistMembership = if (playlist == null) {

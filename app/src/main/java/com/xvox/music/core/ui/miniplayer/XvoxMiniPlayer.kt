@@ -62,6 +62,10 @@ fun XvoxMiniPlayer(
     var exiting by remember { mutableStateOf(false) }
     var commitJob by remember { mutableStateOf<Job?>(null) }
 
+    androidx.activity.compose.BackHandler(enabled = actionsVisible) {
+        actionsVisible = false
+    }
+
     var previewIndex by remember(currentSongId, queue) {
         mutableIntStateOf(currentIndex.takeIf { it in queue.indices } ?: 0)
     }

@@ -149,12 +149,20 @@ fun showSongOptionsOverlay(
     sectionSettingsLabel: String? = null,
     onSectionSettings: (() -> Unit)? = null
 ) {
+    val actualSource = when {
+        recent -> "Recently Played"
+        playlist != null -> playlist.name
+        song.source.isNotBlank() -> song.source
+        else -> "All Songs"
+    }
+    val sourcedSong = if (song.source.isBlank()) song.copy(source = actualSource) else song
+
     overlays.showBox(
         title = "Song options",
         onSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } }
     ) {
         SongOptionsBox(
-            song = song,
+            song = sourcedSong,
             liked = isLiked,
             onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
             sectionSettingsLabel = sectionSettingsLabel,
@@ -162,7 +170,7 @@ fun showSongOptionsOverlay(
             playlistName = playlist?.name,
             membership = playlistMembership.map { pl ->
                 pl.name to {
-                    viewModel.removeFromPlaylist(pl.id, song) {
+                    viewModel.removeFromPlaylist(pl.id, sourcedSong) {
                         overlays.hideBox()
                         overlays.showP("Removed from ${pl.name}")
                     }
@@ -170,17 +178,17 @@ fun showSongOptionsOverlay(
             },
             onAddToEach = {
                 overlays.hideBox()
-                showPlaylistPickerOverlay(overlays, viewModel, song, playlists, songs)
+                showPlaylistPickerOverlay(overlays, viewModel, sourcedSong, playlists, songs)
             },
             onPlayNext = {
-                playerViewModel.playNextInQueue(song)
+                val msg = playerViewModel.playNextInQueue(sourcedSong)
                 overlays.hideBox()
-                overlays.showP("Playing next")
+                overlays.showP(msg)
             },
             onAddQueue = {
-                playerViewModel.addToQueue(song)
+                val msg = playerViewModel.addToQueue(sourcedSong)
                 overlays.hideBox()
-                overlays.showP("Added to queue")
+                overlays.showP(msg)
             },
             onPlaylist = {
                 overlays.hideBox()

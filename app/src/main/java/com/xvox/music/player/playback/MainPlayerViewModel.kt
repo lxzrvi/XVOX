@@ -124,9 +124,36 @@ class MainPlayerViewModel(
         restoreFromQueueIfPossible()
     }
 
+    private val queueUndoStack = ArrayDeque<List<Song>>()
+
+    fun canUndoQueue(): Boolean = queueUndoStack.isNotEmpty()
+
+    fun undoLastQueueAction(): Boolean {
+        if (queueUndoStack.isEmpty()) return false
+        val previous = queueUndoStack.removeLast()
+        controller.setQueue(previous)
+        libraryQueueSize = previous.size
+        libraryQueueSignature = queueSignature(previous)
+        val currentSongId = _state.value.currentSongId
+        val newIdx = previous.indexOfFirst { it.id == currentSongId }
+        _state.update {
+            it.copy(
+                queue = previous,
+                currentIndex = if (newIdx >= 0) newIdx else it.currentIndex
+            )
+        }
+        return true
+    }
+
     fun reorderQueue(reordered: List<Song>) {
+        val currentQueue = _state.value.queue
+        if (reordered.size != currentQueue.size || reordered == currentQueue) return
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
         PlayerQueueReorderHelper.reorderQueue(
-            currentQueue = _state.value.queue,
+            currentQueue = currentQueue,
             reordered = reordered,
             currentSongId = _state.value.currentSongId
         ) { validQueue, newIdx ->
@@ -138,51 +165,201 @@ class MainPlayerViewModel(
     }
 
     fun playFromSource(song: Song, sourceQueue: List<Song>, source: String) {
-        val queue = if (sourceQueue.isEmpty()) listOf(song) else sourceQueue
-        controller.setQueue(queue)
-        libraryQueueSize = queue.size
-        libraryQueueSignature = queueSignature(queue)
+        val sourcedQueue = (if (sourceQueue.isEmpty()) listOf(song) else sourceQueue).map {
+            if (it.source.isBlank()) it.copy(source = source) else it
+        }
+        val targetSong = if (song.source.isBlank()) song.copy(source = source) else song
+        controller.setQueue(sourcedQueue)
+        libraryQueueSize = sourcedQueue.size
+        libraryQueueSignature = queueSignature(sourcedQueue)
 
-        _state.update { it.copy(queue = queue, playingSource = source) }
-        play(song, source)
+        _state.update { it.copy(queue = sourcedQueue, playingSource = source) }
+        play(targetSong, source)
     }
 
     fun setPlayingSource(source: String) {
         _state.update { it.copy(playingSource = source) }
     }
 
-    fun playNextInQueue(song: Song) {
-        val queue = controller.playNext(song)
-        _state.update { it.copy(queue = queue) }
-    }
+    fun playNextInQueue(song: Song): String {
+        val currentId = _state.value.currentSongId
+        val currentIndex = _state.value.currentIndex
+        val currentQueue = _state.value.queue
 
-    fun playNextInQueue(songs: List<Song>) {
-        songs.reversed().forEach { song ->
-            val queue = controller.playNext(song)
-            _state.update { it.copy(queue = queue) }
+        val currentPlayingSong = currentQueue.getOrNull(currentIndex)
+        val isCurrentlyPlayingSame = currentPlayingSong != null &&
+                currentPlayingSong.id == song.id &&
+                (currentPlayingSong.source.equals(song.source, ignoreCase = true) ||
+                 (currentPlayingSong.source.isBlank() && (song.source.isBlank() || song.source.equals("All Songs", ignoreCase = true))))
+
+        if (isCurrentlyPlayingSame) {
+            return "Can't add next song — song is already playing and in the current queue."
         }
-    }
 
-    fun addToQueue(song: Song) {
-        val queue = controller.addToQueue(song)
-        _state.update { it.copy(queue = queue) }
-    }
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
 
-    fun addToQueue(songs: List<Song>) {
-        songs.forEach { song ->
-            val queue = controller.addToQueue(song)
-            _state.update { it.copy(queue = queue) }
+        val mutable = currentQueue.toMutableList()
+        val existingIdx = mutable.indexOfFirst {
+            it.id == song.id && (it.source.equals(song.source, ignoreCase = true) ||
+                                 (it.source.isBlank() && song.source.isBlank()))
         }
+
+        val itemToInsert = if (existingIdx >= 0 && existingIdx != currentIndex) {
+            mutable.removeAt(existingIdx)
+        } else song
+
+        val activeIdx = mutable.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: currentIndex
+        val insertAt = (activeIdx + 1).coerceIn(0, mutable.size)
+        mutable.add(insertAt, itemToInsert)
+
+        controller.setQueue(mutable)
+        libraryQueueSize = mutable.size
+        libraryQueueSignature = queueSignature(mutable)
+        val newIdx = mutable.indexOfFirst { it.id == currentId }
+        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        return "Playing next"
+    }
+
+    fun playNextInQueue(songs: List<Song>): String {
+        if (songs.isEmpty()) return ""
+        if (songs.size == 1) return playNextInQueue(songs[0])
+
+        val currentId = _state.value.currentSongId
+        val currentIndex = _state.value.currentIndex
+        val currentQueue = _state.value.queue
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
+        val mutable = currentQueue.toMutableList()
+        val activeIdx = mutable.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: currentIndex
+        var insertAt = (activeIdx + 1).coerceIn(0, mutable.size)
+
+        for (song in songs) {
+            val existingIdx = mutable.indexOfFirst {
+                it.id == song.id && (it.source.equals(song.source, ignoreCase = true) ||
+                                     (it.source.isBlank() && song.source.isBlank()))
+            }
+            val itemToInsert = if (existingIdx >= 0 && existingIdx != activeIdx) {
+                val removed = mutable.removeAt(existingIdx)
+                if (existingIdx < insertAt) insertAt--
+                removed
+            } else song
+
+            mutable.add(insertAt.coerceIn(0, mutable.size), itemToInsert)
+            insertAt++
+        }
+
+        controller.setQueue(mutable)
+        libraryQueueSize = mutable.size
+        libraryQueueSignature = queueSignature(mutable)
+        val newIdx = mutable.indexOfFirst { it.id == currentId }
+        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        return "${songs.size} songs playing next"
+    }
+
+    fun addToQueue(song: Song): String {
+        val currentId = _state.value.currentSongId
+        val currentIndex = _state.value.currentIndex
+        val currentQueue = _state.value.queue
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
+        val mutable = currentQueue.toMutableList()
+        val existingIdx = mutable.indexOfFirst {
+            it.id == song.id && (it.source.equals(song.source, ignoreCase = true) ||
+                                 (it.source.isBlank() && song.source.isBlank()))
+        }
+
+        val itemToAdd = if (existingIdx >= 0 && existingIdx != currentIndex) {
+            mutable.removeAt(existingIdx)
+        } else song
+
+        mutable.add(itemToAdd)
+
+        controller.setQueue(mutable)
+        libraryQueueSize = mutable.size
+        libraryQueueSignature = queueSignature(mutable)
+        val newIdx = mutable.indexOfFirst { it.id == currentId }
+        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        return "Added to queue"
+    }
+
+    fun addToQueue(songs: List<Song>): String {
+        if (songs.isEmpty()) return ""
+        if (songs.size == 1) return addToQueue(songs[0])
+
+        val currentId = _state.value.currentSongId
+        val currentIndex = _state.value.currentIndex
+        val currentQueue = _state.value.queue
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
+        val mutable = currentQueue.toMutableList()
+
+        for (song in songs) {
+            val existingIdx = mutable.indexOfFirst {
+                it.id == song.id && (it.source.equals(song.source, ignoreCase = true) ||
+                                     (it.source.isBlank() && song.source.isBlank()))
+            }
+            val itemToAdd = if (existingIdx >= 0 && existingIdx != currentIndex) {
+                mutable.removeAt(existingIdx)
+            } else song
+
+            mutable.add(itemToAdd)
+        }
+
+        controller.setQueue(mutable)
+        libraryQueueSize = mutable.size
+        libraryQueueSignature = queueSignature(mutable)
+        val newIdx = mutable.indexOfFirst { it.id == currentId }
+        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        return "${songs.size} songs added to queue"
     }
 
     fun removeFromQueue(songId: Long) {
         val wasCurrent = _state.value.currentSongId == songId
+        val currentQueue = _state.value.queue
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
         val queue = controller.removeFromQueue(songId)
         if (wasCurrent) controller.stop()
 
         _state.update {
             it.copy(
                 queue = queue,
+                miniPlayerVisible = if (wasCurrent) false else it.miniPlayerVisible,
+                nowPlayingVisible = if (wasCurrent) false else it.nowPlayingVisible
+            )
+        }
+    }
+
+    fun removeFromQueueAt(index: Int) {
+        val currentQueue = _state.value.queue
+        if (index !in currentQueue.indices) return
+        val wasCurrent = _state.value.currentIndex == index
+
+        queueUndoStack.addLast(currentQueue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
+        val mutable = currentQueue.toMutableList().apply { removeAt(index) }
+        if (wasCurrent) controller.stop()
+        controller.setQueue(mutable)
+        libraryQueueSize = mutable.size
+        libraryQueueSignature = queueSignature(mutable)
+
+        val currentSongId = _state.value.currentSongId
+        val newIdx = mutable.indexOfFirst { it.id == currentSongId }
+
+        _state.update {
+            it.copy(
+                queue = mutable,
+                currentIndex = if (wasCurrent) -1 else (if (newIdx >= 0) newIdx else it.currentIndex),
                 miniPlayerVisible = if (wasCurrent) false else it.miniPlayerVisible,
                 nowPlayingVisible = if (wasCurrent) false else it.nowPlayingVisible
             )

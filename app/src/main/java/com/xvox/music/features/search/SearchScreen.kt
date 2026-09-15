@@ -238,8 +238,9 @@ fun SearchScreen(
                         .background(colors.card)
                         .xvoxPressScale {
                             overlays.hideBox()
-                            playerViewModel.playNextInQueue(artist.songs)
-                            overlays.showP("Playing after current song")
+                            val searchSongs = artist.songs.map { it.copy(source = "Search") }
+                            val msg = playerViewModel.playNextInQueue(searchSongs)
+                            overlays.showP(if (msg.isNotBlank()) msg else "Playing after current song")
                         }
                         .padding(14.dp)
                 ) {
@@ -256,8 +257,9 @@ fun SearchScreen(
                         .background(colors.card)
                         .xvoxPressScale {
                             overlays.hideBox()
-                            playerViewModel.addToQueue(artist.songs)
-                            overlays.showP("Added to queue")
+                            val searchSongs = artist.songs.map { it.copy(source = "Search") }
+                            val msg = playerViewModel.addToQueue(searchSongs)
+                            overlays.showP(if (msg.isNotBlank()) msg else "Added to queue")
                         }
                         .padding(14.dp)
                 ) {
@@ -318,8 +320,9 @@ fun SearchScreen(
                         .background(colors.card)
                         .xvoxPressScale {
                             overlays.hideBox()
-                            playerViewModel.playNextInQueue(coverSongs)
-                            overlays.showP("Playing after current song")
+                            val searchSongs = coverSongs.map { it.copy(source = "Search") }
+                            val msg = playerViewModel.playNextInQueue(searchSongs)
+                            overlays.showP(if (msg.isNotBlank()) msg else "Playing after current song")
                         }
                         .padding(14.dp)
                 ) {
@@ -336,8 +339,9 @@ fun SearchScreen(
                         .background(colors.card)
                         .xvoxPressScale {
                             overlays.hideBox()
-                            playerViewModel.addToQueue(coverSongs)
-                            overlays.showP("Added to queue")
+                            val searchSongs = coverSongs.map { it.copy(source = "Search") }
+                            val msg = playerViewModel.addToQueue(searchSongs)
+                            overlays.showP(if (msg.isNotBlank()) msg else "Added to queue")
                         }
                         .padding(14.dp)
                 ) {
@@ -699,7 +703,7 @@ fun SearchScreen(
                                 showSongOptionsOverlay(
                                     overlays = overlays,
                                     context = context,
-                                    song = song,
+                                    song = song.copy(source = "Search"),
                                     isLiked = song.id in homeState.likedSongIds,
                                     playlist = null,
                                     recent = false,

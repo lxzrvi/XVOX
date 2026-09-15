@@ -50,6 +50,7 @@ fun XvoxBox(
     onAddClick: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null,
+    onUndoClick: (() -> Unit)? = null,
     onEditClick: (() -> Unit)? = null,
     isEditing: Boolean = false,
     headerLeadingContent: (@Composable () -> Unit)? = null,
@@ -180,6 +181,22 @@ fun XvoxBox(
                                     Icon(
                                         painterResource(R.drawable.ic_xvox_settings),
                                         "Settings",
+                                        tint = colors.primaryAccent,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
+                            if (onUndoClick != null) {
+                                Box(
+                                    Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .xvoxPressScale { onUndoClick() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painterResource(R.drawable.ic_xvox_undo),
+                                        "Undo",
                                         tint = colors.primaryAccent,
                                         modifier = Modifier.size(19.dp)
                                     )
