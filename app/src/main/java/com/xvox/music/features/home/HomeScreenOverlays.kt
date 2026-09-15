@@ -158,7 +158,8 @@ fun showSongOptionsOverlay(
     val sourcedSong = if (song.source.isBlank()) song.copy(source = actualSource) else song
 
     overlays.showBox(
-        title = "Song options"
+        title = "Song options",
+        onSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } }
     ) {
         SongOptionsBox(
             song = sourcedSong,

@@ -240,6 +240,48 @@ fun HomeScreen(
         }
         val sourcedSong = song.copy(source = actualSource)
 
+        val settingsAction: (() -> Unit)? = when {
+            recent -> {
+                {
+                    overlays.showBox("Recently Played") {
+                        RecentLayoutBoxContent(config, viewModel)
+                    }
+                }
+            }
+            selectionSource == XvoxHomeLibraryMode.LIKED -> {
+                {
+                    overlays.showBox("Liked Songs") {
+                        LikedSongsLayoutBoxContent(config, viewModel)
+                    }
+                }
+            }
+            playlist != null -> {
+                {
+                    showPlaylistActionsOverlay(
+                        overlays = overlays,
+                        playlist = playlist,
+                        songs = state.songs,
+                        onDelete = {
+                            viewModel.deletePlaylist(playlist.id)
+                            overlays.hideBox()
+                        },
+                        onExport = {
+                            val exported = XvoxPlaylistBackup.exportSingle(context, playlist, state.songs)
+                            overlays.showP(if (exported) "Playlist exported" else "Export failed")
+                        }
+                    )
+                }
+            }
+            selectedArtist != null -> null
+            else -> {
+                {
+                    overlays.showBox("All Songs Layout") {
+                        AllSongsLayoutBoxContent(config, viewModel)
+                    }
+                }
+            }
+        }
+
         showSongOptionsOverlay(
             overlays = overlays,
             context = context,
@@ -256,7 +298,8 @@ fun HomeScreen(
             songs = state.songs,
             deleteLauncher = deleteLauncher,
             onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
-            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id }
+            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id },
+            onSectionSettings = settingsAction
         )
     }
 
