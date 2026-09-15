@@ -199,7 +199,8 @@ fun showSongOptionsOverlay(
                     val success = XvoxSongActions.setRingtone(context, sourcedSong)
                     overlays.showP(if (success) "Ringtone set" else "Failed to set ringtone")
                 } else {
-                    XvoxSongActions.requestWriteSettingsPermission(context)
+                    XvoxSongActions.openWriteSettings(context)
+                    overlays.showP("Allow modify system settings")
                 }
             },
             onShare = {
