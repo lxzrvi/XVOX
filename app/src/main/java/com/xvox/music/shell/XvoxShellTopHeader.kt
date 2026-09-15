@@ -55,24 +55,22 @@ fun XvoxShellTopHeader(
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
-    likedMergedToHome: Boolean = false,
-    playlistsMergedToHome: Boolean = false,
-    artistsMergedToHome: Boolean = false,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
 
     val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
+    val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surface.copy(alpha = alphaFraction))
+            .background(if (hasCustomHeader) Color.Transparent else colors.surface.copy(alpha = alphaFraction))
     ) {
-        profile.headerImageUri?.takeIf { it.isNotBlank() }?.let { photo ->
+        if (hasCustomHeader) {
             coil3.compose.AsyncImage(
-                model = photo,
+                model = profile.headerImageUri,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier
@@ -82,7 +80,7 @@ fun XvoxShellTopHeader(
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(colors.surface.copy(alpha = alphaFraction))
+                    .background(Color.Black.copy(alpha = 0.20f * alphaFraction))
             )
         }
 
@@ -133,14 +131,8 @@ fun XvoxShellTopHeader(
 
             AnimatedVisibility(
                 visible = destination == XvoxDestination.HOME,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(380, easing = MainEase)
-                ) + fadeIn(tween(280)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(340, easing = MainEase)
-                ) + fadeOut(tween(240))
+                enter = fadeIn(tween(140)),
+                exit = fadeOut(tween(100))
             ) {
                 val actionShape = RoundedCornerShape(21.dp)
 
@@ -163,50 +155,44 @@ fun XvoxShellTopHeader(
                             .padding(8.dp)
                     )
 
-                    if (!likedMergedToHome) {
-                        Icon(
-                            painter = painterResource(
-                                if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
-                                else R.drawable.ic_xvox_heart_outline
-                            ),
-                            contentDescription = "Liked Songs",
-                            tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
-                                .padding(8.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(
+                            if (libraryMode == XvoxHomeLibraryMode.LIKED) R.drawable.ic_xvox_heart
+                            else R.drawable.ic_xvox_heart_outline
+                        ),
+                        contentDescription = "Liked Songs",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onLikedClick() }
+                            .padding(8.dp)
+                    )
 
-                    if (!playlistsMergedToHome) {
-                        Icon(
-                            painter = painterResource(
-                                if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
-                                    R.drawable.ic_xvox_music_note
-                                } else {
-                                    R.drawable.ic_xvox_playlist
-                                }
-                            ),
-                            contentDescription = "Playlists",
-                            tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
-                                .padding(8.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(
+                            if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) {
+                                R.drawable.ic_xvox_music_note
+                            } else {
+                                R.drawable.ic_xvox_playlist
+                            }
+                        ),
+                        contentDescription = "Playlists",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onPlaylistClick() }
+                            .padding(8.dp)
+                    )
 
-                    if (!artistsMergedToHome) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_microphone),
-                            contentDescription = "Artists",
-                            tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .xvoxPressScale(pressedScale = 0.90f) { onArtistClick() }
-                                .padding(8.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_microphone),
+                        contentDescription = "Artists",
+                        tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) { onArtistClick() }
+                            .padding(7.dp)
+                    )
                 }
             }
         }

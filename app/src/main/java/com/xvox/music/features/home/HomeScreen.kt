@@ -417,19 +417,24 @@ fun HomeScreen(
             )
         }
 
+        val homeScrollState = rememberLazyListState()
+        val likedScrollState = rememberLazyListState()
+        val playlistsScrollState = rememberLazyListState()
+        val artistsScrollState = rememberLazyListState()
+        val detailScrollState = rememberLazyListState()
+
+        LaunchedEffect(homeResetKey, scrollResetKey) {
+            if (homeResetKey > 0L || scrollResetKey > 0L) {
+                homeScrollState.scrollToItem(0)
+            }
+        }
+
         AnimatedContent(
             targetState = targetKey,
             transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(140))).using(null) },
             modifier = Modifier.weight(1f),
             label = "libraryFade"
         ) { target ->
-            val listState = rememberLazyListState()
-            LaunchedEffect(homeResetKey, scrollResetKey) {
-                if (homeResetKey > 0L || scrollResetKey > 0L) {
-                    listState.scrollToItem(0)
-                }
-            }
-
             val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
                 state.playlists.firstOrNull { it.id == id }
             }
@@ -438,6 +443,21 @@ fun HomeScreen(
             }
 
             val currentSelectedArtist = selectedArtist
+
+            val listState = when {
+                currentSelectedArtist != null && target == "artist_${currentSelectedArtist.name}" -> detailScrollState
+                targetPlaylist != null -> detailScrollState
+                target == XvoxHomeLibraryMode.LIKED -> likedScrollState
+                target == XvoxHomeLibraryMode.PLAYLISTS -> playlistsScrollState
+                target == XvoxHomeLibraryMode.ARTISTS -> artistsScrollState
+                else -> homeScrollState
+            }
+
+            LaunchedEffect(currentSelectedArtist?.name, targetPlaylist?.id) {
+                if (currentSelectedArtist != null || targetPlaylist != null) {
+                    detailScrollState.scrollToItem(0)
+                }
+            }
 
             LazyColumn(
                 state = listState,

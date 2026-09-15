@@ -57,7 +57,6 @@ fun XvoxPlaylistActionsBox(
 ) {
     var editing by remember(playlist.id) { mutableStateOf(false) }
     var coverEditor by remember(playlist.id) { mutableStateOf(false) }
-    var layoutEditor by remember(playlist.id) { mutableStateOf(false) }
 
     if (coverEditor) {
         XvoxPlaylistCoverEditor(
@@ -73,11 +72,6 @@ fun XvoxPlaylistActionsBox(
         return
     }
 
-    if (layoutEditor) {
-        PlaylistLayoutEditor(onDone = { layoutEditor = false })
-        return
-    }
-
     PlaylistActionsMain(
         playlist = playlist,
         songs = songs,
@@ -86,8 +80,7 @@ fun XvoxPlaylistActionsBox(
         onRename = onRename,
         onEditCover = { coverEditor = true },
         onDelete = onDelete,
-        onInfo = onInfo,
-        onEditLayout = { layoutEditor = true }
+        onInfo = onInfo
     )
 }
 
@@ -100,8 +93,7 @@ private fun PlaylistActionsMain(
     onRename: (String) -> Unit,
     onEditCover: () -> Unit,
     onDelete: () -> Unit,
-    onInfo: () -> Unit,
-    onEditLayout: () -> Unit
+    onInfo: () -> Unit
 ) {
     val colors = XvoxTheme.colors
 
@@ -240,12 +232,6 @@ private fun PlaylistActionsMain(
             onClick = onInfo
         )
 
-        // Card layout lives on the card: how the playlist reads on Home, and how tall it gets.
-        PlaylistAction(
-            title = "Card layout",
-            onClick = onEditLayout
-        )
-
         PlaylistAction(
             title = "Delete playlist",
             onClick = onDelete
@@ -276,23 +262,16 @@ private fun PlaylistAction(
 }
 
 /**
- * Layout of this playlist's card on Home: swiping cards (horizontal) versus a long card that
- * merges into the vertical flow, plus a height for the long form.
+ * Layout and style settings for playlist views/cards.
  */
 @Composable
-private fun PlaylistLayoutEditor(
+fun PlaylistLayoutEditorBox(
     onDone: () -> Unit,
-    homeViewModel: com.xvox.music.features.home.HomeViewModel =
-        androidx.lifecycle.viewmodel.compose.viewModel(),
     settingsViewModel: com.xvox.music.features.settings.SettingsViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember(context) { com.xvox.music.data.preferences.UserPreferencesRepository(context) }
-    val homeConfig by prefs.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val state by settingsViewModel.state.collectAsState()
-    val isMerged = com.xvox.music.features.home.HomeSections.PLAYLISTS in homeConfig.mergedSections
     val auto = state.playlistLongHeight <= 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -304,35 +283,33 @@ private fun PlaylistLayoutEditor(
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "How playlists appear on your Home screen",
+            text = "Configure card presentation and layout height",
             color = colors.secondaryText,
             fontSize = 11.sp
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
-        if (isMerged) {
-            Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
+        Text("Card Style", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LayoutChoice("Horizontal", state.playlistCardOrientation == "horizontal") {
-                    settingsViewModel.setPlaylistCardOrientation("horizontal")
-                }
-                LayoutChoice("Vertical", state.playlistCardOrientation == "vertical") {
-                    settingsViewModel.setPlaylistCardOrientation("vertical")
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LayoutChoice("Horizontal", state.playlistCardOrientation == "horizontal") {
+                settingsViewModel.setPlaylistCardOrientation("horizontal")
             }
+            LayoutChoice("Vertical", state.playlistCardOrientation == "vertical") {
+                settingsViewModel.setPlaylistCardOrientation("vertical")
+            }
+        }
 
-            if (state.playlistCardOrientation == "horizontal") {
-                Spacer(Modifier.height(12.dp))
-                Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (1..5).forEach { r ->
-                        LayoutChoice("$r ${if (r == 1) "Row" else "Rows"}", state.playlistRows == r) {
-                            settingsViewModel.setPlaylistRows(r)
-                        }
+        if (state.playlistCardOrientation == "horizontal") {
+            Spacer(Modifier.height(12.dp))
+            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (1..5).forEach { r ->
+                    LayoutChoice("$r ${if (r == 1) "Row" else "Rows"}", state.playlistRows == r) {
+                        settingsViewModel.setPlaylistRows(r)
                     }
                 }
             }
@@ -352,39 +329,6 @@ private fun PlaylistLayoutEditor(
         )
         Spacer(Modifier.height(8.dp))
         LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
-
-        Spacer(Modifier.height(14.dp))
-
-        // Merge to Home Toggle (at the end)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Merge to Home", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("Show playlists in main home feed & remove from top pill", color = colors.secondaryText, fontSize = 10.sp)
-            }
-            androidx.compose.material3.Switch(
-                checked = isMerged,
-                onCheckedChange = {
-                    settingsViewModel.setHomeSectionMerged(com.xvox.music.features.home.HomeSections.PLAYLISTS, it)
-                },
-                colors = androidx.compose.material3.SwitchDefaults.colors(
-                    checkedThumbColor = colors.background,
-                    checkedTrackColor = colors.primaryAccent,
-                    uncheckedThumbColor = colors.secondaryText,
-                    uncheckedTrackColor = colors.cardElevated
-                )
-            )
-        }
-
-        if (isMerged) {
-            com.xvox.music.features.home.HomeSectionReorderControls(
-                config = homeConfig,
-                viewModel = homeViewModel
-            )
-        }
 
         Spacer(Modifier.height(16.dp))
 

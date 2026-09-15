@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -201,50 +202,63 @@ fun ProfileEditorBox(
         // Header Background Photo Section in Profile Box
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
+        var isCustomHeaderMode by remember(currentHeaderUri) { mutableStateOf(currentHeaderUri != null) }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            val isDefault = currentHeaderUri == null
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(38.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isDefault) colors.primaryAccent else colors.cardElevated.copy(alpha = 0.45f))
+                    .background(if (!isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
+                    .then(
+                        if (isCustomHeaderMode) Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                        else Modifier
+                    )
                     .xvoxPressScale {
                         haptics.tap()
+                        isCustomHeaderMode = false
                         scope.launch { prefs.setHeaderImageUri(null) }
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     "Default",
-                    color = if (isDefault) colors.background else colors.mutedText,
+                    color = if (!isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.80f),
                     fontSize = 12.sp,
-                    fontWeight = if (isDefault) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (!isCustomHeaderMode) FontWeight.Bold else FontWeight.Medium
                 )
             }
 
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(38.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (!isDefault) colors.primaryAccent else colors.cardElevated.copy(alpha = 0.45f))
+                    .background(if (isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
+                    .then(
+                        if (!isCustomHeaderMode) Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                        else Modifier
+                    )
                     .xvoxPressScale {
                         haptics.tap()
-                        headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        isCustomHeaderMode = true
+                        if (currentHeaderUri == null) {
+                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     "Custom",
-                    color = if (!isDefault) colors.background else colors.mutedText,
+                    color = if (isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.80f),
                     fontSize = 12.sp,
-                    fontWeight = if (!isDefault) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (isCustomHeaderMode) FontWeight.Bold else FontWeight.Medium
                 )
             }
         }
 
-        if (currentHeaderUri != null) {
+        if (isCustomHeaderMode && currentHeaderUri != null) {
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier
@@ -291,6 +305,7 @@ fun ProfileEditorBox(
                             .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
+                                isCustomHeaderMode = false
                                 scope.launch { prefs.setHeaderImageUri(null) }
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
@@ -348,6 +363,7 @@ fun ProfileEditorBox(
                     .height(38.dp)
                     .clip(RoundedCornerShape(19.dp))
                     .background(colors.cardElevated)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(19.dp))
                     .clickable { haptics.tap(); onCancel() },
                 contentAlignment = Alignment.Center
             ) {

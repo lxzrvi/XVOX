@@ -330,17 +330,10 @@ fun XvoxMainShell(
             enter = fadeIn(tween(140)),
             exit = fadeOut(tween(100))
         ) {
-            val likedMergedToHome = com.xvox.music.features.home.HomeSections.LIKED in homeConfig.mergedSections
-            val playlistsMergedToHome = com.xvox.music.features.home.HomeSections.PLAYLISTS in homeConfig.mergedSections
-            val artistsMergedToHome = com.xvox.music.features.home.HomeSections.ARTISTS in homeConfig.mergedSections
-
             XvoxShellTopHeader(
                 profile = homeState.profile,
                 destination = destination,
                 libraryMode = homeState.libraryMode,
-                likedMergedToHome = likedMergedToHome,
-                playlistsMergedToHome = playlistsMergedToHome,
-                artistsMergedToHome = artistsMergedToHome,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
                 onLikedClick = {

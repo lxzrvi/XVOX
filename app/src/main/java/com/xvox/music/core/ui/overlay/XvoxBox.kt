@@ -50,6 +50,10 @@ fun XvoxBox(
     onAddClick: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null,
+    onEditClick: (() -> Unit)? = null,
+    isEditing: Boolean = false,
+    headerLeadingContent: (@Composable () -> Unit)? = null,
+    headerTitleContent: (@Composable () -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -146,15 +150,25 @@ fun XvoxBox(
                                         .padding(10.dp)
                                 )
                             }
-                            Text(
-                                title,
-                                color = colors.primaryText,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            if (headerLeadingContent != null) {
+                                headerLeadingContent()
+                                Spacer(Modifier.width(10.dp))
+                            }
+                            if (headerTitleContent != null) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    headerTitleContent()
+                                }
+                            } else {
+                                Text(
+                                    title,
+                                    color = colors.primaryText,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             if (onSettingsClick != null) {
                                 Box(
                                     Modifier
@@ -166,6 +180,22 @@ fun XvoxBox(
                                     Icon(
                                         painterResource(R.drawable.ic_xvox_settings),
                                         "Settings",
+                                        tint = colors.primaryAccent,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
+                            if (onEditClick != null) {
+                                Box(
+                                    Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .xvoxPressScale { onEditClick() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painterResource(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit),
+                                        if (isEditing) "Save" else "Edit",
                                         tint = colors.primaryAccent,
                                         modifier = Modifier.size(19.dp)
                                     )

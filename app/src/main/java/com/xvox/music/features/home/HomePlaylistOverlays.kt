@@ -18,7 +18,17 @@ fun showPlaylistActions(
     playlist: XvoxPlaylist,
     onDeleted: () -> Unit
 ) {
-    overlays.showBox("Playlist options") {
+    fun showSettings() {
+        overlays.showBox("Playlist layout") {
+            com.xvox.music.features.playlist.PlaylistLayoutEditorBox(
+                onDone = {
+                    showPlaylistActions(overlays, viewModel, playlist, onDeleted)
+                }
+            )
+        }
+    }
+
+    overlays.showBox("Playlist options", onSettings = ::showSettings) {
         val liveState by viewModel.state.collectAsState()
         val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 

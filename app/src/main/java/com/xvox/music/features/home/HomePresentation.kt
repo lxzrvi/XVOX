@@ -48,20 +48,12 @@ object HomeSections {
         (order.filter { it in defaultOrder } + defaultOrder).distinct()
 
     fun visible(config: HomePresentation): List<String> {
-        val baseOrder = normalize(config.order)
-        val ordered = if (config.recentsPlacement == "top") {
-            placeRecent(baseOrder, "top")
-        } else if (config.recentsPlacement == "bottom") {
-            placeRecent(baseOrder, "bottom")
+        val showRecent = !config.hideRecents
+        return if (showRecent) {
+            if (config.recentsPlacement == "top") listOf(RECENT, ALL)
+            else listOf(ALL, RECENT)
         } else {
-            baseOrder
-        }
-
-        return ordered.filterNot { section ->
-            (section == SPLIT && config.hideSplit) ||
-            (section == RECENT && config.hideRecents) ||
-            (section in config.hidden) ||
-            (section != ALL && section != RECENT && section !in config.mergedSections)
+            listOf(ALL)
         }
     }
 

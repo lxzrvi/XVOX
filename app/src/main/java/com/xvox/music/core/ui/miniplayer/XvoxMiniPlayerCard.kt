@@ -230,7 +230,7 @@ fun XvoxMiniPlayerCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
                     .clickable(
@@ -244,7 +244,7 @@ fun XvoxMiniPlayerCard(
                     painter = painterResource(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
                     contentDescription = "Like",
                     tint = if (isLiked) colors.primaryAccent else (if (isFullCover) Color.White else colors.primaryText),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 

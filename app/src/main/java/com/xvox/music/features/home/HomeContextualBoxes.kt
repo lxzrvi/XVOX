@@ -159,7 +159,6 @@ fun LikedSongsLayoutBoxContent(
 ) {
     val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
-    val isMerged = HomeSections.LIKED in config.mergedSections
 
     Column(
         modifier = Modifier
@@ -171,33 +170,12 @@ fun LikedSongsLayoutBoxContent(
     ) {
         Text("Liked Songs Settings", color = colors.primaryAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
 
-        // Merge to Home Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Merge to Home Feed", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("Show Liked Songs directly on Home and hide from top pill", color = colors.secondaryText, fontSize = 11.sp)
-            }
-            Switch(
-                checked = isMerged,
-                onCheckedChange = { mergeOn ->
-                    viewModel.setHomeSectionMerged(HomeSections.LIKED, mergeOn)
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = colors.background,
-                    checkedTrackColor = colors.primaryAccent,
-                    uncheckedThumbColor = colors.secondaryText,
-                    uncheckedTrackColor = colors.cardElevated
-                )
-            )
-        }
-
-        if (isMerged) {
-            HomeSectionReorderControls(config = config, viewModel = viewModel)
-        }
+        Text(
+            "Liked Songs are permanently accessible from the top header Heart pill icon.",
+            color = colors.secondaryText,
+            fontSize = 12.sp,
+            lineHeight = 16.sp
+        )
     }
 }
 

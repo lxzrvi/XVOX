@@ -61,11 +61,9 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomePresentation
-import com.xvox.music.features.home.HomeSectionReorderControls
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.settings.components.SettingsChoiceRow
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
 fun ArtistInfoDialog(
@@ -160,11 +158,121 @@ fun ArtistInfoDialog(
     }
 
     XvoxBox(
-        title = if (editing) "Edit Artist" else artist.name,
-        onDismiss = onDismiss
+        title = artist.name,
+        onDismiss = onDismiss,
+        isEditing = editing,
+        onEditClick = {
+            haptics.tap()
+            if (editing) {
+                val clean = nameField.text.trim()
+                if (clean.isNotEmpty() && clean != artist.name) {
+                    val duplicateExists = allArtists.any {
+                        it.name.equals(clean, ignoreCase = true) && !it.name.equals(artist.name, ignoreCase = true)
+                    }
+                    if (duplicateExists) {
+                        duplicateTargetArtist = clean
+                    } else {
+                        submitRename(mergeDuplicates = false)
+                    }
+                } else {
+                    editing = false
+                }
+            } else {
+                editing = true
+            }
+        },
+        headerLeadingContent = {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(colors.cardElevated)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            haptics.tap()
+                            photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (customPhotoUri != null) {
+                    AsyncImage(
+                        model = customPhotoUri,
+                        contentDescription = artist.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(36.dp)
+                    )
+                } else if (artist.coverSong != null) {
+                    XvoxSongArtwork(
+                        artwork = artist.coverSong.artworkUri,
+                        requestSize = 100,
+                        modifier = Modifier.size(36.dp)
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_microphone),
+                        contentDescription = null,
+                        tint = colors.primaryAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                if (editing) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_edit),
+                            contentDescription = "Edit photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+            }
+        },
+        headerTitleContent = {
+            if (editing) {
+                BasicTextField(
+                    value = nameField,
+                    onValueChange = { nameField = it },
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = colors.primaryText,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    cursorBrush = SolidColor(colors.primaryAccent),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                )
+            } else {
+                Column {
+                    Text(
+                        text = artist.name,
+                        color = colors.primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${artist.songs.size} ${if (artist.songs.size == 1) "Song" else "Songs"}",
+                        color = colors.secondaryText,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
     ) {
         if (duplicateTargetArtist != null) {
-            // Mix / Separate prompt dialog
+            // Merge / Separate prompt dialog
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -286,7 +394,56 @@ fun ArtistInfoDialog(
                     .xvoxBoxScroll(scrollState)
                     .padding(vertical = 4.dp)
             ) {
-                if (isModifiedArtist) {
+                if (isMergedArtist) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.cardElevated)
+                            .clickable {
+                                haptics.tap()
+                                homeViewModel?.unmergeArtist(artist.name)
+                                homeViewModel?.revertArtist(artist.name)
+                                overlays.showP("Unmerged and reverted artist")
+                                onDismiss()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_refresh),
+                                contentDescription = "Unmerge Artist & Revert All",
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Unmerge Artist & Revert All",
+                                    color = colors.primaryAccent,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Separate merged songs and restore original artist info",
+                                    color = colors.secondaryText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_caret_right),
+                            contentDescription = null,
+                            tint = colors.mutedText,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                } else if (isModifiedArtist) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -320,7 +477,7 @@ fun ArtistInfoDialog(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Reset custom photo, renames & separated tracks",
+                                    text = "Reset custom photo and renames",
                                     color = colors.secondaryText,
                                     fontSize = 10.sp
                                 )
@@ -336,149 +493,15 @@ fun ArtistInfoDialog(
                     Spacer(Modifier.height(10.dp))
                 }
 
-                // Header (like Playlist edit box)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (editing) {
-                            BasicTextField(
-                                value = nameField,
-                                onValueChange = { nameField = it },
-                                singleLine = true,
-                                textStyle = TextStyle(
-                                    color = colors.primaryText,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                cursorBrush = SolidColor(colors.primaryAccent),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusRequester(focusRequester)
-                            )
-                            Text(
-                                text = "Note: This does not change the actual artist name from song metadata. It is only used inside XVOX to easily manage your artists.",
-                                color = colors.mutedText,
-                                fontSize = 10.sp,
-                                lineHeight = 13.sp,
-                                modifier = Modifier.padding(top = 4.dp, end = 6.dp)
-                            )
-                        } else {
-                            Text(
-                                text = artist.name,
-                                color = colors.primaryText,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "${artist.songs.size} ${if (artist.songs.size == 1) "Song" else "Songs"}",
-                                color = colors.secondaryText,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.width(10.dp))
-
-                    // Pencil edit / save button
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(colors.cardElevated)
-                            .xvoxPressScale {
-                                haptics.tap()
-                                if (editing) {
-                                    val clean = nameField.text.trim()
-                                    if (clean.isNotEmpty() && clean != artist.name) {
-                                        val duplicateExists = allArtists.any { it.name.equals(clean, ignoreCase = true) }
-                                        if (duplicateExists) {
-                                            duplicateTargetArtist = clean
-                                        } else {
-                                            submitRename(mergeDuplicates = false)
-                                        }
-                                    } else {
-                                        editing = false
-                                    }
-                                } else {
-                                    editing = true
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(
-                                if (editing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit
-                            ),
-                            contentDescription = if (editing) "Save" else "Edit",
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.width(10.dp))
-
-                    // Artist Image with Pencil overlay when editing
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(CircleShape)
-                            .background(colors.card)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (customPhotoUri != null) {
-                            AsyncImage(
-                                model = customPhotoUri,
-                                contentDescription = artist.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(58.dp)
-                            )
-                        } else if (artist.coverSong != null) {
-                            XvoxSongArtwork(
-                                artwork = artist.coverSong.artworkUri,
-                                requestSize = 140,
-                                modifier = Modifier.size(58.dp)
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_microphone),
-                                contentDescription = null,
-                                tint = colors.primaryAccent,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        if (editing) {
-                            Box(
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .background(Color.Black.copy(alpha = 0.55f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_edit),
-                                    contentDescription = "Edit photo",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
                 if (editing) {
-                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Note: Renaming does not change the song file metadata. It is used inside XVOX to manage and group your artists.",
+                        color = colors.mutedText,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
                     Text("Available Artist Artwork", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
 
@@ -536,9 +559,9 @@ fun ArtistInfoDialog(
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 // Artist Layout & Settings Card
                 Column(
@@ -556,37 +579,35 @@ fun ArtistInfoDialog(
                         fontWeight = FontWeight.Bold
                     )
 
-                    if (mergedToHome) {
-                        // Scroll Direction
+                    // Scroll Direction
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
+                        SettingsChoiceRow(
+                            options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
+                            selected = direction,
+                            onSelect = { onDirectionChange(it) }
+                        )
+                    }
+
+                    if (direction == "horizontal") {
+                        // Rows per page only when horizontal
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
+                            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
                             SettingsChoiceRow(
-                                options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
-                                selected = direction,
-                                onSelect = { onDirectionChange(it) }
+                                options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
+                                selected = rows.toString(),
+                                onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
                             )
                         }
-
-                        if (direction == "horizontal") {
-                            // Rows per page only when horizontal
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
-                                SettingsChoiceRow(
-                                    options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
-                                    selected = rows.toString(),
-                                    onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
-                                )
-                            }
-                        } else {
-                            // Columns only when vertical
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
-                                SettingsChoiceRow(
-                                    options = listOf("2" to "2 Cols", "3" to "3 Cols", "4" to "4 Cols", "5" to "5 Cols", "6" to "6 Cols"),
-                                    selected = columns.toString(),
-                                    onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
-                                )
-                            }
+                    } else {
+                        // Columns from 2 to 8
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+                            SettingsChoiceRow(
+                                options = listOf("2" to "2", "3" to "3", "4" to "4", "5" to "5", "6" to "6", "7" to "7", "8" to "8"),
+                                selected = columns.toString(),
+                                onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
+                            )
                         }
                     }
 
@@ -606,32 +627,6 @@ fun ArtistInfoDialog(
                                 uncheckedThumbColor = colors.secondaryText,
                                 uncheckedTrackColor = colors.cardElevated
                             )
-                        )
-                    }
-
-                    // Merge to Home toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Merge to Home", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        Switch(
-                            checked = mergedToHome,
-                            onCheckedChange = onMergeToHomeChange,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent,
-                                uncheckedThumbColor = colors.secondaryText,
-                                uncheckedTrackColor = colors.cardElevated
-                            )
-                        )
-                    }
-
-                    if (mergedToHome && homeViewModel != null) {
-                        HomeSectionReorderControls(
-                            config = config,
-                            viewModel = homeViewModel
                         )
                     }
                 }
