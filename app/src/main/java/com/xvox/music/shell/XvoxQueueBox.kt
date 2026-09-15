@@ -127,6 +127,13 @@ fun XvoxQueueBoxContent(
     }
 
     // Auto-scroll loop when finger is held near top or bottom viewport edges
+    LaunchedEffect(Unit) {
+        val targetIdx = local.indexOfFirst { it.id == currentSongId }
+        if (targetIdx > 1) {
+            listState.scrollToItem((targetIdx - 1).coerceAtLeast(0))
+        }
+    }
+
     LaunchedEffect(draggingSong) {
         if (draggingSong == null) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }

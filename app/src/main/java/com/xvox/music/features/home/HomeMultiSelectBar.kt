@@ -29,6 +29,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
 fun HomeMultiSelectBar(
@@ -36,6 +37,7 @@ fun HomeMultiSelectBar(
     selectedPlaylist: XvoxPlaylist?,
     libraryMode: XvoxHomeLibraryMode,
     viewModel: HomeViewModel,
+    playerViewModel: MainPlayerViewModel,
     overlays: XvoxOverlayController,
     context: Context,
     onClearSelection: () -> Unit,
@@ -46,17 +48,45 @@ fun HomeMultiSelectBar(
 
     Box(
         modifier = modifier
-            .padding(top = 10.dp, bottom = 12.dp, start = 12.dp, end = 12.dp)
+            .padding(top = 10.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(colors.cardElevated.copy(alpha = 0.96f))
-                .padding(horizontal = 10.dp, vertical = 9.dp),
+                .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            MultiActionItem(
+                iconRes = R.drawable.ic_xvox_play,
+                label = "Play next",
+                onClick = {
+                    val msg = if (selectedSongs.size == 1) {
+                        playerViewModel.playNextInQueue(selectedSongs[0])
+                    } else {
+                        playerViewModel.playNextInQueue(selectedSongs)
+                    }
+                    overlays.showP(msg)
+                    onClearSelection()
+                }
+            )
+
+            MultiActionItem(
+                iconRes = R.drawable.ic_xvox_queue,
+                label = "Add queue",
+                onClick = {
+                    val msg = if (selectedSongs.size == 1) {
+                        playerViewModel.addToQueue(selectedSongs[0])
+                    } else {
+                        playerViewModel.addToQueue(selectedSongs)
+                    }
+                    overlays.showP(msg)
+                    onClearSelection()
+                }
+            )
+
             MultiActionItem(
                 iconRes = R.drawable.ic_xvox_playlist,
                 label = "Playlist",
@@ -143,7 +173,7 @@ private fun MultiActionItem(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
-            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Icon(
             painter = painterResource(iconRes),
@@ -155,7 +185,7 @@ private fun MultiActionItem(
         Text(
             text = label,
             color = colors.primaryText,
-            fontSize = 10.sp,
+            fontSize = 9.5.sp,
             fontWeight = FontWeight.Medium
         )
     }

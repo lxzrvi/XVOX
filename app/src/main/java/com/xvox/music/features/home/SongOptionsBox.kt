@@ -67,6 +67,9 @@ fun SongOptionsBox(
     val options = buildList {
         add(SongOption("Play next", R.drawable.ic_xvox_play, onPlayNext))
         add(SongOption("Add to queue", R.drawable.ic_xvox_queue, onAddQueue))
+        if (onSelect != null) {
+            add(SongOption("Select", R.drawable.ic_xvox_check, onSelect))
+        }
         add(
             SongOption(
                 if (liked) "Remove from Liked" else "Like song",
@@ -75,11 +78,6 @@ fun SongOptionsBox(
             )
         )
         add(SongOption("Add / Remove from Playlist", R.drawable.ic_xvox_playlist, onPlaylist))
-
-        if (onSelect != null) {
-            add(SongOption("Select", R.drawable.ic_xvox_check, onSelect))
-        }
-
         add(SongOption("Info", R.drawable.ic_xvox_info, onInfo))
         add(SongOption("Set ringtone", R.drawable.ic_xvox_music_note, onRingtone))
         add(SongOption("Share", R.drawable.ic_xvox_share, onShare))

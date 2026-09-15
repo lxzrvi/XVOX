@@ -493,6 +493,7 @@ fun SearchScreen(
                 selectedPlaylist = null,
                 libraryMode = com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS,
                 viewModel = homeViewModel,
+                playerViewModel = playerViewModel,
                 overlays = overlays,
                 context = context,
                 onClearSelection = { selectedIds = emptySet() },

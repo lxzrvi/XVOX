@@ -177,6 +177,7 @@ fun HomeScreen(
 
     var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var selectionLibraryMode by remember { mutableStateOf(state.libraryMode) }
+    var selectionCategoryName by remember { mutableStateOf<String?>(null) }
     val isSelectionMode = selectedSongIds.isNotEmpty()
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
 
@@ -248,13 +249,7 @@ fun HomeScreen(
                     }
                 }
             }
-            selectionSource == XvoxHomeLibraryMode.LIKED -> {
-                {
-                    overlays.showBox("Liked Songs") {
-                        LikedSongsLayoutBoxContent(config, viewModel)
-                    }
-                }
-            }
+            selectionSource == XvoxHomeLibraryMode.LIKED -> null
             playlist != null -> {
                 {
                     showPlaylistActions(overlays, viewModel, playlist) {}
@@ -286,24 +281,43 @@ fun HomeScreen(
             songs = state.songs,
             deleteLauncher = deleteLauncher,
             onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
-            onSelect = { selectionLibraryMode = selectionSource; selectedSongIds = selectedSongIds + song.id },
+            onSelect = {
+                selectionLibraryMode = selectionSource
+                selectionCategoryName = actualSource
+                selectedSongIds = selectedSongIds + song.id
+            },
             onSectionSettings = settingsAction
         )
     }
 
     fun handleSongClick(song: Song, list: List<Song>, sourceName: String) {
         if (isSelectionMode) {
+            if (selectionCategoryName != null && !selectionCategoryName.equals(sourceName, ignoreCase = true)) {
+                overlays.showP("You can't select from another category")
+                return
+            }
             selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
+            if (selectedSongIds.isEmpty()) {
+                selectionCategoryName = null
+            }
         } else {
             viewModel.recordPlayedFromLibrary(song, currentSongId, sourceName)
             playerViewModel.playFromSource(song, list, sourceName)
         }
     }
 
-    fun handleSongLongClick(song: Song) {
-        selectedSongIds = if (!isSelectionMode) setOf(song.id)
-        else if (song.id in selectedSongIds) selectedSongIds - song.id
-        else selectedSongIds + song.id
+    fun handleSongLongClick(song: Song, sourceName: String) {
+        if (isSelectionMode && selectionCategoryName != null && !selectionCategoryName.equals(sourceName, ignoreCase = true)) {
+            overlays.showP("You can't select from another category")
+            return
+        }
+        if (!isSelectionMode) {
+            selectionCategoryName = sourceName
+            selectedSongIds = setOf(song.id)
+        } else {
+            selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
+            if (selectedSongIds.isEmpty()) selectionCategoryName = null
+        }
     }
 
     val selectedSongsList = remember(selectedSongIds, state.songs) {
@@ -318,7 +332,7 @@ fun HomeScreen(
                 isPlaying = isPlaying,
                 transition = state.recentTransition,
                 onSongClick = { song ->
-                    if (isSelectionMode) handleSongLongClick(song)
+                    if (isSelectionMode) handleSongLongClick(song, "Recently Played")
                     else if (song.id == currentSongId) playerViewModel.togglePlay()
                     else {
                         viewModel.recordPlayedFromRecent(song, currentSongId)
@@ -362,7 +376,7 @@ fun HomeScreen(
             playing = isPlaying,
             selected = selectedSongIds,
             onPlay = { handleSongClick(it, likedSongs, "Liked Songs") },
-            onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) }
+            onOptions = { if (isSelectionMode) handleSongLongClick(it, "Liked Songs") else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) }
         )
     }
 
@@ -432,9 +446,17 @@ fun HomeScreen(
         if (isSelectionMode) {
             Spacer(Modifier.height(topInset))
             HomeMultiSelectBar(
-                selectedSongsList, selectedPlaylist, selectionLibraryMode,
-                viewModel, overlays, context,
-                onClearSelection = { selectedSongIds = emptySet() },
+                selectedSongs = selectedSongsList,
+                selectedPlaylist = selectedPlaylist,
+                libraryMode = selectionLibraryMode ?: state.libraryMode,
+                viewModel = viewModel,
+                playerViewModel = playerViewModel,
+                overlays = overlays,
+                context = context,
+                onClearSelection = {
+                    selectedSongIds = emptySet()
+                    selectionCategoryName = null
+                },
                 onDeleteSelected = ::requestDeleteSelected
             )
         }
@@ -499,7 +521,7 @@ fun HomeScreen(
                         playing = isPlaying,
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, currentSelectedArtist.songs, "Playing by " + currentSelectedArtist.name) },
-                        onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) },
+                        onOptions = { if (isSelectionMode) handleSongLongClick(it, "Playing by " + currentSelectedArtist.name) else openSingleSongOptions(it) },
                         avatarUri = artistCover
                     )
                 } else if (targetPlaylist != null) {
@@ -511,7 +533,7 @@ fun HomeScreen(
                         playing = isPlaying,
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
-                        onOptions = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it, targetPlaylist) },
+                        onOptions = { if (isSelectionMode) handleSongLongClick(it, targetPlaylist.name) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) }
                     )
                 } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
@@ -526,7 +548,7 @@ fun HomeScreen(
                                 HomeSections.ALL -> allSongsItems(
                                     state.songs, plans, config, currentSongId, isPlaying, selectedSongIds,
                                     onSongClick = { handleSongClick(it, state.songs, "All Songs") },
-                                    onSongLongClick = { if (isSelectionMode) handleSongLongClick(it) else openSingleSongOptions(it) },
+                                    onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) },
                                     onPrefetch = viewModel::prefetchFrom
                                 )
                                 HomeSections.RECENT -> recentSection()

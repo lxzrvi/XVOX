@@ -57,8 +57,24 @@ fun XvoxAvatarPicker(
 ) {
     val colors = XvoxTheme.colors
     val builtIns = PfpType.entries.filter { it != PfpType.CUSTOM }
+    val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val builtInIdx = builtIns.indexOf(selectedType)
+        val targetIndex = if (selectedType == PfpType.CUSTOM && selectedCustomUri != null) {
+            val customIdx = customUris.indexOf(selectedCustomUri)
+            if (customIdx >= 0) builtIns.size + customIdx else builtIns.size
+        } else if (builtInIdx >= 0) {
+            builtInIdx
+        } else 0
+
+        if (targetIndex > 0) {
+            rowState.scrollToItem((targetIndex - 1).coerceAtLeast(0))
+        }
+    }
 
     LazyRow(
+        state = rowState,
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,

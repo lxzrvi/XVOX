@@ -120,7 +120,7 @@ fun XvoxNowPlayingArtworkPager(
         contentPadding = PaddingValues(horizontal = 11.dp),
         pageSpacing = 11.dp,
         modifier = modifier.fillMaxSize(),
-        key = { page -> queue.getOrNull(page)?.id ?: page }
+        key = { page -> "${queue.getOrNull(page)?.id}_${page}" }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
         Box(

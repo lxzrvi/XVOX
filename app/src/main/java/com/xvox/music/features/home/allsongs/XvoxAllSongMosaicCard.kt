@@ -3,9 +3,7 @@ package com.xvox.music.features.home.allsongs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,13 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
@@ -60,7 +56,6 @@ fun XvoxAllSongMosaicCard(
     fun Labels(onArt: Boolean = false, modifier: Modifier = Modifier) {
         Column(modifier) {
             Text(song.title,
-                // Currently playing song keeps the accent colour, on art or on card.
                 color = when {
                     current -> colors.primaryAccent
                     onArt -> Color.White
@@ -83,10 +78,9 @@ fun XvoxAllSongMosaicCard(
     }
 
     Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape).background(background)
-        .border(if (selected) 2.dp else .7.dp, if (selected) colors.primaryAccent else colors.cardBorder, shape)) {
+        .border(0.7.dp, colors.cardBorder, shape)) {
         when {
             presentation == 1 -> {
-                // Inner clipping also clips the title gradient to the same corners as the cover.
                 Box(Modifier.fillMaxSize().padding(inset).clip(artShape)) {
                     Cover(Modifier.fillMaxSize())
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
@@ -106,10 +100,6 @@ fun XvoxAllSongMosaicCard(
                 Cover(Modifier.weight(1f).fillMaxWidth())
                 if (!(presentation == 2 && heightUnits >= 2)) Labels(modifier = Modifier.padding(top = 5.dp))
             }
-        }
-        if (selected) Box(Modifier.align(Alignment.TopEnd).padding(5.dp).size(22.dp)
-            .background(colors.primaryAccent, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.ic_xvox_check), "Selected", tint = colors.background, modifier = Modifier.size(13.dp))
         }
     }
 }

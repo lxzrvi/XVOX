@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +63,7 @@ import kotlin.math.min
 fun XvoxImageCropDialog(
     sourceUri: Uri,
     isCircle: Boolean = true,
+    aspectRatio: Float = 1f,
     onCropped: (Uri) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -82,7 +80,7 @@ fun XvoxImageCropDialog(
                     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     val bytes = input.readBytes()
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-                    
+
                     val maxDim = 1600
                     var sampleSize = 1
                     while (opts.outWidth / sampleSize > maxDim || opts.outHeight / sampleSize > maxDim) {
@@ -131,7 +129,7 @@ fun XvoxImageCropDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f)
+                        .aspectRatio(aspectRatio)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF181818))
                         .onSizeChanged { containerSize = it }
@@ -144,7 +142,7 @@ fun XvoxImageCropDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     val currentBitmap = bitmap
-                    if (currentBitmap != null && containerSize.width > 0) {
+                    if (currentBitmap != null && containerSize.width > 0 && containerSize.height > 0) {
                         val imageBitmap = remember(currentBitmap) { currentBitmap.asImageBitmap() }
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val canvasWidth = size.width
@@ -160,20 +158,18 @@ fun XvoxImageCropDialog(
                             val dstX = (canvasWidth - renderedWidth) / 2f + offset.x
                             val dstY = (canvasHeight - renderedHeight) / 2f + offset.y
 
-                            // Draw image
                             drawImage(
                                 image = imageBitmap,
                                 dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
                                 dstSize = IntSize(renderedWidth.toInt(), renderedHeight.toInt())
                             )
 
-                            // Draw dark overlay and aperture
                             val overlayColor = Color.Black.copy(alpha = 0.65f)
                             val strokeColor = Color.White.copy(alpha = 0.85f)
-                            val cropRadius = min(canvasWidth, canvasHeight) * 0.45f
-                            val centerOffset = Offset(canvasWidth / 2f, canvasHeight / 2f)
 
                             if (isCircle) {
+                                val cropRadius = min(canvasWidth, canvasHeight) * 0.45f
+                                val centerOffset = Offset(canvasWidth / 2f, canvasHeight / 2f)
                                 val path = Path().apply {
                                     addRect(Rect(0f, 0f, canvasWidth, canvasHeight))
                                     addOval(
@@ -193,17 +189,23 @@ fun XvoxImageCropDialog(
                                     style = Stroke(width = 2.dp.toPx())
                                 )
                             } else {
-                                val cropSize = min(canvasWidth, canvasHeight) * 0.90f
+                                val cropWidth = canvasWidth * 0.94f
+                                val cropHeight = canvasHeight * 0.94f
                                 val cropRect = Rect(
-                                    (canvasWidth - cropSize) / 2f,
-                                    (canvasHeight - cropSize) / 2f,
-                                    (canvasWidth + cropSize) / 2f,
-                                    (canvasHeight + cropSize) / 2f
+                                    (canvasWidth - cropWidth) / 2f,
+                                    (canvasHeight - cropHeight) / 2f,
+                                    (canvasWidth + cropWidth) / 2f,
+                                    (canvasHeight + cropHeight) / 2f
                                 )
+                                val path = Path().apply {
+                                    addRect(Rect(0f, 0f, canvasWidth, canvasHeight))
+                                    addRect(cropRect)
+                                }
+                                drawPath(path, overlayColor, blendMode = BlendMode.SrcOver)
                                 drawRect(
                                     color = strokeColor,
                                     topLeft = Offset(cropRect.left, cropRect.top),
-                                    size = Size(cropSize, cropSize),
+                                    size = Size(cropWidth, cropHeight),
                                     style = Stroke(width = 2.dp.toPx())
                                 )
                             }
@@ -227,43 +229,52 @@ fun XvoxImageCropDialog(
                     Button(
                         onClick = {
                             val srcBmp = bitmap
-                            if (srcBmp != null && containerSize.width > 0) {
-                                val canvasDim = min(containerSize.width, containerSize.height).toFloat()
+                            if (srcBmp != null && containerSize.width > 0 && containerSize.height > 0) {
+                                val cW = containerSize.width.toFloat()
+                                val cH = containerSize.height.toFloat()
                                 val baseScale = max(
-                                    canvasDim / srcBmp.width.toFloat(),
-                                    canvasDim / srcBmp.height.toFloat()
+                                    cW / srcBmp.width.toFloat(),
+                                    cH / srcBmp.height.toFloat()
                                 )
                                 val totalScale = baseScale * scale
-                                val cropDim = canvasDim * (if (isCircle) 0.90f else 0.90f)
-                                
-                                val cropLeftInCanvas = (canvasDim - cropDim) / 2f
-                                val cropTopInCanvas = (canvasDim - cropDim) / 2f
-                                
-                                val imgLeftInCanvas = (canvasDim - srcBmp.width * totalScale) / 2f + offset.x
-                                val imgTopInCanvas = (canvasDim - srcBmp.height * totalScale) / 2f + offset.y
-                                
-                                val srcCropX = ((cropLeftInCanvas - imgLeftInCanvas) / totalScale).toInt().coerceIn(0, srcBmp.width - 1)
-                                val srcCropY = ((cropTopInCanvas - imgTopInCanvas) / totalScale).toInt().coerceIn(0, srcBmp.height - 1)
-                                val srcCropW = (cropDim / totalScale).toInt().coerceIn(1, srcBmp.width - srcCropX)
-                                val srcCropH = (cropDim / totalScale).toInt().coerceIn(1, srcBmp.height - srcCropY)
-                                
-                                val croppedBmp = Bitmap.createBitmap(srcBmp, srcCropX, srcCropY, srcCropW, srcCropH)
-                                val file = File(context.cacheDir, "xvox_crop_${System.currentTimeMillis()}.png")
+                                val cropW = if (isCircle) min(cW, cH) * 0.90f else cW * 0.94f
+                                val cropH = if (isCircle) min(cW, cH) * 0.90f else cH * 0.94f
+
+                                val cropLeftInCanvas = (cW - cropW) / 2f
+                                val cropTopInCanvas = (cH - cropH) / 2f
+
+                                val renderedWidth = srcBmp.width * totalScale
+                                val renderedHeight = srcBmp.height * totalScale
+                                val imgLeftInCanvas = (cW - renderedWidth) / 2f + offset.x
+                                val imgTopInCanvas = (cH - renderedHeight) / 2f + offset.y
+
+                                val srcCropX = ((cropLeftInCanvas - imgLeftInCanvas) / totalScale).coerceIn(0f, srcBmp.width.toFloat())
+                                val srcCropY = ((cropTopInCanvas - imgTopInCanvas) / totalScale).coerceIn(0f, srcBmp.height.toFloat())
+                                val srcCropW = (cropW / totalScale).coerceIn(1f, srcBmp.width - srcCropX)
+                                val srcCropH = (cropH / totalScale).coerceIn(1f, srcBmp.height - srcCropY)
+
+                                val cropped = Bitmap.createBitmap(
+                                    srcBmp,
+                                    srcCropX.toInt(),
+                                    srcCropY.toInt(),
+                                    srcCropW.toInt(),
+                                    srcCropH.toInt()
+                                )
+
+                                val file = File(context.cacheDir, "xvox_crop_${System.currentTimeMillis()}.jpg")
                                 FileOutputStream(file).use { out ->
-                                    croppedBmp.compress(Bitmap.CompressFormat.PNG, 95, out)
+                                    cropped.compress(Bitmap.CompressFormat.JPEG, 92, out)
                                 }
                                 onCropped(Uri.fromFile(file))
-                            } else {
-                                onCropped(sourceUri)
                             }
                         },
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = colors.primaryAccent,
-                            contentColor = Color.Black
+                            contentColor = colors.background
                         )
                     ) {
-                        Text("Apply")
+                        Text("Apply", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     }
                 }
             }

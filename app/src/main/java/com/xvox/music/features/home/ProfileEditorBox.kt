@@ -116,6 +116,7 @@ fun ProfileEditorBox(
         XvoxImageCropDialog(
             sourceUri = croppingHeaderUri!!,
             isCircle = false,
+            aspectRatio = 2.2f,
             onCropped = { croppedUri ->
                 croppingHeaderUri = null
                 scope.launch {

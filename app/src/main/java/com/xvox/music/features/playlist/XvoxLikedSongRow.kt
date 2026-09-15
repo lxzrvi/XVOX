@@ -49,8 +49,6 @@ fun XvoxLikedSongRow(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
-    val borderWidth = if (selected) 2.dp else 0.7.dp
-    val borderColor = if (selected) colors.primaryAccent else colors.cardBorder
 
     Row(
         modifier = modifier
@@ -59,39 +57,17 @@ fun XvoxLikedSongRow(
             .xvoxSongPress(onClick = onClick, onLongClick = onOptions, pressedScale = 0.95f)
             .clip(shape)
             .background(cardColor)
-            .border(width = borderWidth, color = borderColor, shape = shape)
+            .border(width = 0.7.dp, color = colors.cardBorder, shape = shape)
             .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(52.dp)
-        ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                requestSize = 112,
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(9.dp))
-            )
-
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(2.dp)
-                        .size(16.dp)
-                        .background(colors.primaryAccent, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_check),
-                        contentDescription = "Selected",
-                        tint = colors.background,
-                        modifier = Modifier.size(10.dp)
-                    )
-                }
-            }
-        }
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            requestSize = 112,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(9.dp))
+        )
 
         Spacer(Modifier.size(10.dp))
 
@@ -122,7 +98,7 @@ fun XvoxLikedSongRow(
                 .size(36.dp)
                 .background(colors.cardElevated, CircleShape)
                 .combinedClickable(
-                hapticFeedbackEnabled = false,
+                    hapticFeedbackEnabled = false,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onOptions,

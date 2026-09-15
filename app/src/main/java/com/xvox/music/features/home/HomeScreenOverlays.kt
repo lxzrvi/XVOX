@@ -159,7 +159,7 @@ fun showSongOptionsOverlay(
 
     overlays.showBox(
         title = "Song options",
-        onSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } }
+        onSettings = onSectionSettings?.let { act -> { act() } }
     ) {
         SongOptionsBox(
             song = sourcedSong,
