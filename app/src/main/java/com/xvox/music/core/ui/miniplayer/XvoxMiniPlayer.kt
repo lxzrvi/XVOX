@@ -40,6 +40,7 @@ fun XvoxMiniPlayer(
     playQueueIndex: (Int) -> Unit,
     stopAndDismiss: () -> Unit,
     openPlayer: () -> Unit,
+    isLiked: Boolean = false,
     onLike: () -> Unit,
     onAdd: () -> Unit,
     onDelete: () -> Unit = {},
@@ -124,10 +125,6 @@ fun XvoxMiniPlayer(
     ) {
         XvoxMiniPlayerActions(
             visible = actionsVisible,
-            onLike = {
-                actionsVisible = false
-                onLike()
-            },
             onAdd = {
                 actionsVisible = false
                 onAdd()
@@ -281,6 +278,8 @@ fun XvoxMiniPlayer(
                 duration = if (visualSong.id == currentSongId) duration else visualSong.duration,
                 direction = transitionDirection,
                 togglePlay = togglePlay,
+                isLiked = isLiked,
+                onLike = onLike,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .graphicsLayer {

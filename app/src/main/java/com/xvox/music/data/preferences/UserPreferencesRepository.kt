@@ -934,6 +934,37 @@ class UserPreferencesRepository(
         }
     }
 
+    suspend fun revertArtist(artistName: String) {
+        context.xvoxDataStore.edit { prefs ->
+            // 1. Remove from artistRenames
+            val rawRenames = prefs[Keys.artistRenames].orEmpty()
+            if (rawRenames.isNotBlank()) {
+                val map = rawRenames.split(";").mapNotNull { entry ->
+                    val parts = entry.split("=", limit = 2)
+                    if (parts.size == 2) parts[0] to parts[1] else null
+                }.toMap().toMutableMap()
+                val keysToRemove = map.filter { (k, v) ->
+                    k.equals(artistName, ignoreCase = true) || v.equals(artistName, ignoreCase = true)
+                }.keys
+                keysToRemove.forEach { map.remove(it) }
+                if (map.isEmpty()) prefs.remove(Keys.artistRenames)
+                else prefs[Keys.artistRenames] = map.entries.joinToString(";") { "${it.key}=${it.value}" }
+            }
+
+            // 2. Remove from customArtistImages
+            val rawImages = prefs[Keys.customArtistImages].orEmpty()
+            if (rawImages.isNotBlank()) {
+                val imgMap = rawImages.split(";").mapNotNull { entry ->
+                    val parts = entry.split("=", limit = 2)
+                    if (parts.size == 2) parts[0] to parts[1] else null
+                }.toMap().toMutableMap()
+                imgMap.remove(artistName)
+                if (imgMap.isEmpty()) prefs.remove(Keys.customArtistImages)
+                else prefs[Keys.customArtistImages] = imgMap.entries.joinToString(";") { "${it.key}=${it.value}" }
+            }
+        }
+    }
+
     suspend fun addHiddenSearchArtist(artist: String) {
         context.xvoxDataStore.edit { prefs ->
             val set = prefs[Keys.hiddenSearchArtists].orEmpty().split(",").filter { it.isNotBlank() }.toMutableSet()

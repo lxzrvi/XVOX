@@ -167,15 +167,7 @@ fun ArtistSquareItem(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                colors.surface.copy(alpha = 0.60f),
-                                colors.surface.copy(alpha = 0.88f)
-                            )
-                        )
-                    )
+                    .background(colors.cardElevated.copy(alpha = 0.85f))
                     .padding(horizontal = 6.dp, vertical = 5.dp),
                 contentAlignment = Alignment.Center
             ) {

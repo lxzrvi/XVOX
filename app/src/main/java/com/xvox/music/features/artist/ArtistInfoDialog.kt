@@ -109,6 +109,10 @@ fun ArtistInfoDialog(
         } || artist.songs.any { it.artist.isNotBlank() && !it.artist.equals(artist.name, ignoreCase = true) }
     }
 
+    val isModifiedArtist = remember(isMergedArtist, customPhotoUri, homeViewModel, artist.name) {
+        isMergedArtist || customPhotoUri != null || (homeViewModel?.state?.value?.customArtistImages?.containsKey(artist.name) == true)
+    }
+
     var nameField by remember(artist.name) {
         mutableStateOf(
             TextFieldValue(
@@ -282,7 +286,7 @@ fun ArtistInfoDialog(
                     .xvoxBoxScroll(scrollState)
                     .padding(vertical = 4.dp)
             ) {
-                if (isMergedArtist) {
+                if (isModifiedArtist) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -290,8 +294,8 @@ fun ArtistInfoDialog(
                             .background(colors.cardElevated)
                             .clickable {
                                 haptics.tap()
-                                homeViewModel?.unmergeArtist(artist.name)
-                                overlays.showP("Artist \"${artist.name}\" unmerged")
+                                homeViewModel?.revertArtist(artist.name)
+                                overlays.showP("Reverted to original artist")
                                 onDismiss()
                             }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -303,20 +307,20 @@ fun ArtistInfoDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_xvox_split),
-                                contentDescription = "Unmerge Artist",
+                                painter = painterResource(R.drawable.ic_xvox_refresh),
+                                contentDescription = "Revert to Original",
                                 tint = colors.primaryAccent,
                                 modifier = Modifier.size(18.dp)
                             )
                             Column {
                                 Text(
-                                    text = "Unmerge Artist",
+                                    text = "Revert to Original",
                                     color = colors.primaryAccent,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Separate merged songs back to original artists",
+                                    text = "Reset custom photo, renames & separated tracks",
                                     color = colors.secondaryText,
                                     fontSize = 10.sp
                                 )
@@ -519,7 +523,8 @@ fun ArtistInfoDialog(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                         onClick = {
-                                            onSaveArtistPhoto(artist.name, artUri)
+                                            customPhotoUri = artUri
+                                            onSaveArtistPhoto(artist.name, Uri.parse(artUri))
                                         }
                                     )
                             ) {
@@ -584,23 +589,6 @@ fun ArtistInfoDialog(
                             }
                         }
                     }
-
-                    // Gap Slider
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Spacing Gap", color = colors.secondaryText, fontSize = 11.sp)
-                        Text("${gap}dp", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                    XvoxThinLineSlider(
-                        value = gap.toFloat(),
-                        onValueChange = { onGapChange(it.toInt()) },
-                        valueRange = 2f..24f,
-                        defaultValue = 8f,
-                        modifier = Modifier.fillMaxWidth()
-                    )
 
                     // Hide text toggle
                     Row(

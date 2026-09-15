@@ -196,33 +196,19 @@ fun ProfileEditorBox(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        if (showLines) {
-            // Interval slider
-            Text(
-                "Change interval: ${(greetingInterval / 1000f).let { if (it % 1f == 0f) it.toInt().toString() else "%.1f".format(it) }}s",
-                color = colors.mutedText, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-            )
-            com.xvox.music.features.settings.components.XvoxThinLineSlider(
-                value = (greetingInterval / 1000f).coerceIn(1.5f, 60f),
-                onValueChange = { seconds -> scope.launch { prefs.setGreetingIntervalMs((seconds * 1000f).toLong()) } },
-                valueRange = 1.5f..60f,
-                defaultValue = 8f,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
         Spacer(Modifier.height(16.dp))
 
         // Header Background Photo Section in Profile Box
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            val isDefault = currentHeaderUri == null
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (currentHeaderUri == null) colors.primaryAccent else colors.cardElevated)
+                    .background(if (isDefault) colors.primaryAccent else colors.cardElevated.copy(alpha = 0.45f))
                     .xvoxPressScale {
                         haptics.tap()
                         scope.launch { prefs.setHeaderImageUri(null) }
@@ -231,9 +217,9 @@ fun ProfileEditorBox(
             ) {
                 Text(
                     "Default",
-                    color = if (currentHeaderUri == null) colors.background else colors.primaryText,
+                    color = if (isDefault) colors.background else colors.mutedText,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = if (isDefault) FontWeight.Bold else FontWeight.Normal
                 )
             }
 
@@ -242,7 +228,7 @@ fun ProfileEditorBox(
                     .weight(1f)
                     .height(36.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (currentHeaderUri != null) colors.primaryAccent else colors.cardElevated)
+                    .background(if (!isDefault) colors.primaryAccent else colors.cardElevated.copy(alpha = 0.45f))
                     .xvoxPressScale {
                         haptics.tap()
                         headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -251,9 +237,9 @@ fun ProfileEditorBox(
             ) {
                 Text(
                     "Custom",
-                    color = if (currentHeaderUri != null) colors.background else colors.primaryText,
+                    color = if (!isDefault) colors.background else colors.mutedText,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = if (!isDefault) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
@@ -329,23 +315,24 @@ fun ProfileEditorBox(
 
         Spacer(Modifier.height(10.dp))
 
-        // Header Background Transparency Slider
+        // Header Background Transparency Slider (0% on right = fully visible, 100% on left = fully transparent)
+        val transparencyPercent = ((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100f)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Header Transparency", color = colors.secondaryText, fontSize = 11.sp)
-            Text("${((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${transparencyPercent.toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
 
         com.xvox.music.features.settings.components.XvoxThinLineSlider(
-            value = chrome.headerBgAlpha.coerceIn(0f, 1f),
-            onValueChange = { alpha ->
-                scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = alpha)) }
+            value = transparencyPercent,
+            onValueChange = { trans ->
+                scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = (1f - (trans / 100f)).coerceIn(0f, 1f))) }
             },
-            valueRange = 0f..1f,
-            defaultValue = 1f,
+            valueRange = 0f..100f,
+            defaultValue = 0f,
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
         )
 
@@ -356,10 +343,21 @@ fun ProfileEditorBox(
             horizontalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.width(110.dp).height(38.dp).clip(RoundedCornerShape(19.dp))
-                    .background(colors.cardElevated).xvoxPressScale { haptics.tap(); onCancel() },
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(colors.cardElevated)
+                    .clickable { haptics.tap(); onCancel() },
                 contentAlignment = Alignment.Center
-            ) { Text("Cancel", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+            ) {
+                Text(
+                    "Cancel",
+                    color = colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
 
             Spacer(Modifier.width(12.dp))
 

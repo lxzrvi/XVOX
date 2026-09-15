@@ -80,7 +80,7 @@ fun HomeScreen(
     }
 
     val prefs = remember { UserPreferencesRepository(context) }
-    val config by prefs.homePresentation.collectAsState(initial = HomePresentation())
+    val config by viewModel.homePresentation.collectAsState()
 
     var selectedArtist by remember { mutableStateOf<XvoxArtist?>(null) }
     var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }

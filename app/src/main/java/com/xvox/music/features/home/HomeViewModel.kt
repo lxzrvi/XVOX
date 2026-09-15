@@ -45,6 +45,9 @@ class HomeViewModel(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
+    val homePresentation: StateFlow<HomePresentation> = preferencesRepository.homePresentation
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, HomePresentation())
+
     private val _folders = MutableStateFlow<List<FolderInfo>>(emptyList())
     val folders: StateFlow<List<FolderInfo>> = _folders.asStateFlow()
 
@@ -426,6 +429,11 @@ class HomeViewModel(
 
     fun unmergeArtist(artistName: String) = viewModelScope.launch {
         preferencesRepository.unmergeArtist(artistName)
+        refresh()
+    }
+
+    fun revertArtist(artistName: String) = viewModelScope.launch {
+        preferencesRepository.revertArtist(artistName)
         refresh()
     }
 

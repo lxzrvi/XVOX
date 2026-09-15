@@ -303,7 +303,8 @@ class PlaybackController(
         val song = queue.getOrNull(index) ?: return
         val p = controller
         if (p == null) { pendingPlay = song; return }
-        val shouldPlay = restoredSongId != null || !keepPlayingState || p.playWhenReady || _state.value.isPlaying
+        val isCurrentlyPlaying = _state.value.isPlaying && p.playWhenReady
+        val shouldPlay = if (keepPlayingState) isCurrentlyPlaying else (restoredSongId == null)
         startAt(index, shouldPlay)
     }
 

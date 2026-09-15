@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,10 +40,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -57,6 +60,8 @@ fun XvoxMiniPlayerCard(
     duration: Long,
     direction: Int,
     togglePlay: () -> Unit,
+    isLiked: Boolean = false,
+    onLike: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -127,10 +132,13 @@ fun XvoxMiniPlayerCard(
             )
         }
 
+        val titleColor = if (isFullCover) Color.White else colors.primaryText
+        val artistColor = if (isFullCover) Color.White.copy(alpha = 0.82f) else colors.secondaryText
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = if (isFullCover) 14.dp else 4.dp, top = 4.dp, end = 50.dp, bottom = 4.dp),
+                .padding(start = if (isFullCover) 14.dp else 4.dp, top = 4.dp, end = 88.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!isFullCover) {
@@ -191,7 +199,7 @@ fun XvoxMiniPlayerCard(
                     ) {
                         Text(
                             text = visualSong.title,
-                            color = colors.primaryText,
+                            color = titleColor,
                             fontSize = 12.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -201,7 +209,7 @@ fun XvoxMiniPlayerCard(
 
                         Text(
                             text = visualSong.artist,
-                            color = colors.secondaryText,
+                            color = artistColor,
                             fontSize = 9.sp,
                             lineHeight = 11.sp,
                             fontWeight = FontWeight.Normal,
@@ -213,25 +221,51 @@ fun XvoxMiniPlayerCard(
             }
         }
 
-        Box(
+        Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 7.dp)
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(colors.cardElevated.copy(alpha = 0.68f))
-                .clickable(
-                    interactionSource = controlInteraction,
-                    indication = null,
-                    onClick = togglePlay
-                ),
-            contentAlignment = Alignment.Center
+                .padding(end = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            XvoxMiniPlayerIcon(
-                icon = if (isPlaying) XvoxMiniIcon.PAUSE else XvoxMiniIcon.PLAY,
-                color = colors.primaryText,
-                modifier = Modifier.size(18.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onLike
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
+                    contentDescription = "Like",
+                    tint = if (isLiked) colors.primaryAccent else (if (isFullCover) Color.White else colors.primaryText),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
+                    .clickable(
+                        interactionSource = controlInteraction,
+                        indication = null,
+                        onClick = togglePlay
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                XvoxMiniPlayerIcon(
+                    icon = if (isPlaying) XvoxMiniIcon.PAUSE else XvoxMiniIcon.PLAY,
+                    color = if (isFullCover) Color.White else colors.primaryText,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

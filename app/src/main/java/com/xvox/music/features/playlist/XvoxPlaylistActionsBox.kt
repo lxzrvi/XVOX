@@ -338,22 +338,20 @@ private fun PlaylistLayoutEditor(
             }
         }
 
-        if (!isMerged || state.playlistCardOrientation == "vertical") {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = if (auto) "Height · Auto" else "Height · ${state.playlistLongHeight} dp",
-                color = colors.secondaryText,
-                fontSize = 11.sp
-            )
-            com.xvox.music.features.settings.components.XvoxThinLineSlider(
-                value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
-                onValueChange = { settingsViewModel.setPlaylistLongHeight(it.roundToInt()) },
-                valueRange = 60f..220f,
-                defaultValue = 120f
-            )
-            Spacer(Modifier.height(8.dp))
-            LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
-        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            text = if (auto) "Card Height · Auto" else "Card Height · ${state.playlistLongHeight} dp",
+            color = colors.secondaryText,
+            fontSize = 11.sp
+        )
+        com.xvox.music.features.settings.components.XvoxThinLineSlider(
+            value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
+            onValueChange = { settingsViewModel.setPlaylistLongHeight(it.roundToInt()) },
+            valueRange = 60f..220f,
+            defaultValue = 120f
+        )
+        Spacer(Modifier.height(8.dp))
+        LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
 
         Spacer(Modifier.height(14.dp))
 

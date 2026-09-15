@@ -49,6 +49,7 @@ fun XvoxBox(
     mini: Boolean = false,
     onAddClick: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -61,7 +62,7 @@ fun XvoxBox(
 
     val scrimAlpha by animateFloatAsState(
         targetValue = if (visible) 0.40f else 0f,
-        animationSpec = tween(220, easing = XvoxBoxEasing),
+        animationSpec = tween(50),
         label = "scrimAlpha"
     )
 
@@ -70,7 +71,7 @@ fun XvoxBox(
         closing = true
         visible = false
         scope.launch {
-            delay(210)
+            delay(50)
             dismiss()
         }
     }
@@ -154,6 +155,22 @@ fun XvoxBox(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
+                            if (onSettingsClick != null) {
+                                Box(
+                                    Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .xvoxPressScale { onSettingsClick() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painterResource(R.drawable.ic_xvox_settings),
+                                        "Settings",
+                                        tint = colors.primaryAccent,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
                             if (onAddClick != null) {
                                 Icon(
                                     painterResource(R.drawable.ic_xvox_add),

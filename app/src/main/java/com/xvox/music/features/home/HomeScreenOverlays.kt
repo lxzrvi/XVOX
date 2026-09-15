@@ -149,7 +149,10 @@ fun showSongOptionsOverlay(
     sectionSettingsLabel: String? = null,
     onSectionSettings: (() -> Unit)? = null
 ) {
-    overlays.showBox("Song options") {
+    overlays.showBox(
+        title = "Song options",
+        onSettings = onSectionSettings?.let { act -> { overlays.hideBox(); act() } }
+    ) {
         SongOptionsBox(
             song = song,
             liked = isLiked,

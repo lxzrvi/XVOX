@@ -24,6 +24,9 @@ class XvoxOverlayController {
     internal var boxTitle by mutableStateOf("XVOX")
         private set
 
+    internal var boxSettingsAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
     val isBoxVisible: Boolean get() = listContent != null
 
     /** A compact bottom-anchored PIP-style popup instead of the centred box. */
@@ -38,17 +41,27 @@ class XvoxOverlayController {
 
     private var popupId by mutableLongStateOf(0L)
 
-    fun showBox(title: String = "XVOX", content: @Composable () -> Unit) {
+    fun showBox(
+        title: String = "XVOX",
+        onSettings: (() -> Unit)? = null,
+        content: @Composable () -> Unit
+    ) {
         boxMini = false
         boxTitle = title
+        boxSettingsAction = onSettings
         listKey++
         listContent = content
     }
 
     /** Compact PIP-style popup: quick actions that must not take over the whole screen. */
-    fun showMiniBox(title: String = "XVOX", content: @Composable () -> Unit) {
+    fun showMiniBox(
+        title: String = "XVOX",
+        onSettings: (() -> Unit)? = null,
+        content: @Composable () -> Unit
+    ) {
         boxMini = true
         boxTitle = title
+        boxSettingsAction = onSettings
         listKey++
         listContent = content
     }
@@ -56,6 +69,7 @@ class XvoxOverlayController {
     fun hideBox() {
         listContent = null
         boxMini = false
+        boxSettingsAction = null
     }
 
     fun showP(text: String) {

@@ -152,7 +152,6 @@ fun SongOptionsBox(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 420.dp)
                 .wrapContentHeight()
         ) {
             items(options) { option ->

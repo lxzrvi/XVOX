@@ -27,7 +27,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 @Composable
 fun XvoxMiniPlayerActions(
     visible: Boolean,
-    onLike: () -> Unit,
     onAdd: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
@@ -59,11 +58,6 @@ fun XvoxMiniPlayerActions(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ActionButton(
-                icon = XvoxMiniIcon.HEART,
-                onClick = onLike
-            )
-
             ActionButton(
                 icon = XvoxMiniIcon.ADD,
                 onClick = onAdd

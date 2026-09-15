@@ -50,7 +50,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.app.Activity
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -63,6 +67,7 @@ import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
 import com.xvox.music.features.home.showCreatePlaylistOverlay
+import com.xvox.music.features.home.showDeleteOverlay
 import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
@@ -106,6 +111,15 @@ fun XvoxMainShell(
     // Bumped on every tab switch so each freshly opened tab lands at the top of its content.
     var tabEpoch by remember { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
+    val miniDeleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && pendingDeleteSong != null) {
+            playerViewModel.removeFromQueue(pendingDeleteSong!!.id)
+            homeViewModel.refresh()
+            overlays.showP("Song deleted from device")
+        }
+        pendingDeleteSong = null
+    }
     LaunchedEffect(homeConfig.mergedSections) {
         hoistedSelectedPlaylistId = null
         homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
@@ -313,14 +327,8 @@ fun XvoxMainShell(
         }
         AnimatedVisibility(
             visible = destination != XvoxDestination.SETTINGS,
-            enter = slideInVertically(
-                initialOffsetY = { -it },
-                animationSpec = tween(360, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
-            ) + fadeIn(tween(260)),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
-            ) + fadeOut(tween(220))
+            enter = fadeIn(tween(140)),
+            exit = fadeOut(tween(100))
         ) {
             val likedMergedToHome = com.xvox.music.features.home.HomeSections.LIKED in homeConfig.mergedSections
             val playlistsMergedToHome = com.xvox.music.features.home.HomeSections.PLAYLISTS in homeConfig.mergedSections
@@ -367,6 +375,7 @@ fun XvoxMainShell(
             onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
             onStopAndDismiss = { playerViewModel.stopPlayback() },
             onOpenPlayer = { playerViewModel.openNowPlaying() },
+            isLiked = currentSong?.id in homeState.likedSongIds,
             onLike = {
                 currentSong?.let { song ->
                     val wasLiked = song.id in homeState.likedSongIds
@@ -379,8 +388,15 @@ fun XvoxMainShell(
             },
             onDelete = {
                 currentSong?.let { song ->
-                    homeViewModel.hideSong(song)
-                    overlays.showP("Song deleted")
+                    showDeleteOverlay(
+                        overlays = overlays,
+                        context = context,
+                        song = song,
+                        playerViewModel = playerViewModel,
+                        viewModel = homeViewModel,
+                        deleteLauncher = miniDeleteLauncher,
+                        onPendingDelete = { pendingDeleteSong = it }
+                    )
                 }
             },
             onSettings = ::showMiniPlayerSettings
