@@ -2,7 +2,8 @@ package com.xvox.music.player.nowplaying
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -12,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
@@ -100,7 +100,7 @@ fun XvoxNowPlayingArtworkPager(
             Pair(pager.settledPage, pager.isScrollInProgress)
         }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
             if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
-                delay(40)
+                delay(90)
                 if (!pager.isScrollInProgress && pager.settledPage == settledIndex) {
                     settled(settledIndex)
                 }
@@ -110,7 +110,7 @@ fun XvoxNowPlayingArtworkPager(
 
     HorizontalPager(
         state = pager,
-        beyondViewportPageCount = 3,
+        beyondViewportPageCount = 2,
         snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
         flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
@@ -127,11 +127,13 @@ fun XvoxNowPlayingArtworkPager(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(20.dp))
-                .pointerInput(song.id) {
-                    detectTapGestures {
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
                         if (!pager.isScrollInProgress) tap()
                     }
-                },
+                ),
             contentAlignment = Alignment.Center
         ) {
             XvoxSongArtwork(

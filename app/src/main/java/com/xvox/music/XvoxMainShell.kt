@@ -234,31 +234,18 @@ fun XvoxMainShell(
                         playerViewModel.switchToQueue(queueId)
                     }
                 )
-            },
-            onUndo = {
-                if (playerViewModel.canUndoQueue()) {
-                    overlays.showBox("Undo queue change?") {
-                        com.xvox.music.shell.XvoxConfirmBox(
-                            question = "Undo last queue change?",
-                            detail = "Reverts queue back by 1 step.",
-                            confirmLabel = "Undo",
-                            onCancel = { showQueueBox() },
-                            onConfirm = {
-                                val undone = playerViewModel.undoLastQueueAction()
-                                showQueueBox()
-                                if (undone) overlays.showP("Queue change undone")
-                            }
-                        )
-                    }
-                } else {
-                    overlays.showP("No previous queue state to undo")
-                }
             }
         ) {
             val liveState by playerViewModel.state.collectAsState()
             XvoxQueueBoxContent(
                 queue = liveState.queue,
                 currentSongId = liveState.currentSongId,
+                isPlaying = liveState.isPlaying,
+                savedQueues = liveState.savedQueues,
+                activeQueueName = liveState.activeQueueName,
+                onSwitchQueue = { queueId ->
+                    playerViewModel.switchToQueue(queueId)
+                },
                 onPlayIndex = { index ->
                     playerViewModel.playQueueIndex(index, keepPlayingState = false)
                     overlays.hideBox()

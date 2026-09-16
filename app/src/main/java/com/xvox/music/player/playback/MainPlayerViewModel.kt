@@ -338,6 +338,27 @@ class MainPlayerViewModel(
         return "${songs.size} songs added to $newQueueName"
     }
 
+    fun addToSavedQueue(queueId: String, song: Song): String {
+        val target = _state.value.savedQueues.firstOrNull { it.id == queueId } ?: return addToQueue(song)
+        val updatedSongs = target.songs.filterNot { it.id == song.id } + song
+        val updatedQueue = target.copy(songs = updatedSongs)
+        _state.update {
+            it.copy(savedQueues = it.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q })
+        }
+        return "Added to ${target.name}"
+    }
+
+    fun addToSavedQueue(queueId: String, songs: List<Song>): String {
+        val target = _state.value.savedQueues.firstOrNull { it.id == queueId } ?: return addToQueue(songs)
+        val songIds = songs.map { it.id }.toSet()
+        val updatedSongs = target.songs.filterNot { it.id in songIds } + songs
+        val updatedQueue = target.copy(songs = updatedSongs)
+        _state.update {
+            it.copy(savedQueues = it.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q })
+        }
+        return "${songs.size} songs added to ${target.name}"
+    }
+
     fun switchToQueue(targetQueueId: String) {
         val currentQueue = _state.value.queue
         val currentActiveName = _state.value.activeQueueName

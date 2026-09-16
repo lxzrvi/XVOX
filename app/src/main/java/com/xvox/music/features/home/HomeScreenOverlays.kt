@@ -136,12 +136,18 @@ fun showAddToQueueOverlay(
     playerViewModel: MainPlayerViewModel,
     song: Song
 ) {
-    val activeName = playerViewModel.state.value.activeQueueName
+    val liveState = playerViewModel.state.value
     overlays.showBox("Add to queue") {
         AddToQueueBox(
-            activeQueueName = activeName,
+            activeQueueName = liveState.activeQueueName,
+            savedQueues = liveState.savedQueues,
             onAddToCurrent = {
                 val msg = playerViewModel.addToQueue(song)
+                overlays.hideBox()
+                overlays.showP(msg)
+            },
+            onAddToSaved = { saved ->
+                val msg = playerViewModel.addToSavedQueue(saved.id, song)
                 overlays.hideBox()
                 overlays.showP(msg)
             },
@@ -160,13 +166,20 @@ fun showMultiAddToQueueOverlay(
     songs: List<Song>,
     onDone: () -> Unit = {}
 ) {
-    val activeName = playerViewModel.state.value.activeQueueName
+    val liveState = playerViewModel.state.value
     overlays.showBox("Add to queue") {
         AddToQueueBox(
-            activeQueueName = activeName,
+            activeQueueName = liveState.activeQueueName,
+            savedQueues = liveState.savedQueues,
             songCount = songs.size,
             onAddToCurrent = {
                 val msg = playerViewModel.addToQueue(songs)
+                overlays.hideBox()
+                overlays.showP(msg)
+                onDone()
+            },
+            onAddToSaved = { saved ->
+                val msg = playerViewModel.addToSavedQueue(saved.id, songs)
                 overlays.hideBox()
                 overlays.showP(msg)
                 onDone()

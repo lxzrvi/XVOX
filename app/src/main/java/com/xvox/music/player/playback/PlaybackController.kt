@@ -258,15 +258,20 @@ class PlaybackController(
         if (from !in queue.indices || to !in queue.indices || from == to) return queue
         lastQueueInput = null
         val updated = queue.toMutableList().apply { add(to, removeAt(from)) }
+        queue = updated
+        queuePositions = queue.withIndex().associate { it.value.id to it.index }
         val p = controller
         if (installedQueue === queue && p != null && p.mediaItemCount == queue.size) {
-            queue = updated
-            queuePositions = queue.withIndex().associate { it.value.id to it.index }
             p.moveMediaItem(from, to)
             nativeIds = queue.map { it.id }.toMutableList(); indexNative()
             installedQueue = queue
-            publishState()
-        } else setQueue(updated)
+        } else {
+            setQueue(updated)
+        }
+        val currentId = p?.currentMediaItem?.mediaId?.toLongOrNull() ?: _state.value.currentSongId
+        val newIdx = queue.indexOfFirst { it.id == currentId }
+        _state.value = _state.value.copy(currentIndex = if (newIdx >= 0) newIdx else _state.value.currentIndex)
+        publishState()
         return queue
     }
 
@@ -312,7 +317,7 @@ class PlaybackController(
         val p = controller ?: return
         val song = queue.getOrNull(index) ?: return
         restoredSongId = null
-        val sameSong = p.currentMediaItem?.mediaId == song.id.toString() && p.playbackState != Player.STATE_ENDED
+        val sameSong = p.currentMediaItem?.mediaId == song.id.toString() && _state.value.currentIndex == index && p.playbackState != Player.STATE_ENDED
         var nativeIndex: Int? = when {
             installedQueue === queue && p.mediaItemCount == queue.size -> index
             installingQueue === queue && index < installAnchor && index < installPrefix -> index
