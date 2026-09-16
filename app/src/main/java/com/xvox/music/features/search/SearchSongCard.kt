@@ -94,7 +94,6 @@ fun SearchSongCard(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(colors.cardElevated, CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -106,7 +105,7 @@ fun SearchSongCard(
                 painter = painterResource(R.drawable.ic_xvox_more),
                 contentDescription = "Song options",
                 tint = colors.primaryText,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(19.dp)
             )
         }
     }

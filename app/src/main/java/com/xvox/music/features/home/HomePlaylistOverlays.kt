@@ -149,7 +149,8 @@ fun showMultiAddToPlaylistOverlay(
         val liveState by viewModel.state.collectAsState()
         val playlists = liveState.playlists
         PlaylistPickerBox(
-            song = songs.firstOrNull() ?: Song(0L, "", "", Uri.EMPTY, null),
+            song = null,
+            selectedSongs = songs,
             playlists = playlists,
             onCreate = {
                 showCreatePlaylistOverlay(overlays, viewModel, liveState.songs)
@@ -158,6 +159,13 @@ fun showMultiAddToPlaylistOverlay(
                 viewModel.addMultipleToPlaylist(pl.id, songs) {
                     overlays.hideBox()
                     overlays.showP("${songs.size} songs added to ${pl.name}")
+                    onDone()
+                }
+            },
+            onAddCustomList = { pl, listToAdd ->
+                viewModel.addMultipleToPlaylist(pl.id, listToAdd) {
+                    overlays.hideBox()
+                    overlays.showP("${listToAdd.size} songs added to ${pl.name}")
                     onDone()
                 }
             },

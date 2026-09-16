@@ -96,7 +96,6 @@ fun XvoxLikedSongRow(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(colors.cardElevated, CircleShape)
                 .combinedClickable(
                     hapticFeedbackEnabled = false,
                     interactionSource = remember { MutableInteractionSource() },
@@ -110,7 +109,7 @@ fun XvoxLikedSongRow(
                 painter = painterResource(R.drawable.ic_xvox_more),
                 contentDescription = "Song options",
                 tint = colors.primaryText,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(19.dp)
             )
         }
     }

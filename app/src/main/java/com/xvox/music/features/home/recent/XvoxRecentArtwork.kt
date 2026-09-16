@@ -12,7 +12,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -51,12 +53,13 @@ fun XvoxRecentArtwork(
     onLongClick: () -> Unit = {},
     animateEntrance: Boolean = false,
     source: String? = null,
-    onSourceClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current)
     val shape = RoundedCornerShape(14.dp)
+
+    val displaySource = rememberSongQueueSource(song, source)
 
     Box(
         modifier = modifier
@@ -84,33 +87,37 @@ fun XvoxRecentArtwork(
                         listOf(
                             Color.Transparent,
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.78f)
+                            Color.Black.copy(alpha = 0.82f)
                         )
                     )
                 )
         )
 
-        // Origin badge, top-left: tapping it names the collection in the XVOX pill (border removed).
-        if (onSourceClick != null) {
-            RecentSourceBadge(
-                source = source,
-                onClick = onSourceClick,
-                modifier = Modifier.align(Alignment.TopStart).padding(9.dp)
-            )
-        }
-
-        Text(
-            text = song.title,
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        // Bottom text: Song Title and Originating Queue name below it
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth(0.72f)
                 .padding(start = 12.dp, end = 8.dp, bottom = 10.dp)
-        )
+        ) {
+            Text(
+                text = song.title,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(1.dp))
+            Text(
+                text = displaySource,
+                color = Color.White.copy(alpha = 0.82f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -154,4 +161,9 @@ fun XvoxRecentArtwork(
             }
         }
     }
+}
+
+private fun rememberSongQueueSource(song: Song, source: String?): String {
+    val src = if (!source.isNullOrBlank()) source else if (song.source.isNotBlank()) song.source else "All Songs"
+    return if (src.startsWith("Playing by ")) src else src
 }

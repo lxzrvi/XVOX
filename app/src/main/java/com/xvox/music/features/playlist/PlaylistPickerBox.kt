@@ -43,26 +43,38 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 
 @Composable
 fun PlaylistPickerBox(
-    song: Song,
+    song: Song? = null,
+    selectedSongs: List<Song> = emptyList(),
     playlists: List<XvoxPlaylist>,
     onCreate: () -> Unit,
     onAdd: (XvoxPlaylist) -> Unit,
-    onRemove: (XvoxPlaylist) -> Unit,
+    onRemove: ((XvoxPlaylist) -> Unit)? = null,
+    onAddCustomList: ((XvoxPlaylist, List<Song>) -> Unit)? = null,
     songs: List<Song> = emptyList(),
     songsFor: ((XvoxPlaylist) -> List<Song>)? = null
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
-    var playlistToRemoveFrom by remember { mutableStateOf<XvoxPlaylist?>(null) }
+    val targetSongs = remember(song, selectedSongs) {
+        if (selectedSongs.isNotEmpty()) selectedSongs
+        else if (song != null) listOf(song)
+        else emptyList()
+    }
+
+    val isSingleSong = targetSongs.size <= 1
+    val singleSong = targetSongs.firstOrNull()
+
+    var singleSongToRemoveFrom by remember { mutableStateOf<XvoxPlaylist?>(null) }
+    var batchConflictPlaylist by remember { mutableStateOf<Pair<XvoxPlaylist, List<Song>>?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
-        if (playlistToRemoveFrom != null) {
-            val target = playlistToRemoveFrom!!
+        if (singleSongToRemoveFrom != null && singleSong != null) {
+            val target = singleSongToRemoveFrom!!
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,16 +83,16 @@ fun PlaylistPickerBox(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Remove from ${target.name}?",
+                    text = "Song Already in ${target.name}",
                     color = colors.primaryAccent,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Are you sure you want to remove \"${song.title}\" from ${target.name}?",
+                    text = "Do you want to remove \"${singleSong.title}\" from ${target.name} or keep it?",
                     color = colors.secondaryText,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 16.sp
                 )
@@ -97,11 +109,11 @@ fun PlaylistPickerBox(
                             .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
-                                playlistToRemoveFrom = null
+                                singleSongToRemoveFrom = null
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Cancel", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("Keep / Cancel", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
 
                     Box(
@@ -112,12 +124,111 @@ fun PlaylistPickerBox(
                             .background(Color(0xFFFF5252))
                             .xvoxPressScale {
                                 haptics.success()
-                                playlistToRemoveFrom = null
-                                onRemove(target)
+                                singleSongToRemoveFrom = null
+                                onRemove?.invoke(target)
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text("Remove", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else if (batchConflictPlaylist != null) {
+            val (target, alreadyIn) = batchConflictPlaylist!!
+            val newSongs = targetSongs.filterNot { it.id in target.songIds }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Add to ${target.name}?",
+                    color = colors.primaryAccent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "${alreadyIn.size} of ${targetSongs.size} selected songs are already in this playlist.",
+                    color = colors.secondaryText,
+                    fontSize = 12.5.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
+                )
+                Spacer(Modifier.height(4.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (newSongs.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(colors.cardElevated)
+                                .xvoxPressScale {
+                                    haptics.tap()
+                                    batchConflictPlaylist = null
+                                    if (onAddCustomList != null) {
+                                        onAddCustomList(target, newSongs)
+                                    } else {
+                                        onAdd(target)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Add remaining ${newSongs.size} songs",
+                                color = colors.primaryAccent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colors.primaryAccent.copy(alpha = 0.20f))
+                            .xvoxPressScale {
+                                haptics.success()
+                                batchConflictPlaylist = null
+                                if (onAddCustomList != null) {
+                                    onAddCustomList(target, targetSongs)
+                                } else {
+                                    onAdd(target)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Add all ${targetSongs.size} songs",
+                            color = colors.primaryAccent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colors.card)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                batchConflictPlaylist = null
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Cancel", color = colors.secondaryText, fontSize = 12.5.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -129,7 +240,7 @@ fun PlaylistPickerBox(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Add / Remove Playlist",
+                    text = if (isSingleSong) "Add / Remove Playlist" else "Add ${targetSongs.size} songs to Playlist",
                     color = colors.primaryText,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
@@ -199,17 +310,27 @@ fun PlaylistPickerBox(
                     contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
                     items(items = safePlaylists, key = { "pl_${it.id}" }) { playlist ->
-                        val contains = song.id in playlist.songIds
+                        val singleContains = isSingleSong && singleSong != null && singleSong.id in playlist.songIds
+                        val batchAlreadyIn = if (!isSingleSong) targetSongs.filter { it.id in playlist.songIds } else emptyList()
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     haptics.tap()
-                                    if (contains) {
-                                        playlistToRemoveFrom = playlist
+                                    if (isSingleSong) {
+                                        if (singleContains) {
+                                            singleSongToRemoveFrom = playlist
+                                        } else {
+                                            onAdd(playlist)
+                                        }
                                     } else {
-                                        onAdd(playlist)
+                                        if (batchAlreadyIn.isNotEmpty()) {
+                                            batchConflictPlaylist = playlist to batchAlreadyIn
+                                        } else {
+                                            onAdd(playlist)
+                                        }
                                     }
                                 }
                                 .padding(horizontal = 6.dp, vertical = 7.dp),
@@ -244,14 +365,14 @@ fun PlaylistPickerBox(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = if (contains) "Added" else "${playlist.songIds.size} songs",
-                                    color = if (contains) colors.primaryAccent else colors.secondaryText,
+                                    text = "${playlist.songIds.size} songs",
+                                    color = colors.secondaryText,
                                     fontSize = 11.sp,
                                     maxLines = 1
                                 )
                             }
 
-                            if (contains) {
+                            if (isSingleSong && singleContains) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_xvox_check),
                                     contentDescription = null,

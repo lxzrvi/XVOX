@@ -1,9 +1,5 @@
 package com.xvox.music.features.artist
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,19 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,169 +27,49 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
-import com.xvox.music.core.ui.overlay.xvoxBoxScroll
-import com.xvox.music.features.home.HomePresentation
-import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.features.settings.components.SettingsChoiceRow
 
 @Composable
 fun ArtistInfoDialog(
     artist: XvoxArtist,
-    allArtists: List<XvoxArtist> = emptyList(),
-    config: HomePresentation = HomePresentation(),
-    homeViewModel: HomeViewModel? = null,
-    columns: Int = 5,
-    rows: Int = 4,
-    direction: String = "vertical",
-    gap: Int = 8,
     hideText: Boolean = false,
-    mergedToHome: Boolean = false,
-    onColumnsChange: (Int) -> Unit = {},
-    onRowsChange: (Int) -> Unit = {},
-    onDirectionChange: (String) -> Unit = {},
-    onGapChange: (Int) -> Unit = {},
     onHideTextChange: (Boolean) -> Unit = {},
-    onMergeToHomeChange: (Boolean) -> Unit = {},
-    onRenameArtist: (oldName: String, newName: String, merge: Boolean) -> Unit = { _, _, _ -> },
-    onSaveArtistPhoto: (artistName: String, uri: Uri?) -> Unit = { _, _ -> },
     onDismiss: () -> Unit,
     onPlayNext: () -> Unit,
-    onEditPhoto: () -> Unit = {},
+    onAddToQueue: () -> Unit,
     onHideArtist: () -> Unit
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
-    var editing by remember(artist.name) { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var duplicateTargetArtist by remember { mutableStateOf<String?>(null) }
-    var croppingUri by remember { mutableStateOf<Uri?>(null) }
-    var customPhotoUri by remember(artist.customImageUri) { mutableStateOf(artist.customImageUri) }
-
-    val isMergedArtist = remember(artist.name, artist.songs, homeViewModel) {
-        val renames = homeViewModel?.state?.value?.artistRenames.orEmpty()
-        renames.any { (k, v) ->
-            (v.equals(artist.name, ignoreCase = true) && !k.equals(artist.name, ignoreCase = true)) ||
-            (k.equals(artist.name, ignoreCase = true) && !v.equals(artist.name, ignoreCase = true))
-        } || artist.songs.any { it.artist.isNotBlank() && !it.artist.equals(artist.name, ignoreCase = true) }
-    }
-
-    val isModifiedArtist = remember(isMergedArtist, customPhotoUri, homeViewModel, artist.name) {
-        isMergedArtist || customPhotoUri != null || (homeViewModel?.state?.value?.customArtistImages?.containsKey(artist.name) == true)
-    }
-
-    var nameField by remember(artist.name) {
-        mutableStateOf(
-            TextFieldValue(
-                text = artist.name,
-                selection = TextRange(artist.name.length)
-            )
-        )
-    }
-
-    val focusRequester = remember { FocusRequester() }
-
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            croppingUri = uri
-        }
-    }
-
-    if (croppingUri != null) {
-        XvoxImageCropDialog(
-            sourceUri = croppingUri!!,
-            isCircle = false,
-            onCropped = { croppedUri ->
-                croppingUri = null
-                customPhotoUri = croppedUri.toString()
-                onSaveArtistPhoto(artist.name, croppedUri)
-            },
-            onDismiss = { croppingUri = null }
-        )
-    }
-
-    LaunchedEffect(editing) {
-        if (editing) {
-            nameField = nameField.copy(selection = TextRange(nameField.text.length))
-            runCatching { focusRequester.requestFocus() }
-        }
-    }
-
-    fun submitRename(mergeDuplicates: Boolean) {
-        val clean = nameField.text.trim()
-        if (clean.isNotBlank() && clean != artist.name) {
-            onRenameArtist(artist.name, clean, mergeDuplicates)
-        }
-        editing = false
-        duplicateTargetArtist = null
-    }
 
     XvoxBox(
         title = artist.name,
         onDismiss = onDismiss,
-        isEditing = editing,
-        onEditClick = {
-            haptics.tap()
-            if (editing) {
-                val clean = nameField.text.trim()
-                if (clean.isNotEmpty() && clean != artist.name) {
-                    val duplicateExists = allArtists.any {
-                        it.name.equals(clean, ignoreCase = true) && !it.name.equals(artist.name, ignoreCase = true)
-                    }
-                    if (duplicateExists) {
-                        duplicateTargetArtist = clean
-                    } else {
-                        submitRename(mergeDuplicates = false)
-                    }
-                } else {
-                    editing = false
-                }
-            } else {
-                editing = true
-            }
-        },
         headerLeadingContent = {
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(colors.cardElevated)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {
-                            haptics.tap()
-                            photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                    ),
+                    .background(colors.cardElevated),
                 contentAlignment = Alignment.Center
             ) {
-                if (customPhotoUri != null) {
+                if (artist.customImageUri != null) {
                     AsyncImage(
-                        model = customPhotoUri,
+                        model = artist.customImageUri,
                         contentDescription = artist.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(36.dp)
@@ -212,67 +82,16 @@ fun ArtistInfoDialog(
                     )
                 } else {
                     Icon(
-                        painter = painterResource(R.drawable.ic_xvox_microphone),
+                        painter = painterResource(R.drawable.ic_xvox_artist),
                         contentDescription = null,
                         tint = colors.primaryAccent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
-
-                if (editing) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.Black.copy(alpha = 0.55f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_edit),
-                            contentDescription = "Edit photo",
-                            tint = Color.White,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
-                }
-            }
-        },
-        headerTitleContent = {
-            if (editing) {
-                BasicTextField(
-                    value = nameField,
-                    onValueChange = { nameField = it },
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        color = colors.primaryText,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    cursorBrush = SolidColor(colors.primaryAccent),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                )
-            } else {
-                Column {
-                    Text(
-                        text = artist.name,
-                        color = colors.primaryText,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "${artist.songs.size} ${if (artist.songs.size == 1) "Song" else "Songs"}",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
-                    )
-                }
             }
         }
     ) {
-        if (duplicateTargetArtist != null) {
-            // Merge / Separate prompt dialog
+        if (showDeleteConfirm) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -281,16 +100,16 @@ fun ArtistInfoDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Artist already exists",
-                    color = colors.primaryAccent,
+                    text = "Hide Artist?",
+                    color = Color(0xFFFF5252),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "An artist named \"$duplicateTargetArtist\" already exists in your library. Do you want their songs to mix together as one artist?",
+                    text = "Hide \"${artist.name}\" and all their ${artist.songs.size} songs from the artists library? (You can restore hidden artists from Settings)",
                     color = colors.secondaryText,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 16.sp
                 )
@@ -307,63 +126,8 @@ fun ArtistInfoDialog(
                             .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
-                                submitRename(mergeDuplicates = false)
+                                showDeleteConfirm = false
                             },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Separate", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(colors.primaryAccent)
-                            .xvoxPressScale {
-                                haptics.success()
-                                submitRename(mergeDuplicates = true)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Yes, Mix", color = colors.background, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        } else if (showDeleteConfirm) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Hide ${artist.name}?",
-                    color = colors.primaryText,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "This will hide the artist and their songs from the library. You can restore them anytime in Settings › Deleted songs.",
-                    color = colors.secondaryText,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 16.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(colors.cardElevated)
-                            .xvoxPressScale { showDeleteConfirm = false },
                         contentAlignment = Alignment.Center
                     ) {
                         Text("Cancel", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
@@ -376,6 +140,8 @@ fun ArtistInfoDialog(
                             .clip(RoundedCornerShape(20.dp))
                             .background(Color(0xFFFF5252))
                             .xvoxPressScale {
+                                haptics.success()
+                                showDeleteConfirm = false
                                 onHideArtist()
                                 onDismiss()
                             },
@@ -386,310 +152,143 @@ fun ArtistInfoDialog(
                 }
             }
         } else {
-            val scrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(scrollState)
-                    .xvoxBoxScroll(scrollState)
-                    .padding(vertical = 4.dp)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (isMergedArtist) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.cardElevated)
-                            .clickable {
-                                haptics.tap()
-                                homeViewModel?.unmergeArtist(artist.name)
-                                homeViewModel?.revertArtist(artist.name)
-                                overlays.showP("Unmerged and reverted artist")
-                                onDismiss()
-                            }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_refresh),
-                                contentDescription = "Unmerge Artist & Revert All",
-                                tint = colors.primaryAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "Unmerge Artist & Revert All",
-                                    color = colors.primaryAccent,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Separate merged songs and restore original artist info",
-                                    color = colors.secondaryText,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_caret_right),
-                            contentDescription = null,
-                            tint = colors.mutedText,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
-                } else if (isModifiedArtist) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.cardElevated)
-                            .clickable {
-                                haptics.tap()
-                                homeViewModel?.revertArtist(artist.name)
-                                overlays.showP("Reverted to original artist")
-                                onDismiss()
-                            }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_refresh),
-                                contentDescription = "Revert to Original",
-                                tint = colors.primaryAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "Revert to Original",
-                                    color = colors.primaryAccent,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Reset custom photo and renames",
-                                    color = colors.secondaryText,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_caret_right),
-                            contentDescription = null,
-                            tint = colors.mutedText,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
+                Text(
+                    text = "${artist.songs.size} songs by ${artist.name}",
+                    color = colors.secondaryText,
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
 
-                if (editing) {
-                    Text(
-                        text = "Note: Renaming does not change the song file metadata. It is used inside XVOX to manage and group your artists.",
-                        color = colors.mutedText,
-                        fontSize = 10.sp,
-                        lineHeight = 13.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Text("Available Artist Artwork", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-
-                    val artworks = remember(artist.songs) {
-                        artist.songs.mapNotNull { it.artworkUri }.distinct().take(10)
-                    }
-
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.cardElevated)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = {
-                                            photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_add),
-                                    contentDescription = "Pick Custom Photo",
-                                    tint = colors.primaryAccent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        items(artworks) { artUri ->
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = {
-                                            customPhotoUri = artUri.toString()
-                                            onSaveArtistPhoto(artist.name, artUri)
-                                        }
-                                    )
-                            ) {
-                                XvoxSongArtwork(
-                                    artwork = artUri,
-                                    requestSize = 100,
-                                    modifier = Modifier.size(46.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-
-                // Artist Layout & Settings Card
-                Column(
+                // 1. Play Next Action
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(colors.card)
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            onPlayNext()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Artist Layout & Settings",
-                        color = colors.primaryAccent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_play),
+                        contentDescription = null,
+                        tint = colors.primaryAccent,
+                        modifier = Modifier.size(19.dp)
                     )
-
-                    // Scroll Direction
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
-                        SettingsChoiceRow(
-                            options = listOf("vertical" to "Vertical Grid", "horizontal" to "Horizontal Rows"),
-                            selected = direction,
-                            onSelect = { onDirectionChange(it) }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Play next",
+                            color = colors.primaryText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-
-                    if (direction == "horizontal") {
-                        // Rows per page only when horizontal
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
-                            SettingsChoiceRow(
-                                options = listOf("1" to "1 Row", "2" to "2 Rows", "3" to "3 Rows", "4" to "4 Rows"),
-                                selected = rows.toString(),
-                                onSelect = { onRowsChange(it.toIntOrNull() ?: 3) }
-                            )
-                        }
-                    } else {
-                        // Columns from 2 to 8
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
-                            SettingsChoiceRow(
-                                options = listOf("2" to "2", "3" to "3", "4" to "4", "5" to "5", "6" to "6", "7" to "7", "8" to "8"),
-                                selected = columns.toString(),
-                                onSelect = { onColumnsChange(it.toIntOrNull() ?: 5) }
-                            )
-                        }
-                    }
-
-                    // Hide text toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Hide artist names", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        Switch(
-                            checked = hideText,
-                            onCheckedChange = onHideTextChange,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colors.background,
-                                checkedTrackColor = colors.primaryAccent,
-                                uncheckedThumbColor = colors.secondaryText,
-                                uncheckedTrackColor = colors.cardElevated
-                            )
+                        Text(
+                            text = "Play all ${artist.songs.size} songs next in queue",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Actions
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // 2. Add to Queue Action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            onDismiss()
+                            onAddToQueue()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.card)
-                            .xvoxPressScale {
-                                onPlayNext()
-                                onDismiss()
-                            }
-                            .padding(horizontal = 14.dp, vertical = 11.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_playlist),
-                            contentDescription = null,
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_queue),
+                        contentDescription = null,
+                        tint = colors.primaryAccent,
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Play this artist next",
+                            text = "Add to queue",
                             color = colors.primaryText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.card)
-                            .xvoxPressScale {
-                                showDeleteConfirm = true
-                            }
-                            .padding(horizontal = 14.dp, vertical = 11.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_delete),
-                            contentDescription = null,
-                            tint = Color(0xFFFF5252),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Delete / Hide artist",
-                            color = Color(0xFFFF5252),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            text = "Append all ${artist.songs.size} songs to active or saved queue",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp
                         )
                     }
+                }
+
+                // 3. Artist Layout Settings Card (Only Hide artist names toggle)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Hide artist names", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Show only circular artwork in grid", color = colors.secondaryText, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = hideText,
+                        onCheckedChange = onHideTextChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.background,
+                            checkedTrackColor = colors.primaryAccent,
+                            uncheckedThumbColor = colors.secondaryText,
+                            uncheckedTrackColor = colors.cardElevated
+                        )
+                    )
+                }
+
+                // 4. Hide / Delete Artist Action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            showDeleteConfirm = true
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_delete),
+                        contentDescription = null,
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Text(
+                        text = "Hide artist",
+                        color = Color(0xFFFF5252),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

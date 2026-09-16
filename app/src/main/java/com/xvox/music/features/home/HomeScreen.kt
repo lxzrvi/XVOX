@@ -132,41 +132,17 @@ fun HomeScreen(
         val currentArtist = showArtistInfo!!
         ArtistInfoDialog(
             artist = currentArtist,
-            allArtists = artists,
-            config = config,
-            homeViewModel = viewModel,
-            columns = config.artistColumns,
-            rows = config.artistRows,
-            direction = config.artistDirection,
-            gap = config.artistGap,
             hideText = config.artistHideText,
-            mergedToHome = HomeSections.ARTISTS in config.mergedSections,
-            onColumnsChange = { viewModel.setArtistColumns(it) },
-            onRowsChange = { viewModel.setArtistRows(it) },
-            onDirectionChange = { viewModel.setArtistDirection(it) },
-            onGapChange = { viewModel.setArtistGap(it) },
             onHideTextChange = { viewModel.setArtistHideText(it) },
-            onMergeToHomeChange = { mergeOn ->
-                viewModel.setHomeSectionMerged(HomeSections.ARTISTS, mergeOn)
-            },
-            onRenameArtist = { oldName, newName, merge ->
-                viewModel.renameArtist(oldName, newName, merge)
-                overlays.showP("Artist renamed to $newName")
-            },
-            onSaveArtistPhoto = { name, uri ->
-                viewModel.setArtistPhoto(name, uri)
-                overlays.showP("Artist photo updated")
-            },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
                 val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
                 val msg = playerViewModel.playNextInQueue(artistSongs)
                 overlays.showP(if (msg.isNotBlank()) msg else "Playing by ${currentArtist.name}")
             },
-            onEditPhoto = {
-                artistPhotoPicker.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+            onAddToQueue = {
+                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
+                showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
             },
             onHideArtist = {
                 viewModel.hideArtist(currentArtist.name)
@@ -324,6 +300,33 @@ fun HomeScreen(
         state.songs.filter { it.id in selectedSongIds }
     }
 
+    fun resolveOriginatingSongsForRecent(song: Song): Pair<List<Song>, String> {
+        val src = state.recentSources[song.id]?.ifBlank { null } ?: song.source.ifBlank { "All Songs" }
+
+        val pl = state.playlists.firstOrNull { it.name.equals(src, ignoreCase = true) }
+        if (pl != null) {
+            val plSongs = viewModel.playlistSongs(pl)
+            if (plSongs.isNotEmpty()) return plSongs to pl.name
+        }
+
+        if (src.equals("Liked Songs", ignoreCase = true) || src.equals("Liked", ignoreCase = true)) {
+            val liked = state.songs.filter { it.id in state.likedSongIds }
+            if (liked.isNotEmpty()) return liked to "Liked Songs"
+        }
+
+        val art = artists.firstOrNull { it.name.equals(src, ignoreCase = true) || src.equals("Playing by ${it.name}", ignoreCase = true) }
+        if (art != null && art.songs.isNotEmpty()) {
+            return art.songs to "Playing by ${art.name}"
+        }
+
+        val savedQueue = playerViewModel.state.value.savedQueues.firstOrNull { it.name.equals(src, ignoreCase = true) }
+        if (savedQueue != null && savedQueue.songs.isNotEmpty()) {
+            return savedQueue.songs to savedQueue.name
+        }
+
+        return state.songs to (if (src.isNotBlank()) src else "All Songs")
+    }
+
     fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
         item(key = "recent") {
             XvoxRecentlyPlayedSection(
@@ -336,14 +339,12 @@ fun HomeScreen(
                     else if (song.id == currentSongId) playerViewModel.togglePlay()
                     else {
                         viewModel.recordPlayedFromRecent(song, currentSongId)
-                        playerViewModel.playFromSource(song, state.recentlyPlayed, "Recently Played")
+                        val (queueSongs, queueName) = resolveOriginatingSongsForRecent(song)
+                        playerViewModel.playFromSource(song, queueSongs, queueName)
                     }
                 },
                 onSongOptions = { song -> openSingleSongOptions(song, recent = true) },
-                sources = state.recentSources,
-                onSourceClick = { song ->
-                    overlays.showP(com.xvox.music.features.home.recent.RecentSource.describe(state.recentSources[song.id]))
-                }
+                sources = state.recentSources
             )
         }
     }
@@ -355,10 +356,10 @@ fun HomeScreen(
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
-                columns = if (standalone) 4 else config.artistColumns,
-                rows = if (standalone) 4 else config.artistRows,
-                direction = if (standalone) "vertical" else config.artistDirection,
-                gap = config.artistGap,
+                columns = 5,
+                rows = 4,
+                direction = "vertical",
+                gap = 8,
                 hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
@@ -479,17 +480,20 @@ fun HomeScreen(
             modifier = Modifier.weight(1f),
             label = "libraryFade"
         ) { target ->
-            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
+            val targetArtistName = (target as? String)?.takeIf { it.startsWith("artist_") }?.removePrefix("artist_")
+            val targetArtist = remember(targetArtistName, artists) {
+                targetArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
+            }
+
+            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") && it != XvoxHomeLibraryMode.ALL_SONGS && it != XvoxHomeLibraryMode.LIKED && it != XvoxHomeLibraryMode.PLAYLISTS && it != XvoxHomeLibraryMode.ARTISTS }?.let { id ->
                 state.playlists.firstOrNull { it.id == id }
             }
             val detailTracks = remember(targetPlaylist, playlistContents) {
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
             }
 
-            val currentSelectedArtist = selectedArtist
-
             val listState = when {
-                currentSelectedArtist != null && target == "artist_${currentSelectedArtist.name}" -> detailScrollState
+                targetArtist != null -> detailScrollState
                 targetPlaylist != null -> detailScrollState
                 target == XvoxHomeLibraryMode.LIKED -> likedScrollState
                 target == XvoxHomeLibraryMode.PLAYLISTS -> playlistsScrollState
@@ -497,8 +501,8 @@ fun HomeScreen(
                 else -> homeScrollState
             }
 
-            LaunchedEffect(currentSelectedArtist?.name, targetPlaylist?.id) {
-                if (currentSelectedArtist != null || targetPlaylist != null) {
+            LaunchedEffect(targetArtist?.name, targetPlaylist?.id) {
+                if (targetArtist != null || targetPlaylist != null) {
                     detailScrollState.scrollToItem(0)
                 }
             }
@@ -511,18 +515,17 @@ fun HomeScreen(
                     bottom = bottomInset
                 )
             ) {
-                if (currentSelectedArtist != null && target == "artist_${currentSelectedArtist.name}") {
-                    val artistCover = currentSelectedArtist.customImageUri ?: currentSelectedArtist.coverSong?.artworkUri
+                if (targetArtist != null) {
                     librarySongItems(
                         keyPrefix = "artist_detail",
-                        title = currentSelectedArtist.name,
-                        songs = currentSelectedArtist.songs,
+                        title = targetArtist.name,
+                        songs = targetArtist.songs,
                         currentSongId = currentSongId,
                         playing = isPlaying,
                         selected = selectedSongIds,
-                        onPlay = { handleSongClick(it, currentSelectedArtist.songs, "Playing by " + currentSelectedArtist.name) },
-                        onOptions = { if (isSelectionMode) handleSongLongClick(it, "Playing by " + currentSelectedArtist.name) else openSingleSongOptions(it) },
-                        avatarUri = artistCover
+                        onPlay = { handleSongClick(it, targetArtist.songs, "Playing by " + targetArtist.name) },
+                        onOptions = { if (isSelectionMode) handleSongLongClick(it, "Playing by " + targetArtist.name) else openSingleSongOptions(it) },
+                        avatarUri = null
                     )
                 } else if (targetPlaylist != null) {
                     librarySongItems(

@@ -17,15 +17,19 @@ import com.xvox.music.core.model.Song
 /** Keep the LazyRow mounted, including during updates. Never replace it with an inert transition card. */
 @Composable
 fun XvoxRecentCarousel(
-    songs: List<Song>, currentSongId: Long?, isPlaying: Boolean, transition: RecentTransitionRequest,
-    onSongClick: (Song) -> Unit, onSongOptions: (Song) -> Unit,
-    sources: Map<Long, String> = emptyMap(), onSourceClick: (Song) -> Unit = {}
+    songs: List<Song>,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    transition: RecentTransitionRequest,
+    onSongClick: (Song) -> Unit,
+    onSongOptions: (Song) -> Unit,
+    sources: Map<Long, String> = emptyMap(),
+    onSourceClick: (Song) -> Unit = {}
 ) {
     val state = rememberLazyListState()
     val fling = rememberSnapFlingBehavior(state)
     val click by rememberUpdatedState(onSongClick)
     val options by rememberUpdatedState(onSongOptions)
-    val sourceClick by rememberUpdatedState(onSourceClick)
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val edge = 6.dp
@@ -49,8 +53,7 @@ fun XvoxRecentCarousel(
                         playing = song.id == currentSongId && isPlaying,
                         onClick = { click(song) },
                         onLongClick = { options(song) },
-                        source = sources[song.id],
-                        onSourceClick = { sourceClick(song) },
+                        source = sources[song.id] ?: song.source,
                         modifier = Modifier.width(itemWidth).height(122.dp)
                     )
                 }

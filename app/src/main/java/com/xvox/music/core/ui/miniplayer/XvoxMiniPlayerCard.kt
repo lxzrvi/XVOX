@@ -243,7 +243,7 @@ fun XvoxMiniPlayerCard(
                 Icon(
                     painter = painterResource(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
                     contentDescription = "Like",
-                    tint = if (isLiked) colors.primaryAccent else (if (isFullCover) Color.White else colors.primaryText),
+                    tint = if (isLiked) Color.White else (if (isFullCover) Color.White else colors.primaryText),
                     modifier = Modifier.size(18.dp)
                 )
             }
