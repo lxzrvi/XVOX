@@ -1,29 +1,33 @@
 package com.xvox.music.player.nowplaying
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.XvoxRecentArtworkSize
+import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
+/**
+ * Full-queue smooth HorizontalPager.
+ * Rests cleanly with 11dp side gaps and 11dp page spacing.
+ * Enables ultra-fast, snappy continuous swiping, non-blocking rapid button navigation,
+ * and live real-time backdrop palette crossfading with zero lag.
+ */
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
@@ -36,395 +40,118 @@ fun XvoxNowPlayingArtworkPager(
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
+    val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
 
-    val wrapEnabled =
-        repeatMode == RepeatMode.ALL &&
-            queue.size > 1
+    val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
 
-    val virtualPageCount =
-        if (wrapEnabled) {
-            Int.MAX_VALUE
+    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
+    var targetPage by remember { mutableIntStateOf(initialIdx) }
+    var lastObservedSongId by remember { mutableStateOf(queue.getOrNull(initialIdx)?.id) }
+
+    val settled by rememberUpdatedState(onSettledPage)
+    val palette by rememberUpdatedState(onSwipePalette)
+    val tap by rememberUpdatedState(onArtworkTap)
+
+    // Handle external Next/Prev navigation requests (Rapid button clicking without freeze)
+    LaunchedEffect(navigationRequest) {
+        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
+        val delta = navigationRequest - lastHandledRequest
+        lastHandledRequest = navigationRequest
+
+        var nextTarget = targetPage + delta
+        if (repeatMode == RepeatMode.ALL) {
+            nextTarget = (nextTarget % queue.size + queue.size) % queue.size
         } else {
-            queue.size
+            nextTarget = nextTarget.coerceIn(0, queue.lastIndex)
         }
+        targetPage = nextTarget
 
-    fun queueIndexForPage(
-        page: Int
-    ): Int {
-        if (!wrapEnabled) {
-            return page.coerceIn(
-                0,
-                queue.lastIndex
-            )
+        if (targetPage in queue.indices) {
+            pager.animateScrollToPage(targetPage, animationSpec = tween(160, easing = FastOutSlowInEasing))
         }
-
-        return (
-            (page % queue.size) +
-                queue.size
-            ) % queue.size
     }
 
-    val safeCurrentIndex =
-        currentIndex.coerceIn(
-            0,
-            queue.lastIndex
-        )
+    // Auto-advance, external track changes, and silent queue reorder sync
+    LaunchedEffect(currentIndex, queue) {
+        val currentSong = queue.getOrNull(currentIndex)
+        val currentSongId = currentSong?.id
+        targetPage = currentIndex
 
-    val initialPage =
-        if (wrapEnabled) {
-            val middle =
-                Int.MAX_VALUE / 2
-
-            middle -
-                (middle % queue.size) +
-                safeCurrentIndex
-        } else {
-            safeCurrentIndex
-        }
-
-    val pagerState =
-        rememberPagerState(
-            initialPage = initialPage,
-            pageCount = {
-                virtualPageCount
-            }
-        )
-
-    val latestCurrentIndex =
-        rememberUpdatedState(
-            currentIndex
-        )
-
-    val latestSettledCallback =
-        rememberUpdatedState(
-            onSettledPage
-        )
-
-    fun nearestVirtualPage(
-        targetQueueIndex: Int
-    ): Int {
-        if (!wrapEnabled) {
-            return targetQueueIndex
-        }
-
-        val currentPage =
-            pagerState.currentPage
-
-        val currentQueueIndex =
-            queueIndexForPage(
-                currentPage
-            )
-
-        var delta =
-            targetQueueIndex -
-                currentQueueIndex
-
-        if (
-            abs(delta) >
-            queue.size / 2
-        ) {
-            delta =
-                if (delta > 0) {
-                    delta - queue.size
-                } else {
-                    delta + queue.size
-                }
-        }
-
-        return currentPage + delta
-    }
-
-    LaunchedEffect(
-        currentIndex,
-        queue.size,
-        wrapEnabled
-    ) {
-        if (
-            currentIndex !in queue.indices ||
-            pagerState.isScrollInProgress
-        ) {
-            return@LaunchedEffect
-        }
-
-        val currentlyShown =
-            queueIndexForPage(
-                pagerState.settledPage
-            )
-
-        if (
-            currentlyShown !=
-            currentIndex
-        ) {
-            val target =
-                nearestVirtualPage(
-                    currentIndex
-                )
-
-            if (
-                abs(
-                    target -
-                        pagerState.currentPage
-                ) == 1
-            ) {
-                pagerState
-                    .animateScrollToPage(
-                        target
-                    )
+        if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
+            if (currentSongId != null && currentSongId == lastObservedSongId) {
+                // Reorder happened in background — snap silently with zero cover slide/flicker
+                pager.scrollToPage(currentIndex)
             } else {
-                pagerState
-                    .scrollToPage(
-                        target
-                    )
+                // Actual track change — smooth cover transition
+                pager.animateScrollToPage(currentIndex, animationSpec = tween(180, easing = FastOutSlowInEasing))
             }
         }
+        lastObservedSongId = currentSongId
     }
 
-    LaunchedEffect(
-        navigationRequest
-    ) {
-        if (
-            navigationRequest == 0 ||
-            queue.isEmpty()
-        ) {
-            return@LaunchedEffect
-        }
-
-        val direction =
-            if (
-                navigationRequest > 0
-            ) {
-                1
-            } else {
-                -1
-            }
-
-        val currentPage =
-            pagerState.settledPage
-
-        val targetPage =
-            if (wrapEnabled) {
-                currentPage + direction
-            } else {
-                (
-                    currentPage +
-                        direction
-                    ).coerceIn(
-                    0,
-                    queue.lastIndex
-                )
-            }
-
-        if (
-            targetPage !=
-            currentPage
-        ) {
-            pagerState
-                .animateScrollToPage(
-                    targetPage
-                )
-        }
-    }
-
-    LaunchedEffect(
-        pagerState,
-        queue,
-        wrapEnabled
-    ) {
+    // Real-time backdrop color crossfading matching finger/pager position with zero latency
+    LaunchedEffect(pager, queue) {
         snapshotFlow {
-            pagerState.currentPage to
-                pagerState
-                    .currentPageOffsetFraction
-        }.collect {
-                (
-                    page,
-                    fraction
-                ) ->
+            Pair(pager.currentPage, pager.currentPageOffsetFraction)
+        }.collect { (page, offset) ->
+            val curr = queue.getOrNull(page)
+            val adj = if (offset > 0.0001f) queue.getOrNull(page + 1)
+            else if (offset < -0.0001f) queue.getOrNull(page - 1)
+            else null
 
-            val baseIndex =
-                queueIndexForPage(
-                    page
-                )
-
-            val baseSong =
-                queue.getOrNull(
-                    baseIndex
-                ) ?: return@collect
-
-            val adjacentSong =
-                when {
-                    fraction > 0f -> {
-                        val nextPage =
-                            page + 1
-
-                        if (
-                            wrapEnabled ||
-                            nextPage <
-                            queue.size
-                        ) {
-                            queue.getOrNull(
-                                queueIndexForPage(
-                                    nextPage
-                                )
-                            )
-                        } else {
-                            null
-                        }
-                    }
-
-                    fraction < 0f -> {
-                        val previousPage =
-                            page - 1
-
-                        if (
-                            wrapEnabled ||
-                            previousPage >= 0
-                        ) {
-                            queue.getOrNull(
-                                queueIndexForPage(
-                                    previousPage
-                                )
-                            )
-                        } else {
-                            null
-                        }
-                    }
-
-                    else -> null
-                }
-
-            onSwipePalette(
-                baseSong,
-                adjacentSong,
-                abs(fraction)
-                    .coerceIn(
-                        0f,
-                        1f
-                    )
-            )
+            if (curr != null) {
+                palette(curr, adj, abs(offset))
+            }
         }
     }
 
-    LaunchedEffect(
-        pagerState,
-        queue,
-        wrapEnabled
-    ) {
+    // Snappy playback commit when settled on track
+    LaunchedEffect(pager, queue) {
         snapshotFlow {
-            if (
-                pagerState
-                    .isScrollInProgress ||
-                pagerState
-                    .currentPageOffsetFraction !=
-                    0f
-            ) {
-                null
-            } else {
-                queueIndexForPage(
-                    pagerState.settledPage
-                )
+            Pair(pager.settledPage, pager.isScrollInProgress)
+        }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
+            if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
+                delay(90)
+                if (!pager.isScrollInProgress && pager.settledPage == settledIndex) {
+                    settled(settledIndex)
+                }
             }
         }
-            .distinctUntilChanged()
-            .collect { settledIndex ->
-
-                if (
-                    settledIndex != null &&
-                    settledIndex in
-                    queue.indices &&
-                    settledIndex !=
-                    latestCurrentIndex.value
-                ) {
-                    latestSettledCallback
-                        .value(
-                            settledIndex
-                        )
-                }
-            }
     }
 
-    Box(
-        modifier =
-            modifier.fillMaxSize(),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier =
-                Modifier.fillMaxSize(),
-            pageSize =
-                PageSize.Fill,
-            pageSpacing =
-                0.dp,
-            beyondViewportPageCount =
-                1,
-            verticalAlignment =
-                Alignment.CenterVertically,
-            key = { page ->
-                if (wrapEnabled) {
-                    page
-                } else {
-                    queue[
-                        queueIndexForPage(
-                            page
-                        )
-                    ].id
-                }
-            }
-        ) { page ->
-
-            val song =
-                queue[
-                    queueIndexForPage(
-                        page
-                    )
-                ]
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal =
-                            8.dp,
-                        vertical =
-                            8.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(
-                            20.dp
-                        )
-                    ),
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                XvoxSongArtwork(
-                    artwork =
-                        song.artworkUri,
-                    requestSize =
-                        XvoxRecentArtworkSize,
-                    modifier =
-                        Modifier.fillMaxSize()
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(
-                            song.id
-                        ) {
-                            detectTapGestures(
-                                onTap = {
-                                    if (
-                                        !pagerState
-                                            .isScrollInProgress
-                                    ) {
-                                        onArtworkTap()
-                                    }
-                                }
-                            )
-                        }
-                )
-            }
+    HorizontalPager(
+        state = pager,
+        beyondViewportPageCount = 2,
+        snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
+        flingBehavior = PagerDefaults.flingBehavior(
+            state = pager,
+            snapAnimationSpec = tween(160, easing = FastOutSlowInEasing),
+            snapPositionalThreshold = 0.35f
+        ),
+        contentPadding = PaddingValues(horizontal = 11.dp),
+        pageSpacing = 11.dp,
+        modifier = modifier.fillMaxSize(),
+        key = { page -> "${queue.getOrNull(page)?.id}_${page}" }
+    ) { page ->
+        val song = queue.getOrNull(page) ?: return@HorizontalPager
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        if (!pager.isScrollInProgress) tap()
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = XvoxNowPlayingArtworkSize,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

@@ -1,198 +1,94 @@
 package com.xvox.music.player.nowplaying.lyrics
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.data.preferences.LyricsSettings
+import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
-fun XvoxSyncedLyrics(
-    lyrics: XvoxLyrics,
-    position: Long,
-    onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-    strongEdgeFade: Boolean = false
-) {
+fun XvoxSyncedLyrics(lyrics: XvoxLyrics, position: Long, onSeek: (Long) -> Unit, modifier: Modifier = Modifier,
+    strongEdgeFade: Boolean = false, settingsOverride: LyricsSettings? = null, preview: Boolean = false,
+    textColor: Color = Color.White) {
     if (lyrics.lines.isEmpty()) return
-
-    // Timely sync - no artificial 300ms late, use position directly, seek quickly resolves
-    val activeIndex = if (lyrics.synchronized) {
-        lyrics.lines.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= position }.coerceAtLeast(0)
-    } else -1
-
-    val listState = rememberLazyListState()
-    var userBrowsing by remember { mutableStateOf(false) }
-    var autoFollowing by remember { mutableStateOf(false) }
-    var interactionToken by remember { mutableLongStateOf(0L) }
-
-    LaunchedEffect(listState.isScrollInProgress, autoFollowing) {
-        if (listState.isScrollInProgress && !autoFollowing) {
-            userBrowsing = true
-            interactionToken++
-        } else if (!listState.isScrollInProgress && userBrowsing && !autoFollowing) {
-            val token = ++interactionToken
-            delay(3000L)
-            if (token == interactionToken && !listState.isScrollInProgress) {
-                userBrowsing = false
-            }
+    val context = LocalContext.current
+    val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
+    val saved by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
+    val settings = settingsOverride ?: saved
+    val active = if (lyrics.synchronized) lyrics.lines.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= settings.position(position) } else -1
+    val list = rememberLazyListState()
+    val dragged by list.interactionSource.collectIsDraggedAsState()
+    var browsing by remember { mutableStateOf(false) }
+    LaunchedEffect(dragged) {
+        if (dragged) browsing = true
+        else if (browsing) {
+            snapshotFlow { list.isScrollInProgress }.first { !it }
+            delay(2500); browsing = false
         }
     }
-
-    LaunchedEffect(activeIndex, userBrowsing, lyrics) {
-        if (!lyrics.synchronized || activeIndex < 0 || userBrowsing) return@LaunchedEffect
-        autoFollowing = true
-        try {
+    val measure = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val maximum = maxOf(settings.currentSize, settings.otherSize)
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = maximum.sp, lineHeight = (maximum * 1.3f).sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = when (settings.alignment) {
+            "left" -> TextAlign.Start
+            "right" -> TextAlign.End
+            else -> TextAlign.Center
+        })
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val viewport = with(density) { maxHeight.toPx() }
+        val textWidth = with(density) { (maxWidth - 36.dp).roundToPx().coerceAtLeast(1) }
+        val rowHeight = if (active >= 0) remember(active, lyrics, maximum, textWidth, textStyle) {
+            measure.measure(lyrics.lines[active].text.ifBlank { "♪" }, textStyle, constraints = Constraints(maxWidth = textWidth)).size.height + with(density) { 16.dp.toPx() }
+        } else 0f
+        LaunchedEffect(active, browsing, maximum, viewport, settings.animation) {
+            if (active < 0 || browsing || !lyrics.synchronized) return@LaunchedEffect
             withFrameNanos { }
-            centerLyricExactly(listState, activeIndex + 1)
-        } finally {
-            autoFollowing = false
-        }
-    }
-
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val boundarySpace = maxHeight / 2
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    // Balanced symmetric fade - visible to header & bottom, strongest at extreme edges, progressive to center, central 0.25-0.75 clear, not aggressive
-                    val stops = if (strongEdgeFade) {
-                        arrayOf(
-                            0.00f to Color.Transparent,
-                            0.04f to Color.White.copy(alpha = 0.03f),
-                            0.10f to Color.White.copy(alpha = 0.10f),
-                            0.16f to Color.White.copy(alpha = 0.28f),
-                            0.21f to Color.White.copy(alpha = 0.60f),
-                            0.25f to Color.White,
-                            0.75f to Color.White,
-                            0.79f to Color.White.copy(alpha = 0.60f),
-                            0.84f to Color.White.copy(alpha = 0.28f),
-                            0.90f to Color.White.copy(alpha = 0.10f),
-                            0.96f to Color.White.copy(alpha = 0.03f),
-                            1.00f to Color.Transparent
-                        )
-                    } else {
-                        arrayOf(
-                            0.00f to Color.White.copy(alpha = 0.02f),
-                            0.06f to Color.White.copy(alpha = 0.06f),
-                            0.12f to Color.White.copy(alpha = 0.18f),
-                            0.19f to Color.White.copy(alpha = 0.36f),
-                            0.26f to Color.White.copy(alpha = 0.68f),
-                            0.33f to Color.White,
-                            0.67f to Color.White,
-                            0.74f to Color.White.copy(alpha = 0.68f),
-                            0.81f to Color.White.copy(alpha = 0.36f),
-                            0.88f to Color.White.copy(alpha = 0.18f),
-                            0.94f to Color.White.copy(alpha = 0.06f),
-                            1.00f to Color.White.copy(alpha = 0.02f)
-                        )
-                    }
-                    drawRect(brush = Brush.verticalGradient(colorStops = stops), blendMode = BlendMode.DstIn)
+            val index = active + 1
+            val item = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+            if (item == null) {
+                // A seek may jump hundreds of rows. Centre directly instead of jumping then correcting.
+                list.scrollToItem(index, ((rowHeight - viewport) / 2).roundToInt())
+            } else {
+                val delta = item.offset + item.size / 2f - viewport / 2f
+                if (abs(delta) > .75f) {
+                    val motion: AnimationSpec<Float> = if (settings.animation == "spring") spring(dampingRatio = .9f, stiffness = 320f)
+                        else tween(if (settings.animation == "fade") 240 else 320, easing = FastOutSlowInEasing)
+                    list.animateScrollBy(delta, motion)
                 }
-        ) {
-            item(key = "lyrics-top") { Spacer(Modifier.height(boundarySpace)) }
-            itemsIndexed(items = lyrics.lines, key = { index, line -> "$index-${line.timeMs}-${line.text}" }) { index, line ->
-                val distance = abs(index - activeIndex)
-                val isActive = lyrics.synchronized && index == activeIndex
-                // One-line style: single active focus, others faded by distance
-                val alpha = when (distance) {
-                    0 -> 1f
-                    1 -> 0.68f
-                    2 -> 0.36f
-                    else -> 0.16f
-                }
-                val fontSize = when {
-                    isActive && strongEdgeFade -> 23.sp
-                    isActive -> 21.sp
-                    strongEdgeFade -> 15.sp
-                    else -> 14.sp
-                }
-                val lineHeight = when {
-                    isActive && strongEdgeFade -> 30.sp
-                    isActive -> 27.sp
-                    else -> 21.sp
-                }
-                val lineColor by animateColorAsState(
-                    targetValue = if (isActive) Color.White else Color.White.copy(alpha = alpha),
-                    animationSpec = tween(110),
-                    label = "lyricColor$index"
-                )
-                Text(
-                    text = line.text.ifBlank { "♪" },
-                    color = lineColor,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = line.timeMs != null, interactionSource = remember { MutableInteractionSource() }, indication = null) { line.timeMs?.let(onSeek) }
-                        .padding(horizontal = 20.dp, vertical = if (isActive) 10.dp else 7.dp)
-                )
             }
-            item(key = "lyrics-bottom") { Spacer(Modifier.height(boundarySpace)) }
         }
-    }
-}
-
-private suspend fun centerLyricExactly(state: LazyListState, lazyIndex: Int) {
-    var target = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-    if (target == null) {
-        state.scrollToItem(lazyIndex)
-        withFrameNanos { }
-        target = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex } ?: return
-    }
-    fun correction(): Float? {
-        val layout = state.layoutInfo
-        val item = layout.visibleItemsInfo.firstOrNull { it.index == lazyIndex } ?: return null
-        val viewportCenter = (layout.viewportStartOffset + layout.viewportEndOffset) / 2f
-        val itemCenter = item.offset + item.size / 2f
-        return itemCenter - viewportCenter
-    }
-    val first = correction() ?: return
-    if (abs(first) > 0.5f) {
-        state.animateScrollBy(value = first, animationSpec = tween(durationMillis = 280, easing = androidx.compose.animation.core.FastOutSlowInEasing))
-    }
-    withFrameNanos { }
-    val final = correction() ?: return
-    if (abs(final) > 0.75f) {
-        state.scrollBy(final)
+        LazyColumn(state = list, userScrollEnabled = !preview,
+            modifier = Modifier.fillMaxSize().lyricsEdgeFade(settings.fadeTop, settings.fadeBottom)) {
+            item(key = "lyrics-top") { Spacer(Modifier.height(maxHeight / 2)) }
+            itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
+                LyricPresentationLine(line.text, index == active, index - active, settings, color = textColor,
+                    synchronized = lyrics.synchronized,
+                    modifier = Modifier.clickable(enabled = !preview && line.timeMs != null,
+                        interactionSource = remember { MutableInteractionSource() }, indication = null) { line.timeMs?.let { onSeek(settings.seekPosition(it)) } })
+            }
+            item(key = "lyrics-bottom") { Spacer(Modifier.height(maxHeight / 2)) }
+        }
     }
 }

@@ -6,56 +6,51 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+/** Per-deck effects and smoothed mix gain; stereo output also enables spatial processing of mono songs. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class StereoBalanceAudioProcessor : BaseAudioProcessor() {
-
-    @Volatile
-    var balance: Float = 0f // -1.0f (Left only) .. 0.0f (Center) .. 1.0f (Right only)
+    val engine = XvoxDspEngine()
+    private var tailFrames = 0
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        return if (inputAudioFormat.channelCount == 2) {
-            inputAudioFormat
-        } else {
-            AudioProcessor.AudioFormat.NOT_SET
-        }
+        engine.configure(inputAudioFormat.sampleRate)
+        return AudioProcessor.AudioFormat(inputAudioFormat.sampleRate, 2, C.ENCODING_PCM_16BIT)
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
-        val remaining = inputBuffer.remaining()
-        if (remaining == 0) return
-
-        val b = balance
-        val leftGain: Float
-        val rightGain: Float
-
-        if (b < 0f) {
-            leftGain = 1.0f
-            rightGain = (1.0f + b).coerceIn(0f, 1f)
-        } else if (b > 0f) {
-            leftGain = (1.0f - b).coerceIn(0f, 1f)
-            rightGain = 1.0f
-        } else {
-            leftGain = 1.0f
-            rightGain = 1.0f
-        }
-
-        val buffer = replaceOutputBuffer(remaining)
-        buffer.order(ByteOrder.LITTLE_ENDIAN)
+        val channels = inputAudioFormat.channelCount
+        val frames = inputBuffer.remaining() / (2 * channels)
+        if (frames == 0) return
+        val output = replaceOutputBuffer(frames * 4).order(ByteOrder.LITTLE_ENDIAN)
         inputBuffer.order(ByteOrder.LITTLE_ENDIAN)
-
-        while (inputBuffer.remaining() >= 4) {
-            val leftSample = inputBuffer.short
-            val rightSample = inputBuffer.short
-
-            val processedLeft = (leftSample * leftGain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            val processedRight = (rightSample * rightGain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-
-            buffer.putShort(processedLeft)
-            buffer.putShort(processedRight)
+        repeat(frames) {
+            val l = inputBuffer.short / 32768f
+            val r = if (channels == 2) inputBuffer.short / 32768f else l
+            engine.process(l, r)
+            output.putShort((engine.left * 32767).toInt().toShort())
+            output.putShort((engine.right * 32767).toInt().toShort())
         }
-
-        buffer.flip()
+        output.flip()
     }
+
+    override fun onQueueEndOfStream() { tailFrames = engine.latencyFrames }
+    override fun getOutput(): ByteBuffer {
+        val pending = super.getOutput()
+        if (pending.hasRemaining() || tailFrames == 0) return pending
+        val output = replaceOutputBuffer(tailFrames * 4).order(ByteOrder.LITTLE_ENDIAN)
+        repeat(tailFrames) {
+            engine.process(0f, 0f)
+            output.putShort((engine.left * 32767).toInt().toShort())
+            output.putShort((engine.right * 32767).toInt().toShort())
+        }
+        tailFrames = 0
+        output.flip()
+        return super.getOutput()
+    }
+    override fun isEnded(): Boolean = super.isEnded() && tailFrames == 0
+    override fun onFlush() { tailFrames = 0; engine.reset() }
+    override fun onReset() { tailFrames = 0; engine.reset() }
 }

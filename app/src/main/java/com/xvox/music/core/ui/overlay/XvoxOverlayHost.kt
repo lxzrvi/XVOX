@@ -15,8 +15,13 @@ fun XvoxOverlayHost(
     Box(modifier = modifier.fillMaxSize()) {
         controller.listContent?.let { content ->
             key(controller.listKey) {
-                XvoxL(
-                    onDismiss = controller::hideL,
+                XvoxBox(
+                    onDismiss = controller::hideBox,
+                    title = controller.boxTitle,
+                    mini = controller.boxMini,
+                    onSettingsClick = controller.boxSettingsAction,
+                    onUndoClick = controller.boxUndoAction,
+                    headerTitleContent = controller.boxHeaderTitleContent,
                     modifier = Modifier.fillMaxSize()
                 ) {
                     content()

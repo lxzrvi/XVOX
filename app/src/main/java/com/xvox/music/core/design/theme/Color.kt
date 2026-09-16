@@ -16,16 +16,56 @@ data class XvoxPalette(
     val progressTrack: Color,
     val progressActive: Color
 ) {
-    fun withAccent(accentName: String): XvoxPalette {
-        val accentColor = when (accentName) {
-            "XVOX Red", "Red" -> Color(0xFFFA2D48) // Apple Music style vivid Red
-            "XVOX Blue", "Blue" -> Color(0xFF007AFF) // iOS System Blue
-            else -> return this // Default monochrome accent
+    /**
+     * Applies the chosen accent. `light` selects the correct pair of the iOS-style palette:
+     *
+     *   Red    #FF3B30 (light) / #FF453A (dark, AMOLED)
+     *   Blue   #007AFF (light) / #0A84FF (dark, AMOLED)
+     *   White  monochrome accent (ink on light themes, pure white on dark)
+     *
+     * Red is the default; legacy names ("Default", "XVOX …") fold into it so existing
+     * installations keep a coloured accent instead of falling back to plain text colour.
+     */
+    fun withAccent(accentName: String, light: Boolean): XvoxPalette {
+        // A "#RRGGBB" value means the user picked a fully custom accent in Settings.
+        val customAccent = if (accentName.startsWith("#")) {
+            com.xvox.music.core.ui.chrome.parseHexColor(accentName)
+        } else null
+        val normalized = when (accentName) {
+            "Default", "White" -> "White"
+            "XVOX Red" -> "Red"
+            "XVOX Blue" -> "Blue"
+            else -> accentName
+        }
+        val accentColor = customAccent ?: when (normalized) {
+            "Blue" -> if (light) Color(0xFF007AFF) else Color(0xFF0A84FF)
+            "Red" -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A)
+            else -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF) // White / Default is pure white
         }
         return this.copy(
             primaryAccent = accentColor,
             progressActive = accentColor,
             accentSoft = accentColor.copy(alpha = 0.18f)
+        )
+    }
+
+    /**
+     * Swaps the page background for the chosen tinted preset and applies the global card
+     * transparency slider. Cards blend with whatever is behind them (theme background or a
+     * custom background photo), everywhere except the Now Playing artwork surface.
+     */
+    fun withBackdrop(backgroundName: String, light: Boolean, transparency: Float): XvoxPalette {
+        val background = when (backgroundName) {
+            "Midnight" -> if (light) Color(0xFFE9EDF7) else Color(0xFF070B16)
+            "Warm" -> if (light) Color(0xFFF6F0E6) else Color(0xFF16130E)
+            else -> this.background
+        }
+        val keep = (1f - transparency.coerceIn(0f, 0.6f))
+        return this.copy(
+            background = background,
+            card = card.copy(alpha = keep),
+            cardElevated = cardElevated.copy(alpha = keep),
+            surface = surface.copy(alpha = keep)
         )
     }
 }
@@ -37,8 +77,8 @@ val XvoxWhitePalette = XvoxPalette(
     cardElevated = Color(0xFFF2F2F2),
     cardBorder = Color(0xFFE2E2E2),
     primaryText = Color(0xFF111111),
-    secondaryText = Color(0xFF666666),
-    mutedText = Color(0xFF999999),
+    secondaryText = Color(0xFF2E2E2E),
+    mutedText = Color(0xFF555555),
     primaryAccent = Color(0xFF171717),
     accentSoft = Color(0xFFE8E8E8),
     progressTrack = Color(0xFFD9D9D9),
@@ -51,13 +91,13 @@ val XvoxDarkPalette = XvoxPalette(
     card = Color(0xFF171717),
     cardElevated = Color(0xFF1E1E1E),
     cardBorder = Color(0xFF292929),
-    primaryText = Color(0xFFF5F5F5),
-    secondaryText = Color(0xFFA3A3A3),
-    mutedText = Color(0xFF666666),
-    primaryAccent = Color(0xFFF5F5F5),
+    primaryText = Color(0xFFFFFFFF),
+    secondaryText = Color(0xFFEDEDED),
+    mutedText = Color(0xFFCCCCCC),
+    primaryAccent = Color(0xFFFFFFFF),
     accentSoft = Color(0xFF292929),
     progressTrack = Color(0xFF363636),
-    progressActive = Color(0xFFF5F5F5)
+    progressActive = Color(0xFFFFFFFF)
 )
 
 val XvoxAmoledPalette = XvoxPalette(
@@ -67,8 +107,8 @@ val XvoxAmoledPalette = XvoxPalette(
     cardElevated = Color(0xFF121212),
     cardBorder = Color(0xFF202020),
     primaryText = Color(0xFFFFFFFF),
-    secondaryText = Color(0xFFA1A1A1),
-    mutedText = Color(0xFF5F5F5F),
+    secondaryText = Color(0xFFEDEDED),
+    mutedText = Color(0xFFCCCCCC),
     primaryAccent = Color(0xFFFFFFFF),
     accentSoft = Color(0xFF181818),
     progressTrack = Color(0xFF303030),

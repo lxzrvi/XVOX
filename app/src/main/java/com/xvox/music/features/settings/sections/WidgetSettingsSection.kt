@@ -1,349 +1,321 @@
 package com.xvox.music.features.settings.sections
 
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
-import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.parseHexColor
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
-import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.*
+import com.xvox.music.widget.WidgetCustomization
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlin.math.roundToInt
 
 @Composable
-fun WidgetSettingsSection(
-    state: SettingsState,
-    viewModel: SettingsViewModel
-) {
+fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
     val context = LocalContext.current
+    val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
+    var editingCategory by remember { mutableStateOf("Horizontal") }
+    var editingSize by remember { mutableStateOf(state.widgetPreviewSize) }
+    var labelId by remember { mutableStateOf("title") }
+    var buttonId by remember { mutableStateOf("all") }
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
-    SettingsSectionCard(title = "Home Screen Widget Customizer", iconRes = R.drawable.ic_xvox_music_note) {
-        // Live Widget Preview Card
-        WidgetLivePreviewCard(
-            transparency = state.widgetTransparency,
-            theme = state.widgetTheme,
-            customColor = state.widgetCustomColor,
-            showLogo = state.widgetShowLogo,
-            cornerRadiusDp = state.widgetCornerRadius
-        )
+    fun toggle(group: String) {
+        expandedGroup = if (expandedGroup == group) null else group
+    }
 
-        Spacer(modifier = Modifier.height(14.dp))
+    val sizeKey = editingSize
+    val c = state.widgetSizes[sizeKey] ?: state.widgetCustomization
 
-        // 1-Tap Add Widget to Home Screen
-        Button(
-            onClick = {
-                haptics.success()
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                val myProvider = ComponentName(context, XvoxAppWidgetProvider::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported) {
-                    val callbackIntent = Intent(context, XvoxAppWidgetProvider::class.java)
-                    val callbackPendingIntent = PendingIntent.getBroadcast(
-                        context,
-                        0,
-                        callbackIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    appWidgetManager.requestPinAppWidget(myProvider, null, callbackPendingIntent)
-                    Toast.makeText(context, "Adding XVOX widget to home screen...", Toast.LENGTH_SHORT).show()
-                } else {
-                    XvoxAppWidgetProvider.notifyWidgetUpdate(context)
-                    Toast.makeText(context, "Add XVOX widget from launcher widget picker", Toast.LENGTH_LONG).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(44.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.primaryAccent,
-                contentColor = colors.background
-            )
-        ) {
-            Icon(painter = painterResource(R.drawable.ic_xvox_plus), contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(text = "Add Widget to Home Screen", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    fun editWidget(transform: (WidgetCustomization) -> WidgetCustomization) {
+        val updated = transform(c).sanitized()
+        viewModel.setWidgetCustomization(updated)
+        viewModel.setWidgetCustomizationForSize(sizeKey, updated)
+    }
+
+    LaunchedEffect(sizeKey) {
+        viewModel.setWidgetPreviewSize(sizeKey)
+    }
+
+    fun label(transform: (com.xvox.music.widget.WidgetLabelStyle) -> com.xvox.music.widget.WidgetLabelStyle) {
+        val current = c.label(labelId)
+        editWidget { it.copy(labels = it.labels + (labelId to transform(current))) }
+    }
+
+    fun button(transform: (com.xvox.music.widget.WidgetButtonStyle) -> com.xvox.music.widget.WidgetButtonStyle) {
+        if (buttonId == "all") {
+            val updated = c.buttons.mapValues { (_, style) -> transform(style) }
+            editWidget { it.copy(buttons = updated) }
+        } else {
+            val current = c.button(buttonId)
+            editWidget { it.copy(buttons = it.buttons + (buttonId to transform(current))) }
         }
+    }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Transparency Thin Line Slider
-        Text(
-            text = "Widget Transparency: ${(state.widgetTransparency * 100).roundToInt()}%",
-            color = colors.primaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(4.dp))
-        XvoxThinLineSlider(
-            value = state.widgetTransparency,
-            onValueChange = {
-                haptics.sliderTick()
-                viewModel.setWidgetTransparency(it)
-            },
-            valueRange = 0.0f..1.0f,
-            defaultValue = 0.25f,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Widget Theme Selector
-        Text(
-            text = "Widget Theme Style",
-            color = colors.primaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-        Row(
+    SettingsControlsEditor(controls = {
+        // Quick Action: Add Widget to Home Screen
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.cardElevated)
+                .xvoxPressScale {
+                    haptics.tap()
+                    val manager = context.getSystemService(AppWidgetManager::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null && manager.isRequestPinAppWidgetSupported) {
+                        val provider = ComponentName(context, XvoxAppWidgetProvider::class.java)
+                        manager.requestPinAppWidget(provider, null, null)
+                        overlays.showP("Pin widget requested")
+                    } else {
+                        overlays.showP("Long-press home screen to add widget")
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
         ) {
-            listOf("Dynamic", "AMOLED", "Dark", "Light", "Glass").forEach { t ->
-                val isSelected = state.widgetTheme == t
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                        .border(1.dp, if (isSelected) colors.primaryAccent else colors.cardBorder, RoundedCornerShape(10.dp))
-                        .clickable {
-                            haptics.tap()
-                            viewModel.setWidgetTheme(t)
-                        }
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = t,
-                        color = if (isSelected) colors.background else colors.primaryText,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
+            Text("Add Widget to Home Screen", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        SettingsAccordionItem(
+            title = "Widget size · $editingSize",
+            expanded = expandedGroup == "Size",
+            onToggle = { toggle("Size") }
+        ) {
+            // Category Tabs: Row, Horizontal, Box
+            SettingsChoiceRow(
+                listOf("Horizontal" to "Horizontal", "Row" to "Row", "Box" to "Box"),
+                editingCategory
+            ) { category ->
+                editingCategory = category
+                val defaultForCat = when (category) {
+                    "Row" -> "1x3"
+                    "Box" -> "2x2"
+                    else -> "3x1"
+                }
+                editingSize = defaultForCat
+                viewModel.setWidgetPreviewSize(defaultForCat)
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            val sizeList = when (editingCategory) {
+                "Row" -> listOf("1x2" to "1×2", "1x3" to "1×3", "1x4" to "1×4", "2x3" to "2×3", "2x4" to "2×4")
+                "Box" -> listOf("1x1" to "1×1", "2x2" to "2×2", "3x3" to "3×3", "4x4" to "4×4")
+                else -> listOf("1x1" to "1×1", "2x1" to "2×1", "3x1" to "3×1", "4x1" to "4×1", "5x1" to "5×1")
+            }
+
+            SettingsChoiceRow(sizeList, editingSize) { chosen ->
+                editingSize = chosen
+                viewModel.setWidgetPreviewSize(chosen)
+            }
+        }
+
+        SettingsAccordionItem(
+            title = "Theme preset",
+            expanded = expandedGroup == "ThemePreset",
+            onToggle = { toggle("ThemePreset") }
+        ) {
+            SettingsChoiceRow(
+                listOf("Dark" to "Dark", "Light" to "Light", "Glass" to "Glass"),
+                when {
+                    state.widgetTransparency >= 0.6f -> "Glass"
+                    state.widgetTransparency <= 0.1f -> "Dark"
+                    else -> "Dark"
+                }
+            ) { preset ->
+                when (preset) {
+                    "Dark" -> {
+                        viewModel.setWidgetTransparency(0f)
+                        viewModel.setWidgetCornerRadius(18)
+                        editWidget { it.copy(borderColor = "#292929", borderWidth = 1f, fullCover = false) }
+                    }
+                    "Light" -> {
+                        viewModel.setWidgetTransparency(0f)
+                        viewModel.setWidgetCornerRadius(18)
+                        editWidget { it.copy(borderColor = "#E2E2E2", borderWidth = 1f, fullCover = false) }
+                    }
+                    "Glass" -> {
+                        viewModel.setWidgetTransparency(0.68f)
+                        viewModel.setWidgetCornerRadius(24)
+                        editWidget { it.copy(borderColor = "#FFFFFF", borderWidth = 1f, fullCover = true, fullCoverShade = 0.45f) }
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Corner Radius Thin Line Slider
-        Text(
-            text = "Corner Radius: ${state.widgetCornerRadius}dp",
-            color = colors.primaryText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(4.dp))
-        XvoxThinLineSlider(
-            value = state.widgetCornerRadius.toFloat(),
-            onValueChange = {
-                haptics.sliderTick()
-                viewModel.setWidgetCornerRadius(it.toInt())
-            },
-            valueRange = 12f..36f,
-            defaultValue = 24f,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Show X Logo Toggle
-        SettingsToggle(
-            title = "Show X Logo (Cinzel Font)",
-            subtitle = "Display brand watermark on widget",
-            checked = state.widgetShowLogo
+        SettingsAccordionItem(
+            title = "Surface & Positioning",
+            expanded = expandedGroup == "Surface",
+            onToggle = { toggle("Surface") }
         ) {
-            haptics.toggle()
-            viewModel.setWidgetShowLogo(it)
+            WidgetSlider("Transparency", state.widgetTransparency * 100, 0f..100f, "%") { v -> viewModel.setWidgetTransparency(v / 100) }
+            Spacer(Modifier.height(8.dp))
+            WidgetSlider("Corner radius", state.widgetCornerRadius.toFloat(), 0f..32f, "dp") { v -> viewModel.setWidgetCornerRadius(v.roundToInt()) }
+            Spacer(Modifier.height(8.dp))
+            WidgetSlider("Border width", c.borderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+            Spacer(Modifier.height(8.dp))
+            WidgetColourEditor("Border colour", c.borderColor) { value -> editWidget { it.copy(borderColor = value) } }
+            Spacer(Modifier.height(8.dp))
+            Group("Surface Margins & Offsets")
+            WidgetSlider("Margin X", state.widgetPaddingX.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingX(v.roundToInt()) }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Margin Y", state.widgetPaddingY.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingY(v.roundToInt()) }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Refresh Active Widgets Button
-        Button(
-            onClick = {
-                haptics.success()
-                XvoxAppWidgetProvider.notifyWidgetUpdate(context)
-                Toast.makeText(context, "Home Widgets Updated!", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier.fillMaxWidth().height(40.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.cardElevated,
-                contentColor = colors.primaryText
-            )
+        SettingsAccordionItem(
+            title = "Cover artwork",
+            expanded = expandedGroup == "Cover",
+            onToggle = { toggle("Cover") }
         ) {
-            Text(text = "Refresh Active Widgets", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            SettingsToggle("Full cover backdrop", null, c.fullCover) { enabled -> editWidget { it.copy(fullCover = enabled) } }
+            if (c.fullCover) {
+                Spacer(Modifier.height(8.dp))
+                WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> editWidget { it.copy(fullCoverShade = v / 100) } }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Group("Placement & Free Movement")
+            SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> editWidget { it.copy(coverPlacement = value) } }
+            Spacer(Modifier.height(8.dp))
+            SettingsChoiceRow(listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> editWidget { it.copy(coverSize = value.toInt()) } }
+
+            Spacer(Modifier.height(8.dp))
+            Group("Surface Offsets")
+            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
+
+            Spacer(Modifier.height(8.dp))
+            Group("Shape")
+            SettingsToggle("Match widget corners", null, c.coverRadius < 0) { value -> editWidget { it.copy(coverRadius = if (value) -1 else 12) } }
+            if (c.coverRadius >= 0) {
+                Spacer(Modifier.height(6.dp))
+                WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> editWidget { it.copy(coverRadius = v.roundToInt()) } }
+            }
         }
+
+        SettingsAccordionItem(
+            title = "Text labels",
+            expanded = expandedGroup == "Labels",
+            onToggle = { toggle("Labels") }
+        ) {
+            SettingsChoiceRow(listOf("title" to "Title", "artist" to "Artist", "logo" to "Logo"), labelId) { labelId = it }
+            val l = c.label(labelId)
+
+            Spacer(Modifier.height(8.dp))
+            Group("Visibility & Size")
+            SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Always show", "hide" to "Hide"), l.visibility) { v -> label { it.copy(visibility = v) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
+
+            Spacer(Modifier.height(8.dp))
+            Group("Placement & Surface Offset")
+            SettingsChoiceRow(listOf("left" to "Left", "center" to "Center", "right" to "Right"), l.alignment) { v -> label { it.copy(alignment = v) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Offset X", l.offsetX.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Offset Y", l.offsetY.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
+        }
+
+        SettingsAccordionItem(
+            title = "Control buttons",
+            expanded = expandedGroup == "Buttons",
+            onToggle = { toggle("Buttons") }
+        ) {
+            SettingsChoiceRow(listOf("all" to "All", "prev" to "Prev", "play" to "Play", "next" to "Next", "like" to "Like"), buttonId) { buttonId = it }
+            val b = c.button(if (buttonId == "all") "play" else buttonId)
+
+            Spacer(Modifier.height(8.dp))
+            Group("Placement & Size")
+            SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Center", "right" to "Right", "hidden" to "Hide"), b.position) { v -> button { it.copy(position = v) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Size", (if (b.size == 0) 32 else b.size).toFloat(), 20f..48f, "dp") { v -> button { it.copy(size = v.roundToInt()) } }
+
+            Spacer(Modifier.height(8.dp))
+            Group("Surface Offset")
+            WidgetSlider("Offset X", b.offsetX.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
+            Spacer(Modifier.height(6.dp))
+            WidgetSlider("Offset Y", b.offsetY.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
+        }
+
+        SettingsChoiceRow(listOf("reset_all" to "Reset size", "reset_base" to "Reset defaults"), "") { key ->
+            if (key == "reset_all") {
+                viewModel.setWidgetCustomizationForSize(sizeKey, WidgetCustomization())
+            } else {
+                viewModel.setWidgetCustomization(WidgetCustomization())
+            }
+        }
+    })
+}
+
+@Composable
+private fun Group(text: String) {
+    Text(
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+    )
+}
+
+@Composable
+private fun WidgetSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, unit: String, onChange: (Float) -> Unit) {
+    val colors = XvoxTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(110.dp))
+        XvoxThinLineSlider(value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range, modifier = Modifier.weight(1f))
+        Text("${value.roundToInt()} $unit", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(48.dp))
     }
 }
 
 @Composable
-private fun WidgetLivePreviewCard(
-    transparency: Float,
-    theme: String,
-    customColor: String,
-    showLogo: Boolean,
-    cornerRadiusDp: Int
-) {
+private fun WidgetColourEditor(label: String, current: String, onSelect: (String) -> Unit) {
     val colors = XvoxTheme.colors
-
-    val previewBgColor = when (theme) {
-        "AMOLED" -> Color(0xFF000000)
-        "Dark" -> Color(0xFF141414)
-        "Light" -> Color(0xFFFAFAFA)
-        "Glass" -> Color(0xFF1C1C22)
-        "Custom" -> runCatching { Color(android.graphics.Color.parseColor(customColor)) }.getOrDefault(Color(0xFF171717))
-        else -> colors.cardElevated
-    }
-
-    val alphaVal = (1.0f - transparency).coerceIn(0f, 1f)
-    val effectiveBg = previewBgColor.copy(alpha = alphaVal)
-    val isLight = theme == "Light" && transparency < 0.6f
-    val textColor = if (isLight) Color(0xFF111111) else Color(0xFFFFFFFF)
-    val subTextColor = if (isLight) Color(0xFF555555) else Color(0xFFA0A0A0)
-
-    val artGradient = Brush.linearGradient(
-        listOf(
-            colors.primaryAccent.copy(alpha = 0.85f),
-            colors.primaryAccent.copy(alpha = 0.45f)
-        )
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(cornerRadiusDp.dp))
-            .background(effectiveBg)
-            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(cornerRadiusDp.dp))
-            .padding(12.dp)
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(110.dp))
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Left-aligned Cover
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(artGradient),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_xvox_music_note),
-                    contentDescription = null,
-                    tint = colors.background,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                if (showLogo) {
-                    Text(
-                        text = "X",
-                        fontFamily = XvoxLogoFont,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
-                    )
+            listOf("Auto", "Accent", "#FFFFFF", "#000000", "#1E1E28", "#FF453A", "#30D158", "#0A84FF", "#BF5AF2", "#FF9F0A").forEach { code ->
+                val active = current == code
+                val c = when (code) {
+                    "Auto" -> colors.cardElevated
+                    "Accent" -> colors.primaryAccent
+                    else -> parseHexColor(code) ?: Color.Transparent
                 }
-                Text(
-                    text = "Live Track Preview",
-                    color = textColor,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                Text(
-                    text = "XVOX Sound Engine",
-                    color = subTextColor,
-                    fontSize = 11.sp,
-                    maxLines = 1
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_xvox_heart),
-                    contentDescription = null,
-                    tint = Color(0xFFFF453A),
-                    modifier = Modifier.size(18.dp)
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_xvox_skip_previous),
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp)
-                )
                 Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(textColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_xvox_pause),
-                        contentDescription = null,
-                        tint = textColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_xvox_skip_next),
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp)
+                    Modifier.size(24.dp).clip(CircleShape).background(c)
+                        .border(if (active) 2.dp else .7.dp, if (active) colors.primaryText else colors.cardBorder, CircleShape)
+                        .clickable { onSelect(code) }
                 )
             }
         }

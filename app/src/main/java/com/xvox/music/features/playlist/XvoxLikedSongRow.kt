@@ -1,5 +1,8 @@
 package com.xvox.music.features.playlist
 
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,9 +35,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxLikedSongRow(
     song: Song,
@@ -42,157 +43,73 @@ fun XvoxLikedSongRow(
     playing: Boolean,
     onClick: () -> Unit,
     onOptions: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
 ) {
-    val colors =
-        XvoxTheme.colors
-
-    val shape =
-        RoundedCornerShape(
-            14.dp
-        )
+    val colors = XvoxTheme.colors
+    val cardColor = rememberSongCardColor(song, current, selected)
+    val shape = RoundedCornerShape(14.dp)
 
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(
-                    64.dp
-                )
-                .clip(shape)
-                .background(
-                    colors.card
-                )
-                .border(
-                    width = 0.7.dp,
-                    color =
-                        colors.cardBorder,
-                    shape = shape
-                )
-                .combinedClickable(
-                    interactionSource =
-                        remember {
-                            MutableInteractionSource()
-                        },
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick =
-                        onOptions
-                )
-                .padding(
-                    start = 6.dp,
-                    top = 6.dp,
-                    end = 8.dp,
-                    bottom = 6.dp
-                ),
-        verticalAlignment =
-            Alignment.CenterVertically
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .xvoxSongPress(onClick = onClick, onLongClick = onOptions, pressedScale = 0.95f)
+            .clip(shape)
+            .background(cardColor)
+            .border(width = 0.7.dp, color = colors.cardBorder, shape = shape)
+            .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         XvoxSongArtwork(
-            artwork =
-                song.artworkUri,
+            artwork = song.artworkUri,
             requestSize = 112,
-            modifier =
-                Modifier
-                    .size(
-                        52.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(
-                            9.dp
-                        )
-                    )
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(9.dp))
         )
 
-        Spacer(
-            Modifier.size(
-                10.dp
-            )
-        )
+        Spacer(Modifier.size(10.dp))
 
-        Column(
-            modifier =
-                Modifier.weight(
-                    1f
-                )
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text =
-                    song.title,
-                color =
-                    colors.primaryText,
+                text = song.title,
+                color = colors.primaryText,
                 fontSize = 13.sp,
                 lineHeight = 16.sp,
-                fontWeight =
-                    if (current) {
-                        FontWeight.Bold
-                    } else {
-                        FontWeight
-                            .SemiBold
-                    },
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
-                text =
-                    if (
-                        current &&
-                        playing
-                    ) {
-                        "${song.artist} • Playing"
-                    } else {
-                        song.artist
-                    },
-                color =
-                    colors.secondaryText,
+                text = if (current && playing) "${song.artist} • Playing" else song.artist,
+                color = colors.secondaryText,
                 fontSize = 10.sp,
                 lineHeight = 13.sp,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
         }
 
         Box(
-            modifier =
-                Modifier
-                    .size(
-                        36.dp
-                    )
-                    .background(
-                        colors.cardElevated,
-                        CircleShape
-                    )
-                    .combinedClickable(
-                        interactionSource =
-                            remember {
-                                MutableInteractionSource()
-                            },
-                        indication = null,
-                        onClick =
-                            onOptions,
-                        onLongClick =
-                            onOptions
-                    ),
-            contentAlignment =
-                Alignment.Center
+            modifier = Modifier
+                .size(36.dp)
+                .combinedClickable(
+                    hapticFeedbackEnabled = false,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onOptions,
+                    onLongClick = onOptions
+                ),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter =
-                    painterResource(
-                        R.drawable
-                            .ic_xvox_more
-                    ),
-                contentDescription =
-                    "Song options",
-                tint =
-                    colors.primaryText,
-                modifier =
-                    Modifier.size(
-                        18.dp
-                    )
+                painter = painterResource(R.drawable.ic_xvox_more),
+                contentDescription = "Song options",
+                tint = colors.primaryText,
+                modifier = Modifier.size(19.dp)
             )
         }
     }

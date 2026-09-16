@@ -18,6 +18,8 @@ data class SetupUiState(
     val name: String = "",
     val selectedPfp: PfpType = PfpType.DEFAULT,
     val customPfpUri: Uri? = null,
+    /** Every custom picture kept so far; they stack next to the built-in avatars. */
+    val customPfpUris: List<String> = emptyList(),
     val audioGranted: Boolean = false,
     val notificationGranted: Boolean = false,
 ) {

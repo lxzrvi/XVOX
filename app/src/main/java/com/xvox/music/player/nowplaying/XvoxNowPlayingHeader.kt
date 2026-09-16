@@ -1,20 +1,17 @@
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,13 +52,12 @@ fun XvoxNowPlayingHeader(
             .height(52.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Down / Collapse Button on the left
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(colors.card.copy(alpha = 0.50f))
+                .background(colors.card.copy(alpha = 0.35f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -80,7 +76,18 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Centered Header Source Info
+        val isArtistSource = playingSource.startsWith("Artist · ") ||
+                playingSource.startsWith("Playing by ") ||
+                playingSource.startsWith("Artist: ")
+        val sourceTitle = if (isArtistSource) "PLAYING BY" else "PLAYING FROM"
+        val displaySource = when {
+            playingSource.startsWith("Artist · ") -> playingSource.removePrefix("Artist · ")
+            playingSource.startsWith("Playing by ") -> playingSource.removePrefix("Playing by ")
+            playingSource.startsWith("Artist: ") -> playingSource.removePrefix("Artist: ")
+            playingSource.startsWith("Playing from ") -> playingSource.removePrefix("Playing from ")
+            else -> playingSource
+        }
+
         Column(
             modifier = Modifier
                 .padding(horizontal = 56.dp)
@@ -88,15 +95,15 @@ fun XvoxNowPlayingHeader(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "PLAYING FROM",
-                color = colors.secondaryText,
+                text = sourceTitle,
+                color = colors.primaryText.copy(alpha = 0.85f),
                 fontSize = 10.sp,
                 letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = playingSource,
+                text = displaySource,
                 color = colors.primaryText,
                 fontSize = 15.sp,
                 lineHeight = 17.sp,
@@ -107,13 +114,12 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Top right pill with Share & More (No outer border)
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
-                .background(colors.card.copy(alpha = 0.50f))
+                .background(colors.card.copy(alpha = 0.35f))
                 .padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

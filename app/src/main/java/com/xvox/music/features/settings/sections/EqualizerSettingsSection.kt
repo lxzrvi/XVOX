@@ -1,294 +1,277 @@
 package com.xvox.music.features.settings.sections
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
+import com.xvox.music.audio.AudioEffectsManager
+import com.xvox.music.audio.EqBands
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
+import com.xvox.music.features.settings.components.SettingsAccordionItem
+import com.xvox.music.features.settings.components.SettingsChoiceRow
+import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import kotlin.math.roundToInt
 
 @Composable
-fun EqualizerSettingsSection(
-    state: SettingsState,
-    viewModel: SettingsViewModel
-) {
+fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
+    val saveError by AudioEffectsManager.persistenceError.collectAsState()
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
-    SettingsSectionCard(title = "Equalizer & DSP Engine", iconRes = R.drawable.ic_xvox_equalizer) {
-        SettingsToggle(
-            title = "Master Equalizer",
-            subtitle = "Hardware real-time sound processing",
-            checked = state.equalizerEnabled
+    fun toggle(group: String) {
+        expandedGroup = if (expandedGroup == group) null else group
+    }
+
+    SettingsControlsEditor(controls = {
+        saveError?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
+
+        SettingsAccordionItem(
+            title = "Equalizer & Bands",
+            expanded = expandedGroup == "Equalizer",
+            onToggle = { toggle("Equalizer") }
         ) {
-            haptics.toggle()
-            viewModel.setEqualizerEnabled(it)
-        }
-
-        AnimatedVisibility(
-            visible = state.equalizerEnabled,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Equalizer Reset Button
-                Button(
-                    onClick = {
-                        haptics.heavy()
-                        viewModel.resetEqualizer()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(36.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.cardElevated,
-                        contentColor = colors.primaryAccent
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_xvox_refresh),
-                        contentDescription = "Reset Equalizer",
-                        tint = colors.primaryAccent,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Reset Equalizer to Defaults",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "Presets",
-                    color = colors.secondaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 6.dp)
+            SettingsToggle("Enable equalizer", null, state.equalizerEnabled) { on ->
+                if (on) viewModel.setEqBandCount(5)
+                viewModel.setEqualizerEnabled(on)
+            }
+            if (state.equalizerEnabled) {
+                Spacer(Modifier.height(10.dp))
+                SettingsChoiceRow(
+                    options = (AudioEffectsManager.PRESETS.keys + "Custom").map { it to it },
+                    selected = state.eqPreset,
+                    onSelect = viewModel::setEqPreset
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(196.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colors.card)
+                        .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
-                    val presets = listOf("Flat", "Bass Boost", "Treble", "Rock", "Pop", "Jazz", "Electronic", "Vocal", "Custom")
-                    presets.forEach { p ->
-                        val isSelected = state.eqPreset == p
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                                .clickable {
-                                    haptics.tap()
-                                    viewModel.setEqPreset(p)
+                    Row(Modifier.fillMaxWidth().fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        EqBands.frequencies(5).forEachIndexed { index, frequency ->
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                                VerticalEqBandSlider(
+                                    label = EqBands.label(frequency),
+                                    value = state.eqBands.getOrElse(index) { 0 }
+                                ) {
+                                    viewModel.setEqBand(index, it)
                                 }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = p,
-                                color = if (isSelected) colors.background else colors.primaryText,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
+                            }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                val bandLabels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
-                Text(
-                    text = "5-Band Equalizer (-15 dB to +15 dB)",
-                    color = colors.primaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                bandLabels.forEachIndexed { index, label ->
-                    val currentVal = state.eqBands.getOrElse(index) { 0 }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = label,
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            modifier = Modifier.width(55.dp)
-                        )
-                        XvoxThinLineSlider(
-                            value = currentVal.toFloat(),
-                            onValueChange = { newVal ->
-                                haptics.sliderTick()
-                                val updated = state.eqBands.toMutableList()
-                                while (updated.size <= index) updated.add(0)
-                                updated[index] = newVal.roundToInt()
-                                viewModel.setEqBands(updated)
-                            },
-                            valueRange = -15f..15f,
-                            defaultValue = 0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "${if (currentVal > 0) "+" else ""}$currentVal dB",
-                            color = colors.primaryText,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.width(44.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingsToggle(
-                    title = "Bass Boost",
-                    subtitle = "Deep low-end enhancement",
-                    checked = state.bassBoost
-                ) {
-                    haptics.toggle()
-                    viewModel.setBassBoost(it)
-                }
-                if (state.bassBoost) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
-                        XvoxThinLineSlider(
-                            value = state.bassBoostStrength.toFloat(),
-                            onValueChange = {
-                                haptics.sliderTick()
-                                viewModel.setBassBoostStrength(it.roundToInt())
-                            },
-                            valueRange = 0f..1000f,
-                            defaultValue = 0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("${(state.bassBoostStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(36.dp))
-                    }
-                }
-
-                SettingsToggle(
-                    title = "Virtualizer / 3D Surround",
-                    subtitle = "Stereo sound stage expander",
-                    checked = state.virtualizerEnabled
-                ) {
-                    haptics.toggle()
-                    viewModel.setVirtualizer(it)
-                }
-                if (state.virtualizerEnabled) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Strength", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
-                        XvoxThinLineSlider(
-                            value = state.virtualizerStrength.toFloat(),
-                            onValueChange = {
-                                haptics.sliderTick()
-                                viewModel.setVirtualizerStrength(it.roundToInt())
-                            },
-                            valueRange = 0f..1000f,
-                            defaultValue = 0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("${(state.virtualizerStrength / 10)}%", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(36.dp))
-                    }
-                }
-
-                SettingsToggle(
-                    title = "Loudness Enhancer",
-                    subtitle = "Volume boost for quiet audio files",
-                    checked = state.loudnessEnhancer
-                ) {
-                    haptics.toggle()
-                    viewModel.setLoudnessEnhancer(it)
-                }
-                if (state.loudnessEnhancer) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Gain", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
-                        XvoxThinLineSlider(
-                            value = state.loudnessGainMb.toFloat(),
-                            onValueChange = {
-                                haptics.sliderTick()
-                                viewModel.setLoudnessGainMb(it.roundToInt())
-                            },
-                            valueRange = 0f..2000f,
-                            defaultValue = 0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("+${(state.loudnessGainMb / 100)} dB", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(44.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "Stereo Balance L / R", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("L", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(18.dp))
-                    XvoxThinLineSlider(
-                        value = state.balance,
-                        onValueChange = {
-                            haptics.sliderTick()
-                            viewModel.setBalance(it)
-                        },
-                        valueRange = -1.0f..1.0f,
-                        defaultValue = 0f,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text("R", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(18.dp))
-                }
             }
         }
+
+        SettingsAccordionItem(
+            title = "Reverb & Space",
+            expanded = expandedGroup == "Reverb",
+            onToggle = { toggle("Reverb") }
+        ) {
+            EqLabel("Reverb preset")
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    Pair("Off", 0f),
+                    Pair("Small Room", 0.18f),
+                    Pair("Medium Room", 0.36f),
+                    Pair("Large Room", 0.54f),
+                    Pair("Hall", 0.72f),
+                    Pair("Cathedral", 0.90f)
+                ).forEach { (name, revAmount) ->
+                    val active = kotlin.math.abs(state.reverbAmount - revAmount) < 0.08f
+                    Text(
+                        text = name,
+                        color = if (active) colors.background else colors.primaryText,
+                        fontSize = 11.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (active) colors.primaryAccent else colors.card)
+                            .xvoxPressScale {
+                                viewModel.setReverbAmount(revAmount)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            EqLabel("Reverb amount · ${(state.reverbAmount * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
+        }
+
+        SettingsAccordionItem(
+            title = "Clarity & Protection",
+            expanded = expandedGroup == "Clarity",
+            onToggle = { toggle("Clarity") }
+        ) {
+            EqLabel("Noise reduction · ${(state.noiseReduction * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f, defaultValue = 0f)
+            Spacer(Modifier.height(10.dp))
+            EqLabel("Grain control · ${(state.softenHighs * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f, defaultValue = 0f)
+        }
+
+        SettingsAccordionItem(
+            title = "Volume",
+            expanded = expandedGroup == "Volume",
+            onToggle = { toggle("Volume") }
+        ) {
+            EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
+            XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f, defaultValue = 1f)
+        }
+
+        SettingsAccordionItem(
+            title = "Speed & Pitch",
+            expanded = expandedGroup == "Speed",
+            onToggle = { toggle("Speed") }
+        ) {
+            val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
+            EqLabel(if (speedNormal) "Playback speed · Normal" else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
+            XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
+            Spacer(Modifier.height(10.dp))
+            EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
+            XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
+        }
+    })
+}
+
+@Composable
+private fun EqLabel(text: String) {
+    Text(
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+}
+
+@Composable
+fun VerticalEqBandSlider(
+    label: String,
+    value: Int,
+    onValueChange: (Int) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val minDb = -12
+    val maxDb = 12
+    var localValue by remember(value) { mutableIntStateOf(value) }
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+
+    val fraction = ((localValue - minDb).toFloat() / (maxDb - minDb).toFloat()).coerceIn(0f, 1f)
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxHeight()
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = "${if (localValue > 0) "+" else ""}$localValue",
+            color = colors.primaryAccent,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(120.dp)
+                .semantics {
+                    contentDescription = "$label equalizer band"
+                    progressBarRangeInfo = ProgressBarRangeInfo(localValue.toFloat(), -12f..12f, 23)
+                    setProgress { requested ->
+                        localValue = requested.roundToInt().coerceIn(minDb, maxDb)
+                        currentOnValueChange(localValue)
+                        true
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)
+                        val newDb = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                        localValue = newDb
+                        currentOnValueChange(newDb)
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, _ ->
+                            change.consume()
+                            val f = (1f - (change.position.y / size.height)).coerceIn(0f, 1f)
+                            val newDb = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                            if (newDb != localValue) {
+                                localValue = newDb
+                                currentOnValueChange(newDb)
+                            }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.cardBorder)
+            )
+
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height((110 * fraction).dp)
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.primaryAccent)
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = (98 * fraction).dp)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(colors.primaryAccent)
+            )
+        }
+
+        Text(
+            text = label,
+            color = colors.secondaryText,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

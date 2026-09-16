@@ -44,7 +44,6 @@ fun XvoxPlaylistCover(
 
     val byId = songs.associateBy { it.id }
 
-    // If custom coverSongIds provided
     val selectedCovers = coverSongIds.mapNotNull { byId[it] }
 
     if (selectedCovers.size == 1) {
@@ -89,7 +88,6 @@ fun XvoxPlaylistCover(
         return
     }
 
-    // Mosaic 2x2 grid
     Column(modifier = modifier) {
         repeat(2) { row ->
             Row(modifier = Modifier.weight(1f)) {

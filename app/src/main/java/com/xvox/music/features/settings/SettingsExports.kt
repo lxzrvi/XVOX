@@ -12,13 +12,15 @@ fun XvoxThinLineSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
-    defaultValue: Float? = null
+    defaultValue: Float? = null,
+    snapRadius: Float? = null
 ) {
     CoreThinLineSlider(
         value = value,
         onValueChange = onValueChange,
         valueRange = valueRange,
         modifier = modifier,
-        defaultValue = defaultValue
+        defaultValue = defaultValue,
+        snapRadius = snapRadius
     )
 }

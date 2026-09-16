@@ -79,7 +79,28 @@ fun HomeHeader(
                     TextOverflow.Ellipsis
             )
 
-            HomeGreeting()
+            // Lines the user wrote replace the rotating greeting; keep at most two so the
+            // header stays compact, and only when the name itself fits.
+            // Hidden means hidden: the starter lines are never forced back on screen.
+            val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
+            if (!profile.showProfileLines) {
+                // nothing under the name
+            } else if (lines.isEmpty()) {
+                HomeGreeting(intervalMs = profile.greetingIntervalMs)
+            } else {
+                Column {
+                    lines.take(2).forEach { line ->
+                        Text(
+                            text = line,
+                            color = colors.secondaryText,
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
 
         val actionShape =

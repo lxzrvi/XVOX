@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.delay
 
-private val Greetings =
+val GreetingLines =
     listOf(
         "What are you listening to today?",
         "What's the mood today?",
@@ -40,20 +40,30 @@ private val Greetings =
         "Play whatever feels right."
     )
 
+/**
+ * The lines that rotate under the name when the user has not written their own.
+ *
+ * @param intervalMs how long each line stays before the next one fades in.
+ * @param lines the pool to rotate; the profile editor lists exactly this list.
+ */
 @Composable
-fun HomeGreeting() {
+fun HomeGreeting(
+    intervalMs: Long = 8_000L,
+    lines: List<String> = GreetingLines
+) {
     val colors = XvoxTheme.colors
+    if (lines.isEmpty()) return
 
     var index by remember {
         mutableIntStateOf(0)
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(intervalMs, lines) {
         while (true) {
-            delay(8_000)
+            delay(intervalMs.coerceIn(1_500L, 60_000L))
             index =
                 (index + 1) %
-                    Greetings.size
+                    lines.size
         }
     }
 
@@ -65,7 +75,7 @@ fun HomeGreeting() {
         label = "homeGreeting"
     ) { current ->
         Text(
-            text = Greetings[current],
+            text = lines[current % lines.size],
             color = colors.secondaryText,
             fontSize = 10.sp,
             lineHeight = 11.sp,

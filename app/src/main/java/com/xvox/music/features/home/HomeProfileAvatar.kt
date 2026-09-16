@@ -2,7 +2,6 @@ package com.xvox.music.features.home
 
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -41,11 +40,6 @@ fun HomeProfileAvatar(
         modifier = modifier
             .clip(CircleShape)
             .background(colors.cardElevated)
-            .border(
-                width = 0.7.dp,
-                color = colors.cardBorder,
-                shape = CircleShape
-            )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(

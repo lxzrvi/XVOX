@@ -3,6 +3,7 @@ package com.xvox.music.features.setup
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -34,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,8 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.xvox.music.core.design.theme.XvoxItalicFont
 import com.xvox.music.core.design.theme.XvoxLogoFont
+import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.max
 
@@ -67,363 +69,193 @@ fun SetupScreen(
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
 
-    var personalizationBottom by remember {
-        mutableFloatStateOf(0f)
+    var personalizationBottom by remember { mutableFloatStateOf(0f) }
+    val imeBottom = WindowInsets.ime.getBottom(density).toFloat()
+    val keyboardTop = view.height.toFloat() - imeBottom
+    val safeGap = with(density) { 12.dp.toPx() }
+
+    val keyboardShift = if (imeBottom > 0f && personalizationBottom > 0f) {
+        max(0f, personalizationBottom - keyboardTop + safeGap)
+    } else {
+        0f
     }
 
-    val imeBottom =
-        WindowInsets.ime.getBottom(
-            density
-        ).toFloat()
-
-    val keyboardTop =
-        view.height.toFloat() -
-            imeBottom
-
-    val safeGap =
-        with(density) {
-            12.dp.toPx()
-        }
-
-    val keyboardShift =
-        if (
-            imeBottom > 0f &&
-            personalizationBottom > 0f
-        ) {
-            max(
-                0f,
-                personalizationBottom -
-                    keyboardTop +
-                    safeGap
-            )
-        } else {
-            0f
-        }
-
     fun audioGranted(): Boolean {
-        val permission =
-            if (Build.VERSION.SDK_INT >= 33) {
-                Manifest.permission
-                    .READ_MEDIA_AUDIO
-            } else {
-                Manifest.permission
-                    .READ_EXTERNAL_STORAGE
-            }
-
-        return ContextCompat
-            .checkSelfPermission(
-                context,
-                permission
-            ) ==
-            PackageManager.PERMISSION_GRANTED
+        val permission = if (Build.VERSION.SDK_INT >= 33) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
     fun notificationGranted(): Boolean {
-        if (Build.VERSION.SDK_INT < 33) {
-            return true
-        }
-
-        return ContextCompat
-            .checkSelfPermission(
-                context,
-                Manifest.permission
-                    .POST_NOTIFICATIONS
-            ) ==
-            PackageManager.PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT < 33) return true
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
-    val audioLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .RequestPermission()
-        ) {
-            viewModel.updatePermissions(
-                audioGranted(),
-                notificationGranted()
-            )
-        }
+    val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.updatePermissions(audioGranted(), notificationGranted())
+    }
 
-    val notificationLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .RequestPermission()
-        ) {
-            viewModel.updatePermissions(
-                audioGranted(),
-                notificationGranted()
-            )
-        }
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.updatePermissions(audioGranted(), notificationGranted())
+    }
 
-    val photoPicker =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts
-                .PickVisualMedia()
-        ) { uri ->
-            uri?.let(
-                viewModel::setCustomPfp
-            )
+    var croppingSetupUri by remember { mutableStateOf<Uri?>(null) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            croppingSetupUri = uri
         }
+    }
+
+    if (croppingSetupUri != null) {
+        com.xvox.music.core.ui.components.XvoxImageCropDialog(
+            sourceUri = croppingSetupUri!!,
+            isCircle = true,
+            onCropped = { croppedUri ->
+                croppingSetupUri = null
+                viewModel.setCustomPfp(croppedUri)
+            },
+            onDismiss = { croppingSetupUri = null }
+        )
+    }
 
     LaunchedEffect(Unit) {
-        viewModel.updatePermissions(
-            audioGranted(),
-            notificationGranted()
-        )
+        viewModel.updatePermissions(audioGranted(), notificationGranted())
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                colors.background
-            )
-            .windowInsetsPadding(
-                WindowInsets.statusBars
-                    .union(
-                        WindowInsets
-                            .navigationBars
-                    )
-            )
+            .background(colors.background)
+            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars))
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    start = 18.dp,
-                    end = 18.dp,
-                    bottom = 10.dp
-                )
+                .padding(start = 18.dp, end = 18.dp, bottom = 10.dp)
         ) {
-            val screenHeight =
-                maxHeight
+            val screenHeight = maxHeight
 
             Text(
                 text = "XVOX",
                 modifier = Modifier
-                    .align(
-                        Alignment.TopCenter
-                    )
-                    .offset(
-                        y =
-                            screenHeight *
-                                0.13f -
-                                32.dp
-                    ),
-                color =
-                    colors.primaryText,
-                fontFamily =
-                    XvoxLogoFont,
+                    .align(Alignment.TopCenter)
+                    .offset(y = screenHeight * 0.13f - 32.dp),
+                color = colors.primaryText,
+                fontFamily = XvoxLogoFont,
                 fontSize = 37.sp,
-                textAlign =
-                    TextAlign.Center
+                textAlign = TextAlign.Center
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(
-                        y =
-                            screenHeight *
-                                0.285f
-                    )
-                    .onGloballyPositioned {
-                        personalizationBottom =
-                            it.boundsInWindow()
-                                .bottom
-                    }
-                    .graphicsLayer {
-                        translationY =
-                            -keyboardShift
-                    },
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
+                    .offset(y = screenHeight * 0.285f)
+                    .onGloballyPositioned { personalizationBottom = it.boundsInWindow().bottom }
+                    .graphicsLayer { translationY = -keyboardShift },
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text =
-                        "Let's get to know you",
-                    color =
-                        colors.secondaryText,
+                    text = "Let's get to know you",
+                    color = colors.secondaryText,
                     fontSize = 14.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(5.dp)
-                )
+                Spacer(modifier = Modifier.height(5.dp))
 
                 Text(
-                    text =
-                        "Personalize your xvox",
-                    color =
-                        colors.primaryText,
-                    fontFamily =
-                        XvoxItalicFont,
+                    text = "Personalize your xvox",
+                    color = colors.primaryText,
+                    fontFamily = XvoxPersonalFont,
                     fontSize = 23.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(14.dp)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                XvoxAvatarPicker(
+                    username = state.name,
+                    selectedType = state.selectedPfp,
+                    selectedCustomUri = state.customPfpUri?.toString(),
+                    customUris = state.customPfpUris,
+                    onSelectBuiltIn = viewModel::selectPfp,
+                    onSelectCustom = viewModel::selectCustomPfp,
+                    onAddCustom = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    onDeleteCustom = viewModel::deleteCustomPfp,
+                    size = 76.dp
                 )
 
-                PfpCarousel(
-                    selected =
-                        state.selectedPfp,
-                    username =
-                        state.name,
-                    customPfpUri =
-                        state.customPfpUri,
-                    onSelected =
-                        viewModel::selectPfp,
-                    onAddClick = {
-                        photoPicker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts
-                                    .PickVisualMedia
-                                    .ImageOnly
-                            )
-                        )
-                    }
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text =
-                        "choose your pfp and enter",
-                    color =
-                        colors.mutedText,
+                    text = "choose your pfp and enter",
+                    color = colors.mutedText,
                     fontSize = 12.sp,
-                    textAlign =
-                        TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
 
                 SetupNameField(
-                    value =
-                        state.name,
-                    onValueChange =
-                        viewModel::setName
+                    value = state.name,
+                    onValueChange = viewModel::setName
                 )
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(
-                        Alignment.BottomCenter
-                    )
+                    .align(Alignment.BottomCenter)
             ) {
                 PermissionCard(
-                    audioGranted =
-                        state.audioGranted,
-                    notificationGranted =
-                        state.notificationGranted,
+                    audioGranted = state.audioGranted,
+                    notificationGranted = state.notificationGranted,
                     onAudioClick = {
-                        val permission =
-                            if (
-                                Build.VERSION
-                                    .SDK_INT >= 33
-                            ) {
-                                Manifest.permission
-                                    .READ_MEDIA_AUDIO
-                            } else {
-                                Manifest.permission
-                                    .READ_EXTERNAL_STORAGE
-                            }
-
-                        if (
-                            !audioGranted()
-                        ) {
-                            audioLauncher.launch(
-                                permission
-                            )
+                        val permission = if (Build.VERSION.SDK_INT >= 33) {
+                            Manifest.permission.READ_MEDIA_AUDIO
+                        } else {
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        }
+                        if (!audioGranted()) {
+                            audioLauncher.launch(permission)
                         }
                     },
                     onNotificationClick = {
-                        if (
-                            Build.VERSION
-                                .SDK_INT >= 33 &&
-                            !notificationGranted()
-                        ) {
-                            notificationLauncher
-                                .launch(
-                                    Manifest.permission
-                                        .POST_NOTIFICATIONS
-                                )
+                        if (Build.VERSION.SDK_INT >= 33 && !notificationGranted()) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
                     }
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(
-                            12.dp
-                        )
-                )
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            10.dp
-                        ),
-                    verticalAlignment =
-                        Alignment
-                            .CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SetupCloseButton(
-                        onClick = {
-                            (
-                                context
-                                    as? Activity
-                                )?.finish()
-                        }
-                    )
+                    SetupCloseButton(onClick = { (context as? Activity)?.finish() })
 
                     Button(
-                        onClick = {
-                            viewModel.completeSetup(
-                                onComplete = onSetupComplete
-                            )
-                        },
-                        enabled =
-                            state.setupComplete,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .height(
-                                    48.dp
-                                ),
-                        shape =
-                            RoundedCornerShape(
-                                18.dp
-                            ),
-                        colors =
-                            ButtonDefaults
-                                .buttonColors(
-                                    containerColor =
-                                        colors.primaryAccent,
-                                    contentColor =
-                                        colors.background,
-                                    disabledContainerColor =
-                                        colors.accentSoft,
-                                    disabledContentColor =
-                                        colors.mutedText
-                                )
+                        onClick = { viewModel.completeSetup(onComplete = onSetupComplete) },
+                        enabled = state.setupComplete,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.primaryAccent,
+                            contentColor = colors.background,
+                            disabledContainerColor = colors.accentSoft,
+                            disabledContentColor = colors.mutedText
+                        )
                     ) {
                         Text(
                             text = "Start",
-                            fontWeight =
-                                FontWeight
-                                    .SemiBold
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }

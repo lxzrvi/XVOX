@@ -29,12 +29,14 @@ fun SettingsSectionCard(
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(shape)
             .background(colors.card)
-            .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
+            .border(1.dp, colors.cardBorder, shape)
             .padding(12.dp)
     ) {
         Row(
@@ -52,7 +54,7 @@ fun SettingsSectionCard(
             }
             Text(
                 text = title,
-                color = colors.primaryText,
+                color = colors.primaryAccent,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )

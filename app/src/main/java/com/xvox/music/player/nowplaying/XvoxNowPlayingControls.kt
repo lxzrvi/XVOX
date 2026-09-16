@@ -21,6 +21,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxTapOrBoost
+import com.xvox.music.core.ui.effects.xvoxTapOrScrub
 import com.xvox.music.player.playback.RepeatMode
 
 @Composable
@@ -36,10 +38,15 @@ fun XvoxNowPlayingControls(
     repeatMode: RepeatMode = RepeatMode.OFF,
     currentIndex: Int = -1,
     queueSize: Int = 0,
+    positionMs: Long = 0L,
+    durationMs: Long = 0L,
+    onScrubTo: ((Long) -> Unit)? = null,
 ) {
     val colors = XvoxTheme.colors
-    val prevEnabled = repeatMode == RepeatMode.ALL || currentIndex > 0
-    val nextEnabled = repeatMode == RepeatMode.ALL || (queueSize > 0 && currentIndex < queueSize - 1)
+    val isRepeatOne = repeatMode == RepeatMode.ONE
+    val prevEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || currentIndex > 0)
+    val nextEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || (queueSize > 0 && currentIndex < queueSize - 1))
+
     Layout(
         modifier = modifier
             .fillMaxWidth()
@@ -58,7 +65,12 @@ fun XvoxNowPlayingControls(
                 25,
                 onPrevious,
                 tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                enabled = prevEnabled
+                enabled = prevEnabled,
+                scrubTo = onScrubTo,
+                scrubDirection = -1,
+                scrubTickEveryMs = 320,
+                scrubPositionMs = { positionMs },
+                scrubDurationMs = { durationMs }
             )
 
             PlayControl(
@@ -70,8 +82,13 @@ fun XvoxNowPlayingControls(
                 R.drawable.ic_xvox_skip_next,
                 25,
                 onNext,
+                boostHold = true,
                 tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                enabled = nextEnabled
+                enabled = nextEnabled,
+                scrubTo = onScrubTo,
+                scrubDirection = 1,
+                scrubPositionMs = { positionMs },
+                scrubDurationMs = { durationMs }
             )
 
             BareControl(
@@ -141,32 +158,58 @@ private fun BareControl(
     onClick: () -> Unit,
     tint: Color? = null,
     showDot: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    scrubTo: ((Long) -> Unit)? = null,
+    scrubDirection: Int = 1,
+    scrubPositionMs: () -> Long = { 0L },
+    scrubDurationMs: () -> Long = { 0L },
+    scrubTickEveryMs: Long = 40,
+    /** Next only: holding plays faster instead of re-seeking, so the audio never breaks. */
+    boostHold: Boolean = false
 ) {
     val colors = XvoxTheme.colors
 
     Box(
         modifier = Modifier
             .size(42.dp)
-            .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
+            .then(
+                if (boostHold) {
+                    Modifier.xvoxTapOrBoost(
+                        enabled = enabled,
+                        onTap = { if (enabled) onClick() },
+                        onBoostChange = { boosting: Boolean ->
+                            if (enabled) {
+                                if (boosting) com.xvox.music.player.session.XvoxTransportBoost.set(2f)
+                                else com.xvox.music.player.session.XvoxTransportBoost.release()
+                            }
+                        }
+                    )
+                } else if (scrubTo != null && scrubDurationMs() > 0L) {
+                    Modifier.xvoxTapOrScrub(
+                        enabled = enabled,
+                        onTap = { if (enabled) onClick() },
+                        onScrubTo = { if (enabled) scrubTo(it) },
+                        direction = scrubDirection,
+                        positionMs = scrubPositionMs,
+                        durationMs = scrubDurationMs,
+                        tickEvery = scrubTickEveryMs
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = enabled,
+                        onClick = onClick
+                    )
+                }
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(resource),
+            painter = painterResource(resource),
             contentDescription = null,
             tint = tint ?: colors.primaryText,
-            modifier =
-                Modifier.size(iconSize.dp)
+            modifier = Modifier.size(iconSize.dp)
         )
         if (showDot) {
             Box(
@@ -186,20 +229,8 @@ private fun PlayControl(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-
-    val darkMode =
-        colors.background.luminance() < 0.5f
-
-    val circleColor =
-        if (darkMode) {
-            Color.Black.copy(
-                alpha = 0.22f
-            )
-        } else {
-            colors.card.copy(
-                alpha = 0.25f
-            )
-        }
+    val darkMode = colors.background.luminance() < 0.5f
+    val circleColor = if (darkMode) Color.Black.copy(alpha = 0.22f) else colors.card.copy(alpha = 0.25f)
 
     Box(
         modifier = Modifier
@@ -209,31 +240,19 @@ private fun PlayControl(
                 CircleShape
             )
             .clickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment =
-            Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter =
-                painterResource(
-                    if (isPlaying) {
-                        R.drawable
-                            .ic_xvox_pause
-                    } else {
-                        R.drawable
-                            .ic_xvox_play
-                    }
-                ),
+            painter = painterResource(
+                if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play
+            ),
             contentDescription = null,
             tint = colors.primaryText,
-            modifier =
-                Modifier.size(25.dp)
+            modifier = Modifier.size(25.dp)
         )
     }
 }

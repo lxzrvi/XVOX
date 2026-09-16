@@ -11,28 +11,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.player.playback.XvoxBlendMonitor
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun XvoxNowPlayingProgress(
     position: Long,
     duration: Long,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentSongId: Long? = null,
+    showTime: Boolean = true
 ) {
     val colors = XvoxTheme.colors
 
@@ -44,6 +49,13 @@ fun XvoxNowPlayingProgress(
         mutableFloatStateOf(0f)
     }
 
+    var dragAnchorFraction by remember {
+        mutableFloatStateOf(0f)
+    }
+    var dragAnchorX by remember {
+        mutableFloatStateOf(0f)
+    }
+
     val realFraction =
         if (duration > 0L) {
             (position.toFloat() / duration.toFloat())
@@ -51,6 +63,8 @@ fun XvoxNowPlayingProgress(
         } else {
             0f
         }
+
+    val latestRealFraction by rememberUpdatedState(realFraction)
 
     val visibleFraction =
         if (dragging) dragFraction else realFraction
@@ -64,36 +78,43 @@ fun XvoxNowPlayingProgress(
 
     val activeColor = colors.primaryAccent
 
+    val blendProjection = remember(currentSongId) {
+        XvoxBlendMonitor.state.map {
+            if (it.enabled && it.currentId == currentSongId && currentSongId != null) it.introZoneMs to it.tailZoneMs else 0L to 0L
+        }.distinctUntilChanged()
+    }
+    val blendZones by blendProjection.collectAsState(initial = 0L to 0L)
+    val introFraction = if (duration > 0L) (blendZones.first.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+    val tailFraction = if (duration > 0L) (blendZones.second.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp)
+                .height(if (showTime) 18.dp else 12.dp)
                 .pointerInput(duration) {
-                    fun update(x: Float) {
-                        if (
-                            duration <= 0L ||
-                            size.width <= 0
-                        ) return
-
-                        dragFraction =
-                            (x / size.width)
-                                .coerceIn(0f, 1f)
-                    }
-
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
-                            dragging = true
-                            update(offset.x)
+                            if (duration > 0L && size.width > 0) {
+                                dragging = true
+                                dragAnchorFraction = latestRealFraction
+                                dragAnchorX = offset.x
+                                dragFraction = latestRealFraction
+                            }
                         },
                         onHorizontalDrag = { change, _ ->
                             change.consume()
-                            update(change.position.x)
+                            if (dragging && size.width > 0) {
+                                dragFraction =
+                                    (dragAnchorFraction +
+                                        (change.position.x - dragAnchorX) / size.width)
+                                        .coerceIn(0f, 1f)
+                            }
                         },
                         onDragEnd = {
-                            if (duration > 0L) {
+                            if (duration > 0L && dragging) {
                                 onSeek(
                                     (duration * dragFraction)
                                         .toLong()
@@ -128,52 +149,76 @@ fun XvoxNowPlayingProgress(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(if (showTime) 18.dp else 12.dp)
             ) {
                 val y = size.height / 2f
+                val stroke = 2.5.dp.toPx()
 
+                // Base progress track
                 drawLine(
                     color = activeColor.copy(alpha = 0.28f),
                     start = Offset(0f, y),
                     end = Offset(size.width, y),
-                    strokeWidth = 1.5.dp.toPx(),
+                    strokeWidth = stroke,
                     cap = StrokeCap.Round
                 )
 
+                // Crossfade intro zone
+                if (introFraction > 0f) {
+                    drawLine(
+                        color = XvoxBlendInColor.copy(alpha = 0.9f),
+                        start = Offset(0f, y),
+                        end = Offset(size.width * introFraction, y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Crossfade tail zone
+                if (tailFraction > 0f) {
+                    drawLine(
+                        color = XvoxBlendOutColor.copy(alpha = 0.9f),
+                        start = Offset(size.width * (1f - tailFraction), y),
+                        end = Offset(size.width, y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Played fraction
                 if (visibleFraction > 0f) {
                     drawLine(
                         color = activeColor,
                         start = Offset(0f, y),
-                        end = Offset(
-                            size.width * visibleFraction,
-                            y
-                        ),
-                        strokeWidth = 1.5.dp.toPx(),
+                        end = Offset(size.width * visibleFraction, y),
+                        strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
                 }
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = formatPlayerTime(visiblePosition),
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
+        if (showTime) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formatPlayerTime(visiblePosition),
+                    color = colors.secondaryText,
+                    fontSize = 10.sp
+                )
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
 
-            Text(
-                text = formatPlayerTime(duration),
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
+                Text(
+                    text = formatPlayerTime(duration),
+                    color = colors.secondaryText,
+                    fontSize = 10.sp
+                )
+            }
         }
     }
 }

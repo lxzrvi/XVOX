@@ -1,12 +1,15 @@
 package com.xvox.music.features.home.recent
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,54 +25,47 @@ fun XvoxRecentlyPlayedSection(
     transition: RecentTransitionRequest,
     onSongClick: (Song) -> Unit,
     onSongOptions: (Song) -> Unit,
+    sources: Map<Long, String> = emptyMap(),
+    onSourceClick: (Song) -> Unit = {},
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
 
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(
-                    top = 40.dp,
-                ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
     ) {
-        Text(
-            text =
-                "Recently Played",
-            color =
-                colors.primaryAccent,
-            fontSize = 16.sp,
-            lineHeight = 19.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-            modifier =
-                Modifier.padding(
-                    horizontal =
-                        12.dp,
-                ),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recently Played",
+                color = colors.primaryAccent,
+                fontSize = 16.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
 
-        Spacer(
-            Modifier.height(
-                10.dp,
-            ),
-        )
+            Text(
+                text = "Total ${songs.size} played",
+                color = colors.mutedText,
+                fontSize = 10.sp
+            )
+        }
 
-        // Keep same area height even when empty - XvoxRecentCarousel handles empty with fixed height 122.dp
-        // Show "Nothing played yet" centered inside same bounds
         XvoxRecentCarousel(
             songs = songs,
-            currentSongId =
-            currentSongId,
-            isPlaying =
-            isPlaying,
-            transition =
-            transition,
-            onSongClick =
-            onSongClick,
-            onSongOptions =
-            onSongOptions,
+            currentSongId = currentSongId,
+            isPlaying = isPlaying,
+            transition = transition,
+            onSongClick = onSongClick,
+            onSongOptions = onSongOptions,
+            sources = sources,
+            onSourceClick = onSourceClick,
         )
     }
 }

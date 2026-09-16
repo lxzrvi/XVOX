@@ -5,10 +5,17 @@ import com.xvox.music.features.player.styles.XvoxPlayerStyle
 
 enum class RepeatMode { OFF, ONE, ALL }
 
+data class XvoxSavedQueue(
+    val id: String,
+    val name: String,
+    val songs: List<Song>,
+    val currentIndex: Int = 0,
+    val source: String = "Queue"
+)
+
 data class MainPlayerUiState(
     val connected: Boolean = false,
-    val queue: List<Song> =
-        emptyList(),
+    val queue: List<Song> = emptyList(),
     val currentSongId: Long? = null,
     val currentIndex: Int = -1,
     val isPlaying: Boolean = false,
@@ -25,4 +32,6 @@ data class MainPlayerUiState(
     val sleepTimerRemainingMillis: Long? = null,
     val sleepTimerShouldCloseApp: Boolean = false,
     val playingSource: String = "All Songs",
+    val activeQueueName: String = "Current Queue",
+    val savedQueues: List<XvoxSavedQueue> = emptyList(),
 )

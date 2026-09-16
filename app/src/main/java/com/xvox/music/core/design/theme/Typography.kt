@@ -4,7 +4,6 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
@@ -24,19 +23,13 @@ val XvoxPersonalFont = FontFamily(
 )
 
 val XvoxUiFont = FontFamily(
-    Font(
-        resId = R.font.xvoxplusjakartasans,
-        weight = FontWeight.Normal
-    )
+    Font(resId = R.font.xvox_inter_regular, weight = FontWeight.Normal),
+    Font(resId = R.font.xvox_inter_medium, weight = FontWeight.Medium),
+    Font(resId = R.font.xvox_inter_semibold, weight = FontWeight.SemiBold),
+    Font(resId = R.font.xvox_inter_bold, weight = FontWeight.Bold)
 )
 
-val XvoxItalicFont = FontFamily(
-    Font(
-        resId = R.font.xvoxplusjakartasansitalic,
-        weight = FontWeight.Normal,
-        style = FontStyle.Italic
-    )
-)
+val XvoxItalicFont = XvoxUiFont
 
 val XvoxTypography = Typography(
     displayLarge = TextStyle(
@@ -44,6 +37,18 @@ val XvoxTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp
+    ),
+    displayMedium = TextStyle(
+        fontFamily = XvoxUiFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp
+    ),
+    displaySmall = TextStyle(
+        fontFamily = XvoxUiFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp
     ),
     headlineLarge = TextStyle(
         fontFamily = XvoxUiFont,
@@ -53,21 +58,33 @@ val XvoxTypography = Typography(
     ),
     headlineMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 23.sp,
         lineHeight = 30.sp
     ),
+    headlineSmall = TextStyle(
+        fontFamily = XvoxUiFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp
+    ),
     titleLarge = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 27.sp
     ),
     titleMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 16.sp,
         lineHeight = 22.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = XvoxUiFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = XvoxUiFont,
@@ -89,12 +106,17 @@ val XvoxTypography = Typography(
     ),
     labelLarge = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp
     ),
     labelMedium = TextStyle(
         fontFamily = XvoxUiFont,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         fontSize = 12.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = XvoxUiFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 10.sp
     )
 )

@@ -24,6 +24,22 @@ class SetupViewModel(
     val state: StateFlow<SetupUiState> =
         _state.asStateFlow()
 
+    init {
+        // Setup uses the same persisted gallery as the profile editor.
+        viewModelScope.launch {
+            preferencesRepository.customPfpUris.collect { uris ->
+                _state.update { current ->
+                    val stillThere = current.customPfpUri?.toString()?.takeIf { it in uris }
+                    current.copy(
+                        customPfpUris = uris,
+                        customPfpUri = stillThere?.let(Uri::parse),
+                        selectedPfp = if (current.selectedPfp == PfpType.CUSTOM && stillThere == null) PfpType.DEFAULT else current.selectedPfp
+                    )
+                }
+            }
+        }
+    }
+
     fun setName(name: String) {
         if (name.length <= 12) {
             _state.update {
@@ -38,13 +54,23 @@ class SetupViewModel(
         }
     }
 
-    fun setCustomPfp(uri: Uri) {
-        _state.update {
-            it.copy(
-                selectedPfp = PfpType.CUSTOM,
-                customPfpUri = uri
-            )
+    /** Copies the picked image into app storage and stacks it; it stays until deleted. */
+    fun addCustomPfp(uri: Uri) {
+        viewModelScope.launch {
+            val stored = preferencesRepository.addCustomPfp(uri.toString()) ?: return@launch
+            _state.update { it.copy(selectedPfp = PfpType.CUSTOM, customPfpUri = Uri.parse(stored)) }
         }
+    }
+
+    fun setCustomPfp(uri: Uri) = addCustomPfp(uri)
+
+    /** Picks an already-kept picture out of the stack. */
+    fun selectCustomPfp(uri: String) {
+        _state.update { it.copy(selectedPfp = PfpType.CUSTOM, customPfpUri = Uri.parse(uri)) }
+    }
+
+    fun deleteCustomPfp(uri: String) {
+        viewModelScope.launch { preferencesRepository.removeCustomPfp(uri) }
     }
 
     fun updatePermissions(

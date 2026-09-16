@@ -1,0 +1,112 @@
+package com.xvox.music.features.search
+
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.rememberSongCardColor
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxSongArtwork
+
+@Composable
+fun SearchSongCard(
+    song: Song,
+    current: Boolean,
+    playing: Boolean,
+    onClick: () -> Unit,
+    onOptions: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
+) {
+    val colors = XvoxTheme.colors
+    val cardColor = rememberSongCardColor(song, current, selected)
+    val shape = RoundedCornerShape(14.dp)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clip(shape)
+            .background(cardColor)
+            .xvoxSongPress(onClick = onClick, onLongClick = onOptions)
+            .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            requestSize = 112,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(9.dp))
+        )
+
+        Spacer(Modifier.size(10.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                color = colors.primaryText,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = if (current && playing) "${song.artist} • Playing" else song.artist,
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onOptions
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_more),
+                contentDescription = "Song options",
+                tint = colors.primaryText,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+    }
+}

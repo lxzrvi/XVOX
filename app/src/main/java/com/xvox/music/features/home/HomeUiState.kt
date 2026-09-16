@@ -9,11 +9,14 @@ import com.xvox.music.features.home.recent.RecentTransitionMode
 
 data class HomeUiState(
     val loading: Boolean = true,
+    val startupReady: Boolean = false,
     val refreshing: Boolean = false,
     val songs: List<Song> =
         emptyList(),
     val recentlyPlayed: List<Song> =
         emptyList(),
+    /** songId -> where it was started from ("Liked Songs", a playlist name, "All Songs", "XvoxSplit"). */
+    val recentSources: Map<Long, String> = emptyMap(),
     val profile: UserPreferences =
         UserPreferences(),
     val libraryMode:
@@ -24,8 +27,14 @@ data class HomeUiState(
         RecentTransitionRequest(),
     val likedSongIds: Set<Long> =
         emptySet(),
+    val hiddenSongs: List<Song> = emptyList(),
     val hiddenSongIds: Set<Long> =
         emptySet(),
+    val hiddenArtists: Set<String> = emptySet(),
+    val customArtistImages: Map<String, String> = emptyMap(),
+    val artistRenames: Map<String, String> = emptyMap(),
+    val hiddenSearchArtists: Set<String> = emptySet(),
+    val hiddenSearchPlaylists: Set<String> = emptySet(),
     val playlists: List<XvoxPlaylist> =
         emptyList()
 )

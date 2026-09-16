@@ -23,91 +23,58 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
+import com.xvox.music.core.ui.effects.xvoxSongPress
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxPlaylistCard(
     playlist: XvoxPlaylist,
     songs: List<Song>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    longCard: Boolean = false
 ) {
-    val colors =
-        XvoxTheme.colors
-
-    val shape =
-        RoundedCornerShape(
-            16.dp
-        )
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(16.dp)
 
     Column(
         modifier = modifier
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f)
             .clip(shape)
-            .background(
-                colors.card
-            )
+            .background(colors.card)
             .border(
                 width = 0.7.dp,
-                color =
-                    colors.cardBorder,
+                color = colors.cardBorder,
                 shape = shape
-            )
-            .combinedClickable(
-                interactionSource =
-                    remember {
-                        MutableInteractionSource()
-                    },
-                indication = null,
-                onClick = onClick,
-                onLongClick =
-                    onLongClick
             )
             .padding(6.dp)
     ) {
         XvoxPlaylistCover(
             songs = songs,
-            coverSongIds =
-                playlist
-                    .coverSongIds,
-            customCoverUri =
-                playlist
-                    .customCoverUri,
+            coverSongIds = playlist.coverSongIds,
+            customCoverUri = playlist.customCoverUri,
             requestSize = 192,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(
-                    RoundedCornerShape(
-                        11.dp
-                    )
-                )
+                .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
+                .clip(RoundedCornerShape(11.dp))
         )
 
         Text(
-            text =
-                playlist.name,
-            color =
-                colors.primaryText,
+            text = playlist.name,
+            color = colors.primaryText,
             fontSize = 13.sp,
             lineHeight = 16.sp,
-            fontWeight =
-                FontWeight.Bold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis,
-            modifier =
-                Modifier.padding(
-                    top = 7.dp
-                )
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 7.dp)
         )
 
         Text(
-            text =
-                "${songs.size} songs",
-            color =
-                colors.secondaryText,
+            text = "${songs.size} songs",
+            color = colors.secondaryText,
             fontSize = 10.sp,
             lineHeight = 12.sp
         )

@@ -1,5 +1,7 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,77 +16,42 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 @Composable
 fun SongInfoBox(
     info: SongInfo
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
 
     Column(
-        modifier =
-            Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
     ) {
         Text(
             text = "Song info",
             color = colors.primaryText,
             fontSize = 18.sp,
-            fontWeight =
-                FontWeight.Bold
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(
-            Modifier.height(12.dp)
-        )
+        Spacer(Modifier.height(12.dp))
 
-        InfoRow(
-            "Title",
-            info.title
-        )
-        InfoRow(
-            "Artist",
-            info.artist
-        )
-        InfoRow(
-            "Album",
-            info.album
-        )
-        InfoRow(
-            "Album artist",
-            info.albumArtist
-        )
-        InfoRow(
-            "Genre",
-            info.genre
-        )
-        InfoRow(
-            "Year",
-            info.year
-        )
-        InfoRow(
-            "Duration",
-            info.duration
-        )
-        InfoRow(
-            "Format",
-            info.format
-        )
-        InfoRow(
-            "Bitrate",
-            info.bitrate
-        )
-        InfoRow(
-            "Sample rate",
-            info.sampleRate
-        )
-        InfoRow(
-            "Track",
-            info.trackNumber
-        )
-        InfoRow(
-            "Location",
-            info.location
-        )
+        InfoRow("Title", info.title)
+        InfoRow("Artist", info.artist)
+        InfoRow("Album", info.album)
+        InfoRow("Album artist", info.albumArtist)
+        InfoRow("Genre", info.genre)
+        InfoRow("Year", info.year)
+        InfoRow("Duration", info.duration)
+        InfoRow("Format", info.format)
+        InfoRow("Bitrate", info.bitrate)
+        InfoRow("Sample rate", info.sampleRate)
+        InfoRow("Track", info.trackNumber)
+        InfoRow("Location", info.location)
     }
 }
 
@@ -96,41 +63,25 @@ private fun InfoRow(
     val colors = XvoxTheme.colors
 
     Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(
-                14.dp
-            )
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
             text = label,
             color = colors.secondaryText,
             fontSize = 11.sp,
-            modifier =
-                Modifier.weight(0.34f)
+            modifier = Modifier.weight(0.34f)
         )
 
         Text(
             text = value,
             color = colors.primaryText,
             fontSize = 11.sp,
-            maxLines =
-                if (
-                    label == "Location"
-                ) {
-                    3
-                } else {
-                    2
-                },
-            overflow =
-                TextOverflow.Ellipsis,
-            modifier =
-                Modifier.weight(0.66f)
+            maxLines = if (label == "Location") 3 else 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.66f)
         )
     }
 
-    Spacer(
-        Modifier.height(8.dp)
-    )
+    Spacer(Modifier.height(8.dp))
 }

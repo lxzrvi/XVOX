@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/widget_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitXY" android:contentDescription="@null" />
+    <LinearLayout android:id="@+id/widget_content" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <LinearLayout android:id="@+id/widget_top_left" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="start" />
+            <LinearLayout android:id="@+id/widget_top_center" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_top_right" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="end" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/widget_labels_top" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" />
+        <LinearLayout android:id="@+id/widget_cover_top" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" />
+        <LinearLayout android:id="@+id/widget_body" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+            <LinearLayout android:id="@+id/widget_inline_left" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_cover_left" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_meta" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_inline_center" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_cover_right" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_inline_right" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/widget_cover_bottom" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" />
+        <LinearLayout android:id="@+id/widget_labels_bottom" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <LinearLayout android:id="@+id/widget_bottom_left" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="start" />
+            <LinearLayout android:id="@+id/widget_bottom_center" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" />
+            <LinearLayout android:id="@+id/widget_bottom_right" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="end" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/widget_overlay" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+    <LinearLayout android:id="@+id/widget_overlay_left" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="start|center_vertical" />
+    <LinearLayout android:id="@+id/widget_overlay_center" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+    <LinearLayout android:id="@+id/widget_overlay_right" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="end|center_vertical" />
+</FrameLayout>

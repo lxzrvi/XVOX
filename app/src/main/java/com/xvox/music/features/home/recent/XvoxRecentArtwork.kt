@@ -3,18 +3,18 @@ package com.xvox.music.features.home.recent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,28 +24,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.PlaybackIcon
 import com.xvox.music.features.home.PlaybackIconType
 import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.features.home.rememberSongCardColor
 
-@OptIn(
-    ExperimentalFoundationApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun XvoxRecentArtwork(
     song: Song,
@@ -54,216 +52,118 @@ fun XvoxRecentArtwork(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     animateEntrance: Boolean = false,
+    source: String? = null,
     modifier: Modifier = Modifier
 ) {
-    val colors =
-        XvoxTheme.colors
+    val colors = XvoxTheme.colors
+    val cardColor = rememberSongCardColor(song, current)
+    val shape = RoundedCornerShape(14.dp)
 
-    val cardInteraction =
-        remember {
-            MutableInteractionSource()
-        }
-
-    val controlInteraction =
-        remember {
-            MutableInteractionSource()
-        }
-
-    val pressed by
-        cardInteraction
-            .collectIsPressedAsState()
-
-    val scale by
-        androidx.compose.animation.core
-            .animateFloatAsState(
-                targetValue =
-                    if (pressed) {
-                        0.985f
-                    } else {
-                        1f
-                    },
-                animationSpec =
-                    spring(
-                        dampingRatio = 0.86f,
-                        stiffness = 1400f
-                    ),
-                label =
-                    "recentPress"
-            )
-
-    val shape =
-        RoundedCornerShape(
-            3.dp
-        )
+    val displaySource = rememberSongQueueSource(song, source)
 
     Box(
-        modifier =
-            modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(shape)
-                .background(
-                    colors.cardElevated
-                )
-                .border(
-                    width = 0.7.dp,
-                    color =
-                        colors.cardBorder,
-                    shape = shape
-                )
-                .combinedClickable(
-                    interactionSource =
-                        cardInteraction,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick =
-                        onLongClick
-                )
+        modifier = modifier
+            .xvoxSongPress(onClick, onLongClick, pressedScale = 0.95f)
+            .clip(shape)
+            .background(cardColor)
+            .border(
+                width = 0.7.dp,
+                color = colors.cardBorder,
+                shape = shape
+            )
     ) {
         XvoxSongArtwork(
-            artwork =
-                song.artworkUri,
-            requestSize =
-                XvoxRecentArtworkSize,
-            modifier =
-                Modifier.fillMaxSize()
+            artwork = song.artworkUri,
+            requestSize = XvoxRecentArtworkSize,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
         )
 
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush
-                            .verticalGradient(
-                                listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(
-                                        alpha = 0.78f
-                                    )
-                                )
-                            )
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.82f)
+                        )
                     )
+                )
         )
 
-        Text(
-            text = song.title,
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight =
-                FontWeight.SemiBold,
-            maxLines = 1,
-            overflow =
-                TextOverflow.Ellipsis,
-            modifier =
-                Modifier
-                    .align(
-                        Alignment
-                            .BottomStart
-                    )
-                    .fillMaxWidth(
-                        0.72f
-                    )
-                    .padding(
-                        start = 12.dp,
-                        end = 8.dp,
-                        bottom = 10.dp
-                    )
-        )
+        // Bottom text: Song Title and Originating Queue name below it
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.72f)
+                .padding(start = 12.dp, end = 8.dp, bottom = 10.dp)
+        ) {
+            Text(
+                text = song.title,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(1.dp))
+            Text(
+                text = displaySource,
+                color = Color.White.copy(alpha = 0.82f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Row(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopEnd
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(9.dp)
+                .height(30.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = 700f
                     )
-                    .padding(9.dp)
-                    .height(30.dp)
-                    .clip(
-                        CircleShape
-                    )
-                    .background(
-                        if (current && playing) {
-                            colors.primaryAccent
-                        } else {
-                            Color.Black.copy(
-                                alpha = 0.58f
-                            )
-                        }
-                    )
-                    .animateContentSize(
-                        animationSpec =
-                            spring(
-                                dampingRatio =
-                                    0.88f,
-                                stiffness =
-                                    700f
-                            )
-                    )
-                    .combinedClickable(
-                        interactionSource =
-                            controlInteraction,
-                        indication = null,
-                        onClick = onClick,
-                        onLongClick =
-                            onLongClick
-                    )
-                    .padding(
-                        horizontal = 8.dp
-                    ),
-            verticalAlignment =
-                Alignment.CenterVertically,
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    5.dp
                 )
+                .xvoxSongPress(onClick, onLongClick)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             AnimatedContent(
-                targetState =
-                    current &&
-                        playing,
+                targetState = current && playing,
                 transitionSpec = {
-                    fadeIn() togetherWith
-                        fadeOut()
+                    fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
                 },
-                label =
-                    "recentPlayState"
-            ) {
-                active ->
-
+                label = "recentPlayState"
+            ) { active ->
                 PlaybackIcon(
-                    type =
-                        if (active) {
-                            PlaybackIconType
-                                .PAUSE
-                        } else {
-                            PlaybackIconType
-                                .PLAY
-                        },
-                    color =
-                        if (active) colors.primaryAccent else Color.White,
-                    modifier =
-                        Modifier.size(
-                            14.dp
-                        )
+                    type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
+                    color = Color.White,
+                    modifier = Modifier.size(14.dp)
                 )
             }
 
-            if (
-                current &&
-                playing
-            ) {
+            if (current && playing) {
                 Text(
-                    text =
-                        "Playing",
-                    color =
-                        Color.White,
-                    fontSize = 9.sp
+                    text = "Playing",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
         }
     }
+}
+
+private fun rememberSongQueueSource(song: Song, source: String?): String {
+    val src = if (!source.isNullOrBlank()) source else if (song.source.isNotBlank()) song.source else "All Songs"
+    return if (src.startsWith("Playing by ")) src else src
 }

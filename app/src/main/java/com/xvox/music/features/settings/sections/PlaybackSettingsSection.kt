@@ -1,159 +1,135 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsSectionCard
+import com.xvox.music.features.settings.components.SettingsAccordionItem
+import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxThinLineSlider
-import kotlin.math.roundToInt
 
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsState,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    showPreview: Boolean = true
 ) {
-    val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
 
-    SettingsSectionCard(title = "Playback", iconRes = R.drawable.ic_xvox_play) {
-        SettingsToggle(
-            title = "Gapless playback",
-            subtitle = "Seamless transition between tracks",
-            checked = state.gaplessPlayback
-        ) {
-            haptics.toggle()
-            viewModel.setGaplessPlayback(it)
-        }
+    fun toggle(group: String) {
+        expandedGroup = if (expandedGroup == group) null else group
+    }
 
-        SettingsToggle(
-            title = "Crossfade",
-            subtitle = "iOS-level beat sync blend between tracks",
-            checked = state.crossfade
-        ) {
-            haptics.toggle()
-            viewModel.setCrossfade(it)
-        }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
+
+        SettingsToggle("Crossfade", null, state.crossfade, viewModel::setCrossfade)
+
         if (state.crossfade) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+            SettingsAccordionItem(
+                title = "Transition length · ${state.crossfadeDuration}s",
+                expanded = expandedGroup == "Duration",
+                onToggle = { toggle("Duration") }
             ) {
-                Text("Duration", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.width(55.dp))
-                XvoxThinLineSlider(
-                    value = state.crossfadeDuration.toFloat(),
-                    onValueChange = {
-                        haptics.sliderTick()
-                        viewModel.setCrossfadeDuration(it.roundToInt())
-                    },
-                    valueRange = 1f..12f,
-                    defaultValue = 3f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${state.crossfadeDuration}s", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(32.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(1, 2, 3, 4, 5).forEach { sec ->
+                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                                viewModel.setCrossfadeDuration(sec)
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(6, 7, 8, 10, 12).forEach { sec ->
+                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                                viewModel.setCrossfadeDuration(sec)
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsAccordionItem(
+                title = "Smart blend & Beat align",
+                expanded = expandedGroup == "Blend",
+                onToggle = { toggle("Blend") }
+            ) {
+                SettingsToggle("Seamless blend", null, state.crossfadeSmart, viewModel::setCrossfadeSmart)
+                if (state.crossfadeSmart) {
+                    Spacer(Modifier.height(8.dp))
+                    Label("Bass hand-off · ${(state.crossfadeClashControl * 100).toInt()}%")
+                    XvoxThinLineSlider(
+                        state.crossfadeClashControl,
+                        viewModel::setCrossfadeClashControl,
+                        0f..1f
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                SettingsToggle("Beat align", null, state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
             }
         }
-
-        SettingsToggle(
-            title = "Fade in",
-            subtitle = "Gradual volume rise on playback start",
-            checked = state.fadeIn
-        ) {
-            haptics.toggle()
-            viewModel.setFadeIn(it)
-        }
-
-        SettingsToggle(
-            title = "Fade out",
-            subtitle = "Gradual volume fall on pause/stop",
-            checked = state.fadeOut
-        ) {
-            haptics.toggle()
-            viewModel.setFadeOut(it)
-        }
-
-        SettingsToggle(
-            title = "ReplayGain",
-            subtitle = "Normalize loudness via metadata tags",
-            checked = state.replayGain
-        ) {
-            haptics.toggle()
-            viewModel.setReplayGain(it)
-        }
-
-        SettingsToggle(
-            title = "Loudness normalization",
-            subtitle = "EBU R128 standard volume leveling",
-            checked = state.loudnessNormalization
-        ) {
-            haptics.toggle()
-            viewModel.setLoudnessNormalization(it)
-        }
-
-        SettingsToggle(
-            title = "Skip silence",
-            subtitle = "Trim leading and trailing silent gaps",
-            checked = state.skipSilence
-        ) {
-            haptics.toggle()
-            viewModel.setSkipSilence(it)
-        }
-
-        SettingsToggle(
-            title = "Audio focus",
-            subtitle = "React to phone calls, navigation & other apps",
-            checked = state.audioFocus
-        ) {
-            haptics.toggle()
-            viewModel.setAudioFocus(it)
-        }
-
-        SettingsToggle(
-            title = "Pause on headphone disconnect",
-            subtitle = "Auto pause when headset or Bluetooth disconnects",
-            checked = state.pauseOnHeadphoneDisconnect
-        ) {
-            haptics.toggle()
-            viewModel.setPauseOnHeadphoneDisconnect(it)
-        }
-
-        SettingsToggle(
-            title = "Play on headset connect",
-            subtitle = "Resume playback when headset or Bluetooth connects",
-            checked = state.playOnHeadsetConnect
-        ) {
-            haptics.toggle()
-            viewModel.setPlayOnHeadsetConnect(it)
-        }
-
-        SettingsToggle(
-            title = "Clear queue after playback",
-            subtitle = "Empty queue when current list completes",
-            checked = state.clearQueueAfterPlayback
-        ) {
-            haptics.toggle()
-            viewModel.setClearQueueAfterPlayback(it)
-        }
-
-        SettingsToggle(
-            title = "Remember queue",
-            subtitle = "Restore playing queue on next launch",
-            checked = state.rememberQueue
-        ) {
-            haptics.toggle()
-            viewModel.setRememberQueue(it)
-        }
     }
+}
+
+@Composable
+private fun Label(text: String) {
+    Text(
+        text,
+        color = XvoxTheme.colors.primaryAccent,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+}
+
+@Composable
+private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    val fill by animateColorAsState(if (selected) colors.primaryAccent else colors.cardElevated, tween(180), label = "fill")
+    val border by animateColorAsState(if (selected) colors.primaryAccent else colors.cardBorder, tween(180), label = "border")
+    Box(
+        modifier = modifier.height(38.dp).clip(shape).background(fill)
+            .border(if (selected) 1.6.dp else 0.9.dp, border, shape)
+            .xvoxPressScale(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label, color = if (selected) colors.background else colors.primaryText,
+            fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
+    SettingsControlsEditor(
+        controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) }
+    )
 }

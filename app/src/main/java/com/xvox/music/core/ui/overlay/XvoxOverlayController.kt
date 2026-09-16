@@ -12,7 +12,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 @Immutable
 data class XvoxPopupMessage(
     val id: Long,
-    val text: String
+    val text: String,
+    val persistent: Boolean = false
 )
 
 @Stable
@@ -20,10 +21,25 @@ class XvoxOverlayController {
     var listKey by mutableLongStateOf(0L)
         private set
 
-    internal var listContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+    internal var boxTitle by mutableStateOf("XVOX")
         private set
 
-    internal var boxContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+    internal var boxSettingsAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    internal var boxUndoAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    internal var boxHeaderTitleContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
+
+    val isBoxVisible: Boolean get() = listContent != null
+
+    /** A compact bottom-anchored PIP-style popup instead of the centred box. */
+    internal var boxMini by mutableStateOf(false)
+        private set
+
+    internal var listContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
     internal var popup by mutableStateOf<XvoxPopupMessage?>(null)
@@ -31,23 +47,45 @@ class XvoxOverlayController {
 
     private var popupId by mutableLongStateOf(0L)
 
-    fun showL(content: @Composable () -> Unit) {
+    fun showBox(
+        title: String = "XVOX",
+        onSettings: (() -> Unit)? = null,
+        onUndo: (() -> Unit)? = null,
+        headerTitleContent: (@Composable () -> Unit)? = null,
+        content: @Composable () -> Unit
+    ) {
+        boxMini = false
+        boxTitle = title
+        boxSettingsAction = onSettings
+        boxUndoAction = onUndo
+        boxHeaderTitleContent = headerTitleContent
         listKey++
-        boxContent = null
         listContent = content
     }
 
-    fun hideL() {
+    /** Compact PIP-style popup: quick actions that must not take over the whole screen. */
+    fun showMiniBox(
+        title: String = "XVOX",
+        onSettings: (() -> Unit)? = null,
+        onUndo: (() -> Unit)? = null,
+        headerTitleContent: (@Composable () -> Unit)? = null,
+        content: @Composable () -> Unit
+    ) {
+        boxMini = true
+        boxTitle = title
+        boxSettingsAction = onSettings
+        boxUndoAction = onUndo
+        boxHeaderTitleContent = headerTitleContent
+        listKey++
+        listContent = content
+    }
+
+    fun hideBox() {
         listContent = null
-        boxContent = null
-    }
-
-    fun showB(content: @Composable () -> Unit) {
-        showL(content)
-    }
-
-    fun hideB() {
-        hideL()
+        boxMini = false
+        boxSettingsAction = null
+        boxUndoAction = null
+        boxHeaderTitleContent = null
     }
 
     fun showP(text: String) {
@@ -55,6 +93,12 @@ class XvoxOverlayController {
         popup = XvoxPopupMessage(id = popupId, text = text)
     }
 
+    fun showPersistentP(text: String): Long {
+        popupId++
+        popup = XvoxPopupMessage(popupId, text, persistent = true)
+        return popupId
+    }
+    fun dismissP(id: Long) { clearPopup(id) }
     internal fun clearPopup(id: Long) {
         if (popup?.id == id) {
             popup = null

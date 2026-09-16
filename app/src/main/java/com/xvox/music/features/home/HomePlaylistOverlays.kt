@@ -1,9 +1,13 @@
 package com.xvox.music.features.home
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import android.net.Uri
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.PlaylistInfoBox
+import com.xvox.music.features.playlist.PlaylistPickerBox
 import com.xvox.music.features.playlist.XvoxAddPlaylistSongsBox
 import com.xvox.music.features.playlist.XvoxPlaylistActionsBox
 import com.xvox.music.features.playlist.XvoxPlaylistCoverEditor
@@ -14,13 +18,19 @@ fun showPlaylistActions(
     playlist: XvoxPlaylist,
     onDeleted: () -> Unit
 ) {
-    overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+    fun showSettings() {
+        overlays.showBox("Playlist layout") {
+            com.xvox.music.features.playlist.PlaylistLayoutEditorBox(
+                onDone = {
+                    showPlaylistActions(overlays, viewModel, playlist, onDeleted)
+                }
+            )
+        }
+    }
+
+    overlays.showBox("Playlist options", onSettings = ::showSettings) {
+        val liveState by viewModel.state.collectAsState()
+        val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxPlaylistActionsBox(
             playlist = current,
@@ -45,14 +55,26 @@ fun showPlaylistActions(
                 }
             },
             onDelete = {
-                viewModel.deletePlaylist(current.id) {
-                    overlays.hideL()
-                    onDeleted()
-                    overlays.showP("Playlist deleted")
+                // Deleting a playlist now asks first, exactly like exit and song deletion.
+                overlays.showBox("Delete playlist?") {
+                    com.xvox.music.shell.XvoxConfirmBox(
+                        question = "Delete \"${current.name}\"?",
+                        detail = "The songs themselves stay in your library.",
+                        confirmLabel = "Delete",
+                        danger = true,
+                        onCancel = overlays::hideBox,
+                        onConfirm = {
+                            viewModel.deletePlaylist(current.id) {
+                                overlays.hideBox()
+                                onDeleted()
+                                overlays.showP("Playlist deleted")
+                            }
+                        }
+                    )
                 }
             },
             onInfo = {
-                overlays.showL {
+                overlays.showBox("Playlist info") {
                     PlaylistInfoBox(
                         playlist = current,
                         songCount = viewModel.playlistSongs(current).size
@@ -68,25 +90,21 @@ fun showPlaylistCoverEditor(
     viewModel: HomeViewModel,
     playlist: XvoxPlaylist
 ) {
-    overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+    overlays.showBox("Edit playlist cover") {
+        val liveState by viewModel.state.collectAsState()
+        val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxPlaylistCoverEditor(
             playlist = current,
             songs = viewModel.playlistSongs(current),
-            onCancel = overlays::hideL,
+            onCancel = overlays::hideBox,
             onApply = { songIds, customUri ->
                 viewModel.savePlaylistCover(
                     playlistId = current.id,
                     songIds = songIds,
                     customUri = customUri
                 ) { updated ->
-                    overlays.hideL()
+                    overlays.hideBox()
                     if (updated != null) {
                         overlays.showP("Playlist cover updated")
                     }
@@ -101,27 +119,64 @@ fun showAddPlaylistSongs(
     viewModel: HomeViewModel,
     playlist: XvoxPlaylist
 ) {
-    overlays.showL {
-        val current =
-            viewModel.state.value
-                .playlists
-                .firstOrNull {
-                    it.id == playlist.id
-                } ?: playlist
+    overlays.showBox("Add songs") {
+        val liveState by viewModel.state.collectAsState()
+        val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxAddPlaylistSongsBox(
-            songs = viewModel.state.value.songs,
+            songs = liveState.songs,
             existingSongIds = current.songIds.toSet(),
             playlist = current,
             playlistSongs = viewModel.playlistSongs(current),
             onAddMultiple = { selectedSongs ->
-                selectedSongs.forEach { s ->
-                    viewModel.addToPlaylist(current.id, s) {}
+                viewModel.addMultipleToPlaylist(current.id, selectedSongs) {
+                    overlays.hideBox()
+                    overlays.showP("Added ${selectedSongs.size} songs to ${current.name}")
                 }
-                overlays.hideL()
-                overlays.showP("Added ${selectedSongs.size} songs to ${current.name}")
             },
-            onCancel = { overlays.hideL() }
+            onCancel = { overlays.hideBox() }
+        )
+    }
+}
+
+fun showMultiAddToPlaylistOverlay(
+    overlays: XvoxOverlayController,
+    viewModel: HomeViewModel,
+    songs: List<Song>,
+    onDone: () -> Unit
+) {
+    overlays.showBox("Selected songs · Playlist") {
+        val liveState by viewModel.state.collectAsState()
+        val playlists = liveState.playlists
+        PlaylistPickerBox(
+            song = null,
+            selectedSongs = songs,
+            playlists = playlists,
+            onCreate = {
+                showCreatePlaylistOverlay(overlays, viewModel, liveState.songs)
+            },
+            onAdd = { pl ->
+                viewModel.addMultipleToPlaylist(pl.id, songs) {
+                    overlays.hideBox()
+                    overlays.showP("${songs.size} songs added to ${pl.name}")
+                    onDone()
+                }
+            },
+            onAddCustomList = { pl, listToAdd ->
+                viewModel.addMultipleToPlaylist(pl.id, listToAdd) {
+                    overlays.hideBox()
+                    overlays.showP("${listToAdd.size} songs added to ${pl.name}")
+                    onDone()
+                }
+            },
+            onRemove = { pl ->
+                viewModel.removeMultipleFromPlaylist(pl.id, songs) {
+                    overlays.hideBox()
+                    overlays.showP("${songs.size} songs removed from ${pl.name}")
+                    onDone()
+                }
+            },
+            songs = liveState.songs
         )
     }
 }

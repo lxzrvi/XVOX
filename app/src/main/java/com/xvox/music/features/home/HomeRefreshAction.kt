@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,7 +15,7 @@ fun showLibraryRefresh(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
 ) {
-    overlays.showL {
+    overlays.showBox("Refresh library") {
         LibraryRefreshContent(
             overlays =
             overlays,
@@ -36,23 +37,21 @@ private fun LibraryRefreshContent(
 
     var result by
         remember {
-            mutableStateOf<
-                LibraryRefreshResult?,
-            >(null)
+            mutableStateOf<LibraryRefreshResult?>(null)
         }
 
     val scope = rememberCoroutineScope()
+    val liveState by viewModel.state.collectAsState()
 
     LibraryRefreshBox(
         currentTotal =
-            viewModel.state.value
-                .songs.size,
+            liveState.songs.size,
         scanning =
         scanning,
         result =
         result,
         onCancel =
-            overlays::hideL,
+            overlays::hideBox,
         onScan = {
             if (!scanning) {
                 scanning = true
@@ -62,20 +61,13 @@ private fun LibraryRefreshContent(
 
                     var pendingResult: LibraryRefreshResult? = null
 
-                    // Trigger refresh and capture result
                     viewModel.refresh { refreshed ->
                         pendingResult = refreshed
                     }
 
-                    // Ensure minimum 3 seconds visible loading to avoid flash
-                    // Refresh itself typically takes 1-2 sec, we ensure total 3000ms
-                    // Poll until viewModel not refreshing or pendingResult set
                     while (pendingResult == null) {
                         delay(100L)
-                        // If refresh finished quickly, pendingResult will be set via callback
-                        // If viewModel still refreshing, wait
                         if (!viewModel.state.value.refreshing && pendingResult == null) {
-                            // Edge: callback not yet delivered, wait a bit
                             delay(200L)
                         }
                     }

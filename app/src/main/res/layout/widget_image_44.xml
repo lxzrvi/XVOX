@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_item" android:layout_width="44dp" android:layout_height="44dp">
+<ImageView android:id="@+id/widget_item_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitXY" android:contentDescription="@null"/>
+<ImageView android:id="@+id/widget_item_image" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" android:contentDescription="Music"/>
+<TextView android:id="@+id/widget_item_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:gravity="center" android:visibility="gone" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="@font/xvox_inter_regular" android:textSize="8sp" android:textColor="#FFFFFF"/>
+</FrameLayout>

@@ -8,5 +8,9 @@ data class Song(
     val artist: String,
     val contentUri: Uri,
     val artworkUri: Uri?,
-    val duration: Long = 0L
+    val duration: Long = 0L,
+    val sizeBytes: Long = 0L,
+    val folderName: String = "",
+    val folderPath: String = folderName,
+    val source: String = ""
 )
