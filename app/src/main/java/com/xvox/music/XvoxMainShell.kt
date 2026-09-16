@@ -222,9 +222,9 @@ fun XvoxMainShell(
     }
 
     fun showQueueBox() {
-        val livePlayer = playerViewModel.state.value
+        val currentActiveName = playerViewModel.state.value.activeQueueName
         overlays.showBox(
-            title = livePlayer.activeQueueName,
+            title = currentActiveName,
             headerTitleContent = {
                 val liveState by playerViewModel.state.collectAsState()
                 com.xvox.music.shell.QueueHeaderDropdown(

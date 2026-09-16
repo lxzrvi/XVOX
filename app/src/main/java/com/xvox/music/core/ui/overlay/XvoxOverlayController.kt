@@ -30,6 +30,9 @@ class XvoxOverlayController {
     internal var boxUndoAction by mutableStateOf<(() -> Unit)?>(null)
         private set
 
+    internal var boxHeaderTitleContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
+
     val isBoxVisible: Boolean get() = listContent != null
 
     /** A compact bottom-anchored PIP-style popup instead of the centred box. */
@@ -48,12 +51,14 @@ class XvoxOverlayController {
         title: String = "XVOX",
         onSettings: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
+        headerTitleContent: (@Composable () -> Unit)? = null,
         content: @Composable () -> Unit
     ) {
         boxMini = false
         boxTitle = title
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
+        boxHeaderTitleContent = headerTitleContent
         listKey++
         listContent = content
     }
@@ -63,12 +68,14 @@ class XvoxOverlayController {
         title: String = "XVOX",
         onSettings: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
+        headerTitleContent: (@Composable () -> Unit)? = null,
         content: @Composable () -> Unit
     ) {
         boxMini = true
         boxTitle = title
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
+        boxHeaderTitleContent = headerTitleContent
         listKey++
         listContent = content
     }
@@ -78,6 +85,7 @@ class XvoxOverlayController {
         boxMini = false
         boxSettingsAction = null
         boxUndoAction = null
+        boxHeaderTitleContent = null
     }
 
     fun showP(text: String) {
