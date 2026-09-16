@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -44,9 +46,127 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
+import com.xvox.music.player.playback.XvoxSavedQueue
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+
+@Composable
+fun QueueHeaderDropdown(
+    activeQueueName: String,
+    savedQueues: List<XvoxSavedQueue>,
+    onSwitchQueue: (String) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp, horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = activeQueueName,
+                color = colors.primaryText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_chevron_down),
+                contentDescription = "Switch Queue",
+                tint = colors.primaryAccent,
+                modifier = Modifier
+                    .size(16.dp)
+                    .graphicsLayer { rotationZ = if (expanded) 180f else 0f }
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .background(colors.cardElevated)
+                .clip(RoundedCornerShape(12.dp))
+                .widthIn(min = 180.dp)
+        ) {
+            if (savedQueues.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "No other queues",
+                            color = colors.mutedText,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    onClick = { expanded = false },
+                    enabled = false
+                )
+            } else {
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                activeQueueName,
+                                color = colors.primaryAccent,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_check),
+                                contentDescription = null,
+                                tint = colors.primaryAccent,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    },
+                    onClick = { expanded = false }
+                )
+
+                savedQueues.forEach { saved ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(
+                                        saved.name,
+                                        color = colors.primaryText,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "${saved.songs.size} songs",
+                                        color = colors.secondaryText,
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onSwitchQueue(saved.id)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 
 private val RowHeight = 58.dp
 private val RowSpacing = 6.dp

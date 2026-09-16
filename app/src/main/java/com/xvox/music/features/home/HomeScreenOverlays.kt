@@ -131,6 +131,56 @@ fun showDeleteOverlay(
     }
 }
 
+fun showAddToQueueOverlay(
+    overlays: XvoxOverlayController,
+    playerViewModel: MainPlayerViewModel,
+    song: Song
+) {
+    val activeName = playerViewModel.state.value.activeQueueName
+    overlays.showBox("Add to queue") {
+        AddToQueueBox(
+            activeQueueName = activeName,
+            onAddToCurrent = {
+                val msg = playerViewModel.addToQueue(song)
+                overlays.hideBox()
+                overlays.showP(msg)
+            },
+            onAddToNew = {
+                val msg = playerViewModel.addToNewQueue(song)
+                overlays.hideBox()
+                overlays.showP(msg)
+            }
+        )
+    }
+}
+
+fun showMultiAddToQueueOverlay(
+    overlays: XvoxOverlayController,
+    playerViewModel: MainPlayerViewModel,
+    songs: List<Song>,
+    onDone: () -> Unit = {}
+) {
+    val activeName = playerViewModel.state.value.activeQueueName
+    overlays.showBox("Add to queue") {
+        AddToQueueBox(
+            activeQueueName = activeName,
+            songCount = songs.size,
+            onAddToCurrent = {
+                val msg = playerViewModel.addToQueue(songs)
+                overlays.hideBox()
+                overlays.showP(msg)
+                onDone()
+            },
+            onAddToNew = {
+                val msg = playerViewModel.addToNewQueue(songs)
+                overlays.hideBox()
+                overlays.showP(msg)
+                onDone()
+            }
+        )
+    }
+}
+
 fun showSongOptionsOverlay(
     overlays: XvoxOverlayController,
     context: Context,
@@ -171,9 +221,7 @@ fun showSongOptionsOverlay(
                 overlays.showP(msg)
             },
             onAddQueue = {
-                val msg = playerViewModel.addToQueue(sourcedSong)
-                overlays.hideBox()
-                overlays.showP(msg)
+                showAddToQueueOverlay(overlays, playerViewModel, sourcedSong)
             },
             onPlaylist = {
                 overlays.hideBox()

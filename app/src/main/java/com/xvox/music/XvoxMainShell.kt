@@ -222,8 +222,19 @@ fun XvoxMainShell(
     }
 
     fun showQueueBox() {
+        val livePlayer = playerViewModel.state.value
         overlays.showBox(
-            title = "Playing queue",
+            title = livePlayer.activeQueueName,
+            headerTitleContent = {
+                val liveState by playerViewModel.state.collectAsState()
+                com.xvox.music.shell.QueueHeaderDropdown(
+                    activeQueueName = liveState.activeQueueName,
+                    savedQueues = liveState.savedQueues,
+                    onSwitchQueue = { queueId ->
+                        playerViewModel.switchToQueue(queueId)
+                    }
+                )
+            },
             onUndo = {
                 if (playerViewModel.canUndoQueue()) {
                     overlays.showBox("Undo queue change?") {
@@ -244,10 +255,10 @@ fun XvoxMainShell(
                 }
             }
         ) {
-            val livePlayer by playerViewModel.state.collectAsState()
+            val liveState by playerViewModel.state.collectAsState()
             XvoxQueueBoxContent(
-                queue = livePlayer.queue,
-                currentSongId = livePlayer.currentSongId,
+                queue = liveState.queue,
+                currentSongId = liveState.currentSongId,
                 onPlayIndex = { index ->
                     playerViewModel.playQueueIndex(index, keepPlayingState = false)
                     overlays.hideBox()

@@ -25,7 +25,7 @@ import kotlin.math.abs
 /**
  * Full-queue smooth HorizontalPager.
  * Rests cleanly with 11dp side gaps and 11dp page spacing.
- * Enables ultra-fast 120fps continuous swiping, non-blocking rapid button navigation,
+ * Enables ultra-fast, snappy continuous swiping, non-blocking rapid button navigation,
  * and live real-time backdrop palette crossfading with zero lag.
  */
 @Composable
@@ -66,7 +66,7 @@ fun XvoxNowPlayingArtworkPager(
         targetPage = nextTarget
 
         if (targetPage in queue.indices) {
-            pager.animateScrollToPage(targetPage, animationSpec = tween(200, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(targetPage, animationSpec = tween(160, easing = FastOutSlowInEasing))
         }
     }
 
@@ -74,7 +74,7 @@ fun XvoxNowPlayingArtworkPager(
     LaunchedEffect(currentIndex) {
         targetPage = currentIndex
         if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
-            pager.animateScrollToPage(currentIndex, animationSpec = tween(220, easing = FastOutSlowInEasing))
+            pager.animateScrollToPage(currentIndex, animationSpec = tween(160, easing = FastOutSlowInEasing))
         }
     }
 
@@ -94,15 +94,13 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Debounced playback commit during rapid continuous flipping:
-    // When rapidly swiping through covers, colors and artwork update instantly.
-    // Playback audio switches only after the swipe finishes and settles on the chosen track.
+    // Snappy playback commit when settled on track
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Pair(pager.settledPage, pager.isScrollInProgress)
         }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
             if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
-                delay(180)
+                delay(40)
                 if (!pager.isScrollInProgress && pager.settledPage == settledIndex) {
                     settled(settledIndex)
                 }
@@ -113,9 +111,11 @@ fun XvoxNowPlayingArtworkPager(
     HorizontalPager(
         state = pager,
         beyondViewportPageCount = 3,
+        snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
         flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
-            snapAnimationSpec = tween(200, easing = FastOutSlowInEasing)
+            snapAnimationSpec = tween(160, easing = FastOutSlowInEasing),
+            snapPositionalThreshold = 0.35f
         ),
         contentPadding = PaddingValues(horizontal = 11.dp),
         pageSpacing = 11.dp,

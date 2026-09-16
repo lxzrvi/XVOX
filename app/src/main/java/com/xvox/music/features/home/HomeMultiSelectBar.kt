@@ -77,13 +77,12 @@ fun HomeMultiSelectBar(
                 iconRes = R.drawable.ic_xvox_queue,
                 label = "Add queue",
                 onClick = {
-                    val msg = if (selectedSongs.size == 1) {
-                        playerViewModel.addToQueue(selectedSongs[0])
-                    } else {
-                        playerViewModel.addToQueue(selectedSongs)
-                    }
-                    overlays.showP(msg)
-                    onClearSelection()
+                    showMultiAddToQueueOverlay(
+                        overlays = overlays,
+                        playerViewModel = playerViewModel,
+                        songs = selectedSongs,
+                        onDone = onClearSelection
+                    )
                 }
             )
 

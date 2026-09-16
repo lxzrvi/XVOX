@@ -5,7 +5,7 @@ import com.xvox.music.core.ui.navigation.XvoxNavigationGeometry
 
 object XvoxMiniPlayerPlacement {
     val horizontalEdge = 6.dp
-    val controlGap = 14.dp
+    val controlGap = 9.dp
     val navigationHostBottom = 6.dp
     val navigationVisualHeight = XvoxNavigationGeometry.barHeight
     // Measure to the visible bar top, not the host's overflow / touch bounds.
