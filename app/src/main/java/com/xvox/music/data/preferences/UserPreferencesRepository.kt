@@ -44,6 +44,7 @@ class UserPreferencesRepository(
         val recentSearches = stringPreferencesKey("recent_searches")
 
         val lyricsSettings = stringPreferencesKey("lyrics_settings_v1")
+        val savedQueuesJson = stringPreferencesKey("saved_queues_json_v1")
         val splitShowPill = booleanPreferencesKey("split_show_pill")
         val splitHideCollection = booleanPreferencesKey("split_hide_collection")
         val playlistStyle = stringPreferencesKey("home_playlist_style")
@@ -220,6 +221,10 @@ class UserPreferencesRepository(
     }.distinctUntilChanged()
 
     val lyricsSettings: Flow<LyricsSettings> = context.xvoxDataStore.data.map { it[Keys.lyricsSettings].orEmpty() }.distinctUntilChanged().map { LyricsSettings.decode(it) }
+    val savedQueuesJson: Flow<String> = context.xvoxDataStore.data.map { it[Keys.savedQueuesJson].orEmpty() }.distinctUntilChanged()
+    suspend fun setSavedQueuesJson(json: String) {
+        context.xvoxDataStore.edit { it[Keys.savedQueuesJson] = json }
+    }
     val splitShowPill: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitShowPill] ?: true }.distinctUntilChanged()
     val splitHideCollection: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.splitHideCollection] ?: false }.distinctUntilChanged()
     val playlistStyle: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.playlistStyle] == "cards") "cards" else "long" }.distinctUntilChanged()

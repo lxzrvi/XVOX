@@ -46,6 +46,7 @@ fun XvoxNowPlayingArtworkPager(
 
     var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
     var targetPage by remember { mutableIntStateOf(initialIdx) }
+    var lastObservedSongId by remember { mutableStateOf(queue.getOrNull(initialIdx)?.id) }
 
     val settled by rememberUpdatedState(onSettledPage)
     val palette by rememberUpdatedState(onSwipePalette)
@@ -70,12 +71,22 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Auto-advance or external track changes (from queue/service)
-    LaunchedEffect(currentIndex) {
+    // Auto-advance, external track changes, and silent queue reorder sync
+    LaunchedEffect(currentIndex, queue) {
+        val currentSong = queue.getOrNull(currentIndex)
+        val currentSongId = currentSong?.id
         targetPage = currentIndex
+
         if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
-            pager.animateScrollToPage(currentIndex, animationSpec = tween(160, easing = FastOutSlowInEasing))
+            if (currentSongId != null && currentSongId == lastObservedSongId) {
+                // Reorder happened in background — snap silently with zero cover slide/flicker
+                pager.scrollToPage(currentIndex)
+            } else {
+                // Actual track change — smooth cover transition
+                pager.animateScrollToPage(currentIndex, animationSpec = tween(180, easing = FastOutSlowInEasing))
+            }
         }
+        lastObservedSongId = currentSongId
     }
 
     // Real-time backdrop color crossfading matching finger/pager position with zero latency

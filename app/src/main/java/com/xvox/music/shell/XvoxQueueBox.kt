@@ -1,6 +1,8 @@
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,11 +11,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -35,7 +34,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -93,7 +91,7 @@ fun QueueHeaderDropdown(
                 contentDescription = "Switch Queue",
                 tint = colors.primaryAccent,
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(17.dp)
                     .graphicsLayer { rotationZ = if (expanded) 180f else 0f }
             )
         }
@@ -103,8 +101,8 @@ fun QueueHeaderDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier
                 .background(colors.cardElevated)
-                .clip(RoundedCornerShape(12.dp))
-                .widthIn(min = 180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .widthIn(min = 230.dp, max = 320.dp)
         ) {
             if (savedQueues.isEmpty()) {
                 DropdownMenuItem(
@@ -112,7 +110,7 @@ fun QueueHeaderDropdown(
                         Text(
                             "No other queues",
                             color = colors.mutedText,
-                            fontSize = 12.5.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     },
@@ -123,21 +121,23 @@ fun QueueHeaderDropdown(
                 DropdownMenuItem(
                     text = {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 activeQueueName,
                                 color = colors.primaryAccent,
-                                fontSize = 13.5.sp,
+                                fontSize = 14.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Icon(
                                 painter = painterResource(R.drawable.ic_xvox_check),
                                 contentDescription = null,
                                 tint = colors.primaryAccent,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     },
@@ -148,7 +148,9 @@ fun QueueHeaderDropdown(
                     DropdownMenuItem(
                         text = {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -156,13 +158,13 @@ fun QueueHeaderDropdown(
                                     Text(
                                         saved.name,
                                         color = colors.primaryText,
-                                        fontSize = 13.5.sp,
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         "${saved.songs.size} songs",
                                         color = colors.secondaryText,
-                                        fontSize = 10.5.sp
+                                        fontSize = 11.5.sp
                                     )
                                 }
                             }
@@ -294,47 +296,14 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Horizontal swipe gesture for queue switching
-    var totalDragX by remember { mutableFloatStateOf(0f) }
-    val draggableState = rememberDraggableState { delta ->
-        if (draggingSong == null) {
-            totalDragX += delta
-        }
-    }
-
     val allQueueEntries = remember(activeQueueName, savedQueues) {
         listOf("active" to activeQueueName) + savedQueues.map { it.id to it.name }
-    }
-    val currentQueueIndex = remember(activeQueueName, allQueueEntries) {
-        allQueueEntries.indexOfFirst { it.second == activeQueueName }.coerceAtLeast(0)
     }
 
     Column(
         Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .draggable(
-                state = draggableState,
-                orientation = Orientation.Horizontal,
-                enabled = draggingSong == null && savedQueues.isNotEmpty(),
-                onDragStopped = {
-                    val threshold = 120f
-                    if (totalDragX < -threshold) {
-                        // Swipe left -> next queue
-                        val nextIdx = (currentQueueIndex + 1).coerceAtMost(allQueueEntries.lastIndex)
-                        if (nextIdx != currentQueueIndex) {
-                            onSwitchQueue(allQueueEntries[nextIdx].first)
-                        }
-                    } else if (totalDragX > threshold) {
-                        // Swipe right -> prev queue
-                        val prevIdx = (currentQueueIndex - 1).coerceAtLeast(0)
-                        if (prevIdx != currentQueueIndex) {
-                            onSwitchQueue(allQueueEntries[prevIdx].first)
-                        }
-                    }
-                    totalDragX = 0f
-                }
-            )
     ) {
         if (pendingRemove != null) {
             val target = pendingRemove!!
@@ -407,14 +376,18 @@ fun XvoxQueueBoxContent(
                     val targetIdx = allQueueEntries.indexOfFirst { it.second == targetState }.coerceAtLeast(0)
                     val initialIdx = allQueueEntries.indexOfFirst { it.second == initialState }.coerceAtLeast(0)
                     val isNext = targetIdx >= initialIdx
+                    val ease = CubicBezierEasing(0.2f, 0f, 0f, 1f)
                     if (isNext) {
-                        (slideInHorizontally(tween(260)) { it } + fadeIn(tween(180)))
-                            .togetherWith(slideOutHorizontally(tween(240)) { -it } + fadeOut(tween(140)))
+                        (slideInHorizontally(tween(240, easing = ease)) { it / 2 } + fadeIn(tween(180)))
+                            .togetherWith(slideOutHorizontally(tween(200, easing = ease)) { -it / 2 } + fadeOut(tween(130)))
                     } else {
-                        (slideInHorizontally(tween(260)) { -it } + fadeIn(tween(180)))
-                            .togetherWith(slideOutHorizontally(tween(240)) { it } + fadeOut(tween(140)))
+                        (slideInHorizontally(tween(240, easing = ease)) { -it / 2 } + fadeIn(tween(180)))
+                            .togetherWith(slideOutHorizontally(tween(200, easing = ease)) { it / 2 } + fadeOut(tween(130)))
                     }
                 },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(tween(220, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))),
                 label = "queueSwitchTransition"
             ) { _ ->
                 if (local.isEmpty()) {

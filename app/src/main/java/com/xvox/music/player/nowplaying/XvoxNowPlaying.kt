@@ -172,13 +172,7 @@ fun XvoxNowPlaying(
         if (queue.isEmpty() || currentIndex < 0) return
         val atFirst = currentIndex <= 0
         if (atFirst && repeatMode != RepeatMode.ALL) return
-
-        if (currentMode >= 1) {
-            val target = if (atFirst) queue.lastIndex else currentIndex - 1
-            onPlayQueueIndex(target)
-        } else {
-            navigationRequest--
-        }
+        onPrevious()
     }
 
     fun requestNext() {
@@ -186,13 +180,7 @@ fun XvoxNowPlaying(
         if (queue.isEmpty() || currentIndex < 0) return
         val atLast = currentIndex >= queue.lastIndex
         if (atLast && repeatMode != RepeatMode.ALL) return
-
-        if (currentMode >= 1) {
-            val target = if (atLast) 0 else currentIndex + 1
-            onPlayQueueIndex(target)
-        } else {
-            navigationRequest++
-        }
+        onNext()
     }
 
     LaunchedEffect(song.id) {
@@ -220,7 +208,7 @@ fun XvoxNowPlaying(
 
     // Morphing animations for smooth style switching (Default <-> Compact)
     val animTopRadius by animateDpAsState(
-        targetValue = if (isCompact) 0.dp else 28.dp,
+        targetValue = if (isCompact) 20.dp else 28.dp,
         animationSpec = tween(320, easing = XvoxSmoothEasing),
         label = "animTopRadius"
     )

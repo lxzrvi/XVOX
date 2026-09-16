@@ -38,6 +38,11 @@ class MainPlayerViewModel(
     init {
         viewModelScope.launch {
             savedSongId = preferences.lastPlayedSongId.first()
+            val rawQueues = preferences.savedQueuesJson.first()
+            val decoded = decodeSavedQueues(rawQueues)
+            if (decoded.isNotEmpty()) {
+                _state.update { it.copy(savedQueues = decoded) }
+            }
             restoreFromQueueIfPossible()
         }
 
@@ -316,7 +321,9 @@ class MainPlayerViewModel(
             source = song.source.ifBlank { "All Songs" }
         )
 
-        _state.update { it.copy(savedQueues = it.savedQueues + newQueue) }
+        val updatedSaved = _state.value.savedQueues + newQueue
+        _state.update { it.copy(savedQueues = updatedSaved) }
+        persistSavedQueues(updatedSaved)
         return "Added to $newQueueName"
     }
 
@@ -334,7 +341,9 @@ class MainPlayerViewModel(
             source = songs.firstOrNull()?.source?.ifBlank { "All Songs" } ?: "All Songs"
         )
 
-        _state.update { it.copy(savedQueues = it.savedQueues + newQueue) }
+        val updatedSaved = _state.value.savedQueues + newQueue
+        _state.update { it.copy(savedQueues = updatedSaved) }
+        persistSavedQueues(updatedSaved)
         return "${songs.size} songs added to $newQueueName"
     }
 
@@ -342,9 +351,11 @@ class MainPlayerViewModel(
         val target = _state.value.savedQueues.firstOrNull { it.id == queueId } ?: return addToQueue(song)
         val updatedSongs = target.songs.filterNot { it.id == song.id } + song
         val updatedQueue = target.copy(songs = updatedSongs)
+        val updatedSaved = _state.value.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q }
         _state.update {
-            it.copy(savedQueues = it.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q })
+            it.copy(savedQueues = updatedSaved)
         }
+        persistSavedQueues(updatedSaved)
         return "Added to ${target.name}"
     }
 
@@ -353,9 +364,11 @@ class MainPlayerViewModel(
         val songIds = songs.map { it.id }.toSet()
         val updatedSongs = target.songs.filterNot { it.id in songIds } + songs
         val updatedQueue = target.copy(songs = updatedSongs)
+        val updatedSaved = _state.value.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q }
         _state.update {
-            it.copy(savedQueues = it.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q })
+            it.copy(savedQueues = updatedSaved)
         }
+        persistSavedQueues(updatedSaved)
         return "${songs.size} songs added to ${target.name}"
     }
 
@@ -392,11 +405,88 @@ class MainPlayerViewModel(
                 currentIndex = target.currentIndex.coerceIn(0, target.songs.lastIndex.coerceAtLeast(0))
             )
         }
+        persistSavedQueues(updatedSaved)
+    }
 
-        if (target.songs.isNotEmpty()) {
-            val songToPlay = target.songs.getOrNull(target.currentIndex) ?: target.songs[0]
-            play(songToPlay, target.source)
+    private fun persistSavedQueues(queues: List<XvoxSavedQueue>) {
+        viewModelScope.launch {
+            preferences.setSavedQueuesJson(encodeSavedQueues(queues))
         }
+    }
+
+    private fun encodeSavedQueues(queues: List<XvoxSavedQueue>): String {
+        val arr = org.json.JSONArray()
+        for (q in queues) {
+            val obj = org.json.JSONObject()
+            obj.put("id", q.id)
+            obj.put("name", q.name)
+            obj.put("currentIndex", q.currentIndex)
+            obj.put("source", q.source)
+            val songsArr = org.json.JSONArray()
+            for (s in q.songs) {
+                val sObj = org.json.JSONObject()
+                sObj.put("id", s.id)
+                sObj.put("title", s.title)
+                sObj.put("artist", s.artist)
+                sObj.put("contentUri", s.contentUri.toString())
+                sObj.put("artworkUri", s.artworkUri?.toString() ?: "")
+                sObj.put("duration", s.duration)
+                sObj.put("sizeBytes", s.sizeBytes)
+                sObj.put("folderName", s.folderName)
+                sObj.put("folderPath", s.folderPath)
+                sObj.put("source", s.source)
+                songsArr.put(sObj)
+            }
+            obj.put("songs", songsArr)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun decodeSavedQueues(raw: String): List<XvoxSavedQueue> {
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            val result = mutableListOf<XvoxSavedQueue>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val id = obj.optString("id", "queue_$i")
+                val name = obj.optString("name", "Queue ${i + 1}")
+                val currentIndex = obj.optInt("currentIndex", 0)
+                val source = obj.optString("source", "Queue")
+                val songsArr = obj.optJSONArray("songs") ?: org.json.JSONArray()
+                val songs = mutableListOf<Song>()
+                for (j in 0 until songsArr.length()) {
+                    val sObj = songsArr.getJSONObject(j)
+                    val sId = sObj.getLong("id")
+                    val title = sObj.optString("title", "")
+                    val artist = sObj.optString("artist", "")
+                    val contentUriStr = sObj.optString("contentUri", "")
+                    val artworkUriStr = sObj.optString("artworkUri", "")
+                    val duration = sObj.optLong("duration", 0L)
+                    val sizeBytes = sObj.optLong("sizeBytes", 0L)
+                    val folderName = sObj.optString("folderName", "")
+                    val folderPath = sObj.optString("folderPath", folderName)
+                    val sSource = sObj.optString("source", "")
+                    songs.add(
+                        Song(
+                            id = sId,
+                            title = title,
+                            artist = artist,
+                            contentUri = android.net.Uri.parse(contentUriStr),
+                            artworkUri = if (artworkUriStr.isNotBlank()) android.net.Uri.parse(artworkUriStr) else null,
+                            duration = duration,
+                            sizeBytes = sizeBytes,
+                            folderName = folderName,
+                            folderPath = folderPath,
+                            source = sSource
+                        )
+                    )
+                }
+                result.add(XvoxSavedQueue(id, name, songs, currentIndex, source))
+            }
+            result
+        }.getOrDefault(emptyList())
     }
 
     fun removeFromQueue(songId: Long) {

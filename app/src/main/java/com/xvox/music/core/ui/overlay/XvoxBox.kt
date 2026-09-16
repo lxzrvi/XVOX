@@ -8,8 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,7 +36,7 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-val XvoxBoxEasing = CubicBezierEasing(0.2f, 0.9f, 0.1f, 1f)
+val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 /** One app-wide modal: solid opaque card with 100% adaptive content height (capped at max 90% screen height). */
 @Composable
@@ -67,7 +65,7 @@ fun XvoxBox(
 
     val scrimAlpha by animateFloatAsState(
         targetValue = if (visible) 0.40f else 0f,
-        animationSpec = tween(50),
+        animationSpec = tween(150),
         label = "scrimAlpha"
     )
 
@@ -76,7 +74,7 @@ fun XvoxBox(
         closing = true
         visible = false
         scope.launch {
-            delay(50)
+            delay(140)
             dismiss()
         }
     }
@@ -114,10 +112,8 @@ fun XvoxBox(
 
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(tween(220, easing = XvoxBoxEasing)) + if (mini) slideInVertically(tween(220, easing = XvoxBoxEasing)) { it }
-                    else scaleIn(tween(220, easing = XvoxBoxEasing), initialScale = 0.95f),
-                    exit = fadeOut(tween(200, easing = XvoxBoxEasing)) + if (mini) slideOutVertically(tween(200, easing = XvoxBoxEasing)) { it }
-                    else scaleOut(tween(200, easing = XvoxBoxEasing), targetScale = 0.96f)
+                    enter = fadeIn(tween(180, easing = XvoxBoxEasing)),
+                    exit = fadeOut(tween(140, easing = XvoxBoxEasing))
                 ) {
                     val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
                     else RoundedCornerShape(26.dp)
@@ -280,4 +276,3 @@ fun XvoxBox(
 }
 
 fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier = this
-
