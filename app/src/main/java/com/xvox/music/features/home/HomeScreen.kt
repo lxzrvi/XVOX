@@ -485,7 +485,7 @@ fun HomeScreen(
                 targetArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
             }
 
-            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") && it != XvoxHomeLibraryMode.ALL_SONGS && it != XvoxHomeLibraryMode.LIKED && it != XvoxHomeLibraryMode.PLAYLISTS && it != XvoxHomeLibraryMode.ARTISTS }?.let { id ->
+            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
                 state.playlists.firstOrNull { it.id == id }
             }
             val detailTracks = remember(targetPlaylist, playlistContents) {

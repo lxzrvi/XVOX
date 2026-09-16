@@ -147,3 +147,20 @@ fun ArtistCircleItem(
         }
     }
 }
+
+@Composable
+fun ArtistSquareItem(
+    artist: XvoxArtist,
+    showText: Boolean = true,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    ArtistCircleItem(
+        artist = artist,
+        showText = showText,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier
+    )
+}
