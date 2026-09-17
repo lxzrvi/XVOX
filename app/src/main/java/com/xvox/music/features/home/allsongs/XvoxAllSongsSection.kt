@@ -149,11 +149,12 @@ fun XvoxSongGridPage(
     modifier: Modifier = Modifier
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val uniform = config.style == "uniform" || isLandscape
-    val classic = config.style == "mosaic1" && !isLandscape
+    val columns = if (isLandscape) 8 else 4
+    val uniform = config.style == "uniform"
+    val classic = config.style == "mosaic1"
 
-    val page = remember(songs, plan, config.rows, uniform, classic, compact, isLandscape) {
-        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = !compact)
+    val page = remember(songs, plan, config.rows, uniform, classic, compact, isLandscape, columns) {
+        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = !compact, cols = columns)
     }
 
     val usedRows = remember(page, compact, config.rows) {
@@ -164,7 +165,6 @@ fun XvoxSongGridPage(
     val longClick by rememberUpdatedState(onSongLongClick)
 
     BoxWithConstraints(modifier) {
-        val columns = if (isLandscape) 8 else 4
         val gap = 6.dp
         val unitWidth = (maxWidth - gap * (columns - 1)) / columns
         val unitHeight = unitWidth + 38.dp

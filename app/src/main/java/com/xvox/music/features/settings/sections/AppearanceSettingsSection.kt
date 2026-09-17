@@ -120,16 +120,43 @@ fun AppearanceSettingsSection(
             expanded = expandedGroup == "Text size",
             onToggle = { toggle("Text size") }
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("A", color = colors.mutedText, fontSize = 12.sp, modifier = Modifier.width(30.dp))
-                XvoxThinLineSlider(
-                    value = state.fontSizeScale,
-                    onValueChange = viewModel::setFontSizeScale,
-                    valueRange = 0.8f..1.4f,
-                    defaultValue = 1f,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("A", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
+            val sizeOptions = listOf(
+                0.75f to "0.75x",
+                0.85f to "0.85x",
+                0.95f to "0.95x",
+                1.00f to "1.0x",
+                1.25f to "1.25x",
+                1.50f to "1.50x"
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                sizeOptions.forEach { (scale, label) ->
+                    val isSelected = kotlin.math.abs(state.fontSizeScale - scale) < 0.04f
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
+                                else Modifier
+                            )
+                            .xvoxPressScale {
+                                viewModel.setFontSizeScale(scale)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
     })

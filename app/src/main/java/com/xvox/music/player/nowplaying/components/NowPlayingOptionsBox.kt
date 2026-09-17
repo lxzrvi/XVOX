@@ -29,8 +29,11 @@ fun NowPlayingOptionsBox(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val state by settingsViewModel.state.collectAsState()
-    val isCompact = state.nowPlayingStyle == "compact" || state.nowPlayingStyle == "immersive"
+    val storedCompact = state.nowPlayingStyle == "compact" || state.nowPlayingStyle == "immersive"
+    val isCompact = storedCompact && !isLandscape
 
     XvoxBox(
         onDismiss = onDismiss,
@@ -55,7 +58,7 @@ fun NowPlayingOptionsBox(
                 StyleOptionCard(
                     title = "Default",
                     subtitle = "Complete playback controls, info & actions",
-                    selected = !isCompact,
+                    selected = !storedCompact || isLandscape,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         haptics.tap()
@@ -66,16 +69,20 @@ fun NowPlayingOptionsBox(
                 StyleOptionCard(
                     title = "Compact",
                     subtitle = "Tall expanded card with compact minimalist controls",
-                    selected = isCompact,
+                    selected = storedCompact && !isLandscape,
                     modifier = Modifier.weight(1f),
                     onClick = {
                         haptics.tap()
-                        settingsViewModel.setNowPlayingStyle("compact")
+                        if (isLandscape) {
+                            overlays.showP("You can't activate compact mode on landscape")
+                        } else {
+                            settingsViewModel.setNowPlayingStyle("compact")
+                        }
                     }
                 )
             }
 
-            if (isCompact) {
+            if (storedCompact && !isLandscape) {
                 Spacer(Modifier.height(14.dp))
 
                 // Notice / Note shown only when Compact style is selected

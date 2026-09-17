@@ -9,7 +9,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -115,6 +117,27 @@ fun XvoxMainShell(
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var headerVisible by rememberSaveable { mutableStateOf(true) }
+
+    val nestedScrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (destination == XvoxDestination.HOME) {
+                    if (available.y < -12f) {
+                        headerVisible = false
+                    } else if (available.y > 12f) {
+                        headerVisible = true
+                    }
+                } else if (destination == XvoxDestination.SEARCH) {
+                    headerVisible = true
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val miniDeleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK && pendingDeleteSong != null) {
@@ -265,6 +288,7 @@ fun XvoxMainShell(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
             .background(colors.background)
     ) {
         val density = LocalDensity.current
@@ -328,15 +352,15 @@ fun XvoxMainShell(
         }
 
         AnimatedVisibility(
-            visible = destination != XvoxDestination.SETTINGS,
+            visible = destination != XvoxDestination.SETTINGS && (headerVisible || destination == XvoxDestination.SEARCH),
             enter = slideInVertically(
                 initialOffsetY = { -it },
-                animationSpec = tween(320, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
-            ) + fadeIn(tween(260)),
+                animationSpec = tween(260, easing = FastOutSlowInEasing)
+            ) + fadeIn(tween(200)),
             exit = slideOutVertically(
                 targetOffsetY = { -it },
-                animationSpec = tween(280, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
-            ) + fadeOut(tween(220))
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(160))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,

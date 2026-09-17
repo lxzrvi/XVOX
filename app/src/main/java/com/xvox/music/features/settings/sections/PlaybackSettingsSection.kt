@@ -57,19 +57,10 @@ fun PlaybackSettingsSection(
                 expanded = expandedGroup == "Duration",
                 onToggle = { toggle("Duration") }
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(1, 2, 3, 4, 5).forEach { sec ->
-                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
-                                viewModel.setCrossfadeDuration(sec)
-                            }
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(6, 7, 8, 10, 12).forEach { sec ->
-                            Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
-                                viewModel.setCrossfadeDuration(sec)
-                            }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf(3, 5, 8, 10, 12, 15).forEach { sec ->
+                        Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
+                            viewModel.setCrossfadeDuration(sec)
                         }
                     }
                 }
@@ -84,10 +75,9 @@ fun PlaybackSettingsSection(
                 if (state.crossfadeSmart) {
                     Spacer(Modifier.height(8.dp))
                     Label("Bass hand-off · ${(state.crossfadeClashControl * 100).toInt()}%")
-                    XvoxThinLineSlider(
-                        state.crossfadeClashControl,
-                        viewModel::setCrossfadeClashControl,
-                        0f..1f
+                    com.xvox.music.features.settings.sections.SevenButtonLevelSelector(
+                        value = state.crossfadeClashControl,
+                        onValueChange = viewModel::setCrossfadeClashControl
                     )
                 }
                 Spacer(Modifier.height(8.dp))

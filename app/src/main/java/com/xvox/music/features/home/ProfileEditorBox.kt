@@ -100,6 +100,12 @@ fun ProfileEditorBox(
 
     val headerPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
             val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
                     (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
             if (isGif) {

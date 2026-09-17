@@ -139,14 +139,14 @@ fun SettingsScreen(
                 // Row 1: Appearance & Theme | Library Filters
                 item(key = "row_1") {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true }, modifier = Modifier.fillMaxSize())
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays, modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -154,14 +154,14 @@ fun SettingsScreen(
                 // Row 2: Backup & Restore | System & Reminders
                 item(key = "row_2") {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            BackupSectionCard(homeViewModel)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            BackupSectionCard(homeViewModel, modifier = Modifier.fillMaxSize())
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            SystemSectionCard(state, settingsViewModel)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            SystemSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -207,11 +207,12 @@ fun SettingsScreen(
 private fun AppearanceSectionCard(
     state: SettingsState,
     viewModel: SettingsViewModel,
-    onOpenColorWheel: () -> Unit
+    onOpenColorWheel: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsCardFrame(title = "Appearance & Theme") {
+    SettingsCardFrame(title = "Appearance & Theme", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             SettingsChoiceRow(
@@ -281,18 +282,18 @@ private fun AppearanceSectionCard(
             Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val scalePresets = listOf(
-                    0.15f to "0.15x",
-                    0.25f to "0.25x",
-                    0.50f to "0.50x",
                     0.75f to "0.75x",
+                    0.85f to "0.85x",
+                    0.95f to "0.95x",
                     1.00f to "1.0x",
-                    1.25f to "1.25x"
+                    1.25f to "1.25x",
+                    1.50f to "1.50x"
                 )
                 scalePresets.forEach { (scaleValue, label) ->
-                    val isSelected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.05f
+                    val isSelected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.04f
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -325,11 +326,12 @@ private fun LibrarySectionCard(
     state: SettingsState,
     viewModel: SettingsViewModel,
     homeViewModel: HomeViewModel,
-    overlays: com.xvox.music.core.ui.overlay.XvoxOverlayController
+    overlays: com.xvox.music.core.ui.overlay.XvoxOverlayController,
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsCardFrame(title = "Library & Filters") {
+    SettingsCardFrame(title = "Library & Filters", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             LibraryFilterSettingsSection(state, viewModel, homeViewModel)
 
@@ -358,15 +360,15 @@ private fun LibrarySectionCard(
 }
 
 @Composable
-private fun BackupSectionCard(homeViewModel: HomeViewModel) {
-    SettingsCardFrame(title = "Backup & Restore") {
+private fun BackupSectionCard(homeViewModel: HomeViewModel, modifier: Modifier = Modifier) {
+    SettingsCardFrame(title = "Backup & Restore", modifier = modifier) {
         BackupSettingsSection(viewModel = homeViewModel)
     }
 }
 
 @Composable
-private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel) {
-    SettingsCardFrame(title = "System & Background") {
+private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
+    SettingsCardFrame(title = "System & Background", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BatteryOptimizationSection()
             NotifySettingsSection(state, viewModel)
@@ -375,8 +377,8 @@ private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel
 }
 
 @Composable
-private fun AboutSectionCard() {
-    SettingsCardFrame(title = "About XVOX") {
+private fun AboutSectionCard(modifier: Modifier = Modifier) {
+    SettingsCardFrame(title = "About XVOX", modifier = modifier) {
         AboutSettingsSection()
     }
 }
@@ -384,12 +386,13 @@ private fun AboutSectionCard() {
 @Composable
 private fun SettingsCardFrame(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.card)

@@ -135,7 +135,7 @@ fun ArtistCircleItem(
     ) {
         Box(
             modifier = Modifier
-                .size(68.dp)
+                .size(76.dp)
                 .clip(CircleShape)
                 .background(colors.card)
                 .border(1.2.dp, colors.cardBorder.copy(alpha = 0.45f), CircleShape),
@@ -151,7 +151,7 @@ fun ArtistCircleItem(
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
-                    requestSize = 180,
+                    requestSize = 256,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -159,7 +159,7 @@ fun ArtistCircleItem(
                     painter = painterResource(R.drawable.ic_xvox_artist),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }

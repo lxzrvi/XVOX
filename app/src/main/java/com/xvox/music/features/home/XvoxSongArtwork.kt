@@ -53,13 +53,22 @@ fun XvoxSongArtwork(
     val baseKey = remember(artwork) { XvoxArtworkCache.keyFor(artwork) }
     val cacheKey = remember(baseKey, requestSize) { "${baseKey}_$requestSize" }
 
-    // Find best available cached bitmap
+    // Find best available cached bitmap matching requested resolution
     val cachedBitmap = remember(cacheKey, baseKey) {
-        XvoxArtworkCache.get(cacheKey)
-            ?: XvoxArtworkCache.get("${baseKey}_1024")
-            ?: XvoxArtworkCache.get("${baseKey}_512")
-            ?: XvoxArtworkCache.get("${baseKey}_256")
-            ?: XvoxArtworkCache.get(baseKey)
+        if (requestSize >= 1024) {
+            XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_1024")
+        } else if (requestSize >= 512) {
+            XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_1024")
+                ?: XvoxArtworkCache.get("${baseKey}_512")
+        } else {
+            XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_1024")
+                ?: XvoxArtworkCache.get("${baseKey}_512")
+                ?: XvoxArtworkCache.get("${baseKey}_256")
+                ?: XvoxArtworkCache.get(baseKey)
+        }
     }
 
     if (cachedBitmap != null) {

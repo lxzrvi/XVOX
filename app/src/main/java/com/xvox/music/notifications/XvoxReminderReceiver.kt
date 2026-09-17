@@ -15,7 +15,7 @@ class XvoxReminderReceiver : BroadcastReceiver() {
             try {
                 val prefs = UserPreferencesRepository(context.applicationContext)
                 val enabled = runBlocking { prefs.remindersEnabled.first() }
-                if (enabled) {
+                if (enabled && !com.xvox.music.MainActivity.isAppInForeground) {
                     if (XvoxReminderManager.consumeBudget()) {
                         XvoxReminderManager.fireNow(context)
                     }

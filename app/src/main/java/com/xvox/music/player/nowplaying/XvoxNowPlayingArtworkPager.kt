@@ -137,8 +137,8 @@ fun XvoxNowPlayingArtworkPager(
             snapAnimationSpec = tween(150, easing = FastOutSlowInEasing),
             snapPositionalThreshold = 0.35f
         ),
-        contentPadding = PaddingValues(horizontal = 11.dp),
-        pageSpacing = 11.dp,
+        contentPadding = PaddingValues(0.dp),
+        pageSpacing = 16.dp,
         modifier = modifier.fillMaxSize(),
         key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->

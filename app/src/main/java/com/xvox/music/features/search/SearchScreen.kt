@@ -65,6 +65,7 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.ArtistSquareItem
@@ -92,6 +93,7 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val bottomInset = LocalXvoxBottomInset.current
+    val topInset = LocalXvoxTopInset.current
 
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -163,8 +165,8 @@ fun SearchScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(top = topInset + 6.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Left pane: Search bar + quick hints/history
@@ -278,19 +280,19 @@ fun SearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = topInset + 6.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = "Search",
                     color = colors.primaryText,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                 )
 
                 SearchBarComponent(

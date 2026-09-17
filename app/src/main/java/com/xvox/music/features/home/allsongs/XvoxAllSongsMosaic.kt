@@ -76,16 +76,17 @@ fun mosaicRowsForPage(count: Int, requested: Int, fill: Boolean): Int =
 
 fun buildMosaicPage(
     songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4,
-    isUniform: Boolean = false, mosaicOne: Boolean = false, fillRows: Boolean = false
+    isUniform: Boolean = false, mosaicOne: Boolean = false, fillRows: Boolean = false,
+    cols: Int = 4
 ): MosaicPage {
     if (plan.songCount <= 0 || plan.startIndex !in songs.indices) return MosaicPage(emptyList())
     val page = songs.subList(plan.startIndex, (plan.startIndex + plan.songCount).coerceAtMost(songs.size))
     val random = Random(plan.layoutSeed)
-    val pageRows = mosaicRowsForPage(page.size, rows, fillRows)
+    val pageRows = mosaicRowsForPage(page.size, rows, cols)
     val specs = when {
-        isUniform -> regularSpecs(4, page.size)
-        mosaicOne -> generateClassicMosaicSpecs(4, pageRows, page.size, random)
-        else -> generateMosaicSpecs(4, pageRows, page.size, random)
+        isUniform -> regularSpecs(cols, page.size)
+        mosaicOne -> generateClassicMosaicSpecs(cols, pageRows, page.size, random)
+        else -> generateMosaicSpecs(cols, pageRows, page.size, random)
     }
     return MosaicPage(page.mapIndexed { i, song ->
         val s = specs[i]

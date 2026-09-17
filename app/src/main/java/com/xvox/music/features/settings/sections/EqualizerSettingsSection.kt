@@ -124,8 +124,11 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                 }
             }
             Spacer(Modifier.height(10.dp))
-            EqLabel("Reverb amount · ${(state.reverbAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.reverbAmount, viewModel::setReverbAmount, 0f..1f, defaultValue = 0f)
+            EqLabel("Reverb intensity · ${(state.reverbAmount * 100).roundToInt()}%")
+            SevenButtonLevelSelector(
+                value = state.reverbAmount,
+                onValueChange = viewModel::setReverbAmount
+            )
         }
 
         SettingsAccordionItem(
@@ -134,10 +137,16 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             onToggle = { toggle("Clarity") }
         ) {
             EqLabel("Noise reduction · ${(state.noiseReduction * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.noiseReduction, viewModel::setNoiseReduction, 0f..1f, defaultValue = 0f)
+            SevenButtonLevelSelector(
+                value = state.noiseReduction,
+                onValueChange = viewModel::setNoiseReduction
+            )
             Spacer(Modifier.height(10.dp))
             EqLabel("Grain control · ${(state.softenHighs * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.softenHighs, viewModel::setSoftenHighs, 0f..1f, defaultValue = 0f)
+            SevenButtonLevelSelector(
+                value = state.softenHighs,
+                onValueChange = viewModel::setSoftenHighs
+            )
         }
 
         SettingsAccordionItem(
@@ -148,20 +157,51 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
             XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f, defaultValue = 1f)
         }
-
-        SettingsAccordionItem(
-            title = "Speed & Pitch",
-            expanded = expandedGroup == "Speed",
-            onToggle = { toggle("Speed") }
-        ) {
-            val speedNormal = kotlin.math.abs(state.playbackSpeed - 1f) < 0.005f
-            EqLabel(if (speedNormal) "Playback speed · Normal" else "Playback speed " + String.format("%.2f", state.playbackSpeed) + "×")
-            XvoxThinLineSlider(state.playbackSpeed, viewModel::setPlaybackSpeed, .5f..2f, defaultValue = 1f)
-            Spacer(Modifier.height(10.dp))
-            EqLabel("Pitch " + String.format("%.2f", state.playbackPitch) + "×")
-            XvoxThinLineSlider(state.playbackPitch, viewModel::setPlaybackPitch, .5f..2f, defaultValue = 1f)
-        }
     })
+}
+
+@Composable
+fun SevenButtonLevelSelector(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    val levels = listOf(0f, 0.16f, 0.33f, 0.50f, 0.66f, 0.83f, 1.0f)
+    val labels = listOf("0", "1", "2", "3", "4", "5", "6")
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        levels.forEachIndexed { index, lvl ->
+            val isSelected = (index == 0 && value < 0.08f) ||
+                    (index == levels.lastIndex && value > 0.92f) ||
+                    (index in 1 until levels.lastIndex && kotlin.math.abs(value - lvl) < 0.08f)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                    .then(
+                        if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
+                        else Modifier
+                    )
+                    .xvoxPressScale {
+                        onValueChange(lvl)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = labels[index],
+                    color = if (isSelected) colors.background else colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+        }
+    }
 }
 
 @Composable
