@@ -99,6 +99,8 @@ fun HorizontalSongPages(
 ) {
     val state = rememberLazyListState()
     val prefetch by rememberUpdatedState(onPrefetch)
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val columns = if (isLandscape) 8 else 4
 
     LaunchedEffect(plans) {
         snapshotFlow { state.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
@@ -108,12 +110,14 @@ fun HorizontalSongPages(
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val rows = remember(songs.size, config.rows, config.style) {
-            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(3, 8)
+            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(2, 8)
         }
         val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp
-        val unitHeight = (pageWidth - 18.dp) / 4 + 38.dp
-        val pageHeight = unitHeight * rows + 6.dp * (rows - 1)
+        val gap = 6.dp
+        val unitWidth = (pageWidth - gap * (columns - 1)) / columns
+        val unitHeight = unitWidth + 38.dp
+        val pageHeight = unitHeight * rows + gap * (rows - 1).coerceAtLeast(0)
 
         LazyRow(
             state = state,

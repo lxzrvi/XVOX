@@ -39,7 +39,8 @@ fun XvoxNowPlayingHeader(
     modifier: Modifier = Modifier,
     onShare: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
-    playingSource: String = "All Songs"
+    playingSource: String = "All Songs",
+    useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -47,9 +48,9 @@ fun XvoxNowPlayingHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.statusBars)
+            .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(horizontal = 14.dp, vertical = 2.dp)
-            .height(52.dp),
+            .height(48.dp),
         contentAlignment = Alignment.Center
     ) {
         Box(

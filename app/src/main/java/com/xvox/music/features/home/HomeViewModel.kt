@@ -459,6 +459,21 @@ class HomeViewModel(
         preferencesRepository.addHiddenSearchPlaylist(playlistId)
     }
 
+    val recentSearches: StateFlow<List<String>> = preferencesRepository.recentSearches
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addRecentSearch(query: String) = viewModelScope.launch {
+        if (query.isNotBlank()) preferencesRepository.addRecentSearch(query.trim())
+    }
+
+    fun removeRecentSearch(query: String) = viewModelScope.launch {
+        preferencesRepository.removeRecentSearch(query)
+    }
+
+    fun clearRecentSearches() = viewModelScope.launch {
+        preferencesRepository.clearRecentSearches()
+    }
+
     fun setArtistColumns(value: Int) = viewModelScope.launch { preferencesRepository.setArtistColumns(value) }
     fun setArtistGap(value: Int) = viewModelScope.launch { preferencesRepository.setArtistGap(value) }
     fun setArtistRows(value: Int) = viewModelScope.launch { preferencesRepository.setArtistRows(value) }

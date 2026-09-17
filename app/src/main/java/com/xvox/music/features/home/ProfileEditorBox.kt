@@ -288,21 +288,22 @@ fun ProfileEditorBox(
 
         if (isCustomHeaderMode) {
             Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            if (currentHeaderUri != null) {
+                // Header Photo Active Card
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    if (currentHeaderUri != null) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
@@ -317,25 +318,23 @@ fun ProfileEditorBox(
                                 modifier = Modifier.matchParentSize()
                             )
                         }
+
+                        Column {
+                            Text(
+                                text = "Header Photo Active",
+                                color = colors.primaryText,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Custom backdrop above home",
+                                color = colors.mutedText,
+                                fontSize = 10.5.sp
+                            )
+                        }
                     }
 
-                    Column {
-                        Text(
-                            text = if (currentHeaderUri != null) "Header Photo Active" else "Custom Header Photo",
-                            color = colors.primaryText,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (currentHeaderUri != null) "Custom backdrop above home" else "Tap Add to select photo or GIF",
-                            color = colors.mutedText,
-                            fontSize = 10.5.sp
-                        )
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (currentHeaderUri != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -349,20 +348,63 @@ fun ProfileEditorBox(
                         ) {
                             Text("Remove", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.primaryAccent)
+                                .xvoxPressScale {
+                                    haptics.tap()
+                                    headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Change",
+                                color = colors.background,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Clean Add Photo / GIF Card
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .clickable {
+                            haptics.tap()
+                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Add Photo or GIF",
+                            color = colors.primaryText,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Set a custom photo or animated GIF for top header",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp
+                        )
                     }
 
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(colors.primaryAccent)
-                            .xvoxPressScale {
-                                haptics.tap()
-                                headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            }
-                            .padding(horizontal = if (currentHeaderUri != null) 12.dp else 16.dp, vertical = 6.dp)
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
                     ) {
                         Text(
-                            text = if (currentHeaderUri != null) "Change" else "Add",
+                            text = "Add",
                             color = colors.background,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold

@@ -115,60 +115,50 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(top = 8.dp)
+            .padding(top = 2.dp)
     ) {
         Text(
             text = "Settings",
             color = colors.primaryAccent,
-            fontSize = 24.sp,
-            lineHeight = 28.sp,
+            fontSize = 22.sp,
+            lineHeight = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp)
         )
 
         val bottomPadding = LocalXvoxBottomInset.current + if (isLandscape) 16.dp else 40.dp
 
         if (isLandscape) {
-            // 2-Column Grid in Landscape Mode
+            // Balanced 2-Column Vertical Stacks in Landscape Mode
             LazyColumn(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding)
             ) {
-                // Row 1: Appearance & Theme | Library Filters
-                item(key = "row_1") {
+                item(key = "landscape_grid") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        // Left Column: Appearance -> System & Reminders -> About XVOX
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
+                            SystemSectionCard(state, settingsViewModel)
+                            AboutSectionCard()
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
-                        }
-                    }
-                }
 
-                // Row 2: Backup & Restore | System & Reminders
-                item(key = "row_2") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        // Right Column: Library Filters -> Backup & Restore
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
                             BackupSectionCard(homeViewModel)
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            SystemSectionCard(state, settingsViewModel)
-                        }
                     }
-                }
-
-                // Row 3: About & Share XVOX
-                item(key = "row_3") {
-                    AboutSectionCard()
                 }
             }
         } else {

@@ -351,7 +351,7 @@ class UserPreferencesRepository(
             balance = (it[Keys.balance] ?: 0f).coerceIn(-1f, 1f),
             surroundEnabled = it[Keys.stereoWidening] ?: false,
             surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
-            orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(2f, 10f),
+            orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(0f, 20f),
             masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f),
             surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
             surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
@@ -493,7 +493,7 @@ class UserPreferencesRepository(
     suspend fun setWidgetPaddingX(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingX] = value.coerceIn(0, 32) } }
     suspend fun setWidgetPaddingY(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingY] = value.coerceIn(0, 28) } }
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
-    suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v.coerceIn(1, 12) } }
+    suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v.coerceIn(1, 20) } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
     suspend fun setPlayOnHeadsetConnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.playOnHeadsetConnect] = v } }
     suspend fun setBtDisconnectAction(v: String) { context.xvoxDataStore.edit { it[Keys.btDisconnectAction] = v } }
@@ -504,7 +504,7 @@ class UserPreferencesRepository(
     suspend fun setEqBands(bands: List<Int>) { context.xvoxDataStore.edit { it[Keys.eqBands] = bands.joinToString(",") } }
     suspend fun setBalance(v: Float) { context.xvoxDataStore.edit { it[Keys.balance] = v } }
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
-    suspend fun setSurroundPanSpeed(v: Int) { context.xvoxDataStore.edit { it[Keys.surroundPanSpeed] = v.coerceIn(2, 10) } }
+    suspend fun setSurroundPanSpeed(v: Int) { context.xvoxDataStore.edit { it[Keys.surroundPanSpeed] = v.coerceIn(0, 20) } }
 
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }

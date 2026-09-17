@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -54,10 +57,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -68,7 +73,6 @@ import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.artist.ArtistSquareItem
 import com.xvox.music.features.artist.XvoxArtist
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -87,6 +91,7 @@ fun SearchScreen(
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
     val playerState by playerViewModel.state.collectAsState()
+    val recentSearches by homeViewModel.recentSearches.collectAsState()
     val overlays = LocalXvoxOverlayController.current
     val haptics = LocalXvoxHaptics.current
     val context = LocalContext.current
@@ -137,7 +142,7 @@ fun SearchScreen(
 
     val trimmedQuery = query.trim()
     val matchingSongs = remember(trimmedQuery, homeState.songs) {
-        if (trimmedQuery.isEmpty()) emptyList()
+        if (trimmedQuery.isEmpty()) homeState.songs
         else {
             homeState.songs.filter { song ->
                 song.title.contains(trimmedQuery, ignoreCase = true) ||
@@ -147,16 +152,57 @@ fun SearchScreen(
     }
 
     val matchingArtists = remember(trimmedQuery, artists) {
-        if (trimmedQuery.isEmpty()) emptyList()
+        if (trimmedQuery.isEmpty()) artists
         else {
             artists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
         }
     }
 
     val matchingPlaylists = remember(trimmedQuery, homeState.playlists) {
-        if (trimmedQuery.isEmpty()) emptyList()
+        if (trimmedQuery.isEmpty()) homeState.playlists
         else {
             homeState.playlists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
+        }
+    }
+
+    fun handleSongClick(song: Song) {
+        if (trimmedQuery.isNotBlank()) {
+            homeViewModel.addRecentSearch(trimmedQuery)
+        }
+        val targetList = if (trimmedQuery.isEmpty()) homeState.songs else matchingSongs
+        val index = targetList.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
+        playerViewModel.play(
+            queue = targetList,
+            index = index,
+            source = if (trimmedQuery.isEmpty()) "Search: All Songs" else "Search: \"$trimmedQuery\""
+        )
+    }
+
+    fun handlePlaylistClick(playlist: XvoxPlaylist) {
+        if (trimmedQuery.isNotBlank()) {
+            homeViewModel.addRecentSearch(trimmedQuery)
+        }
+        val songs = homeViewModel.getPlaylistSongs(playlist.id)
+        if (songs.isNotEmpty()) {
+            playerViewModel.play(
+                queue = songs,
+                index = 0,
+                source = "Playlist: ${playlist.name}"
+            )
+        }
+        onPlaylistSelected?.invoke(playlist.id)
+    }
+
+    fun handleArtistClick(artist: XvoxArtist) {
+        if (trimmedQuery.isNotBlank()) {
+            homeViewModel.addRecentSearch(trimmedQuery)
+        }
+        if (artist.songs.isNotEmpty()) {
+            playerViewModel.play(
+                queue = artist.songs,
+                index = 0,
+                source = "Artist: ${artist.name}"
+            )
         }
     }
 
@@ -165,14 +211,14 @@ fun SearchScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInset + 6.dp)
+                .padding(top = topInset + 4.dp)
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Left pane: Search bar + quick hints/history
+            // Left pane: Search bar + Recent Searches + Library summary
             Column(
                 modifier = Modifier
-                    .weight(0.42f)
+                    .weight(0.40f)
                     .fillMaxSize()
             ) {
                 SearchBarComponent(
@@ -180,10 +226,25 @@ fun SearchScreen(
                     onQueryChange = { query = it },
                     onClear = { query = "" },
                     focusRequester = focusRequester,
-                    onSearch = { focusManager.clearFocus() }
+                    onSearch = {
+                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                        focusManager.clearFocus()
+                    }
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(10.dp))
+
+                RecentSearchesSection(
+                    searches = recentSearches,
+                    onSelect = { q ->
+                        query = q
+                        focusManager.clearFocus()
+                    },
+                    onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                    onClearAll = { homeViewModel.clearRecentSearches() }
+                )
+
+                Spacer(Modifier.height(10.dp))
 
                 Box(
                     modifier = Modifier
@@ -224,7 +285,7 @@ fun SearchScreen(
             // Right pane: Search results
             Box(
                 modifier = Modifier
-                    .weight(0.58f)
+                    .weight(0.60f)
                     .fillMaxSize()
             ) {
                 SearchResultsList(
@@ -232,44 +293,57 @@ fun SearchScreen(
                     matchingSongs = matchingSongs,
                     matchingArtists = matchingArtists,
                     matchingPlaylists = matchingPlaylists,
-                    currentSongId = playerState.currentSongId,
+                    allSongs = homeState.songs,
+                    currentSongId = playerState.currentSong?.id,
                     isPlaying = playerState.isPlaying,
                     bottomInset = bottomInset,
-                    onSongClick = { song ->
-                        playerViewModel.setQueue(matchingSongs.ifEmpty { listOf(song) })
-                        playerViewModel.play(song)
-                    },
+                    onSongClick = ::handleSongClick,
                     onSongLongClick = { song ->
                         showSongOptionsOverlay(
                             overlays = overlays,
-                            context = context,
                             song = song,
                             isLiked = song.id in homeState.likedSongIds,
-                            viewModel = homeViewModel,
-                            playerViewModel = playerViewModel,
                             playlists = homeState.playlists,
-                            songs = homeState.songs,
-                            deleteLauncher = deleteLauncher,
-                            onPendingDelete = { pendingDeleteSong = it }
+                            context = context,
+                            onToggleLiked = { homeViewModel.toggleLiked(song) },
+                            onPlayNext = { playerViewModel.playNext(listOf(song)) },
+                            onAddToQueue = { playerViewModel.enqueue(listOf(song)) },
+                            onAddToPlaylist = { p -> homeViewModel.addToPlaylist(p.id, song.id) },
+                            onDelete = { pendingDeleteSong = song }
                         )
                     },
-                    onArtistClick = { artist ->
-                        val artistSongs = homeState.songs.filter { it.artist.equals(artist.name, ignoreCase = true) }
-                        if (artistSongs.isNotEmpty()) {
-                            playerViewModel.setQueue(artistSongs)
-                            playerViewModel.play(artistSongs.first())
-                        }
+                    onArtistClick = ::handleArtistClick,
+                    onArtistLongClick = { artist ->
+                        showSongOptionsOverlay(
+                            overlays = overlays,
+                            song = artist.songs.firstOrNull() ?: return@SearchResultsList,
+                            isLiked = false,
+                            playlists = homeState.playlists,
+                            context = context,
+                            onToggleLiked = {},
+                            onPlayNext = { playerViewModel.playNext(artist.songs) },
+                            onAddToQueue = { playerViewModel.enqueue(artist.songs) },
+                            onAddToPlaylist = {},
+                            onDelete = {}
+                        )
                     },
-                    onArtistLongClick = {},
-                    onPlaylistClick = { playlist ->
-                        onPlaylistSelected?.invoke(playlist.id)
-                    },
+                    onPlaylistClick = ::handlePlaylistClick,
                     onPlaylistLongClick = { playlist ->
                         showPlaylistActions(
                             overlays = overlays,
-                            viewModel = homeViewModel,
                             playlist = playlist,
-                            onDeleted = {}
+                            onPlay = { handlePlaylistClick(playlist) },
+                            onPlayNext = {
+                                val songs = homeViewModel.getPlaylistSongs(playlist.id)
+                                playerViewModel.playNext(songs)
+                            },
+                            onEnqueue = {
+                                val songs = homeViewModel.getPlaylistSongs(playlist.id)
+                                playerViewModel.enqueue(songs)
+                            },
+                            onRename = { newName -> homeViewModel.renamePlaylist(playlist.id, newName) },
+                            onDelete = { homeViewModel.deletePlaylist(playlist.id) },
+                            onChangeCover = { uri -> homeViewModel.setPlaylistCustomCover(playlist.id, uri) }
                         )
                     }
                 )
@@ -280,73 +354,87 @@ fun SearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInset + 6.dp)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = 4.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "Search",
-                    color = colors.primaryText,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
-                )
+            SearchBarComponent(
+                query = query,
+                onQueryChange = { query = it },
+                onClear = { query = "" },
+                focusRequester = focusRequester,
+                onSearch = {
+                    if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                    focusManager.clearFocus()
+                },
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            )
 
-                SearchBarComponent(
-                    query = query,
-                    onQueryChange = { query = it },
-                    onClear = { query = "" },
-                    focusRequester = focusRequester,
-                    onSearch = { focusManager.clearFocus() }
-                )
-            }
+            RecentSearchesSection(
+                searches = recentSearches,
+                onSelect = { q ->
+                    query = q
+                    focusManager.clearFocus()
+                },
+                onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                onClearAll = { homeViewModel.clearRecentSearches() }
+            )
 
             SearchResultsList(
                 query = trimmedQuery,
                 matchingSongs = matchingSongs,
                 matchingArtists = matchingArtists,
                 matchingPlaylists = matchingPlaylists,
-                currentSongId = playerState.currentSongId,
+                allSongs = homeState.songs,
+                currentSongId = playerState.currentSong?.id,
                 isPlaying = playerState.isPlaying,
                 bottomInset = bottomInset,
-                onSongClick = { song ->
-                    playerViewModel.setQueue(matchingSongs.ifEmpty { listOf(song) })
-                    playerViewModel.play(song)
-                },
+                onSongClick = ::handleSongClick,
                 onSongLongClick = { song ->
                     showSongOptionsOverlay(
                         overlays = overlays,
-                        context = context,
                         song = song,
                         isLiked = song.id in homeState.likedSongIds,
-                        viewModel = homeViewModel,
-                        playerViewModel = playerViewModel,
                         playlists = homeState.playlists,
-                        songs = homeState.songs,
-                        deleteLauncher = deleteLauncher,
-                        onPendingDelete = { pendingDeleteSong = it }
+                        context = context,
+                        onToggleLiked = { homeViewModel.toggleLiked(song) },
+                        onPlayNext = { playerViewModel.playNext(listOf(song)) },
+                        onAddToQueue = { playerViewModel.enqueue(listOf(song)) },
+                        onAddToPlaylist = { p -> homeViewModel.addToPlaylist(p.id, song.id) },
+                        onDelete = { pendingDeleteSong = song }
                     )
                 },
-                onArtistClick = { artist ->
-                    val artistSongs = homeState.songs.filter { it.artist.equals(artist.name, ignoreCase = true) }
-                    if (artistSongs.isNotEmpty()) {
-                        playerViewModel.setQueue(artistSongs)
-                        playerViewModel.play(artistSongs.first())
-                    }
+                onArtistClick = ::handleArtistClick,
+                onArtistLongClick = { artist ->
+                    showSongOptionsOverlay(
+                        overlays = overlays,
+                        song = artist.songs.firstOrNull() ?: return@SearchResultsList,
+                        isLiked = false,
+                        playlists = homeState.playlists,
+                        context = context,
+                        onToggleLiked = {},
+                        onPlayNext = { playerViewModel.playNext(artist.songs) },
+                        onAddToQueue = { playerViewModel.enqueue(artist.songs) },
+                        onAddToPlaylist = {},
+                        onDelete = {}
+                    )
                 },
-                onArtistLongClick = {},
-                onPlaylistClick = { playlist ->
-                    onPlaylistSelected?.invoke(playlist.id)
-                },
+                onPlaylistClick = ::handlePlaylistClick,
                 onPlaylistLongClick = { playlist ->
                     showPlaylistActions(
                         overlays = overlays,
-                        viewModel = homeViewModel,
                         playlist = playlist,
-                        onDeleted = {}
+                        onPlay = { handlePlaylistClick(playlist) },
+                        onPlayNext = {
+                            val songs = homeViewModel.getPlaylistSongs(playlist.id)
+                            playerViewModel.playNext(songs)
+                        },
+                        onEnqueue = {
+                            val songs = homeViewModel.getPlaylistSongs(playlist.id)
+                            playerViewModel.enqueue(songs)
+                        },
+                        onRename = { newName -> homeViewModel.renamePlaylist(playlist.id, newName) },
+                        onDelete = { homeViewModel.deletePlaylist(playlist.id) },
+                        onChangeCover = { uri -> homeViewModel.setPlaylistCustomCover(playlist.id, uri) }
                     )
                 }
             )
@@ -360,13 +448,14 @@ private fun SearchBarComponent(
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
     focusRequester: FocusRequester,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(24.dp))
@@ -376,8 +465,8 @@ private fun SearchBarComponent(
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_xvox_search),
-            contentDescription = null,
-            tint = colors.secondaryText,
+            contentDescription = "Search",
+            tint = colors.primaryAccent,
             modifier = Modifier.size(20.dp)
         )
 
@@ -393,7 +482,7 @@ private fun SearchBarComponent(
             textStyle = TextStyle(
                 color = colors.primaryText,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Normal
+                fontWeight = FontWeight.Medium
             ),
             cursorBrush = SolidColor(colors.primaryAccent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -402,7 +491,7 @@ private fun SearchBarComponent(
                 if (query.isEmpty()) {
                     Text(
                         text = "Search songs, artists, playlists...",
-                        color = colors.secondaryText,
+                        color = colors.mutedText,
                         fontSize = 14.sp
                     )
                 }
@@ -431,11 +520,106 @@ private fun SearchBarComponent(
 }
 
 @Composable
+private fun RecentSearchesSection(
+    searches: List<String>,
+    onSelect: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClearAll: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
+
+    if (searches.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recent Searches",
+                color = colors.primaryAccent,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Clear all",
+                color = colors.secondaryText,
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable {
+                        haptics.tap()
+                        onClearAll()
+                    }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(searches, key = { it }) { item ->
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colors.cardElevated)
+                        .border(0.8.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+                        .clickable {
+                            haptics.tap()
+                            onSelect(item)
+                        }
+                        .padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_timer),
+                        contentDescription = null,
+                        tint = colors.secondaryText,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = item,
+                        color = colors.primaryText,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1
+                    )
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_close),
+                        contentDescription = "Remove search",
+                        tint = colors.mutedText,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                haptics.tap()
+                                onRemove(item)
+                            }
+                            .padding(2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SearchResultsList(
     query: String,
     matchingSongs: List<Song>,
     matchingArtists: List<XvoxArtist>,
     matchingPlaylists: List<XvoxPlaylist>,
+    allSongs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
     bottomInset: androidx.compose.ui.unit.Dp,
@@ -448,21 +632,7 @@ private fun SearchResultsList(
 ) {
     val colors = XvoxTheme.colors
 
-    if (query.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Type to search your music",
-                color = colors.secondaryText,
-                fontSize = 14.sp
-            )
-        }
-        return
-    }
-
-    if (matchingSongs.isEmpty() && matchingArtists.isEmpty() && matchingPlaylists.isEmpty()) {
+    if (query.isNotEmpty() && matchingSongs.isEmpty() && matchingArtists.isEmpty() && matchingPlaylists.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -481,122 +651,67 @@ private fun SearchResultsList(
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = bottomInset + 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        if (matchingPlaylists.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Playlists (${matchingPlaylists.size})",
-                    color = colors.primaryAccent,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
-                )
-            }
-            items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .xvoxSongPress(
-                            onClick = { onPlaylistClick(playlist) },
-                            onLongClick = { onPlaylistLongClick(playlist) }
-                        )
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.cardElevated),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_playlist),
-                            contentDescription = null,
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = playlist.name,
-                            color = colors.primaryText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${playlist.songIds.size} songs",
-                            color = colors.secondaryText,
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-            }
-        }
-
+        // Horizontal Artists Row with Circular Profile
         if (matchingArtists.isNotEmpty()) {
-            item {
+            item(key = "header_artists") {
                 Text(
-                    text = "Artists (${matchingArtists.size})",
+                    text = if (query.isEmpty()) "Artists" else "Artists (${matchingArtists.size})",
                     color = colors.primaryAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 2.dp)
                 )
             }
-            items(matchingArtists, key = { "art_${it.name}" }) { artist ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .xvoxSongPress(
+            item(key = "row_artists") {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                ) {
+                    items(matchingArtists, key = { "art_${it.name}" }) { artist ->
+                        SearchArtistCircleItem(
+                            artist = artist,
                             onClick = { onArtistClick(artist) },
                             onLongClick = { onArtistLongClick(artist) }
                         )
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(colors.cardElevated),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_artist),
-                            contentDescription = null,
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(22.dp)
-                        )
                     }
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Text(
-                        text = artist.name,
-                        color = colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
                 }
             }
         }
 
-        if (matchingSongs.isNotEmpty()) {
-            item {
+        // Horizontal Playlists Row with Covers
+        if (matchingPlaylists.isNotEmpty()) {
+            item(key = "header_playlists") {
                 Text(
-                    text = "Songs (${matchingSongs.size})",
+                    text = if (query.isEmpty()) "Playlists" else "Playlists (${matchingPlaylists.size})",
+                    color = colors.primaryAccent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                )
+            }
+            item(key = "row_playlists") {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                ) {
+                    items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
+                        val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
+                        SearchPlaylistCoverItem(
+                            playlist = playlist,
+                            coverSong = firstSong,
+                            onClick = { onPlaylistClick(playlist) },
+                            onLongClick = { onPlaylistLongClick(playlist) }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Songs list
+        if (matchingSongs.isNotEmpty()) {
+            item(key = "header_songs") {
+                Text(
+                    text = if (query.isEmpty()) "All Songs (${matchingSongs.size})" else "Songs (${matchingSongs.size})",
                     color = colors.primaryAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
@@ -663,5 +778,130 @@ private fun SearchResultsList(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchArtistCircleItem(
+    artist: XvoxArtist,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Column(
+        modifier = Modifier
+            .width(72.dp)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(colors.cardElevated)
+                .border(1.dp, colors.cardBorder, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!artist.customImageUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = artist.customImageUri,
+                    contentDescription = artist.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (artist.coverSong?.artworkUri != null) {
+                XvoxSongArtwork(
+                    artwork = artist.coverSong.artworkUri,
+                    requestSize = 128,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_artist),
+                    contentDescription = null,
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = artist.name,
+            color = colors.primaryText,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun SearchPlaylistCoverItem(
+    playlist: XvoxPlaylist,
+    coverSong: Song?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Column(
+        modifier = Modifier
+            .width(88.dp)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.cardElevated)
+                .border(1.dp, colors.cardBorder, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!playlist.customCoverUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = playlist.customCoverUri,
+                    contentDescription = playlist.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (coverSong?.artworkUri != null) {
+                XvoxSongArtwork(
+                    artwork = coverSong.artworkUri,
+                    requestSize = 140,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_playlist),
+                    contentDescription = null,
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = playlist.name,
+            color = colors.primaryText,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "${playlist.songIds.size} songs",
+            color = colors.secondaryText,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
     }
 }

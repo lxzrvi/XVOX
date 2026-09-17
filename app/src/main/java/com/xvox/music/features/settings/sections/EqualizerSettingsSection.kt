@@ -101,13 +101,14 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             ) {
                 listOf(
                     Pair("Off", 0f),
-                    Pair("Small Room", 0.18f),
-                    Pair("Medium Room", 0.36f),
-                    Pair("Large Room", 0.54f),
-                    Pair("Hall", 0.72f),
-                    Pair("Cathedral", 0.90f)
+                    Pair("Small Room", 0.20f),
+                    Pair("Medium Room", 0.40f),
+                    Pair("Large Room", 0.60f),
+                    Pair("Hall", 0.80f),
+                    Pair("Cathedral", 1.00f)
                 ).forEach { (name, revAmount) ->
-                    val active = kotlin.math.abs(state.reverbAmount - revAmount) < 0.08f
+                    val active = (name == "Off" && state.reverbAmount < 0.05f) ||
+                            (name != "Off" && state.reverbAmount >= 0.05f && kotlin.math.abs(state.roomAmount - revAmount) < 0.12f)
                     Text(
                         text = name,
                         color = if (active) colors.background else colors.primaryText,
@@ -117,7 +118,9 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                             .clip(RoundedCornerShape(11.dp))
                             .background(if (active) colors.primaryAccent else colors.card)
                             .xvoxPressScale {
-                                viewModel.setReverbAmount(revAmount)
+                                viewModel.setRoomAmount(revAmount)
+                                if (revAmount == 0f) viewModel.setReverbAmount(0f)
+                                else if (state.reverbAmount < 0.1f) viewModel.setReverbAmount(0.5f)
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
@@ -125,9 +128,11 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             }
             Spacer(Modifier.height(10.dp))
             EqLabel("Reverb intensity · ${(state.reverbAmount * 100).roundToInt()}%")
-            SevenButtonLevelSelector(
+            XvoxThinLineSlider(
                 value = state.reverbAmount,
-                onValueChange = viewModel::setReverbAmount
+                onValueChange = viewModel::setReverbAmount,
+                valueRange = 0f..1f,
+                defaultValue = 0f
             )
         }
 
@@ -168,11 +173,11 @@ fun SevenButtonLevelSelector(
 ) {
     val colors = XvoxTheme.colors
     val levels = listOf(0f, 0.16f, 0.33f, 0.50f, 0.66f, 0.83f, 1.0f)
-    val labels = listOf("0", "1", "2", "3", "4", "5", "6")
+    val labels = listOf("0%", "16%", "33%", "50%", "66%", "83%", "100%")
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         levels.forEachIndexed { index, lvl ->
             val isSelected = (index == 0 && value < 0.08f) ||
@@ -196,7 +201,7 @@ fun SevenButtonLevelSelector(
                 Text(
                     text = labels[index],
                     color = if (isSelected) colors.background else colors.primaryText,
-                    fontSize = 12.sp,
+                    fontSize = 9.5.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
             }

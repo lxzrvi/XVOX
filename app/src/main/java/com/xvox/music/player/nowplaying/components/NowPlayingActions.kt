@@ -381,14 +381,14 @@ fun NowPlayingCircleAction(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
+    val bgColor = if (active) colors.primaryAccent.copy(alpha = 0.28f)
+        else colors.card.copy(alpha = 0.35f)
+    val effectiveTint = if (active) colors.primaryAccent else colors.primaryText.copy(alpha = 0.85f)
+
     Box(
         modifier = Modifier
             .size(42.dp)
-            .background(
-                if (active) colors.primaryAccent.copy(alpha = 0.24f)
-                else colors.card.copy(alpha = 0.22f),
-                CircleShape
-            )
+            .background(bgColor, CircleShape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -407,7 +407,7 @@ fun NowPlayingCircleAction(
         Icon(
             painter = painterResource(resource),
             contentDescription = contentDescription,
-            tint = tint ?: colors.primaryAccent,
+            tint = tint ?: effectiveTint,
             modifier = Modifier.size(19.dp)
         )
     }

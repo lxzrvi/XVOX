@@ -207,41 +207,79 @@ fun XvoxMainShell(
     }
 
     fun showQueueBox() {
-        val currentActiveName = playerViewModel.state.value.activeQueueName
+        val initialActiveId = playerViewModel.state.value.activeQueueId
+        var viewingQueueId by mutableStateOf(initialActiveId)
+
         overlays.showBox(
-            title = currentActiveName,
+            title = playerViewModel.state.value.activeQueueName,
             headerTitleContent = {
                 val liveState by playerViewModel.state.collectAsState()
+                val currentViewingQueue = liveState.savedQueues.firstOrNull { it.id == viewingQueueId }
+                val viewingName = when {
+                    viewingQueueId == liveState.activeQueueId -> liveState.activeQueueName
+                    currentViewingQueue != null -> currentViewingQueue.name
+                    else -> "Queue 1"
+                }
+
                 com.xvox.music.shell.QueueHeaderDropdown(
-                    activeQueueName = liveState.activeQueueName,
+                    activeQueueName = viewingName,
                     savedQueues = liveState.savedQueues,
-                    currentQueueSize = liveState.queue.size,
+                    currentQueueSize = if (viewingQueueId == liveState.activeQueueId) liveState.queue.size else (currentViewingQueue?.songs?.size ?: 0),
                     onSwitchQueue = { queueId ->
-                        playerViewModel.switchToQueue(queueId)
+                        viewingQueueId = queueId
                     }
                 )
             }
         ) {
             val liveState by playerViewModel.state.collectAsState()
+            val isViewingActiveQueue = viewingQueueId == liveState.activeQueueId
+            val viewingSaved = liveState.savedQueues.firstOrNull { it.id == viewingQueueId }
+            val currentList = if (isViewingActiveQueue) liveState.queue else (viewingSaved?.songs ?: emptyList())
+            val viewingName = when {
+                isViewingActiveQueue -> liveState.activeQueueName
+                viewingSaved != null -> viewingSaved.name
+                else -> "Queue 1"
+            }
+
             XvoxQueueBoxContent(
-                queue = liveState.queue,
+                queue = currentList,
                 currentSongId = liveState.currentSongId,
                 isPlaying = liveState.isPlaying,
                 savedQueues = liveState.savedQueues,
-                activeQueueName = liveState.activeQueueName,
-                isPlaybackActiveInThisQueue = true,
+                activeQueueName = viewingName,
+                isPlaybackActiveInThisQueue = isViewingActiveQueue,
                 onSwitchQueue = { queueId ->
-                    playerViewModel.switchToQueue(queueId)
+                    viewingQueueId = queueId
                 },
                 onPlayIndex = { index ->
+                    if (!isViewingActiveQueue) {
+                        playerViewModel.switchToQueue(viewingQueueId)
+                    }
                     playerViewModel.playQueueIndex(index, keepPlayingState = false)
                     overlays.hideBox()
                 },
                 onMoveItem = { from, to ->
-                    playerViewModel.moveQueueItem(from, to)
+                    if (isViewingActiveQueue) {
+                        playerViewModel.moveQueueItem(from, to)
+                    } else if (viewingSaved != null) {
+                        val mutable = viewingSaved.songs.toMutableList()
+                        if (from in mutable.indices && to in mutable.indices) {
+                            val item = mutable.removeAt(from)
+                            mutable.add(to, item)
+                            playerViewModel.updateSavedQueue(viewingQueueId, mutable)
+                        }
+                    }
                 },
                 onRemoveIndex = { index ->
-                    playerViewModel.removeFromQueueAt(index)
+                    if (isViewingActiveQueue) {
+                        playerViewModel.removeFromQueueAt(index)
+                    } else if (viewingSaved != null) {
+                        val mutable = viewingSaved.songs.toMutableList()
+                        if (index in mutable.indices) {
+                            mutable.removeAt(index)
+                            playerViewModel.updateSavedQueue(viewingQueueId, mutable)
+                        }
+                    }
                 }
             )
         }
@@ -568,10 +606,7 @@ fun XvoxMainShell(
                         showAddCurrentSongToPlaylist(playingSong)
                     },
                     onStarPlaylist = {
-                        val playlist = homeState.playlists.firstOrNull { it.songIds.contains(playingSong.id) }
-                        if (playlist != null) {
-                            homeViewModel.toggleLiked(playingSong)
-                        }
+                        showAddCurrentSongToPlaylist(playingSong)
                     },
                     isShuffleEnabled = player.isShuffleEnabled,
                     repeatMode = player.repeatMode,

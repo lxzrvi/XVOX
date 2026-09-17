@@ -59,6 +59,8 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
             widthFraction = state.surroundWidth,
             depthFraction = state.surroundDepth,
             orbitSpeedSec = state.surroundPanSpeed,
+            hrtfFraction = state.hrtf,
+            balance = state.balance,
             enabled = state.stereoWidening
         )
 
@@ -96,7 +98,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     orbitOptions.forEach { (sec, label) ->
-                        val isSelected = if (sec == 0) state.surroundPanSpeed <= 0 else abs(state.surroundPanSpeed - sec) <= 1
+                        val isSelected = if (sec == 0) state.surroundPanSpeed <= 0 else state.surroundPanSpeed == sec
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -115,7 +117,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                             Text(
                                 text = label,
                                 color = if (isSelected) colors.background else colors.primaryText,
-                                fontSize = 11.5.sp,
+                                fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         }
@@ -158,16 +160,19 @@ fun ThreeDSoundPreview(
     widthFraction: Float,
     depthFraction: Float,
     orbitSpeedSec: Int,
+    hrtfFraction: Float = 0.6f,
+    balance: Float = 0f,
     enabled: Boolean
 ) {
     val colors = XvoxTheme.colors
+    val isOrbiting = enabled && orbitSpeedSec > 0
     val transition = rememberInfiniteTransition(label = "orbitAnim")
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (orbitSpeedSec <= 0) 100000 else (orbitSpeedSec.coerceIn(1, 20) * 1000),
+                durationMillis = if (!isOrbiting) 600000 else (orbitSpeedSec.coerceIn(1, 20) * 1000),
                 easing = LinearEasing
             ),
             repeatMode = androidx.compose.animation.core.RepeatMode.Restart
@@ -178,21 +183,21 @@ fun ThreeDSoundPreview(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(115.dp)
+            .height(125.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(colors.card)
             .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.fillMaxSize().padding(12.dp)) {
-            val cx = size.width / 2f
+            val cx = size.width / 2f + (balance * size.width * 0.18f)
             val cy = size.height / 2f
-            val radiusX = (size.width * 0.38f * widthFraction.coerceIn(0.2f, 1f))
-            val radiusY = (size.height * 0.36f * depthFraction.coerceIn(0.2f, 1f))
+            val radiusX = (size.width * 0.38f * widthFraction.coerceIn(0.15f, 1f))
+            val radiusY = (size.height * 0.36f * depthFraction.coerceIn(0.15f, 1f))
 
             // Orbit path
             drawOval(
-                color = colors.primaryAccent.copy(alpha = if (enabled) 0.25f else 0.10f),
+                color = colors.primaryAccent.copy(alpha = if (enabled) 0.28f else 0.10f),
                 topLeft = Offset(cx - radiusX, cy - radiusY),
                 size = androidx.compose.ui.geometry.Size(radiusX * 2, radiusY * 2),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
@@ -211,13 +216,15 @@ fun ThreeDSoundPreview(
             )
 
             // Left / Right ears
-            drawCircle(color = colors.primaryAccent.copy(alpha = 0.7f), radius = 3.dp.toPx(), center = Offset(cx - 10.dp.toPx(), cy))
-            drawCircle(color = colors.primaryAccent.copy(alpha = 0.7f), radius = 3.dp.toPx(), center = Offset(cx + 10.dp.toPx(), cy))
+            drawCircle(color = colors.primaryAccent.copy(alpha = 0.75f), radius = 3.dp.toPx(), center = Offset(cx - 10.dp.toPx(), cy))
+            drawCircle(color = colors.primaryAccent.copy(alpha = 0.75f), radius = 3.dp.toPx(), center = Offset(cx + 10.dp.toPx(), cy))
 
             if (enabled) {
+                val effectivePhase = if (isOrbiting) phase else 0f
+
                 // Orbiting Left Sound Source
-                val lx = cx + radiusX * cos(phase)
-                val ly = cy + radiusY * sin(phase)
+                val lx = cx + radiusX * cos(effectivePhase)
+                val ly = cy + radiusY * sin(effectivePhase)
                 drawCircle(
                     color = colors.primaryAccent,
                     radius = 7.dp.toPx(),
@@ -225,13 +232,30 @@ fun ThreeDSoundPreview(
                 )
 
                 // Orbiting Right Sound Source (180 deg opposite)
-                val rx = cx + radiusX * cos(phase + PI.toFloat())
-                val ry = cy + radiusY * sin(phase + PI.toFloat())
+                val rx = cx + radiusX * cos(effectivePhase + PI.toFloat())
+                val ry = cy + radiusY * sin(effectivePhase + PI.toFloat())
                 drawCircle(
-                    color = colors.primaryAccent.copy(alpha = 0.75f),
-                    radius = 5.5.dp.toPx(),
+                    color = colors.primaryAccent.copy(alpha = 0.85f),
+                    radius = 6.dp.toPx(),
                     center = Offset(rx, ry)
                 )
+
+                // HRTF Binaural wave rings
+                if (hrtfFraction > 0.1f) {
+                    val ringAlpha = (hrtfFraction * 0.35f).coerceIn(0.05f, 0.45f)
+                    drawCircle(
+                        color = colors.primaryAccent.copy(alpha = ringAlpha),
+                        radius = (14.dp * hrtfFraction).toPx(),
+                        center = Offset(lx, ly),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
+                    )
+                    drawCircle(
+                        color = colors.primaryAccent.copy(alpha = ringAlpha),
+                        radius = (14.dp * hrtfFraction).toPx(),
+                        center = Offset(rx, ry),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
+                    )
+                }
             }
         }
     }
