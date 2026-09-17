@@ -7,8 +7,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,42 +14,32 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,51 +47,39 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.model.PlayerStyleSettings
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
-import com.xvox.music.player.nowplaying.components.NowPlayingBottomActions
-import com.xvox.music.player.nowplaying.components.NowPlayingCompactBar
-import com.xvox.music.player.nowplaying.components.NowPlayingControls
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
-import com.xvox.music.player.nowplaying.components.NowPlayingProgressBar
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxFullscreenLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
+import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 private const val DRAG_DISMISS_THRESHOLD_DP = 140f
 private const val VELOCITY_DISMISS_THRESHOLD = 1100f
 private val EnterEasing = CubicBezierEasing(0.05f, 0.9f, 0.1f, 1f)
 private val ExitEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
-private val FlipEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
 fun XvoxNowPlaying(
@@ -130,10 +106,10 @@ fun XvoxNowPlaying(
     onMore: (() -> Unit)? = null,
     onStarPlaylist: (() -> Unit)? = null,
     isShuffleEnabled: Boolean = false,
-    repeatMode: Int = 0,
+    repeatMode: RepeatMode = RepeatMode.OFF,
     onToggleShuffle: (() -> Unit)? = null,
     onToggleRepeat: (() -> Unit)? = null,
-    playerStyle: PlayerStyleSettings = PlayerStyleSettings(),
+    playerStyle: XvoxPlayerStyle = XvoxPlayerStyle.NORMAL,
     sleepTimerProgress: Float? = null,
     playingSource: String = "All Songs",
     isInPlaylist: Boolean = false,
@@ -146,7 +122,6 @@ fun XvoxNowPlaying(
     val coroutineScope = rememberCoroutineScope()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
-    val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
@@ -156,6 +131,7 @@ fun XvoxNowPlaying(
 
     var isLyricsExpanded by remember { mutableStateOf(false) }
     var activeSettingsBox by remember { mutableStateOf<String?>(null) }
+    var navigationRequest by remember { mutableIntStateOf(0) }
 
     val lyricsState by lyricsViewModel.state.collectAsState()
     LaunchedEffect(song.id) {
@@ -277,15 +253,17 @@ fun XvoxNowPlaying(
                     XvoxNowPlayingArtworkPager(
                         queue = queue,
                         currentIndex = currentIndex,
-                        isPlaying = isPlaying,
-                        onSongSettled = { newIndex ->
+                        navigationRequest = navigationRequest,
+                        onArtworkTap = { setMode(1) },
+                        onSwipePalette = { curr, adj, offset ->
+                            paletteState.blend(curr, adj, abs(offset))
+                        },
+                        onSettledPage = { newIndex ->
                             if (newIndex != currentIndex) {
                                 onPlayQueueIndex?.invoke(newIndex)
                             }
                         },
-                        onPageScrollOffset = { curr, adj, offset ->
-                            paletteState.blend(curr, adj, abs(offset))
-                        },
+                        repeatMode = repeatMode,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -405,8 +383,8 @@ fun XvoxNowPlaying(
                             ) {
                                 Icon(
                                     painter = painterResource(
-                                        if (isLiked) R.drawable.ic_xvox_heart_fill
-                                        else R.drawable.ic_xvox_heart
+                                        if (isLiked) R.drawable.ic_xvox_heart
+                                        else R.drawable.ic_xvox_heart_outline
                                     ),
                                     contentDescription = "Like",
                                     tint = if (isLiked) colors.primaryAccent else colors.primaryText,
@@ -417,23 +395,36 @@ fun XvoxNowPlaying(
                     }
 
                     // Progress Bar
-                    NowPlayingProgressBar(
+                    XvoxNowPlayingProgress(
                         position = position,
                         duration = duration,
                         onSeek = onSeek,
+                        currentSongId = song.id,
+                        showTime = true,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     // Controls
-                    NowPlayingControls(
+                    XvoxNowPlayingControls(
                         isPlaying = isPlaying,
                         isShuffleEnabled = isShuffleEnabled,
                         repeatMode = repeatMode,
+                        onShuffle = { onToggleShuffle?.invoke() },
+                        onPrevious = {
+                            navigationRequest--
+                            onPrevious()
+                        },
                         onTogglePlay = onTogglePlay,
-                        onPrevious = onPrevious,
-                        onNext = onNext,
-                        onToggleShuffle = onToggleShuffle,
-                        onToggleRepeat = onToggleRepeat,
+                        onNext = {
+                            navigationRequest++
+                            onNext()
+                        },
+                        onRepeat = { onToggleRepeat?.invoke() },
+                        currentIndex = currentIndex,
+                        queueSize = queue.size,
+                        positionMs = position,
+                        durationMs = duration,
+                        onScrubTo = onSeek,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -472,204 +463,175 @@ fun XvoxNowPlaying(
                     playingSource = playingSource
                 )
 
-                if (isCompact) {
-                    // Compact Mode
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        XvoxNowPlayingArtworkPager(
-                            queue = queue,
-                            currentIndex = currentIndex,
-                            isPlaying = isPlaying,
-                            onSongSettled = { newIndex ->
-                                if (newIndex != currentIndex) {
-                                    onPlayQueueIndex?.invoke(newIndex)
-                                }
-                            },
-                            onPageScrollOffset = { curr, adj, offset ->
-                                paletteState.blend(curr, adj, abs(offset))
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    NowPlayingCompactBar(
-                        song = song,
-                        isPlaying = isPlaying,
-                        position = position,
-                        duration = duration,
-                        onTogglePlay = onTogglePlay,
-                        onPrevious = onPrevious,
-                        onNext = onNext,
-                        onSeek = onSeek,
-                        isLiked = isLiked,
-                        onToggleLiked = onToggleLiked,
-                        onLyricsClick = { setMode(1) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    )
-                } else {
-                    // Default Mode
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = 18.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AnimatedContent(
-                            targetState = displayMode,
-                            transitionSpec = {
-                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.95f))
-                                    .togetherWith(fadeOut(tween(250)) + scaleOut(tween(250), targetScale = 0.95f))
-                            },
-                            label = "nowPlayingModeContent"
-                        ) { mode ->
-                            if (mode == 1) {
-                                XvoxArtworkLyrics(
-                                    state = lyricsState,
-                                    position = position,
-                                    onSeek = onSeek,
-                                    onAttach = { uri -> lyricsViewModel.attach(song, uri) },
-                                    onDelete = { lyricsViewModel.removeCustom() },
-                                    onClose = { setMode(0) },
-                                    expanded = isLyricsExpanded,
-                                    onToggleExpand = { isLyricsExpanded = !isLyricsExpanded },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                XvoxNowPlayingArtworkPager(
-                                    queue = queue,
-                                    currentIndex = currentIndex,
-                                    isPlaying = isPlaying,
-                                    onSongSettled = { newIndex ->
-                                        if (newIndex != currentIndex) {
-                                            onPlayQueueIndex?.invoke(newIndex)
-                                        }
-                                    },
-                                    onPageScrollOffset = { curr, adj, offset ->
-                                        paletteState.blend(curr, adj, abs(offset))
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
+                // Artwork / Lyrics Content Area
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = if (isCompact) 14.dp else 18.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AnimatedContent(
+                        targetState = displayMode,
+                        transitionSpec = {
+                            (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.95f))
+                                .togetherWith(fadeOut(tween(250)) + scaleOut(tween(250), targetScale = 0.95f))
+                        },
+                        label = "nowPlayingModeContent"
+                    ) { mode ->
+                        if (mode == 1) {
+                            XvoxArtworkLyrics(
+                                state = lyricsState,
+                                position = position,
+                                onSeek = onSeek,
+                                onAttach = { uri -> lyricsViewModel.attach(uri) },
+                                onDelete = { lyricsViewModel.removeCustom() },
+                                onClose = { setMode(0) },
+                                expanded = isLyricsExpanded,
+                                onToggleExpand = { isLyricsExpanded = !isLyricsExpanded },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            XvoxNowPlayingArtworkPager(
+                                queue = queue,
+                                currentIndex = currentIndex,
+                                navigationRequest = navigationRequest,
+                                onArtworkTap = { setMode(1) },
+                                onSwipePalette = { curr, adj, offset ->
+                                    paletteState.blend(curr, adj, abs(offset))
+                                },
+                                onSettledPage = { newIndex ->
+                                    if (newIndex != currentIndex) {
+                                        onPlayQueueIndex?.invoke(newIndex)
+                                    }
+                                },
+                                repeatMode = repeatMode,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
+                }
 
-                    // Metadata + Controls + Actions
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Metadata + Controls + Actions
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Title & Artist + Like
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Title & Artist + Like
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(
-                                    text = song.title,
-                                    color = colors.primaryText,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = song.artist,
-                                    color = colors.secondaryText,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = song.title,
+                                color = colors.primaryText,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.artist,
+                                color = colors.secondaryText,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                if (onToggleLiked != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(CircleShape)
-                                            .background(colors.cardElevated)
-                                            .xvoxPressScale { onToggleLiked() },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(
-                                                if (isLiked) R.drawable.ic_xvox_heart_fill
-                                                else R.drawable.ic_xvox_heart
-                                            ),
-                                            contentDescription = "Like",
-                                            tint = if (isLiked) colors.primaryAccent else colors.primaryText,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (onToggleLiked != null) {
                                 Box(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
                                         .background(colors.cardElevated)
-                                        .xvoxPressScale { setMode(if (displayMode == 1) 0 else 1) },
+                                        .xvoxPressScale { onToggleLiked() },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.ic_xvox_lyrics),
-                                        contentDescription = "Lyrics",
-                                        tint = if (displayMode == 1) colors.primaryAccent else colors.primaryText,
-                                        modifier = Modifier.size(19.dp)
+                                        painter = painterResource(
+                                            if (isLiked) R.drawable.ic_xvox_heart
+                                            else R.drawable.ic_xvox_heart_outline
+                                        ),
+                                        contentDescription = "Like",
+                                        tint = if (isLiked) colors.primaryAccent else colors.primaryText,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.cardElevated)
+                                    .xvoxPressScale { setMode(if (displayMode == 1) 0 else 1) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_lyrics),
+                                    contentDescription = "Lyrics",
+                                    tint = if (displayMode == 1) colors.primaryAccent else colors.primaryText,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
                         }
-
-                        // Progress Bar
-                        NowPlayingProgressBar(
-                            position = position,
-                            duration = duration,
-                            onSeek = onSeek,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Playback Controls
-                        NowPlayingControls(
-                            isPlaying = isPlaying,
-                            isShuffleEnabled = isShuffleEnabled,
-                            repeatMode = repeatMode,
-                            onTogglePlay = onTogglePlay,
-                            onPrevious = onPrevious,
-                            onNext = onNext,
-                            onToggleShuffle = onToggleShuffle,
-                            onToggleRepeat = onToggleRepeat,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // 2-page Actions Row
-                        NowPlayingActions(
-                            isLiked = isLiked,
-                            isInPlaylist = isInPlaylist,
-                            onTimer = onTimer,
-                            onQueue = onQueue,
-                            onInfo = onInfo,
-                            onToggleLiked = onToggleLiked,
-                            onStarPlaylist = onStarPlaylist,
-                            timerProgress = sleepTimerProgress,
-                            lyricsOn = displayMode == 1,
-                            onToggleLyrics = { setMode(if (displayMode == 1) 0 else 1) },
-                            onOpenOptions = { activeSettingsBox = it }
-                        )
                     }
+
+                    // Progress Bar
+                    XvoxNowPlayingProgress(
+                        position = position,
+                        duration = duration,
+                        onSeek = onSeek,
+                        currentSongId = song.id,
+                        showTime = !isCompact,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Playback Controls
+                    XvoxNowPlayingControls(
+                        isPlaying = isPlaying,
+                        isShuffleEnabled = isShuffleEnabled,
+                        repeatMode = repeatMode,
+                        onShuffle = { onToggleShuffle?.invoke() },
+                        onPrevious = {
+                            navigationRequest--
+                            onPrevious()
+                        },
+                        onTogglePlay = onTogglePlay,
+                        onNext = {
+                            navigationRequest++
+                            onNext()
+                        },
+                        onRepeat = { onToggleRepeat?.invoke() },
+                        currentIndex = currentIndex,
+                        queueSize = queue.size,
+                        positionMs = position,
+                        durationMs = duration,
+                        onScrubTo = onSeek,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // 2-page Actions Row
+                    NowPlayingActions(
+                        isLiked = isLiked,
+                        isInPlaylist = isInPlaylist,
+                        onTimer = onTimer,
+                        onQueue = onQueue,
+                        onInfo = onInfo,
+                        onToggleLiked = onToggleLiked,
+                        onStarPlaylist = onStarPlaylist,
+                        timerProgress = sleepTimerProgress,
+                        lyricsOn = displayMode == 1,
+                        onToggleLyrics = { setMode(if (displayMode == 1) 0 else 1) },
+                        onOpenOptions = { activeSettingsBox = it }
+                    )
                 }
             }
         }
@@ -682,12 +644,26 @@ fun XvoxNowPlaying(
             modifier = Modifier.fillMaxSize()
         ) {
             XvoxFullscreenLyrics(
+                song = song,
                 state = lyricsState,
                 position = position,
+                duration = duration,
+                isPlaying = isPlaying,
+                backgroundColor = paletteState.color,
                 onSeek = onSeek,
-                onAttach = { uri -> lyricsViewModel.attach(song, uri) },
+                onAttach = { uri -> lyricsViewModel.attach(uri) },
                 onDelete = { lyricsViewModel.removeCustom() },
+                onPrevious = {
+                    navigationRequest--
+                    onPrevious()
+                },
+                onTogglePlay = onTogglePlay,
+                onNext = {
+                    navigationRequest++
+                    onNext()
+                },
                 onClose = { isLyricsExpanded = false },
+                onOpenSettings = { activeSettingsBox = "style" },
                 modifier = Modifier.fillMaxSize()
             )
         }
