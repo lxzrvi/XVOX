@@ -65,7 +65,6 @@ import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
-import com.xvox.music.features.home.SongInfoReader
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.showCreatePlaylistOverlay
 import com.xvox.music.features.home.showDeleteOverlay
@@ -531,13 +530,14 @@ fun XvoxMainShell(
                     onTimer = ::showTimerBox,
                     onQueue = ::showQueueBox,
                     onInfo = {
-                        val info = SongInfoReader.read(context, playingSong)
-                        overlays.showBox("Song info") {
-                            SongInfoBox(info = info)
+                        homeViewModel.loadInfo(playingSong) { info ->
+                            overlays.showBox("Song info") {
+                                SongInfoBox(info = info)
+                            }
                         }
                     },
                     onShare = {
-                        XvoxSongActions.shareSong(context, playingSong)
+                        XvoxSongActions.share(context, playingSong)
                     },
                     onMore = {
                         showAddCurrentSongToPlaylist(playingSong)

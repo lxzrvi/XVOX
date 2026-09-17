@@ -1,244 +1,216 @@
 package com.xvox.music.features.home.allsongs
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxSongPress
-import com.xvox.music.data.preferences.XvoxAllSongsConfig
-import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.features.home.rememberSongCardColor
+import com.xvox.music.features.home.HomePresentation
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.roundToInt
 
 @Composable
-fun XvoxAllSongsSection(
-    songs: List<Song>,
-    config: XvoxAllSongsConfig,
-    currentSongId: Long?,
-    isPlaying: Boolean,
-    selectedSongIds: Set<Long> = emptySet(),
-    onSongClick: (Song) -> Unit,
-    onSongLongClick: (Song) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (songs.isEmpty()) return
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val effectiveColumns = if (isLandscape) 8 else config.columns.coerceIn(1, 8)
-
-    val layoutMode = if (isLandscape) "mosaic" else config.layoutMode
-    val tileShape = config.tileShape
-    val gap = config.gapDp.dp
-
-    if (layoutMode == "mosaic") {
-        XvoxAllSongsMosaicGrid(
-            songs = songs,
-            columns = effectiveColumns,
-            gap = gap,
-            currentSongId = currentSongId,
-            isPlaying = isPlaying,
-            selectedSongIds = selectedSongIds,
-            onSongClick = onSongClick,
-            onSongLongClick = onSongLongClick,
-            modifier = modifier
+fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (selectedCount > 0) "$selectedCount selected" else "All Songs",
+            color = XvoxTheme.colors.primaryAccent,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
-    } else {
-        XvoxAllSongsStandardGrid(
-            songs = songs,
-            columns = effectiveColumns,
-            gap = gap,
-            currentSongId = currentSongId,
-            isPlaying = isPlaying,
-            selectedSongIds = selectedSongIds,
-            onSongClick = onSongClick,
-            onSongLongClick = onSongLongClick,
-            tileShape = tileShape,
-            modifier = modifier
-        )
+        Text("$total songs", color = XvoxTheme.colors.mutedText, fontSize = 10.sp)
     }
 }
 
-@Composable
-private fun XvoxAllSongsStandardGrid(
+/** Emit separate lazy pages instead of composing the entire library inside one LazyColumn item. */
+fun LazyListScope.allSongsItems(
     songs: List<Song>,
-    columns: Int,
-    gap: androidx.compose.ui.unit.Dp,
+    plans: List<XvoxMosaicPagePlan>,
+    config: HomePresentation,
     currentSongId: Long?,
     isPlaying: Boolean,
     selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
-    tileShape: String,
-    modifier: Modifier = Modifier
+    onPrefetch: (Int) -> Unit
 ) {
-    val chunked = remember(songs, columns) { songs.chunked(columns) }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        chunked.forEach { rowSongs ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(gap)
-            ) {
-                rowSongs.forEach { song ->
-                    val isCurrent = song.id == currentSongId
-                    val isSelected = song.id in selectedSongIds
-
-                    XvoxAllSongGridItem(
-                        song = song,
-                        isCurrent = isCurrent,
-                        isPlaying = isCurrent && isPlaying,
-                        isSelected = isSelected,
-                        onClick = { onSongClick(song) },
-                        onLongClick = { onSongLongClick(song) },
-                        tileShape = tileShape,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                if (rowSongs.size < columns) {
-                    repeat(columns - rowSongs.size) {
-                        Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun XvoxAllSongsMosaicGrid(
-    songs: List<Song>,
-    columns: Int,
-    gap: androidx.compose.ui.unit.Dp,
-    currentSongId: Long?,
-    isPlaying: Boolean,
-    selectedSongIds: Set<Long>,
-    onSongClick: (Song) -> Unit,
-    onSongLongClick: (Song) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val chunked = remember(songs, columns) { songs.chunked(columns) }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        chunked.forEach { rowSongs ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(gap)
-            ) {
-                rowSongs.forEach { song ->
-                    val isCurrent = song.id == currentSongId
-                    val isSelected = song.id in selectedSongIds
-
-                    XvoxAllSongMosaicCard(
-                        song = song,
-                        widthUnits = 1f,
-                        heightUnits = 1f,
-                        onClick = { onSongClick(song) },
-                        onLongClick = { onSongLongClick(song) },
-                        modifier = Modifier.weight(1f),
-                        current = isCurrent,
-                        playing = isCurrent && isPlaying,
-                        selected = isSelected
-                    )
-                }
-
-                if (rowSongs.size < columns) {
-                    repeat(columns - rowSongs.size) {
-                        Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun XvoxAllSongGridItem(
-    song: Song,
-    isCurrent: Boolean,
-    isPlaying: Boolean,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    tileShape: String = "rounded",
-    modifier: Modifier = Modifier
-) {
-    val colors = XvoxTheme.colors
-    val cardColor = rememberSongCardColor(song = song, current = isCurrent, selected = isSelected)
-    val shape = when (tileShape) {
-        "sharp" -> RoundedCornerShape(4.dp)
-        "pill" -> RoundedCornerShape(20.dp)
-        else -> RoundedCornerShape(12.dp)
+    item(key = "all_header", contentType = "all_header") {
+        AllSongsHeader(songs.size, selectedSongIds.size)
     }
 
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
-            .padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(shape),
-            contentAlignment = Alignment.Center
-        ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                requestSize = 140,
-                modifier = Modifier.fillMaxSize()
+    if (songs.isEmpty()) {
+        item(key = "all_empty") {
+            Text(
+                "No songs match your library filters",
+                color = XvoxTheme.colors.secondaryText,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(16.dp)
             )
         }
+    } else if (config.direction == "horizontal") {
+        item(key = "all_horizontal", contentType = "mosaic_pager") {
+            HorizontalSongPages(
+                songs, plans, config, currentSongId, isPlaying, selectedSongIds,
+                onSongClick, onSongLongClick, onPrefetch
+            )
+        }
+    } else {
+        items(plans, key = { "all_page_${it.startIndex}" }, contentType = { "mosaic_page" }) { plan ->
+            XvoxSongGridPage(
+                songs, plan, config, currentSongId, isPlaying, selectedSongIds,
+                onSongClick, onSongLongClick, compact = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 6.dp, end = 6.dp, bottom = 6.dp)
+            )
+        }
+    }
+}
 
-        Spacer(Modifier.height(6.dp))
+@Composable
+fun HorizontalSongPages(
+    songs: List<Song>,
+    plans: List<XvoxMosaicPagePlan>,
+    config: HomePresentation,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    selectedSongIds: Set<Long>,
+    onSongClick: (Song) -> Unit,
+    onSongLongClick: (Song) -> Unit,
+    onPrefetch: (Int) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val state = rememberLazyListState()
+    val prefetch by rememberUpdatedState(onPrefetch)
 
-        Text(
-            text = song.title,
-            color = if (isCurrent) colors.primaryAccent else colors.primaryText,
-            fontSize = 11.5.sp,
-            lineHeight = 14.sp,
-            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+    LaunchedEffect(plans) {
+        snapshotFlow { state.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
+            plans.getOrNull(index + 1)?.let { prefetch(it.startIndex) }
+        }
+    }
 
-        Text(
-            text = song.artist,
-            color = colors.secondaryText,
-            fontSize = 9.5.sp,
-            lineHeight = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val rows = remember(songs.size, config.rows, config.style) {
+            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(3, 8)
+        }
+        val renderConfig = remember(config, rows) { config.copy(rows = rows) }
+        val pageWidth = maxWidth - 12.dp
+        val unitHeight = (pageWidth - 18.dp) / 4 + 38.dp
+        val pageHeight = unitHeight * rows + 6.dp * (rows - 1)
+
+        LazyRow(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(pageHeight),
+            contentPadding = PaddingValues(horizontal = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            items(plans, key = { it.startIndex }, contentType = { "mosaic_page" }) { plan ->
+                XvoxSongGridPage(
+                    songs, plan, renderConfig, currentSongId, isPlaying, selectedSongIds,
+                    onSongClick, onSongLongClick, compact = false,
+                    modifier = Modifier.width(pageWidth)
+                )
+            }
+        }
+    }
+}
+
+/** Shared by the real Home and the scale-correct settings preview. */
+@Composable
+fun XvoxSongGridPage(
+    songs: List<Song>,
+    plan: XvoxMosaicPagePlan,
+    config: HomePresentation,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    selectedSongIds: Set<Long>,
+    onSongClick: (Song) -> Unit,
+    onSongLongClick: (Song) -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val uniform = config.style == "uniform" || isLandscape
+    val classic = config.style == "mosaic1" && !isLandscape
+
+    val page = remember(songs, plan, config.rows, uniform, classic, compact, isLandscape) {
+        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = !compact)
+    }
+
+    val usedRows = remember(page, compact, config.rows) {
+        if (compact) page.tiles.maxOfOrNull { it.y + it.height } ?: 0f else config.rows.toFloat()
+    }
+
+    val click by rememberUpdatedState(onSongClick)
+    val longClick by rememberUpdatedState(onSongLongClick)
+
+    BoxWithConstraints(modifier) {
+        val columns = if (isLandscape) 8 else 4
+        val gap = 6.dp
+        val unitWidth = (maxWidth - gap * (columns - 1)) / columns
+        val unitHeight = unitWidth + 38.dp
+        val height = unitHeight * usedRows + gap * (usedRows - 1).coerceAtLeast(0f)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val stepX = with(density) { (unitWidth + gap).toPx() }
+        val stepY = with(density) { (unitHeight + gap).toPx() }
+
+        Box(Modifier.fillMaxWidth().height(height)) {
+            page.tiles.forEach { tile ->
+                key(tile.song.id) {
+                    val tileModifier = Modifier
+                        .offset { IntOffset((stepX * tile.x).roundToInt(), (stepY * tile.y).roundToInt()) }
+                        .size(
+                            unitWidth * tile.width + gap * (tile.width - 1),
+                            unitHeight * tile.height + gap * (tile.height - 1)
+                        )
+                    val song = tile.song
+                    val isCurrent = currentSongId == song.id
+                    if (uniform || (classic && tile.width == 1f && tile.height == 1f)) {
+                        XvoxAllSongCard(
+                            song = song,
+                            current = isCurrent,
+                            playing = isCurrent && isPlaying,
+                            onClick = { click(song) },
+                            onLongClick = { longClick(song) },
+                            modifier = tileModifier,
+                            selected = song.id in selectedSongIds
+                        )
+                    } else {
+                        XvoxAllSongMosaicCard(
+                            song = song,
+                            widthUnits = tile.width,
+                            heightUnits = tile.height,
+                            onClick = { click(song) },
+                            onLongClick = { longClick(song) },
+                            modifier = tileModifier,
+                            current = isCurrent,
+                            playing = isCurrent && isPlaying,
+                            selected = song.id in selectedSongIds,
+                            styleIndex = tile.style,
+                            classic = classic
+                        )
+                    }
+                }
+            }
+        }
     }
 }
