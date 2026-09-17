@@ -128,6 +128,12 @@ fun HomeScreen(
             .sortedBy { it.name.lowercase() }
     }
 
+    var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var selectionLibraryMode by remember { mutableStateOf(state.libraryMode) }
+    var selectionCategoryName by remember { mutableStateOf<String?>(null) }
+    val isSelectionMode = selectedSongIds.isNotEmpty()
+    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+
     if (showArtistInfo != null) {
         val currentArtist = showArtistInfo!!
         ArtistInfoDialog(
@@ -155,12 +161,6 @@ fun HomeScreen(
             }
         )
     }
-
-    var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var selectionLibraryMode by remember { mutableStateOf(state.libraryMode) }
-    var selectionCategoryName by remember { mutableStateOf<String?>(null) }
-    val isSelectionMode = selectedSongIds.isNotEmpty()
-    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
 
     val selectedPlaylist = effectiveSelectedPlaylistId?.let { id ->
         state.playlists.firstOrNull { it.id == id }
