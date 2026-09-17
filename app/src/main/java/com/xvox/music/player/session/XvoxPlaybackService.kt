@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.first
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class XvoxPlaybackService : MediaSessionService() {
@@ -284,7 +285,7 @@ class XvoxPlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
         val repo = com.xvox.music.data.preferences.UserPreferencesRepository(this)
-        val persistent = kotlinx.coroutines.runBlocking { kotlinx.coroutines.flow.first(repo.persistentBackgroundPlayback) }
+        val persistent = kotlinx.coroutines.runBlocking { repo.persistentBackgroundPlayback.first() }
         if (!persistent) {
             engine?.player?.stop()
             stopForeground(STOP_FOREGROUND_REMOVE)
