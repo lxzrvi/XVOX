@@ -18,8 +18,8 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
@@ -41,52 +41,28 @@ fun XvoxNowPlayingArtworkPager(
 ) {
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
-
     val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
-
-    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
-    var targetPage by remember { mutableIntStateOf(initialIdx) }
-    var lastObservedSongId by remember { mutableStateOf(queue.getOrNull(initialIdx)?.id) }
+    val scope = rememberCoroutineScope()
 
     val settled by rememberUpdatedState(onSettledPage)
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
-    // Handle external Next/Prev navigation requests (Rapid button clicking without freeze)
-    LaunchedEffect(navigationRequest) {
-        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
-        val delta = navigationRequest - lastHandledRequest
-        lastHandledRequest = navigationRequest
-
-        var nextTarget = targetPage + delta
-        if (repeatMode == RepeatMode.ALL) {
-            nextTarget = (nextTarget % queue.size + queue.size) % queue.size
-        } else {
-            nextTarget = nextTarget.coerceIn(0, queue.lastIndex)
-        }
-        targetPage = nextTarget
-
-        if (targetPage in queue.indices) {
-            pager.animateScrollToPage(targetPage, animationSpec = tween(160, easing = FastOutSlowInEasing))
-        }
-    }
-
-    // Auto-advance, external track changes, and silent queue reorder sync
-    LaunchedEffect(currentIndex, queue) {
-        val currentSong = queue.getOrNull(currentIndex)
-        val currentSongId = currentSong?.id
-        targetPage = currentIndex
-
-        if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
-            if (currentSongId != null && currentSongId == lastObservedSongId) {
-                // Reorder happened in background — snap silently with zero cover slide/flicker
-                pager.scrollToPage(currentIndex)
-            } else {
-                // Actual track change — smooth cover transition
-                pager.animateScrollToPage(currentIndex, animationSpec = tween(180, easing = FastOutSlowInEasing))
+    // Synchronize pager when currentIndex changes (external next/prev, track tap in queue, playback auto-advance)
+    LaunchedEffect(currentIndex, queue.size) {
+        if (currentIndex in queue.indices && currentIndex != pager.currentPage) {
+            val dist = abs(currentIndex - pager.currentPage)
+            if (dist > 1 || !pager.isScrollInProgress) {
+                if (dist > 2) {
+                    pager.scrollToPage(currentIndex)
+                } else {
+                    pager.animateScrollToPage(
+                        currentIndex,
+                        animationSpec = tween(180, easing = FastOutSlowInEasing)
+                    )
+                }
             }
         }
-        lastObservedSongId = currentSongId
     }
 
     // Real-time backdrop color crossfading matching finger/pager position with zero latency
@@ -111,17 +87,14 @@ fun XvoxNowPlayingArtworkPager(
             Pair(pager.settledPage, pager.isScrollInProgress)
         }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
             if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
-                delay(90)
-                if (!pager.isScrollInProgress && pager.settledPage == settledIndex) {
-                    settled(settledIndex)
-                }
+                settled(settledIndex)
             }
         }
     }
 
     HorizontalPager(
         state = pager,
-        beyondViewportPageCount = 2,
+        beyondViewportPageCount = 3,
         snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
         flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
@@ -131,7 +104,7 @@ fun XvoxNowPlayingArtworkPager(
         contentPadding = PaddingValues(horizontal = 11.dp),
         pageSpacing = 11.dp,
         modifier = modifier.fillMaxSize(),
-        key = { page -> "${queue.getOrNull(page)?.id}_${page}" }
+        key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
         Box(

@@ -16,13 +16,14 @@ fun showPlaylistActions(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
     playlist: XvoxPlaylist,
+    onSelect: (() -> Unit)? = null,
     onDeleted: () -> Unit
 ) {
     fun showSettings() {
         overlays.showBox("Playlist layout") {
             com.xvox.music.features.playlist.PlaylistLayoutEditorBox(
                 onDone = {
-                    showPlaylistActions(overlays, viewModel, playlist, onDeleted)
+                    showPlaylistActions(overlays, viewModel, playlist, onSelect, onDeleted)
                 }
             )
         }
@@ -79,6 +80,12 @@ fun showPlaylistActions(
                         playlist = current,
                         songCount = viewModel.playlistSongs(current).size
                     )
+                }
+            },
+            onSelect = onSelect?.let { select ->
+                {
+                    overlays.hideBox()
+                    select()
                 }
             }
         )

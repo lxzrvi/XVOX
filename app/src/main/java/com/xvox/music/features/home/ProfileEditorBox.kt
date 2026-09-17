@@ -37,12 +37,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
@@ -57,7 +59,7 @@ import kotlinx.coroutines.launch
 /**
  * Profile & Header Editor Box:
  * Avatar picker with crop, username, greeting lines ON/OFF toggle, interval slider,
- * and integrated Header photo customizer.
+ * and integrated Header photo customizer with GIF and preview states.
  */
 @Composable
 fun ProfileEditorBox(
@@ -83,6 +85,13 @@ fun ProfileEditorBox(
     var croppingAvatarUri by remember { mutableStateOf<Uri?>(null) }
     var croppingHeaderUri by remember { mutableStateOf<Uri?>(null) }
 
+    var savedCustomHeaderUri by remember(currentHeaderUri) {
+        mutableStateOf(currentHeaderUri)
+    }
+    var isCustomHeaderMode by remember(currentHeaderUri) {
+        mutableStateOf(currentHeaderUri != null)
+    }
+
     val avatarPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             croppingAvatarUri = uri
@@ -91,7 +100,16 @@ fun ProfileEditorBox(
 
     val headerPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
-            croppingHeaderUri = uri
+            val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
+                    (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
+            if (isGif) {
+                // Animated GIFs applied directly without static cropping
+                savedCustomHeaderUri = uri.toString()
+                isCustomHeaderMode = true
+                scope.launch { prefs.setHeaderImageUri(uri.toString()) }
+            } else {
+                croppingHeaderUri = uri
+            }
         }
     }
 
@@ -119,6 +137,8 @@ fun ProfileEditorBox(
             aspectRatio = 2.2f,
             onCropped = { croppedUri ->
                 croppingHeaderUri = null
+                savedCustomHeaderUri = croppedUri.toString()
+                isCustomHeaderMode = true
                 scope.launch {
                     prefs.setHeaderImageUri(croppedUri.toString())
                 }
@@ -138,7 +158,10 @@ fun ProfileEditorBox(
     var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
 
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         XvoxAvatarPicker(
             username = name,
@@ -203,8 +226,6 @@ fun ProfileEditorBox(
         // Header Background Photo Section in Profile Box
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
-        var isCustomHeaderMode by remember(currentHeaderUri) { mutableStateOf(currentHeaderUri != null) }
-
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
@@ -244,8 +265,8 @@ fun ProfileEditorBox(
                     .xvoxPressScale {
                         haptics.tap()
                         isCustomHeaderMode = true
-                        if (currentHeaderUri == null) {
-                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        if (currentHeaderUri == null && savedCustomHeaderUri != null) {
+                            scope.launch { prefs.setHeaderImageUri(savedCustomHeaderUri) }
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -259,7 +280,7 @@ fun ProfileEditorBox(
             }
         }
 
-        if (isCustomHeaderMode && currentHeaderUri != null) {
+        if (isCustomHeaderMode) {
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier
@@ -270,49 +291,60 @@ fun ProfileEditorBox(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.cardElevated),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        XvoxSongArtwork(
-                            artwork = Uri.parse(currentHeaderUri),
-                            requestSize = 128,
-                            modifier = Modifier.size(38.dp)
-                        )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (currentHeaderUri != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.cardElevated),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = Uri.parse(currentHeaderUri),
+                                contentDescription = "Header preview",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.matchParentSize()
+                            )
+                        }
                     }
+
                     Column {
                         Text(
-                            "Header Photo Active",
+                            text = if (currentHeaderUri != null) "Header Photo Active" else "Custom Header Photo",
                             color = colors.primaryText,
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Custom backdrop above home",
+                            text = if (currentHeaderUri != null) "Custom backdrop above home" else "Tap Add to select photo or GIF",
                             color = colors.mutedText,
-                            fontSize = 10.sp
+                            fontSize = 10.5.sp
                         )
                     }
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.cardElevated)
-                            .xvoxPressScale {
-                                haptics.tap()
-                                isCustomHeaderMode = false
-                                scope.launch { prefs.setHeaderImageUri(null) }
-                            }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text("Remove", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    if (currentHeaderUri != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.cardElevated)
+                                .xvoxPressScale {
+                                    haptics.tap()
+                                    savedCustomHeaderUri = null
+                                    scope.launch { prefs.setHeaderImageUri(null) }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text("Remove", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
+
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -321,9 +353,14 @@ fun ProfileEditorBox(
                                 haptics.tap()
                                 headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("Change", color = colors.background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (currentHeaderUri != null) "Change" else "Add",
+                            color = colors.background,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

@@ -238,6 +238,20 @@ fun SearchScreen(
                         .background(colors.card)
                         .xvoxPressScale {
                             overlays.hideBox()
+                            selectedIds = artist.songs.map { it.id }.toSet()
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Select songs (${artist.songs.size})", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
                             val searchSongs = artist.songs.map { it.copy(source = "Search") }
                             val msg = playerViewModel.playNextInQueue(searchSongs)
                             overlays.showP(if (msg.isNotBlank()) msg else "Playing after current song")
@@ -311,6 +325,20 @@ fun SearchScreen(
                         .padding(14.dp)
                 ) {
                     Text("Play ${playlist.name}", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            overlays.hideBox()
+                            selectedIds = coverSongs.map { it.id }.toSet()
+                        }
+                        .padding(14.dp)
+                ) {
+                    Text("Select songs (${coverSongs.size})", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
 
                 Box(
@@ -492,6 +520,7 @@ fun SearchScreen(
                 selectedSongs = selectedSongs,
                 selectedPlaylist = null,
                 libraryMode = com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS,
+                customCategoryName = "Search",
                 viewModel = homeViewModel,
                 playerViewModel = playerViewModel,
                 overlays = overlays,

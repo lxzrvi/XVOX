@@ -144,6 +144,11 @@ fun HomeScreen(
                 val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
                 showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
             },
+            onSelectArtist = {
+                selectedSongIds = currentArtist.songs.map { it.id }.toSet()
+                selectionCategoryName = currentArtist.name
+                selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+            },
             onHideArtist = {
                 viewModel.hideArtist(currentArtist.name)
                 overlays.showP("${currentArtist.name} hidden")
@@ -228,7 +233,18 @@ fun HomeScreen(
             selectionSource == XvoxHomeLibraryMode.LIKED -> null
             playlist != null -> {
                 {
-                    showPlaylistActions(overlays, viewModel, playlist) {}
+                    showPlaylistActions(
+                        overlays = overlays,
+                        viewModel = viewModel,
+                        playlist = playlist,
+                        onSelect = {
+                            val plSongs = viewModel.playlistSongs(playlist)
+                            selectedSongIds = plSongs.map { it.id }.toSet()
+                            selectionCategoryName = playlist.name
+                            selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
+                        },
+                        onDeleted = {}
+                    )
                 }
             }
             selectedArtist != null -> null
@@ -334,6 +350,7 @@ fun HomeScreen(
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
                 transition = state.recentTransition,
+                selectedSongIds = selectedSongIds,
                 onSongClick = { song ->
                     if (isSelectionMode) handleSongLongClick(song, "Recently Played")
                     else if (song.id == currentSongId) playerViewModel.togglePlay()
@@ -343,7 +360,10 @@ fun HomeScreen(
                         playerViewModel.playFromSource(song, queueSongs, queueName)
                     }
                 },
-                onSongOptions = { song -> openSingleSongOptions(song, recent = true) },
+                onSongOptions = { song ->
+                    if (isSelectionMode) handleSongLongClick(song, "Recently Played")
+                    else openSingleSongOptions(song, recent = true)
+                },
                 sources = state.recentSources
             )
         }
@@ -356,10 +376,10 @@ fun HomeScreen(
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
-                columns = 5,
+                columns = 4,
                 rows = 4,
                 direction = "vertical",
-                gap = 8,
+                gap = 10,
                 hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
@@ -392,9 +412,20 @@ fun HomeScreen(
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist ->
-                showPlaylistActions(overlays, viewModel, playlist) {
-                    if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
-                }
+                showPlaylistActions(
+                    overlays = overlays,
+                    viewModel = viewModel,
+                    playlist = playlist,
+                    onSelect = {
+                        val plSongs = viewModel.playlistSongs(playlist)
+                        selectedSongIds = plSongs.map { it.id }.toSet()
+                        selectionCategoryName = playlist.name
+                        selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
+                    },
+                    onDeleted = {
+                        if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
+                    }
+                )
             }
         )
     }

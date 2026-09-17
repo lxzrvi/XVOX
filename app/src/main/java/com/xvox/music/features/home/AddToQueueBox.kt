@@ -58,7 +58,7 @@ fun AddToQueueBox(
             modifier = Modifier.padding(bottom = 2.dp)
         )
 
-        // Option 1: Add to Current Active Queue
+        // Option 1: Current / Active playing queue
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,21 +80,23 @@ fun AddToQueueBox(
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Add to $activeQueueName",
+                    text = "Current Queue",
                     color = colors.primaryText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Active playing queue",
-                    color = colors.secondaryText,
-                    fontSize = 11.sp
+                    text = activeQueueName.ifBlank { "Active playback queue" },
+                    color = colors.primaryAccent,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
 
-        // Option 2: Saved Queues
-        savedQueues.forEach { saved ->
+        // Option 2+: Numbered Saved Queues (Queue 1, Queue 2, Queue 3...)
+        savedQueues.forEachIndexed { index, saved ->
+            val queueNumber = index + 1
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -116,13 +118,13 @@ fun AddToQueueBox(
                 Spacer(Modifier.size(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Add to ${saved.name}",
+                        text = "Queue $queueNumber",
                         color = colors.primaryText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${saved.songs.size} songs",
+                        text = "${saved.name} • ${saved.songs.size} songs",
                         color = colors.secondaryText,
                         fontSize = 11.sp
                     )
@@ -158,7 +160,7 @@ fun AddToQueueBox(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Create a separate queue in Queue list",
+                    text = "Create Queue ${savedQueues.size + 1}",
                     color = colors.secondaryText,
                     fontSize = 11.sp
                 )

@@ -33,28 +33,28 @@ import com.xvox.music.features.home.XvoxSongArtwork
 @Composable
 fun XvoxArtistGrid(
     artists: List<XvoxArtist>,
-    columns: Int = 5,
+    columns: Int = 4,
     rows: Int = 4,
     direction: String = "vertical",
-    gap: Int = 8,
+    gap: Int = 10,
     hideText: Boolean = false,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colCount = 5
+    val colCount = 4
     val chunked = artists.chunked(colCount)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         chunked.forEach { rowArtists ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 rowArtists.forEach { artist ->
                     ArtistCircleItem(
@@ -76,7 +76,7 @@ fun XvoxArtistGrid(
 }
 
 /**
- * 5-column vertical scroll grid item:
+ * 4-column vertical scroll grid item:
  * Circular artist cover with 1-line artist name (truncated with ellipsis) and equal gaps.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -98,7 +98,7 @@ fun ArtistCircleItem(
                 pressedScale = 0.93f
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Box(
             modifier = Modifier
@@ -118,7 +118,7 @@ fun ArtistCircleItem(
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
-                    requestSize = 160,
+                    requestSize = 180,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize()
                 )
@@ -127,7 +127,7 @@ fun ArtistCircleItem(
                     painter = painterResource(R.drawable.ic_xvox_artist),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -136,8 +136,8 @@ fun ArtistCircleItem(
             Text(
                 text = artist.name,
                 color = colors.primaryText,
-                fontSize = 10.5.sp,
-                lineHeight = 12.sp,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 maxLines = 1,

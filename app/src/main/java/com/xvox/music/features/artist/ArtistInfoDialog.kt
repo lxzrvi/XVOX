@@ -1,8 +1,6 @@
 package com.xvox.music.features.artist
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +48,7 @@ fun ArtistInfoDialog(
     onDismiss: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onSelectArtist: (() -> Unit)? = null,
     onHideArtist: () -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -237,7 +236,45 @@ fun ArtistInfoDialog(
                     }
                 }
 
-                // 3. Artist Layout Settings Card (Only Hide artist names toggle)
+                // 3. Select Songs for Batch Actions
+                if (onSelectArtist != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.card)
+                            .xvoxPressScale {
+                                haptics.tap()
+                                onDismiss()
+                                onSelectArtist()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_check),
+                            contentDescription = null,
+                            tint = colors.primaryAccent,
+                            modifier = Modifier.size(19.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Select songs",
+                                color = colors.primaryText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Select all ${artist.songs.size} songs for batch actions",
+                                color = colors.secondaryText,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                // 4. Artist Layout Settings Card (Only Hide artist names toggle)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -263,7 +300,7 @@ fun ArtistInfoDialog(
                     )
                 }
 
-                // 4. Hide / Delete Artist Action
+                // 5. Hide / Delete Artist Action
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

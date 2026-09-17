@@ -23,6 +23,7 @@ fun XvoxRecentCarousel(
     transition: RecentTransitionRequest,
     onSongClick: (Song) -> Unit,
     onSongOptions: (Song) -> Unit,
+    selectedSongIds: Set<Long> = emptySet(),
     sources: Map<Long, String> = emptyMap(),
     onSourceClick: (Song) -> Unit = {}
 ) {
@@ -51,6 +52,7 @@ fun XvoxRecentCarousel(
                         song = song,
                         current = song.id == currentSongId,
                         playing = song.id == currentSongId && isPlaying,
+                        selected = song.id in selectedSongIds,
                         onClick = { click(song) },
                         onLongClick = { options(song) },
                         source = sources[song.id] ?: song.source,

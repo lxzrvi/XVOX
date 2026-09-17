@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,10 +31,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
@@ -52,14 +55,13 @@ fun XvoxRecentArtwork(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     animateEntrance: Boolean = false,
+    selected: Boolean = false,
     source: String? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val cardColor = rememberSongCardColor(song, current)
+    val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
-
-    val displaySource = rememberSongQueueSource(song, source)
 
     Box(
         modifier = modifier
@@ -67,8 +69,8 @@ fun XvoxRecentArtwork(
             .clip(shape)
             .background(cardColor)
             .border(
-                width = 0.7.dp,
-                color = colors.cardBorder,
+                width = if (selected) 2.dp else 0.7.dp,
+                color = if (selected) colors.primaryAccent else colors.cardBorder,
                 shape = shape
             )
     ) {
@@ -93,7 +95,7 @@ fun XvoxRecentArtwork(
                 )
         )
 
-        // Bottom text: Song Title and Originating Queue name below it
+        // Bottom text: Song Title and Artist Name with tight spacing
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -110,7 +112,7 @@ fun XvoxRecentArtwork(
             )
             Spacer(Modifier.height(1.dp))
             Text(
-                text = displaySource,
+                text = song.artist,
                 color = Color.White.copy(alpha = 0.82f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
@@ -119,51 +121,66 @@ fun XvoxRecentArtwork(
             )
         }
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(9.dp)
-                .height(30.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = 0.88f,
-                        stiffness = 700f
-                    )
-                )
-                .xvoxSongPress(onClick, onLongClick)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            AnimatedContent(
-                targetState = current && playing,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
-                },
-                label = "recentPlayState"
-            ) { active ->
-                PlaybackIcon(
-                    type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
-                    color = Color.White,
-                    modifier = Modifier.size(14.dp)
+        // Selection badge or Play/Pause indicator
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(9.dp)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(colors.primaryAccent),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_check),
+                    contentDescription = "Selected",
+                    tint = colors.background,
+                    modifier = Modifier.size(16.dp)
                 )
             }
+        } else {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(9.dp)
+                    .height(30.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = 700f
+                        )
+                    )
+                    .xvoxSongPress(onClick, onLongClick)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                AnimatedContent(
+                    targetState = current && playing,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
+                    },
+                    label = "recentPlayState"
+                ) { active ->
+                    PlaybackIcon(
+                        type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
+                        color = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
 
-            if (current && playing) {
-                Text(
-                    text = "Playing",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Normal
-                )
+                if (current && playing) {
+                    Text(
+                        text = "Playing",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
             }
         }
     }
-}
-
-private fun rememberSongQueueSource(song: Song, source: String?): String {
-    val src = if (!source.isNullOrBlank()) source else if (song.source.isNotBlank()) song.source else "All Songs"
-    return if (src.startsWith("Playing by ")) src else src
 }

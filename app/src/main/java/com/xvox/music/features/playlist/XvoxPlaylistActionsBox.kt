@@ -53,7 +53,8 @@ fun XvoxPlaylistActionsBox(
     onRename: (String) -> Unit,
     onSaveCover: (List<Long>, Uri?, () -> Unit) -> Unit,
     onDelete: () -> Unit,
-    onInfo: () -> Unit
+    onInfo: () -> Unit,
+    onSelect: (() -> Unit)? = null
 ) {
     var editing by remember(playlist.id) { mutableStateOf(false) }
     var coverEditor by remember(playlist.id) { mutableStateOf(false) }
@@ -80,7 +81,8 @@ fun XvoxPlaylistActionsBox(
         onRename = onRename,
         onEditCover = { coverEditor = true },
         onDelete = onDelete,
-        onInfo = onInfo
+        onInfo = onInfo,
+        onSelect = onSelect
     )
 }
 
@@ -93,7 +95,8 @@ private fun PlaylistActionsMain(
     onRename: (String) -> Unit,
     onEditCover: () -> Unit,
     onDelete: () -> Unit,
-    onInfo: () -> Unit
+    onInfo: () -> Unit,
+    onSelect: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
 
@@ -226,6 +229,13 @@ private fun PlaylistActionsMain(
         }
 
         Spacer(Modifier.height(12.dp))
+
+        if (onSelect != null) {
+            PlaylistAction(
+                title = "Select songs (${songs.size})",
+                onClick = onSelect
+            )
+        }
 
         PlaylistAction(
             title = "Playlist info",

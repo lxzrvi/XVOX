@@ -25,6 +25,7 @@ fun XvoxRecentlyPlayedSection(
     transition: RecentTransitionRequest,
     onSongClick: (Song) -> Unit,
     onSongOptions: (Song) -> Unit,
+    selectedSongIds: Set<Long> = emptySet(),
     sources: Map<Long, String> = emptyMap(),
     onSourceClick: (Song) -> Unit = {},
 ) {
@@ -64,6 +65,7 @@ fun XvoxRecentlyPlayedSection(
             transition = transition,
             onSongClick = onSongClick,
             onSongOptions = onSongOptions,
+            selectedSongIds = selectedSongIds,
             sources = sources,
             onSourceClick = onSourceClick,
         )

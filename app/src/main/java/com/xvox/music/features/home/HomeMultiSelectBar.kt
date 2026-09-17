@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
@@ -40,16 +41,53 @@ fun HomeMultiSelectBar(
     playerViewModel: MainPlayerViewModel,
     overlays: XvoxOverlayController,
     context: Context,
+    categoryName: String? = null,
     onClearSelection: () -> Unit,
     onDeleteSelected: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
-    Box(
+    val headerLabel = when {
+        !categoryName.isNullOrBlank() -> categoryName
+        selectedPlaylist != null -> selectedPlaylist.name
+        libraryMode == XvoxHomeLibraryMode.LIKED -> "Liked Songs"
+        libraryMode == XvoxHomeLibraryMode.ARTISTS -> "Artists"
+        libraryMode == XvoxHomeLibraryMode.PLAYLISTS -> "Playlists"
+        else -> "All Songs"
+    }
+
+    Column(
         modifier = modifier
-            .padding(top = 10.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
+            .padding(top = 6.dp, bottom = 8.dp, start = 8.dp, end = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        // Top Indicator Bar with Category Name & Selection Count
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "$headerLabel · ${selectedSongs.size} selected",
+                color = colors.primaryAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = "Tap songs to add/remove",
+                color = colors.secondaryText,
+                fontSize = 11.sp
+            )
+        }
+
+        // Action Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()

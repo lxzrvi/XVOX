@@ -2,9 +2,12 @@ package com.xvox.music
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.os.Build
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
+import coil3.gif.AnimatedImageDecoder
+import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import coil3.request.bitmapConfig
 import kotlinx.coroutines.launch
@@ -40,6 +43,13 @@ class XvoxApplication : Application() {
 
         SingletonImageLoader.setSafe { context ->
             ImageLoader.Builder(context)
+                .components {
+                    if (Build.VERSION.SDK_INT >= 28) {
+                        add(AnimatedImageDecoder.Factory())
+                    } else {
+                        add(GifDecoder.Factory())
+                    }
+                }
                 .decoderCoroutineContext(com.xvox.music.artwork.XvoxImageWork.decoderContext)
                 .fetcherCoroutineContext(com.xvox.music.artwork.XvoxImageWork.fetchContext)
                 .memoryCache {
@@ -67,7 +77,7 @@ class XvoxApplication : Application() {
                         .build()
                 }
                 .bitmapConfig(
-                    Bitmap.Config.RGB_565
+                    Bitmap.Config.ARGB_8888
                 )
                 .build()
         }

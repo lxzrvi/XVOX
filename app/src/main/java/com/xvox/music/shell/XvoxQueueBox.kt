@@ -6,14 +6,11 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +40,6 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -55,7 +51,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.player.playback.XvoxSavedQueue
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
@@ -198,44 +193,46 @@ fun XvoxQueueBoxContent(
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
-    val listState = rememberLazyListState()
+
+    val initialScrollIndex = remember {
+        val idx = queue.indexOfFirst { it.id == currentSongId }
+        if (idx > 1) (idx - 1).coerceAtLeast(0) else 0
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialScrollIndex)
+
     val move by rememberUpdatedState(onMoveItem)
     val play by rememberUpdatedState(onPlayIndex)
     val remove by rememberUpdatedState(onRemoveIndex)
-    val local = remember { mutableStateListOf<Song>().apply { addAll(queue) } }
-
-    var pendingRemove by remember { mutableStateOf<Pair<Int, Song>?>(null) }
 
     var draggingSong by remember { mutableStateOf<Song?>(null) }
+    var dragList by remember { mutableStateOf<List<Song>?>(null) }
     var initialDragIndex by remember { mutableIntStateOf(-1) }
     var currentDragIndex by remember { mutableIntStateOf(-1) }
     var touchOffsetInCard by remember { mutableFloatStateOf(0f) }
     var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
+    val displayList = dragList ?: queue
+
     val rowHeightPx = with(density) { RowHeight.toPx() }
     val rowSpacingPx = with(density) { RowSpacing.toPx() }
     val itemTotalHeightPx = rowHeightPx + rowSpacingPx
 
-    LaunchedEffect(queue) {
-        if (draggingSong == null && local.toList() != queue) {
-            local.clear()
-            local.addAll(queue)
-        }
-    }
-
     fun checkAndSwapSlots() {
+        val currentList = dragList ?: return
         if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f || itemTotalHeightPx <= 0f) return
 
         val currentSlotScreenTop = (currentDragIndex - listState.firstVisibleItemIndex) * itemTotalHeightPx - listState.firstVisibleItemScrollOffset
 
-        if (currentDragIndex < local.lastIndex) {
+        if (currentDragIndex < currentList.lastIndex) {
             if (dragCardOffsetY > currentSlotScreenTop + itemTotalHeightPx * 0.55f) {
                 val from = currentDragIndex
                 val to = currentDragIndex + 1
-                if (from in local.indices && to in local.indices) {
-                    val item = local.removeAt(from)
-                    local.add(to, item)
+                if (from in currentList.indices && to in currentList.indices) {
+                    val mutable = currentList.toMutableList()
+                    val item = mutable.removeAt(from)
+                    mutable.add(to, item)
+                    dragList = mutable
                     currentDragIndex = to
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     return
@@ -248,9 +245,11 @@ fun XvoxQueueBoxContent(
             if (dragCardOffsetY < currentSlotScreenTop - itemTotalHeightPx * 0.55f || isAtVeryTop) {
                 val from = currentDragIndex
                 val to = currentDragIndex - 1
-                if (from in local.indices && to in local.indices) {
-                    val item = local.removeAt(from)
-                    local.add(to, item)
+                if (from in currentList.indices && to in currentList.indices) {
+                    val mutable = currentList.toMutableList()
+                    val item = mutable.removeAt(from)
+                    mutable.add(to, item)
+                    dragList = mutable
                     currentDragIndex = to
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     return
@@ -259,265 +258,150 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    LaunchedEffect(Unit) {
-        val targetIdx = local.indexOfFirst { it.id == currentSongId }
-        if (targetIdx > 1) {
-            listState.scrollToItem((targetIdx - 1).coerceAtLeast(0))
-        }
-    }
-
-    LaunchedEffect(draggingSong) {
-        if (draggingSong == null) return@LaunchedEffect
-        var previousFrame = withFrameNanos { it }
-        val edgeThreshold = with(density) { 48.dp.toPx() }
-        val maxScrollSpeedPxPerSec = with(density) { 420.dp.toPx() }
-
-        while (isActive && draggingSong != null) {
-            val frame = withFrameNanos { it }
-            val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
-            previousFrame = frame
-
-            if (listViewportHeight > 0f) {
-                val cardTop = dragCardOffsetY
-                val cardBottom = dragCardOffsetY + rowHeightPx
-
-                val strength = when {
-                    cardTop < edgeThreshold -> -((edgeThreshold - cardTop) / edgeThreshold).coerceIn(0f, 1f)
-                    cardBottom > listViewportHeight - edgeThreshold -> ((cardBottom - (listViewportHeight - edgeThreshold)) / edgeThreshold).coerceIn(0f, 1f)
-                    else -> 0f
-                }
-
-                if (strength != 0f) {
-                    val delta = strength * maxScrollSpeedPxPerSec * seconds
-                    listState.scrollBy(delta)
-                    checkAndSwapSlots()
-                }
-            }
-        }
-    }
-
-    val allQueueEntries = remember(activeQueueName, savedQueues) {
-        listOf("active" to activeQueueName) + savedQueues.map { it.id to it.name }
-    }
-
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
+            .animateContentSize(animationSpec = tween(180, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
     ) {
-        if (pendingRemove != null) {
-            val target = pendingRemove!!
-            Column(
+        if (queue.isEmpty()) {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .height(180.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Remove from Queue?",
-                    color = colors.primaryAccent,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Remove \"${target.second.title}\" from the current playing queue?",
+                    text = "Queue is empty",
                     color = colors.secondaryText,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 16.sp
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(colors.cardElevated)
-                            .clickable { pendingRemove = null },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Cancel", color = colors.secondaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFFFF5252))
-                            .clickable {
-                                val idx = target.first
-                                pendingRemove = null
-                                remove(idx)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Remove", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
             }
         } else {
-            Text(
-                "${local.size} songs · Tap to play · Hold & drag to reorder",
-                color = colors.secondaryText,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
-
-            AnimatedContent(
-                targetState = activeQueueName,
-                transitionSpec = {
-                    val targetIdx = allQueueEntries.indexOfFirst { it.second == targetState }.coerceAtLeast(0)
-                    val initialIdx = allQueueEntries.indexOfFirst { it.second == initialState }.coerceAtLeast(0)
-                    val isNext = targetIdx >= initialIdx
-                    val ease = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                    if (isNext) {
-                        (slideInHorizontally(tween(240, easing = ease)) { it / 2 } + fadeIn(tween(180)))
-                            .togetherWith(slideOutHorizontally(tween(200, easing = ease)) { -it / 2 } + fadeOut(tween(130)))
-                    } else {
-                        (slideInHorizontally(tween(240, easing = ease)) { -it / 2 } + fadeIn(tween(180)))
-                            .togetherWith(slideOutHorizontally(tween(200, easing = ease)) { it / 2 } + fadeOut(tween(130)))
-                    }
-                },
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .animateContentSize(tween(220, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))),
-                label = "queueSwitchTransition"
-            ) { _ ->
-                if (local.isEmpty()) {
-                    Text("Your queue is empty", color = colors.mutedText, modifier = Modifier.padding(20.dp))
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight()
-                            .onGloballyPositioned { listViewportHeight = it.size.height.toFloat() }
-                            .pointerInput(local.size) {
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    val downY = down.position.y
+                    .heightIn(min = 120.dp, max = 460.dp)
+                    .onGloballyPositioned { coordinates ->
+                        listViewportHeight = coordinates.size.height.toFloat()
+                    }
+                    .pointerInput(displayList) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val downY = down.position.y
 
-                                    val hitItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
-                                        downY >= item.offset && downY <= (item.offset + item.size)
+                            val hitItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                                downY >= item.offset && downY <= (item.offset + item.size)
+                            }
+
+                            if (hitItem != null && hitItem.index in displayList.indices) {
+                                val longPressed = withTimeoutOrNull(320L) {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) break
+                                        if ((change.position - down.position).getDistance() > 14f) break
+                                    }
+                                } == null && currentDragIndex == -1
+
+                                if (longPressed && hitItem.index in displayList.indices) {
+                                    val song = displayList[hitItem.index]
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    dragList = displayList.toList()
+                                    draggingSong = song
+                                    initialDragIndex = hitItem.index
+                                    currentDragIndex = hitItem.index
+                                    touchOffsetInCard = downY - hitItem.offset
+                                    dragCardOffsetY = hitItem.offset.toFloat()
+
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                        if (change == null || !change.pressed) {
+                                            change?.consume()
+                                            break
+                                        }
+                                        change.consume()
+                                        val currentY = change.position.y
+                                        dragCardOffsetY = (currentY - touchOffsetInCard).coerceIn(
+                                            0f,
+                                            (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
+                                        )
+                                        checkAndSwapSlots()
                                     }
 
-                                    if (hitItem != null && hitItem.index in local.indices) {
-                                        val longPressTimeout = 340L
-                                        val longPressed = withTimeoutOrNull(longPressTimeout) {
-                                            while (true) {
-                                                val event = awaitPointerEvent()
-                                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                                if (!change.pressed) break
-                                                if ((change.position - down.position).getDistance() > 14f) break
-                                            }
-                                        } == null && currentDragIndex == -1
-
-                                        if (longPressed && hitItem.index in local.indices) {
-                                            val song = local[hitItem.index]
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            draggingSong = song
-                                            initialDragIndex = hitItem.index
-                                            currentDragIndex = hitItem.index
-                                            touchOffsetInCard = downY - hitItem.offset
-                                            dragCardOffsetY = hitItem.offset.toFloat()
-
-                                            while (true) {
-                                                val event = awaitPointerEvent()
-                                                val change = event.changes.firstOrNull { it.id == down.id }
-                                                if (change == null || !change.pressed) {
-                                                    change?.consume()
-                                                    break
-                                                }
-                                                change.consume()
-                                                val currentY = change.position.y
-                                                dragCardOffsetY = (currentY - touchOffsetInCard).coerceIn(
-                                                    0f,
-                                                    (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
-                                                )
-                                                checkAndSwapSlots()
-                                            }
-
-                                            val from = initialDragIndex
-                                            val to = currentDragIndex
-                                            draggingSong = null
-                                            initialDragIndex = -1
-                                            currentDragIndex = -1
-                                            if (from in local.indices && to in local.indices && from != to) {
-                                                move(from, to)
-                                            }
-                                        }
+                                    val from = initialDragIndex
+                                    val to = currentDragIndex
+                                    draggingSong = null
+                                    dragList = null
+                                    initialDragIndex = -1
+                                    currentDragIndex = -1
+                                    if (from in queue.indices && to in queue.indices && from != to) {
+                                        move(from, to)
                                     }
                                 }
                             }
-                    ) {
-                        LazyColumn(
-                            state = listState,
-                            userScrollEnabled = draggingSong == null,
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .wrapContentHeight()
-                        ) {
-                            itemsIndexed(
-                                items = local,
-                                key = { idx, song -> "${song.id}_${idx}_${song.source}" },
-                                contentType = { _, _ -> "queue_row" }
-                            ) { idx, song ->
-                                val isThisItemBeingDragged = draggingSong?.id == song.id && idx == currentDragIndex
-
-                                QueueRowView(
-                                    song = song,
-                                    current = isPlaying && song.id == currentSongId,
-                                    onClick = {
-                                        if (draggingSong == null) {
-                                            val target = local.indexOfFirst { it.id == song.id }
-                                            play(if (target >= 0) target else idx)
-                                        }
-                                    },
-                                    onRemove = {
-                                        pendingRemove = idx to song
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(RowHeight)
-                                        .alpha(if (isThisItemBeingDragged) 0f else 1f)
-                                        .semantics {
-                                            customActions = listOf(
-                                                CustomAccessibilityAction("Move up") {
-                                                    if (idx > 0) { move(idx, idx - 1); true } else false
-                                                },
-                                                CustomAccessibilityAction("Move down") {
-                                                    if (idx < local.lastIndex) { move(idx, idx + 1); true } else false
-                                                }
-                                            )
-                                        }
-                                )
-                            }
-                        }
-
-                        if (draggingSong != null) {
-                            val activeSong = draggingSong!!
-                            QueueRowView(
-                                song = activeSong,
-                                current = isPlaying && activeSong.id == currentSongId,
-                                onClick = { },
-                                onRemove = { },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(RowHeight)
-                                    .offset { IntOffset(0, dragCardOffsetY.roundToInt()) }
-                                    .zIndex(10f)
-                                    .shadow(12.dp, RoundedCornerShape(12.dp))
-                            )
                         }
                     }
+            ) {
+                LazyColumn(
+                    state = listState,
+                    userScrollEnabled = draggingSong == null,
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(RowSpacing),
+                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                ) {
+                    itemsIndexed(
+                        items = displayList,
+                        key = { idx, song -> "${song.id}_$idx" },
+                        contentType = { _, _ -> "queue_row" }
+                    ) { idx, song ->
+                        val isThisItemBeingDragged = draggingSong?.id == song.id && idx == currentDragIndex
+
+                        QueueRowView(
+                            song = song,
+                            current = isPlaying && song.id == currentSongId,
+                            onClick = {
+                                if (draggingSong == null) {
+                                    play(idx)
+                                }
+                            },
+                            onRemove = {
+                                remove(idx)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(RowHeight)
+                                .alpha(if (isThisItemBeingDragged) 0f else 1f)
+                                .semantics {
+                                    customActions = listOf(
+                                        CustomAccessibilityAction("Move up") {
+                                            if (idx > 0) { move(idx, idx - 1); true } else false
+                                        },
+                                        CustomAccessibilityAction("Move down") {
+                                            if (idx < queue.lastIndex) { move(idx, idx + 1); true } else false
+                                        }
+                                    )
+                                }
+                        )
+                    }
+                }
+
+                if (draggingSong != null) {
+                    val activeSong = draggingSong!!
+                    QueueRowView(
+                        song = activeSong,
+                        current = isPlaying && activeSong.id == currentSongId,
+                        onClick = { },
+                        onRemove = { },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(RowHeight)
+                            .offset { IntOffset(0, dragCardOffsetY.roundToInt()) }
+                            .zIndex(10f)
+                            .shadow(12.dp, RoundedCornerShape(12.dp))
+                    )
                 }
             }
         }
