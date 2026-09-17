@@ -139,14 +139,14 @@ fun SettingsScreen(
                 // Row 1: Appearance & Theme | Library Filters
                 item(key = "row_1") {
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true }, modifier = Modifier.fillMaxSize())
+                        Box(modifier = Modifier.weight(1f)) {
+                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
                         }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays, modifier = Modifier.fillMaxSize())
+                        Box(modifier = Modifier.weight(1f)) {
+                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
                         }
                     }
                 }
@@ -154,14 +154,14 @@ fun SettingsScreen(
                 // Row 2: Backup & Restore | System & Reminders
                 item(key = "row_2") {
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            BackupSectionCard(homeViewModel, modifier = Modifier.fillMaxSize())
+                        Box(modifier = Modifier.weight(1f)) {
+                            BackupSectionCard(homeViewModel)
                         }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            SystemSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxSize())
+                        Box(modifier = Modifier.weight(1f)) {
+                            SystemSectionCard(state, settingsViewModel)
                         }
                     }
                 }

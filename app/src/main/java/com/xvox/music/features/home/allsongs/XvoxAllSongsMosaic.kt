@@ -71,8 +71,8 @@ fun mosaicPageRows(count: Int, requested: Int, cols: Int = 4): Int {
  * same height and the last one is filled edge to edge; in flowing (vertical) mode a short page
  * simply claims fewer rows instead of padding itself out.
  */
-fun mosaicRowsForPage(count: Int, requested: Int, fill: Boolean): Int =
-    if (fill && count >= requested.coerceIn(1, 8)) requested.coerceIn(1, 8) else mosaicPageRows(count, requested)
+fun mosaicRowsForPage(count: Int, requested: Int, fill: Boolean, cols: Int = 4): Int =
+    if (fill && count >= requested.coerceIn(1, 8)) requested.coerceIn(1, 8) else mosaicPageRows(count, requested, cols)
 
 fun buildMosaicPage(
     songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4,
@@ -82,7 +82,7 @@ fun buildMosaicPage(
     if (plan.songCount <= 0 || plan.startIndex !in songs.indices) return MosaicPage(emptyList())
     val page = songs.subList(plan.startIndex, (plan.startIndex + plan.songCount).coerceAtMost(songs.size))
     val random = Random(plan.layoutSeed)
-    val pageRows = mosaicRowsForPage(page.size, rows, cols)
+    val pageRows = mosaicRowsForPage(page.size, rows, fillRows, cols)
     val specs = when {
         isUniform -> regularSpecs(cols, page.size)
         mosaicOne -> generateClassicMosaicSpecs(cols, pageRows, page.size, random)

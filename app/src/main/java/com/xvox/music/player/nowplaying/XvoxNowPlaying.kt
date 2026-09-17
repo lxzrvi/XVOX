@@ -239,8 +239,6 @@ fun XvoxNowPlaying(
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
 
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -430,7 +428,6 @@ fun XvoxNowPlaying(
                     )
                 }
             }
-        }
         } else {
             // Portrait Mode
             // Middle Container: Cover & Lyrics
