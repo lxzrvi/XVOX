@@ -158,7 +158,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
-                            BackupSectionCard(state, settingsViewModel)
+                            BackupSectionCard(homeViewModel)
                         }
                         Box(modifier = Modifier.weight(1f)) {
                             SystemSectionCard(state, settingsViewModel)
@@ -188,7 +188,7 @@ fun SettingsScreen(
                 }
 
                 item(key = "section_backup") {
-                    BackupSectionCard(state, settingsViewModel)
+                    BackupSectionCard(homeViewModel)
                 }
 
                 item(key = "section_system") {
@@ -358,9 +358,9 @@ private fun LibrarySectionCard(
 }
 
 @Composable
-private fun BackupSectionCard(state: SettingsState, viewModel: SettingsViewModel) {
+private fun BackupSectionCard(homeViewModel: HomeViewModel) {
     SettingsCardFrame(title = "Backup & Restore") {
-        BackupSettingsSection(state, viewModel)
+        BackupSettingsSection(viewModel = homeViewModel)
     }
 }
 

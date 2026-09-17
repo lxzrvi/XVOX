@@ -66,14 +66,14 @@ import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.ArtistSquareItem
 import com.xvox.music.features.artist.XvoxArtist
-import com.xvox.music.features.home.HomePlaylistOverlays
-import com.xvox.music.features.home.HomeScreenOverlays
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.XvoxPlaylist
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
+import com.xvox.music.features.home.showPlaylistActions
+import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
@@ -113,22 +113,41 @@ fun SearchScreen(
         }
     }
 
+    val artists = remember(homeState.songs, homeState.customArtistImages, homeState.hiddenArtists, homeState.artistRenames) {
+        val songsWithRenames = homeState.songs.map { song ->
+            val renamed = homeState.artistRenames[song.artist]
+            if (renamed != null) song.copy(artist = renamed) else song
+        }
+        songsWithRenames
+            .filterNot { it.artist in homeState.hiddenArtists }
+            .groupBy { it.artist.ifBlank { "Unknown Artist" } }
+            .map { (artistName, songList) ->
+                val cover = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull()
+                XvoxArtist(
+                    name = artistName,
+                    songs = songList,
+                    coverSong = cover,
+                    customImageUri = homeState.customArtistImages[artistName]
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
     val trimmedQuery = query.trim()
     val matchingSongs = remember(trimmedQuery, homeState.songs) {
         if (trimmedQuery.isEmpty()) emptyList()
         else {
             homeState.songs.filter { song ->
                 song.title.contains(trimmedQuery, ignoreCase = true) ||
-                    song.artist.contains(trimmedQuery, ignoreCase = true) ||
-                    song.album.contains(trimmedQuery, ignoreCase = true)
+                    song.artist.contains(trimmedQuery, ignoreCase = true)
             }
         }
     }
 
-    val matchingArtists = remember(trimmedQuery, homeState.artists) {
+    val matchingArtists = remember(trimmedQuery, artists) {
         if (trimmedQuery.isEmpty()) emptyList()
         else {
-            homeState.artists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
+            artists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
         }
     }
 
@@ -215,10 +234,11 @@ fun SearchScreen(
                     isPlaying = playerState.isPlaying,
                     bottomInset = bottomInset,
                     onSongClick = { song ->
-                        playerViewModel.playSongFromQueue(song, matchingSongs.ifEmpty { listOf(song) })
+                        playerViewModel.setQueue(matchingSongs.ifEmpty { listOf(song) })
+                        playerViewModel.play(song)
                     },
                     onSongLongClick = { song ->
-                        HomeScreenOverlays.showSongOptionsOverlay(
+                        showSongOptionsOverlay(
                             overlays = overlays,
                             context = context,
                             song = song,
@@ -238,11 +258,12 @@ fun SearchScreen(
                             playerViewModel.play(artistSongs.first())
                         }
                     },
+                    onArtistLongClick = {},
                     onPlaylistClick = { playlist ->
                         onPlaylistSelected?.invoke(playlist.id)
                     },
                     onPlaylistLongClick = { playlist ->
-                        HomePlaylistOverlays.showPlaylistActions(
+                        showPlaylistActions(
                             overlays = overlays,
                             viewModel = homeViewModel,
                             playlist = playlist,
@@ -278,10 +299,11 @@ fun SearchScreen(
                 isPlaying = playerState.isPlaying,
                 bottomInset = bottomInset,
                 onSongClick = { song ->
-                    playerViewModel.playSongFromQueue(song, matchingSongs.ifEmpty { listOf(song) })
+                    playerViewModel.setQueue(matchingSongs.ifEmpty { listOf(song) })
+                    playerViewModel.play(song)
                 },
                 onSongLongClick = { song ->
-                    HomeScreenOverlays.showSongOptionsOverlay(
+                    showSongOptionsOverlay(
                         overlays = overlays,
                         context = context,
                         song = song,
@@ -301,11 +323,12 @@ fun SearchScreen(
                         playerViewModel.play(artistSongs.first())
                     }
                 },
+                onArtistLongClick = {},
                 onPlaylistClick = { playlist ->
                     onPlaylistSelected?.invoke(playlist.id)
                 },
                 onPlaylistLongClick = { playlist ->
-                    HomePlaylistOverlays.showPlaylistActions(
+                    showPlaylistActions(
                         overlays = overlays,
                         viewModel = homeViewModel,
                         playlist = playlist,
@@ -405,6 +428,7 @@ private fun SearchResultsList(
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
     onArtistClick: (XvoxArtist) -> Unit,
+    onArtistLongClick: (XvoxArtist) -> Unit,
     onPlaylistClick: (XvoxPlaylist) -> Unit,
     onPlaylistLongClick: (XvoxPlaylist) -> Unit
 ) {
@@ -459,7 +483,7 @@ private fun SearchResultsList(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(colors.card)
-                        .xvoxPressScale(
+                        .xvoxSongPress(
                             onClick = { onPlaylistClick(playlist) },
                             onLongClick = { onPlaylistLongClick(playlist) }
                         )
@@ -518,7 +542,10 @@ private fun SearchResultsList(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(colors.card)
-                        .xvoxPressScale(onClick = { onArtistClick(artist) })
+                        .xvoxSongPress(
+                            onClick = { onArtistClick(artist) },
+                            onLongClick = { onArtistLongClick(artist) }
+                        )
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -572,7 +599,6 @@ private fun SearchResultsList(
                         .clip(RoundedCornerShape(12.dp))
                         .background(cardColor)
                         .xvoxSongPress(
-                            song = song,
                             onClick = { onSongClick(song) },
                             onLongClick = { onSongLongClick(song) }
                         )

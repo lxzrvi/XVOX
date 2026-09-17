@@ -2,7 +2,6 @@ package com.xvox.music.features.artist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,7 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -127,8 +126,7 @@ fun ArtistCircleItem(
 
     Column(
         modifier = modifier
-            .xvoxPressScale(
-                pressedScale = 0.93f,
+            .xvoxSongPress(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
