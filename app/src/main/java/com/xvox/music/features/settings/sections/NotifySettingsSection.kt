@@ -1,134 +1,74 @@
 package com.xvox.music.features.settings.sections
 
-import android.Manifest
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.notifications.XvoxReminderManager
-import androidx.core.content.ContextCompat as Compat
 
-/**
- * Notify: XVOX may gently remind you to play music — at any hour, never more than three times in
- * 24 hours. Asks for notification permission, keeps the app alive in the background, and offers
- * a Try-now button so one nudge lands immediately.
- */
 @Composable
 fun NotifySettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
-    val context = LocalContext.current
-    val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        Compat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+    val haptics = LocalXvoxHaptics.current
 
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            XvoxReminderManager.ensureChannel(context)
-            viewModel.setRemindersEnabled(true)
-            XvoxReminderManager.scheduleNext(context)
-            Toast.makeText(context, "Reminders on — see you in a few hours", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "Notifications are blocked for XVOX", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SettingsToggle(
-            title = "Music reminders",
-            subtitle = null,
-            checked = state.remindersEnabled,
-            onChange = { on ->
-                if (on) {
-                    if (needsPermission) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else {
-                        XvoxReminderManager.ensureChannel(context)
-                        viewModel.setRemindersEnabled(true)
-                        XvoxReminderManager.scheduleNext(context)
-                    }
-                } else {
-                    viewModel.setRemindersEnabled(false)
-                    XvoxReminderManager.cancel(context)
-                }
-            }
-        )
-
-        Text(
-            text = "Keep XVOX open in the background so reminders can arrive:",
-            color = colors.secondaryText,
-            fontSize = 12.sp
-        )
-        RowAction("Open battery / background settings", colors) {
-            runCatching {
-                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-            }
-        }
-        RowAction("Open app info (allow notifications)", colors) {
-            runCatching {
-                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                } else {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-                }
-                context.startActivity(intent)
-            }
-        }
-
-        Spacer(Modifier.height(6.dp))
-        Column(
-            Modifier
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(colors.cardElevated)
-                .xvoxPressScale {
-                    if (needsPermission) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else {
-                        XvoxReminderManager.ensureChannel(context)
-                        XvoxReminderManager.fireNow(context)
-                        Toast.makeText(context, "Test notification sent", Toast.LENGTH_SHORT).show()
-                    }
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card)
+                .clickable {
+                    haptics.tap()
+                    viewModel.setRemindersEnabled(!state.remindersEnabled)
                 }
-                .padding(16.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Try now", color = colors.primaryAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("Send one test notification right away", color = colors.secondaryText, fontSize = 11.sp)
-        }
-    }
-}
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                    text = "Daily music reminders",
+                    color = colors.primaryText,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Gentle notification to resume your favourite tracks",
+                    color = colors.secondaryText,
+                    fontSize = 11.sp
+                )
+            }
 
-@Composable
-private fun RowAction(label: String, colors: com.xvox.music.core.design.theme.XvoxPalette, onClick: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.cardElevated)
-            .xvoxPressScale(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp)
-    ) {
-        Text(label, color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Switch(
+                checked = state.remindersEnabled,
+                onCheckedChange = {
+                    haptics.tap()
+                    viewModel.setRemindersEnabled(it)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = colors.background,
+                    checkedTrackColor = colors.primaryAccent,
+                    uncheckedThumbColor = colors.secondaryText,
+                    uncheckedTrackColor = colors.cardElevated
+                )
+            )
+        }
     }
 }

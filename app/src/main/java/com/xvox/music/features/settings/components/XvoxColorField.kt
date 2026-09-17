@@ -99,7 +99,7 @@ private fun hexToHsv(hex: String): FloatArray? = parseHexColor(hex)?.let { color
 private fun hsvToHex(h: Float, s: Float, v: Float): String =
     "#%06X".format(hsvColor(h, s, v).toArgb() and 0xFFFFFF)
 
-/** A real HSV wheel: hue around the circle, saturation by radius, brightness via the slider. */
+/** A real HSV wheel: hue around the circle, saturation by radius, brightness via slider. */
 private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val center = size / 2f; val radius = center
@@ -129,7 +129,15 @@ private val DefaultWheelSwatches = listOf(
 )
 
 // Shared dynamic swatches list so user-made colors persist during the session
-private val UserCustomSwatches = mutableListOf<String>()
+val UserCustomSwatches = mutableListOf<String>()
+
+// 6 distinct sticky points for dark/light slider
+private val SliderSnapPoints = listOf(0.15f, 0.32f, 0.49f, 0.66f, 0.83f, 1.0f)
+
+private fun snapValue(v: Float): Float {
+    val closest = SliderSnapPoints.minByOrNull { abs(it - v) } ?: v
+    return if (abs(closest - v) < 0.045f) closest else v
+}
 
 @Composable
 fun ColorPickerRow(
@@ -169,7 +177,8 @@ fun ColorPickerRow(
 
     var pendingPush by remember { mutableStateOf<Job?>(null) }
     fun commit(h: Float, s: Float, v: Float) {
-        wheelH = h; wheelS = s; wheelV = v
+        val snappedV = snapValue(v)
+        wheelH = h; wheelS = s; wheelV = snappedV
         pendingPush?.cancel()
         pendingPush = scope.launch {
             kotlinx.coroutines.delay(40)

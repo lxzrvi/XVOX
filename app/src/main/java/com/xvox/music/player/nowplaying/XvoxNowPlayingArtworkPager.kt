@@ -4,12 +4,22 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,10 +33,11 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Full-queue smooth HorizontalPager.
- * Rests cleanly with 11dp side gaps and 11dp page spacing.
- * Enables ultra-fast, snappy continuous swiping, non-blocking rapid button navigation,
- * and live real-time backdrop palette crossfading with zero lag.
+ * Full-queue smooth HorizontalPager for Now Playing.
+ * - Instant cover swiping with zero delay.
+ * - Fast Next/Previous button taps immediately animate the cover without getting stuck.
+ * - Currently playing audio remains playing while swiping/tapping fast; only when the
+ *   user settles / releases on a target song does it begin playback.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -48,34 +59,42 @@ fun XvoxNowPlayingArtworkPager(
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
-    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
+    var lastHandledNavRequest by remember { mutableIntStateOf(navigationRequest) }
+    var targetPage by remember(currentIndex) { mutableIntStateOf(initialIdx) }
 
-    // Fast Next/Previous button animated swiping
+    // Fast Next/Previous button animated swiping without lag or getting stuck
     LaunchedEffect(navigationRequest) {
-        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
-        val delta = navigationRequest - lastHandledRequest
-        lastHandledRequest = navigationRequest
-        var target = pager.currentPage + delta
+        if (navigationRequest == lastHandledNavRequest) return@LaunchedEffect
+        val delta = navigationRequest - lastHandledNavRequest
+        lastHandledNavRequest = navigationRequest
+
+        var nextTarget = targetPage + delta
         if (repeatMode == RepeatMode.ALL) {
-            target = (target % queue.size + queue.size) % queue.size
+            nextTarget = (nextTarget % queue.size + queue.size) % queue.size
         } else {
-            target = target.coerceIn(0, queue.lastIndex)
+            nextTarget = nextTarget.coerceIn(0, queue.lastIndex)
         }
-        if (target in queue.indices && target != pager.currentPage) {
-            pager.animateScrollToPage(target, animationSpec = tween(170, easing = FastOutSlowInEasing))
+        targetPage = nextTarget
+
+        if (nextTarget in queue.indices) {
+            pager.animateScrollToPage(
+                page = nextTarget,
+                animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
+            )
         }
     }
 
-    // Synchronize pager when currentIndex changes externally (track tap in queue or auto-advance)
+    // Synchronize pager when currentIndex changes externally (auto-advance / tap in queue)
     LaunchedEffect(currentIndex, queue.size) {
         if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
+            targetPage = currentIndex
             val dist = abs(currentIndex - pager.currentPage)
             if (dist > 1) {
                 pager.scrollToPage(currentIndex)
             } else {
                 pager.animateScrollToPage(
-                    currentIndex,
-                    animationSpec = tween(170, easing = FastOutSlowInEasing)
+                    page = currentIndex,
+                    animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
                 )
             }
         }
@@ -97,12 +116,13 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Snappy playback commit when settled on track
+    // Playback change only triggered when pager settles on a target page
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Pair(pager.settledPage, pager.isScrollInProgress)
         }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
             if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
+                targetPage = settledIndex
                 settled(settledIndex)
             }
         }
@@ -114,7 +134,7 @@ fun XvoxNowPlayingArtworkPager(
         snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
         flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
-            snapAnimationSpec = tween(160, easing = FastOutSlowInEasing),
+            snapAnimationSpec = tween(150, easing = FastOutSlowInEasing),
             snapPositionalThreshold = 0.35f
         ),
         contentPadding = PaddingValues(horizontal = 11.dp),

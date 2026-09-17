@@ -58,7 +58,7 @@ fun AddToQueueBox(
             modifier = Modifier.padding(bottom = 2.dp)
         )
 
-        // Option 1: Current / Active playing queue
+        // Option 1: Queue 1 (Default / Active queue)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,13 +80,13 @@ fun AddToQueueBox(
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Current Queue",
+                    text = "Queue 1",
                     color = colors.primaryText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = activeQueueName.ifBlank { "Active playback queue" },
+                    text = "Current queue",
                     color = colors.primaryAccent,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Medium
@@ -94,9 +94,9 @@ fun AddToQueueBox(
             }
         }
 
-        // Option 2+: Numbered Saved Queues (Queue 1, Queue 2, Queue 3...)
+        // Option 2+: Numbered Saved Queues (Queue 2, Queue 3...)
         savedQueues.forEachIndexed { index, saved ->
-            val queueNumber = index + 1
+            val queueNumber = index + 2
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,6 +133,7 @@ fun AddToQueueBox(
         }
 
         // Option 3: Add to New Queue
+        val nextQueueNumber = savedQueues.size + 2
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -160,7 +161,7 @@ fun AddToQueueBox(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Create Queue ${savedQueues.size + 1}",
+                    text = "Create Queue $nextQueueNumber",
                     color = colors.secondaryText,
                     fontSize = 11.sp
                 )

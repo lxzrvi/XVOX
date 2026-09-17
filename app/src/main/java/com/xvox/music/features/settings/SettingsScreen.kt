@@ -1,8 +1,10 @@
 package com.xvox.music.features.settings
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,11 +33,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,12 +51,9 @@ import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsChoiceRow
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
 import com.xvox.music.features.settings.sections.AboutSettingsSection
-import com.xvox.music.features.settings.sections.AppResetSettingsSection
 import com.xvox.music.features.settings.sections.BackupSettingsSection
 import com.xvox.music.features.settings.sections.BatteryOptimizationSection
 import com.xvox.music.features.settings.sections.HiddenSongsSettingsSection
@@ -62,11 +61,15 @@ import com.xvox.music.features.settings.sections.LibraryFilterSettingsSection
 import com.xvox.music.features.settings.sections.NotifySettingsSection
 
 /**
- * Redesigned Settings Screen:
- * - Prominent large header title.
- * - Flat unboxed clean layout with open section headers.
- * - Direct inline toggles / switches for boolean options.
- * - Duplicated overlay settings filtered out (lyrics, equalizer, 3d sound, home layouts).
+ * Settings Screen:
+ * - Theme-outlined bordered section boxes (colors.cardBorder, thin theme-based border).
+ * - Accent color with preset buttons (White, Red, Blue) and dedicated Custom button opening the wheel.
+ * - Text scale preset boxes (0.15x, 0.25x, 0.50x, 0.75x, 1.0x, 1.25x).
+ * - Playback & Crossfade and Library Scan removed.
+ * - Single-line side-by-side Backup Export / Import.
+ * - Background playback toggle and daily reminder switch.
+ * - Share XVOX button and comprehensive About section.
+ * - 2-column grid in landscape mode.
  */
 @Composable
 fun SettingsScreen(
@@ -81,225 +84,119 @@ fun SettingsScreen(
     val context = LocalContext.current
     val state by settingsViewModel.state.collectAsState()
     val scrollState = rememberLazyListState()
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    var showCustomColorDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(topResetKey) {
         runCatching { scrollState.scrollToItem(0) }
+    }
+
+    if (showCustomColorDialog) {
+        overlays.showBox("Custom Accent Color") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ColorPickerRow(
+                    label = "Pick Accent Color",
+                    hex = if (state.accentColor.startsWith("#")) state.accentColor else "#FFFFFF",
+                    onColorChange = { hex -> settingsViewModel.setAccentColor(hex) },
+                    subtitle = "Applies across all buttons and highlights"
+                )
+            }
+        }
+        showCustomColorDialog = false
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(top = 10.dp)
+            .padding(top = 8.dp)
     ) {
-        // Large Prominent Header Text
         Text(
             text = "Settings",
             color = colors.primaryAccent,
             fontSize = 24.sp,
             lineHeight = 28.sp,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 12.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
         )
 
-        LazyColumn(
-            state = scrollState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 14.dp,
-                end = 14.dp,
-                bottom = LocalXvoxBottomInset.current + 36.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // 1. Appearance & Theme
-            item(key = "section_appearance") {
-                SettingsSectionTitle("Appearance & Theme")
+        val bottomPadding = LocalXvoxBottomInset.current + if (isLandscape) 16.dp else 40.dp
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    SettingsChoiceRow(
-                        listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
-                        state.theme
-                    ) { settingsViewModel.setTheme(it) }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Text("Accent Colour", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    SettingsChoiceRow(
-                        listOf("White" to "White", "Red" to "Red", "Blue" to "Blue"),
-                        if (state.accentColor.startsWith("#")) "custom" else state.accentColor
-                    ) { key -> if (key != "custom") settingsViewModel.setAccentColor(key) }
-
-                    ColorPickerRow(
-                        label = "Custom accent",
-                        hex = if (state.accentColor.startsWith("#")) state.accentColor else "",
-                        onColorChange = { hex -> settingsViewModel.setAccentColor(hex) },
-                        subtitle = if (state.accentColor.startsWith("#")) "Active" else "Pick colour"
-                    )
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("A", color = colors.mutedText, fontSize = 12.sp, modifier = Modifier.width(24.dp))
-                        XvoxThinLineSlider(
-                            value = state.fontSizeScale,
-                            onValueChange = settingsViewModel::setFontSizeScale,
-                            valueRange = 0.8f..1.4f,
-                            defaultValue = 1f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("A", color = colors.primaryText, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
-                    }
-                }
-            }
-
-            // 2. Playback & Crossfade Engine
-            item(key = "section_playback") {
-                SettingsSectionTitle("Playback & Crossfade")
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SettingsRowSwitch(
-                        title = "Crossfade audio",
-                        subtitle = "Smoothly blend track transitions without gap",
-                        checked = state.crossfade,
-                        onCheckedChange = settingsViewModel::setCrossfade
-                    )
-
-                    if (state.crossfade) {
-                        Text(
-                            "Transition length · ${state.crossfadeDuration}s",
-                            color = colors.secondaryText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(2, 4, 6, 8, 10, 12).forEach { sec ->
-                                val isSelected = state.crossfadeDuration == sec
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(34.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                                        .xvoxPressScale { settingsViewModel.setCrossfadeDuration(sec) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "${sec}s",
-                                        color = if (isSelected) colors.background else colors.primaryText,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-
-                        SettingsRowSwitch(
-                            title = "Smart energy blend",
-                            subtitle = "Automatic bass hand-off & frequency clash suppression",
-                            checked = state.crossfadeSmart,
-                            onCheckedChange = settingsViewModel::setCrossfadeSmart
-                        )
-
-                        SettingsRowSwitch(
-                            title = "Beat align",
-                            subtitle = "Align tempo beats during track transitions",
-                            checked = state.crossfadeBeatSync,
-                            onCheckedChange = settingsViewModel::setCrossfadeBeatSync
-                        )
-                    }
-
-                    SettingsRowSwitch(
-                        title = "Pause on disconnect",
-                        subtitle = "Pause playback when headphones or Bluetooth disconnect",
-                        checked = state.pauseOnHeadphoneDisconnect,
-                        onCheckedChange = settingsViewModel::setPauseOnHeadphoneDisconnect
-                    )
-
-                    SettingsRowSwitch(
-                        title = "Auto-play on connect",
-                        subtitle = "Resume playback when headphones or Bluetooth connect",
-                        checked = state.playOnHeadsetConnect,
-                        onCheckedChange = settingsViewModel::setPlayOnHeadsetConnect
-                    )
-                }
-            }
-
-            // 3. Library & Storage
-            item(key = "section_library") {
-                SettingsSectionTitle("Library & Storage")
-
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (isLandscape) {
+            // 2-Column Grid in Landscape Mode
+            LazyColumn(
+                state = scrollState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Row 1: Appearance & Theme | Library Filters
+                item(key = "row_1") {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.card)
-                            .xvoxPressScale {
-                                showLibraryRefresh(overlays, homeViewModel)
-                            }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Scan Library", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Rescan device audio files and indexed metadata", color = colors.secondaryText, fontSize = 11.sp)
+                        Box(modifier = Modifier.weight(1f)) {
+                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
                         }
-                        Icon(painterResource(R.drawable.ic_xvox_refresh), null, tint = colors.primaryAccent, modifier = Modifier.size(19.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
+                        }
                     }
+                }
 
-                    LibraryFilterSettingsSection(state, settingsViewModel, homeViewModel)
-
+                // Row 2: Backup & Restore | System & Reminders
+                item(key = "row_2") {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(colors.card)
-                            .xvoxPressScale {
-                                overlays.showBox("Deleted Songs & Artists") {
-                                    HiddenSongsSettingsSection(homeViewModel)
-                                }
-                            }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Hidden & Deleted Tracks", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Restore songs or artists hidden from library", color = colors.secondaryText, fontSize = 11.sp)
+                        Box(modifier = Modifier.weight(1f)) {
+                            BackupSectionCard(state, settingsViewModel)
                         }
-                        Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            SystemSectionCard(state, settingsViewModel)
+                        }
                     }
                 }
-            }
 
-            // 4. Backup & Restore
-            item(key = "section_backup") {
-                SettingsSectionTitle("Backup & Restore")
-                BackupSettingsSection(state, settingsViewModel)
-            }
-
-            // 5. System & Battery
-            item(key = "section_system") {
-                SettingsSectionTitle("System")
-
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BatteryOptimizationSection()
-                    NotifySettingsSection(state, settingsViewModel)
+                // Row 3: About & Share XVOX
+                item(key = "row_3") {
+                    AboutSectionCard()
                 }
             }
+        } else {
+            // Portrait Mode Single Column
+            LazyColumn(
+                state = scrollState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item(key = "section_appearance") {
+                    AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
+                }
 
-            // 6. About & Reset
-            item(key = "section_about") {
-                SettingsSectionTitle("About & App Reset")
+                item(key = "section_library") {
+                    LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
+                }
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AboutSettingsSection()
-                    AppResetSettingsSection()
+                item(key = "section_backup") {
+                    BackupSectionCard(state, settingsViewModel)
+                }
+
+                item(key = "section_system") {
+                    SystemSectionCard(state, settingsViewModel)
+                }
+
+                item(key = "section_about") {
+                    AboutSectionCard()
                 }
             }
         }
@@ -307,68 +204,205 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsSectionTitle(title: String) {
+private fun AppearanceSectionCard(
+    state: SettingsState,
+    viewModel: SettingsViewModel,
+    onOpenColorWheel: () -> Unit
+) {
     val colors = XvoxTheme.colors
-    Text(
-        text = title,
-        color = colors.primaryAccent,
-        fontSize = 15.5.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 6.dp)
-    )
+
+    SettingsCardFrame(title = "Appearance & Theme") {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            SettingsChoiceRow(
+                listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
+                state.theme
+            ) { viewModel.setTheme(it) }
+
+            Spacer(Modifier.height(4.dp))
+
+            Text("Accent Color", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("White", "Red", "Blue").forEach { colorKey ->
+                    val isSelected = state.accentColor.equals(colorKey, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .xvoxPressScale { viewModel.setAccentColor(colorKey) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = colorKey,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Dedicated Custom Color Button next to Blue
+                val isCustomActive = state.accentColor.startsWith("#")
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isCustomActive) colors.primaryAccent else colors.cardElevated)
+                        .border(
+                            width = 1.dp,
+                            color = if (isCustomActive) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .xvoxPressScale(onClick = onOpenColorWheel),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isCustomActive) state.accentColor.uppercase() else "+ Custom",
+                        color = if (isCustomActive) colors.background else colors.primaryText,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val scalePresets = listOf(
+                    0.15f to "0.15x",
+                    0.25f to "0.25x",
+                    0.50f to "0.50x",
+                    0.75f to "0.75x",
+                    1.00f to "1.0x",
+                    1.25f to "1.25x"
+                )
+                scalePresets.forEach { (scaleValue, label) ->
+                    val isSelected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.05f
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .xvoxPressScale { viewModel.setFontSizeScale(scaleValue) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun SettingsRowSwitch(
-    title: String,
-    subtitle: String? = null,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+private fun LibrarySectionCard(
+    state: SettingsState,
+    viewModel: SettingsViewModel,
+    homeViewModel: HomeViewModel,
+    overlays: com.xvox.music.core.ui.overlay.XvoxOverlayController
 ) {
     val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.card)
-            .clickable {
-                haptics.tap()
-                onCheckedChange(!checked)
-            }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-                text = title,
-                color = colors.primaryText,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    color = colors.secondaryText,
-                    fontSize = 11.sp
-                )
+    SettingsCardFrame(title = "Library & Filters") {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LibraryFilterSettingsSection(state, viewModel, homeViewModel)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardElevated)
+                    .xvoxPressScale {
+                        overlays.showBox("Deleted Songs & Artists") {
+                            HiddenSongsSettingsSection(homeViewModel)
+                        }
+                    }
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Hidden & Deleted Tracks", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Restore songs or artists hidden from library", color = colors.secondaryText, fontSize = 11.sp)
+                }
+                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
             }
         }
+    }
+}
 
-        Switch(
-            checked = checked,
-            onCheckedChange = {
-                haptics.tap()
-                onCheckedChange(it)
-            },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = colors.background,
-                checkedTrackColor = colors.primaryAccent,
-                uncheckedThumbColor = colors.secondaryText,
-                uncheckedTrackColor = colors.cardElevated
-            )
+@Composable
+private fun BackupSectionCard(state: SettingsState, viewModel: SettingsViewModel) {
+    SettingsCardFrame(title = "Backup & Restore") {
+        BackupSettingsSection(state, viewModel)
+    }
+}
+
+@Composable
+private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel) {
+    SettingsCardFrame(title = "System & Background") {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            BatteryOptimizationSection()
+            NotifySettingsSection(state, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun AboutSectionCard() {
+    SettingsCardFrame(title = "About XVOX") {
+        AboutSettingsSection()
+    }
+}
+
+@Composable
+private fun SettingsCardFrame(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    val colors = XvoxTheme.colors
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.card)
+            .border(0.9.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+            .padding(14.dp)
+    ) {
+        Text(
+            text = title,
+            color = colors.primaryAccent,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 10.dp)
         )
+        content()
     }
 }

@@ -1,23 +1,34 @@
 package com.xvox.music.features.artist
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.SongPressSpec
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -40,34 +53,66 @@ fun XvoxArtistGrid(
     hideText: Boolean = false,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
+    onMergeClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val colCount = 4
-    val chunked = artists.chunked(colCount)
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val effectiveColumns = if (isLandscape) 8 else columns.coerceIn(2, 8)
+    val effectiveRows = rows.coerceIn(1, 8)
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        chunked.forEach { rowArtists ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                rowArtists.forEach { artist ->
-                    ArtistCircleItem(
-                        artist = artist,
-                        showText = !hideText,
-                        onClick = { onArtistClick(artist) },
-                        onLongClick = { onArtistLongClick(artist) },
-                        modifier = Modifier.weight(1f)
-                    )
+    if (direction == "horizontal") {
+        val totalPerColumn = effectiveRows
+        val chunkedCols = artists.chunked(totalPerColumn)
+
+        LazyRow(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap.dp)
+        ) {
+            items(chunkedCols) { colArtists ->
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    colArtists.forEach { artist ->
+                        ArtistCircleItem(
+                            artist = artist,
+                            hideText = hideText,
+                            onClick = { onArtistClick(artist) },
+                            onLongClick = { onArtistLongClick(artist) },
+                            modifier = Modifier.width(68.dp)
+                        )
+                    }
                 }
-                if (rowArtists.size < colCount) {
-                    repeat(colCount - rowArtists.size) {
-                        Box(modifier = Modifier.weight(1f))
+            }
+        }
+    } else {
+        val chunked = artists.chunked(effectiveColumns)
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            chunked.forEach { rowArtists ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(gap.dp)
+                ) {
+                    rowArtists.forEach { artist ->
+                        ArtistCircleItem(
+                            artist = artist,
+                            hideText = hideText,
+                            onClick = { onArtistClick(artist) },
+                            onLongClick = { onArtistLongClick(artist) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (rowArtists.size < effectiveColumns) {
+                        repeat(effectiveColumns - rowArtists.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -75,17 +120,12 @@ fun XvoxArtistGrid(
     }
 }
 
-/**
- * 4-column vertical scroll grid item:
- * Circular artist cover with 1-line artist name (truncated with ellipsis) and equal gaps.
- */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ArtistCircleItem(
     artist: XvoxArtist,
-    showText: Boolean = true,
+    hideText: Boolean = false,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {},
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -95,17 +135,21 @@ fun ArtistCircleItem(
             .xvoxSongPress(
                 onClick = onClick,
                 onLongClick = onLongClick,
-                pressedScale = 0.93f
+                spec = SongPressSpec(
+                    pulse = false,
+                    haptic = false,
+                    pressedScale = 0.93f
+                )
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
+                .size(54.dp)
                 .clip(CircleShape)
-                .background(colors.cardElevated),
+                .background(colors.card)
+                .border(1.dp, colors.cardBorder.copy(alpha = 0.35f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             if (artist.customImageUri != null) {
@@ -113,14 +157,13 @@ fun ArtistCircleItem(
                     model = artist.customImageUri,
                     contentDescription = artist.name,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize()
+                    modifier = Modifier.fillMaxSize()
                 )
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
-                    requestSize = 180,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize()
+                    requestSize = 120,
+                    modifier = Modifier.fillMaxSize()
                 )
             } else {
                 Icon(
@@ -132,17 +175,17 @@ fun ArtistCircleItem(
             }
         }
 
-        if (showText) {
+        if (!hideText) {
             Text(
                 text = artist.name,
                 color = colors.primaryText,
-                fontSize = 11.5.sp,
-                lineHeight = 14.sp,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 2.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
             )
         }
     }
@@ -151,14 +194,13 @@ fun ArtistCircleItem(
 @Composable
 fun ArtistSquareItem(
     artist: XvoxArtist,
-    showText: Boolean = true,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {},
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     ArtistCircleItem(
         artist = artist,
-        showText = showText,
+        hideText = false,
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier
