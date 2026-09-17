@@ -66,7 +66,6 @@ import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -170,10 +169,9 @@ fun SearchScreen(
             homeViewModel.addRecentSearch(trimmedQuery)
         }
         val targetList = if (trimmedQuery.isEmpty()) homeState.songs else matchingSongs
-        val index = targetList.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
-        playerViewModel.play(
-            queue = targetList,
-            index = index,
+        playerViewModel.playFromSource(
+            song = song,
+            sourceQueue = targetList,
             source = if (trimmedQuery.isEmpty()) "Search: All Songs" else "Search: \"$trimmedQuery\""
         )
     }
@@ -182,11 +180,11 @@ fun SearchScreen(
         if (trimmedQuery.isNotBlank()) {
             homeViewModel.addRecentSearch(trimmedQuery)
         }
-        val songs = homeViewModel.getPlaylistSongs(playlist.id)
+        val songs = homeViewModel.playlistSongs(playlist)
         if (songs.isNotEmpty()) {
-            playerViewModel.play(
-                queue = songs,
-                index = 0,
+            playerViewModel.playFromSource(
+                song = songs.first(),
+                sourceQueue = songs,
                 source = "Playlist: ${playlist.name}"
             )
         }
@@ -198,9 +196,9 @@ fun SearchScreen(
             homeViewModel.addRecentSearch(trimmedQuery)
         }
         if (artist.songs.isNotEmpty()) {
-            playerViewModel.play(
-                queue = artist.songs,
-                index = 0,
+            playerViewModel.playFromSource(
+                song = artist.songs.first(),
+                sourceQueue = artist.songs,
                 source = "Artist: ${artist.name}"
             )
         }
@@ -294,56 +292,50 @@ fun SearchScreen(
                     matchingArtists = matchingArtists,
                     matchingPlaylists = matchingPlaylists,
                     allSongs = homeState.songs,
-                    currentSongId = playerState.currentSong?.id,
+                    currentSongId = playerState.currentSongId,
                     isPlaying = playerState.isPlaying,
                     bottomInset = bottomInset,
                     onSongClick = ::handleSongClick,
                     onSongLongClick = { song ->
                         showSongOptionsOverlay(
                             overlays = overlays,
+                            context = context,
                             song = song,
                             isLiked = song.id in homeState.likedSongIds,
+                            playlist = null,
+                            viewModel = homeViewModel,
+                            playerViewModel = playerViewModel,
                             playlists = homeState.playlists,
-                            context = context,
-                            onToggleLiked = { homeViewModel.toggleLiked(song) },
-                            onPlayNext = { playerViewModel.playNext(listOf(song)) },
-                            onAddToQueue = { playerViewModel.enqueue(listOf(song)) },
-                            onAddToPlaylist = { p -> homeViewModel.addToPlaylist(p.id, song.id) },
-                            onDelete = { pendingDeleteSong = song }
+                            songs = homeState.songs,
+                            deleteLauncher = deleteLauncher,
+                            onPendingDelete = { pendingDeleteSong = it }
                         )
                     },
                     onArtistClick = ::handleArtistClick,
                     onArtistLongClick = { artist ->
+                        val firstSong = artist.songs.firstOrNull() ?: return@SearchResultsList
                         showSongOptionsOverlay(
                             overlays = overlays,
-                            song = artist.songs.firstOrNull() ?: return@SearchResultsList,
-                            isLiked = false,
-                            playlists = homeState.playlists,
                             context = context,
-                            onToggleLiked = {},
-                            onPlayNext = { playerViewModel.playNext(artist.songs) },
-                            onAddToQueue = { playerViewModel.enqueue(artist.songs) },
-                            onAddToPlaylist = {},
-                            onDelete = {}
+                            song = firstSong,
+                            isLiked = firstSong.id in homeState.likedSongIds,
+                            playlist = null,
+                            viewModel = homeViewModel,
+                            playerViewModel = playerViewModel,
+                            playlists = homeState.playlists,
+                            songs = homeState.songs,
+                            deleteLauncher = deleteLauncher,
+                            onPendingDelete = { pendingDeleteSong = it }
                         )
                     },
                     onPlaylistClick = ::handlePlaylistClick,
                     onPlaylistLongClick = { playlist ->
                         showPlaylistActions(
                             overlays = overlays,
+                            viewModel = homeViewModel,
                             playlist = playlist,
-                            onPlay = { handlePlaylistClick(playlist) },
-                            onPlayNext = {
-                                val songs = homeViewModel.getPlaylistSongs(playlist.id)
-                                playerViewModel.playNext(songs)
-                            },
-                            onEnqueue = {
-                                val songs = homeViewModel.getPlaylistSongs(playlist.id)
-                                playerViewModel.enqueue(songs)
-                            },
-                            onRename = { newName -> homeViewModel.renamePlaylist(playlist.id, newName) },
-                            onDelete = { homeViewModel.deletePlaylist(playlist.id) },
-                            onChangeCover = { uri -> homeViewModel.setPlaylistCustomCover(playlist.id, uri) }
+                            onSelect = { handlePlaylistClick(playlist) },
+                            onDeleted = { homeViewModel.refresh() }
                         )
                     }
                 )
@@ -385,56 +377,50 @@ fun SearchScreen(
                 matchingArtists = matchingArtists,
                 matchingPlaylists = matchingPlaylists,
                 allSongs = homeState.songs,
-                currentSongId = playerState.currentSong?.id,
+                currentSongId = playerState.currentSongId,
                 isPlaying = playerState.isPlaying,
                 bottomInset = bottomInset,
                 onSongClick = ::handleSongClick,
                 onSongLongClick = { song ->
                     showSongOptionsOverlay(
                         overlays = overlays,
+                        context = context,
                         song = song,
                         isLiked = song.id in homeState.likedSongIds,
+                        playlist = null,
+                        viewModel = homeViewModel,
+                        playerViewModel = playerViewModel,
                         playlists = homeState.playlists,
-                        context = context,
-                        onToggleLiked = { homeViewModel.toggleLiked(song) },
-                        onPlayNext = { playerViewModel.playNext(listOf(song)) },
-                        onAddToQueue = { playerViewModel.enqueue(listOf(song)) },
-                        onAddToPlaylist = { p -> homeViewModel.addToPlaylist(p.id, song.id) },
-                        onDelete = { pendingDeleteSong = song }
+                        songs = homeState.songs,
+                        deleteLauncher = deleteLauncher,
+                        onPendingDelete = { pendingDeleteSong = it }
                     )
                 },
                 onArtistClick = ::handleArtistClick,
                 onArtistLongClick = { artist ->
+                    val firstSong = artist.songs.firstOrNull() ?: return@SearchResultsList
                     showSongOptionsOverlay(
                         overlays = overlays,
-                        song = artist.songs.firstOrNull() ?: return@SearchResultsList,
-                        isLiked = false,
-                        playlists = homeState.playlists,
                         context = context,
-                        onToggleLiked = {},
-                        onPlayNext = { playerViewModel.playNext(artist.songs) },
-                        onAddToQueue = { playerViewModel.enqueue(artist.songs) },
-                        onAddToPlaylist = {},
-                        onDelete = {}
+                        song = firstSong,
+                        isLiked = firstSong.id in homeState.likedSongIds,
+                        playlist = null,
+                        viewModel = homeViewModel,
+                        playerViewModel = playerViewModel,
+                        playlists = homeState.playlists,
+                        songs = homeState.songs,
+                        deleteLauncher = deleteLauncher,
+                        onPendingDelete = { pendingDeleteSong = it }
                     )
                 },
                 onPlaylistClick = ::handlePlaylistClick,
                 onPlaylistLongClick = { playlist ->
                     showPlaylistActions(
                         overlays = overlays,
+                        viewModel = homeViewModel,
                         playlist = playlist,
-                        onPlay = { handlePlaylistClick(playlist) },
-                        onPlayNext = {
-                            val songs = homeViewModel.getPlaylistSongs(playlist.id)
-                            playerViewModel.playNext(songs)
-                        },
-                        onEnqueue = {
-                            val songs = homeViewModel.getPlaylistSongs(playlist.id)
-                            playerViewModel.enqueue(songs)
-                        },
-                        onRename = { newName -> homeViewModel.renamePlaylist(playlist.id, newName) },
-                        onDelete = { homeViewModel.deletePlaylist(playlist.id) },
-                        onChangeCover = { uri -> homeViewModel.setPlaylistCustomCover(playlist.id, uri) }
+                        onSelect = { handlePlaylistClick(playlist) },
+                        onDeleted = { homeViewModel.refresh() }
                     )
                 }
             )
