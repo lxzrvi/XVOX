@@ -121,65 +121,45 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // Selection badge or Play/Pause indicator
-        if (selected) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(9.dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(colors.primaryAccent),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_check),
-                    contentDescription = "Selected",
-                    tint = colors.background,
-                    modifier = Modifier.size(16.dp)
+        // Play/Pause indicator in top-right
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(9.dp)
+                .height(30.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = 700f
+                    )
+                )
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            AnimatedContent(
+                targetState = current && playing,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
+                },
+                label = "recentPlayState"
+            ) { active ->
+                PlaybackIcon(
+                    type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
+                    color = Color.White,
+                    modifier = Modifier.size(14.dp)
                 )
             }
-        } else {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(9.dp)
-                    .height(30.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = 0.88f,
-                            stiffness = 700f
-                        )
-                    )
-                    .xvoxSongPress(onClick, onLongClick)
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                AnimatedContent(
-                    targetState = current && playing,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
-                    },
-                    label = "recentPlayState"
-                ) { active ->
-                    PlaybackIcon(
-                        type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
-                        color = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
 
-                if (current && playing) {
-                    Text(
-                        text = "Playing",
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
+            if (current && playing) {
+                Text(
+                    text = "Playing",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Normal
+                )
             }
         }
     }

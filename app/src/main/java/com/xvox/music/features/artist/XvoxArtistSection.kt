@@ -36,7 +36,7 @@ fun XvoxArtistGrid(
     columns: Int = 4,
     rows: Int = 4,
     direction: String = "vertical",
-    gap: Int = 10,
+    gap: Int = 12,
     hideText: Boolean = false,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
@@ -49,12 +49,12 @@ fun XvoxArtistGrid(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         chunked.forEach { rowArtists ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 rowArtists.forEach { artist ->
                     ArtistCircleItem(
@@ -98,7 +98,7 @@ fun ArtistCircleItem(
                 pressedScale = 0.93f
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
             modifier = Modifier
@@ -136,9 +136,9 @@ fun ArtistCircleItem(
             Text(
                 text = artist.name,
                 color = colors.primaryText,
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = 11.5.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

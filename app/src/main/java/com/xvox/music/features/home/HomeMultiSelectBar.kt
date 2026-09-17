@@ -171,7 +171,17 @@ fun HomeMultiSelectBar(
                 )
             }
 
-            if (onDeleteSelected != null) {
+            if (categoryName == "Recently Played") {
+                MultiActionItem(
+                    iconRes = R.drawable.ic_xvox_close,
+                    label = "Remove",
+                    onClick = {
+                        viewModel.removeMultipleFromRecent(selectedSongs)
+                        overlays.showP("${selectedSongs.size} removed from Recently Played")
+                        onClearSelection()
+                    }
+                )
+            } else if (onDeleteSelected != null) {
                 MultiActionItem(
                     iconRes = R.drawable.ic_xvox_delete,
                     label = "Delete",

@@ -343,6 +343,8 @@ fun HomeScreen(
         return state.songs to (if (src.isNotBlank()) src else "All Songs")
     }
 
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
         item(key = "recent") {
             XvoxRecentlyPlayedSection(
@@ -379,7 +381,7 @@ fun HomeScreen(
                 columns = 4,
                 rows = 4,
                 direction = "vertical",
-                gap = 10,
+                gap = 12,
                 hideText = config.artistHideText,
                 onArtistClick = { selectedArtist = it },
                 onArtistLongClick = { showArtistInfo = it },
@@ -396,6 +398,7 @@ fun HomeScreen(
             currentSongId = currentSongId,
             playing = isPlaying,
             selected = selectedSongIds,
+            columns = if (isLandscape) 2 else 1,
             onPlay = { handleSongClick(it, likedSongs, "Liked Songs") },
             onOptions = { if (isSelectionMode) handleSongLongClick(it, "Liked Songs") else openSingleSongOptions(it, selectionSource = XvoxHomeLibraryMode.LIKED) }
         )
@@ -409,6 +412,7 @@ fun HomeScreen(
             longCardHeight = config.playlistLongHeight,
             orientation = if (standalone) "vertical" else config.playlistCardOrientation,
             rows = config.playlistRows,
+            columns = if (isLandscape) 2 else 1,
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist ->

@@ -353,7 +353,7 @@ fun ProfileEditorBox(
                                 haptics.tap()
                                 headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = if (currentHeaderUri != null) 12.dp else 16.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = if (currentHeaderUri != null) "Change" else "Add",
@@ -366,28 +366,52 @@ fun ProfileEditorBox(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // Header Background Transparency Slider (0% on right = fully visible, 100% on left = fully transparent)
-        val transparencyPercent = ((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100f)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Header Transparency", color = colors.secondaryText, fontSize = 11.sp)
-            Text("${transparencyPercent.toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
+        // Header Background Transparency Preset Boxes: 0%, 15%, 25%, 50%, 75%, 85%
+        val transparencyPercent = ((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100f).toInt()
+        val transparencyPresets = listOf(0, 15, 25, 50, 75, 85)
 
-        com.xvox.music.features.settings.components.XvoxThinLineSlider(
-            value = transparencyPercent,
-            onValueChange = { trans ->
-                scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = (1f - (trans / 100f)).coerceIn(0f, 1f))) }
-            },
-            valueRange = 0f..100f,
-            defaultValue = 0f,
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+        Text(
+            text = "Header Transparency",
+            color = colors.secondaryText,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            transparencyPresets.forEach { pct ->
+                val isSelected = (transparencyPercent - pct) in -4..4 || (pct == 0 && transparencyPercent < 8) || (pct == 85 && transparencyPercent >= 80)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                        .then(
+                            if (!isSelected) Modifier.border(0.7.dp, colors.cardBorder, RoundedCornerShape(8.dp))
+                            else Modifier
+                        )
+                        .xvoxPressScale {
+                            haptics.tap()
+                            val targetAlpha = (1f - (pct / 100f)).coerceIn(0f, 1f)
+                            scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = targetAlpha)) }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$pct%",
+                        color = if (isSelected) colors.background else colors.primaryText,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(20.dp))
 

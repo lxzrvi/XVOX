@@ -80,17 +80,51 @@ fun HomeCollectionHeader(
 fun LazyListScope.librarySongItems(
     keyPrefix: String, title: String, songs: List<Song>, currentSongId: Long?, playing: Boolean,
     selected: Set<Long>, onPlay: (Song) -> Unit, onOptions: (Song) -> Unit, onAdd: (() -> Unit)? = null,
-    avatarUri: Any? = null
+    avatarUri: Any? = null,
+    columns: Int = 1
 ) {
     item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd, avatarUri = avatarUri) }
     if (songs.isEmpty()) item(key = "${keyPrefix}_empty") {
         Text("No songs here yet", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
-    items(songs, key = { "${keyPrefix}_${it.id}" }, contentType = { "song_row" }) { song ->
-        XvoxLikedSongRow(song, song.id == currentSongId, song.id == currentSongId && playing,
-            onClick = { onPlay(song) }, onOptions = { onOptions(song) }, selected = song.id in selected,
-            modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp))
+    if (columns > 1) {
+        val chunked = songs.chunked(columns)
+        items(chunked, key = { "${keyPrefix}_chunk_${it.firstOrNull()?.id}" }) { rowSongs ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowSongs.forEach { song ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        XvoxLikedSongRow(
+                            song = song,
+                            current = song.id == currentSongId,
+                            playing = song.id == currentSongId && playing,
+                            onClick = { onPlay(song) },
+                            onOptions = { onOptions(song) },
+                            selected = song.id in selected,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                if (rowSongs.size < columns) {
+                    repeat(columns - rowSongs.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    } else {
+        items(songs, key = { "${keyPrefix}_${it.id}" }, contentType = { "song_row" }) { song ->
+            XvoxLikedSongRow(
+                song, song.id == currentSongId, song.id == currentSongId && playing,
+                onClick = { onPlay(song) }, onOptions = { onOptions(song) }, selected = song.id in selected,
+                modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)
+            )
+        }
     }
 }
 
@@ -98,7 +132,8 @@ fun LazyListScope.playlistCollectionItems(
     playlists: List<XvoxPlaylist>, songsFor: (XvoxPlaylist) -> List<Song>,
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
     layoutStyle: String = "long", longCardHeight: Int = 0,
-    orientation: String = "vertical", rows: Int = 2
+    orientation: String = "vertical", rows: Int = 2,
+    columns: Int = 1
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
@@ -106,7 +141,7 @@ fun LazyListScope.playlistCollectionItems(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
     if (orientation == "horizontal") {
-        val rowCount = rows.coerceIn(1, 5)
+        val rowCount = rows.coerceIn(1, 8)
         item(key = "playlist_horizontal_row") {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val fullCardWidth = (maxWidth - 12.dp).coerceAtLeast(200.dp)
@@ -133,6 +168,35 @@ fun LazyListScope.playlistCollectionItems(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+    } else if (columns > 1) {
+        val chunked = playlists.chunked(columns)
+        items(chunked, key = { "pl_chunk_${it.firstOrNull()?.id}" }) { colPlaylists ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                colPlaylists.forEach { playlist ->
+                    BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                        val cardH = if (longCardHeight > 0) longCardHeight.dp else 135.dp
+                        XvoxPlaylistCard(
+                            playlist = playlist,
+                            songs = songsFor(playlist),
+                            onClick = { onOpen(playlist) },
+                            onLongClick = { onOptions(playlist) },
+                            modifier = Modifier.fillMaxWidth().height(cardH),
+                            longCard = true
+                        )
+                    }
+                }
+                if (colPlaylists.size < columns) {
+                    repeat(columns - colPlaylists.size) {
+                        Spacer(Modifier.weight(1f))
                     }
                 }
             }

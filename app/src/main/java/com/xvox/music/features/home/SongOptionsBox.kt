@@ -81,6 +81,9 @@ fun SongOptionsBox(
         add(SongOption("Info", R.drawable.ic_xvox_info, onInfo))
         add(SongOption("Set ringtone", R.drawable.ic_xvox_music_note, onRingtone))
         add(SongOption("Share", R.drawable.ic_xvox_share, onShare))
+        if (onRemoveRecent != null) {
+            add(SongOption("Remove from Recently Played", R.drawable.ic_xvox_close, onRemoveRecent))
+        }
         add(SongOption("Delete from library", R.drawable.ic_xvox_delete, onDelete))
     }
 

@@ -48,19 +48,35 @@ fun XvoxNowPlayingArtworkPager(
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
-    // Synchronize pager when currentIndex changes (external next/prev, track tap in queue, playback auto-advance)
+    var lastHandledRequest by remember { mutableIntStateOf(navigationRequest) }
+
+    // Fast Next/Previous button animated swiping
+    LaunchedEffect(navigationRequest) {
+        if (navigationRequest == lastHandledRequest) return@LaunchedEffect
+        val delta = navigationRequest - lastHandledRequest
+        lastHandledRequest = navigationRequest
+        var target = pager.currentPage + delta
+        if (repeatMode == RepeatMode.ALL) {
+            target = (target % queue.size + queue.size) % queue.size
+        } else {
+            target = target.coerceIn(0, queue.lastIndex)
+        }
+        if (target in queue.indices && target != pager.currentPage) {
+            pager.animateScrollToPage(target, animationSpec = tween(170, easing = FastOutSlowInEasing))
+        }
+    }
+
+    // Synchronize pager when currentIndex changes externally (track tap in queue or auto-advance)
     LaunchedEffect(currentIndex, queue.size) {
-        if (currentIndex in queue.indices && currentIndex != pager.currentPage) {
+        if (currentIndex in queue.indices && currentIndex != pager.currentPage && !pager.isScrollInProgress) {
             val dist = abs(currentIndex - pager.currentPage)
-            if (dist > 1 || !pager.isScrollInProgress) {
-                if (dist > 2) {
-                    pager.scrollToPage(currentIndex)
-                } else {
-                    pager.animateScrollToPage(
-                        currentIndex,
-                        animationSpec = tween(180, easing = FastOutSlowInEasing)
-                    )
-                }
+            if (dist > 1) {
+                pager.scrollToPage(currentIndex)
+            } else {
+                pager.animateScrollToPage(
+                    currentIndex,
+                    animationSpec = tween(170, easing = FastOutSlowInEasing)
+                )
             }
         }
     }

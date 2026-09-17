@@ -245,6 +245,13 @@ fun showSongOptionsOverlay(
                 overlays.hideBox()
                 overlays.showP(if (isLiked) "Removed from liked" else "Added to liked")
             },
+            onRemoveRecent = if (recent) {
+                {
+                    overlays.hideBox()
+                    viewModel.removeFromRecent(sourcedSong)
+                    overlays.showP("Removed from Recently Played")
+                }
+            } else null,
             onDelete = {
                 overlays.hideBox()
                 showDeleteOverlay(overlays, context, sourcedSong, playerViewModel, viewModel, deleteLauncher, onPendingDelete)

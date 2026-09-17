@@ -213,6 +213,7 @@ fun XvoxQueueBoxContent(
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
     val displayList = dragList ?: queue
+    val currentListRef by rememberUpdatedState(displayList)
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
     val rowSpacingPx = with(density) { RowSpacing.toPx() }
@@ -225,7 +226,7 @@ fun XvoxQueueBoxContent(
         val currentSlotScreenTop = (currentDragIndex - listState.firstVisibleItemIndex) * itemTotalHeightPx - listState.firstVisibleItemScrollOffset
 
         if (currentDragIndex < currentList.lastIndex) {
-            if (dragCardOffsetY > currentSlotScreenTop + itemTotalHeightPx * 0.55f) {
+            if (dragCardOffsetY > currentSlotScreenTop + itemTotalHeightPx * 0.50f) {
                 val from = currentDragIndex
                 val to = currentDragIndex + 1
                 if (from in currentList.indices && to in currentList.indices) {
@@ -242,7 +243,7 @@ fun XvoxQueueBoxContent(
 
         if (currentDragIndex > 0) {
             val isAtVeryTop = dragCardOffsetY <= with(density) { 10.dp.toPx() } && listState.firstVisibleItemIndex == 0
-            if (dragCardOffsetY < currentSlotScreenTop - itemTotalHeightPx * 0.55f || isAtVeryTop) {
+            if (dragCardOffsetY < currentSlotScreenTop - itemTotalHeightPx * 0.50f || isAtVeryTop) {
                 val from = currentDragIndex
                 val to = currentDragIndex - 1
                 if (from in currentList.indices && to in currentList.indices) {
@@ -286,7 +287,7 @@ fun XvoxQueueBoxContent(
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
                     }
-                    .pointerInput(displayList) {
+                    .pointerInput(Unit) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val downY = down.position.y
@@ -295,8 +296,9 @@ fun XvoxQueueBoxContent(
                                 downY >= item.offset && downY <= (item.offset + item.size)
                             }
 
-                            if (hitItem != null && hitItem.index in displayList.indices) {
-                                val longPressed = withTimeoutOrNull(320L) {
+                            val listSnapshot = currentListRef
+                            if (hitItem != null && hitItem.index in listSnapshot.indices) {
+                                val longPressed = withTimeoutOrNull(280L) {
                                     while (true) {
                                         val event = awaitPointerEvent()
                                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -305,10 +307,10 @@ fun XvoxQueueBoxContent(
                                     }
                                 } == null && currentDragIndex == -1
 
-                                if (longPressed && hitItem.index in displayList.indices) {
-                                    val song = displayList[hitItem.index]
+                                if (longPressed && hitItem.index in listSnapshot.indices) {
+                                    val song = listSnapshot[hitItem.index]
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    dragList = displayList.toList()
+                                    dragList = listSnapshot.toList()
                                     draggingSong = song
                                     initialDragIndex = hitItem.index
                                     currentDragIndex = hitItem.index

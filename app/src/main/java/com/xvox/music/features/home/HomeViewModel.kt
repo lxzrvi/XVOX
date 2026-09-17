@@ -235,6 +235,14 @@ class HomeViewModel(
         viewModelScope.launch { preferencesRepository.removeRecentSong(song.id) }
     }
 
+    fun removeMultipleFromRecent(songs: List<Song>) {
+        val ids = songs.map { it.id }.toSet()
+        _state.update { it.copy(recentlyPlayed = it.recentlyPlayed.filterNot { s -> s.id in ids }) }
+        viewModelScope.launch {
+            ids.forEach { preferencesRepository.removeRecentSong(it) }
+        }
+    }
+
     fun toggleLikedMode() {
         _state.update {
             it.copy(libraryMode = when (it.libraryMode) {

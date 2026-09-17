@@ -125,8 +125,9 @@ fun XvoxMainShell(
         homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
     }
 
-    val currentSong = remember(player.queue, player.currentSongId) {
+    val currentSong = remember(player.queue, player.currentSongId, homeState.songs) {
         player.queue.firstOrNull { it.id == player.currentSongId }
+            ?: homeState.songs.firstOrNull { it.id == player.currentSongId }
     }
 
     val isInPlaylist = remember(homeState.playlists, player.currentSongId) {
