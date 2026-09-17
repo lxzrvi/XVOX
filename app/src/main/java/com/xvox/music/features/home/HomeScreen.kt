@@ -485,6 +485,7 @@ fun HomeScreen(
                 playerViewModel = playerViewModel,
                 overlays = overlays,
                 context = context,
+                categoryName = selectionCategoryName,
                 onClearSelection = {
                     selectedSongIds = emptySet()
                     selectionCategoryName = null

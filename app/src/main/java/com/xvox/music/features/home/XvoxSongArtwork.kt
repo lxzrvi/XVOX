@@ -77,7 +77,6 @@ fun XvoxSongArtwork(
             .data(artwork)
             .size(requestSize, requestSize)
             .precision(Precision.EXACT)
-            .crossfade(false)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)

@@ -520,11 +520,11 @@ fun SearchScreen(
                 selectedSongs = selectedSongs,
                 selectedPlaylist = null,
                 libraryMode = com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS,
-                customCategoryName = "Search",
                 viewModel = homeViewModel,
                 playerViewModel = playerViewModel,
                 overlays = overlays,
                 context = context,
+                categoryName = "Search",
                 onClearSelection = { selectedIds = emptySet() },
                 onDeleteSelected = ::requestDeleteSelected
             )
