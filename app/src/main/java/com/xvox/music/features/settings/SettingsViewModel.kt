@@ -118,6 +118,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.profileLines.collect { v -> _state.update { it.copy(profileLines = v) } } }
             launch { prefs.greetingIntervalMs.collect { v -> _state.update { it.copy(greetingIntervalMs = v) } } }
             launch { prefs.remindersEnabled.collect { v -> _state.update { it.copy(remindersEnabled = v) } } }
+            launch { prefs.persistentBackgroundPlayback.collect { v -> _state.update { it.copy(persistentBackgroundPlayback = v) } } }
         }
     }
 
@@ -130,6 +131,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setPreviewHidden(v: Boolean) = viewModelScope.launch { prefs.setSettingsPreviewHidden(v) }
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
     fun setNowPlayingStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingStyle(style) }
+    fun setPersistentBackgroundPlayback(enabled: Boolean) = viewModelScope.launch { prefs.setPersistentBackgroundPlayback(enabled) }
     fun setGreetingIntervalMs(value: Long) = viewModelScope.launch { prefs.setGreetingIntervalMs(value) }
     fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
     /** View-only: which widget size the settings preview is showing. */

@@ -32,6 +32,7 @@ data class MainPlayerUiState(
     val sleepTimerRemainingMillis: Long? = null,
     val sleepTimerShouldCloseApp: Boolean = false,
     val playingSource: String = "All Songs",
-    val activeQueueName: String = "Current Queue",
+    val activeQueueId: String = "queue_1",
+    val activeQueueName: String = "Queue 1",
     val savedQueues: List<XvoxSavedQueue> = emptyList(),
 )

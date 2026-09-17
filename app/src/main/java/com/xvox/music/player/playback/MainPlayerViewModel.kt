@@ -309,9 +309,9 @@ class MainPlayerViewModel(
     }
 
     fun addToNewQueue(song: Song): String {
-        val nextQueueNumber = _state.value.savedQueues.size + 1
+        val nextQueueNumber = _state.value.savedQueues.size + 2
         val newQueueName = "Queue $nextQueueNumber"
-        val newQueueId = "queue_${System.currentTimeMillis()}"
+        val newQueueId = "queue_$nextQueueNumber"
 
         val newQueue = XvoxSavedQueue(
             id = newQueueId,
@@ -329,9 +329,9 @@ class MainPlayerViewModel(
 
     fun addToNewQueue(songs: List<Song>): String {
         if (songs.isEmpty()) return ""
-        val nextQueueNumber = _state.value.savedQueues.size + 1
+        val nextQueueNumber = _state.value.savedQueues.size + 2
         val newQueueName = "Queue $nextQueueNumber"
-        val newQueueId = "queue_${System.currentTimeMillis()}"
+        val newQueueId = "queue_$nextQueueNumber"
 
         val newQueue = XvoxSavedQueue(
             id = newQueueId,
@@ -374,23 +374,37 @@ class MainPlayerViewModel(
 
     fun switchToQueue(targetQueueId: String) {
         val currentQueue = _state.value.queue
+        val currentActiveId = _state.value.activeQueueId
         val currentActiveName = _state.value.activeQueueName
         val currentIdx = _state.value.currentIndex
         val currentSource = _state.value.playingSource
 
-        val savedList = _state.value.savedQueues.toMutableList()
-        val target = savedList.firstOrNull { it.id == targetQueueId } ?: return
+        if (targetQueueId == currentActiveId) return
 
-        // Save active queue back into savedQueues list
-        val activeAsSaved = XvoxSavedQueue(
-            id = if (currentActiveName == "Current Queue") "queue_current" else "queue_${currentActiveName.replace(" ", "_").lowercase()}",
+        val savedList = _state.value.savedQueues.toMutableList()
+        val existingIndex = savedList.indexOfFirst { it.id == currentActiveId }
+        val activeQueueEntry = XvoxSavedQueue(
+            id = currentActiveId,
             name = currentActiveName,
             songs = currentQueue,
             currentIndex = currentIdx.coerceAtLeast(0),
             source = currentSource
         )
+        if (existingIndex >= 0) {
+            savedList[existingIndex] = activeQueueEntry
+        } else {
+            savedList.add(activeQueueEntry)
+        }
 
-        val updatedSaved = savedList.filterNot { it.id == targetQueueId } + activeAsSaved
+        val target = if (targetQueueId == "queue_1" || targetQueueId.isBlank()) {
+            savedList.firstOrNull { it.id == "queue_1" } ?: XvoxSavedQueue(
+                id = "queue_1",
+                name = "Queue 1",
+                songs = emptyList()
+            )
+        } else {
+            savedList.firstOrNull { it.id == targetQueueId } ?: return
+        }
 
         controller.setQueue(target.songs)
         libraryQueueSize = target.songs.size
@@ -399,13 +413,14 @@ class MainPlayerViewModel(
         _state.update {
             it.copy(
                 queue = target.songs,
+                activeQueueId = target.id,
                 activeQueueName = target.name,
                 playingSource = target.source,
-                savedQueues = updatedSaved,
-                currentIndex = target.currentIndex.coerceIn(0, target.songs.lastIndex.coerceAtLeast(0))
+                savedQueues = savedList,
+                currentIndex = target.currentIndex.coerceIn(0, (target.songs.size - 1).coerceAtLeast(0))
             )
         }
-        persistSavedQueues(updatedSaved)
+        persistSavedQueues(savedList)
     }
 
     private fun persistSavedQueues(queues: List<XvoxSavedQueue>) {

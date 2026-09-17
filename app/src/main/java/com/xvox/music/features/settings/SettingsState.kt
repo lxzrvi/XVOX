@@ -85,5 +85,6 @@ data class SettingsState(
     val audioOutputRoute: String = "auto",
     val profileLines: List<String> = emptyList(),
     val greetingIntervalMs: Long = 8_000L,
-    val remindersEnabled: Boolean = false
+    val remindersEnabled: Boolean = false,
+    val persistentBackgroundPlayback: Boolean = true
 )

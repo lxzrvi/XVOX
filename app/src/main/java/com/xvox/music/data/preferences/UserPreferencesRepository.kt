@@ -141,6 +141,7 @@ class UserPreferencesRepository(
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
+        val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
     }
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
@@ -400,6 +401,8 @@ class UserPreferencesRepository(
         .distinctUntilChanged()
     val nowPlayingStyle: Flow<String> = context.xvoxDataStore.data
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
+    val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.settingsPreviewHidden] ?: false }.distinctUntilChanged()
     val lastSettingsTab: Flow<String> = context.xvoxDataStore.data
@@ -628,6 +631,9 @@ class UserPreferencesRepository(
     suspend fun setNowPlayingStyle(style: String) {
         val normalized = if (style == "compact" || style == "immersive") "compact" else "default"
         context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = normalized }
+    }
+    suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }
     }
     suspend fun setSettingsPreviewHidden(hidden: Boolean) {
         context.xvoxDataStore.edit { it[Keys.settingsPreviewHidden] = hidden }

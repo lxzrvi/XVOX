@@ -131,14 +131,14 @@ fun ArtistCircleItem(
                 onLongClick = onLongClick
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(54.dp)
+                .size(68.dp)
                 .clip(CircleShape)
                 .background(colors.card)
-                .border(1.dp, colors.cardBorder.copy(alpha = 0.35f), CircleShape),
+                .border(1.2.dp, colors.cardBorder.copy(alpha = 0.45f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             if (artist.customImageUri != null) {
@@ -151,7 +151,7 @@ fun ArtistCircleItem(
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
-                    requestSize = 120,
+                    requestSize = 180,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -159,7 +159,7 @@ fun ArtistCircleItem(
                     painter = painterResource(R.drawable.ic_xvox_artist),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }

@@ -133,14 +133,14 @@ fun SettingsScreen(
             LazyColumn(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Row 1: Appearance & Theme | Library Filters
                 item(key = "row_1") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
@@ -155,7 +155,7 @@ fun SettingsScreen(
                 item(key = "row_2") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             BackupSectionCard(homeViewModel)
@@ -176,8 +176,8 @@ fun SettingsScreen(
             LazyColumn(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })

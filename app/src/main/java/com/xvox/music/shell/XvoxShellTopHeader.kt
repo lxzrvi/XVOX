@@ -75,6 +75,11 @@ fun XvoxShellTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { /* consume backdrop touch */ }
+            )
             .background(if (hasCustomHeader) Color.Transparent else colors.surface.copy(alpha = alphaFraction))
     ) {
         if (hasCustomHeader) {

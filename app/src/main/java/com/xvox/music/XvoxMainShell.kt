@@ -110,11 +110,11 @@ fun XvoxMainShell(
         if (!homeState.loading) playerViewModel.setQueue(homeState.songs)
     }
 
-    var destination by remember { mutableStateOf(XvoxDestination.HOME) }
+    var destination by rememberSaveable { mutableStateOf(XvoxDestination.HOME) }
     var nowPlayingDisplayMode by rememberSaveable { mutableIntStateOf(0) }
-    var homeResetKey by remember { mutableLongStateOf(0L) }
-    var tabEpoch by remember { mutableLongStateOf(0L) }
-    var hoistedSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
+    var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val miniDeleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK && pendingDeleteSong != null) {
@@ -192,6 +192,7 @@ fun XvoxMainShell(
                 com.xvox.music.shell.QueueHeaderDropdown(
                     activeQueueName = liveState.activeQueueName,
                     savedQueues = liveState.savedQueues,
+                    currentQueueSize = liveState.queue.size,
                     onSwitchQueue = { queueId ->
                         playerViewModel.switchToQueue(queueId)
                     }
@@ -369,12 +370,12 @@ fun XvoxMainShell(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (miniVisible && currentSongId != null) {
-                    Box(modifier = Modifier.weight(1.3f)) {
+                    Box(modifier = Modifier.weight(1f)) {
                         XvoxMiniPlayer(
                             queue = player.queue,
                             currentSongId = currentSongId,
@@ -414,10 +415,10 @@ fun XvoxMainShell(
                         )
                     }
                 } else {
-                    Spacer(Modifier.weight(1.3f))
+                    Spacer(Modifier.weight(1f))
                 }
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                Box(contentAlignment = Alignment.CenterEnd) {
                     XvoxBottomBar(
                         selected = destination,
                         onSelected = { next ->

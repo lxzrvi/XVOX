@@ -470,7 +470,17 @@ fun XvoxFullscreenLyrics(
                 targetOffsetY = { -it },
                 animationSpec = tween(220, easing = FastOutSlowInEasing)
             ) + fadeOut(tween(160)),
-            modifier = Modifier.align(Alignment.TopCenter)
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            if (Math.abs(dragAmount) > 8f) {
+                                chromeVisible = false
+                            }
+                        }
+                    )
+                }
         ) {
             Box(
                 modifier = Modifier

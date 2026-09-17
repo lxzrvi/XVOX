@@ -280,7 +280,19 @@ fun SearchScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "Search",
+                    color = colors.primaryText,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                )
+
                 SearchBarComponent(
                     query = query,
                     onQueryChange = { query = it },

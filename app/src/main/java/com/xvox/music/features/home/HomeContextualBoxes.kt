@@ -113,7 +113,7 @@ fun AllSongsLayoutBoxContent(
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Layout Style", color = colors.secondaryText, fontSize = 11.sp)
             SettingsChoiceRow(
-                options = listOf("uniform" to "Standard List", "mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2"),
+                options = listOf("uniform" to "Standard List", "mosaic1" to "Mosaic"),
                 selected = config.style,
                 onSelect = { viewModel.setHomeLayoutStyle(it) }
             )

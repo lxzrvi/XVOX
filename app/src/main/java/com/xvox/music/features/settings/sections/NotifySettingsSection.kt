@@ -28,7 +28,52 @@ fun NotifySettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Background Playback Toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.card)
+                .clickable {
+                    haptics.tap()
+                    viewModel.setPersistentBackgroundPlayback(!state.persistentBackgroundPlayback)
+                }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                    text = "Background playback",
+                    color = colors.primaryText,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (state.persistentBackgroundPlayback) "Keep playing when app is cleared from recents"
+                           else "Stop playing when app is closed / cleared",
+                    color = colors.secondaryText,
+                    fontSize = 11.sp
+                )
+            }
+
+            Switch(
+                checked = state.persistentBackgroundPlayback,
+                onCheckedChange = {
+                    haptics.tap()
+                    viewModel.setPersistentBackgroundPlayback(it)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = colors.background,
+                    checkedTrackColor = colors.primaryAccent,
+                    uncheckedThumbColor = colors.secondaryText,
+                    uncheckedTrackColor = colors.cardElevated
+                )
+            )
+        }
+
+        // Music Reminder Toggle
         Row(
             modifier = Modifier
                 .fillMaxWidth()

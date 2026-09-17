@@ -50,7 +50,7 @@ fun HomeSettingsSection(
             onToggle = { toggle("Card style") }
         ) {
             SettingsChoiceRow(
-                listOf("uniform" to "Default", "mosaic1" to "Mosaic 1", "mosaic2" to "Mosaic 2"),
+                listOf("uniform" to "Default", "mosaic1" to "Mosaic"),
                 state.homeLayoutStyle,
                 viewModel::setHomeLayoutStyle
             )

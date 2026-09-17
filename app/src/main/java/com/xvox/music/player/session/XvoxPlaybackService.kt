@@ -283,9 +283,16 @@ class XvoxPlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // Closing the Activity must not tear down an audible player or a widget's in-flight resume.
+        val repo = com.xvox.music.data.preferences.UserPreferencesRepository(this)
+        val persistent = kotlinx.coroutines.runBlocking { kotlinx.coroutines.flow.first(repo.persistentBackgroundPlayback) }
+        if (!persistent) {
+            engine?.player?.stop()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return
+        }
         val p = engine?.player
-        if (p?.isPlaying == true || (p?.playWhenReady == true && p.playbackState == Player.STATE_BUFFERING) || commandJob?.isActive == true || connectJob?.isActive == true) return
+        if (p?.isPlaying == true || (p?.playWhenReady == true && p.playbackState == androidx.media3.common.Player.STATE_BUFFERING) || commandJob?.isActive == true || connectJob?.isActive == true) return
         super.onTaskRemoved(rootIntent)
     }
     override fun onDestroy() {

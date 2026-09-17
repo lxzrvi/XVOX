@@ -85,10 +85,15 @@ import kotlin.math.roundToInt
 fun QueueHeaderDropdown(
     activeQueueName: String,
     savedQueues: List<XvoxSavedQueue>,
+    currentQueueSize: Int = 0,
     onSwitchQueue: (String) -> Unit
 ) {
     val colors = XvoxTheme.colors
     var expanded by remember { mutableStateOf(false) }
+    val isQueue1Active = activeQueueName.isBlank() || activeQueueName == "Queue 1" || activeQueueName == "Current Queue"
+
+    val queue1Saved = savedQueues.firstOrNull { it.id == "queue_1" || it.name == "Queue 1" }
+    val queue1Count = if (isQueue1Active) currentQueueSize else (queue1Saved?.songs?.size ?: 0)
 
     Box {
         Row(
@@ -134,7 +139,7 @@ fun QueueHeaderDropdown(
                 .clip(RoundedCornerShape(16.dp))
                 .widthIn(min = 230.dp, max = 320.dp)
         ) {
-            // Default Queue 1 / Active option
+            // Queue 1
             DropdownMenuItem(
                 text = {
                     Row(
@@ -147,17 +152,17 @@ fun QueueHeaderDropdown(
                         Column {
                             Text(
                                 text = "Queue 1",
-                                color = if (activeQueueName.isBlank() || activeQueueName == "Queue 1" || activeQueueName == "Current Queue") colors.primaryAccent else colors.primaryText,
+                                color = if (isQueue1Active) colors.primaryAccent else colors.primaryText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Current queue",
-                                color = colors.secondaryText,
+                                text = if (isQueue1Active) "Current queue" else "$queue1Count songs",
+                                color = if (isQueue1Active) colors.primaryAccent else colors.secondaryText,
                                 fontSize = 11.sp
                             )
                         }
-                        if (activeQueueName.isBlank() || activeQueueName == "Queue 1" || activeQueueName == "Current Queue") {
+                        if (isQueue1Active) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_xvox_check),
                                 contentDescription = null,
@@ -169,14 +174,17 @@ fun QueueHeaderDropdown(
                 },
                 onClick = {
                     expanded = false
-                    onSwitchQueue("")
+                    onSwitchQueue("queue_1")
                 }
             )
 
             // Saved Queues (Queue 2, Queue 3...)
-            savedQueues.forEachIndexed { index, saved ->
-                val queueTitle = "Queue ${index + 2}"
-                val isSelected = activeQueueName == saved.name || activeQueueName == queueTitle
+            val otherQueues = savedQueues.filterNot { it.id == "queue_1" || it.name == "Queue 1" }
+            otherQueues.forEachIndexed { index, saved ->
+                val queueTitle = saved.name.ifBlank { "Queue ${index + 2}" }
+                val isSelected = !isQueue1Active && (activeQueueName == saved.name || activeQueueName == queueTitle)
+                val count = if (isSelected) currentQueueSize else saved.songs.size
+
                 DropdownMenuItem(
                     text = {
                         Row(
@@ -194,8 +202,8 @@ fun QueueHeaderDropdown(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "${saved.songs.size} songs",
-                                    color = colors.secondaryText,
+                                    text = if (isSelected) "Current queue" else "$count songs",
+                                    color = if (isSelected) colors.primaryAccent else colors.secondaryText,
                                     fontSize = 11.sp
                                 )
                             }
@@ -219,87 +227,69 @@ fun QueueHeaderDropdown(
     }
 }
 
-private val RowHeight = 58.dp
-private val RowSpacing = 6.dp
+private val RowHeight = 60.dp
+private val RowSpacing = 4.dp
 
 @Composable
 fun XvoxQueueBoxContent(
     queue: List<Song>,
     currentSongId: Long?,
-    isPlaying: Boolean = true,
-    activeQueueName: String = "Current Queue",
+    isPlaying: Boolean,
     savedQueues: List<XvoxSavedQueue> = emptyList(),
+    activeQueueName: String = "Queue 1",
     isPlaybackActiveInThisQueue: Boolean = true,
     onSwitchQueue: (String) -> Unit = {},
     onPlayIndex: (Int) -> Unit,
     onMoveItem: (Int, Int) -> Unit,
-    onRemoveIndex: (Int) -> Unit = {}
+    onRemoveIndex: (Int) -> Unit
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
-
-    val initialScrollIndex = remember {
-        val idx = queue.indexOfFirst { it.id == currentSongId }
-        if (idx > 1) (idx - 1).coerceAtLeast(0) else 0
-    }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialScrollIndex)
+    val listState = rememberLazyListState()
 
     val move by rememberUpdatedState(onMoveItem)
-    val play by rememberUpdatedState(onPlayIndex)
     val remove by rememberUpdatedState(onRemoveIndex)
+    val play by rememberUpdatedState(onPlayIndex)
 
     var draggingSong by remember { mutableStateOf<Song?>(null) }
-    var dragList by remember { mutableStateOf<List<Song>?>(null) }
+    var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
     var initialDragIndex by remember { mutableIntStateOf(-1) }
     var currentDragIndex by remember { mutableIntStateOf(-1) }
-    var touchOffsetInCard by remember { mutableFloatStateOf(0f) }
-    var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
-    var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
+    var dragList by remember { mutableStateOf<List<Song>?>(null) }
     val displayList = dragList ?: queue
-    val currentListRef by rememberUpdatedState(displayList)
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
     val rowSpacingPx = with(density) { RowSpacing.toPx() }
-    val itemTotalHeightPx = rowHeightPx + rowSpacingPx
+    val itemSlotSpanPx = rowHeightPx + rowSpacingPx
+
+    var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
     fun checkAndSwapSlots() {
-        val currentList = dragList ?: return
-        if (draggingSong == null || currentDragIndex < 0 || listViewportHeight <= 0f || itemTotalHeightPx <= 0f) return
+        val currSong = draggingSong ?: return
+        val currentLocalList = dragList ?: return
+        val fromSlot = currentDragIndex
+        if (fromSlot !in currentLocalList.indices) return
 
-        val currentSlotScreenTop = (currentDragIndex - listState.firstVisibleItemIndex) * itemTotalHeightPx - listState.firstVisibleItemScrollOffset
+        val visibleItems = listState.layoutInfo.visibleItemsInfo
+        for (itemInfo in visibleItems) {
+            val toSlot = itemInfo.index
+            if (toSlot == fromSlot || toSlot !in currentLocalList.indices) continue
 
-        if (currentDragIndex < currentList.lastIndex) {
-            if (dragCardOffsetY > currentSlotScreenTop + itemTotalHeightPx * 0.50f) {
-                val from = currentDragIndex
-                val to = currentDragIndex + 1
-                if (from in currentList.indices && to in currentList.indices) {
-                    val mutable = currentList.toMutableList()
-                    val item = mutable.removeAt(from)
-                    mutable.add(to, item)
-                    dragList = mutable
-                    currentDragIndex = to
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    return
-                }
-            }
-        }
+            val slotTop = itemInfo.offset.toFloat()
+            val slotBottom = slotTop + itemInfo.size.toFloat()
 
-        if (currentDragIndex > 0) {
-            val isAtVeryTop = dragCardOffsetY <= with(density) { 10.dp.toPx() } && listState.firstVisibleItemIndex == 0
-            if (dragCardOffsetY < currentSlotScreenTop - itemTotalHeightPx * 0.50f || isAtVeryTop) {
-                val from = currentDragIndex
-                val to = currentDragIndex - 1
-                if (from in currentList.indices && to in currentList.indices) {
-                    val mutable = currentList.toMutableList()
-                    val item = mutable.removeAt(from)
-                    mutable.add(to, item)
-                    dragList = mutable
-                    currentDragIndex = to
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    return
-                }
+            val dragMiddleY = dragCardOffsetY + (rowHeightPx / 2f)
+
+            if (dragMiddleY in slotTop..slotBottom) {
+                val mutable = currentLocalList.toMutableList()
+                val removed = mutable.removeAt(fromSlot)
+                mutable.add(toSlot, removed)
+                dragList = mutable
+                currentDragIndex = toSlot
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                return
             }
         }
     }
@@ -361,40 +351,44 @@ fun XvoxQueueBoxContent(
                                 downY >= item.offset && downY <= (item.offset + item.size)
                             }
 
-                            val listSnapshot = currentListRef
-                            if (hitItem != null && hitItem.index in listSnapshot.indices) {
-                                val longPressed = withTimeoutOrNull(280L) {
+                            if (hitItem != null && hitItem.index in queue.indices) {
+                                val hitIndex = hitItem.index
+                                val initialItemTop = hitItem.offset.toFloat()
+                                val touchOffsetYInCard = downY - initialItemTop
+
+                                val longPressTriggered = withTimeoutOrNull(400) {
                                     while (true) {
                                         val event = awaitPointerEvent()
-                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                        if (!change.pressed) break
-                                        if ((change.position - down.position).getDistance() > 14f) break
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                        if (change == null || !change.pressed) return@withTimeoutOrNull false
+                                        val moveDist = Math.abs(change.position.y - down.position.y)
+                                        if (moveDist > 18f) return@withTimeoutOrNull false
                                     }
-                                } == null && currentDragIndex == -1
+                                    @Suppress("UNREACHABLE_CODE")
+                                    true
+                                } ?: true
 
-                                if (longPressed && hitItem.index in listSnapshot.indices) {
-                                    val song = listSnapshot[hitItem.index]
+                                if (longPressTriggered) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    dragList = listSnapshot.toList()
+                                    val song = queue[hitIndex]
                                     draggingSong = song
-                                    initialDragIndex = hitItem.index
-                                    currentDragIndex = hitItem.index
-                                    touchOffsetInCard = downY - hitItem.offset
-                                    dragCardOffsetY = hitItem.offset.toFloat()
+                                    dragList = queue.toList()
+                                    initialDragIndex = hitIndex
+                                    currentDragIndex = hitIndex
+                                    dragCardOffsetY = (downY - touchOffsetYInCard).coerceAtLeast(0f)
 
                                     while (true) {
                                         val event = awaitPointerEvent()
                                         val change = event.changes.firstOrNull { it.id == down.id }
-                                        if (change == null || !change.pressed) {
-                                            change?.consume()
-                                            break
-                                        }
+                                        if (change == null || !change.pressed) break
                                         change.consume()
-                                        val currentY = change.position.y
-                                        dragCardOffsetY = (currentY - touchOffsetInCard).coerceIn(
+
+                                        val currentPointerY = change.position.y
+                                        dragCardOffsetY = (currentPointerY - touchOffsetYInCard).coerceIn(
                                             0f,
                                             (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
                                         )
+
                                         checkAndSwapSlots()
                                     }
 
@@ -609,22 +603,6 @@ private fun QueueItemRow(
                 contentDescription = "Remove from Queue",
                 tint = colors.secondaryText.copy(alpha = 0.8f),
                 modifier = Modifier.size(15.dp)
-            )
-        }
-
-        Spacer(Modifier.width(2.dp))
-
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_drag_dots),
-                contentDescription = "Hold to drag",
-                tint = colors.secondaryText.copy(alpha = 0.65f),
-                modifier = Modifier.size(18.dp)
             )
         }
     }
