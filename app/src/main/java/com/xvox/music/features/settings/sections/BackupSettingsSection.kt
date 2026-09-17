@@ -2,6 +2,7 @@ package com.xvox.music.features.settings.sections
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -14,16 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,15 +33,13 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
-import com.xvox.music.core.ui.overlay.XvoxBox
-import com.xvox.music.features.settings.SettingsState
-import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.home.HomeViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,111 +47,67 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-/**
- * Xvox Backup & Restore:
- * Exports all settings, custom images, colors, preferences, playlists, and covers.
- * Formatted as: xvoxbackup(YYYY-MM-DD).xvox
- */
 @Composable
-fun BackupSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
+fun BackupSettingsSection(
+    viewModel: HomeViewModel,
+    modifier: Modifier = Modifier
+) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
-    val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalXvoxHaptics.current
 
-    var restoring by remember { mutableStateOf(false) }
-    var restoreComplete by remember { mutableStateOf(false) }
-    var restoreSuccess by remember { mutableStateOf(true) }
+    val currentDateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    val defaultBackupFileName = "xvoxbackup($currentDateStr).xvox"
 
-    val dateStr = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-    }
-    val defaultBackupFileName = "xvoxbackup($dateStr).xvox"
-
-    val create = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val ok = withContext(Dispatchers.IO) { exportFullXvox(context, uri) }
-            if (ok) {
-                haptics.tap()
-                overlays.showP("Backup saved: $defaultBackupFileName")
-            } else {
-                overlays.showP("Backup export failed")
-            }
-        }
-    }
-
-    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        restoring = true
-        restoreComplete = false
-        scope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                delay(600)
-                restoreFullXvox(context, uri)
-            }
-            restoreSuccess = ok
-            restoring = false
-            restoreComplete = true
-        }
-    }
-
-    if (restoring) {
-        XvoxBox(onDismiss = {}) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator(color = colors.primaryAccent, strokeWidth = 3.dp)
-                Spacer(Modifier.height(14.dp))
-                Text("Restoring backup…", color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-
-    if (restoreComplete) {
-        XvoxBox(onDismiss = { restoreComplete = false }) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (restoreSuccess) "Backup Restored" else "Restore Failed",
-                    color = if (restoreSuccess) colors.primaryAccent else colors.primaryText,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (restoreSuccess) "Your settings, playlists, covers and data have been restored."
-                    else "This isn't xvoxbackup file",
-                    color = colors.secondaryText,
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.primaryAccent)
-                        .xvoxPressScale {
-                            haptics.tap()
-                            restoreComplete = false
-                        }
-                        .padding(horizontal = 28.dp, vertical = 9.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("OK", color = colors.background, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    val create = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    exportFullXvox(context, uri)
+                }
+                if (ok) {
+                    Toast.makeText(context, "Backup exported successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val open = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    importFullXvox(context, uri)
+                }
+                when (result) {
+                    ImportResult.SUCCESS -> {
+                        Toast.makeText(context, "Backup restored successfully", Toast.LENGTH_SHORT).show()
+                        viewModel.refresh()
+                    }
+                    ImportResult.INVALID_FILE -> {
+                        Toast.makeText(context, "This isn't xvoxbackup file", Toast.LENGTH_LONG).show()
+                    }
+                    ImportResult.ERROR -> {
+                        Toast.makeText(context, "Restore failed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Save or restore your settings, playlists, custom covers, and colors.",
+            text = "Export and restore your app settings, preferences, and custom data.",
             color = colors.secondaryText,
-            fontSize = 11.5.sp
+            fontSize = 11.5.sp,
+            lineHeight = 15.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
 
         Row(
@@ -223,23 +174,25 @@ private fun exportFullXvox(context: Context, uri: Uri): Boolean {
                 zip.write("XVOX_BACKUP_V1\n".toByteArray())
                 zip.closeEntry()
 
-                // DataStore preferences
-                val datastoreDir = File(context.filesDir, "datastore")
-                if (datastoreDir.exists()) {
-                    datastoreDir.listFiles()?.forEach { file ->
-                        zip.putNextEntry(ZipEntry("datastore/${file.name}"))
-                        file.inputStream().use { it.copyTo(zip) }
-                        zip.closeEntry()
-                    }
-                }
+                val dataDir = context.filesDir.parentFile ?: return@use
+                val dirsToBackup = listOf("shared_prefs", "databases", "files")
 
-                // Custom images / covers
-                val imagesDir = File(context.filesDir, "custom_images")
-                if (imagesDir.exists()) {
-                    imagesDir.listFiles()?.forEach { file ->
-                        zip.putNextEntry(ZipEntry("custom_images/${file.name}"))
-                        file.inputStream().use { it.copyTo(zip) }
-                        zip.closeEntry()
+                for (dirName in dirsToBackup) {
+                    val dir = File(dataDir, dirName)
+                    if (dir.exists() && dir.isDirectory) {
+                        dir.walkTopDown().forEach { file ->
+                            if (file.isFile) {
+                                // Exclude queue-specific files/prefs as requested
+                                val relPath = file.relativeTo(dataDir).path
+                                if (!relPath.contains("queue", ignoreCase = true)) {
+                                    zip.putNextEntry(ZipEntry(relPath))
+                                    FileInputStream(file).use { input ->
+                                        input.copyTo(zip)
+                                    }
+                                    zip.closeEntry()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -248,42 +201,58 @@ private fun exportFullXvox(context: Context, uri: Uri): Boolean {
     }.getOrDefault(false)
 }
 
-private fun restoreFullXvox(context: Context, uri: Uri): Boolean {
+private enum class ImportResult {
+    SUCCESS,
+    INVALID_FILE,
+    ERROR
+}
+
+private fun importFullXvox(context: Context, uri: Uri): ImportResult {
     return runCatching {
-        var isValidXvoxBackup = false
-        var restoredAny = false
+        var hasValidSignature = false
+        val dataDir = context.filesDir.parentFile ?: return ImportResult.ERROR
 
+        // First pass: verify signature
         context.contentResolver.openInputStream(uri)?.use { input ->
-            val zip = ZipInputStream(input)
-            var entry = zip.nextEntry
-            while (entry != null) {
-                val name = entry.name
-                if (name == "xvox_signature.txt" || name.startsWith("datastore/") || name == "xvox_preferences.preferences_pb") {
-                    isValidXvoxBackup = true
+            ZipInputStream(input).use { zip ->
+                var entry: ZipEntry? = zip.nextEntry
+                while (entry != null) {
+                    if (entry.name == "xvox_signature.txt") {
+                        val sig = zip.bufferedReader().readLine()
+                        if (sig != null && sig.startsWith("XVOX_BACKUP")) {
+                            hasValidSignature = true
+                            break
+                        }
+                    }
+                    entry = zip.nextEntry
                 }
-
-                if (name.startsWith("datastore/")) {
-                    val target = File(context.filesDir, name)
-                    target.parentFile?.mkdirs()
-                    target.outputStream().use { out -> zip.copyTo(out) }
-                    target.setLastModified(System.currentTimeMillis())
-                    restoredAny = true
-                } else if (name.startsWith("custom_images/")) {
-                    val target = File(context.filesDir, name)
-                    target.parentFile?.mkdirs()
-                    target.outputStream().use { out -> zip.copyTo(out) }
-                    restoredAny = true
-                } else if (name == "xvox_preferences.preferences_pb") {
-                    val target = File(context.filesDir, "datastore/xvox_preferences.preferences_pb")
-                    target.parentFile?.mkdirs()
-                    target.outputStream().use { out -> zip.copyTo(out) }
-                    target.setLastModified(System.currentTimeMillis())
-                    restoredAny = true
-                }
-                zip.closeEntry()
-                entry = zip.nextEntry
             }
+        } ?: return ImportResult.ERROR
+
+        if (!hasValidSignature) {
+            return ImportResult.INVALID_FILE
         }
-        isValidXvoxBackup && restoredAny
-    }.getOrDefault(false)
+
+        // Second pass: extract files
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            ZipInputStream(input).use { zip ->
+                var entry: ZipEntry? = zip.nextEntry
+                while (entry != null) {
+                    if (entry.name != "xvox_signature.txt" && !entry.isDirectory) {
+                        val targetFile = File(dataDir, entry.name)
+                        // Security check: prevent zip slip
+                        if (targetFile.canonicalPath.startsWith(dataDir.canonicalPath)) {
+                            targetFile.parentFile?.mkdirs()
+                            FileOutputStream(targetFile).use { out ->
+                                zip.copyTo(out)
+                            }
+                        }
+                    }
+                    entry = zip.nextEntry
+                }
+            }
+        } ?: return ImportResult.ERROR
+
+        ImportResult.SUCCESS
+    }.getOrElse { ImportResult.ERROR }
 }

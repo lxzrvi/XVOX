@@ -3,7 +3,6 @@ package com.xvox.music.features.artist
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,11 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -38,9 +35,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.SongPressSpec
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -132,14 +127,10 @@ fun ArtistCircleItem(
 
     Column(
         modifier = modifier
-            .xvoxSongPress(
+            .xvoxPressScale(
+                pressedScale = 0.93f,
                 onClick = onClick,
-                onLongClick = onLongClick,
-                spec = SongPressSpec(
-                    pulse = false,
-                    haptic = false,
-                    pressedScale = 0.93f
-                )
+                onLongClick = onLongClick
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)

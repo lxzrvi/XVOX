@@ -493,7 +493,7 @@ private fun QueueItemRow(
     isFloating: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    val cardColor = rememberSongCardColor(song.id)
+    val cardColor = rememberSongCardColor(song = song, current = isPlayingThis)
 
     val backgroundAlpha = when {
         isFloating -> 1f

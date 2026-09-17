@@ -65,6 +65,8 @@ import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
+import com.xvox.music.features.home.SongInfoReader
+import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.showCreatePlaylistOverlay
 import com.xvox.music.features.home.showDeleteOverlay
 import com.xvox.music.features.home.showLibraryRefresh
@@ -132,13 +134,13 @@ fun XvoxMainShell(
         overlays.showBox("Profile") {
             ProfileEditorBox(
                 profile = homeState.profile,
-                onSave = { updated ->
-                    homeViewModel.updateProfile(updated)
-                    overlays.hideBox()
-                    overlays.showP("Profile updated")
-                },
-                onDismiss = overlays::hideBox,
-                viewModel = settingsViewModel
+                onCancel = overlays::hideBox,
+                onSave = { name, pfp, pfpType ->
+                    homeViewModel.saveProfile(name, pfp, pfpType) {
+                        overlays.hideBox()
+                        overlays.showP("Profile updated")
+                    }
+                }
             )
         }
     }
@@ -149,10 +151,8 @@ fun XvoxMainShell(
 
     fun showMiniPlayerSettings() {
         overlays.showBox("Mini player style") {
-            com.xvox.music.features.settings.components.MiniPlayerSettingsBox(
-                state = settingsViewModel.state.collectAsState().value,
-                viewModel = settingsViewModel,
-                onDismiss = overlays::hideBox
+            com.xvox.music.features.settings.components.MiniPlayerSettingsBoxContent(
+                viewModel = settingsViewModel
             )
         }
     }
@@ -531,8 +531,9 @@ fun XvoxMainShell(
                     onTimer = ::showTimerBox,
                     onQueue = ::showQueueBox,
                     onInfo = {
+                        val info = SongInfoReader.read(context, playingSong)
                         overlays.showBox("Song info") {
-                            SongInfoBox(song = playingSong)
+                            SongInfoBox(info = info)
                         }
                     },
                     onShare = {
@@ -544,7 +545,7 @@ fun XvoxMainShell(
                     onStarPlaylist = {
                         val playlist = homeState.playlists.firstOrNull { it.songIds.contains(playingSong.id) }
                         if (playlist != null) {
-                            homeViewModel.toggleFavoritePlaylist(playlist.id)
+                            homeViewModel.toggleLiked(playingSong)
                         }
                     },
                     isShuffleEnabled = player.isShuffleEnabled,
