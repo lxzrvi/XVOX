@@ -177,7 +177,7 @@ fun ThreeDSoundPreview(
     LaunchedEffect(isOrbiting, orbitSpeedSec) {
         if (!isOrbiting || orbitSpeedSec <= 0) return@LaunchedEffect
         var lastTime = 0L
-        while (kotlinx.coroutines.isActive) {
+        while (true) {
             androidx.compose.runtime.withFrameNanos { timeNanos ->
                 if (lastTime != 0L) {
                     val dtSec = (timeNanos - lastTime) / 1_000_000_000f
