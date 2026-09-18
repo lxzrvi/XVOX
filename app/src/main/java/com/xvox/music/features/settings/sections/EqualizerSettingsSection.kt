@@ -107,20 +107,21 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                     Pair("Hall", 0.80f),
                     Pair("Cathedral", 1.00f)
                 ).forEach { (name, revAmount) ->
-                    val active = (name == "Off" && state.reverbAmount < 0.05f) ||
-                            (name != "Off" && state.reverbAmount >= 0.05f && kotlin.math.abs(state.roomAmount - revAmount) < 0.12f)
+                    val isPresetActive = (name == "Off" && state.roomAmount < 0.05f) ||
+                            (name != "Off" && kotlin.math.abs(state.roomAmount - revAmount) < 0.10f)
                     Text(
                         text = name,
-                        color = if (active) colors.background else colors.primaryText,
+                        color = if (isPresetActive) colors.background else colors.primaryText,
                         fontSize = 11.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = if (isPresetActive) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier
                             .clip(RoundedCornerShape(11.dp))
-                            .background(if (active) colors.primaryAccent else colors.card)
+                            .background(if (isPresetActive) colors.primaryAccent else colors.card)
                             .xvoxPressScale {
                                 viewModel.setRoomAmount(revAmount)
-                                if (revAmount == 0f) viewModel.setReverbAmount(0f)
-                                else if (state.reverbAmount < 0.1f) viewModel.setReverbAmount(0.5f)
+                                if (revAmount > 0f && state.reverbAmount < 0.05f) {
+                                    viewModel.setReverbAmount(0.50f)
+                                }
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )

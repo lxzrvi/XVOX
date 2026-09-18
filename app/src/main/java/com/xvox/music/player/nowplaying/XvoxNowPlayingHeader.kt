@@ -49,14 +49,14 @@ fun XvoxNowPlayingHeader(
         modifier = modifier
             .fillMaxWidth()
             .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 2.dp)
-            .height(48.dp),
+            .padding(horizontal = 14.dp, vertical = 0.dp)
+            .height(46.dp),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .size(42.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .background(colors.card.copy(alpha = 0.35f))
                 .clickable(
@@ -91,14 +91,14 @@ fun XvoxNowPlayingHeader(
 
         Column(
             modifier = Modifier
-                .padding(horizontal = 56.dp)
+                .padding(horizontal = 52.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = sourceTitle,
                 color = colors.primaryText.copy(alpha = 0.85f),
-                fontSize = 10.sp,
+                fontSize = 9.5.sp,
                 letterSpacing = 1.2.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -106,8 +106,8 @@ fun XvoxNowPlayingHeader(
             Text(
                 text = displaySource,
                 color = colors.primaryText,
-                fontSize = 15.sp,
-                lineHeight = 17.sp,
+                fontSize = 14.5.sp,
+                lineHeight = 16.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -118,8 +118,8 @@ fun XvoxNowPlayingHeader(
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .height(42.dp)
-                .clip(RoundedCornerShape(21.dp))
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
                 .background(colors.card.copy(alpha = 0.35f))
                 .padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -130,12 +130,12 @@ fun XvoxNowPlayingHeader(
                     contentDescription = "Share",
                     tint = colors.primaryText,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .xvoxPressScale(pressedScale = 0.90f) {
                             haptics.tap()
                             onShare()
                         }
-                        .padding(8.dp)
+                        .padding(7.dp)
                 )
             }
 
@@ -145,12 +145,12 @@ fun XvoxNowPlayingHeader(
                     contentDescription = "More",
                     tint = colors.primaryText,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .xvoxPressScale(pressedScale = 0.90f) {
                             haptics.tap()
                             onMore()
                         }
-                        .padding(8.dp)
+                        .padding(7.dp)
                 )
             }
         }
