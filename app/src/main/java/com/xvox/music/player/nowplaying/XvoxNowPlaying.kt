@@ -117,6 +117,8 @@ fun XvoxNowPlaying(
     var entered by rememberSaveable { mutableStateOf(false) }
     var internalDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
+    val isLyricsShowing = currentMode >= 1
+    val isFullscreen = currentMode == 2
     val setMode: (Int) -> Unit = { mode ->
         internalDisplayMode = mode
         onDisplayModeChange?.invoke(mode)
@@ -233,9 +235,6 @@ fun XvoxNowPlaying(
     )
 
     // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
-    val isFullscreen = currentMode == 2
-    val isLyricsShowing = currentMode >= 1
-
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
         animationSpec = tween(240, easing = FastOutSlowInEasing),
