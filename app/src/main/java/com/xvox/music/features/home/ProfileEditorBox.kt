@@ -76,6 +76,7 @@ fun ProfileEditorBox(
     val storedCustoms by prefs.customPfpUris.collectAsState(initial = profile.customPfpUris)
     val greetingInterval by prefs.greetingIntervalMs.collectAsState(initial = profile.greetingIntervalMs)
     val currentHeaderUri by prefs.headerImageUri.collectAsState(initial = null)
+    val persistentCustomHeaderUri by prefs.savedCustomHeaderUri.collectAsState(initial = null)
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
 
     var name by remember(profile.username) { mutableStateOf(profile.username) }
@@ -86,8 +87,8 @@ fun ProfileEditorBox(
     var croppingAvatarUri by remember { mutableStateOf<Uri?>(null) }
     var croppingHeaderUri by remember { mutableStateOf<Uri?>(null) }
 
-    var savedCustomHeaderUri by remember(currentHeaderUri) {
-        mutableStateOf(currentHeaderUri)
+    var savedCustomHeaderUri by remember(currentHeaderUri, persistentCustomHeaderUri) {
+        mutableStateOf(currentHeaderUri ?: persistentCustomHeaderUri)
     }
     var isCustomHeaderMode by remember(currentHeaderUri) {
         mutableStateOf(currentHeaderUri != null)

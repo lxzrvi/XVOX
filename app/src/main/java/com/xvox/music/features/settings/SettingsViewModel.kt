@@ -235,7 +235,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSoftenHighs(value: Float) = changeAudio { it.copy(softenHighs = value.coerceIn(0f, 1f)) }
     fun setBalance(balance: Float) = changeAudio { it.copy(balance = balance.coerceIn(-1f, 1f)) }
     fun setStereoWidening(enabled: Boolean) = changeAudio { it.copy(stereoWidening = enabled) }
-    fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(2, 10)) }
+    fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(0, 20)) }
 
     fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 1f)) }
     fun setVolumeLimit(limit: Float) = changeAudio { it.copy(volumeLimit = limit.coerceIn(0f, 1f)) }

@@ -116,7 +116,7 @@ fun AboutSettingsSection() {
                     .padding(10.dp)
             ) {
                 Text(
-                    text = "💡 Note: Feature settings and customizations (Equalizer, 3D Sound, Lyrics styling, Layout grids) are accessible directly inside their dedicated pages and long-press option menus, keeping Settings clean and minimal.",
+                    text = "Note: Feature settings and customizations (Equalizer, 3D Sound, Lyrics styling, Layout grids) are accessible directly inside their dedicated pages and long-press option menus, keeping Settings clean and minimal.",
                     color = colors.secondaryText,
                     fontSize = 11.5.sp,
                     lineHeight = 16.sp

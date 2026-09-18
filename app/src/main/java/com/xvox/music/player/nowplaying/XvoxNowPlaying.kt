@@ -241,7 +241,7 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
@@ -263,12 +263,12 @@ fun XvoxNowPlaying(
         )
 
         if (isLandscape) {
-            // Landscape Mode: Left (0.60f Artwork/Lyrics) & Right (0.40f Controls Card)
+            // Landscape Mode: Left (0.70f Artwork/Lyrics) & Right (0.30f Controls Card)
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 8.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
@@ -284,13 +284,13 @@ fun XvoxNowPlaying(
                             onDragCancel = { returnToRest() }
                         )
                     },
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Artwork or Lyrics (60% width)
+                // Left: Artwork or Lyrics (70% width)
                 Box(
                     modifier = Modifier
-                        .weight(0.60f)
+                        .weight(0.70f)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -327,7 +327,7 @@ fun XvoxNowPlaying(
                                 queue = queue,
                                 currentIndex = currentIndex,
                                 navigationRequest = navigationRequest,
-                                onArtworkTap = { setMode(1) },
+                                onArtworkTap = { setMode(2) },
                                 onSwipePalette = { base, adjacent, fraction ->
                                     paletteState.blend(base, adjacent, fraction)
                                 },
@@ -339,16 +339,16 @@ fun XvoxNowPlaying(
                     }
                 }
 
-                // Right: Option/Control Card (40% width)
+                // Right: Option/Control Card (30% width)
                 val landscapeScroll = rememberScrollState()
                 Column(
                     modifier = Modifier
-                        .weight(0.40f)
+                        .weight(0.30f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(18.dp))
                         .background(colors.background.copy(alpha = 0.35f))
                         .verticalScroll(landscapeScroll)
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Top header row inside the right box (useSystemInsets = false)
@@ -360,7 +360,7 @@ fun XvoxNowPlaying(
                         useSystemInsets = false
                     )
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
 
                     NowPlayingActions(
                         isLiked = isLiked,
@@ -382,14 +382,14 @@ fun XvoxNowPlaying(
                         onOpenOptions = { optionName -> activeSettingsBox = optionName }
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
 
                     Column {
                         Text(
                             text = song.title,
                             color = colors.primaryText,
-                            fontSize = 16.sp,
-                            lineHeight = 20.sp,
+                            fontSize = 14.5.sp,
+                            lineHeight = 18.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -398,15 +398,15 @@ fun XvoxNowPlaying(
                         Text(
                             text = song.artist,
                             color = colors.secondaryText,
-                            fontSize = 12.sp,
-                            lineHeight = 15.sp,
+                            fontSize = 11.5.sp,
+                            lineHeight = 14.sp,
                             fontWeight = FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
 
                     XvoxNowPlayingProgress(
                         currentSongId = song.id,
@@ -416,7 +416,7 @@ fun XvoxNowPlaying(
                         showTime = true
                     )
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
 
                     XvoxNowPlayingControls(
                         isPlaying = isPlaying,

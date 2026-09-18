@@ -129,36 +129,46 @@ fun SettingsScreen(
         val bottomPadding = LocalXvoxBottomInset.current + if (isLandscape) 16.dp else 40.dp
 
         if (isLandscape) {
-            // Balanced 2-Column Vertical Stacks in Landscape Mode
+            // Balanced Symmetrical Rows in Landscape Mode + Full Width About Card
             LazyColumn(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding)
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item(key = "landscape_grid") {
+                // Row 1: Appearance & Library
+                item(key = "row_1") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Left Column: Appearance -> System & Reminders -> About XVOX
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Box(modifier = Modifier.weight(1f)) {
                             AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
-                            SystemSectionCard(state, settingsViewModel)
-                            AboutSectionCard()
                         }
-
-                        // Right Column: Library Filters -> Backup & Restore
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Box(modifier = Modifier.weight(1f)) {
                             LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
+                        }
+                    }
+                }
+
+                // Row 2: System & Backup
+                item(key = "row_2") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            SystemSectionCard(state, settingsViewModel)
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
                             BackupSectionCard(homeViewModel)
                         }
                     }
+                }
+
+                // Full Width About Box
+                item(key = "row_about") {
+                    AboutSectionCard()
                 }
             }
         } else {

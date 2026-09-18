@@ -129,6 +129,7 @@ class UserPreferencesRepository(
         val playbackSpeed = floatPreferencesKey("playback_speed")
         val playbackPitch = floatPreferencesKey("playback_pitch")
         val headerImageUri = stringPreferencesKey("header_image_uri")
+        val savedCustomHeaderUri = stringPreferencesKey("saved_custom_header_uri")
         val settingsPreviewHidden = booleanPreferencesKey("settings_preview_hidden")
         val lastSettingsTab = stringPreferencesKey("last_settings_tab")
         val playlistCardOrientation = stringPreferencesKey("playlist_card_orientation")
@@ -397,7 +398,8 @@ class UserPreferencesRepository(
         .map { (it[Keys.playbackSpeed] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
     val playbackPitch: Flow<Float> = context.xvoxDataStore.data
         .map { (it[Keys.playbackPitch] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
-    val headerImageUri: Flow<String?> = context.xvoxDataStore.data.map { it[Keys.headerImageUri] }
+    val headerImageUri: Flow<String?> = context.xvoxDataStore.data.map { it[Keys.headerImageUri]?.takeIf { s -> s.isNotBlank() } }
+    val savedCustomHeaderUri: Flow<String?> = context.xvoxDataStore.data.map { it[Keys.savedCustomHeaderUri]?.takeIf { s -> s.isNotBlank() } }
         .distinctUntilChanged()
     val nowPlayingStyle: Flow<String> = context.xvoxDataStore.data
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
@@ -557,7 +559,7 @@ class UserPreferencesRepository(
             it[Keys.balance] = state.balance.coerceIn(-1f, 1f)
             it[Keys.stereoWidening] = state.surroundEnabled
             it[Keys.surroundDepth] = state.surroundDepth.coerceIn(0f, 1f)
-            it[Keys.surroundPanSpeed] = state.orbitSeconds.coerceIn(2, 10)
+            it[Keys.surroundPanSpeed] = state.orbitSeconds.toInt().coerceIn(0, 20)
             it[Keys.surroundWidth] = state.surroundWidth.coerceIn(.05f, 1f)
             it[Keys.surroundPosition] = state.surroundPosition.coerceIn(-1.5f, 1.5f)
             it[Keys.roomAmount] = state.roomAmount.coerceIn(0f, 1f)
@@ -626,7 +628,12 @@ class UserPreferencesRepository(
         context.xvoxDataStore.edit { it[Keys.showProfileLines] = enabled }
     }
     suspend fun setHeaderImageUri(uri: String?) {
-        context.xvoxDataStore.edit { it[Keys.headerImageUri] = uri.orEmpty() }
+        context.xvoxDataStore.edit {
+            it[Keys.headerImageUri] = uri.orEmpty()
+            if (!uri.isNullOrBlank()) {
+                it[Keys.savedCustomHeaderUri] = uri
+            }
+        }
     }
     suspend fun setNowPlayingStyle(style: String) {
         val normalized = if (style == "compact" || style == "immersive") "compact" else "default"

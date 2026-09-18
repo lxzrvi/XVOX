@@ -172,7 +172,7 @@ class XvoxDspEngine {
         targetReverb = s.reverbAmount.toDouble().coerceIn(0.0, 1.0)
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
-        targetPeriod = s.orbitSeconds.toDouble().coerceIn(1.0, 15.0)
+        targetPeriod = if (s.orbitSeconds > 0f) s.orbitSeconds.toDouble().coerceIn(1.0, 20.0) else 100000.0
     }
 
     fun process(inputLeft: Float, inputRight: Float) {
@@ -204,8 +204,10 @@ class XvoxDspEngine {
         currentCenter += (targetCenter - currentCenter) * controlAlpha
         currentReverb += (targetReverb - currentReverb) * controlAlpha
         currentPeriod += (targetPeriod - currentPeriod) * controlAlpha
-        phase += 2 * PI / (rate * currentPeriod)
-        if (phase >= 2 * PI) phase -= 2 * PI
+        if (settings.orbitSeconds > 0f) {
+            phase += 2 * PI / (rate * currentPeriod)
+            if (phase >= 2 * PI) phase -= 2 * PI
+        }
 
         var dryL = inputLeft.toDouble()
         var dryR = inputRight.toDouble()

@@ -146,7 +146,7 @@ fun AllSongsLayoutBoxContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    (2..8).forEach { r ->
+                    (3..8).forEach { r ->
                         val isSelected = config.rows == r
                         Box(
                             modifier = Modifier
@@ -170,16 +170,6 @@ fun AllSongsLayoutBoxContent(
                         }
                     }
                 }
-
-                Spacer(Modifier.height(4.dp))
-
-                XvoxThinLineSlider(
-                    value = config.rows.toFloat(),
-                    onValueChange = { viewModel.setHomeHorizontalRows(it.toInt()) },
-                    valueRange = 2f..8f,
-                    defaultValue = 4f,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }

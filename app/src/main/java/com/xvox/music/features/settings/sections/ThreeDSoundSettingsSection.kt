@@ -167,20 +167,25 @@ fun ThreeDSoundPreview(
 ) {
     val colors = XvoxTheme.colors
     val isOrbiting = enabled && orbitSpeedSec > 0
-    val transition = rememberInfiniteTransition(label = "orbitAnim")
 
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (!isOrbiting) 600000 else (orbitSpeedSec.coerceIn(1, 20) * 1000),
-                easing = LinearEasing
-            ),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-        ),
-        label = "phase"
-    )
+    var currentAngleRad by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+
+    LaunchedEffect(isOrbiting, orbitSpeedSec) {
+        if (!isOrbiting || orbitSpeedSec <= 0) return@LaunchedEffect
+        var lastTime = 0L
+        while (kotlinx.coroutines.isActive) {
+            androidx.compose.runtime.withFrameNanos { timeNanos ->
+                if (lastTime != 0L) {
+                    val dtSec = (timeNanos - lastTime) / 1_000_000_000f
+                    val speedRadPerSec = (2f * PI.toFloat()) / orbitSpeedSec.toFloat().coerceAtLeast(1f)
+                    currentAngleRad = (currentAngleRad + dtSec * speedRadPerSec) % (2f * PI.toFloat())
+                }
+                lastTime = timeNanos
+            }
+        }
+    }
+
+    val transition = rememberInfiniteTransition(label = "waveAnim")
 
     val wavePhase by transition.animateFloat(
         initialValue = 0f,
@@ -258,62 +263,35 @@ fun ThreeDSoundPreview(
                 )
             )
 
-            // Center listener with headphones
-            val headRadius = 10.dp.toPx()
+            // Center listener clean circular dot
             drawCircle(
                 color = if (enabled) colors.primaryAccent.copy(alpha = 0.20f * pulse) else Color.Transparent,
-                radius = headRadius * 1.6f,
+                radius = 12.dp.toPx() * pulse,
                 center = Offset(cx, cy)
             )
             drawCircle(
                 color = if (enabled) colors.primaryAccent else colors.mutedText,
-                radius = headRadius,
+                radius = 6.dp.toPx(),
                 center = Offset(cx, cy)
-            )
-            drawCircle(
-                color = colors.background,
-                radius = headRadius * 0.65f,
-                center = Offset(cx, cy)
-            )
-
-            // Headphone Earcups
-            val earcupW = 4.dp.toPx()
-            val earcupH = 9.dp.toPx()
-            drawRoundRect(
-                color = if (enabled) colors.primaryAccent else colors.mutedText,
-                topLeft = Offset(cx - headRadius - earcupW, cy - earcupH / 2f),
-                size = androidx.compose.ui.geometry.Size(earcupW, earcupH),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
-            )
-            drawRoundRect(
-                color = if (enabled) colors.primaryAccent else colors.mutedText,
-                topLeft = Offset(cx + headRadius, cy - earcupH / 2f),
-                size = androidx.compose.ui.geometry.Size(earcupW, earcupH),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
             )
 
             if (enabled) {
                 // Depth controls how close the spinning audio circle is to the center
                 val dotOrbitRadius = baseRadius * (0.35f + 0.65f * depthFraction.coerceIn(0.1f, 1f))
-                val effectivePhase = if (isOrbiting) phase else (-PI / 2).toFloat()
+                val effectivePhase = if (isOrbiting) currentAngleRad else (-PI / 2).toFloat()
 
                 val dotX = cx + dotOrbitRadius * cos(effectivePhase)
                 val dotY = cy + dotOrbitRadius * sin(effectivePhase)
 
-                // Spinning sound circle with outer glow aura
+                // Clean moving circular dot with glow aura
                 drawCircle(
-                    color = colors.primaryAccent.copy(alpha = 0.35f * pulse),
+                    color = colors.primaryAccent.copy(alpha = 0.25f * pulse),
                     radius = 14.dp.toPx() * pulse,
                     center = Offset(dotX, dotY)
                 )
                 drawCircle(
                     color = colors.primaryAccent,
-                    radius = 8.5.dp.toPx(),
-                    center = Offset(dotX, dotY)
-                )
-                drawCircle(
-                    color = colors.background,
-                    radius = 3.5.dp.toPx(),
+                    radius = 6.dp.toPx(),
                     center = Offset(dotX, dotY)
                 )
             }

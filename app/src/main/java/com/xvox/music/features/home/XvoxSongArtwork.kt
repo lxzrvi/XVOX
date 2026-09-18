@@ -23,7 +23,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 
 const val XvoxGridArtworkSize = 256
 const val XvoxRecentArtworkSize = 512
-const val XvoxNowPlayingArtworkSize = 1024
+const val XvoxNowPlayingArtworkSize = 0
 
 @Composable
 fun XvoxSongArtwork(
@@ -55,15 +55,18 @@ fun XvoxSongArtwork(
 
     // Find best available cached bitmap matching requested resolution
     val cachedBitmap = remember(cacheKey, baseKey) {
-        if (requestSize >= 1024) {
+        if (requestSize == 0 || requestSize >= 1024) {
             XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_0")
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
         } else if (requestSize >= 512) {
             XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_0")
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
                 ?: XvoxArtworkCache.get("${baseKey}_512")
         } else {
             XvoxArtworkCache.get(cacheKey)
+                ?: XvoxArtworkCache.get("${baseKey}_0")
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
                 ?: XvoxArtworkCache.get("${baseKey}_512")
                 ?: XvoxArtworkCache.get("${baseKey}_256")
@@ -82,14 +85,18 @@ fun XvoxSongArtwork(
     }
 
     val request = remember(artwork, requestSize) {
-        ImageRequest.Builder(context)
+        val builder = ImageRequest.Builder(context)
             .data(artwork)
-            .size(requestSize, requestSize)
-            .precision(Precision.EXACT)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)
-            .build()
+
+        if (requestSize > 0) {
+            builder.size(requestSize, requestSize).precision(Precision.EXACT)
+        } else {
+            builder.precision(Precision.INEXACT)
+        }
+        builder.build()
     }
 
     AsyncImage(
@@ -100,7 +107,7 @@ fun XvoxSongArtwork(
             val drawable = successResult.result.image
             if (drawable is coil3.BitmapImage) {
                 XvoxArtworkCache.put(cacheKey, drawable.bitmap)
-                XvoxArtworkCache.put("${baseKey}_1024", drawable.bitmap)
+                XvoxArtworkCache.put("${baseKey}_0", drawable.bitmap)
             }
         },
         modifier = modifier.background(colors.cardElevated)

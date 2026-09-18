@@ -49,7 +49,7 @@ fun XvoxNowPlayingHeader(
         modifier = modifier
             .fillMaxWidth()
             .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 0.dp)
+            .padding(horizontal = 14.dp, vertical = 4.dp)
             .height(46.dp),
         contentAlignment = Alignment.Center
     ) {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -346,8 +347,7 @@ fun SearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(top = 4.dp)
+                .padding(top = topInset + 4.dp)
         ) {
             SearchBarComponent(
                 query = query,
@@ -657,7 +657,7 @@ private fun SearchResultsList(
             }
         }
 
-        // Playlists matching tab style with compact height
+        // Playlists matching tab style with 3 columns
         if (matchingPlaylists.isNotEmpty()) {
             item(key = "header_playlists") {
                 Text(
@@ -665,17 +665,29 @@ private fun SearchResultsList(
                     color = colors.primaryAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
                 )
             }
-            items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
-                val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
-                SearchPlaylistItem(
-                    playlist = playlist,
-                    coverSong = firstSong,
-                    onClick = { onPlaylistClick(playlist) },
-                    onLongClick = { onPlaylistLongClick(playlist) }
-                )
+            items(matchingPlaylists.chunked(3), key = { chunk -> "pl_chunk_${chunk.first().id}" }) { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    chunk.forEach { playlist ->
+                        val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
+                        Box(modifier = Modifier.weight(1f)) {
+                            SearchPlaylistCoverItem(
+                                playlist = playlist,
+                                coverSong = firstSong,
+                                onClick = { onPlaylistClick(playlist) },
+                                onLongClick = { onPlaylistLongClick(playlist) }
+                            )
+                        }
+                    }
+                    repeat(3 - chunk.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
 
@@ -812,27 +824,27 @@ private fun SearchArtistCircleItem(
 }
 
 @Composable
-private fun SearchPlaylistItem(
+private fun SearchPlaylistCoverItem(
     playlist: XvoxPlaylist,
     coverSong: Song?,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(colors.card)
             .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .fillMaxWidth()
+                .aspectRatio(1f)
                 .clip(RoundedCornerShape(10.dp))
                 .background(colors.cardElevated),
             contentAlignment = Alignment.Center
@@ -847,7 +859,7 @@ private fun SearchPlaylistItem(
             } else if (coverSong?.artworkUri != null) {
                 XvoxSongArtwork(
                     artwork = coverSong.artworkUri,
-                    requestSize = 140,
+                    requestSize = 256,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -855,27 +867,29 @@ private fun SearchPlaylistItem(
                     painter = painterResource(R.drawable.ic_xvox_playlist),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.height(6.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = playlist.name,
-                color = colors.primaryText,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "${playlist.songIds.size} songs",
-                color = colors.secondaryText,
-                fontSize = 11.sp
-            )
-        }
+        Text(
+            text = playlist.name,
+            color = colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "${playlist.songIds.size} songs",
+            color = colors.secondaryText,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
     }
 }
