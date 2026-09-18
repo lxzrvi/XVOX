@@ -168,6 +168,7 @@ fun ThreeDSoundPreview(
     val colors = XvoxTheme.colors
     val isOrbiting = enabled && orbitSpeedSec > 0
     val transition = rememberInfiniteTransition(label = "orbitAnim")
+
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
@@ -181,11 +182,21 @@ fun ThreeDSoundPreview(
         label = "phase"
     )
 
-    val pulse by transition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.15f,
+    val wavePhase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            animation = tween(durationMillis = 3200, easing = LinearEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+        ),
+        label = "wavePhase"
+    )
+
+    val pulse by transition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500, easing = LinearEasing),
             repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
         ),
         label = "pulse"
@@ -194,56 +205,64 @@ fun ThreeDSoundPreview(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(138.dp)
+            .height(145.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(colors.card)
             .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.fillMaxSize().padding(14.dp)) {
-            val cx = size.width / 2f + (balance * size.width * 0.20f)
+            val cx = size.width / 2f + (balance * size.width * 0.18f)
             val cy = size.height / 2f
-            val radiusX = (size.width * 0.40f * widthFraction.coerceIn(0.15f, 1f))
-            val radiusY = (size.height * 0.38f * depthFraction.coerceIn(0.15f, 1f))
 
-            // Crosshair guidelines (Front / Back / Left / Right)
+            // Width scales the circular ring radius
+            val maxR = minOf(size.width, size.height) * 0.44f
+            val minR = minOf(size.width, size.height) * 0.22f
+            val baseRadius = minR + (maxR - minR) * widthFraction.coerceIn(0.1f, 1f)
+
+            // Crosshair guidelines
             drawLine(
-                color = colors.cardBorder.copy(alpha = 0.4f),
-                start = Offset(cx - radiusX - 8.dp.toPx(), cy),
-                end = Offset(cx + radiusX + 8.dp.toPx(), cy),
+                color = colors.cardBorder.copy(alpha = 0.35f),
+                start = Offset(cx - baseRadius - 10.dp.toPx(), cy),
+                end = Offset(cx + baseRadius + 10.dp.toPx(), cy),
                 strokeWidth = 1f
             )
             drawLine(
-                color = colors.cardBorder.copy(alpha = 0.4f),
-                start = Offset(cx, cy - radiusY - 8.dp.toPx()),
-                end = Offset(cx, cy + radiusY + 8.dp.toPx()),
+                color = colors.cardBorder.copy(alpha = 0.35f),
+                start = Offset(cx, cy - baseRadius - 10.dp.toPx()),
+                end = Offset(cx, cy + baseRadius + 10.dp.toPx()),
                 strokeWidth = 1f
             )
 
-            // Outer and inner orbit paths
-            drawOval(
-                color = colors.primaryAccent.copy(alpha = if (enabled) 0.30f else 0.10f),
-                topLeft = Offset(cx - radiusX, cy - radiusY),
-                size = androidx.compose.ui.geometry.Size(radiusX * 2, radiusY * 2),
+            // Draw circular ring (HRTF makes it wavy with sinusoidal rippling)
+            val ringPath = androidx.compose.ui.graphics.Path()
+            val segments = 80
+            val waveAmp = if (enabled && hrtfFraction > 0.05f) (hrtfFraction * 5.5.dp.toPx()) else 0f
+
+            for (i in 0..segments) {
+                val theta = (i.toFloat() / segments.toFloat()) * (2f * PI.toFloat())
+                val r = baseRadius + waveAmp * sin(6f * theta + wavePhase)
+                val x = cx + r * cos(theta)
+                val y = cy + r * sin(theta)
+                if (i == 0) ringPath.moveTo(x, y) else ringPath.lineTo(x, y)
+            }
+            ringPath.close()
+
+            drawPath(
+                path = ringPath,
+                color = colors.primaryAccent.copy(alpha = if (enabled) 0.38f else 0.12f),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(
                     width = 2.dp.toPx(),
-                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
+                    pathEffect = if (enabled && hrtfFraction > 0.05f) null
+                    else androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 6f))
                 )
             )
 
-            // Subtle inner distance ring
-            drawOval(
-                color = colors.primaryAccent.copy(alpha = if (enabled) 0.12f else 0.05f),
-                topLeft = Offset(cx - radiusX * 0.5f, cy - radiusY * 0.5f),
-                size = androidx.compose.ui.geometry.Size(radiusX, radiusY),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-            )
-
-            // Listener Headphone Center (Head + Earcups + Directional Nose)
+            // Center listener with headphones
             val headRadius = 10.dp.toPx()
             drawCircle(
-                color = if (enabled) colors.primaryAccent.copy(alpha = 0.25f * pulse) else Color.Transparent,
-                radius = headRadius * 1.5f,
+                color = if (enabled) colors.primaryAccent.copy(alpha = 0.20f * pulse) else Color.Transparent,
+                radius = headRadius * 1.6f,
                 center = Offset(cx, cy)
             )
             drawCircle(
@@ -257,7 +276,7 @@ fun ThreeDSoundPreview(
                 center = Offset(cx, cy)
             )
 
-            // Headphone Earcups (Left & Right)
+            // Headphone Earcups
             val earcupW = 4.dp.toPx()
             val earcupH = 9.dp.toPx()
             drawRoundRect(
@@ -273,75 +292,30 @@ fun ThreeDSoundPreview(
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
             )
 
-            // Direction arrow pointing forward (top)
-            val arrowY = cy - headRadius - 4.dp.toPx()
-            drawCircle(color = colors.primaryAccent, radius = 2.dp.toPx(), center = Offset(cx, arrowY))
-
             if (enabled) {
-                val effectivePhase = if (isOrbiting) phase else 0f
+                // Depth controls how close the spinning audio circle is to the center
+                val dotOrbitRadius = baseRadius * (0.35f + 0.65f * depthFraction.coerceIn(0.1f, 1f))
+                val effectivePhase = if (isOrbiting) phase else (-PI / 2).toFloat()
 
-                // Orbiting Left Sound Source (L)
-                val lx = cx + radiusX * cos(effectivePhase)
-                val ly = cy + radiusY * sin(effectivePhase)
+                val dotX = cx + dotOrbitRadius * cos(effectivePhase)
+                val dotY = cy + dotOrbitRadius * sin(effectivePhase)
 
-                // Glowing outer aura for Left Node
+                // Spinning sound circle with outer glow aura
                 drawCircle(
                     color = colors.primaryAccent.copy(alpha = 0.35f * pulse),
-                    radius = 12.dp.toPx() * pulse,
-                    center = Offset(lx, ly)
+                    radius = 14.dp.toPx() * pulse,
+                    center = Offset(dotX, dotY)
                 )
                 drawCircle(
                     color = colors.primaryAccent,
-                    radius = 7.5.dp.toPx(),
-                    center = Offset(lx, ly)
-                )
-
-                // Orbiting Right Sound Source (R, 180 deg opposite)
-                val rx = cx + radiusX * cos(effectivePhase + PI.toFloat())
-                val ry = cy + radiusY * sin(effectivePhase + PI.toFloat())
-
-                // Glowing outer aura for Right Node
-                drawCircle(
-                    color = colors.primaryAccent.copy(alpha = 0.28f * pulse),
-                    radius = 11.dp.toPx() * pulse,
-                    center = Offset(rx, ry)
+                    radius = 8.5.dp.toPx(),
+                    center = Offset(dotX, dotY)
                 )
                 drawCircle(
-                    color = colors.primaryAccent.copy(alpha = 0.90f),
-                    radius = 6.5.dp.toPx(),
-                    center = Offset(rx, ry)
+                    color = colors.background,
+                    radius = 3.5.dp.toPx(),
+                    center = Offset(dotX, dotY)
                 )
-
-                // HRTF Binaural wave rings pulsing towards listener
-                if (hrtfFraction > 0.05f) {
-                    val ringAlpha = (hrtfFraction * 0.45f).coerceIn(0.08f, 0.55f)
-                    drawCircle(
-                        color = colors.primaryAccent.copy(alpha = ringAlpha),
-                        radius = (16.dp * hrtfFraction * pulse).toPx(),
-                        center = Offset(lx, ly),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx())
-                    )
-                    drawCircle(
-                        color = colors.primaryAccent.copy(alpha = ringAlpha),
-                        radius = (16.dp * hrtfFraction * pulse).toPx(),
-                        center = Offset(rx, ry),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx())
-                    )
-
-                    // Secondary larger wave
-                    drawCircle(
-                        color = colors.primaryAccent.copy(alpha = ringAlpha * 0.5f),
-                        radius = (26.dp * hrtfFraction * pulse).toPx(),
-                        center = Offset(lx, ly),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                    )
-                    drawCircle(
-                        color = colors.primaryAccent.copy(alpha = ringAlpha * 0.5f),
-                        radius = (26.dp * hrtfFraction * pulse).toPx(),
-                        center = Offset(rx, ry),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                    )
-                }
             }
         }
     }

@@ -233,10 +233,11 @@ fun ProfileEditorBox(
         Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            // Default Button
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(42.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (!isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
                     .then(
@@ -252,165 +253,67 @@ fun ProfileEditorBox(
             ) {
                 Text(
                     "Default",
-                    color = if (!isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.80f),
-                    fontSize = 12.sp,
+                    color = if (!isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.85f),
+                    fontSize = 12.5.sp,
                     fontWeight = if (!isCustomHeaderMode) FontWeight.Bold else FontWeight.Medium
                 )
             }
 
+            // Custom Button with embedded photo/GIF background preview
+            val activeCustomUri = currentHeaderUri ?: savedCustomHeaderUri
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(42.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
                     .then(
-                        if (!isCustomHeaderMode) Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
-                        else Modifier
+                        if (activeCustomUri != null) {
+                            Modifier.border(
+                                width = if (isCustomHeaderMode) 2.dp else 1.dp,
+                                color = if (isCustomHeaderMode) colors.primaryAccent else colors.cardBorder,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        } else if (!isCustomHeaderMode) {
+                            Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                        } else Modifier
                     )
                     .xvoxPressScale {
                         haptics.tap()
-                        isCustomHeaderMode = true
-                        if (currentHeaderUri == null && savedCustomHeaderUri != null) {
-                            scope.launch { prefs.setHeaderImageUri(savedCustomHeaderUri) }
+                        if (!isCustomHeaderMode && activeCustomUri != null) {
+                            isCustomHeaderMode = true
+                            scope.launch { prefs.setHeaderImageUri(activeCustomUri) }
+                        } else {
+                            // If already active or no photo set yet, launch photo/GIF picker
+                            isCustomHeaderMode = true
+                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Custom",
-                    color = if (isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.80f),
-                    fontSize = 12.sp,
-                    fontWeight = if (isCustomHeaderMode) FontWeight.Bold else FontWeight.Medium
-                )
-            }
-        }
-
-        if (isCustomHeaderMode) {
-            Spacer(Modifier.height(10.dp))
-            if (currentHeaderUri != null) {
-                // Header Photo Active Card
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(colors.cardElevated),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = Uri.parse(currentHeaderUri),
-                                contentDescription = "Header preview",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.matchParentSize()
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Header Photo Active",
-                                color = colors.primaryText,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Custom backdrop above home",
-                                color = colors.mutedText,
-                                fontSize = 10.5.sp
-                            )
-                        }
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(colors.cardElevated)
-                                .xvoxPressScale {
-                                    haptics.tap()
-                                    savedCustomHeaderUri = null
-                                    scope.launch { prefs.setHeaderImageUri(null) }
-                                }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text("Remove", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(colors.primaryAccent)
-                                .xvoxPressScale {
-                                    haptics.tap()
-                                    headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "Change",
-                                color = colors.background,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            } else {
-                // Clean Add Photo / GIF Card
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .clickable {
-                            haptics.tap()
-                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Add Photo or GIF",
-                            color = colors.primaryText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Set a custom photo or animated GIF for top header",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp
-                        )
-                    }
-
+                if (activeCustomUri != null) {
+                    // Photo / GIF preview as button background
+                    AsyncImage(
+                        model = Uri.parse(activeCustomUri),
+                        contentDescription = "Custom header preview",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(10.dp))
+                    )
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.primaryAccent)
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                    ) {
-                        Text(
-                            text = "Add",
-                            color = colors.background,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = if (isCustomHeaderMode) 0.35f else 0.55f))
+                    )
                 }
+
+                Text(
+                    text = if (activeCustomUri != null && isCustomHeaderMode) "Custom ✓" else "Custom",
+                    color = if (activeCustomUri != null) Color.White else if (isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.85f),
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 

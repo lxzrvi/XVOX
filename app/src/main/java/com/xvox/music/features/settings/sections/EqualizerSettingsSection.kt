@@ -112,29 +112,23 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
                     Text(
                         text = name,
                         color = if (isPresetActive) colors.background else colors.primaryText,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = if (isPresetActive) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier
                             .clip(RoundedCornerShape(11.dp))
-                            .background(if (isPresetActive) colors.primaryAccent else colors.card)
+                            .background(if (isPresetActive) colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isPresetActive) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(11.dp))
+                                else Modifier
+                            )
                             .xvoxPressScale {
                                 viewModel.setRoomAmount(revAmount)
-                                if (revAmount > 0f && state.reverbAmount < 0.05f) {
-                                    viewModel.setReverbAmount(0.50f)
-                                }
+                                viewModel.setReverbAmount(if (revAmount > 0f) revAmount else 0f)
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            EqLabel("Reverb intensity · ${(state.reverbAmount * 100).roundToInt()}%")
-            XvoxThinLineSlider(
-                value = state.reverbAmount,
-                onValueChange = viewModel::setReverbAmount,
-                valueRange = 0f..1f,
-                defaultValue = 0f
-            )
         }
 
         SettingsAccordionItem(

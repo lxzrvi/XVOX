@@ -241,10 +241,10 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(16.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(12.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
-    val currentPadBottom = lerp(bottomHeightDp + 8.dp, 0.dp, fullscreenProgress)
+    val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
 
     Box(
         modifier = modifier

@@ -125,15 +125,6 @@ fun XvoxMainShell(
                 available: androidx.compose.ui.geometry.Offset,
                 source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
             ): androidx.compose.ui.geometry.Offset {
-                if (destination == XvoxDestination.HOME) {
-                    if (available.y < -12f) {
-                        headerVisible = false
-                    } else if (available.y > 12f) {
-                        headerVisible = true
-                    }
-                } else if (destination == XvoxDestination.SEARCH) {
-                    headerVisible = true
-                }
                 return androidx.compose.ui.geometry.Offset.Zero
             }
         }

@@ -111,7 +111,7 @@ fun AllSongsLayoutBoxContent(
 
         // Card Style
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Layout Style", color = colors.secondaryText, fontSize = 11.sp)
+            Text("Layout Style", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             SettingsChoiceRow(
                 options = listOf("uniform" to "Standard List", "mosaic1" to "Mosaic"),
                 selected = config.style,
@@ -121,7 +121,7 @@ fun AllSongsLayoutBoxContent(
 
         // Scroll Direction
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp)
+            Text("Scroll Direction", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             SettingsChoiceRow(
                 options = listOf("vertical" to "Vertical Scroll", "horizontal" to "Horizontal Pages"),
                 selected = config.direction,
@@ -131,19 +131,51 @@ fun AllSongsLayoutBoxContent(
 
         // Grid Rows only visible when horizontal scrolling is selected
         if (config.direction == "horizontal") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Grid Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
-                    Text("${config.rows} rows", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Grid Rows per Page", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${config.rows} rows", color = colors.primaryAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    (2..8).forEach { r ->
+                        val isSelected = config.rows == r
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                .then(
+                                    if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
+                                    else Modifier
+                                )
+                                .xvoxPressScale { viewModel.setHomeHorizontalRows(r) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$r",
+                                color = if (isSelected) colors.background else colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
                 XvoxThinLineSlider(
                     value = config.rows.toFloat(),
                     onValueChange = { viewModel.setHomeHorizontalRows(it.toInt()) },
-                    valueRange = 3f..8f,
+                    valueRange = 2f..8f,
                     defaultValue = 4f,
                     modifier = Modifier.fillMaxWidth()
                 )

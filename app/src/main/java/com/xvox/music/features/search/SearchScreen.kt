@@ -520,7 +520,8 @@ private fun RecentSearchesSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 4.dp)
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -530,7 +531,7 @@ private fun RecentSearchesSection(
             Text(
                 text = "Recent Searches",
                 color = colors.primaryAccent,
-                fontSize = 12.sp,
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
@@ -547,53 +548,45 @@ private fun RecentSearchesSection(
             )
         }
 
-        Spacer(Modifier.height(6.dp))
+        searches.take(4).forEach { item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardElevated)
+                    .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
+                    .clickable {
+                        haptics.tap()
+                        onSelect(item)
+                    }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = item,
+                    color = colors.primaryText,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp)
-        ) {
-            items(searches, key = { it }) { item ->
-                Row(
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_close),
+                    contentDescription = "Remove search",
+                    tint = colors.secondaryText,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.cardElevated)
-                        .border(0.8.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+                        .size(18.dp)
+                        .clip(CircleShape)
                         .clickable {
                             haptics.tap()
-                            onSelect(item)
+                            onRemove(item)
                         }
-                        .padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_timer),
-                        contentDescription = null,
-                        tint = colors.secondaryText,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Text(
-                        text = item,
-                        color = colors.primaryText,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 1
-                    )
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_close),
-                        contentDescription = "Remove search",
-                        tint = colors.mutedText,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                haptics.tap()
-                                onRemove(item)
-                            }
-                            .padding(2.dp)
-                    )
-                }
+                        .padding(2.dp)
+                )
             }
         }
     }
@@ -664,7 +657,7 @@ private fun SearchResultsList(
             }
         }
 
-        // Horizontal Playlists Row with Covers
+        // Playlists matching tab style with compact height
         if (matchingPlaylists.isNotEmpty()) {
             item(key = "header_playlists") {
                 Text(
@@ -675,21 +668,14 @@ private fun SearchResultsList(
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
                 )
             }
-            item(key = "row_playlists") {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
-                ) {
-                    items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
-                        val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
-                        SearchPlaylistCoverItem(
-                            playlist = playlist,
-                            coverSong = firstSong,
-                            onClick = { onPlaylistClick(playlist) },
-                            onLongClick = { onPlaylistLongClick(playlist) }
-                        )
-                    }
-                }
+            items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
+                val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
+                SearchPlaylistItem(
+                    playlist = playlist,
+                    coverSong = firstSong,
+                    onClick = { onPlaylistClick(playlist) },
+                    onLongClick = { onPlaylistLongClick(playlist) }
+                )
             }
         }
 
@@ -826,25 +812,29 @@ private fun SearchArtistCircleItem(
 }
 
 @Composable
-private fun SearchPlaylistCoverItem(
+private fun SearchPlaylistItem(
     playlist: XvoxPlaylist,
     coverSong: Song?,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    Column(
+    Row(
         modifier = Modifier
-            .width(88.dp)
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .height(58.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.card)
+            .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(80.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.cardElevated)
-                .border(1.dp, colors.cardBorder, RoundedCornerShape(12.dp)),
+                .size(46.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {
             if (!playlist.customCoverUri.isNullOrBlank()) {
@@ -865,29 +855,27 @@ private fun SearchPlaylistCoverItem(
                     painter = painterResource(R.drawable.ic_xvox_playlist),
                     contentDescription = null,
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.width(12.dp))
 
-        Text(
-            text = playlist.name,
-            color = colors.primaryText,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "${playlist.songIds.size} songs",
-            color = colors.secondaryText,
-            fontSize = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = playlist.name,
+                color = colors.primaryText,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${playlist.songIds.size} songs",
+                color = colors.secondaryText,
+                fontSize = 11.sp
+            )
+        }
     }
 }

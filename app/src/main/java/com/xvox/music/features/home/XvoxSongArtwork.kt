@@ -89,6 +89,7 @@ fun XvoxSongArtwork(
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.DISABLED)
+            .allowHardware(true)
             .build()
     }
 

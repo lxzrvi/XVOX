@@ -98,17 +98,19 @@ fun QueueHeaderDropdown(
     Box {
         Row(
             modifier = Modifier
+                .height(40.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { expanded = !expanded }
-                .padding(vertical = 4.dp, horizontal = 2.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Column {
+            Column(verticalArrangement = Arrangement.Center) {
                 Text(
                     text = activeQueueName.ifBlank { "Queue 1" },
                     color = colors.primaryText,
-                    fontSize = 17.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 18.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -116,7 +118,8 @@ fun QueueHeaderDropdown(
                 Text(
                     text = "Current queue",
                     color = colors.primaryAccent,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
+                    lineHeight = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -126,7 +129,7 @@ fun QueueHeaderDropdown(
                 contentDescription = "Switch Queue",
                 tint = colors.primaryAccent,
                 modifier = Modifier
-                    .size(17.dp)
+                    .size(16.dp)
                     .graphicsLayer { rotationZ = if (expanded) 180f else 0f }
             )
         }

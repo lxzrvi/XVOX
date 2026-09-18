@@ -28,6 +28,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -79,7 +80,7 @@ fun XvoxNowPlayingArtworkPager(
         if (nextTarget in queue.indices) {
             pager.animateScrollToPage(
                 page = nextTarget,
-                animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
             )
         }
     }
@@ -94,7 +95,7 @@ fun XvoxNowPlayingArtworkPager(
             } else {
                 pager.animateScrollToPage(
                     page = currentIndex,
-                    animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
+                    animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
                 )
             }
         }
@@ -116,14 +117,17 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Playback change only triggered when pager settles on a target page
+    // Playback change triggered with smooth debounce (380ms) when pager settles
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Pair(pager.settledPage, pager.isScrollInProgress)
         }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
             if (!inProgress && settledIndex in queue.indices && settledIndex != currentIndex) {
-                targetPage = settledIndex
-                settled(settledIndex)
+                delay(380)
+                if (!pager.isScrollInProgress && pager.settledPage == settledIndex && settledIndex in queue.indices && settledIndex != currentIndex) {
+                    targetPage = settledIndex
+                    settled(settledIndex)
+                }
             }
         }
     }
@@ -134,11 +138,11 @@ fun XvoxNowPlayingArtworkPager(
         snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
         flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
-            snapAnimationSpec = tween(150, easing = FastOutSlowInEasing),
+            snapAnimationSpec = tween(120, easing = FastOutSlowInEasing),
             snapPositionalThreshold = 0.35f
         ),
         contentPadding = PaddingValues(0.dp),
-        pageSpacing = 16.dp,
+        pageSpacing = 12.dp,
         modifier = modifier.fillMaxSize(),
         key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
