@@ -177,9 +177,11 @@ fun AppearanceSettingsSection(
                             )
                             "custom" -> Text(
                                 text = label,
-                                style = TextStyle(brush = multiGradient),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                    brush = multiGradient,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                             else -> Text(
                                 text = label,

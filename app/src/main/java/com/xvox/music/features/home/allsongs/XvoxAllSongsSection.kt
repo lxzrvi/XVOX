@@ -109,9 +109,8 @@ fun HorizontalSongPages(
     }
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val effectiveRows = if (isLandscape) config.rows.coerceIn(2, 4) else config.rows.coerceIn(3, 8)
-        val rows = remember(songs.size, effectiveRows, config.style) {
-            if (config.style == "mosaic2") mosaicRows(songs.size, effectiveRows) else effectiveRows
+        val rows = remember(songs.size, config.rows, config.style) {
+            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(3, 8)
         }
         val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp

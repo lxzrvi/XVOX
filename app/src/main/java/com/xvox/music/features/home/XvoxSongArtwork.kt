@@ -94,7 +94,7 @@ fun XvoxSongArtwork(
         if (requestSize > 0) {
             builder.size(requestSize, requestSize).precision(Precision.EXACT)
         } else {
-            builder.precision(Precision.INEXACT)
+            builder.size(coil3.size.Size.ORIGINAL).precision(Precision.INEXACT)
         }
         builder.build()
     }

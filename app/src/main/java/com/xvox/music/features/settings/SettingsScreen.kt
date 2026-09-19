@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -136,19 +137,21 @@ fun SettingsScreen(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Row 1: Appearance & Library
                 item(key = "row_1") {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true }, modifier = Modifier.fillMaxHeight())
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays, modifier = Modifier.fillMaxHeight())
                         }
                     }
                 }
@@ -156,14 +159,16 @@ fun SettingsScreen(
                 // Row 2: System & Backup
                 item(key = "row_2") {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            SystemSectionCard(state, settingsViewModel)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            SystemSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxHeight())
                         }
-                        Box(modifier = Modifier.weight(1f)) {
-                            BackupSectionCard(homeViewModel)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            BackupSectionCard(homeViewModel, modifier = Modifier.fillMaxHeight())
                         }
                     }
                 }
@@ -321,9 +326,11 @@ private fun AppearanceSectionCard(
                             )
                             "custom" -> Text(
                                 text = label,
-                                style = androidx.compose.ui.text.TextStyle(brush = multiGradient),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                    brush = multiGradient,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                             else -> Text(
                                 text = label,

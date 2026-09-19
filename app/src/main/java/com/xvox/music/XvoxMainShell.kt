@@ -122,7 +122,7 @@ fun XvoxMainShell(
     var headerVisible by rememberSaveable { mutableStateOf(true) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
-    val headerMaxScrollPx = with(density) { 96.dp.toPx() }
+    val headerMaxScrollPx = with(density) { 140.dp.toPx() }
 
     val nestedScrollConnection = remember {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {

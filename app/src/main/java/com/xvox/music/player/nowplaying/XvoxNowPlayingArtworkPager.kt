@@ -23,6 +23,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
@@ -143,7 +144,7 @@ fun XvoxNowPlayingArtworkPager(
         ),
         contentPadding = PaddingValues(0.dp),
         pageSpacing = 12.dp,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().clipToBounds(),
         key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
