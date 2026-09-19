@@ -152,7 +152,6 @@ fun XvoxNowPlayingArtworkPager(
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

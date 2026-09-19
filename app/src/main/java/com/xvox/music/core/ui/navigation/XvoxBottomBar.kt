@@ -55,15 +55,19 @@ fun XvoxBottomBar(
     val pillFill = if (chrome.pillColor.isBlank()) pillBase
         else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f))
 
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val actualHostHeight = if (isLandscape) XvoxNavigationGeometry.barHeight else XvoxNavigationGeometry.hostHeight
+    val topOffset = if (isLandscape) 0.dp else XvoxNavigationGeometry.hostOverflow
+
     Box(
         modifier = modifier
             .width(XvoxNavigationGeometry.barWidth)
-            .height(XvoxNavigationGeometry.hostHeight)
+            .height(actualHostHeight)
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = XvoxNavigationGeometry.hostOverflow)
+                .offset(y = topOffset)
                 .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight)
                 .clip(parentShape)
                 .background(colors.surface.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f)))
@@ -78,7 +82,7 @@ fun XvoxBottomBar(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(
-                    y = XvoxNavigationGeometry.hostOverflow + XvoxNavigationGeometry.barHeight / 2 - XvoxNavigationGeometry.selectorRestHeight / 2
+                    y = topOffset + XvoxNavigationGeometry.barHeight / 2 - XvoxNavigationGeometry.selectorRestHeight / 2
                 )
                 .graphicsLayer {
                     translationX = (XvoxNavigationGeometry.selectorStart + XvoxNavigationGeometry.selectorTravel * (motion.position / 2f)).toPx()
@@ -98,7 +102,7 @@ fun XvoxBottomBar(
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = XvoxNavigationGeometry.hostOverflow)
+                .offset(y = topOffset)
                 .size(XvoxNavigationGeometry.barWidth, XvoxNavigationGeometry.barHeight),
             verticalAlignment = Alignment.CenterVertically
         ) {

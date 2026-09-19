@@ -290,7 +290,7 @@ fun XvoxNowPlaying(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                        .padding(12.dp)
                         .pointerInput(Unit) {
                             detectVerticalDragGestures(
                                 onVerticalDrag = { _, dragAmount ->
@@ -306,7 +306,7 @@ fun XvoxNowPlaying(
                                 onDragCancel = { returnToRest() }
                             )
                         },
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left: Artwork or Lyrics Card (65% width)

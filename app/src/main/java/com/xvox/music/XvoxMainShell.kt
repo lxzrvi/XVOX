@@ -126,9 +126,7 @@ fun XvoxMainShell(
     val headerMaxScrollPx = with(density) { 140.dp.toPx() }
 
     LaunchedEffect(destination) {
-        if (destination != XvoxDestination.HOME) {
-            headerOffsetPx = 0f
-        }
+        headerOffsetPx = 0f
     }
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val miniDeleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -367,6 +365,9 @@ fun XvoxMainShell(
                                     onPlaylistSelected = { playlistId ->
                                         hoistedSelectedPlaylistId = playlistId
                                         destination = XvoxDestination.HOME
+                                    },
+                                    onScrollProgress = { index, offset ->
+                                        headerOffsetPx = if (index == 0) (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f) else -headerMaxScrollPx
                                     }
                                 )
                             }

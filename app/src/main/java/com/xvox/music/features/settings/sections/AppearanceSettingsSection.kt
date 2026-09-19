@@ -203,42 +203,6 @@ fun AppearanceSettingsSection(
         }
 
         SettingsAccordionItem(
-            title = "Status Bar",
-            expanded = expandedGroup == "Status Bar",
-            onToggle = { toggle("Status Bar") }
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        text = "Hide Notification Bar",
-                        color = colors.primaryText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "Hide system status bar for a clean, immersive view",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = state.hideStatusBar,
-                    onCheckedChange = { viewModel.setHideStatusBar(it) },
-                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primaryAccent,
-                        uncheckedThumbColor = colors.secondaryText,
-                        uncheckedTrackColor = colors.cardElevated
-                    )
-                )
-            }
-        }
-
-        SettingsAccordionItem(
             title = "Header",
             expanded = expandedGroup == "Header",
             onToggle = { toggle("Header") }
