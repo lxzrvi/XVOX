@@ -66,7 +66,8 @@ fun HomeScreen(
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
     playerViewModel: MainPlayerViewModel = viewModel(),
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
     val overlays = LocalXvoxOverlayController.current
@@ -181,8 +182,9 @@ fun HomeScreen(
         pendingDeleteSongs = emptyList()
     }
 
-    val plans = remember(state.songs, config.style, config.rows) {
-        buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1")
+    val plans = remember(state.songs, config.style, config.rows, isLandscape) {
+        val cols = if (isLandscape) 8 else 4
+        buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1", cols = cols)
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }
     val songsById = remember(state.songs) { state.songs.associateBy { it.id } }
@@ -547,6 +549,15 @@ fun HomeScreen(
             LaunchedEffect(targetArtist?.name, targetPlaylist?.id) {
                 if (targetArtist != null || targetPlaylist != null) {
                     detailScrollState.scrollToItem(0)
+                }
+            }
+
+            val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
+            LaunchedEffect(listState) {
+                androidx.compose.runtime.snapshotFlow {
+                    Pair(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+                }.collect { (index, offset) ->
+                    currentOnScrollProgress(index, offset)
                 }
             }
 

@@ -171,7 +171,7 @@ fun XvoxSongGridPage(
     BoxWithConstraints(modifier) {
         val gap = 6.dp
         val unitWidth = (maxWidth - gap * (columns - 1)) / columns
-        val unitHeight = unitWidth + 38.dp
+        val unitHeight = if (isLandscape) unitWidth + 30.dp else unitWidth + 38.dp
         val height = unitHeight * usedRows + gap * (usedRows - 1).coerceAtLeast(0f)
         val density = androidx.compose.ui.platform.LocalDensity.current
         val stepX = with(density) { (unitWidth + gap).toPx() }

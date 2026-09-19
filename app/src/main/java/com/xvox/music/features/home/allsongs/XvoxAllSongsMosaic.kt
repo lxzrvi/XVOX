@@ -22,10 +22,10 @@ object XvoxMosaicSession {
  * leftover strip. Song counts are therefore balanced across pages so the final page always has
  * enough tiles to cover its grid at sane proportions.
  */
-fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false): List<XvoxMosaicPagePlan> {
+fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false, cols: Int = 4): List<XvoxMosaicPagePlan> {
     val random = Random(songs.fold(XvoxMosaicSession.seed) { seed, song -> seed * 31 + song.id })
     val safeRows = rows.coerceIn(3, 8)
-    val capacity = 4 * safeRows
+    val capacity = cols * safeRows
     if (songs.isEmpty()) return emptyList()
 
     if (isUniform) {
@@ -188,10 +188,14 @@ fun generateClassicMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random)
     if (count <= 0 || cols <= 0 || rows <= 0) return emptyList()
     if (count >= cols * rows) return regularSpecs(cols, count)
 
+    val maxTileW = if (cols >= 8) 2f else 4f
+    val maxTileH = if (cols >= 8) 2f else 3f
+    val maxArea = if (cols >= 8) 4f else 8f
+
     // Long, short and wide all get a real share; nothing degenerates into slivers.
     val allowed: (Float, Float) -> Boolean = { w, h ->
         val area = w * h
-        w <= 4f && h <= 3f && area <= 8f && !(w == 1f && h > 3f) && !(h == 1f && w > 4f)
+        w <= maxTileW && h <= maxTileH && area <= maxArea && !(w == 1f && h > 3f) && !(h == 1f && w > 4f)
     }
     val weight: (Float, Float) -> Double = { w, h ->
         val ratio = w / h
@@ -207,7 +211,7 @@ fun generateClassicMosaicSpecs(cols: Int, rows: Int, count: Int, random: Random)
     mergeToExactCover(cols, rows, count, random, allowed = allowed, weight = weight)?.let { return it }
     // Relaxed pass: keep exact coverage even for awkward counts.
     mergeToExactCover(cols, rows, count, random, attempts = 12,
-        allowed = { w, h -> w <= 4f && h <= 4f }, weight = { _, _ -> 1.0 })?.let { return it }
+        allowed = { w, h -> w <= maxTileW && h <= maxTileH }, weight = { _, _ -> 1.0 })?.let { return it }
     return generateUnbiasedMosaicSpecs(cols, rows, count, random)
 }
 

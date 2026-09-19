@@ -100,6 +100,7 @@ class UserPreferencesRepository(
         val themeBackground = stringPreferencesKey("theme_background")
         val themeBackgroundImage = stringPreferencesKey("theme_background_image")
         val cardTransparency = floatPreferencesKey("card_transparency")
+        val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
         val fourRowsGrid = booleanPreferencesKey("four_rows_grid")
 
@@ -329,6 +330,7 @@ class UserPreferencesRepository(
     val themeBackground: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackground] ?: "Default" }.distinctUntilChanged()
     val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
     val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
+    val hideStatusBar: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideStatusBar] ?: false }.distinctUntilChanged()
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }.distinctUntilChanged()
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
@@ -529,6 +531,10 @@ class UserPreferencesRepository(
     }
     suspend fun setCardTransparency(v: Float) {
         context.xvoxDataStore.edit { it[Keys.cardTransparency] = v.coerceIn(0f, 0.6f) }
+    }
+
+    suspend fun setHideStatusBar(v: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.hideStatusBar] = v }
     }
     suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }

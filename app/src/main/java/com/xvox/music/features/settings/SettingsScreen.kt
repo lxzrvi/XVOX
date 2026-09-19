@@ -383,6 +383,42 @@ private fun AppearanceSectionCard(
                     }
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardElevated)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = "Hide Notification Bar",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Hide system status bar for immersive view",
+                        color = colors.secondaryText,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = state.hideStatusBar,
+                    onCheckedChange = { viewModel.setHideStatusBar(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.background,
+                        checkedTrackColor = colors.primaryAccent,
+                        uncheckedThumbColor = colors.secondaryText,
+                        uncheckedTrackColor = colors.card
+                    )
+                )
+            }
         }
     }
 }

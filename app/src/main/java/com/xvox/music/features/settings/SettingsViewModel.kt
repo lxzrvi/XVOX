@@ -61,6 +61,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.themeBackground.collect { v -> _state.update { it.copy(backgroundName = v) } } }
             launch { prefs.headerImageUri.collect { v -> _state.update { it.copy(headerImageUri = v) } } }
             launch { prefs.themeBackgroundImage.collect { v -> _state.update { it.copy(backgroundImageUri = v.ifBlank { null }) } } }
+            launch { prefs.hideStatusBar.collect { v -> _state.update { it.copy(hideStatusBar = v) } } }
             launch { prefs.cardTransparency.collect { v -> _state.update { it.copy(cardTransparency = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
             launch { prefs.fourRowsGrid.collect { v -> _state.update { it.copy(fourRowsGrid = v) } } }
@@ -176,6 +177,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }
     fun setBackgroundName(name: String) = viewModelScope.launch { prefs.setThemeBackground(name) }
     fun setBackgroundImage(uri: String?) = viewModelScope.launch { prefs.setThemeBackgroundImage(uri) }
+    fun setHideStatusBar(hide: Boolean) = viewModelScope.launch { prefs.setHideStatusBar(hide) }
     fun setCardTransparency(value: Float) = viewModelScope.launch { prefs.setCardTransparency(value) }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setFourRowsGrid(enabled: Boolean) = viewModelScope.launch { prefs.setFourRowsGrid(enabled) }

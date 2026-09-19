@@ -144,13 +144,14 @@ fun XvoxNowPlayingArtworkPager(
         ),
         contentPadding = PaddingValues(0.dp),
         pageSpacing = 12.dp,
-        modifier = modifier.fillMaxSize().clipToBounds(),
+        modifier = modifier.fillMaxSize(),
         key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
         Box(
             Modifier
                 .fillMaxSize()
+                .padding(horizontal = 8.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

@@ -86,6 +86,20 @@ fun XvoxAppRoot(
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
+    val hideStatusBar by prefs.hideStatusBar.collectAsState(initial = false)
+
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(hideStatusBar) {
+        val window = (view.context as? android.app.Activity)?.window
+        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hideStatusBar) {
+            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
+        onDispose { }
+    }
 
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT

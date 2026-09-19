@@ -524,9 +524,7 @@ fun XvoxNowPlaying(
                                 paletteState.blend(base, adjacent, fraction)
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = currentPadH),
+                            modifier = Modifier.fillMaxSize(),
                             repeatMode = repeatMode
                         )
                     }

@@ -124,20 +124,9 @@ fun XvoxMainShell(
     val density = LocalDensity.current
     val headerMaxScrollPx = with(density) { 140.dp.toPx() }
 
-    val nestedScrollConnection = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
-            ): androidx.compose.ui.geometry.Offset {
-                if (destination == XvoxDestination.HOME) {
-                    val newOffset = (headerOffsetPx + available.y).coerceIn(-headerMaxScrollPx, 0f)
-                    headerOffsetPx = newOffset
-                } else {
-                    headerOffsetPx = 0f
-                }
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
+    LaunchedEffect(destination) {
+        if (destination != XvoxDestination.HOME) {
+            headerOffsetPx = 0f
         }
     }
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
@@ -328,7 +317,6 @@ fun XvoxMainShell(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
             .background(colors.background)
     ) {
         val density = LocalDensity.current
@@ -364,7 +352,10 @@ fun XvoxMainShell(
                                     onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
-                                    playerViewModel = playerViewModel
+                                    playerViewModel = playerViewModel,
+                                    onScrollProgress = { index, offset ->
+                                        headerOffsetPx = if (index == 0) (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f) else -headerMaxScrollPx
+                                    }
                                 )
                             }
                             XvoxDestination.SEARCH -> {
@@ -426,21 +417,25 @@ fun XvoxMainShell(
 
         val currentSongId = player.currentSongId
         val miniVisibleBase = player.miniPlayerVisible && !player.nowPlayingVisible && currentSongId != null && player.queue.isNotEmpty()
-        val miniVisible = if (isLandscape) miniVisibleBase else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
+        val miniVisible = if (isLandscape) (player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()) else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
 
         if (isLandscape) {
-            // Landscape Mode: Miniplayer and Navbar in one single balanced bottom row (reduced bottom gap by 10dp)
+            // Landscape Mode: Miniplayer and Navbar in one single balanced bottom row
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (miniVisible && currentSongId != null) {
-                    Box(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(64.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         XvoxMiniPlayer(
                             queue = player.queue,
                             currentSongId = currentSongId,
@@ -476,14 +471,17 @@ fun XvoxMainShell(
                                 }
                             },
                             onSettings = ::showMiniPlayerSettings,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().height(64.dp)
                         )
                     }
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
 
-                Box(contentAlignment = Alignment.CenterEnd) {
+                Box(
+                    modifier = Modifier.height(64.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     XvoxBottomBar(
                         selected = destination,
                         onSelected = { next ->

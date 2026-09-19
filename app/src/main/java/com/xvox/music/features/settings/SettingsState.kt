@@ -9,6 +9,7 @@ data class SettingsState(
     /** Custom photo behind the Home header; null keeps the theme surface. */
     val headerImageUri: String? = null,
     val backgroundImageUri: String? = null,
+    val hideStatusBar: Boolean = false,
     val cardTransparency: Float = 0f,
     val fontSizeScale: Float = 1.0f,
     val hapticFeedbackEnabled: Boolean = true,
