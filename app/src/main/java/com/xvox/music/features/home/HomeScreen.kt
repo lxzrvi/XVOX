@@ -72,6 +72,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     var internalSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
     val effectiveSelectedPlaylistId = if (onSelectedPlaylistIdChange != null) selectedPlaylistId else internalSelectedPlaylistId
@@ -351,8 +352,6 @@ fun HomeScreen(
 
         return state.songs to (if (src.isNotBlank()) src else "All Songs")
     }
-
-    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
         item(key = "recent") {
