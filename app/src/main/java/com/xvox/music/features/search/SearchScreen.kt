@@ -310,7 +310,6 @@ fun SearchScreen(
                         allSongs = homeState.songs,
                         currentSongId = playerState.currentSongId,
                         isPlaying = playerState.isPlaying,
-                        colors = colors,
                         onSongClick = ::handleSongClick,
                         onSongLongClick = { song ->
                             showSongOptionsOverlay(
@@ -406,7 +405,6 @@ fun SearchScreen(
                 allSongs = homeState.songs,
                 currentSongId = playerState.currentSongId,
                 isPlaying = playerState.isPlaying,
-                colors = colors,
                 onSongClick = ::handleSongClick,
                 onSongLongClick = { song ->
                     showSongOptionsOverlay(
@@ -537,7 +535,8 @@ private fun RecentSearchesSection(
     searches: List<String>,
     onSelect: (String) -> Unit,
     onRemove: (String) -> Unit,
-    onClearAll: () -> Unit
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -545,7 +544,7 @@ private fun RecentSearchesSection(
     if (searches.isEmpty()) return
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -627,7 +626,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     allSongs: List<Song>,
     currentSongId: Long?,
     isPlaying: Boolean,
-    colors: com.xvox.music.core.design.theme.XvoxColors,
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
     onArtistClick: (XvoxArtist) -> Unit,
@@ -637,6 +635,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
 ) {
     if (query.isNotEmpty() && matchingSongs.isEmpty() && matchingArtists.isEmpty() && matchingPlaylists.isEmpty()) {
         item(key = "no_results") {
+            val colors = XvoxTheme.colors
             Box(
                 modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                 contentAlignment = Alignment.Center
@@ -654,6 +653,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     // Horizontal Artists Row with Circular Profile
     if (matchingArtists.isNotEmpty()) {
         item(key = "header_artists") {
+            val colors = XvoxTheme.colors
             Text(
                 text = if (query.isEmpty()) "Artists" else "Artists (${matchingArtists.size})",
                 color = colors.primaryAccent,
@@ -681,6 +681,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     // Playlists Horizontal Row with Compact Items
     if (matchingPlaylists.isNotEmpty()) {
         item(key = "header_playlists") {
+            val colors = XvoxTheme.colors
             Text(
                 text = if (query.isEmpty()) "Playlists" else "Playlists (${matchingPlaylists.size})",
                 color = colors.primaryAccent,
@@ -710,6 +711,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     // Songs list
     if (matchingSongs.isNotEmpty()) {
         item(key = "header_songs") {
+            val colors = XvoxTheme.colors
             Text(
                 text = if (query.isEmpty()) "All Songs (${matchingSongs.size})" else "Songs (${matchingSongs.size})",
                 color = colors.primaryAccent,
@@ -719,6 +721,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
             )
         }
         items(matchingSongs, key = { "song_${it.id}" }) { song ->
+            val colors = XvoxTheme.colors
             val isCurrent = song.id == currentSongId
             val cardColor = rememberSongCardColor(song = song, current = isCurrent)
 
