@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.xvox.music.core.model.Song
 import kotlin.math.abs
 import kotlinx.coroutines.Job
@@ -292,7 +293,7 @@ fun XvoxMiniPlayer(
             },
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .androidx.compose.ui.zIndex(10f)
+                .zIndex(10f)
         )
     }
 }
