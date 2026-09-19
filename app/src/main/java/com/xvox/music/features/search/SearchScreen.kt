@@ -210,7 +210,7 @@ fun SearchScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInset + 4.dp)
+                .padding(top = topInset + 20.dp)
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -347,7 +347,7 @@ fun SearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInset + 4.dp)
+                .padding(top = topInset + 20.dp)
         ) {
             SearchBarComponent(
                 query = query,
@@ -657,7 +657,7 @@ private fun SearchResultsList(
             }
         }
 
-        // Playlists matching tab style with 3 columns
+        // Playlists matching tab style with 2 columns
         if (matchingPlaylists.isNotEmpty()) {
             item(key = "header_playlists") {
                 Text(
@@ -668,7 +668,7 @@ private fun SearchResultsList(
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
                 )
             }
-            items(matchingPlaylists.chunked(3), key = { chunk -> "pl_chunk_${chunk.first().id}" }) { chunk ->
+            items(matchingPlaylists.chunked(2), key = { chunk -> "pl_chunk_${chunk.first().id}" }) { chunk ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -684,7 +684,7 @@ private fun SearchResultsList(
                             )
                         }
                     }
-                    repeat(3 - chunk.size) {
+                    repeat(2 - chunk.size) {
                         Spacer(Modifier.weight(1f))
                     }
                 }

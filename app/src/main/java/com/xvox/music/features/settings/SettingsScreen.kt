@@ -37,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -214,104 +216,160 @@ private fun AppearanceSectionCard(
 
     SettingsCardFrame(title = "Appearance & Theme", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            SettingsChoiceRow(
-                listOf("System" to "System", "Light" to "Light", "Dark" to "Dark", "AMOLED" to "AMOLED"),
-                state.theme
-            ) { viewModel.setTheme(it) }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text("Accent Color", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val themeOptions = listOf(
+                "System" to "System",
+                "Light" to "Light",
+                "Dark" to "Dark",
+                "AMOLED" to "AMOLED"
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf("White", "Red", "Blue").forEach { colorKey ->
-                    val isSelected = state.accentColor.equals(colorKey, ignoreCase = true)
+                themeOptions.forEach { (key, label) ->
+                    val isSelected = state.theme.equals(key, ignoreCase = true)
+                    val btnBg = when (key) {
+                        "Light" -> Color(0xFFF2F2F7)
+                        "Dark" -> Color(0xFF1C1C1E)
+                        "AMOLED" -> Color(0xFF000000)
+                        else -> colors.cardElevated
+                    }
+                    val textColor = when (key) {
+                        "Light" -> Color(0xFF111111)
+                        "Dark" -> Color(0xFFEBEBF5)
+                        "AMOLED" -> Color(0xFFFFFFFF)
+                        else -> colors.primaryText
+                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(38.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(10.dp)
+                            .background(btnBg)
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(10.dp))
+                                else Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
                             )
-                            .xvoxPressScale { viewModel.setAccentColor(colorKey) },
+                            .xvoxPressScale { viewModel.setTheme(key) },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = colorKey,
-                            color = if (isSelected) colors.background else colors.primaryText,
+                            text = label,
+                            color = textColor,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
                 }
+            }
 
-                // Dedicated Custom Color Button next to Blue
-                val isCustomActive = state.accentColor.startsWith("#")
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isCustomActive) colors.primaryAccent else colors.cardElevated)
-                        .border(
-                            width = 1.dp,
-                            color = if (isCustomActive) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(10.dp)
+            Spacer(Modifier.height(4.dp))
+
+            Text("Accent Color", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val accentOptions = listOf(
+                "White" to "White",
+                "Red" to "Red",
+                "Blue" to "Blue",
+                "custom" to "Custom"
+            )
+            val isCustomActive = state.accentColor.startsWith("#")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                accentOptions.forEach { (key, label) ->
+                    val isSelected = if (key == "custom") isCustomActive else (!isCustomActive && state.accentColor.equals(key, ignoreCase = true))
+                    val multiGradient = Brush.horizontalGradient(
+                        listOf(
+                            Color(0xFFFF3B30),
+                            Color(0xFFFF9500),
+                            Color(0xFF34C759),
+                            Color(0xFF007AFF),
+                            Color(0xFFAF52DE)
                         )
-                        .xvoxPressScale(onClick = onOpenColorWheel),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isCustomActive) state.accentColor.uppercase() else "+ Custom",
-                        color = if (isCustomActive) colors.background else colors.primaryText,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold
                     )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected && key != "custom") colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                else if (key == "custom") Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(10.dp))
+                                else Modifier
+                            )
+                            .xvoxPressScale {
+                                if (key == "custom") onOpenColorWheel()
+                                else viewModel.setAccentColor(key)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when (key) {
+                            "Red" -> Text(
+                                text = label,
+                                color = if (isSelected) colors.background else Color(0xFFFF453A),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            "Blue" -> Text(
+                                text = label,
+                                color = if (isSelected) colors.background else Color(0xFF0A84FF),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            "custom" -> Text(
+                                text = label,
+                                style = androidx.compose.ui.text.TextStyle(brush = multiGradient),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            else -> Text(
+                                text = label,
+                                color = if (isSelected) colors.background else colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(Modifier.height(4.dp))
 
-            Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val sizeOptions = listOf(
+                Triple(0.80f, "Small", 10.5.sp),
+                Triple(1.00f, "Medium", 12.5.sp),
+                Triple(1.20f, "Large", 14.5.sp),
+                Triple(1.40f, "Extra", 16.5.sp)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val scalePresets = listOf(
-                    0.75f to "0.75x",
-                    0.85f to "0.85x",
-                    0.95f to "0.95x",
-                    1.00f to "1.0x",
-                    1.25f to "1.25x",
-                    1.50f to "1.50x"
-                )
-                scalePresets.forEach { (scaleValue, label) ->
-                    val isSelected = kotlin.math.abs(state.fontSizeScale - scaleValue) < 0.04f
+                sizeOptions.forEach { (scale, label, fontSize) ->
+                    val isSelected = kotlin.math.abs(state.fontSizeScale - scale) < 0.10f
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                else Modifier
                             )
-                            .xvoxPressScale { viewModel.setFontSizeScale(scaleValue) },
+                            .xvoxPressScale {
+                                viewModel.setFontSizeScale(scale)
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = label,
                             color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 11.sp,
+                            fontSize = fontSize,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }

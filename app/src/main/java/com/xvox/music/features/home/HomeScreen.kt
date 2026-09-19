@@ -82,7 +82,10 @@ fun HomeScreen(
     val prefs = remember { UserPreferencesRepository(context) }
     val config by viewModel.homePresentation.collectAsState()
 
-    var selectedArtist by remember { mutableStateOf<XvoxArtist?>(null) }
+    var selectedArtistName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedArtist = remember(selectedArtistName, artists) {
+        selectedArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
+    }
     var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }
     var croppingArtistPhotoFor by remember { mutableStateOf<Pair<String, Uri>?>(null) }
 
@@ -193,7 +196,7 @@ fun HomeScreen(
     LaunchedEffect(homeResetKey, scrollResetKey) {
         if (homeResetKey > 0L || scrollResetKey > 0L) {
             selectedSongIds = emptySet()
-            selectedArtist = null
+            selectedArtistName = null
             setSelectedPlaylistId(null)
             viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
         }
@@ -201,11 +204,13 @@ fun HomeScreen(
 
     LaunchedEffect(effectiveSelectedPlaylistId, state.libraryMode) {
         selectedSongIds = emptySet()
-        selectedArtist = null
+        if (state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
+            selectedArtistName = null
+        }
     }
 
     BackHandler(enabled = isSelectionMode) { selectedSongIds = emptySet() }
-    BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtist = null }
+    BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtistName = null }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist != null) { setSelectedPlaylistId(null) }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist == null && state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
         viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
@@ -383,7 +388,7 @@ fun HomeScreen(
                 direction = "vertical",
                 gap = 12,
                 hideText = config.artistHideText,
-                onArtistClick = { selectedArtist = it },
+                onArtistClick = { selectedArtistName = it.name },
                 onArtistLongClick = { showArtistInfo = it },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )

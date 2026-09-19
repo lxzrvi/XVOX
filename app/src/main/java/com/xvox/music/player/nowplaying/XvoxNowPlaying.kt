@@ -263,7 +263,7 @@ fun XvoxNowPlaying(
         )
 
         if (isLandscape) {
-            // Landscape Mode: Left (0.70f Artwork/Lyrics) & Right (0.30f Controls Card)
+            // Landscape Mode: Left (0.65f Artwork/Lyrics) & Right (0.35f Controls Card)
             Row(
                 modifier = Modifier
                     .fillMaxSize()
@@ -287,10 +287,10 @@ fun XvoxNowPlaying(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Artwork or Lyrics (70% width)
+                // Left: Artwork or Lyrics (65% width)
                 Box(
                     modifier = Modifier
-                        .weight(0.70f)
+                        .weight(0.65f)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -307,8 +307,8 @@ fun XvoxNowPlaying(
                                 onAttach = lyricsViewModel::attach,
                                 onDelete = lyricsViewModel::removeCustom,
                                 onClose = { setMode(0) },
-                                expanded = false,
-                                onToggleExpand = { setMode(2) },
+                                expanded = mode == 2,
+                                onToggleExpand = { setMode(if (mode == 2) 1 else 2) },
                                 onOpenSettings = { activeSettingsBox = "Lyrics" },
                                 onDismissNowPlaying = ::dismiss,
                                 onSwipeDownDelta = { delta ->
@@ -327,7 +327,7 @@ fun XvoxNowPlaying(
                                 queue = queue,
                                 currentIndex = currentIndex,
                                 navigationRequest = navigationRequest,
-                                onArtworkTap = { setMode(2) },
+                                onArtworkTap = { setMode(1) },
                                 onSwipePalette = { base, adjacent, fraction ->
                                     paletteState.blend(base, adjacent, fraction)
                                 },
@@ -339,11 +339,11 @@ fun XvoxNowPlaying(
                     }
                 }
 
-                // Right: Option/Control Card (30% width)
+                // Right: Option/Control Card (35% width)
                 val landscapeScroll = rememberScrollState()
                 Column(
                     modifier = Modifier
-                        .weight(0.30f)
+                        .weight(0.35f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(18.dp))
                         .background(colors.background.copy(alpha = 0.35f))
@@ -388,7 +388,7 @@ fun XvoxNowPlaying(
                         Text(
                             text = song.title,
                             color = colors.primaryText,
-                            fontSize = 14.5.sp,
+                            fontSize = 15.sp,
                             lineHeight = 18.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -433,6 +433,15 @@ fun XvoxNowPlaying(
                         durationMs = duration,
                         onScrubTo = onSeek,
                         modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        text = "XVOX",
+                        color = colors.primaryAccent.copy(alpha = 0.50f),
+                        fontFamily = XvoxLogoFont,
+                        fontSize = 11.5.sp,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 2.dp)
                     )
                 }
             }

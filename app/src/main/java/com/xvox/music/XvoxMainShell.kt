@@ -37,6 +37,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -118,6 +119,9 @@ fun XvoxMainShell(
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var headerVisible by rememberSaveable { mutableStateOf(true) }
+    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val headerMaxScrollPx = with(density) { 96.dp.toPx() }
 
     val nestedScrollConnection = remember {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
@@ -125,6 +129,12 @@ fun XvoxMainShell(
                 available: androidx.compose.ui.geometry.Offset,
                 source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
             ): androidx.compose.ui.geometry.Offset {
+                if (destination == XvoxDestination.HOME) {
+                    val newOffset = (headerOffsetPx + available.y).coerceIn(-headerMaxScrollPx, 0f)
+                    headerOffsetPx = newOffset
+                } else {
+                    headerOffsetPx = 0f
+                }
                 return androidx.compose.ui.geometry.Offset.Zero
             }
         }
@@ -389,7 +399,8 @@ fun XvoxMainShell(
             exit = slideOutVertically(
                 targetOffsetY = { -it },
                 animationSpec = tween(220, easing = FastOutSlowInEasing)
-            ) + fadeOut(tween(160))
+            ) + fadeOut(tween(160)),
+            modifier = Modifier.graphicsLayer { translationY = headerOffsetPx }
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
@@ -417,13 +428,13 @@ fun XvoxMainShell(
         val miniVisible = if (isLandscape) miniVisibleBase else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
 
         if (isLandscape) {
-            // Landscape Mode: Miniplayer and Navbar in one single balanced bottom row
+            // Landscape Mode: Miniplayer and Navbar in one single balanced bottom row (reduced bottom gap by 10dp)
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
