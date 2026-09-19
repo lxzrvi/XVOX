@@ -51,7 +51,8 @@ fun XvoxNowPlayingArtworkPager(
     onSwipePalette: (Song, Song?, Float) -> Unit,
     onSettledPage: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    pageSpacing: androidx.compose.ui.unit.Dp = 16.dp,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    pageSpacing: androidx.compose.ui.unit.Dp = 12.dp,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
@@ -144,7 +145,7 @@ fun XvoxNowPlayingArtworkPager(
             snapAnimationSpec = tween(120, easing = FastOutSlowInEasing),
             snapPositionalThreshold = 0.35f
         ),
-        contentPadding = PaddingValues(0.dp),
+        contentPadding = contentPadding,
         pageSpacing = pageSpacing,
         modifier = modifier.fillMaxSize(),
         key = { page -> queue.getOrNull(page)?.id ?: page }

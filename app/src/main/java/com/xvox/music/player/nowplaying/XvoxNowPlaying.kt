@@ -332,13 +332,14 @@ fun XvoxNowPlaying(
                                     onDelete = lyricsViewModel::removeCustom,
                                     onClose = { setMode(0) },
                                     expanded = false,
-                                    showCloseButton = false,
+                                    showCloseButton = true,
                                     onToggleExpand = { setMode(2) },
                                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                                     onDismissNowPlaying = ::dismiss,
                                     textColor = paletteState.color,
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .padding(start = 12.dp, end = 6.dp)
                                         .clip(RoundedCornerShape(20.dp))
                                 )
                             } else {
@@ -352,6 +353,7 @@ fun XvoxNowPlaying(
                                     },
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(start = 12.dp, end = 6.dp),
                                     pageSpacing = 12.dp,
                                     repeatMode = repeatMode
                                 )
@@ -538,6 +540,7 @@ fun XvoxNowPlaying(
                             },
                             onSettledPage = onPlayQueueIndex,
                             modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = currentPadH),
                             pageSpacing = 12.dp,
                             repeatMode = repeatMode
                         )

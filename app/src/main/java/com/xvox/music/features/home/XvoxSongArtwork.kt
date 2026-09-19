@@ -59,20 +59,19 @@ fun XvoxSongArtwork(
             XvoxArtworkCache.get("${baseKey}_0")
         } else if (requestSize >= 1024) {
             XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_0")
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
+                ?: XvoxArtworkCache.get("${baseKey}_0")
         } else if (requestSize >= 512) {
             XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_0")
-                ?: XvoxArtworkCache.get("${baseKey}_1024")
                 ?: XvoxArtworkCache.get("${baseKey}_512")
+                ?: XvoxArtworkCache.get("${baseKey}_1024")
+                ?: XvoxArtworkCache.get("${baseKey}_0")
         } else {
             XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_0")
-                ?: XvoxArtworkCache.get("${baseKey}_1024")
-                ?: XvoxArtworkCache.get("${baseKey}_512")
                 ?: XvoxArtworkCache.get("${baseKey}_256")
                 ?: XvoxArtworkCache.get(baseKey)
+                ?: XvoxArtworkCache.get("${baseKey}_512")
+                ?: XvoxArtworkCache.get("${baseKey}_0")
         }
     }
 
@@ -109,7 +108,9 @@ fun XvoxSongArtwork(
             val drawable = successResult.result.image
             if (drawable is coil3.BitmapImage) {
                 XvoxArtworkCache.put(cacheKey, drawable.bitmap)
-                XvoxArtworkCache.put("${baseKey}_0", drawable.bitmap)
+                if (requestSize == 0) {
+                    XvoxArtworkCache.put("${baseKey}_0", drawable.bitmap)
+                }
             }
         },
         modifier = modifier.background(colors.cardElevated)

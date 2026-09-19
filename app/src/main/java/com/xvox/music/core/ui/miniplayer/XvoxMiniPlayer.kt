@@ -127,26 +127,6 @@ fun XvoxMiniPlayer(
             .height(118.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        XvoxMiniPlayerActions(
-            visible = actionsVisible,
-            onAdd = {
-                actionsVisible = false
-                onAdd()
-            },
-            onSettings = {
-                actionsVisible = false
-                onSettings()
-            },
-            onDelete = {
-                actionsVisible = false
-                onDelete()
-            },
-            onClose = {
-                exit(y.value + dragY, true)
-            },
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -292,5 +272,27 @@ fun XvoxMiniPlayer(
                     }
             )
         }
+
+        XvoxMiniPlayerActions(
+            visible = actionsVisible,
+            onAdd = {
+                actionsVisible = false
+                onAdd()
+            },
+            onSettings = {
+                actionsVisible = false
+                onSettings()
+            },
+            onDelete = {
+                actionsVisible = false
+                onDelete()
+            },
+            onClose = {
+                exit(y.value + dragY, true)
+            },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .androidx.compose.ui.zIndex(10f)
+        )
     }
 }

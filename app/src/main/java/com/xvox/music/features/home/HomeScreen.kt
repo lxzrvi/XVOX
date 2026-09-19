@@ -20,8 +20,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -488,22 +491,28 @@ fun HomeScreen(
         }
 
         if (isSelectionMode) {
-            Spacer(Modifier.height(topInset))
-            HomeMultiSelectBar(
-                selectedSongs = selectedSongsList,
-                selectedPlaylist = selectedPlaylist,
-                libraryMode = selectionLibraryMode ?: state.libraryMode,
-                viewModel = viewModel,
-                playerViewModel = playerViewModel,
-                overlays = overlays,
-                context = context,
-                categoryName = selectionCategoryName,
-                onClearSelection = {
-                    selectedSongIds = emptySet()
-                    selectionCategoryName = null
-                },
-                onDeleteSelected = ::requestDeleteSelected
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = 4.dp)
+            ) {
+                HomeMultiSelectBar(
+                    selectedSongs = selectedSongsList,
+                    selectedPlaylist = selectedPlaylist,
+                    libraryMode = selectionLibraryMode ?: state.libraryMode,
+                    viewModel = viewModel,
+                    playerViewModel = playerViewModel,
+                    overlays = overlays,
+                    context = context,
+                    categoryName = selectionCategoryName,
+                    onClearSelection = {
+                        selectedSongIds = emptySet()
+                        selectionCategoryName = null
+                    },
+                    onDeleteSelected = ::requestDeleteSelected
+                )
+            }
         }
 
         val homeScrollState = rememberLazyListState()
