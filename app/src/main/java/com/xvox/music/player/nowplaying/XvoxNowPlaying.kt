@@ -265,16 +265,18 @@ fun XvoxNowPlaying(
         if (isLandscape) {
             if (isFullscreen) {
                 // Fullscreen lyrics overlay across the entire landscape screen
-                XvoxFullscreenLyrics(
+                XvoxArtworkLyrics(
                     state = lyricsState,
                     position = position,
                     onSeek = onSeek,
                     onAttach = lyricsViewModel::attach,
                     onDelete = lyricsViewModel::removeCustom,
-                    onClose = { setMode(1) },
+                    onClose = { setMode(0) },
+                    expanded = true,
+                    onToggleExpand = { setMode(1) },
                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                     onDismissNowPlaying = ::dismiss,
-                    onSwipeDownDelta = { delta ->
+                    onSwipeDownDelta = { delta: Float ->
                         screenY = (screenY + delta).coerceAtLeast(0f)
                     },
                     onSwipeDownEnd = {
