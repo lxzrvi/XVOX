@@ -31,6 +31,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,10 +83,6 @@ fun HomeScreen(
     val prefs = remember { UserPreferencesRepository(context) }
     val config by viewModel.homePresentation.collectAsState()
 
-    var selectedArtistName by rememberSaveable { mutableStateOf<String?>(null) }
-    val selectedArtist = remember(selectedArtistName, artists) {
-        selectedArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
-    }
     var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }
     var croppingArtistPhotoFor by remember { mutableStateOf<Pair<String, Uri>?>(null) }
 
@@ -129,6 +126,11 @@ fun HomeScreen(
                 )
             }
             .sortedBy { it.name.lowercase() }
+    }
+
+    var selectedArtistName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedArtist = remember(selectedArtistName, artists) {
+        selectedArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
     }
 
     var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }

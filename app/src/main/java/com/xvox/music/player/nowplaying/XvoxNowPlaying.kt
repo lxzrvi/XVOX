@@ -307,8 +307,8 @@ fun XvoxNowPlaying(
                                 onAttach = lyricsViewModel::attach,
                                 onDelete = lyricsViewModel::removeCustom,
                                 onClose = { setMode(0) },
-                                expanded = mode == 2,
-                                onToggleExpand = { setMode(if (mode == 2) 1 else 2) },
+                                expanded = isFullscreen,
+                                onToggleExpand = { setMode(if (isFullscreen) 1 else 2) },
                                 onOpenSettings = { activeSettingsBox = "Lyrics" },
                                 onDismissNowPlaying = ::dismiss,
                                 onSwipeDownDelta = { delta ->
