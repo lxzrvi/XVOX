@@ -91,8 +91,7 @@ fun XvoxAppRoot(
     androidx.compose.runtime.DisposableEffect(Unit) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
         onDispose { }
     }
 

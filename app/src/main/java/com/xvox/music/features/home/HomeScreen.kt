@@ -74,7 +74,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    var internalSelectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    var internalSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     val effectiveSelectedPlaylistId = if (onSelectedPlaylistIdChange != null) selectedPlaylistId else internalSelectedPlaylistId
 
     fun setSelectedPlaylistId(value: String?) {
@@ -198,8 +198,8 @@ fun HomeScreen(
         if (!state.loading) onQueueReady(state.songs)
     }
 
-    LaunchedEffect(homeResetKey, scrollResetKey) {
-        if (homeResetKey > 0L || scrollResetKey > 0L) {
+    LaunchedEffect(homeResetKey) {
+        if (homeResetKey > 0L) {
             selectedSongIds = emptySet()
             selectedArtistName = null
             setSelectedPlaylistId(null)

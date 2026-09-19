@@ -241,10 +241,25 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(16.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
+
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(isLandscape) {
+        val window = (view.context as? android.app.Activity)?.window
+        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        if (isLandscape) {
+            insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
+        onDispose {
+            if (isLandscape) {
+                insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -330,6 +345,7 @@ fun XvoxNowPlaying(
                                     onDelete = lyricsViewModel::removeCustom,
                                     onClose = { setMode(0) },
                                     expanded = false,
+                                    showCloseButton = false,
                                     onToggleExpand = { setMode(2) },
                                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                                     onDismissNowPlaying = ::dismiss,
@@ -355,6 +371,7 @@ fun XvoxNowPlaying(
                                     },
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
+                                    pageSpacing = 12.dp,
                                     repeatMode = repeatMode
                                 )
                             }
@@ -375,7 +392,7 @@ fun XvoxNowPlaying(
                     ) {
                         // Top header row inside the right box (useSystemInsets = false)
                         XvoxNowPlayingHeader(
-                            onClose = ::dismiss,
+                            onClose = { if (isLyricsShowing) setMode(0) else dismiss() },
                             onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
                             onMore = { activeSettingsBox = "Style" },
                             playingSource = playingSource,
@@ -524,7 +541,10 @@ fun XvoxNowPlaying(
                                 paletteState.blend(base, adjacent, fraction)
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = currentPadH),
+                            pageSpacing = 16.dp,
                             repeatMode = repeatMode
                         )
                     }

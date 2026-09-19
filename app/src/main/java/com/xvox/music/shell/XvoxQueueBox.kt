@@ -116,7 +116,7 @@ fun QueueHeaderDropdown(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Current queue",
+                    text = if (isQueue1Active) "Current queue • $currentQueueSize songs" else "$currentQueueSize songs",
                     color = colors.primaryAccent,
                     fontSize = 10.5.sp,
                     lineHeight = 12.sp,
@@ -160,7 +160,7 @@ fun QueueHeaderDropdown(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (isQueue1Active) "Current queue" else "$queue1Count songs",
+                                text = if (isQueue1Active) "Current queue • $queue1Count songs" else "$queue1Count songs",
                                 color = if (isQueue1Active) colors.primaryAccent else colors.secondaryText,
                                 fontSize = 11.sp
                             )
@@ -205,7 +205,7 @@ fun QueueHeaderDropdown(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = if (isSelected) "Current queue" else "$count songs",
+                                    text = if (isSelected) "Current queue • $count songs" else "$count songs",
                                     color = if (isSelected) colors.primaryAccent else colors.secondaryText,
                                     fontSize = 11.sp
                                 )

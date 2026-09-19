@@ -71,6 +71,7 @@ fun XvoxArtworkLyrics(
     onDelete: () -> Unit,
     onClose: () -> Unit,
     expanded: Boolean = false,
+    showCloseButton: Boolean = true,
     onToggleExpand: (() -> Unit)? = null,
     onOpenSettings: (() -> Unit)? = null,
     onDismissNowPlaying: (() -> Unit)? = null,
@@ -547,13 +548,15 @@ fun XvoxArtworkLyrics(
                             )
                         }
 
-                        LyricsAction(
-                            resource = R.drawable.ic_xvox_close,
-                            onClick = {
-                                registerUserActivity()
-                                onClose()
-                            }
-                        )
+                        if (showCloseButton) {
+                            LyricsAction(
+                                resource = R.drawable.ic_xvox_close,
+                                onClick = {
+                                    registerUserActivity()
+                                    onClose()
+                                }
+                            )
+                        }
                     }
                 }
             }
