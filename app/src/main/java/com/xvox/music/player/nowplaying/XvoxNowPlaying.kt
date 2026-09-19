@@ -241,21 +241,23 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(16.dp, 0.dp, fullscreenProgress)
+    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
 
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(isLandscape) {
+    DisposableEffect(isLandscape, isFullscreen) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        if (isLandscape) {
+        if (isLandscape || isFullscreen) {
             insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
         }
         onDispose {
-            if (isLandscape) {
+            if (isLandscape || isFullscreen) {
                 insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
             }
         }
@@ -305,22 +307,7 @@ fun XvoxNowPlaying(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(12.dp)
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onVerticalDrag = { _, dragAmount ->
-                                    screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                                },
-                                onDragEnd = {
-                                    if (screenY > screenHeight * 0.18f) {
-                                        dismiss()
-                                    } else {
-                                        returnToRest()
-                                    }
-                                },
-                                onDragCancel = { returnToRest() }
-                            )
-                        },
+                        .padding(start = 0.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -349,12 +336,6 @@ fun XvoxNowPlaying(
                                     onToggleExpand = { setMode(2) },
                                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                                     onDismissNowPlaying = ::dismiss,
-                                    onSwipeDownDelta = { delta ->
-                                        screenY = (screenY + delta).coerceAtLeast(0f)
-                                    },
-                                    onSwipeDownEnd = {
-                                        if (screenY > screenHeight * 0.18f) dismiss() else returnToRest()
-                                    },
                                     textColor = paletteState.color,
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -396,7 +377,22 @@ fun XvoxNowPlaying(
                             onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
                             onMore = { activeSettingsBox = "Style" },
                             playingSource = playingSource,
-                            useSystemInsets = false
+                            useSystemInsets = false,
+                            modifier = Modifier.pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { _, dragAmount ->
+                                        screenY = (screenY + dragAmount).coerceAtLeast(0f)
+                                    },
+                                    onDragEnd = {
+                                        if (screenY > screenHeight * 0.18f) {
+                                            dismiss()
+                                        } else {
+                                            returnToRest()
+                                        }
+                                    },
+                                    onDragCancel = { returnToRest() }
+                                )
+                            }
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -541,10 +537,8 @@ fun XvoxNowPlaying(
                                 paletteState.blend(base, adjacent, fraction)
                             },
                             onSettledPage = onPlayQueueIndex,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = currentPadH),
-                            pageSpacing = 16.dp,
+                            modifier = Modifier.fillMaxSize(),
+                            pageSpacing = 12.dp,
                             repeatMode = repeatMode
                         )
                     }

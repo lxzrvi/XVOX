@@ -106,23 +106,6 @@ fun XvoxArtworkLyrics(
             uri?.let(onAttach)
         }
 
-    val view = LocalView.current
-    DisposableEffect(expanded) {
-        val window = (view.context as? android.app.Activity)?.window
-        val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
-        if (expanded) {
-            insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController?.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            insetsController?.show(WindowInsetsCompat.Type.systemBars())
-        }
-        onDispose {
-            if (expanded) {
-                insetsController?.show(WindowInsetsCompat.Type.systemBars())
-            }
-        }
-    }
-
     // Pill visibility: visible initially on card open, disappears 3s after user inactivity, reappears on user scroll/touch
     var pillVisible by remember { mutableStateOf(!expanded) }
     var lastUserInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
