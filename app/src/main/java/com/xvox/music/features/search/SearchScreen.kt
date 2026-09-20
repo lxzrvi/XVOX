@@ -636,18 +636,6 @@ fun SearchScreen(
             }
         }
     }
-                onPlaylistLongClick = { playlist ->
-                    showPlaylistActions(
-                        overlays = overlays,
-                        viewModel = homeViewModel,
-                        playlist = playlist,
-                        onSelect = { handlePlaylistClick(playlist) },
-                        onDeleted = { homeViewModel.refresh() }
-                    )
-                }
-            )
-        }
-    }
 }
 
 @Composable
