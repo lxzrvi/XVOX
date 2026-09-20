@@ -279,7 +279,7 @@ fun NowPlayingActions(
             // 3 indicator dots
             Row(
                 modifier = Modifier
-                    .padding(top = 4.dp)
+                    .padding(top = 7.dp)
                     .graphicsLayer { alpha = dotsAlpha },
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically

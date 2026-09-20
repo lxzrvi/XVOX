@@ -150,6 +150,14 @@ fun SearchScreen(
             .sortedBy { it.name.lowercase() }
     }
 
+    var drillDownPlaylist by remember { mutableStateOf<XvoxPlaylist?>(null) }
+    var drillDownArtist by remember { mutableStateOf<XvoxArtist?>(null) }
+
+    androidx.activity.compose.BackHandler(enabled = drillDownPlaylist != null || drillDownArtist != null) {
+        drillDownPlaylist = null
+        drillDownArtist = null
+    }
+
     val trimmedQuery = query.trim()
     val matchingSongs = remember(trimmedQuery, homeState.songs) {
         if (trimmedQuery.isEmpty()) homeState.songs
@@ -179,11 +187,24 @@ fun SearchScreen(
         if (trimmedQuery.isNotBlank()) {
             homeViewModel.addRecentSearch(trimmedQuery)
         }
-        val targetList = if (trimmedQuery.isEmpty()) homeState.songs else matchingSongs
+        if (song.id == playerState.currentSongId) {
+            playerViewModel.seekTo(0L)
+            if (!playerState.isPlaying) playerViewModel.togglePlay()
+            return
+        }
+        val targetList = if (drillDownPlaylist != null) homeViewModel.playlistSongs(drillDownPlaylist!!)
+            else if (drillDownArtist != null) drillDownArtist!!.songs
+            else if (trimmedQuery.isEmpty()) homeState.songs
+            else matchingSongs
+        val sourceName = if (drillDownPlaylist != null) "Playlist: ${drillDownPlaylist!!.name}"
+            else if (drillDownArtist != null) "Artist: ${drillDownArtist!!.name}"
+            else if (trimmedQuery.isEmpty()) "Search: All Songs"
+            else "Search: \"$trimmedQuery\""
+
         playerViewModel.playFromSource(
             song = song,
             sourceQueue = targetList,
-            source = if (trimmedQuery.isEmpty()) "Search: All Songs" else "Search: \"$trimmedQuery\""
+            source = sourceName
         )
     }
 
@@ -191,28 +212,16 @@ fun SearchScreen(
         if (trimmedQuery.isNotBlank()) {
             homeViewModel.addRecentSearch(trimmedQuery)
         }
-        val songs = homeViewModel.playlistSongs(playlist)
-        if (songs.isNotEmpty()) {
-            playerViewModel.playFromSource(
-                song = songs.first(),
-                sourceQueue = songs,
-                source = "Playlist: ${playlist.name}"
-            )
-        }
-        onPlaylistSelected?.invoke(playlist.id)
+        drillDownPlaylist = playlist
+        drillDownArtist = null
     }
 
     fun handleArtistClick(artist: XvoxArtist) {
         if (trimmedQuery.isNotBlank()) {
             homeViewModel.addRecentSearch(trimmedQuery)
         }
-        if (artist.songs.isNotEmpty()) {
-            playerViewModel.playFromSource(
-                song = artist.songs.first(),
-                sourceQueue = artist.songs,
-                source = "Artist: ${artist.name}"
-            )
-        }
+        drillDownArtist = artist
+        drillDownPlaylist = null
     }
 
     if (isLandscape) {
@@ -299,9 +308,278 @@ fun SearchScreen(
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = 4.dp, bottom = bottomInset + 16.dp),
+                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = bottomInset + 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (drillDownPlaylist != null) {
+                        item(key = "drill_header_pl") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.card)
+                                        .clickable { drillDownPlaylist = null },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryAccent, modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(drillDownPlaylist!!.name, color = colors.primaryAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        val plSongs = homeViewModel.playlistSongs(drillDownPlaylist!!)
+                        items(plSongs, key = { "pl_song_${it.id}" }) { song ->
+                            SearchSongRow(
+                                song = song,
+                                currentSongId = playerState.currentSongId,
+                                isPlaying = playerState.isPlaying,
+                                onSongClick = ::handleSongClick,
+                                onSongLongClick = { s ->
+                                    showSongOptionsOverlay(
+                                        overlays = overlays,
+                                        context = context,
+                                        song = s,
+                                        isLiked = s.id in homeState.likedSongIds,
+                                        playlist = drillDownPlaylist,
+                                        viewModel = homeViewModel,
+                                        playerViewModel = playerViewModel,
+                                        playlists = homeState.playlists,
+                                        songs = homeState.songs,
+                                        deleteLauncher = deleteLauncher,
+                                        onPendingDelete = { pendingDeleteSong = it }
+                                    )
+                                }
+                            )
+                        }
+                    } else if (drillDownArtist != null) {
+                        item(key = "drill_header_art") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.card)
+                                        .clickable { drillDownArtist = null },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryAccent, modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(drillDownArtist!!.name, color = colors.primaryAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        items(drillDownArtist!!.songs, key = { "art_song_${it.id}" }) { song ->
+                            SearchSongRow(
+                                song = song,
+                                currentSongId = playerState.currentSongId,
+                                isPlaying = playerState.isPlaying,
+                                onSongClick = ::handleSongClick,
+                                onSongLongClick = { s ->
+                                    showSongOptionsOverlay(
+                                        overlays = overlays,
+                                        context = context,
+                                        song = s,
+                                        isLiked = s.id in homeState.likedSongIds,
+                                        playlist = null,
+                                        viewModel = homeViewModel,
+                                        playerViewModel = playerViewModel,
+                                        playlists = homeState.playlists,
+                                        songs = homeState.songs,
+                                        deleteLauncher = deleteLauncher,
+                                        onPendingDelete = { pendingDeleteSong = it }
+                                    )
+                                }
+                            )
+                        }
+                    } else {
+                        searchResultsContent(
+                            query = trimmedQuery,
+                            matchingSongs = matchingSongs,
+                            matchingArtists = matchingArtists,
+                            matchingPlaylists = matchingPlaylists,
+                            allSongs = homeState.songs,
+                            currentSongId = playerState.currentSongId,
+                            isPlaying = playerState.isPlaying,
+                            onSongClick = ::handleSongClick,
+                            onSongLongClick = { song ->
+                                showSongOptionsOverlay(
+                                    overlays = overlays,
+                                    context = context,
+                                    song = song,
+                                    isLiked = song.id in homeState.likedSongIds,
+                                    playlist = null,
+                                    viewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    playlists = homeState.playlists,
+                                    songs = homeState.songs,
+                                    deleteLauncher = deleteLauncher,
+                                    onPendingDelete = { pendingDeleteSong = it }
+                                )
+                            },
+                            onArtistClick = ::handleArtistClick,
+                            onArtistLongClick = { artist ->
+                                val firstSong = artist.songs.firstOrNull() ?: return@searchResultsContent
+                                showSongOptionsOverlay(
+                                    overlays = overlays,
+                                    context = context,
+                                    song = firstSong,
+                                    isLiked = firstSong.id in homeState.likedSongIds,
+                                    playlist = null,
+                                    viewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    playlists = homeState.playlists,
+                                    songs = homeState.songs,
+                                    deleteLauncher = deleteLauncher,
+                                    onPendingDelete = { pendingDeleteSong = it }
+                                )
+                            },
+                            onPlaylistClick = ::handlePlaylistClick,
+                            onPlaylistLongClick = { playlist ->
+                                showPlaylistActions(
+                                    overlays = overlays,
+                                    viewModel = homeViewModel,
+                                    playlist = playlist,
+                                    onSelect = { handlePlaylistClick(playlist) },
+                                    onDeleted = { homeViewModel.refresh() }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        // Portrait Layout: Pinned Search Bar & Recent Searches at top under status bar, scrollable song list below
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
+            if (drillDownPlaylist == null && drillDownArtist == null) {
+                SearchBarComponent(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onClear = { query = "" },
+                    focusRequester = focusRequester,
+                    onSearch = {
+                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)
+                )
+
+                if (recentSearches.isNotEmpty() && query.isEmpty()) {
+                    RecentSearchesSection(
+                        searches = recentSearches,
+                        onSelect = { q ->
+                            query = q
+                            focusManager.clearFocus()
+                        },
+                        onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                        onClearAll = { homeViewModel.clearRecentSearches() },
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                    )
+                }
+            } else {
+                val drillDownTitle = drillDownPlaylist?.name ?: drillDownArtist?.name ?: ""
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(colors.card)
+                            .clickable {
+                                drillDownPlaylist = null
+                                drillDownArtist = null
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryAccent, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = drillDownTitle,
+                        color = colors.primaryAccent,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 4.dp, bottom = bottomInset + 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (drillDownPlaylist != null) {
+                    val plSongs = homeViewModel.playlistSongs(drillDownPlaylist!!)
+                    items(plSongs, key = { "pl_song_${it.id}" }) { song ->
+                        SearchSongRow(
+                            song = song,
+                            currentSongId = playerState.currentSongId,
+                            isPlaying = playerState.isPlaying,
+                            onSongClick = ::handleSongClick,
+                            onSongLongClick = { s ->
+                                showSongOptionsOverlay(
+                                    overlays = overlays,
+                                    context = context,
+                                    song = s,
+                                    isLiked = s.id in homeState.likedSongIds,
+                                    playlist = drillDownPlaylist,
+                                    viewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    playlists = homeState.playlists,
+                                    songs = homeState.songs,
+                                    deleteLauncher = deleteLauncher,
+                                    onPendingDelete = { pendingDeleteSong = it }
+                                )
+                            }
+                        )
+                    }
+                } else if (drillDownArtist != null) {
+                    items(drillDownArtist!!.songs, key = { "art_song_${it.id}" }) { song ->
+                        SearchSongRow(
+                            song = song,
+                            currentSongId = playerState.currentSongId,
+                            isPlaying = playerState.isPlaying,
+                            onSongClick = ::handleSongClick,
+                            onSongLongClick = { s ->
+                                showSongOptionsOverlay(
+                                    overlays = overlays,
+                                    context = context,
+                                    song = s,
+                                    isLiked = s.id in homeState.likedSongIds,
+                                    playlist = null,
+                                    viewModel = homeViewModel,
+                                    playerViewModel = playerViewModel,
+                                    playlists = homeState.playlists,
+                                    songs = homeState.songs,
+                                    deleteLauncher = deleteLauncher,
+                                    onPendingDelete = { pendingDeleteSong = it }
+                                )
+                            }
+                        )
+                    }
+                } else {
                     searchResultsContent(
                         query = trimmedQuery,
                         matchingSongs = matchingSongs,
@@ -357,88 +635,7 @@ fun SearchScreen(
                 }
             }
         }
-    } else {
-        // Portrait Layout: unified LazyColumn so Search Bar & Recent Searches scroll smoothly with the top header!
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = topInset + 10.dp,
-                bottom = bottomInset + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            item(key = "search_bar") {
-                SearchBarComponent(
-                    query = query,
-                    onQueryChange = { query = it },
-                    onClear = { query = "" },
-                    focusRequester = focusRequester,
-                    onSearch = {
-                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
-                        focusManager.clearFocus()
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)
-                )
-            }
-
-            if (recentSearches.isNotEmpty() && query.isEmpty()) {
-                item(key = "recent_searches") {
-                    RecentSearchesSection(
-                        searches = recentSearches,
-                        onSelect = { q ->
-                            query = q
-                            focusManager.clearFocus()
-                        },
-                        onRemove = { q -> homeViewModel.removeRecentSearch(q) },
-                        onClearAll = { homeViewModel.clearRecentSearches() },
-                        modifier = Modifier.padding(horizontal = 14.dp)
-                    )
-                }
-            }
-
-            searchResultsContent(
-                query = trimmedQuery,
-                matchingSongs = matchingSongs,
-                matchingArtists = matchingArtists,
-                matchingPlaylists = matchingPlaylists,
-                allSongs = homeState.songs,
-                currentSongId = playerState.currentSongId,
-                isPlaying = playerState.isPlaying,
-                onSongClick = ::handleSongClick,
-                onSongLongClick = { song ->
-                    showSongOptionsOverlay(
-                        overlays = overlays,
-                        context = context,
-                        song = song,
-                        isLiked = song.id in homeState.likedSongIds,
-                        playlist = null,
-                        viewModel = homeViewModel,
-                        playerViewModel = playerViewModel,
-                        playlists = homeState.playlists,
-                        songs = homeState.songs,
-                        deleteLauncher = deleteLauncher,
-                        onPendingDelete = { pendingDeleteSong = it }
-                    )
-                },
-                onArtistClick = ::handleArtistClick,
-                onArtistLongClick = { artist ->
-                    val firstSong = artist.songs.firstOrNull() ?: return@searchResultsContent
-                    showSongOptionsOverlay(
-                        overlays = overlays,
-                        context = context,
-                        song = firstSong,
-                        isLiked = firstSong.id in homeState.likedSongIds,
-                        playlist = null,
-                        viewModel = homeViewModel,
-                        playerViewModel = playerViewModel,
-                        playlists = homeState.playlists,
-                        songs = homeState.songs,
-                        deleteLauncher = deleteLauncher,
-                        onPendingDelete = { pendingDeleteSong = it }
-                    )
-                },
-                onPlaylistClick = ::handlePlaylistClick,
+    }
                 onPlaylistLongClick = { playlist ->
                     showPlaylistActions(
                         overlays = overlays,
@@ -908,6 +1105,75 @@ private fun SearchPlaylistCompactItem(
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchSongRow(
+    song: Song,
+    currentSongId: Long?,
+    isPlaying: Boolean,
+    onSongClick: (Song) -> Unit,
+    onSongLongClick: (Song) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val isCurrent = song.id == currentSongId
+    val cardColor = rememberSongCardColor(song = song, current = isCurrent)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardColor)
+            .xvoxSongPress(
+                onClick = { onSongClick(song) },
+                onLongClick = { onSongLongClick(song) }
+            )
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 100,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                color = if (isCurrent) colors.primaryAccent else colors.primaryText,
+                fontSize = 14.sp,
+                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = song.artist,
+                color = colors.secondaryText,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (isCurrent && isPlaying) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_waveform),
+                contentDescription = "Playing",
+                tint = colors.primaryAccent,
+                modifier = Modifier.size(18.dp).padding(end = 4.dp)
             )
         }
     }

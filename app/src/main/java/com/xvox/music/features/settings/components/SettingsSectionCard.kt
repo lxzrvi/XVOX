@@ -35,8 +35,7 @@ fun SettingsSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder, shape)
+            .background(colors.cardElevated.copy(alpha = 0.82f))
             .padding(12.dp)
     ) {
         Row(

@@ -3,6 +3,7 @@ package com.xvox.music.features.home
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +13,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +55,8 @@ fun HomeMultiSelectBar(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     val headerLabel = when {
         !categoryName.isNullOrBlank() -> categoryName
@@ -59,9 +69,13 @@ fun HomeMultiSelectBar(
 
     Column(
         modifier = modifier
-            .padding(top = 6.dp, bottom = 8.dp, start = 8.dp, end = 8.dp),
+            .graphicsLayer {
+                translationX = offsetX
+                translationY = offsetY
+            }
+            .padding(top = 2.dp, bottom = 6.dp, start = 8.dp, end = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Top Indicator Bar with Category Name & Selection Count
         Row(
@@ -87,13 +101,13 @@ fun HomeMultiSelectBar(
             )
         }
 
-        // Action Row
+        // Action Row with Floating Draggable 6-Dot Handle
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(colors.cardElevated.copy(alpha = 0.96f))
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -203,6 +217,34 @@ fun HomeMultiSelectBar(
                 label = "Cancel",
                 onClick = onClearSelection
             )
+
+            // 6-Dot Draggable Move Handle
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(colors.card)
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount.x
+                            offsetY += dragAmount.y
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    repeat(3) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Box(Modifier.size(3.dp).clip(CircleShape).background(colors.primaryAccent))
+                            Box(Modifier.size(3.dp).clip(CircleShape).background(colors.primaryAccent))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -218,9 +260,9 @@ private fun MultiActionItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(CircleShape)
             .clickable { onClick() }
-            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 3.dp)
     ) {
         Icon(
             painter = painterResource(iconRes),
@@ -232,7 +274,7 @@ private fun MultiActionItem(
         Text(
             text = label,
             color = colors.primaryText,
-            fontSize = 9.5.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Medium
         )
     }

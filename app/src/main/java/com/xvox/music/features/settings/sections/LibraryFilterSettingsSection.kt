@@ -40,11 +40,6 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
     val folders by homeViewModel.folders.collectAsState()
     val library by homeViewModel.state.collectAsState()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsPreviewFrame("Library preview") {
-            Text("${library.songs.size} visible songs", color = colors.primaryAccent, fontWeight = FontWeight.Bold)
-            Text("${folders.sumOf { it.songCount } - library.songs.size} filtered out",
-                color = colors.secondaryText, fontSize = 12.sp)
-        }
         Text("Minimum length", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
         SettingsChoiceRow(listOf("0" to "Off", "15" to "15s", "30" to "30s", "60" to "1m", "custom" to "Custom"),
             if (state.ignoreBelowSec in listOf(0, 15, 30, 60)) state.ignoreBelowSec.toString() else "custom") { value ->

@@ -125,7 +125,7 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides chrome,
             LocalXvoxHaptics provides haptics
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
                 if (state == AppUiState.Setup) {
                     SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                 } else {

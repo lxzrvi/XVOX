@@ -427,7 +427,7 @@ fun XvoxMainShell(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 3.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {

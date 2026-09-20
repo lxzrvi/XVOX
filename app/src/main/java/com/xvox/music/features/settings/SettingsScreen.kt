@@ -121,15 +121,6 @@ fun SettingsScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(top = 2.dp)
     ) {
-        Text(
-            text = "Settings",
-            color = colors.primaryAccent,
-            fontSize = 22.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp)
-        )
-
         val bottomPadding = LocalXvoxBottomInset.current + if (isLandscape) 16.dp else 40.dp
 
         if (isLandscape) {
@@ -140,6 +131,17 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                item(key = "settings_title_landscape") {
+                    Text(
+                        text = "Settings",
+                        color = colors.primaryAccent,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)
+                    )
+                }
+
                 // Row 1: Appearance & Library
                 item(key = "row_1") {
                     Row(
@@ -187,6 +189,17 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                item(key = "settings_title_portrait") {
+                    Text(
+                        text = "Settings",
+                        color = colors.primaryAccent,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)
+                    )
+                }
+
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
                 }
@@ -460,9 +473,8 @@ private fun SettingsCardFrame(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
-            .border(0.9.dp, colors.cardBorder, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.cardElevated.copy(alpha = 0.82f))
             .padding(14.dp)
     ) {
         Text(

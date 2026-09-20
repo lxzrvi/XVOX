@@ -170,6 +170,23 @@ class MainPlayerViewModel(
     }
 
     fun playFromSource(song: Song, sourceQueue: List<Song>, source: String) {
+        val activeQueueId = _state.value.activeQueueId
+        if (activeQueueId != "queue_1" && activeQueueId.isNotBlank()) {
+            val targetSong = song.copy(source = source)
+            val currentQueue = _state.value.queue.toMutableList()
+            val existingIdx = currentQueue.indexOfFirst { it.id == song.id }
+            if (existingIdx < 0) {
+                currentQueue.add(targetSong)
+            }
+            controller.setQueue(currentQueue)
+            libraryQueueSize = currentQueue.size
+            libraryQueueSignature = queueSignature(currentQueue)
+            val newIdx = currentQueue.indexOfFirst { it.id == song.id }
+            _state.update { it.copy(queue = currentQueue, currentIndex = newIdx) }
+            play(targetSong, source)
+            return
+        }
+
         val sourcedQueue = (if (sourceQueue.isEmpty()) listOf(song) else sourceQueue).map {
             it.copy(source = source)
         }
@@ -413,7 +430,16 @@ class MainPlayerViewModel(
                 songs = emptyList()
             )
         } else {
-            savedList.firstOrNull { it.id == targetQueueId } ?: return
+            savedList.firstOrNull { it.id == targetQueueId } ?: run {
+                val qNumber = targetQueueId.removePrefix("queue_")
+                val created = XvoxSavedQueue(
+                    id = targetQueueId,
+                    name = "Queue $qNumber",
+                    songs = emptyList()
+                )
+                savedList.add(created)
+                created
+            }
         }
 
         controller.setQueue(target.songs)
@@ -618,11 +644,21 @@ class MainPlayerViewModel(
     fun playPrevious() {
         val queue = _state.value.queue
         val index = _state.value.currentIndex
+        val position = _state.value.position
         if (queue.isEmpty() || index < 0) return
+
+        if (position > 5000L) {
+            seekTo(0L)
+            return
+        }
+
         val atFirst = index <= 0
-        if (atFirst && _state.value.repeatMode == RepeatMode.OFF) return
+        if (atFirst && _state.value.repeatMode == RepeatMode.OFF) {
+            seekTo(0L)
+            return
+        }
         val target = if (atFirst && _state.value.repeatMode == RepeatMode.ALL) queue.lastIndex else index - 1
-        playQueueIndex(target)
+        playQueueIndex(target, keepPlayingState = false)
     }
 
     fun playNext() {
@@ -632,7 +668,7 @@ class MainPlayerViewModel(
         val atLast = index >= queue.lastIndex
         if (atLast && _state.value.repeatMode == RepeatMode.OFF) return
         val target = if (atLast && _state.value.repeatMode == RepeatMode.ALL) 0 else index + 1
-        playQueueIndex(target)
+        playQueueIndex(target, keepPlayingState = false)
     }
 
     fun seekTo(positionMs: Long) {

@@ -96,6 +96,14 @@ fun QueueHeaderDropdown(
     val queue1Count = if (isQueue1Active) currentQueueSize else (queue1Saved?.songs?.size ?: 0)
 
     Box {
+        val totalQueues = maxOf(4, savedQueues.size + 1)
+        val activeQueueDisplay = when {
+            activeQueueName == "Queue 1" || isQueue1Active -> "Queue 1 / $totalQueues"
+            activeQueueName.startsWith("Queue ") -> "$activeQueueName / $totalQueues"
+            activeQueueName.isNotBlank() -> "$activeQueueName / $totalQueues"
+            else -> "Queue 1 / $totalQueues"
+        }
+
         Row(
             modifier = Modifier
                 .height(40.dp)
@@ -107,16 +115,16 @@ fun QueueHeaderDropdown(
         ) {
             Column(verticalArrangement = Arrangement.Center) {
                 Text(
-                    text = activeQueueName.ifBlank { "Queue 1" },
+                    text = activeQueueDisplay,
                     color = colors.primaryText,
-                    fontSize = 16.sp,
-                    lineHeight = 18.sp,
+                    fontSize = 15.sp,
+                    lineHeight = 17.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (isQueue1Active) "Current queue • $currentQueueSize songs" else "$currentQueueSize songs",
+                    text = "Current queue • $currentQueueSize songs",
                     color = colors.primaryAccent,
                     fontSize = 10.5.sp,
                     lineHeight = 12.sp,
@@ -142,51 +150,18 @@ fun QueueHeaderDropdown(
                 .clip(RoundedCornerShape(16.dp))
                 .widthIn(min = 230.dp, max = 320.dp)
         ) {
-            // Queue 1
-            DropdownMenuItem(
-                text = {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Queue 1",
-                                color = if (isQueue1Active) colors.primaryAccent else colors.primaryText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (isQueue1Active) "Current queue • $queue1Count songs" else "$queue1Count songs",
-                                color = if (isQueue1Active) colors.primaryAccent else colors.secondaryText,
-                                fontSize = 11.sp
-                            )
-                        }
-                        if (isQueue1Active) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_check),
-                                contentDescription = null,
-                                tint = colors.primaryAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                },
-                onClick = {
-                    expanded = false
-                    onSwitchQueue("queue_1")
-                }
+            // All 4 Standard Queues (Queue 1 to 4)
+            val queueSlots = listOf(
+                "queue_1" to "Queue 1 / $totalQueues",
+                "queue_2" to "Queue 2 / $totalQueues",
+                "queue_3" to "Queue 3 / $totalQueues",
+                "queue_4" to "Queue 4 / $totalQueues"
             )
 
-            // Saved Queues (Queue 2, Queue 3...)
-            val otherQueues = savedQueues.filterNot { it.id == "queue_1" || it.name == "Queue 1" }
-            otherQueues.forEachIndexed { index, saved ->
-                val queueTitle = saved.name.ifBlank { "Queue ${index + 2}" }
-                val isSelected = !isQueue1Active && (activeQueueName == saved.name || activeQueueName == queueTitle)
-                val count = if (isSelected) currentQueueSize else saved.songs.size
+            queueSlots.forEachIndexed { idx, (qId, qLabel) ->
+                val isSlotActive = if (idx == 0) isQueue1Active else (activeQueueName == "Queue ${idx + 1}" || activeQueueName.startsWith("Queue ${idx + 1}"))
+                val savedEntry = savedQueues.firstOrNull { it.id == qId || it.name == "Queue ${idx + 1}" }
+                val count = if (isSlotActive) currentQueueSize else (if (idx == 0) queue1Count else savedEntry?.songs?.size ?: 0)
 
                 DropdownMenuItem(
                     text = {
@@ -199,18 +174,18 @@ fun QueueHeaderDropdown(
                         ) {
                             Column {
                                 Text(
-                                    text = queueTitle,
-                                    color = if (isSelected) colors.primaryAccent else colors.primaryText,
+                                    text = qLabel,
+                                    color = if (isSlotActive) colors.primaryAccent else colors.primaryText,
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = if (isSlotActive) FontWeight.Bold else FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = if (isSelected) "Current queue • $count songs" else "$count songs",
-                                    color = if (isSelected) colors.primaryAccent else colors.secondaryText,
+                                    text = if (isSlotActive) "Current queue • $count songs" else "$count songs",
+                                    color = if (isSlotActive) colors.primaryAccent else colors.secondaryText,
                                     fontSize = 11.sp
                                 )
                             }
-                            if (isSelected) {
+                            if (isSlotActive) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_xvox_check),
                                     contentDescription = null,
@@ -222,7 +197,7 @@ fun QueueHeaderDropdown(
                     },
                     onClick = {
                         expanded = false
-                        onSwitchQueue(saved.id)
+                        onSwitchQueue(qId)
                     }
                 )
             }

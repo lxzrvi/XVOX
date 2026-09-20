@@ -223,16 +223,12 @@ fun ProfileEditorBox(
                 )
             )
         }
-        Text(
-            text = if (showLines) "Active: greetings rotate under your name" else "Off: your name appears beside the picture only",
-            color = if (showLines) colors.secondaryText else colors.mutedText, fontSize = 11.sp,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
 
         Spacer(Modifier.height(16.dp))
 
         // Header Background Photo Section in Profile Box
-        Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+        Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("Image/GIF and Default Header", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             // Default Button
@@ -240,12 +236,8 @@ fun ProfileEditorBox(
                 modifier = Modifier
                     .weight(1f)
                     .height(42.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(21.dp))
                     .background(if (!isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
-                    .then(
-                        if (isCustomHeaderMode) Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
-                        else Modifier
-                    )
                     .xvoxPressScale {
                         haptics.tap()
                         isCustomHeaderMode = false
@@ -267,19 +259,8 @@ fun ProfileEditorBox(
                 modifier = Modifier
                     .weight(1f)
                     .height(42.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(21.dp))
                     .background(if (isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
-                    .then(
-                        if (activeCustomUri != null) {
-                            Modifier.border(
-                                width = if (isCustomHeaderMode) 2.dp else 1.dp,
-                                color = if (isCustomHeaderMode) colors.primaryAccent else colors.cardBorder,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        } else if (!isCustomHeaderMode) {
-                            Modifier.border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
-                        } else Modifier
-                    )
                     .xvoxPressScale {
                         haptics.tap()
                         if (!isCustomHeaderMode && activeCustomUri != null) {
@@ -301,7 +282,7 @@ fun ProfileEditorBox(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(21.dp))
                     )
                     Box(
                         modifier = Modifier
@@ -314,6 +295,38 @@ fun ProfileEditorBox(
                     text = if (activeCustomUri != null && isCustomHeaderMode) "Custom ✓" else "Custom",
                     color = if (activeCustomUri != null) Color.White else if (isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.85f),
                     fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        if (isCustomHeaderMode) {
+            Row(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card)
+                    .clickable {
+                        runCatching {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                Uri.parse("https://www.pinterest.com/search/pins/?q=hd%20banner%20loop%20gif")
+                            )
+                            context.startActivity(intent)
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Want some ideas for header? ",
+                    color = colors.secondaryText,
+                    fontSize = 11.5.sp
+                )
+                Text(
+                    text = "Tap here",
+                    color = colors.primaryAccent,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

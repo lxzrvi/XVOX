@@ -124,7 +124,7 @@ fun XvoxNowPlaying(
         onDisplayModeChange?.invoke(mode)
     }
 
-    var activeSettingsBox by remember { mutableStateOf<String?>(null) }
+    var activeSettingsBox by rememberSaveable { mutableStateOf<String?>(null) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
@@ -339,7 +339,7 @@ fun XvoxNowPlaying(
                                     textColor = paletteState.color,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(start = 12.dp, end = 6.dp)
+                                        .padding(start = 12.dp, end = 0.dp)
                                         .clip(RoundedCornerShape(20.dp))
                                 )
                             } else {
@@ -353,7 +353,7 @@ fun XvoxNowPlaying(
                                     },
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(start = 12.dp, end = 6.dp),
+                                    contentPadding = PaddingValues(start = 12.dp, end = 0.dp),
                                     pageSpacing = 12.dp,
                                     repeatMode = repeatMode
                                 )

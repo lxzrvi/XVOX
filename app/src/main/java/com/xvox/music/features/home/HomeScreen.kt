@@ -306,8 +306,13 @@ fun HomeScreen(
                 selectionCategoryName = null
             }
         } else {
-            viewModel.recordPlayedFromLibrary(song, currentSongId, sourceName)
-            playerViewModel.playFromSource(song, list, sourceName)
+            if (song.id == currentSongId) {
+                playerViewModel.seekTo(0L)
+                if (!isPlaying) playerViewModel.togglePlay()
+            } else {
+                viewModel.recordPlayedFromLibrary(song, currentSongId, sourceName)
+                playerViewModel.playFromSource(song, list, sourceName)
+            }
         }
     }
 
@@ -358,16 +363,19 @@ fun HomeScreen(
 
     fun androidx.compose.foundation.lazy.LazyListScope.recentSection() {
         item(key = "recent") {
+            val recentSelected = if (selectionCategoryName == "Recently Played") selectedSongIds else emptySet()
             XvoxRecentlyPlayedSection(
                 songs = state.recentlyPlayed,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
                 transition = state.recentTransition,
-                selectedSongIds = selectedSongIds,
+                selectedSongIds = recentSelected,
                 onSongClick = { song ->
                     if (isSelectionMode) handleSongLongClick(song, "Recently Played")
-                    else if (song.id == currentSongId) playerViewModel.togglePlay()
-                    else {
+                    else if (song.id == currentSongId) {
+                        playerViewModel.seekTo(0L)
+                        if (!isPlaying) playerViewModel.togglePlay()
+                    } else {
                         viewModel.recordPlayedFromRecent(song, currentSongId)
                         val (queueSongs, queueName) = resolveOriginatingSongsForRecent(song)
                         playerViewModel.playFromSource(song, queueSongs, queueName)
@@ -610,12 +618,15 @@ fun HomeScreen(
                         val sections = HomeSections.visible(config)
                         sections.forEach { section ->
                             when (section) {
-                                HomeSections.ALL -> allSongsItems(
-                                    state.songs, plans, config, currentSongId, isPlaying, selectedSongIds,
-                                    onSongClick = { handleSongClick(it, state.songs, "All Songs") },
-                                    onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) },
-                                    onPrefetch = viewModel::prefetchFrom
-                                )
+                                HomeSections.ALL -> {
+                                    val allSongsSelected = if (selectionCategoryName == "All Songs" || selectionCategoryName == null) selectedSongIds else emptySet()
+                                    allSongsItems(
+                                        state.songs, plans, config, currentSongId, isPlaying, allSongsSelected,
+                                        onSongClick = { handleSongClick(it, state.songs, "All Songs") },
+                                        onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) },
+                                        onPrefetch = viewModel::prefetchFrom
+                                    )
+                                }
                                 HomeSections.RECENT -> recentSection()
                                 HomeSections.ARTISTS -> artistsSection()
                                 HomeSections.LIKED -> likedSection()
