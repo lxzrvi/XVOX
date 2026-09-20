@@ -14,7 +14,8 @@ data class XvoxPalette(
     val primaryAccent: Color,
     val accentSoft: Color,
     val progressTrack: Color,
-    val progressActive: Color
+    val progressActive: Color,
+    val isLight: Boolean = false
 ) {
     /**
      * Applies the chosen accent. `light` selects the correct pair of the iOS-style palette:
@@ -82,7 +83,8 @@ val XvoxWhitePalette = XvoxPalette(
     primaryAccent = Color(0xFF171717),
     accentSoft = Color(0xFFE8E8E8),
     progressTrack = Color(0xFFD9D9D9),
-    progressActive = Color(0xFF171717)
+    progressActive = Color(0xFF171717),
+    isLight = true
 )
 
 val XvoxDarkPalette = XvoxPalette(

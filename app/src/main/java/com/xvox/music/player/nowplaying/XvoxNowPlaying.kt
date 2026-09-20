@@ -172,19 +172,19 @@ fun XvoxNowPlaying(
 
     fun requestPrevious() {
         if (repeatMode == RepeatMode.ONE) {
-            playerViewModel.seekTo(0L)
+            onSeek(0L)
             return
         }
         if (queue.isEmpty() || currentIndex < 0) return
 
         if (position > 5000L) {
-            playerViewModel.seekTo(0L)
+            onSeek(0L)
             return
         }
 
         val atFirst = currentIndex <= 0
         if (atFirst && repeatMode != RepeatMode.ALL) {
-            playerViewModel.seekTo(0L)
+            onSeek(0L)
             return
         }
         navigationRequest--
