@@ -132,7 +132,7 @@ fun LyricPresentationLine(
             fontFamily = XvoxUiFont,
             fontSize = maximumSize.sp,
             lineHeight = (maximumSize * 1.30f).sp,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+            fontWeight = if (active) FontWeight(settings.fontWeight) else FontWeight((settings.fontWeight - 150).coerceAtLeast(300)),
             textAlign = textAlign,
             platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(
                 includeFontPadding = false

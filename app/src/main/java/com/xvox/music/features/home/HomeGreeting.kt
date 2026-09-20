@@ -76,9 +76,10 @@ fun HomeGreeting(
     ) { current ->
         Text(
             text = lines[current % lines.size],
-            color = colors.secondaryText,
-            fontSize = 10.sp,
-            lineHeight = 11.sp,
+            color = colors.primaryText.copy(alpha = 0.92f),
+            fontSize = 10.5.sp,
+            lineHeight = 12.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

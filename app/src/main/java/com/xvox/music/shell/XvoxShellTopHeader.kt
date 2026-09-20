@@ -80,7 +80,7 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            .background(if (hasCustomHeader) Color.Transparent else colors.surface.copy(alpha = alphaFraction))
+            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated.copy(alpha = if (alphaFraction > 0f) alphaFraction else 0.85f))
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(

@@ -2,6 +2,10 @@ package com.xvox.music.features.settings
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -232,6 +236,19 @@ private fun AppearanceSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val context = LocalContext.current
+
+    val bgPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            viewModel.setBackgroundImage(uri.toString())
+        }
+    }
 
     SettingsCardFrame(title = "Appearance & Theme", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -264,11 +281,11 @@ private fun AppearanceSectionCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(19.dp))
                             .background(btnBg)
                             .then(
-                                if (isSelected) Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(10.dp))
-                                else Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                if (isSelected) Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(19.dp))
+                                else Modifier
                             )
                             .xvoxPressScale { viewModel.setTheme(key) },
                         contentAlignment = Alignment.Center
@@ -312,11 +329,10 @@ private fun AppearanceSectionCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(19.dp))
                             .background(if (isSelected && key != "custom") colors.primaryAccent else colors.cardElevated)
                             .then(
-                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
-                                else if (key == "custom") Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(10.dp))
+                                if (isSelected && key == "custom") Modifier.border(2.dp, colors.primaryAccent, RoundedCornerShape(19.dp))
                                 else Modifier
                             )
                             .xvoxPressScale {
@@ -359,6 +375,77 @@ private fun AppearanceSectionCard(
 
             Spacer(Modifier.height(4.dp))
 
+            // App Background: Default vs Custom Image
+            Text("App Background", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val isCustomBg = !state.backgroundImageUri.isNullOrBlank()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(19.dp))
+                        .background(if (!isCustomBg) colors.primaryAccent else colors.cardElevated)
+                        .xvoxPressScale {
+                            viewModel.setBackgroundImage(null)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Default",
+                        color = if (!isCustomBg) colors.background else colors.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = if (!isCustomBg) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(19.dp))
+                        .background(if (isCustomBg) colors.primaryAccent else colors.cardElevated)
+                        .xvoxPressScale {
+                            bgPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isCustomBg) "Custom ✓" else "Custom",
+                        color = if (isCustomBg) colors.background else colors.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = if (isCustomBg) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
+
+            if (isCustomBg) {
+                Spacer(Modifier.height(4.dp))
+                val brightnessPercent = (state.backgroundBrightness * 100).toInt()
+                Text("Dim / Light · $brightnessPercent%", color = colors.secondaryText, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                XvoxThinLineSlider(
+                    value = state.backgroundBrightness,
+                    onValueChange = { viewModel.setBackgroundBrightness(it) },
+                    valueRange = 0.10f..1.0f,
+                    defaultValue = 0.80f
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            val cardTransPercent = (state.cardTransparency * 100).toInt()
+            Text("Card Transparency · $cardTransPercent%", color = colors.secondaryText, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+            XvoxThinLineSlider(
+                value = state.cardTransparency,
+                onValueChange = { viewModel.setCardTransparency(it) },
+                valueRange = 0f..0.85f,
+                defaultValue = 0f
+            )
+
+            Spacer(Modifier.height(4.dp))
+
             Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             val sizeOptions = listOf(
                 Triple(0.80f, "Small", 10.5.sp),
@@ -375,13 +462,9 @@ private fun AppearanceSectionCard(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .then(
-                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
-                                else Modifier
-                            )
                             .xvoxPressScale {
                                 viewModel.setFontSizeScale(scale)
                             },

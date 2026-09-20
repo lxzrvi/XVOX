@@ -20,7 +20,11 @@ data class LyricsSettings(
     /** "orb" | "aurora" | "off" — moving canvas backdrop in lyrics card. */
     val gradientAnimation: String = "orb",
     /** When true, current line takes vivid cover palette color. */
-    val matchCoverColor: Boolean = true
+    val matchCoverColor: Boolean = true,
+    /** When true, auto-scroll and line-by-line synced playback is active. */
+    val timeSync: Boolean = true,
+    /** Font weight scale (400 to 800). */
+    val fontWeight: Int = 600
 ) {
     fun normalized(): LyricsSettings = copy(
         offsetMs = offsetMs.coerceIn(-1000, 1000),
@@ -35,7 +39,9 @@ data class LyricsSettings(
         alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
         lineGap = lineGap.coerceIn(4, 40),
         gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "orb",
-        matchCoverColor = matchCoverColor
+        matchCoverColor = matchCoverColor,
+        timeSync = timeSync,
+        fontWeight = fontWeight.coerceIn(300, 900)
     )
 
     fun sanitized(): LyricsSettings = normalized()
@@ -58,6 +64,8 @@ data class LyricsSettings(
         .put("gap", lineGap)
         .put("gradient", gradientAnimation)
         .put("matchColor", matchCoverColor)
+        .put("timeSync", timeSync)
+        .put("fontWeight", fontWeight)
         .toString()
 
     companion object {
@@ -95,7 +103,9 @@ data class LyricsSettings(
                 alignment = j.optString("align", "center"),
                 lineGap = j.optInt("gap", 14),
                 gradientAnimation = mappedGrad,
-                matchCoverColor = j.optBoolean("matchColor", true)
+                matchCoverColor = j.optBoolean("matchColor", true),
+                timeSync = j.optBoolean("timeSync", true),
+                fontWeight = j.optInt("fontWeight", 600)
             ).normalized()
         }.getOrElse { LyricsSettings() }
     }

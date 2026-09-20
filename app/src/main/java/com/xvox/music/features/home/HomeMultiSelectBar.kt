@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -61,59 +62,53 @@ fun HomeMultiSelectBar(
     val headerLabel = when {
         !categoryName.isNullOrBlank() -> categoryName
         selectedPlaylist != null -> selectedPlaylist.name
-        libraryMode == XvoxHomeLibraryMode.LIKED -> "Liked Songs"
+        libraryMode == XvoxHomeLibraryMode.LIKED -> "Liked"
         libraryMode == XvoxHomeLibraryMode.ARTISTS -> "Artists"
         libraryMode == XvoxHomeLibraryMode.PLAYLISTS -> "Playlists"
         else -> "All Songs"
     }
 
-    Column(
+    Box(
         modifier = modifier
+            .fillMaxWidth()
+            .zIndex(999f)
             .graphicsLayer {
                 translationX = offsetX
                 translationY = offsetY
             }
-            .padding(top = 2.dp, bottom = 6.dp, start = 8.dp, end = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 10.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center
     ) {
-        // Top Indicator Bar with Category Name & Selection Count
+        // Single Unified Floating Pill with all options, count, and 6-dot move handle
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "$headerLabel · ${selectedSongs.size} selected",
-                color = colors.primaryAccent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "Tap songs to add/remove",
-                color = colors.secondaryText,
-                fontSize = 11.sp
-            )
-        }
-
-        // Action Row with Floating Draggable 6-Dot Handle
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(colors.cardElevated.copy(alpha = 0.96f))
-                .padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .clip(RoundedCornerShape(32.dp))
+                .background(colors.cardElevated.copy(alpha = 0.98f))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Count Pill Tag on start
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(colors.primaryAccent.copy(alpha = 0.20f))
+                    .padding(horizontal = 9.dp, vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${selectedSongs.size}",
+                    color = colors.primaryAccent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            // Actions
             MultiActionItem(
                 iconRes = R.drawable.ic_xvox_play,
-                label = "Play next",
+                label = "Next",
                 onClick = {
                     val msg = if (selectedSongs.size == 1) {
                         playerViewModel.playNextInQueue(selectedSongs[0])
@@ -127,7 +122,7 @@ fun HomeMultiSelectBar(
 
             MultiActionItem(
                 iconRes = R.drawable.ic_xvox_queue,
-                label = "Add queue",
+                label = "Queue",
                 onClick = {
                     showMultiAddToQueueOverlay(
                         overlays = overlays,
@@ -187,7 +182,7 @@ fun HomeMultiSelectBar(
 
             if (categoryName == "Recently Played") {
                 MultiActionItem(
-                    iconRes = R.drawable.ic_xvox_close,
+                    iconRes = R.drawable.ic_xvox_delete,
                     label = "Remove",
                     onClick = {
                         viewModel.removeMultipleFromRecent(selectedSongs)
@@ -262,19 +257,19 @@ private fun MultiActionItem(
         modifier = Modifier
             .clip(CircleShape)
             .clickable { onClick() }
-            .padding(horizontal = 4.dp, vertical = 3.dp)
+            .padding(horizontal = 3.dp, vertical = 2.dp)
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label,
             tint = colors.primaryAccent,
-            modifier = Modifier.size(19.dp)
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(1.dp))
         Text(
             text = label,
             color = colors.primaryText,
-            fontSize = 9.sp,
+            fontSize = 8.5.sp,
             fontWeight = FontWeight.Medium
         )
     }

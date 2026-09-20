@@ -955,15 +955,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                if (isCurrent && isPlaying) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_waveform),
-                        contentDescription = "Playing",
-                        tint = colors.primaryAccent,
-                        modifier = Modifier.size(18.dp).padding(end = 4.dp)
-                    )
-                }
             }
         }
     }
@@ -1153,15 +1144,6 @@ private fun SearchSongRow(
                 fontSize = 11.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        if (isCurrent && isPlaying) {
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_waveform),
-                contentDescription = "Playing",
-                tint = colors.primaryAccent,
-                modifier = Modifier.size(18.dp).padding(end = 4.dp)
             )
         }
     }

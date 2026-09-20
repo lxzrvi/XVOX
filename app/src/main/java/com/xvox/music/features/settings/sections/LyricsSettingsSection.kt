@@ -91,7 +91,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Font sizes"
+            title = "Font sizes & Weight"
         ) {
             Label("Top lines font size · ${settings.topSize} sp")
             XvoxThinLineSlider(
@@ -119,6 +119,23 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                 { v -> viewModel.updateLyrics { it.copy(bottomSize = v.roundToInt()) } },
                 10f..36f,
                 defaultValue = 14f
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            val weightLabel = when (settings.fontWeight) {
+                in 300..400 -> "Normal (${settings.fontWeight})"
+                in 401..500 -> "Medium (${settings.fontWeight})"
+                in 501..600 -> "Semi-Bold (${settings.fontWeight})"
+                in 601..700 -> "Bold (${settings.fontWeight})"
+                else -> "Extra-Bold (${settings.fontWeight})"
+            }
+            Label("Font weight · $weightLabel")
+            XvoxThinLineSlider(
+                settings.fontWeight.toFloat(),
+                { v -> viewModel.updateLyrics { it.copy(fontWeight = (v / 100).roundToInt() * 100) } },
+                300f..900f,
+                defaultValue = 600f
             )
         }
 

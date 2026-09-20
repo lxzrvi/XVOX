@@ -164,12 +164,25 @@ fun NowPlayingActions(
                 AnimatedContent(
                     targetState = pageIndex,
                     transitionSpec = {
+                        val slideEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
                         if (swipeForward) {
-                            (slideInHorizontally(tween(240, easing = XvoxActionEasing)) { it } + fadeIn(tween(140)))
-                                .togetherWith(slideOutHorizontally(tween(240, easing = XvoxActionEasing)) { -it } + fadeOut(tween(140)))
+                            (slideInHorizontally(tween(260, easing = slideEasing)) { it / 2 } +
+                                androidx.compose.animation.scaleIn(initialScale = 0.88f, animationSpec = tween(260, easing = slideEasing)) +
+                                fadeIn(tween(180)))
+                                .togetherWith(
+                                    slideOutHorizontally(tween(240, easing = slideEasing)) { -it / 2 } +
+                                        androidx.compose.animation.scaleOut(targetScale = 0.88f, animationSpec = tween(240, easing = slideEasing)) +
+                                        fadeOut(tween(160))
+                                )
                         } else {
-                            (slideInHorizontally(tween(240, easing = XvoxActionEasing)) { -it } + fadeIn(tween(140)))
-                                .togetherWith(slideOutHorizontally(tween(240, easing = XvoxActionEasing)) { it } + fadeOut(tween(140)))
+                            (slideInHorizontally(tween(260, easing = slideEasing)) { -it / 2 } +
+                                androidx.compose.animation.scaleIn(initialScale = 0.88f, animationSpec = tween(260, easing = slideEasing)) +
+                                fadeIn(tween(180)))
+                                .togetherWith(
+                                    slideOutHorizontally(tween(240, easing = slideEasing)) { it / 2 } +
+                                        androidx.compose.animation.scaleOut(targetScale = 0.88f, animationSpec = tween(240, easing = slideEasing)) +
+                                        fadeOut(tween(160))
+                                )
                         }
                     },
                     label = "nowPlaying2by2Cluster"
@@ -380,10 +393,17 @@ fun NowPlayingCircleAction(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val isLightMode = colors.isLight
 
-    val bgColor = if (active) colors.primaryAccent.copy(alpha = 0.28f)
-        else colors.card.copy(alpha = 0.35f)
-    val effectiveTint = if (active) colors.primaryAccent else colors.primaryText.copy(alpha = 0.85f)
+    val bgColor = if (active) {
+        if (isLightMode) Color.Black else colors.primaryAccent.copy(alpha = 0.28f)
+    } else colors.card.copy(alpha = 0.35f)
+
+    val effectiveTint = if (active) {
+        if (isLightMode) Color.White else colors.primaryAccent
+    } else {
+        if (isLightMode) Color.Black else colors.primaryText.copy(alpha = 0.85f)
+    }
 
     Box(
         modifier = Modifier
