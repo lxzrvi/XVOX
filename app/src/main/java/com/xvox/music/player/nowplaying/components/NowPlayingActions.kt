@@ -105,6 +105,7 @@ fun NowPlayingActions(
         // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
+                .offset(y = (-3).dp)
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
                 .background(colors.card.copy(alpha = 0.22f))
@@ -193,7 +194,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_star,
-                                    tint = if (isInPlaylist) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = isInPlaylist,
                                     contentDescription = "Add to playlist",
                                     onClick = {
@@ -203,7 +204,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-                                    tint = if (isLiked) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = isLiked,
                                     contentDescription = if (isLiked) "Unlike" else "Like",
                                     onClick = {
@@ -218,7 +219,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_equalizer,
-                                    tint = if (equalizerOn) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = equalizerOn,
                                     contentDescription = "Equalizer",
                                     onClick = {
@@ -233,7 +234,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_waveform,
-                                    tint = if (spaceOn) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = spaceOn,
                                     contentDescription = "3D Sound",
                                     onClick = {
@@ -255,7 +256,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_bluetooth,
-                                    tint = if (bluetoothReady) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = bluetoothReady,
                                     contentDescription = "Bluetooth / audio output",
                                     onClick = if (onOpenOptions != null) ({
@@ -270,7 +271,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_crossfade,
-                                    tint = if (crossfadeOn) colors.primaryAccent else colors.primaryText,
+                                    
                                     active = crossfadeOn,
                                     contentDescription = "Crossfade",
                                     onClick = {
@@ -395,12 +396,15 @@ fun NowPlayingCircleAction(
     val haptics = LocalXvoxHaptics.current
     val isLightMode = colors.isLight
 
+    val isWhiteAccent = colors.primaryAccent == Color.White || colors.primaryAccent == Color(0xFFFFFFFF) || colors.primaryAccent == Color(0xFF171717)
+
     val bgColor = if (active) {
-        if (isLightMode) Color.Black else colors.primaryAccent.copy(alpha = 0.28f)
+        if (isLightMode) Color.Black.copy(alpha = 0.45f)
+        else colors.primaryAccent.copy(alpha = 0.32f)
     } else colors.card.copy(alpha = 0.35f)
 
     val effectiveTint = if (active) {
-        if (isLightMode) Color.White else colors.primaryAccent
+        if (isLightMode) Color.White else if (isWhiteAccent) Color.White else colors.primaryAccent
     } else {
         if (isLightMode) Color.Black else colors.primaryText.copy(alpha = 0.85f)
     }

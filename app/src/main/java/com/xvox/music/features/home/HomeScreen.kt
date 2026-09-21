@@ -460,68 +460,43 @@ fun HomeScreen(
         else -> state.libraryMode
     }
 
-    Column(Modifier.fillMaxSize()) {
-        fun requestDeleteSelected() {
-            if (selectedSongsList.isEmpty()) return
-            overlays.showBox("Delete ${selectedSongsList.size} songs?") {
-                com.xvox.music.shell.XvoxConfirmBox(
-                    question = "Permanently delete ${selectedSongsList.size} songs?",
-                    detail = "The files will be removed from storage. This cannot be undone.",
-                    confirmLabel = "Delete",
-                    danger = true,
-                    onCancel = overlays::hideBox,
-                    onConfirm = {
-                        overlays.hideBox()
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            val pending = XvoxSongActions.deleteMultiplePendingIntent(context, selectedSongsList)
-                            if (pending != null) {
-                                pendingDeleteSongs = selectedSongsList
-                                deleteLauncher.launch(
-                                    IntentSenderRequest.Builder(pending.intentSender).build()
-                                )
-                            }
-                        } else {
-                            var count = 0
-                            selectedSongsList.forEach { s ->
-                                if (XvoxSongActions.deleteLegacy(context, s)) {
-                                    playerViewModel.removeFromQueue(s.id)
-                                    count++
-                                }
-                            }
-                            selectedSongIds = emptySet()
-                            viewModel.refresh()
-                            overlays.showP("$count songs deleted from device")
+    fun requestDeleteSelected() {
+        if (selectedSongsList.isEmpty()) return
+        overlays.showBox("Delete ${selectedSongsList.size} songs?") {
+            com.xvox.music.shell.XvoxConfirmBox(
+                question = "Permanently delete ${selectedSongsList.size} songs?",
+                detail = "The files will be removed from storage. This cannot be undone.",
+                confirmLabel = "Delete",
+                danger = true,
+                onCancel = overlays::hideBox,
+                onConfirm = {
+                    overlays.hideBox()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        val pending = XvoxSongActions.deleteMultiplePendingIntent(context, selectedSongsList)
+                        if (pending != null) {
+                            pendingDeleteSongs = selectedSongsList
+                            deleteLauncher.launch(
+                                IntentSenderRequest.Builder(pending.intentSender).build()
+                            )
                         }
-                    }
-                )
-            }
-        }
-
-        if (isSelectionMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = 4.dp)
-            ) {
-                HomeMultiSelectBar(
-                    selectedSongs = selectedSongsList,
-                    selectedPlaylist = selectedPlaylist,
-                    libraryMode = selectionLibraryMode ?: state.libraryMode,
-                    viewModel = viewModel,
-                    playerViewModel = playerViewModel,
-                    overlays = overlays,
-                    context = context,
-                    categoryName = selectionCategoryName,
-                    onClearSelection = {
+                    } else {
+                        var count = 0
+                        selectedSongsList.forEach { s ->
+                            if (XvoxSongActions.deleteLegacy(context, s)) {
+                                playerViewModel.removeFromQueue(s.id)
+                                count++
+                            }
+                        }
                         selectedSongIds = emptySet()
-                        selectionCategoryName = null
-                    },
-                    onDeleteSelected = ::requestDeleteSelected
-                )
-            }
+                        viewModel.refresh()
+                        overlays.showP("$count songs deleted from device")
+                    }
+                }
+            )
         }
+    }
 
+    Box(Modifier.fillMaxSize()) {
         val homeScrollState = rememberLazyListState()
         val likedScrollState = rememberLazyListState()
         val playlistsScrollState = rememberLazyListState()
@@ -537,7 +512,7 @@ fun HomeScreen(
         AnimatedContent(
             targetState = targetKey,
             transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(140))).using(null) },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
             label = "libraryFade"
         ) { target ->
             val targetArtistName = (target as? String)?.takeIf { it.startsWith("artist_") }?.removePrefix("artist_")

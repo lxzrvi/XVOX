@@ -89,19 +89,20 @@ fun HomeMultiSelectBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Count Pill Tag on start
+            // Count Circle Tag on start
             Box(
                 modifier = Modifier
+                    .size(26.dp)
                     .clip(CircleShape)
-                    .background(colors.primaryAccent.copy(alpha = 0.20f))
-                    .padding(horizontal = 9.dp, vertical = 5.dp),
+                    .background(colors.primaryAccent.copy(alpha = 0.20f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "${selectedSongs.size}",
                     color = colors.primaryAccent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
 
@@ -124,12 +125,9 @@ fun HomeMultiSelectBar(
                 iconRes = R.drawable.ic_xvox_queue,
                 label = "Queue",
                 onClick = {
-                    showMultiAddToQueueOverlay(
-                        overlays = overlays,
-                        playerViewModel = playerViewModel,
-                        songs = selectedSongs,
-                        onDone = onClearSelection
-                    )
+                    val msg = playerViewModel.addToQueue(selectedSongs)
+                    overlays.showP(msg)
+                    onClearSelection()
                 }
             )
 

@@ -412,6 +412,7 @@ fun SearchScreen(
                             currentSongId = playerState.currentSongId,
                             isPlaying = playerState.isPlaying,
                             onSongClick = ::handleSongClick,
+                            isLandscape = true,
                             onSongLongClick = { song ->
                                 showSongOptionsOverlay(
                                     overlays = overlays,
@@ -816,7 +817,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
     onPlaylistClick: (XvoxPlaylist) -> Unit,
-    onPlaylistLongClick: (XvoxPlaylist) -> Unit
+    onPlaylistLongClick: (XvoxPlaylist) -> Unit,
+    isLandscape: Boolean = false
 ) {
     if (query.isNotEmpty() && matchingSongs.isEmpty() && matchingArtists.isEmpty() && matchingPlaylists.isEmpty()) {
         item(key = "no_results") {
@@ -844,13 +846,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 14.dp, top = 6.dp, bottom = 2.dp)
+                modifier = Modifier.padding(start = if (isLandscape) 0.dp else 14.dp, top = 6.dp, bottom = 2.dp)
             )
         }
         item(key = "row_artists") {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = if (isLandscape) 0.dp else 14.dp, vertical = 4.dp)
             ) {
                 items(matchingArtists, key = { "art_${it.name}" }) { artist ->
                     SearchArtistCircleItem(
@@ -872,13 +874,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = if (isLandscape) 0.dp else 14.dp, top = 8.dp, bottom = 4.dp)
             )
         }
         item(key = "row_playlists") {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = if (isLandscape) 0.dp else 14.dp, vertical = 4.dp)
             ) {
                 items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
                     val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
@@ -907,8 +909,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
         }
         items(matchingSongs, key = { "song_${it.id}" }) { song ->
             val colors = XvoxTheme.colors
-            val isCurrent = song.id == currentSongId
-            val cardColor = rememberSongCardColor(song = song, current = isCurrent)
+            val cardColor = rememberSongCardColor(song = song, current = false)
 
             Row(
                 modifier = Modifier
@@ -916,6 +917,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                     .padding(horizontal = 14.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(cardColor)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
                     .xvoxSongPress(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick(song) }
@@ -941,9 +943,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song.title,
-                        color = if (isCurrent) colors.primaryAccent else colors.primaryText,
+                        color = colors.primaryText,
                         fontSize = 14.sp,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1098,8 +1100,7 @@ private fun SearchSongRow(
     onSongLongClick: (Song) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val isCurrent = song.id == currentSongId
-    val cardColor = rememberSongCardColor(song = song, current = isCurrent)
+    val cardColor = rememberSongCardColor(song = song, current = false)
 
     Row(
         modifier = Modifier
@@ -1107,6 +1108,7 @@ private fun SearchSongRow(
             .padding(horizontal = 14.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(cardColor)
+            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
             .xvoxSongPress(
                 onClick = { onSongClick(song) },
                 onLongClick = { onSongLongClick(song) }
@@ -1132,9 +1134,9 @@ private fun SearchSongRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                color = if (isCurrent) colors.primaryAccent else colors.primaryText,
+                color = colors.primaryText,
                 fontSize = 14.sp,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

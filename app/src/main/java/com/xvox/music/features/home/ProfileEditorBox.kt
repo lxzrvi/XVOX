@@ -238,6 +238,7 @@ fun ProfileEditorBox(
                     .height(42.dp)
                     .clip(RoundedCornerShape(21.dp))
                     .background(if (!isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
+                    .border(0.8.dp, if (!isCustomHeaderMode) Color.Transparent else colors.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(21.dp))
                     .xvoxPressScale {
                         haptics.tap()
                         isCustomHeaderMode = false
@@ -261,6 +262,7 @@ fun ProfileEditorBox(
                     .height(42.dp)
                     .clip(RoundedCornerShape(21.dp))
                     .background(if (isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
+                    .border(0.8.dp, if (isCustomHeaderMode) Color.Transparent else colors.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(21.dp))
                     .xvoxPressScale {
                         haptics.tap()
                         if (!isCustomHeaderMode && activeCustomUri != null) {
@@ -339,7 +341,7 @@ fun ProfileEditorBox(
         val transparencyPresets = listOf(0, 15, 25, 50, 75, 85)
 
         Text(
-            text = "Header Transparency",
+            text = "Header Dimness",
             color = colors.secondaryText,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,

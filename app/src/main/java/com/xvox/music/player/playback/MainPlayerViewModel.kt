@@ -702,6 +702,15 @@ class MainPlayerViewModel(
         _state.update { it.copy(queue = queue, currentIndex = currentIndex) }
     }
 
+    fun setQueueOrder(newQueue: List<Song>) {
+        controller.setQueue(newQueue)
+        val currentId = _state.value.currentSongId
+        val currentIndex = newQueue.indexOfFirst { it.id == currentId }
+        libraryQueueSize = newQueue.size
+        libraryQueueSignature = queueSignature(newQueue)
+        _state.update { it.copy(queue = newQueue, currentIndex = currentIndex) }
+    }
+
     fun setSleepTimer(minutes: Int?) {
         sleepTimerManager.setSleepTimer(minutes)
     }

@@ -511,38 +511,6 @@ fun XvoxArtworkLyrics(
                             }
                         )
 
-                        // Alignment Cycle: Center -> Left -> Right
-                        LyricsAction(
-                            resource = R.drawable.ic_xvox_split,
-                            tint = if (lyricsSettings.alignment == "center") colors.primaryAccent else colors.primaryText,
-                            onClick = {
-                                registerUserActivity()
-                                val nextAlign = when (lyricsSettings.alignment) {
-                                    "center" -> "left"
-                                    "left" -> "right"
-                                    else -> "center"
-                                }
-                                scope.launch {
-                                    prefs.setLyricsSettings(lyricsSettings.copy(alignment = nextAlign))
-                                }
-                                overlays.showP("Alignment: ${nextAlign.replaceFirstChar { it.uppercase() }}")
-                            }
-                        )
-
-                        // TimeSync Toggle
-                        LyricsAction(
-                            resource = R.drawable.ic_xvox_timer,
-                            tint = if (lyricsSettings.timeSync) colors.primaryAccent else colors.mutedText,
-                            onClick = {
-                                registerUserActivity()
-                                val nextSync = !lyricsSettings.timeSync
-                                scope.launch {
-                                    prefs.setLyricsSettings(lyricsSettings.copy(timeSync = nextSync))
-                                }
-                                overlays.showP("Time-sync: ${if (nextSync) "ON" else "OFF"}")
-                            }
-                        )
-
                         if (onToggleExpand != null) {
                             LyricsAction(
                                 resource = R.drawable.ic_xvox_fullscreen,

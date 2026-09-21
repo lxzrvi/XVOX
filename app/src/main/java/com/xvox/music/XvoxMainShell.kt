@@ -260,6 +260,13 @@ fun XvoxMainShell(
                         }
                     }
                 },
+                onReorderQueue = { reordered ->
+                    if (isViewingActiveQueue) {
+                        playerViewModel.setQueueOrder(reordered)
+                    } else if (viewingSaved != null) {
+                        playerViewModel.updateSavedQueue(viewingQueueId, reordered)
+                    }
+                },
                 onRemoveIndex = { index ->
                     if (isViewingActiveQueue) {
                         playerViewModel.removeFromQueueAt(index)

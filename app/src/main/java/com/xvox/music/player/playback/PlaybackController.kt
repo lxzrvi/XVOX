@@ -244,7 +244,6 @@ class PlaybackController(
     }
 
     fun addToQueue(song: Song): List<Song> {
-        if (queue.any { it.id == song.id }) return queue
         setQueue(queue + song)
         return queue
     }

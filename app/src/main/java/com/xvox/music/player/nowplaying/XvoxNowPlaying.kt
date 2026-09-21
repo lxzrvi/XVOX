@@ -187,7 +187,6 @@ fun XvoxNowPlaying(
             onSeek(0L)
             return
         }
-        navigationRequest--
         onPrevious()
     }
 
@@ -196,7 +195,6 @@ fun XvoxNowPlaying(
         if (queue.isEmpty() || currentIndex < 0) return
         val atLast = currentIndex >= queue.lastIndex
         if (atLast && repeatMode != RepeatMode.ALL) return
-        navigationRequest++
         onNext()
     }
 
@@ -253,18 +251,14 @@ fun XvoxNowPlaying(
     val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
 
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(isLandscape, isFullscreen) {
+    DisposableEffect(Unit) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        if (isLandscape || isFullscreen) {
-            insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-        } else {
-            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-        }
+        val prevLight = insetsController?.isAppearanceLightStatusBars
+        insetsController?.isAppearanceLightStatusBars = false
         onDispose {
-            if (isLandscape || isFullscreen) {
-                insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            if (prevLight != null) {
+                insetsController.isAppearanceLightStatusBars = prevLight
             }
         }
     }
@@ -313,8 +307,8 @@ fun XvoxNowPlaying(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 0.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(start = 10.dp, top = 8.dp, end = 10.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left: Artwork or Lyrics Card (65% width)
@@ -345,7 +339,6 @@ fun XvoxNowPlaying(
                                     textColor = paletteState.color,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(start = 12.dp, end = 0.dp)
                                         .clip(RoundedCornerShape(20.dp))
                                 )
                             } else {
@@ -359,8 +352,8 @@ fun XvoxNowPlaying(
                                     },
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(start = 12.dp, end = 0.dp),
-                                    pageSpacing = 12.dp,
+                                    contentPadding = PaddingValues(0.dp),
+                                    pageSpacing = 8.dp,
                                     repeatMode = repeatMode
                                 )
                             }

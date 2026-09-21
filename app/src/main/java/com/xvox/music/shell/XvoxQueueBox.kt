@@ -134,7 +134,8 @@ fun XvoxQueueBoxContent(
     onSwitchQueue: (String) -> Unit = {},
     onPlayIndex: (Int) -> Unit,
     onMoveItem: (Int, Int) -> Unit,
-    onRemoveIndex: (Int) -> Unit
+    onRemoveIndex: (Int) -> Unit,
+    onReorderQueue: ((List<Song>) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
@@ -285,14 +286,19 @@ fun XvoxQueueBoxContent(
                                         checkAndSwapSlots()
                                     }
 
+                                    val finalList = dragList
                                     val from = initialDragIndex
                                     val to = currentDragIndex
                                     draggingSong = null
                                     dragList = null
                                     initialDragIndex = -1
                                     currentDragIndex = -1
-                                    if (from in queue.indices && to in queue.indices && from != to) {
-                                        move(from, to)
+                                    if (finalList != null) {
+                                        if (onReorderQueue != null) {
+                                            onReorderQueue(finalList)
+                                        } else if (from in queue.indices && to in queue.indices && from != to) {
+                                            move(from, to)
+                                        }
                                     }
                                 }
                             }

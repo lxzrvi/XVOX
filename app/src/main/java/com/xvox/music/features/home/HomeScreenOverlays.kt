@@ -234,7 +234,9 @@ fun showSongOptionsOverlay(
                 overlays.showP(msg)
             },
             onAddQueue = {
-                showAddToQueueOverlay(overlays, playerViewModel, sourcedSong)
+                val msg = playerViewModel.addToQueue(sourcedSong)
+                overlays.hideBox()
+                overlays.showP(msg)
             },
             onPlaylist = {
                 overlays.hideBox()
