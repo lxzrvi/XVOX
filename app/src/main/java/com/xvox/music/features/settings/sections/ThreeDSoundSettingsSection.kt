@@ -100,20 +100,18 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 EqL("Orbit speed · ${if (state.surroundPanSpeed <= 0) "Off" else "${state.surroundPanSpeed}s per sweep"}")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     orbitOptions.forEach { (sec, label) ->
                         val isSelected = if (sec == 0) state.surroundPanSpeed <= 0 else state.surroundPanSpeed == sec
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(34.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .size(36.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
                                 .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                                .then(
-                                    if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
-                                    else Modifier
-                                )
+                                .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape)
                                 .xvoxPressScale {
                                     viewModel.setSurroundPanSpeed(sec)
                                 },

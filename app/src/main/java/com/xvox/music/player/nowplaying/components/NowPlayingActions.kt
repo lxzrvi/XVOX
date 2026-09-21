@@ -106,7 +106,7 @@ fun NowPlayingActions(
         // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
-                .offset(y = (-3).dp)
+                .offset(y = (-6).dp)
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
                 .background(colors.card.copy(alpha = 0.22f))

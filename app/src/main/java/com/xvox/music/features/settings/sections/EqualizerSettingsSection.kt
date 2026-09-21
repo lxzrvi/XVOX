@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -54,7 +55,7 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             expanded = expandedGroup == "Equalizer",
             onToggle = { toggle("Equalizer") }
         ) {
-            SettingsToggle("Enable equalizer", null, state.equalizerEnabled) { on ->
+            SettingsToggle("Enable equalizer", "Boost dynamic clarity and output loudness", state.equalizerEnabled) { on ->
                 if (on) viewModel.setEqBandCount(5)
                 viewModel.setEqualizerEnabled(on)
             }
@@ -97,36 +98,59 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             EqLabel("Reverb preset")
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                val isOffActive = state.roomAmount < 0.05f
+                // "Off" in Circular Shape
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (isOffActive) colors.primaryAccent else colors.cardElevated)
+                        .border(0.8.dp, if (isOffActive) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
+                        .xvoxPressScale {
+                            viewModel.setRoomAmount(0f)
+                            viewModel.setReverbAmount(0f)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Off",
+                        color = if (isOffActive) colors.background else colors.primaryText,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isOffActive) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+
                 listOf(
-                    Pair("Off", 0f),
                     Pair("Small Room", 0.20f),
                     Pair("Medium Room", 0.40f),
                     Pair("Large Room", 0.60f),
                     Pair("Hall", 0.80f),
                     Pair("Cathedral", 1.00f)
                 ).forEach { (name, revAmount) ->
-                    val isPresetActive = (name == "Off" && state.roomAmount < 0.05f) ||
-                            (name != "Off" && kotlin.math.abs(state.roomAmount - revAmount) < 0.10f)
-                    Text(
-                        text = name,
-                        color = if (isPresetActive) colors.background else colors.primaryText,
-                        fontSize = 11.5.sp,
-                        fontWeight = if (isPresetActive) FontWeight.Bold else FontWeight.Medium,
+                    val isPresetActive = !isOffActive && kotlin.math.abs(state.roomAmount - revAmount) < 0.10f
+                    Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(11.dp))
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(if (isPresetActive) colors.primaryAccent else colors.cardElevated)
-                            .then(
-                                if (!isPresetActive) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(11.dp))
-                                else Modifier
-                            )
+                            .border(0.8.dp, if (isPresetActive) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
                             .xvoxPressScale {
                                 viewModel.setRoomAmount(revAmount)
-                                viewModel.setReverbAmount(if (revAmount > 0f) revAmount else 0f)
+                                viewModel.setReverbAmount(revAmount)
                             }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = name,
+                            color = if (isPresetActive) colors.background else colors.primaryText,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isPresetActive) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -172,7 +196,7 @@ fun SevenButtonLevelSelector(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         levels.forEachIndexed { index, lvl ->
             val isSelected = (index == 0 && value < 0.08f) ||
@@ -182,12 +206,9 @@ fun SevenButtonLevelSelector(
                 modifier = Modifier
                     .weight(1f)
                     .height(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(17.dp))
                     .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                    .then(
-                        if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
-                        else Modifier
-                    )
+                    .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(17.dp))
                     .xvoxPressScale {
                         onValueChange(lvl)
                     },

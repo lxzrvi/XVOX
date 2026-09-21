@@ -80,6 +80,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.ignoredFolders.collect { v -> _state.update { it.copy(ignoredFolders = v) } } }
 
             launch { prefs.crossfade.collect { v -> _state.update { it.copy(crossfade = v) } } }
+            launch { prefs.gapless.collect { v -> _state.update { it.copy(gapless = v) } } }
             launch { prefs.crossfadeDuration.collect { v -> _state.update { it.copy(crossfadeDuration = v) } } }
             launch { prefs.pauseOnHeadphoneDisconnect.collect { v -> _state.update { it.copy(pauseOnHeadphoneDisconnect = v) } } }
             launch { prefs.playOnHeadsetConnect.collect { v -> _state.update { it.copy(playOnHeadsetConnect = v) } } }
@@ -203,6 +204,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun toggleIgnoredFolder(folder: String) = viewModelScope.launch { prefs.toggleIgnoredFolder(folder) }
 
     fun setCrossfade(enabled: Boolean) = viewModelScope.launch { prefs.setCrossfade(enabled) }
+    fun setGapless(enabled: Boolean) = viewModelScope.launch { prefs.setGapless(enabled) }
     fun setCrossfadeDuration(duration: Int) = viewModelScope.launch { prefs.setCrossfadeDuration(duration) }
     fun setPauseOnHeadphoneDisconnect(enabled: Boolean) = viewModelScope.launch { prefs.setPauseOnHeadphoneDisconnect(enabled) }
     fun setPlayOnHeadsetConnect(enabled: Boolean) = viewModelScope.launch { prefs.setPlayOnHeadsetConnect(enabled) }

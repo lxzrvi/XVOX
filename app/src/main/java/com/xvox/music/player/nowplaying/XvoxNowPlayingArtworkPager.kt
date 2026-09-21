@@ -76,6 +76,7 @@ fun XvoxNowPlayingArtworkPager(
 
     // Synchronize pager when currentIndex changes (auto-advance / tap in queue / next/prev button)
     LaunchedEffect(currentIndex, queue.size) {
+        userSwiped = false
         if (currentIndex in queue.indices && currentIndex != pager.currentPage) {
             val dist = abs(currentIndex - pager.currentPage)
             if (dist > 1) {
@@ -108,15 +109,15 @@ fun XvoxNowPlayingArtworkPager(
     // Playback change triggered ONLY when the user manually swiped and pager settles
     LaunchedEffect(pager, queue) {
         snapshotFlow {
-            Pair(pager.settledPage, pager.isScrollInProgress)
-        }.distinctUntilChanged().collect { (settledIndex, inProgress) ->
-            if (!inProgress && userSwiped && settledIndex in queue.indices && settledIndex != currentIndex) {
+            Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
+        }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
+            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != currentIndex) {
                 userSwiped = false
-                delay(120)
-                if (!pager.isScrollInProgress && pager.settledPage == settledIndex && settledIndex in queue.indices && settledIndex != currentIndex) {
+                delay(60)
+                if (!pager.isScrollInProgress && !isUserDragging && pager.settledPage == settledIndex && settledIndex in queue.indices && settledIndex != currentIndex) {
                     settled(settledIndex)
                 }
-            } else if (!inProgress) {
+            } else if (!inProgress && !dragging) {
                 userSwiped = false
             }
         }

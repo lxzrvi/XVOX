@@ -241,7 +241,7 @@ fun XvoxNowPlaying(
     // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
-        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        animationSpec = tween(280, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)),
         label = "fullscreenProgress"
     )
 
@@ -251,14 +251,19 @@ fun XvoxNowPlaying(
     val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
 
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(Unit) {
+    DisposableEffect(isLandscape) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        val prevLight = insetsController?.isAppearanceLightStatusBars
-        insetsController?.isAppearanceLightStatusBars = false
+        if (isLandscape) {
+            insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            insetsController?.isAppearanceLightStatusBars = false
+        }
         onDispose {
-            if (prevLight != null) {
-                insetsController.isAppearanceLightStatusBars = prevLight
+            if (isLandscape) {
+                insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
             }
         }
     }

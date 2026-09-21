@@ -69,6 +69,7 @@ class UserPreferencesRepository(
         val widgetPaddingX = intPreferencesKey("widget_padding_x")
         val widgetPaddingY = intPreferencesKey("widget_padding_y")
         val crossfade = booleanPreferencesKey("crossfade")
+        val gapless = booleanPreferencesKey("gapless")
         val crossfadeDuration = intPreferencesKey("crossfade_duration")
         val pauseOnHeadphoneDisconnect = booleanPreferencesKey("pause_on_headphone_disconnect")
         val playOnHeadsetConnect = booleanPreferencesKey("play_on_headset_connect")
@@ -290,6 +291,7 @@ class UserPreferencesRepository(
     val widgetPaddingX: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32) }.distinctUntilChanged()
     val widgetPaddingY: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28) }.distinctUntilChanged()
     val crossfade: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfade] ?: false }.distinctUntilChanged()
+    val gapless: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.gapless] ?: true }.distinctUntilChanged()
     val crossfadeDuration: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.crossfadeDuration] ?: 3 }.distinctUntilChanged()
     val pauseOnHeadphoneDisconnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.pauseOnHeadphoneDisconnect] ?: true }.distinctUntilChanged()
     val playOnHeadsetConnect: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.playOnHeadsetConnect] ?: false }.distinctUntilChanged()
@@ -497,6 +499,7 @@ class UserPreferencesRepository(
     suspend fun setWidgetPaddingX(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingX] = value.coerceIn(0, 32) } }
     suspend fun setWidgetPaddingY(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingY] = value.coerceIn(0, 28) } }
     suspend fun setCrossfade(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfade] = v } }
+    suspend fun setGapless(v: Boolean) { context.xvoxDataStore.edit { it[Keys.gapless] = v } }
     suspend fun setCrossfadeDuration(v: Int) { context.xvoxDataStore.edit { it[Keys.crossfadeDuration] = v.coerceIn(1, 20) } }
     suspend fun setPauseOnHeadphoneDisconnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.pauseOnHeadphoneDisconnect] = v } }
     suspend fun setPlayOnHeadsetConnect(v: Boolean) { context.xvoxDataStore.edit { it[Keys.playOnHeadsetConnect] = v } }

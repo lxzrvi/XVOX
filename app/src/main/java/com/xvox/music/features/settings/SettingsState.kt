@@ -52,6 +52,7 @@ data class SettingsState(
     val ignoreBelowKb: Int = 0,
     val ignoredFolders: Set<String> = emptySet(),
     val crossfade: Boolean = false,
+    val gapless: Boolean = true,
     val crossfadeDuration: Int = 3,
     val pauseOnHeadphoneDisconnect: Boolean = true,
     val playOnHeadsetConnect: Boolean = false,

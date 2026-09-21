@@ -32,7 +32,6 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
 fun PlaybackSettingsSection(
@@ -49,7 +48,15 @@ fun PlaybackSettingsSection(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
 
-        SettingsToggle("Crossfade", null, state.crossfade, viewModel::setCrossfade)
+        SettingsToggle("Crossfade", "Smoothly transition between consecutive songs", state.crossfade, viewModel::setCrossfade)
+
+        // Gapless Playback / Skip Silence toggle shown always
+        SettingsToggle(
+            title = "Gapless Playback",
+            subtitle = "Trim empty silence at the end of songs for instant seamless playback",
+            checked = state.gapless,
+            onChange = viewModel::setGapless
+        )
 
         if (state.crossfade) {
             SettingsAccordionItem(
@@ -57,7 +64,7 @@ fun PlaybackSettingsSection(
                 expanded = expandedGroup == "Duration",
                 onToggle = { toggle("Duration") }
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(3, 5, 8, 10, 12, 15).forEach { sec ->
                         Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
                             viewModel.setCrossfadeDuration(sec)
@@ -101,12 +108,12 @@ private fun Label(text: String) {
 @Composable
 private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(19.dp)
     val fill by animateColorAsState(if (selected) colors.primaryAccent else colors.cardElevated, tween(180), label = "fill")
-    val border by animateColorAsState(if (selected) colors.primaryAccent else colors.cardBorder, tween(180), label = "border")
+    val border by animateColorAsState(if (selected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.55f), tween(180), label = "border")
     Box(
         modifier = modifier.height(38.dp).clip(shape).background(fill)
-            .border(if (selected) 1.6.dp else 0.9.dp, border, shape)
+            .border(if (selected) 1.6.dp else 0.8.dp, border, shape)
             .xvoxPressScale(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

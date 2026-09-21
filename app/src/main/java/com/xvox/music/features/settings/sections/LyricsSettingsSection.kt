@@ -2,7 +2,10 @@ package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -31,10 +34,32 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         SettingsAccordionItem(
             title = "Lines Alignment"
         ) {
-            SettingsChoiceRow(
-                listOf("left" to "Left", "center" to "Centre", "right" to "Right"),
-                settings.alignment
-            ) { chosen -> viewModel.updateLyrics { it.copy(alignment = chosen) } }
+            val alignOptions = listOf("left" to "Left", "center" to "Centre", "right" to "Right")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                alignOptions.forEach { (key, label) ->
+                    val isSelected = settings.alignment == key
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(19.dp))
+                            .xvoxPressScale { viewModel.updateLyrics { it.copy(alignment = key) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
 
         SettingsAccordionItem(
@@ -47,53 +72,73 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                 "classic" -> "off"
                 else -> settings.animation
             }
-            SettingsChoiceRow(
-                listOf(
-                    "rise" to "Rise", "glide" to "Glide", "pop" to "Pop", "off" to "Classic"
-                ),
-                currentAnim
-            ) { value -> viewModel.updateLyrics { it.copy(animation = value) } }
-        }
-
-        SettingsAccordionItem(
-            title = "Font Size & Weight"
-        ) {
-            Label("Text Size")
-            val sizePresets = listOf(
-                "Small" to (18 to 12),
-                "Normal" to (22 to 14),
-                "Large" to (26 to 16),
-                "Extra" to (30 to 18)
+            val animOptions = listOf(
+                "rise" to "Rise", "glide" to "Glide", "pop" to "Pop", "off" to "Classic"
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                sizePresets.forEach { (name, sizes) ->
-                    val isSelected = settings.currentSize in (sizes.first - 1)..(sizes.first + 1)
+                animOptions.forEach { (key, label) ->
+                    val isSelected = currentAnim == key
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(19.dp))
+                            .xvoxPressScale { viewModel.updateLyrics { it.copy(animation = key) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        SettingsAccordionItem(
+            title = "Text Size & Font Weight"
+        ) {
+            Label("Text Size (10 presets)")
+            val sizeOptions = listOf(14, 16, 18, 20, 22, 24, 26, 28, 30, 32)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                sizeOptions.forEach { sz ->
+                    val isSelected = settings.currentSize in (sz - 1)..(sz + 1)
+                    val sideSz = (sz * 0.65f).roundToInt().coerceAtLeast(10)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
                             .xvoxPressScale {
                                 viewModel.updateLyrics {
                                     it.copy(
-                                        currentSize = sizes.first,
-                                        topSize = sizes.second,
-                                        bottomSize = sizes.second,
-                                        otherSize = sizes.second
+                                        currentSize = sz,
+                                        topSize = sideSz,
+                                        bottomSize = sideSz,
+                                        otherSize = sideSz
                                     )
                                 }
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = name,
+                            text = "$sz",
                             color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -121,7 +166,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                             .height(36.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
                             .xvoxPressScale {
                                 viewModel.updateLyrics { it.copy(fontWeight = weight) }
                             },
@@ -139,18 +184,20 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
-            title = "Line Spacing & Gap"
+            title = "Line Spacing"
         ) {
-            val gapPresets = listOf(
+            val spacingPresets = listOf(
                 "Tight" to 8,
-                "Normal" to 14,
-                "Relaxed" to 22
+                "Compact" to 12,
+                "Normal" to 16,
+                "Relaxed" to 22,
+                "Wide" to 28
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                gapPresets.forEach { (name, gap) ->
+                spacingPresets.forEach { (name, gap) ->
                     val isSelected = settings.lineGap in (gap - 2)..(gap + 2)
                     Box(
                         modifier = Modifier
@@ -158,16 +205,16 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                             .height(36.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
                             .xvoxPressScale {
                                 viewModel.updateLyrics { it.copy(lineGap = gap) }
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "$name (${gap}dp)",
+                            text = name,
                             color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -205,19 +252,39 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         ) {
             SettingsToggle(
                 title = "Equal fade",
-                subtitle = "Fade every line above and below — only current line stays clear",
+                subtitle = "Fade lines equally above and below active line",
                 checked = settings.fadeEqual,
                 onChange = { on -> viewModel.updateLyrics { it.copy(fadeEqual = on) } }
             )
 
-            Spacer(Modifier.height(8.dp))
-            Label("Fade strength · ${(settings.fadeIntensity * 100).roundToInt()}%")
-            XvoxThinLineSlider(
-                settings.fadeIntensity,
-                { v -> viewModel.updateLyrics { it.copy(fadeIntensity = (v * 100).roundToInt() / 100f, fadeTop = v * 0.35f, fadeBottom = v * 0.35f) } },
-                0f..1f,
-                defaultValue = 1f
-            )
+            if (settings.fadeEqual) {
+                Spacer(Modifier.height(8.dp))
+                Label("Fade strength · ${(settings.fadeIntensity * 100).roundToInt()}%")
+                XvoxThinLineSlider(
+                    settings.fadeIntensity,
+                    { v -> viewModel.updateLyrics { it.copy(fadeIntensity = (v * 100).roundToInt() / 100f, fadeTop = v * 0.35f, fadeBottom = v * 0.35f) } },
+                    0f..1f,
+                    defaultValue = 1f
+                )
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Label("Top lines fade · ${(settings.fadeTop * 100).roundToInt()}%")
+                XvoxThinLineSlider(
+                    settings.fadeTop,
+                    { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } },
+                    0f..0.45f,
+                    defaultValue = .22f
+                )
+
+                Spacer(Modifier.height(8.dp))
+                Label("Bottom lines fade · ${(settings.fadeBottom * 100).roundToInt()}%")
+                XvoxThinLineSlider(
+                    settings.fadeBottom,
+                    { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } },
+                    0f..0.45f,
+                    defaultValue = .22f
+                )
+            }
         }
 
         SettingsAccordionItem(

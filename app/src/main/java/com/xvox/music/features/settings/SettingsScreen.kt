@@ -180,6 +180,11 @@ fun SettingsScreen(
                     }
                 }
 
+                // Support Developer Box
+                item(key = "row_support_dev") {
+                    SupportDeveloperCard()
+                }
+
                 // Full Width About Box
                 item(key = "row_about") {
                     AboutSectionCard()
@@ -218,6 +223,10 @@ fun SettingsScreen(
 
                 item(key = "section_system") {
                     SystemSectionCard(state, settingsViewModel)
+                }
+
+                item(key = "section_support_dev") {
+                    SupportDeveloperCard()
                 }
 
                 item(key = "section_about") {
@@ -292,7 +301,7 @@ private fun AppearanceSectionCard(
 
             Text("Accent Color", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             val accentOptions = listOf(
-                "White" to "White",
+                "White" to "Default",
                 "Red" to "Red",
                 "Blue" to "Blue",
                 "custom" to "Custom"
@@ -457,6 +466,79 @@ private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BatteryOptimizationSection()
             NotifySettingsSection(state, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
+    val colors = XvoxTheme.colors
+    val context = LocalContext.current
+    val haptics = com.xvox.music.core.ui.haptics.LocalXvoxHaptics.current
+    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
+
+    val upiId = "thaparavi382-1@oksbi"
+    val upiName = "lxzrvi"
+
+    fun initiatePayment(amount: Int) {
+        haptics.success()
+        val uri = android.net.Uri.parse("upi://pay?pa=$upiId&pn=$upiName&am=$amount&cu=INR&tn=Support%20XVOX%20Developer")
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+        runCatching {
+            context.startActivity(android.content.Intent.createChooser(intent, "Pay ₹$amount with UPI"))
+        }.onFailure {
+            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("UPI ID", upiId))
+            overlays.showP("UPI ID copied: $upiId")
+        }
+    }
+
+    SettingsCardFrame(title = "Support the Developer", modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Developer lxzrvi crafted XVOX using Kotlin & Jetpack Compose. If you love the experience and want to encourage future development and new upcoming apps, you can show your support! It is totally your own choice and deeply appreciated.",
+                color = colors.secondaryText,
+                fontSize = 12.sp,
+                lineHeight = 16.5.sp
+            )
+
+            Text(
+                text = "UPI: $upiId",
+                color = colors.primaryAccent,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val tiers = listOf(
+                    Triple(50, "₹50", "Coffee ☕"),
+                    Triple(100, "₹100", "Burger 🍔"),
+                    Triple(200, "₹200", "Full Pack 🍱"),
+                    Triple(500, "₹500", "Treat 🚀")
+                )
+
+                tiers.forEach { (amt, price, label) ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(colors.card)
+                            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
+                            .xvoxPressScale { initiatePayment(amt) }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(price, color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(1.dp))
+                            Text(label, color = colors.primaryText, fontSize = 9.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                        }
+                    }
+                }
+            }
         }
     }
 }
