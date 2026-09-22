@@ -117,7 +117,7 @@ fun XvoxNowPlayingArtworkPager(
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
         }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
-            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != latestCurrentIndex.value) {
+            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != latestCurrentIndex) {
                 userSwiped = false
                 previewChanged(settledIndex)
                 delay(60)
@@ -126,7 +126,7 @@ fun XvoxNowPlayingArtworkPager(
                     !isUserDragging &&
                     pager.settledPage == settledIndex &&
                     settledIndex in queue.indices &&
-                    settledIndex != latestCurrentIndex.value
+                    settledIndex != latestCurrentIndex
                 ) {
                     settled(settledIndex)
                 }
