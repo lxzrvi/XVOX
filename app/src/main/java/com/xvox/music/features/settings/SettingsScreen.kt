@@ -1,22 +1,12 @@
 package com.xvox.music.features.settings
 
-import android.app.Activity
 import android.content.Context
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,12 +25,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.chrome.parseHexColor
-import com.xvox.music.core.ui.components.XvoxCustomColorDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.insets.LocalXvoxBottomInset
-import com.xvox.music.core.ui.insets.LocalXvoxTopInset
-import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.features.home.HomeViewModel
@@ -49,10 +36,10 @@ import com.xvox.music.features.settings.sections.*
 
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit,
-    settingsViewModel: SettingsViewModel = viewModel(),
+    modifier: Modifier = Modifier,
+    topResetKey: Long = 0L,
     homeViewModel: HomeViewModel = viewModel(),
-    initialCategory: String? = null
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val state by settingsViewModel.state.collectAsState()
     val homeState by homeViewModel.state.collectAsState()
@@ -64,26 +51,34 @@ fun SettingsScreen(
 
     val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
-    val bottomPadding = bottomInset + XvoxMiniPlayerPlacement.settingsBottomPadding
+    val bottomPadding = bottomInset + if (isLandscape) 16.dp else 40.dp
 
     val scrollState = rememberLazyListState()
-    var showCustomColorDialog by remember { mutableStateOf(false) }
 
-    if (showCustomColorDialog) {
-        val initialCustomColor = parseHexColor(state.accentColor) ?: colors.primaryAccent
-        XvoxCustomColorDialog(
-            initialColor = initialCustomColor,
-            onColorSelected = { selected ->
-                showCustomColorDialog = false
-                val hex = String.format("#%06X", (0xFFFFFF and selected.hashCode()))
-                settingsViewModel.setAccentColor(hex)
-            },
-            onDismiss = { showCustomColorDialog = false }
-        )
+    LaunchedEffect(topResetKey) {
+        runCatching { scrollState.scrollToItem(0) }
+    }
+
+    fun openCustomColorPicker() {
+        overlays.showBox("Custom Accent Color") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ColorPickerRow(
+                    label = "Pick Accent Color",
+                    hex = if (state.accentColor.startsWith("#")) state.accentColor else "#FFFFFF",
+                    onColorChange = { hex -> settingsViewModel.setAccentColor(hex) },
+                    subtitle = "Applies across all buttons and highlights"
+                )
+            }
+        }
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(colors.background)
             .padding(top = topInset + 4.dp)
@@ -115,7 +110,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true }, modifier = Modifier.fillMaxHeight())
+                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = ::openCustomColorPicker, modifier = Modifier.fillMaxHeight())
                         }
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays, modifier = Modifier.fillMaxHeight())
@@ -182,7 +177,7 @@ fun SettingsScreen(
                 }
 
                 item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true })
+                    AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = ::openCustomColorPicker)
                 }
 
                 item(key = "section_library") {
