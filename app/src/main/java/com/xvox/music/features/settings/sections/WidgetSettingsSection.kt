@@ -31,16 +31,20 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.widget.WidgetCustomization
 import com.xvox.music.widget.XvoxAppWidgetProvider
+import com.xvox.music.widget.XvoxWidgetHelper
 import kotlin.math.roundToInt
 
 @Composable
-fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
+fun WidgetSettingsSection(
+    state: SettingsState,
+    viewModel: SettingsViewModel,
+    liveSize: XvoxWidgetHelper.LiveWidgetSize? = null
+) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
-    var editingCategory by remember { mutableStateOf("Horizontal") }
-    var editingSize by remember { mutableStateOf(state.widgetPreviewSize) }
+    val widgetSize = liveSize ?: remember(context) { XvoxWidgetHelper.activeHomeWidgetSize(context) }
     var labelId by remember { mutableStateOf("title") }
     var buttonId by remember { mutableStateOf("all") }
     var expandedGroup by remember { mutableStateOf<String?>(null) }
@@ -49,7 +53,8 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         expandedGroup = if (expandedGroup == group) null else group
     }
 
-    val sizeKey = editingSize
+    // The editor always writes to the currently placed widget's real launcher size.
+    val sizeKey = widgetSize.sizeKey
     val c = state.widgetSizes[sizeKey] ?: state.widgetCustomization
 
     fun editWidget(transform: (WidgetCustomization) -> WidgetCustomization) {
@@ -59,6 +64,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     }
 
     LaunchedEffect(sizeKey) {
+        // Kept for backwards-compatible state restoration, but there is no manual size picker.
         viewModel.setWidgetPreviewSize(sizeKey)
     }
 
@@ -103,39 +109,16 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
         Spacer(Modifier.height(4.dp))
 
-        SettingsAccordionItem(
-            title = "Widget size · $editingSize",
-            expanded = expandedGroup == "Size",
-            onToggle = { toggle("Size") }
-        ) {
-            // Category Tabs: Row, Horizontal, Box
-            SettingsChoiceRow(
-                listOf("Horizontal" to "Horizontal", "Row" to "Row", "Box" to "Box"),
-                editingCategory
-            ) { category ->
-                editingCategory = category
-                val defaultForCat = when (category) {
-                    "Row" -> "1x3"
-                    "Box" -> "2x2"
-                    else -> "3x1"
-                }
-                editingSize = defaultForCat
-                viewModel.setWidgetPreviewSize(defaultForCat)
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            val sizeList = when (editingCategory) {
-                "Row" -> listOf("1x2" to "1×2", "1x3" to "1×3", "1x4" to "1×4", "2x3" to "2×3", "2x4" to "2×4")
-                "Box" -> listOf("1x1" to "1×1", "2x2" to "2×2", "3x3" to "3×3", "4x4" to "4×4")
-                else -> listOf("1x1" to "1×1", "2x1" to "2×1", "3x1" to "3×1", "4x1" to "4×1", "5x1" to "5×1")
-            }
-
-            SettingsChoiceRow(sizeList, editingSize) { chosen ->
-                editingSize = chosen
-                viewModel.setWidgetPreviewSize(chosen)
-            }
-        }
+        Text(
+            text = if (widgetSize.hasHomeWidget) {
+                "Editing your live ${widgetSize.label} home widget"
+            } else {
+                "No home widget found — settings will apply to the next ${widgetSize.label} widget"
+            },
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 2.dp)
+        )
 
         SettingsAccordionItem(
             title = "Theme preset",
@@ -183,10 +166,16 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             Spacer(Modifier.height(8.dp))
             WidgetColourEditor("Border colour", c.borderColor) { value -> editWidget { it.copy(borderColor = value) } }
             Spacer(Modifier.height(8.dp))
-            Group("Surface Margins & Offsets")
-            WidgetSlider("Margin X", state.widgetPaddingX.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingX(v.roundToInt()) }
+            Group("Widget outer margins")
+            // These are per-live-size margins consumed by the real RemoteViews layout, not the
+            // global internal content padding values from older widget settings.
+            WidgetSlider("Margin X", c.marginX.toFloat(), 0f..48f, "dp") { v ->
+                editWidget { it.copy(marginX = v.roundToInt()) }
+            }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Margin Y", state.widgetPaddingY.toFloat(), -64f..64f, "dp") { v -> viewModel.setWidgetPaddingY(v.roundToInt()) }
+            WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..48f, "dp") { v ->
+                editWidget { it.copy(marginY = v.roundToInt()) }
+            }
         }
 
         SettingsAccordionItem(
@@ -265,7 +254,7 @@ fun WidgetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             WidgetSlider("Offset Y", b.offsetY.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
         }
 
-        SettingsChoiceRow(listOf("reset_all" to "Reset size", "reset_base" to "Reset defaults"), "") { key ->
+        SettingsChoiceRow(listOf("reset_all" to "Reset live widget", "reset_base" to "Reset defaults"), "") { key ->
             if (key == "reset_all") {
                 viewModel.setWidgetCustomizationForSize(sizeKey, WidgetCustomization())
             } else {

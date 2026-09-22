@@ -125,13 +125,14 @@ fun XvoxMiniPlayer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(118.dp),
+            // Keep enough room for the long-press actions, but make the resting mini player lighter.
+            .height(102.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(78.dp)
+                .height(68.dp)
                 .align(Alignment.BottomCenter)
                 .pointerInput(queue, currentSongId, exiting) {
                     if (exiting) return@pointerInput

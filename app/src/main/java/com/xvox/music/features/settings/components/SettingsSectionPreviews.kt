@@ -279,10 +279,16 @@ fun LyricsStagePreview(state: SettingsState) {
                     sample.lastIndex -> 1f - lyrics.fadeBottom.coerceIn(0f, .45f)
                     else -> 1f
                 }
-                val lineFontSize = when {
-                    current -> lyrics.currentSize
-                    index < active -> lyrics.topSize
-                    else -> lyrics.bottomSize
+                val lineFontSize = if (lyrics.individualLineSizes) {
+                    when {
+                        current -> lyrics.currentSize
+                        index < active -> lyrics.topSize
+                        else -> lyrics.bottomSize
+                    }
+                } else {
+                    // The preview mirrors the live lyric renderer: disabled per-line sizes
+                    // cannot leak into the master-size presentation.
+                    lyrics.currentSize
                 }
                 Text(
                     text = line,

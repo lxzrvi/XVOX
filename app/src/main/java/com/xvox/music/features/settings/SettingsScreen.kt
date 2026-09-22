@@ -1,12 +1,12 @@
 package com.xvox.music.features.settings
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,9 +28,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
-import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
@@ -42,18 +41,15 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val state by settingsViewModel.state.collectAsState()
-    val homeState by homeViewModel.state.collectAsState()
     val colors = XvoxTheme.colors
-    val context = LocalContext.current
     val overlays = LocalXvoxOverlayController.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
     val bottomPadding = bottomInset + if (isLandscape) 16.dp else 40.dp
 
-    val scrollState = rememberLazyListState()
+    val scrollState = rememberLazyStaggeredGridState()
 
     LaunchedEffect(topResetKey) {
         runCatching { scrollState.scrollToItem(0) }
@@ -77,134 +73,61 @@ fun SettingsScreen(
         }
     }
 
-    Box(
+    var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
+    if (showingWidgetStudio) {
+        WidgetStudioScreen(
+            state = state,
+            viewModel = settingsViewModel,
+            onBack = { showingWidgetStudio = false }
+        )
+        return
+    }
+
+    // A staggered grid keeps every settings card at its natural height. Unlike paired Rows with
+    // fillMaxHeight, a short card never inherits an empty slab from the taller card beside it.
+    val density = LocalDensity.current
+    val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val columns = if (isLandscape) 2 else 1
+
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Fixed(columns),
+        state = scrollState,
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background)
-            .padding(top = topInset + 4.dp)
+            .background(colors.background),
+        contentPadding = PaddingValues(
+            start = if (isLandscape) 16.dp else 10.dp,
+            top = statusTop + 4.dp,
+            end = if (isLandscape) 16.dp else 10.dp,
+            bottom = bottomPadding
+        ),
+        verticalItemSpacing = if (isLandscape) 10.dp else 12.dp,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        if (isLandscape) {
-            // Landscape Mode: Balanced 2-Column Grid
-            LazyColumn(
-                state = scrollState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item(key = "settings_title_land") {
-                    Text(
-                        text = "Settings",
-                        color = colors.primaryAccent,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-
-                // Row 1: Appearance & Library
-                item(key = "row_1") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = ::openCustomColorPicker, modifier = Modifier.fillMaxHeight())
-                        }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays, modifier = Modifier.fillMaxHeight())
-                        }
-                    }
-                }
-
-                // Row 2: Widget Customization & Support Developer (Side by Side)
-                item(key = "row_2") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            WidgetSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxHeight())
-                        }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            SupportDeveloperCard(modifier = Modifier.fillMaxHeight())
-                        }
-                    }
-                }
-
-                // Row 3: System & Backup
-                item(key = "row_3") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            SystemSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxHeight())
-                        }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            BackupSectionCard(homeViewModel, modifier = Modifier.fillMaxHeight())
-                        }
-                    }
-                }
-
-                // Full Width About Box
-                item(key = "row_about") {
-                    AboutSectionCard()
-                }
-            }
-        } else {
-            // Portrait Mode Single Column
-            LazyColumn(
-                state = scrollState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item(key = "settings_title_portrait") {
-                    Text(
-                        text = "Settings",
-                        color = colors.primaryAccent,
-                        fontSize = 22.sp,
-                        lineHeight = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)
-                    )
-                }
-
-                item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = ::openCustomColorPicker)
-                }
-
-                item(key = "section_library") {
-                    LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
-                }
-
-                item(key = "section_widget") {
-                    WidgetSectionCard(state, settingsViewModel)
-                }
-
-                item(key = "section_support_dev") {
-                    SupportDeveloperCard()
-                }
-
-                item(key = "section_backup") {
-                    BackupSectionCard(homeViewModel)
-                }
-
-                item(key = "section_system") {
-                    SystemSectionCard(state, settingsViewModel)
-                }
-
-                item(key = "section_about") {
-                    AboutSectionCard()
-                }
-            }
+        item(
+            key = "settings_title",
+            span = StaggeredGridItemSpan.FullLine
+        ) {
+            Text(
+                text = "Settings",
+                color = colors.primaryAccent,
+                fontSize = 22.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)
+            )
         }
+
+        item(key = "section_appearance") {
+            AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = ::openCustomColorPicker)
+        }
+        item(key = "section_widget") {
+            WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
+        }
+        item(key = "section_support_dev") { SupportDeveloperCard() }
+        item(key = "section_backup") { BackupSectionCard(homeViewModel) }
+        item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
+        item(key = "section_about") { AboutSectionCard() }
     }
 }
 
@@ -220,7 +143,12 @@ private fun AppearanceSectionCard(
     SettingsCardFrame(title = "Appearance", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Theme Mode", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            val themeOptions = listOf("Dark" to "Dark", "Light" to "Light", "System" to "System")
+            val themeOptions = listOf(
+                "Dark" to "Dark",
+                "Light" to "Light",
+                "AMOLED" to "AMOLED",
+                "System" to "System"
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -359,93 +287,38 @@ private fun AppearanceSectionCard(
 }
 
 @Composable
-private fun LibrarySectionCard(
-    state: SettingsState,
-    settingsViewModel: SettingsViewModel,
-    homeViewModel: HomeViewModel,
-    overlays: XvoxOverlayController,
+private fun WidgetSectionCard(
+    onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-
-    SettingsCardFrame(title = "Audio & Engine", modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PlaybackSettingsSection(state, settingsViewModel, showPreview = false)
-
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.card)
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
-                    .clickable {
-                        overlays.showBox("Equalizer & Sound") {
-                            EqualizerSettingsSection(state, settingsViewModel)
-                        }
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Equalizer & Reverb", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                    Text("5-Band EQ, room reverb, noise reduction", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
+    SettingsCardFrame(title = "Widgets", modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(colors.card)
+                .border(0.8.dp, colors.cardBorder.copy(alpha = 0.65f), RoundedCornerShape(14.dp))
+                .xvoxPressScale(onClick = onOpenStudio)
+                .padding(horizontal = 14.dp, vertical = 13.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Widget Studio", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Edit the widget already placed on your home screen",
+                    color = colors.secondaryText,
+                    fontSize = 11.sp
+                )
             }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.card)
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
-                    .clickable {
-                        overlays.showBox("3D Spatial Audio") {
-                            ThreeDSoundSettingsSection(state, settingsViewModel)
-                        }
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("3D Spatial Sound", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                    Text("Spatial stage, orbit motion & HRTF binaural", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.card)
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
-                    .clickable {
-                        overlays.showBox("Lyrics Customization") {
-                            LyricsSettingsSection(state, settingsViewModel)
-                        }
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Lyrics Customization", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                    Text("Line sizing, font weight, fading & alignment", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
-            }
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_caret_right),
+                contentDescription = "Open Widget Studio",
+                tint = colors.secondaryText,
+                modifier = Modifier.size(17.dp)
+            )
         }
-    }
-}
-
-@Composable
-private fun WidgetSectionCard(state: SettingsState, viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
-    SettingsCardFrame(title = "Widget Customization", modifier = modifier) {
-        WidgetSettingsSection(state = state, viewModel = viewModel)
     }
 }
 

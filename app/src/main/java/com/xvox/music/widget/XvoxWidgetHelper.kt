@@ -61,9 +61,21 @@ object XvoxWidgetHelper {
             // it is actually drawing.
             style.showLogo, style.radius, style.paddingX, style.paddingY, style.customization)
     }
-    suspend fun buildRemoteViews(context: Context, state: WidgetDisplayState, widthDp: Int = 300, heightDp: Int = 90, interactive: Boolean = true): RemoteViews = withContext(Dispatchers.IO) {
-        // Each widget size keeps its own settings; this draw uses the one saved for its size.
-        val saved = runCatching { UserPreferencesRepository(context).widgetSizes.first() }.getOrDefault(emptyMap())
+    suspend fun buildRemoteViews(
+        context: Context,
+        state: WidgetDisplayState,
+        widthDp: Int = 300,
+        heightDp: Int = 90,
+        interactive: Boolean = true,
+        // Studio previews pass their in-memory edit here so sliders update before DataStore has
+        // completed its write. Installed widgets keep selecting the saved style for their size.
+        preferStateCustomization: Boolean = false
+    ): RemoteViews = withContext(Dispatchers.IO) {
+        // Each installed widget size keeps its own settings. A live editor preview intentionally
+        // treats the supplied customization as authoritative to remain genuinely live.
+        val saved: Map<String, WidgetCustomization> = if (preferStateCustomization) emptyMap() else {
+            runCatching { UserPreferencesRepository(context).widgetSizes.first() }.getOrDefault(emptyMap())
+        }
         val c = (saved[WidgetCustomization.sizeKey(
             columnsFor(widthDp), rowsFor(heightDp)
         )] ?: state.customization).sanitized()
@@ -331,4 +343,54 @@ object XvoxWidgetHelper {
     /** Same cell metric the settings preview uses: one cell is 70 dp plus an 8 dp gutter. */
     fun columnsFor(widthDp: Int): Int = ((widthDp + 8) / 78).coerceIn(1, 6)
     fun rowsFor(heightDp: Int): Int = ((heightDp + 8) / 78).coerceIn(1, 6)
+
+    /**
+     * The settings editor follows an actually placed home-screen widget instead of asking the
+     * listener to pick an imaginary size.  Launchers report the live dimensions in dp through
+     * the widget options bundle; Android 12+ additionally exposes every responsive size.
+     */
+    data class LiveWidgetSize(
+        val appWidgetId: Int? = null,
+        val widthDp: Int = 240,
+        val heightDp: Int = 70
+    ) {
+        val hasHomeWidget: Boolean get() = appWidgetId != null
+        val columns: Int get() = columnsFor(widthDp)
+        val rows: Int get() = rowsFor(heightDp)
+        val sizeKey: String get() = WidgetCustomization.sizeKey(columns, rows)
+        val label: String get() = "${columns}×${rows}"
+    }
+
+    @Suppress("DEPRECATION")
+    fun activeHomeWidgetSize(context: Context): LiveWidgetSize {
+        val manager = android.appwidget.AppWidgetManager.getInstance(context)
+        val provider = android.content.ComponentName(context, XvoxAppWidgetProvider::class.java)
+        val widgetId = manager.getAppWidgetIds(provider).firstOrNull()
+            ?: return LiveWidgetSize()
+        val options = manager.getAppWidgetOptions(widgetId)
+        // MIN_WIDTH/MIN_HEIGHT are the launcher's dimensions for the widget currently placed on
+        // the home screen. Android 12+ may additionally report several responsive candidates;
+        // choose the one closest to that live footprint rather than the largest possible size.
+        val reportedWidth = options
+            .getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 240)
+            .coerceAtLeast(40)
+        val reportedHeight = options
+            .getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 70)
+            .coerceAtLeast(40)
+        val responsiveSize = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            options.getParcelableArrayList<android.util.SizeF>(
+                android.appwidget.AppWidgetManager.OPTION_APPWIDGET_SIZES
+            )
+                ?.filter { it.width >= 40f && it.height >= 40f }
+                ?.minByOrNull { candidate ->
+                    kotlin.math.abs(candidate.width - reportedWidth.toFloat()) +
+                        kotlin.math.abs(candidate.height - reportedHeight.toFloat())
+                }
+        } else {
+            null
+        }
+        val width = (responsiveSize?.width?.roundToInt() ?: reportedWidth).coerceAtLeast(40)
+        val height = (responsiveSize?.height?.roundToInt() ?: reportedHeight).coerceAtLeast(40)
+        return LiveWidgetSize(widgetId, width, height)
+    }
 }

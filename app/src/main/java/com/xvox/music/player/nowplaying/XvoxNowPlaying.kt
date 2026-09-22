@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -14,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxLogoFont
@@ -73,8 +74,6 @@ fun XvoxNowPlaying(
     duration: Long,
     onClose: () -> Unit,
     onTogglePlay: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -127,6 +126,10 @@ fun XvoxNowPlaying(
     var activeSettingsBox by rememberSaveable { mutableStateOf<String?>(null) }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
+    // Separate visual browsing from the audio deck. Covers may move immediately while the
+    // audible item stays untouched until the navigation button is released.
+    var previewIndex by rememberSaveable { mutableIntStateOf(currentIndex.coerceIn(0, queue.lastIndex.coerceAtLeast(0))) }
+    var previewGestureActive by remember { mutableStateOf(false) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
 
     var headerHeightDp by remember { mutableStateOf(56.dp) }
@@ -170,32 +173,43 @@ fun XvoxNowPlaying(
         animateScreen(0f)
     }
 
-    fun requestPrevious() {
-        if (repeatMode == RepeatMode.ONE) {
-            onSeek(0L)
-            return
+    LaunchedEffect(currentIndex, queue) {
+        if (!previewGestureActive && currentIndex in queue.indices) {
+            previewIndex = currentIndex
+        } else if (previewIndex !in queue.indices && currentIndex in queue.indices) {
+            previewIndex = currentIndex
         }
-        if (queue.isEmpty() || currentIndex < 0) return
-
-        if (position > 5000L) {
-            onSeek(0L)
-            return
-        }
-
-        val atFirst = currentIndex <= 0
-        if (atFirst && repeatMode != RepeatMode.ALL) {
-            onSeek(0L)
-            return
-        }
-        onPrevious()
     }
 
-    fun requestNext() {
-        if (repeatMode == RepeatMode.ONE) return
-        if (queue.isEmpty() || currentIndex < 0) return
-        val atLast = currentIndex >= queue.lastIndex
-        if (atLast && repeatMode != RepeatMode.ALL) return
-        onNext()
+    fun movePreview(direction: Int): Boolean {
+        if (queue.isEmpty() || repeatMode == RepeatMode.ONE) return false
+        val from = previewIndex.takeIf { it in queue.indices }
+            ?: currentIndex.takeIf { it in queue.indices }
+            ?: return false
+        val target = when {
+            direction > 0 && from < queue.lastIndex -> from + 1
+            direction < 0 && from > 0 -> from - 1
+            direction > 0 && repeatMode == RepeatMode.ALL && queue.size > 1 -> 0
+            direction < 0 && repeatMode == RepeatMode.ALL && queue.size > 1 -> queue.lastIndex
+            else -> return false
+        }
+        previewGestureActive = true
+        previewIndex = target
+        navigationRequest += direction.coerceIn(-1, 1)
+        return true
+    }
+
+    fun commitPreview() {
+        val target = previewIndex
+        previewGestureActive = false
+        if (target in queue.indices && target != currentIndex) {
+            onPlayQueueIndex(target)
+        }
+    }
+
+    fun cancelPreview() {
+        previewGestureActive = false
+        previewIndex = currentIndex.takeIf { it in queue.indices } ?: previewIndex
     }
 
     LaunchedEffect(song.id) {
@@ -241,7 +255,7 @@ fun XvoxNowPlaying(
     // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
-        animationSpec = tween(280, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)),
+        animationSpec = tween(340, easing = XvoxPlayerTransitionMotion.easing),
         label = "fullscreenProgress"
     )
 
@@ -285,7 +299,17 @@ fun XvoxNowPlaying(
         )
 
         if (isLandscape) {
-            if (isFullscreen) {
+            // Keep both stages alive while expanding/collapsing.  This avoids the one-frame blank
+            // that used to appear when landscape lyrics were replaced by a separate full screen.
+            Box(Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = isFullscreen,
+                    enter = fadeIn(tween(340, easing = XvoxPlayerTransitionMotion.easing)) +
+                        androidx.compose.animation.scaleIn(initialScale = 0.90f, animationSpec = tween(340, easing = XvoxPlayerTransitionMotion.easing)),
+                    exit = fadeOut(tween(320, easing = XvoxPlayerTransitionMotion.easing)) +
+                        androidx.compose.animation.scaleOut(targetScale = 0.96f, animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing)),
+                    modifier = Modifier.zIndex(1f)
+                ) {
                 // Fullscreen lyrics overlay across the entire landscape screen
                 XvoxArtworkLyrics(
                     state = lyricsState,
@@ -307,13 +331,21 @@ fun XvoxNowPlaying(
                     textColor = paletteState.color,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
+                }
+
+                AnimatedVisibility(
+                    visible = !isFullscreen,
+                    enter = fadeIn(tween(320, easing = XvoxPlayerTransitionMotion.easing)) +
+                        androidx.compose.animation.scaleIn(initialScale = 0.96f, animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing)),
+                    exit = fadeOut(tween(320, easing = XvoxPlayerTransitionMotion.easing)) +
+                        androidx.compose.animation.scaleOut(targetScale = 0.96f, animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing))
+                ) {
                 // Landscape 2-Pane Mode: Left (0.65f Artwork/Lyrics) & Right (0.35f Controls Card)
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 10.dp, top = 8.dp, end = 10.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left: Artwork or Lyrics Card (65% width)
@@ -325,7 +357,7 @@ fun XvoxNowPlaying(
                     ) {
                         Crossfade(
                             targetState = isLyricsShowing,
-                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                            animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing),
                             label = "coverLyricsFadeLandscape"
                         ) { lyricsActive ->
                             if (lyricsActive) {
@@ -351,6 +383,8 @@ fun XvoxNowPlaying(
                                     queue = queue,
                                     currentIndex = currentIndex,
                                     navigationRequest = navigationRequest,
+                                    previewIndex = previewIndex,
+                                    onPreviewIndexChange = { previewIndex = it },
                                     onArtworkTap = { setMode(1) },
                                     onSwipePalette = { base, adjacent, fraction ->
                                         paletteState.blend(base, adjacent, fraction)
@@ -358,7 +392,7 @@ fun XvoxNowPlaying(
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(0.dp),
-                                    pageSpacing = 8.dp,
+                                    pageSpacing = 10.dp,
                                     repeatMode = repeatMode
                                 )
                             }
@@ -373,6 +407,7 @@ fun XvoxNowPlaying(
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(18.dp))
                             .background(colors.background.copy(alpha = 0.35f))
+                            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.75f), RoundedCornerShape(18.dp))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -464,15 +499,14 @@ fun XvoxNowPlaying(
                             isShuffleEnabled = isShuffleEnabled,
                             repeatMode = repeatMode,
                             onShuffle = { onToggleShuffle?.invoke() },
-                            onPrevious = ::requestPrevious,
+                            onPreviewPrevious = { movePreview(-1) },
                             onTogglePlay = onTogglePlay,
-                            onNext = ::requestNext,
+                            onPreviewNext = { movePreview(1) },
+                            onCommitPreview = ::commitPreview,
+                            onCancelPreview = ::cancelPreview,
                             onRepeat = { onToggleRepeat?.invoke() },
-                            currentIndex = currentIndex,
+                            previewIndex = previewIndex,
                             queueSize = queue.size,
-                            positionMs = position,
-                            durationMs = duration,
-                            onScrubTo = onSeek,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -485,6 +519,7 @@ fun XvoxNowPlaying(
                             modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 2.dp)
                         )
                     }
+                }
                 }
             }
         } else {
@@ -502,7 +537,7 @@ fun XvoxNowPlaying(
             ) {
                 Crossfade(
                     targetState = isLyricsShowing,
-                    animationSpec = tween(220, easing = FastOutSlowInEasing),
+                    animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing),
                     label = "coverLyricsFade"
                 ) { lyricsActive ->
                     if (lyricsActive) {
@@ -538,6 +573,8 @@ fun XvoxNowPlaying(
                             queue = queue,
                             currentIndex = currentIndex,
                             navigationRequest = navigationRequest,
+                            previewIndex = previewIndex,
+                            onPreviewIndexChange = { previewIndex = it },
                             onArtworkTap = { setMode(1) },
                             onSwipePalette = { base, adjacent, fraction ->
                                 paletteState.blend(base, adjacent, fraction)
@@ -675,15 +712,14 @@ fun XvoxNowPlaying(
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
                     onShuffle = { onToggleShuffle?.invoke() },
-                    onPrevious = ::requestPrevious,
+                    onPreviewPrevious = { movePreview(-1) },
                     onTogglePlay = onTogglePlay,
-                    onNext = ::requestNext,
+                    onPreviewNext = { movePreview(1) },
+                    onCommitPreview = ::commitPreview,
+                    onCancelPreview = ::cancelPreview,
                     onRepeat = { onToggleRepeat?.invoke() },
-                    currentIndex = currentIndex,
+                    previewIndex = previewIndex,
                     queueSize = queue.size,
-                    positionMs = position,
-                    durationMs = duration,
-                    onScrubTo = onSeek,
                     modifier = Modifier.fillMaxWidth()
                 )
 

@@ -140,8 +140,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setWidgetPreviewSize(key: String) = _state.update { it.copy(widgetPreviewSize = key) }
 
     /** Saves the given size's own widget settings; other sizes are untouched. */
-    fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) =
-        viewModelScope.launch { prefs.setWidgetSizeCustomization(key, value) }
+    fun setWidgetSizeCustomization(key: String, value: com.xvox.music.widget.WidgetCustomization) {
+        val sanitized = value.sanitized()
+        // Update the studio preview synchronously; DataStore will subsequently confirm this
+        // per-size value without making a slider briefly snap back to its previous position.
+        _state.update { current ->
+            current.copy(widgetSizes = current.widgetSizes + (key to sanitized))
+        }
+        viewModelScope.launch { prefs.setWidgetSizeCustomization(key, sanitized) }
+    }
     fun setWidgetCustomizationForSize(key: String, value: com.xvox.music.widget.WidgetCustomization) =
         setWidgetSizeCustomization(key, value)
     fun setWidgetCustomization(value: com.xvox.music.widget.WidgetCustomization) =

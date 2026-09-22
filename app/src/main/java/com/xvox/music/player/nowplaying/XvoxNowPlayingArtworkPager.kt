@@ -19,14 +19,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
@@ -34,7 +32,6 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
@@ -49,6 +46,9 @@ fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
     currentIndex: Int,
     navigationRequest: Int,
+    /** Page currently being previewed by the previous/next controls. */
+    previewIndex: Int = currentIndex,
+    onPreviewIndexChange: (Int) -> Unit = {},
     onArtworkTap: () -> Unit,
     onSwipePalette: (Song, Song?, Float) -> Unit,
     onSettledPage: (Int) -> Unit,
@@ -62,6 +62,8 @@ fun XvoxNowPlayingArtworkPager(
     val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
 
     val settled by rememberUpdatedState(onSettledPage)
+    val previewChanged by rememberUpdatedState(onPreviewIndexChange)
+    val latestCurrentIndex by rememberUpdatedState(currentIndex)
     val palette by rememberUpdatedState(onSwipePalette)
     val tap by rememberUpdatedState(onArtworkTap)
 
@@ -74,17 +76,21 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Synchronize pager when currentIndex changes (auto-advance / tap in queue / next/prev button)
-    LaunchedEffect(currentIndex, queue.size) {
+    // The visible deck follows the preview index. Player state may remain on the old song while
+    // the user presses/holds next or previous, which lets the cover animate like a real swipe.
+    LaunchedEffect(previewIndex, queue.size) {
         userSwiped = false
-        if (currentIndex in queue.indices && currentIndex != pager.currentPage) {
-            val dist = abs(currentIndex - pager.currentPage)
+        if (previewIndex in queue.indices && previewIndex != pager.currentPage) {
+            val dist = abs(previewIndex - pager.currentPage)
             if (dist > 1) {
-                pager.scrollToPage(currentIndex)
+                pager.scrollToPage(previewIndex)
             } else {
                 pager.animateScrollToPage(
-                    page = currentIndex,
-                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                    page = previewIndex,
+                    animationSpec = tween(
+                        durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
+                        easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
+                    )
                 )
             }
         }
@@ -111,10 +117,17 @@ fun XvoxNowPlayingArtworkPager(
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
         }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
-            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != currentIndex) {
+            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != latestCurrentIndex.value) {
                 userSwiped = false
+                previewChanged(settledIndex)
                 delay(60)
-                if (!pager.isScrollInProgress && !isUserDragging && pager.settledPage == settledIndex && settledIndex in queue.indices && settledIndex != currentIndex) {
+                if (
+                    !pager.isScrollInProgress &&
+                    !isUserDragging &&
+                    pager.settledPage == settledIndex &&
+                    settledIndex in queue.indices &&
+                    settledIndex != latestCurrentIndex.value
+                ) {
                     settled(settledIndex)
                 }
             } else if (!inProgress && !dragging) {

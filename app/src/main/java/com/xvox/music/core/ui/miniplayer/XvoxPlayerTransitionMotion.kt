@@ -7,13 +7,14 @@ import androidx.compose.animation.core.tween
 
 object XvoxPlayerTransitionMotion {
 
-    const val Duration = 140
+    /** Shared deck motion: the mini player and Now Playing deliberately move at one calm pace. */
+    const val Duration = 320
 
     val easing: Easing =
         CubicBezierEasing(
-            0.10f,
-            0.90f,
-            0.20f,
+            0.22f,
+            0.0f,
+            0.0f,
             1.0f
         )
 

@@ -42,11 +42,21 @@ fun LyricPresentationLine(
     color: Color = Color.White,
     synchronized: Boolean = true
 ) {
-    val maximumSize = maxOf(settings.currentSize, maxOf(settings.topSize, settings.bottomSize))
-    val targetSize = when {
-        distance < 0 -> settings.topSize
-        distance == 0 -> settings.currentSize
-        else -> settings.bottomSize
+    // With individual sizing off, the master size is genuinely used by every line.
+    // Per-line values remain saved, but cannot affect presentation until the toggle is enabled.
+    val maximumSize = if (settings.individualLineSizes) {
+        maxOf(settings.currentSize, maxOf(settings.topSize, settings.bottomSize))
+    } else {
+        settings.currentSize
+    }
+    val targetSize = if (settings.individualLineSizes) {
+        when {
+            distance < 0 -> settings.topSize
+            distance == 0 -> settings.currentSize
+            else -> settings.bottomSize
+        }
+    } else {
+        settings.currentSize
     }
     val wantedScale = targetSize.toFloat() / maximumSize.toFloat()
 

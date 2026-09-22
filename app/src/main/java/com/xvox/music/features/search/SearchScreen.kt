@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -81,6 +82,7 @@ import com.xvox.music.features.home.showPlaylistActions
 import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.player.playback.MainPlayerViewModel
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
@@ -426,76 +428,94 @@ fun SearchScreen(
             }
         }
     } else {
-        // Portrait Layout: Pinned Search Bar & Recent Searches at top under status bar, scrollable song list below
+        // The shell header starts above this list.  Its reserved space scrolls away first, then
+        // this sticky search field settles immediately below the system status bar.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            if (drillDownPlaylist == null && drillDownArtist == null) {
-                SearchBarComponent(
-                    query = query,
-                    onQueryChange = { query = it },
-                    onClear = { query = "" },
-                    focusRequester = focusRequester,
-                    onSearch = {
-                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
-                        focusManager.clearFocus()
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)
-                )
-
-                if (recentSearches.isNotEmpty() && query.isEmpty()) {
-                    RecentSearchesSection(
-                        searches = recentSearches,
-                        onSelect = { q ->
-                            query = q
-                            focusManager.clearFocus()
-                        },
-                        onRemove = { q -> homeViewModel.removeRecentSearch(q) },
-                        onClearAll = { homeViewModel.clearRecentSearches() },
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
-                    )
-                }
-            } else {
-                val drillDownTitle = drillDownPlaylist?.name ?: drillDownArtist?.name ?: ""
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(colors.card)
-                            .clickable {
-                                drillDownPlaylist = null
-                                drillDownArtist = null
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryAccent, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = drillDownTitle,
-                        color = colors.primaryAccent,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = bottomInset + 16.dp),
+                contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                item(key = "search_shell_header_space") {
+                    // Shell header is a 54 dp row plus its 6 dp top/bottom breathing room.
+                    Spacer(Modifier.height(66.dp))
+                }
+
+                stickyHeader(key = "sticky_search_bar") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colors.background)
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                    ) {
+                        SearchBarComponent(
+                            query = query,
+                            onQueryChange = { query = it },
+                            onClear = { query = "" },
+                            focusRequester = focusRequester,
+                            onSearch = {
+                                if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                                focusManager.clearFocus()
+                            }
+                        )
+                    }
+                }
+
+                if (drillDownPlaylist == null && drillDownArtist == null) {
+                    if (recentSearches.isNotEmpty() && query.isEmpty()) {
+                        item(key = "recent_searches") {
+                            RecentSearchesSection(
+                                searches = recentSearches,
+                                onSelect = { q ->
+                                    query = q
+                                    focusManager.clearFocus()
+                                },
+                                onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                                onClearAll = { homeViewModel.clearRecentSearches() },
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                } else {
+                    val drillDownTitle = drillDownPlaylist?.name ?: drillDownArtist?.name ?: ""
+                    item(key = "drill_down_title") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.card)
+                                    .clickable {
+                                        drillDownPlaylist = null
+                                        drillDownArtist = null
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryAccent, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = drillDownTitle,
+                                color = colors.primaryAccent,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
                 if (drillDownPlaylist != null) {
                     val plSongs = homeViewModel.playlistSongs(drillDownPlaylist!!)
                     items(plSongs, key = { "pl_song_${it.id}" }) { song ->
@@ -601,6 +621,7 @@ fun SearchScreen(
                 }
             }
         }
+
     }
 }
 
@@ -811,13 +832,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = if (isLandscape) 0.dp else 14.dp, top = 6.dp, bottom = 2.dp)
+                modifier = Modifier.padding(start = 14.dp, top = 6.dp, bottom = 2.dp)
             )
         }
         item(key = "row_artists") {
             LazyRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(horizontal = if (isLandscape) 0.dp else 14.dp, vertical = 4.dp)
+                // The scrolling viewport reaches the full landscape pane; its first/last cards
+                // retain the same 14 dp inset as song cards and portrait search results.
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
             ) {
                 items(matchingArtists, key = { "art_${it.name}" }) { artist ->
                     SearchArtistCircleItem(
@@ -839,13 +863,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = if (isLandscape) 0.dp else 14.dp, top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 4.dp)
             )
         }
         item(key = "row_playlists") {
             LazyRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = if (isLandscape) 0.dp else 14.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
             ) {
                 items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
                     val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }

@@ -29,7 +29,7 @@ import kotlin.math.roundToInt
 fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
-    var individualSizesEnabled by remember { mutableStateOf(settings.topSize != (settings.currentSize * 0.65f).roundToInt() && settings.topSize != settings.bottomSize) }
+    val individualSizesEnabled = settings.individualLineSizes
 
     SettingsControlsEditor(controls = {
         SettingsAccordionItem(
@@ -110,19 +110,14 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 
             SettingsToggle(
                 title = "Individual Line Sizes",
-                subtitle = "Set distinct text sizes for top, middle, and bottom lines",
+                subtitle = "Use separate top, active, and bottom line sizes",
                 checked = individualSizesEnabled,
-                onChange = { on ->
-                    individualSizesEnabled = on
-                    if (!on) {
-                        viewModel.updateLyrics {
-                            it.copy(
-                                currentSize = 26,
-                                topSize = 18,
-                                bottomSize = 18,
-                                otherSize = 18
-                            )
-                        }
+                onChange = { enabled ->
+                    viewModel.updateLyrics { current ->
+                        // This is a true enable/disable mode, not a destructive reset. The
+                        // renderer ignores saved per-line values while off and restores them if
+                        // the user later turns individual sizing back on.
+                        current.copy(individualLineSizes = enabled)
                     }
                 }
             )
@@ -139,7 +134,6 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                 ) {
                     sizePresets.forEach { sz ->
                         val isSelected = settings.currentSize in (sz - 2)..(sz + 2)
-                        val sideSz = (sz * 0.68f).roundToInt().coerceAtLeast(12)
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -147,14 +141,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                                 .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                                 .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
                             .xvoxPressScale {
-                                viewModel.updateLyrics {
-                                    it.copy(
-                                        currentSize = sz,
-                                        topSize = sideSz,
-                                        bottomSize = sideSz,
-                                        otherSize = sideSz
-                                    )
-                                }
+                                viewModel.updateLyrics { it.copy(currentSize = sz) }
                             },
                             contentAlignment = Alignment.Center
                         ) {

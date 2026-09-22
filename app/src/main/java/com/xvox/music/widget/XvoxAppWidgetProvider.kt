@@ -104,8 +104,18 @@ class XvoxAppWidgetProvider : AppWidgetProvider() {
         private fun observePreferences(context: Context) {
             if (preferencesJob?.isActive == true) return
             preferencesJob = scope.launch {
-                combine(UserPreferencesRepository(context).widgetStyle, XvoxLibraryPreferences(context).likedSongIds) { style, likes -> style to likes }
-                    .drop(1).debounce(120).collect { enqueue(context, full = true) }
+                val preferences = UserPreferencesRepository(context)
+                // Size-specific studio edits are separate from the base widget style. Observe
+                // both so the installed home widget redraws as soon as its live-size controls
+                // change, not only when the track changes next.
+                combine(
+                    preferences.widgetStyle,
+                    preferences.widgetSizes,
+                    XvoxLibraryPreferences(context).likedSongIds
+                ) { style, sizes, likes -> Triple(style, sizes, likes) }
+                    .drop(1)
+                    .debounce(120)
+                    .collect { enqueue(context, full = true) }
             }
         }
         private suspend fun render(context: Context, force: Boolean) = renderMutex.withLock {

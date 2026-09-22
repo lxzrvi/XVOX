@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -87,7 +88,7 @@ fun XvoxMiniPlayerCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(56.dp)
             .clip(cardShape)
             .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
             .drawWithContent {
@@ -97,7 +98,8 @@ fun XvoxMiniPlayerCard(
                     addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(radius)))
                 }
                 clipPath(inside) {
-                    val barHeight = 3.dp.toPx()
+                    // Match the slim Now Playing progress rail so both player surfaces feel related.
+                    val barHeight = 2.5.dp.toPx()
                     if (duration > 0) {
                         val intro = (zones.first.toFloat() / duration).coerceIn(0f, .5f)
                         val tail = (zones.second.toFloat() / duration).coerceIn(0f, .5f)
@@ -138,20 +140,23 @@ fun XvoxMiniPlayerCard(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = if (isFullCover) 14.dp else 4.dp, top = 4.dp, end = 88.dp, bottom = 4.dp),
+                // Reserve the two outlined 38-dp actions plus their gap so title text never
+                // slides beneath a control after the mini player was made shorter.
+                .padding(start = if (isFullCover) 12.dp else 4.dp, top = 4.dp, end = 94.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!isFullCover) {
                 Box(
                     modifier = Modifier
-                        .size(50.dp)
+                        .size(48.dp)
                         .clip(artworkShape)
                 ) {
                     AnimatedContent(
                         targetState = song,
                         contentKey = { it.id },
                         transitionSpec = {
-                            fadeIn(tween(180)).togetherWith(fadeOut(tween(140)))
+                            fadeIn(tween(280, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing))
+                                .togetherWith(fadeOut(tween(220, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing)))
                         },
                         modifier = Modifier.fillMaxSize(),
                         label = "miniArtworkFade"
@@ -168,7 +173,7 @@ fun XvoxMiniPlayerCard(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(50.dp)
+                    .height(48.dp)
             ) {
                 AnimatedContent(
                     targetState = song,
@@ -176,15 +181,24 @@ fun XvoxMiniPlayerCard(
                     transitionSpec = {
                         when {
                             direction > 0 -> {
-                                (fadeIn(tween(150)) + slideInVertically(animationSpec = tween(200), initialOffsetY = { it }))
-                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically(animationSpec = tween(180), targetOffsetY = { -it }))
+                                (fadeIn(tween(250, easing = XvoxPlayerTransitionMotion.easing)) +
+                                    slideInVertically(animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing), initialOffsetY = { it }))
+                                    .togetherWith(
+                                        fadeOut(tween(210, easing = XvoxPlayerTransitionMotion.easing)) +
+                                            slideOutVertically(animationSpec = tween(290, easing = XvoxPlayerTransitionMotion.easing), targetOffsetY = { -it })
+                                    )
                             }
                             direction < 0 -> {
-                                (fadeIn(tween(150)) + slideInVertically(animationSpec = tween(200), initialOffsetY = { -it }))
-                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically(animationSpec = tween(180), targetOffsetY = { it }))
+                                (fadeIn(tween(250, easing = XvoxPlayerTransitionMotion.easing)) +
+                                    slideInVertically(animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing), initialOffsetY = { -it }))
+                                    .togetherWith(
+                                        fadeOut(tween(210, easing = XvoxPlayerTransitionMotion.easing)) +
+                                            slideOutVertically(animationSpec = tween(290, easing = XvoxPlayerTransitionMotion.easing), targetOffsetY = { it })
+                                    )
                             }
                             else -> {
-                                fadeIn(tween(140)).togetherWith(fadeOut(tween(100)))
+                                fadeIn(tween(240, easing = XvoxPlayerTransitionMotion.easing))
+                                    .togetherWith(fadeOut(tween(190, easing = XvoxPlayerTransitionMotion.easing)))
                             }
                         }
                     },
@@ -233,6 +247,13 @@ fun XvoxMiniPlayerCard(
                     .size(38.dp)
                     .clip(CircleShape)
                     .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
+                    .border(
+                        0.75.dp,
+                        // On AMOLED, a card-border-on-black can disappear. Primary text always
+                        // provides a subtle but visible contrast in every app theme.
+                        if (isFullCover) Color.White.copy(alpha = 0.52f) else colors.primaryText.copy(alpha = 0.34f),
+                        CircleShape
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -243,7 +264,7 @@ fun XvoxMiniPlayerCard(
                 Icon(
                     painter = painterResource(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
                     contentDescription = "Like",
-                    tint = if (isLiked) Color.White else (if (isFullCover) Color.White else colors.primaryText),
+                    tint = if (isLiked) colors.primaryAccent else (if (isFullCover) Color.White else colors.primaryText),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -253,6 +274,11 @@ fun XvoxMiniPlayerCard(
                     .size(38.dp)
                     .clip(CircleShape)
                     .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
+                    .border(
+                        0.75.dp,
+                        if (isFullCover) Color.White.copy(alpha = 0.52f) else colors.primaryText.copy(alpha = 0.34f),
+                        CircleShape
+                    )
                     .clickable(
                         interactionSource = controlInteraction,
                         indication = null,

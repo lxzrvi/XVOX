@@ -211,7 +211,14 @@ fun XvoxArtworkLyrics(
             }
     ) {
         val density = LocalDensity.current
-        val maximumSize = maxOf(lyricsSettings.currentSize, maxOf(lyricsSettings.topSize, lyricsSettings.bottomSize))
+        // Reserve space using only values that are active in the selected sizing mode.
+        // This keeps a 50-sp master line from being clipped and prevents disabled per-line
+        // values from changing the scroll/centering geometry.
+        val maximumSize = if (lyricsSettings.individualLineSizes) {
+            maxOf(lyricsSettings.currentSize, maxOf(lyricsSettings.topSize, lyricsSettings.bottomSize))
+        } else {
+            lyricsSettings.currentSize
+        }
         val activeLineHeightDp = with(density) { (maximumSize * 1.30f).sp.toDp() } + (lyricsSettings.lineGap / 2f).coerceAtLeast(4f).dp * 2
         val verticalCenterPadding = ((maxHeight - activeLineHeightDp) / 2f).coerceAtLeast(16.dp)
 
@@ -314,6 +321,7 @@ fun XvoxArtworkLyrics(
                     lyricsSettings.currentSize,
                     lyricsSettings.topSize,
                     lyricsSettings.bottomSize,
+                    lyricsSettings.individualLineSizes,
                     lyricsSettings.lineGap,
                     expanded
                 ) {

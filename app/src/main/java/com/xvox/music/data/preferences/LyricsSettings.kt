@@ -24,14 +24,17 @@ data class LyricsSettings(
     /** When true, auto-scroll and line-by-line synced playback is active. */
     val timeSync: Boolean = true,
     /** Font weight scale (400 to 800). */
-    val fontWeight: Int = 600
+    val fontWeight: Int = 600,
+    /** Whether top, active and bottom lyric lines retain their own independent size choices. */
+    val individualLineSizes: Boolean = false
 ) {
     fun normalized(): LyricsSettings = copy(
         offsetMs = offsetMs.coerceIn(-1000, 1000),
-        topSize = topSize.coerceIn(10, 36),
-        currentSize = currentSize.coerceIn(14, 44),
-        bottomSize = bottomSize.coerceIn(10, 36),
-        otherSize = otherSize.coerceIn(10, 36),
+        // 50 sp is intentionally supported in every line role; it is an exposed editor preset.
+        topSize = topSize.coerceIn(10, 50),
+        currentSize = currentSize.coerceIn(14, 50),
+        bottomSize = bottomSize.coerceIn(10, 50),
+        otherSize = otherSize.coerceIn(10, 50),
         fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
         fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
         animation = animation.takeIf { it in ANIMATIONS } ?: "rise",
@@ -66,6 +69,7 @@ data class LyricsSettings(
         .put("matchColor", matchCoverColor)
         .put("timeSync", timeSync)
         .put("fontWeight", fontWeight)
+        .put("individualSizes", individualLineSizes)
         .toString()
 
     companion object {
@@ -105,7 +109,9 @@ data class LyricsSettings(
                 gradientAnimation = mappedGrad,
                 matchCoverColor = j.optBoolean("matchColor", true),
                 timeSync = j.optBoolean("timeSync", true),
-                fontWeight = j.optInt("fontWeight", 600)
+                fontWeight = j.optInt("fontWeight", 600),
+                // Older installations had no explicit flag; keep their previous master-size behavior.
+                individualLineSizes = j.optBoolean("individualSizes", false)
             ).normalized()
         }.getOrElse { LyricsSettings() }
     }

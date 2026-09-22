@@ -480,7 +480,7 @@ fun XvoxMainShell(
                                 }
                             },
                             onSettings = ::showMiniPlayerSettings,
-                            modifier = Modifier.fillMaxWidth().height(64.dp)
+                            modifier = Modifier.fillMaxWidth().height(60.dp)
                         )
                     }
                 } else {
@@ -590,9 +590,8 @@ fun XvoxMainShell(
                     displayMode = nowPlayingDisplayMode,
                     onDisplayModeChange = { nowPlayingDisplayMode = it },
                     onTogglePlay = { playerViewModel.togglePlay() },
-                    onPrevious = { playerViewModel.playPrevious() },
-                    onNext = { playerViewModel.playNext() },
-                    onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
+                    // Now Playing commits the cover selected on button release.
+                    onPlayQueueIndex = { playerViewModel.playQueueIndex(it, keepPlayingState = false) },
                     onSeek = { playerViewModel.seekTo(it) },
                     isLiked = playingSong.id in homeState.likedSongIds,
                     onToggleLiked = {

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -27,8 +28,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.player.playback.XvoxBlendMonitor
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+
+private data class XvoxProgressBlend(
+    val enabled: Boolean,
+    val belongsToCurrentSong: Boolean,
+    val introZoneMs: Long,
+    val tailZoneMs: Long
+)
 
 @Composable
 fun XvoxNowPlayingProgress(
@@ -79,13 +88,40 @@ fun XvoxNowPlayingProgress(
     val activeColor = colors.primaryAccent
 
     val blendProjection = remember(currentSongId) {
-        XvoxBlendMonitor.state.map {
-            if (it.enabled && it.currentId == currentSongId && currentSongId != null) it.introZoneMs to it.tailZoneMs else 0L to 0L
+        XvoxBlendMonitor.state.map { visual ->
+            val belongsToCurrentSong = visual.currentId == currentSongId && currentSongId != null
+            XvoxProgressBlend(
+                enabled = visual.enabled,
+                belongsToCurrentSong = belongsToCurrentSong,
+                introZoneMs = if (visual.enabled && belongsToCurrentSong) visual.introZoneMs else 0L,
+                tailZoneMs = if (visual.enabled && belongsToCurrentSong) visual.tailZoneMs else 0L
+            )
         }.distinctUntilChanged()
     }
-    val blendZones by blendProjection.collectAsState(initial = 0L to 0L)
-    val introFraction = if (duration > 0L) (blendZones.first.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
-    val tailFraction = if (duration > 0L) (blendZones.second.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+    val rawBlend by blendProjection.collectAsState(
+        initial = XvoxProgressBlend(false, false, 0L, 0L)
+    )
+    // Rebuilding the queue for Shuffle briefly reports no next item.  Hold the last valid zones
+    // for a tiny grace window so the progress rail does not flash off and back on.
+    var stableBlendZones by remember(currentSongId) { mutableStateOf(0L to 0L) }
+    LaunchedEffect(rawBlend, currentSongId) {
+        val next = rawBlend.introZoneMs to rawBlend.tailZoneMs
+        when {
+            rawBlend.enabled && rawBlend.belongsToCurrentSong && next != (0L to 0L) -> {
+                stableBlendZones = next
+            }
+            stableBlendZones != (0L to 0L) -> {
+                // Queue rebuilds (especially with Shuffle) may emit a disabled/no-owner frame
+                // before the same song receives its new valid blend window. Keep the last visual
+                // zone briefly; a new valid emission cancels this effect before it can clear.
+                delay(180)
+                stableBlendZones = 0L to 0L
+            }
+            else -> stableBlendZones = 0L to 0L
+        }
+    }
+    val introFraction = if (duration > 0L) (stableBlendZones.first.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+    val tailFraction = if (duration > 0L) (stableBlendZones.second.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
 
     Column(
         modifier = modifier.fillMaxWidth()
