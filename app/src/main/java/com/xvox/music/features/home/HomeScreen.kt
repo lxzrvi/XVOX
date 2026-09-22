@@ -620,5 +620,24 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (isSelectionMode) {
+            HomeMultiSelectBar(
+                selectedSongs = selectedSongsList,
+                selectedPlaylist = selectedPlaylist,
+                libraryMode = selectionLibraryMode,
+                viewModel = viewModel,
+                playerViewModel = playerViewModel,
+                overlays = overlays,
+                context = context,
+                categoryName = selectionCategoryName,
+                onClearSelection = { selectedSongIds = emptySet() },
+                onDeleteSelected = { requestDeleteSelected() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomInset + (if (currentSongId != null) 72.dp else 16.dp))
+                    .zIndex(9999f)
+            )
+        }
     }
 }

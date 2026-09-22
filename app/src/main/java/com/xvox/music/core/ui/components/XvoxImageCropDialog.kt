@@ -261,7 +261,7 @@ fun XvoxImageCropDialog(
                                     srcCropH.toInt()
                                 )
 
-                                val file = File(context.cacheDir, "xvox_crop_${System.currentTimeMillis()}.jpg")
+                                val file = File(context.filesDir, "xvox_crop_${System.currentTimeMillis()}.jpg")
                                 FileOutputStream(file).use { out ->
                                     cropped.compress(Bitmap.CompressFormat.JPEG, 92, out)
                                 }

@@ -262,42 +262,7 @@ fun SearchScreen(
                     onClearAll = { homeViewModel.clearRecentSearches() }
                 )
 
-                Spacer(Modifier.height(10.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.card.copy(alpha = 0.5f))
-                        .padding(14.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "Search Library",
-                            color = colors.primaryText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "Search songs, artists, and playlists instantly across your local collection.",
-                            color = colors.secondaryText,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-
-                        if (trimmedQuery.isNotEmpty()) {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                text = "Found ${matchingSongs.size} songs, ${matchingArtists.size} artists, ${matchingPlaylists.size} playlists",
-                                color = colors.primaryAccent,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
+                Spacer(Modifier.weight(1f))
             }
 
             // Right pane: Search results

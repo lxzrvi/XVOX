@@ -111,10 +111,21 @@ fun ProfileEditorBox(
             val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
                     (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
             if (isGif) {
-                // Animated GIFs applied directly without static cropping
-                savedCustomHeaderUri = uri.toString()
+                // Persist GIF in internal app storage so user deleting from gallery does not break it
+                val persistentUri = try {
+                    val destFile = java.io.File(context.filesDir, "xvox_header_gif_${System.currentTimeMillis()}.gif")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        java.io.FileOutputStream(destFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    Uri.fromFile(destFile)
+                } catch (e: Exception) {
+                    uri
+                }
+                savedCustomHeaderUri = persistentUri.toString()
                 isCustomHeaderMode = true
-                scope.launch { prefs.setHeaderImageUri(uri.toString()) }
+                scope.launch { prefs.setHeaderImageUri(persistentUri.toString()) }
             } else {
                 croppingHeaderUri = uri
             }

@@ -1,45 +1,26 @@
 package com.xvox.music.features.settings
 
+import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,95 +35,74 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.parseHexColor
+import com.xvox.music.core.ui.components.XvoxCustomColorDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.insets.LocalXvoxBottomInset
+import com.xvox.music.core.ui.insets.LocalXvoxTopInset
+import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.settings.components.ColorPickerRow
-import com.xvox.music.features.settings.components.SettingsChoiceRow
-import com.xvox.music.features.settings.sections.AboutSettingsSection
-import com.xvox.music.features.settings.sections.BackupSettingsSection
-import com.xvox.music.features.settings.sections.BatteryOptimizationSection
-import com.xvox.music.features.settings.sections.HiddenSongsSettingsSection
-import com.xvox.music.features.settings.sections.LibraryFilterSettingsSection
-import com.xvox.music.features.settings.sections.NotifySettingsSection
+import com.xvox.music.features.settings.components.*
+import com.xvox.music.features.settings.sections.*
 
-/**
- * Settings Screen:
- * - Theme-outlined bordered section boxes (colors.cardBorder, thin theme-based border).
- * - Accent color with preset buttons (White, Red, Blue) and dedicated Custom button opening the wheel.
- * - Text scale preset boxes (0.15x, 0.25x, 0.50x, 0.75x, 1.0x, 1.25x).
- * - Playback & Crossfade and Library Scan removed.
- * - Single-line side-by-side Backup Export / Import.
- * - Background playback toggle and daily reminder switch.
- * - Share XVOX button and comprehensive About section.
- * - 2-column grid in landscape mode.
- */
 @Composable
 fun SettingsScreen(
-    modifier: Modifier = Modifier,
-    topResetKey: Long = 0L,
+    onNavigateBack: () -> Unit,
+    settingsViewModel: SettingsViewModel = viewModel(),
     homeViewModel: HomeViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel()
+    initialCategory: String? = null
 ) {
-    val colors = XvoxTheme.colors
-    val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
-    val context = LocalContext.current
     val state by settingsViewModel.state.collectAsState()
-    val scrollState = rememberLazyListState()
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val homeState by homeViewModel.state.collectAsState()
+    val colors = XvoxTheme.colors
+    val context = LocalContext.current
+    val overlays = LocalXvoxOverlayController.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
+    val topInset = LocalXvoxTopInset.current
+    val bottomInset = LocalXvoxBottomInset.current
+    val bottomPadding = bottomInset + XvoxMiniPlayerPlacement.settingsBottomPadding
+
+    val scrollState = rememberLazyListState()
     var showCustomColorDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(topResetKey) {
-        runCatching { scrollState.scrollToItem(0) }
-    }
-
     if (showCustomColorDialog) {
-        overlays.showBox("Custom Accent Color") {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ColorPickerRow(
-                    label = "Pick Accent Color",
-                    hex = if (state.accentColor.startsWith("#")) state.accentColor else "#FFFFFF",
-                    onColorChange = { hex -> settingsViewModel.setAccentColor(hex) },
-                    subtitle = "Applies across all buttons and highlights"
-                )
-            }
-        }
-        showCustomColorDialog = false
+        val initialCustomColor = parseHexColor(state.accentColor) ?: colors.primaryAccent
+        XvoxCustomColorDialog(
+            initialColor = initialCustomColor,
+            onColorSelected = { selected ->
+                showCustomColorDialog = false
+                val hex = String.format("#%06X", (0xFFFFFF and selected.hashCode()))
+                settingsViewModel.setAccentColor(hex)
+            },
+            onDismiss = { showCustomColorDialog = false }
+        )
     }
 
-    Column(
-        modifier = modifier
+    Box(
+        modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(top = 2.dp)
+            .background(colors.background)
+            .padding(top = topInset + 4.dp)
     ) {
-        val bottomPadding = LocalXvoxBottomInset.current + if (isLandscape) 16.dp else 40.dp
-
         if (isLandscape) {
-            // Balanced Symmetrical Rows in Landscape Mode + Full Width About Card
+            // Landscape Mode: Balanced 2-Column Grid
             LazyColumn(
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item(key = "settings_title_landscape") {
+                item(key = "settings_title_land") {
                     Text(
                         text = "Settings",
                         color = colors.primaryAccent,
                         fontSize = 22.sp,
-                        lineHeight = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
 
@@ -152,7 +112,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             AppearanceSectionCard(state, settingsViewModel, onOpenColorWheel = { showCustomColorDialog = true }, modifier = Modifier.fillMaxHeight())
@@ -163,13 +123,30 @@ fun SettingsScreen(
                     }
                 }
 
-                // Row 2: System & Backup
+                // Row 2: Widget Customization & Support Developer (Side by Side)
                 item(key = "row_2") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            WidgetSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxHeight())
+                        }
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            SupportDeveloperCard(modifier = Modifier.fillMaxHeight())
+                        }
+                    }
+                }
+
+                // Row 3: System & Backup
+                item(key = "row_3") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             SystemSectionCard(state, settingsViewModel, modifier = Modifier.fillMaxHeight())
@@ -178,11 +155,6 @@ fun SettingsScreen(
                             BackupSectionCard(homeViewModel, modifier = Modifier.fillMaxHeight())
                         }
                     }
-                }
-
-                // Support Developer Box
-                item(key = "row_support_dev") {
-                    SupportDeveloperCard()
                 }
 
                 // Full Width About Box
@@ -217,16 +189,20 @@ fun SettingsScreen(
                     LibrarySectionCard(state, settingsViewModel, homeViewModel, overlays)
                 }
 
+                item(key = "section_widget") {
+                    WidgetSectionCard(state, settingsViewModel)
+                }
+
+                item(key = "section_support_dev") {
+                    SupportDeveloperCard()
+                }
+
                 item(key = "section_backup") {
                     BackupSectionCard(homeViewModel)
                 }
 
                 item(key = "section_system") {
                     SystemSectionCard(state, settingsViewModel)
-                }
-
-                item(key = "section_support_dev") {
-                    SupportDeveloperCard()
                 }
 
                 item(key = "section_about") {
@@ -246,44 +222,26 @@ private fun AppearanceSectionCard(
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsCardFrame(title = "Appearance & Theme", modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Theme", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            val themeOptions = listOf(
-                "System" to "System",
-                "Light" to "Light",
-                "Dark" to "Dark",
-                "AMOLED" to "AMOLED"
-            )
+    SettingsCardFrame(title = "Appearance", modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Theme Mode", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val themeOptions = listOf("Dark" to "Dark", "Light" to "Light", "System" to "System")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 themeOptions.forEach { (key, label) ->
                     val isSelected = state.theme.equals(key, ignoreCase = true)
-                    val btnBg = when (key) {
-                        "Light" -> Color(0xFFF2F2F7)
-                        "Dark" -> Color(0xFF1C1C1E)
-                        "AMOLED" -> Color(0xFF000000)
-                        else -> colors.cardElevated
-                    }
-                    val textColor = when (key) {
-                        "Light" -> Color(0xFF111111)
-                        "Dark" -> Color(0xFFEBEBF5)
-                        "AMOLED" -> Color(0xFFFFFFFF)
-                        else -> colors.primaryText
-                    }
+                    val bgColor = if (isSelected) colors.primaryAccent else colors.cardElevated
+                    val textColor = if (isSelected) colors.background else colors.primaryText
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
                             .clip(RoundedCornerShape(19.dp))
-                            .background(btnBg)
-                            .border(
-                                width = if (isSelected) 2.dp else 0.8.dp,
-                                color = if (isSelected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.55f),
-                                shape = RoundedCornerShape(19.dp)
-                            )
+                            .background(bgColor)
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(19.dp))
                             .xvoxPressScale { viewModel.setTheme(key) },
                         contentAlignment = Alignment.Center
                     ) {
@@ -353,18 +311,16 @@ private fun AppearanceSectionCard(
                                 fontWeight = FontWeight.Bold
                             )
                             "custom" -> Text(
-                                text = label,
-                                style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                    brush = multiGradient,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                text = if (isCustomActive) "Active" else label,
+                                color = if (isCustomActive) colors.primaryAccent else colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
                             )
                             else -> Text(
                                 text = label,
                                 color = if (isSelected) colors.background else colors.primaryText,
                                 fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -374,38 +330,30 @@ private fun AppearanceSectionCard(
             Spacer(Modifier.height(4.dp))
 
             Text("Text Scale", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            val sizeOptions = listOf(
-                Triple(0.80f, "Small", 10.5.sp),
-                Triple(1.00f, "Medium", 12.5.sp),
-                Triple(1.20f, "Large", 14.5.sp),
-                Triple(1.40f, "Extra", 16.5.sp)
-            )
+            val scales = listOf(0.85f to "Small", 1.0f to "Normal", 1.15f to "Large")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                sizeOptions.forEach { (scale, label, fontSize) ->
-                    val isSelected = kotlin.math.abs(state.fontSizeScale - scale) < 0.10f
+                scales.forEach { (scale, label) ->
+                    val isSelected = kotlin.math.abs(state.fontSizeScale - scale) < 0.05f
+                    val bgColor = if (isSelected) colors.primaryAccent else colors.cardElevated
+                    val textColor = if (isSelected) colors.background else colors.primaryText
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
                             .clip(RoundedCornerShape(19.dp))
-                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(
-                                width = 0.8.dp,
-                                color = if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f),
-                                shape = RoundedCornerShape(19.dp)
-                            )
-                            .xvoxPressScale {
-                                viewModel.setFontSizeScale(scale)
-                            },
+                            .background(bgColor)
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(19.dp))
+                            .xvoxPressScale { viewModel.setFontSizeScale(scale) },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = label,
-                            color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = fontSize,
+                            color = textColor,
+                            fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -418,38 +366,91 @@ private fun AppearanceSectionCard(
 @Composable
 private fun LibrarySectionCard(
     state: SettingsState,
-    viewModel: SettingsViewModel,
+    settingsViewModel: SettingsViewModel,
     homeViewModel: HomeViewModel,
-    overlays: com.xvox.music.core.ui.overlay.XvoxOverlayController,
+    overlays: XvoxOverlayController,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
-    SettingsCardFrame(title = "Library & Filters", modifier = modifier) {
+    SettingsCardFrame(title = "Audio & Engine", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            LibraryFilterSettingsSection(state, viewModel, homeViewModel)
+            PlaybackSettingsSection(state, settingsViewModel, showPreview = false)
+
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(colors.card)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        overlays.showBox("Equalizer & Sound") {
+                            EqualizerSettingsSection(state, settingsViewModel)
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Equalizer & Reverb", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Text("5-Band EQ, room reverb, noise reduction", color = colors.secondaryText, fontSize = 11.sp)
+                }
+                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
+            }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardElevated)
-                    .xvoxPressScale {
-                        overlays.showBox("Deleted Songs & Artists") {
-                            HiddenSongsSettingsSection(homeViewModel)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(colors.card)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        overlays.showBox("3D Spatial Audio") {
+                            ThreeDSoundSettingsSection(state, settingsViewModel)
                         }
                     }
-                    .padding(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Hidden & Deleted Tracks", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text("Restore songs or artists hidden from library", color = colors.secondaryText, fontSize = 11.sp)
+                Column {
+                    Text("3D Spatial Sound", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Text("Spatial stage, orbit motion & HRTF binaural", color = colors.secondaryText, fontSize = 11.sp)
+                }
+                Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(colors.card)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        overlays.showBox("Lyrics Customization") {
+                            LyricsSettingsSection(state, settingsViewModel)
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Lyrics Customization", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Text("Line sizing, font weight, fading & alignment", color = colors.secondaryText, fontSize = 11.sp)
                 }
                 Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun WidgetSectionCard(state: SettingsState, viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
+    SettingsCardFrame(title = "Widget Customization", modifier = modifier) {
+        WidgetSettingsSection(state = state, viewModel = viewModel)
     }
 }
 
@@ -495,18 +496,27 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
 
     SettingsCardFrame(title = "Support the Developer", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = "Developer lxzrvi crafted XVOX using Kotlin & Jetpack Compose. If you love the experience and want to encourage future development and new upcoming apps, you can show your support! It is totally your own choice and deeply appreciated.",
-                color = colors.secondaryText,
-                fontSize = 12.sp,
-                lineHeight = 16.5.sp
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.primaryAccent.copy(alpha = 0.12f))
+                    .border(0.8.dp, colors.primaryAccent.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                    .padding(10.dp)
+            ) {
+                Text(
+                    text = "Developer lxzrvi crafted XVOX using Kotlin & Jetpack Compose. If you love the experience and want to encourage further development and new upcoming apps, you can show your support! It is totally your own choice and deeply appreciated.",
+                    color = colors.primaryText,
+                    fontSize = 12.sp,
+                    lineHeight = 16.5.sp
+                )
+            }
 
             Text(
                 text = "UPI: $upiId",
                 color = colors.primaryAccent,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
             )
 
             Row(
@@ -525,15 +535,15 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(colors.card)
+                            .background(colors.cardElevated)
                             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
                             .xvoxPressScale { initiatePayment(amt) }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(price, color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(1.dp))
+                            Text(price, color = colors.primaryAccent, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                            Spacer(Modifier.height(2.dp))
                             Text(label, color = colors.primaryText, fontSize = 9.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                         }
                     }
@@ -568,8 +578,8 @@ private fun SettingsCardFrame(
         Text(
             text = title,
             color = colors.primaryAccent,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 17.5.sp,
+            fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.padding(bottom = 10.dp)
         )
         content()

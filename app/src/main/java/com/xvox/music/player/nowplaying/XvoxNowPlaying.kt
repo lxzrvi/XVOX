@@ -313,7 +313,7 @@ fun XvoxNowPlaying(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(start = 10.dp, top = 8.dp, end = 10.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left: Artwork or Lyrics Card (65% width)

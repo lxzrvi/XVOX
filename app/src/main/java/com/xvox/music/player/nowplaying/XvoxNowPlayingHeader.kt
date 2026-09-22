@@ -98,7 +98,7 @@ fun XvoxNowPlayingHeader(
             Text(
                 text = sourceTitle,
                 color = colors.primaryText.copy(alpha = 0.85f),
-                fontSize = 10.5.sp,
+                fontSize = 12.sp,
                 letterSpacing = 1.3.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -106,8 +106,8 @@ fun XvoxNowPlayingHeader(
             Text(
                 text = displaySource,
                 color = colors.primaryText,
-                fontSize = 16.sp,
-                lineHeight = 18.sp,
+                fontSize = 17.5.sp,
+                lineHeight = 19.5.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

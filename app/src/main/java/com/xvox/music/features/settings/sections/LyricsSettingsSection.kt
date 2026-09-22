@@ -29,6 +29,7 @@ import kotlin.math.roundToInt
 fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     val colors = XvoxTheme.colors
     val settings = state.lyrics
+    var individualSizesEnabled by remember { mutableStateOf(settings.topSize != (settings.currentSize * 0.65f).roundToInt() && settings.topSize != settings.bottomSize) }
 
     SettingsControlsEditor(controls = {
         SettingsAccordionItem(
@@ -105,24 +106,46 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         SettingsAccordionItem(
             title = "Text Size & Font Weight"
         ) {
-            Label("Text Size (10 presets)")
-            val sizeOptions = listOf(14, 16, 18, 20, 22, 24, 26, 28, 30, 32)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                sizeOptions.forEach { sz ->
-                    val isSelected = settings.currentSize in (sz - 1)..(sz + 1)
-                    val sideSz = (sz * 0.65f).roundToInt().coerceAtLeast(10)
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
+            val sizePresets = listOf(14, 20, 26, 32, 38, 44, 50)
+
+            SettingsToggle(
+                title = "Individual Line Sizes",
+                subtitle = "Set distinct text sizes for top, middle, and bottom lines",
+                checked = individualSizesEnabled,
+                onChange = { on ->
+                    individualSizesEnabled = on
+                    if (!on) {
+                        viewModel.updateLyrics {
+                            it.copy(
+                                currentSize = 26,
+                                topSize = 18,
+                                bottomSize = 18,
+                                otherSize = 18
+                            )
+                        }
+                    }
+                }
+            )
+
+            if (!individualSizesEnabled) {
+                Spacer(Modifier.height(8.dp))
+                Label("Master Text Size · ${settings.currentSize} sp")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    sizePresets.forEach { sz ->
+                        val isSelected = settings.currentSize in (sz - 2)..(sz + 2)
+                        val sideSz = (sz * 0.68f).roundToInt().coerceAtLeast(12)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
                             .xvoxPressScale {
                                 viewModel.updateLyrics {
                                     it.copy(
@@ -133,14 +156,81 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                                     )
                                 }
                             },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "$sz",
-                            color = if (isSelected) colors.background else colors.primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$sz",
+                                color = if (isSelected) colors.background else colors.primaryText,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Label("Top Line Size · ${settings.topSize} sp")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    sizePresets.forEach { sz ->
+                        val isSelected = settings.topSize in (sz - 2)..(sz + 2)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
+                                .xvoxPressScale { viewModel.updateLyrics { it.copy(topSize = sz) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("$sz", color = if (isSelected) colors.background else colors.primaryText, fontSize = 11.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Label("Middle (Active) Line Size · ${settings.currentSize} sp")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    sizePresets.forEach { sz ->
+                        val isSelected = settings.currentSize in (sz - 2)..(sz + 2)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
+                                .xvoxPressScale { viewModel.updateLyrics { it.copy(currentSize = sz) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("$sz", color = if (isSelected) colors.background else colors.primaryText, fontSize = 11.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Label("Bottom Line Size · ${settings.bottomSize} sp")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    sizePresets.forEach { sz ->
+                        val isSelected = settings.bottomSize in (sz - 2)..(sz + 2)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                                .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), CircleShape)
+                                .xvoxPressScale { viewModel.updateLyrics { it.copy(bottomSize = sz) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("$sz", color = if (isSelected) colors.background else colors.primaryText, fontSize = 11.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                        }
                     }
                 }
             }

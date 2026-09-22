@@ -48,6 +48,7 @@ fun SongInfoBox(
         InfoRow("Year", info.year)
         InfoRow("Duration", info.duration)
         InfoRow("Format", info.format)
+        InfoRow("File size", info.size)
         InfoRow("Bitrate", info.bitrate)
         InfoRow("Sample rate", info.sampleRate)
         InfoRow("Track", info.trackNumber)
