@@ -278,10 +278,25 @@ private fun Group(text: String) {
 @Composable
 private fun WidgetSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, unit: String, onChange: (Float) -> Unit) {
     val colors = XvoxTheme.colors
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(110.dp))
-        XvoxThinLineSlider(value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range, modifier = Modifier.weight(1f))
-        Text("${value.roundToInt()} $unit", color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(48.dp))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, color = colors.secondaryText, fontSize = 12.sp)
+            Text("${value.roundToInt()} $unit", color = colors.primaryText, fontSize = 11.sp)
+        }
+        XvoxSlider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onChange,
+            valueRange = range,
+            modifier = Modifier.fillMaxWidth(),
+            valueLabel = { current -> "${current.roundToInt()}$unit" }
+        )
     }
 }
 

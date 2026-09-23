@@ -331,11 +331,12 @@ fun PlaylistLayoutEditorBox(
             color = colors.secondaryText,
             fontSize = 11.sp
         )
-        com.xvox.music.features.settings.components.XvoxThinLineSlider(
+        com.xvox.music.features.settings.components.XvoxSlider(
             value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
             onValueChange = { settingsViewModel.setPlaylistLongHeight(it.roundToInt()) },
             valueRange = 60f..220f,
-            defaultValue = 120f
+            defaultValue = 120f,
+            valueLabel = { height -> "${height.roundToInt()}dp" }
         )
         Spacer(Modifier.height(8.dp))
         LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }

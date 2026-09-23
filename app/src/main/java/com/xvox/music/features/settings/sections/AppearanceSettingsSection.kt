@@ -49,7 +49,7 @@ import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
 
 @Composable
@@ -209,20 +209,32 @@ fun AppearanceSettingsSection(
         ) {
             HeaderPhotoRow(state, viewModel)
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(118.dp))
-                XvoxThinLineSlider(
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                        color = colors.primaryText,
+                        fontSize = 11.sp
+                    )
+                }
+                XvoxSlider(
                     value = chrome.headerBgAlpha,
                     onValueChange = { a ->
                         viewModel.setChromeStyle { it.copy(headerBgAlpha = a) }
                     },
                     valueRange = 0f..1f,
                     defaultValue = 0.92f,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth(),
+                    valueLabel = { a -> "${(a.coerceIn(0f, 1f) * 100).roundToInt()}%" }
                 )
-                Text("${(chrome.headerBgAlpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                    color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(40.dp))
             }
         }
 

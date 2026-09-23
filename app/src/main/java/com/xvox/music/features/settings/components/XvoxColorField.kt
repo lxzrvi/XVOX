@@ -307,31 +307,53 @@ fun ColorPickerRow(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Dark", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(34.dp))
-                    XvoxThinLineSlider(
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Brightness", color = colors.mutedText, fontSize = 11.sp)
+                        Text("${(wheelV * 100).roundToInt()}%", color = colors.primaryText, fontSize = 11.sp)
+                    }
+                    XvoxSlider(
                         value = wheelV,
                         onValueChange = { v -> commit(wheelH, wheelS, v) },
                         valueRange = 0.15f..1f,
                         defaultValue = 0.9f,
-                        modifier = Modifier.weight(1f),
-                        onValueChangeFinished = { flushPending() }
+                        modifier = Modifier.fillMaxWidth(),
+                        onValueChangeFinished = { flushPending() },
+                        valueLabel = { v -> "${(v * 100).roundToInt()}%" }
                     )
-                    Text("Light", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(34.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Dark", color = colors.mutedText, fontSize = 10.sp)
+                        Text("Light", color = colors.mutedText, fontSize = 10.sp)
+                    }
                 }
 
                 if (alpha != null && onAlphaChange != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Transparency", color = colors.mutedText, fontSize = 11.sp, modifier = Modifier.width(70.dp))
-                        XvoxThinLineSlider(
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Transparency", color = colors.mutedText, fontSize = 11.sp)
+                            Text(
+                                "${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
+                                color = colors.primaryText,
+                                fontSize = 11.sp
+                            )
+                        }
+                        XvoxSlider(
                             value = alpha.coerceIn(0f, 1f),
                             onValueChange = { a -> onAlphaChange(a.coerceIn(0f, 1f)) },
                             valueRange = 0f..1f,
                             defaultValue = 1f,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth(),
+                            valueLabel = { a -> "${(a * 100).roundToInt()}%" }
                         )
-                        Text("${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%",
-                            color = colors.primaryText, fontSize = 11.sp, modifier = Modifier.width(38.dp))
                     }
                 }
 

@@ -337,29 +337,32 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
             if (settings.fadeEqual) {
                 Spacer(Modifier.height(8.dp))
                 Label("Fade strength · ${(settings.fadeIntensity * 100).roundToInt()}%")
-                XvoxThinLineSlider(
+                XvoxSlider(
                     settings.fadeIntensity,
                     { v -> viewModel.updateLyrics { it.copy(fadeIntensity = (v * 100).roundToInt() / 100f, fadeTop = v * 0.35f, fadeBottom = v * 0.35f) } },
                     0f..1f,
-                    defaultValue = 1f
+                    defaultValue = 1f,
+                    valueLabel = { fade -> "${(fade.coerceIn(0f, 1f) * 100).roundToInt()}%" }
                 )
             } else {
                 Spacer(Modifier.height(8.dp))
                 Label("Top lines fade · ${(settings.fadeTop * 100).roundToInt()}%")
-                XvoxThinLineSlider(
+                XvoxSlider(
                     settings.fadeTop,
                     { v -> viewModel.updateLyrics { it.copy(fadeTop = (v * 100).roundToInt() / 100f) } },
                     0f..0.45f,
-                    defaultValue = .22f
+                    defaultValue = .22f,
+                    valueLabel = { fade -> "${(fade.coerceIn(0f, 0.45f) * 100).roundToInt()}%" }
                 )
 
                 Spacer(Modifier.height(8.dp))
                 Label("Bottom lines fade · ${(settings.fadeBottom * 100).roundToInt()}%")
-                XvoxThinLineSlider(
+                XvoxSlider(
                     settings.fadeBottom,
                     { v -> viewModel.updateLyrics { it.copy(fadeBottom = (v * 100).roundToInt() / 100f) } },
                     0f..0.45f,
-                    defaultValue = .22f
+                    defaultValue = .22f,
+                    valueLabel = { fade -> "${(fade.coerceIn(0f, 0.45f) * 100).roundToInt()}%" }
                 )
             }
         }
@@ -367,7 +370,7 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         SettingsAccordionItem(
             title = if (settings.offsetMs == 0) "Timing" else if (settings.offsetMs > 0) "Timing +${settings.offsetMs} ms" else "Timing ${settings.offsetMs} ms"
         ) {
-            XvoxThinLineSlider(
+            XvoxSlider(
                 settings.offsetMs.toFloat(),
                 { v -> viewModel.updateLyrics { it.copy(offsetMs = v.roundToInt()) } },
                 -1000f..1000f,

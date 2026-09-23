@@ -43,7 +43,7 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.XvoxSlider
 import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.abs
@@ -86,10 +86,22 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 onToggle = { toggle("Spatial") }
             ) {
                 EqL("Width · ${(state.surroundWidth * 100).roundToInt()}%")
-                XvoxThinLineSlider(state.surroundWidth, viewModel::setSurroundWidth, .05f..1f, defaultValue = .78f)
+                XvoxSlider(
+                    state.surroundWidth,
+                    viewModel::setSurroundWidth,
+                    .05f..1f,
+                    defaultValue = .78f,
+                    valueLabel = { width -> "${(width * 100).roundToInt()}%" }
+                )
                 Spacer(Modifier.height(8.dp))
                 EqL("Depth · ${(state.surroundDepth * 100).roundToInt()}%")
-                XvoxThinLineSlider(state.surroundDepth, viewModel::setSurroundDepth, 0f..1f, defaultValue = .65f)
+                XvoxSlider(
+                    state.surroundDepth,
+                    viewModel::setSurroundDepth,
+                    0f..1f,
+                    defaultValue = .65f,
+                    valueLabel = { depth -> "${(depth * 100).roundToInt()}%" }
+                )
             }
 
             SettingsAccordionItem(
@@ -135,13 +147,19 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 onToggle = { toggle("Acoustics") }
             ) {
                 EqL("HRTF / Spatial binaural · ${(state.hrtf * 100).roundToInt()}%")
-                XvoxThinLineSlider(state.hrtf, viewModel::setHrtf, 0f..1f, defaultValue = .6f)
+                XvoxSlider(
+                    state.hrtf,
+                    viewModel::setHrtf,
+                    0f..1f,
+                    defaultValue = .6f,
+                    valueLabel = { hrtf -> "${(hrtf * 100).roundToInt()}%" }
+                )
                 Spacer(Modifier.height(8.dp))
                 val balText = if (state.balance < -0.05f) "Left ${(abs(state.balance) * 100).roundToInt()}%"
                 else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
                 else "Center"
                 EqL("Stereo Balance · $balText")
-                XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+                XvoxSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
             }
         } else {
             SettingsAccordionItem(
@@ -153,7 +171,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
                 else "Center"
                 EqL("Stereo Balance · $balText")
-                XvoxThinLineSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+                XvoxSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
             }
         }
     })

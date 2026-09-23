@@ -26,7 +26,7 @@ import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
 
 @Composable
@@ -108,11 +108,12 @@ fun HomeSettingsSection(
 
             val currentHeight = if (state.playlistLongHeight == 0) 178 else state.playlistLongHeight
             Label("Height · $currentHeight dp")
-            XvoxThinLineSlider(
+            XvoxSlider(
                 value = currentHeight.toFloat(),
                 onValueChange = { viewModel.setPlaylistLongHeight(it.roundToInt()) },
                 valueRange = 100f..260f,
-                defaultValue = 178f
+                defaultValue = 178f,
+                valueLabel = { height -> "${height.roundToInt()}dp" }
             )
         }
 
@@ -133,25 +134,27 @@ fun HomeSettingsSection(
             Spacer(Modifier.height(10.dp))
 
             Label("Mini player transparency · ${(chrome.miniBgAlpha * 100).roundToInt()}%")
-            XvoxThinLineSlider(
+            XvoxSlider(
                 value = chrome.miniBgAlpha,
                 onValueChange = { alpha ->
                     viewModel.setChromeStyle { it.copy(miniBgAlpha = alpha) }
                 },
                 valueRange = 0f..1f,
-                defaultValue = 1f
+                defaultValue = 1f,
+                valueLabel = { alpha -> "${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%" }
             )
 
             Spacer(Modifier.height(10.dp))
 
             Label("Navigation bar transparency · ${(chrome.navBgAlpha * 100).roundToInt()}%")
-            XvoxThinLineSlider(
+            XvoxSlider(
                 value = chrome.navBgAlpha,
                 onValueChange = { alpha ->
                     viewModel.setChromeStyle { it.copy(navBgAlpha = alpha) }
                 },
                 valueRange = 0f..1f,
-                defaultValue = 0.88f
+                defaultValue = 0.88f,
+                valueLabel = { alpha -> "${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%" }
             )
         }
 

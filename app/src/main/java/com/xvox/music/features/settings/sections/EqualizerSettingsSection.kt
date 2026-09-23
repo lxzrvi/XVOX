@@ -34,7 +34,7 @@ import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
+import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
 
 @Composable
@@ -179,7 +179,13 @@ fun EqualizerSettingsSection(state: SettingsState, viewModel: SettingsViewModel)
             onToggle = { toggle("Volume") }
         ) {
             EqLabel("App volume · ${(state.appVolume * 100).roundToInt()}%")
-            XvoxThinLineSlider(state.appVolume, viewModel::setAppVolume, 0f..1f, defaultValue = 1f)
+            XvoxSlider(
+                state.appVolume,
+                viewModel::setAppVolume,
+                0f..1f,
+                defaultValue = 1f,
+                valueLabel = { volume -> "${(volume.coerceIn(0f, 1f) * 100).roundToInt()}%" }
+            )
         }
     })
 }

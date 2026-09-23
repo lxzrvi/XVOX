@@ -36,7 +36,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.components.SettingsChoiceRow
-import com.xvox.music.features.settings.components.XvoxThinLineSlider
 
 @Composable
 fun RecentLayoutBoxContent(

@@ -61,12 +61,13 @@ fun MiniPlayerSettingsBoxContent(
                 Text("Mini Player Transparency", color = colors.secondaryText, fontSize = 11.sp)
                 Text("${((1f - chrome.miniBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            XvoxThinLineSlider(
+            XvoxSlider(
                 value = chrome.miniBgAlpha.coerceIn(0f, 1f),
                 onValueChange = { a -> viewModel.setChromeStyle { it.copy(miniBgAlpha = a) } },
                 valueRange = 0f..1f,
                 defaultValue = 0.94f,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                valueLabel = { a -> "${((1f - a.coerceIn(0f, 1f)) * 100).toInt()}%" }
             )
         }
 
@@ -84,12 +85,13 @@ fun MiniPlayerSettingsBoxContent(
                 Text("Navigation Bar Transparency", color = colors.secondaryText, fontSize = 11.sp)
                 Text("${((1f - chrome.navBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            XvoxThinLineSlider(
+            XvoxSlider(
                 value = chrome.navBgAlpha.coerceIn(0f, 1f),
                 onValueChange = { a -> viewModel.setChromeStyle { it.copy(navBgAlpha = a) } },
                 valueRange = 0f..1f,
                 defaultValue = 0.94f,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                valueLabel = { a -> "${((1f - a.coerceIn(0f, 1f)) * 100).toInt()}%" }
             )
         }
     }
