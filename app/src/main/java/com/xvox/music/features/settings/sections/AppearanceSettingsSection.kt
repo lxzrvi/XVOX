@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxRed
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -139,7 +140,7 @@ fun AppearanceSettingsSection(
                     val isSelected = if (key == "custom") isCustomActive else (!isCustomActive && state.accentColor.equals(key, ignoreCase = true))
                     val multiGradient = Brush.horizontalGradient(
                         listOf(
-                            Color(0xFFFF3B30),
+                            XvoxRed,
                             Color(0xFFFF9500),
                             Color(0xFF34C759),
                             Color(0xFF007AFF),
@@ -165,7 +166,7 @@ fun AppearanceSettingsSection(
                         when (key) {
                             "Red" -> Text(
                                 text = label,
-                                color = if (isSelected) colors.background else Color(0xFFFF453A),
+                                color = if (isSelected) colors.background else XvoxRed,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )

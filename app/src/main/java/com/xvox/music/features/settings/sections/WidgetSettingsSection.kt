@@ -309,7 +309,7 @@ private fun WidgetColourEditor(label: String, current: String, onSelect: (String
             Modifier.weight(1f).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf("Auto", "Accent", "#FFFFFF", "#000000", "#1E1E28", "#FF453A", "#30D158", "#0A84FF", "#BF5AF2", "#FF9F0A").forEach { code ->
+            listOf("Auto", "Accent", "#FFFFFF", "#000000", "#1E1E28", "#F01E2C", "#30D158", "#0A84FF", "#BF5AF2", "#FF9F0A").forEach { code ->
                 val active = current == code
                 val c = when (code) {
                     "Auto" -> colors.cardElevated

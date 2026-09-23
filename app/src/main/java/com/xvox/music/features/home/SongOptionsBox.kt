@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxRed
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
@@ -26,7 +27,8 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 private data class SongOptionGridAction(
     val label: String,
     val icon: Int,
-    val onClick: () -> Unit
+    val onClick: () -> Unit,
+    val destructive: Boolean = false
 )
 
 /**
@@ -37,6 +39,7 @@ private data class SongOptionGridAction(
 fun SongOptionsBox(
     song: Song,
     liked: Boolean,
+    onPlay: () -> Unit,
     onAddQueue: () -> Unit,
     onPlaylist: () -> Unit,
     onLiked: () -> Unit,
@@ -54,10 +57,10 @@ fun SongOptionsBox(
     sectionSettingsLabel: String? = null
 ) {
     val colors = XvoxTheme.colors
-    val identityShape = RoundedCornerShape(18.dp)
-    val tileFill = colors.primaryText.copy(alpha = if (colors.isLight) 0.045f else 0.055f)
-    val destructiveColor = Color(0xFFFF5252)
-    val tileBorder = colors.cardBorder.copy(alpha = 0.78f)
+    val identityShape = RoundedCornerShape(16.dp)
+    val tileShape = RoundedCornerShape(10.dp)
+    val tileFill = colors.primaryText.copy(alpha = if (colors.isLight) 0.035f else 0.055f)
+    val tileBorder = colors.primaryText.copy(alpha = 0.10f)
     val contextLabel = song.source.ifBlank {
         song.folderName.ifBlank { "XVOX library" }
     }
@@ -87,31 +90,43 @@ fun SongOptionsBox(
     }
     onRemoveRecent?.let { actions += SongOptionGridAction("Remove from recent", R.drawable.ic_xvox_close, it) }
 
+    val deleteAction = SongOptionGridAction(
+        label = "Delete",
+        icon = R.drawable.ic_xvox_delete,
+        onClick = onDelete,
+        destructive = true
+    )
+    // Context-specific menus sometimes leave one item by itself. Put Delete beside that item
+    // instead of adding another row, while retaining the full-width delete row for even grids.
+    val deletePairsWithLastAction = actions.size % 2 != 0
+    val gridActions = if (deletePairsWithLastAction) actions + deleteAction else actions
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 430.dp)
+            .heightIn(max = 360.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(identityShape)
                 .background(tileFill)
-                .border(1.dp, tileBorder, identityShape)
-                .padding(5.dp),
+                .border(0.7.dp, tileBorder, identityShape)
+                .xvoxPressScale(onClick = onPlay)
+                .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(82.dp)
-                    .clip(RoundedCornerShape(14.dp)),
+                    .size(68.dp)
+                    .clip(RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 XvoxSongArtwork(
                     artwork = song.artworkUri,
-                    requestSize = 240,
+                    requestSize = 192,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -119,14 +134,14 @@ fun SongOptionsBox(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 10.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = song.title,
                     color = colors.primaryText,
-                    fontSize = 16.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 15.sp,
+                    lineHeight = 18.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -134,33 +149,34 @@ fun SongOptionsBox(
                 Text(
                     text = song.artist.ifBlank { "Unknown artist" },
                     color = colors.secondaryText,
-                    fontSize = 12.5.sp,
-                    lineHeight = 16.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 3.dp)
-                )
-                Text(
-                    text = contextLabel,
-                    color = colors.mutedText,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp)
                 )
+                Text(
+                    text = contextLabel,
+                    color = colors.mutedText,
+                    fontSize = 10.5.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
             }
         }
 
-        actions.chunked(2).forEach { pair ->
+        gridActions.chunked(2).forEach { pair ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 pair.forEach { action ->
                     SongOptionGridTile(
                         action = action,
+                        tileShape = tileShape,
                         background = tileFill,
                         border = tileBorder,
                         modifier = Modifier.weight(1f)
@@ -172,47 +188,56 @@ fun SongOptionsBox(
             }
         }
 
-        SongOptionDeleteTile(
-            color = destructiveColor,
-            background = destructiveColor.copy(alpha = if (colors.isLight) 0.10f else 0.16f),
-            border = destructiveColor.copy(alpha = 0.42f),
-            onClick = onDelete
-        )
+        if (!deletePairsWithLastAction) {
+            SongOptionDeleteTile(
+                background = XvoxRed.copy(alpha = if (colors.isLight) 0.10f else 0.16f),
+                border = XvoxRed.copy(alpha = 0.42f),
+                tileShape = tileShape,
+                onClick = onDelete
+            )
+        }
     }
 }
 
 @Composable
 private fun SongOptionGridTile(
     action: SongOptionGridAction,
+    tileShape: RoundedCornerShape,
     background: Color,
     border: Color,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(12.dp)
+    val fill = if (action.destructive) {
+        XvoxRed.copy(alpha = if (colors.isLight) 0.10f else 0.16f)
+    } else {
+        background
+    }
+    val edge = if (action.destructive) XvoxRed.copy(alpha = 0.42f) else border
+    val tint = if (action.destructive) XvoxRed else colors.primaryText.copy(alpha = 0.86f)
 
     Row(
         modifier = modifier
-            .heightIn(min = 50.dp)
-            .clip(shape)
-            .background(background)
-            .border(1.dp, border, shape)
+            .heightIn(min = 44.dp)
+            .clip(tileShape)
+            .background(fill)
+            .border(0.7.dp, edge, tileShape)
             .xvoxPressScale(onClick = action.onClick)
-            .padding(horizontal = 11.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(action.icon),
             contentDescription = null,
-            tint = colors.primaryText.copy(alpha = 0.86f),
-            modifier = Modifier.size(16.dp)
+            tint = tint,
+            modifier = Modifier.size(15.dp)
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(7.dp))
         Text(
             text = action.label,
-            color = colors.primaryText,
-            fontSize = 12.5.sp,
-            lineHeight = 15.sp,
+            color = tint,
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
@@ -222,36 +247,34 @@ private fun SongOptionGridTile(
 
 @Composable
 private fun SongOptionDeleteTile(
-    color: Color,
     background: Color,
     border: Color,
+    tileShape: RoundedCornerShape,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(12.dp)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 50.dp)
-            .clip(shape)
+            .heightIn(min = 44.dp)
+            .clip(tileShape)
             .background(background)
-            .border(1.dp, border, shape)
+            .border(0.7.dp, border, tileShape)
             .xvoxPressScale(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_xvox_delete),
             contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(17.dp)
+            tint = XvoxRed,
+            modifier = Modifier.size(15.dp)
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(7.dp))
         Text(
-            text = "Delete from library",
-            color = color,
-            fontSize = 13.sp,
+            text = "Delete",
+            color = XvoxRed,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
     }

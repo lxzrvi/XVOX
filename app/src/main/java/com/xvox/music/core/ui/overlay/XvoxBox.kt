@@ -119,13 +119,22 @@ fun XvoxBox(
                     exit = fadeOut(tween(140, easing = XvoxBoxEasing))
                 ) {
                     val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
-                    val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
-                    else RoundedCornerShape(26.dp)
-                    val boxFill = colors.cardElevated
+                    val shape = when {
+                        mini -> RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+                        songOptionsPresentation -> RoundedCornerShape(22.dp)
+                        else -> RoundedCornerShape(26.dp)
+                    }
+                    // Match the compact reference panel in dark and AMOLED themes instead of
+                    // inheriting the brighter elevated surface used by generic dialogs.
+                    val boxFill = if (songOptionsPresentation && !colors.isLight) {
+                        Color(0xFF1C1C1E)
+                    } else {
+                        colors.cardElevated
+                    }
 
                     Column(
                         Modifier
-                            .widthIn(max = if (mini) 520.dp else if (songOptionsPresentation) 440.dp else 560.dp)
+                            .widthIn(max = if (mini) 520.dp else if (songOptionsPresentation) 420.dp else 560.dp)
                             .fillMaxWidth()
                             .heightIn(max = maxBoxHeight)
                             .wrapContentHeight()
@@ -133,7 +142,7 @@ fun XvoxBox(
                             .background(boxFill)
                             .then(
                                 if (songOptionsPresentation) {
-                                    Modifier.border(1.dp, colors.cardBorder.copy(alpha = 0.78f), shape)
+                                    Modifier.border(0.7.dp, colors.primaryText.copy(alpha = 0.10f), shape)
                                 } else {
                                     Modifier
                                 }
@@ -147,8 +156,8 @@ fun XvoxBox(
                                 .padding(
                                     start = 18.dp,
                                     end = if (songOptionsPresentation) 12.dp else 8.dp,
-                                    top = if (songOptionsPresentation) 8.dp else 6.dp,
-                                    bottom = if (songOptionsPresentation) 8.dp else 6.dp
+                                    top = 6.dp,
+                                    bottom = 6.dp
                                 ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -186,10 +195,10 @@ fun XvoxBox(
                             if (songOptionsPresentation) {
                                 Row(
                                     modifier = Modifier
-                                        .height(38.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(colors.primaryText.copy(alpha = if (colors.isLight) 0.05f else 0.07f))
-                                        .border(1.dp, colors.cardBorder.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+                                        .height(36.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(colors.primaryText.copy(alpha = if (colors.isLight) 0.04f else 0.055f))
+                                        .border(0.7.dp, colors.primaryText.copy(alpha = 0.10f), RoundedCornerShape(18.dp))
                                         .padding(2.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -198,8 +207,8 @@ fun XvoxBox(
                                             icon = R.drawable.ic_xvox_settings,
                                             contentDescription = "Settings",
                                             tint = colors.primaryAccent,
-                                            size = 34.dp,
-                                            iconSize = 18.dp,
+                                            size = 32.dp,
+                                            iconSize = 17.dp,
                                             onClick = action
                                         )
                                     }
@@ -208,8 +217,8 @@ fun XvoxBox(
                                             icon = R.drawable.ic_xvox_undo,
                                             contentDescription = "Undo",
                                             tint = colors.primaryAccent,
-                                            size = 34.dp,
-                                            iconSize = 18.dp,
+                                            size = 32.dp,
+                                            iconSize = 17.dp,
                                             onClick = action
                                         )
                                     }
@@ -218,8 +227,8 @@ fun XvoxBox(
                                             icon = if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
                                             contentDescription = if (isEditing) "Save" else "Edit",
                                             tint = colors.primaryAccent,
-                                            size = 34.dp,
-                                            iconSize = 18.dp,
+                                            size = 32.dp,
+                                            iconSize = 17.dp,
                                             onClick = action
                                         )
                                     }
@@ -228,8 +237,8 @@ fun XvoxBox(
                                             icon = R.drawable.ic_xvox_add,
                                             contentDescription = "Add",
                                             tint = colors.primaryAccent,
-                                            size = 34.dp,
-                                            iconSize = 18.dp,
+                                            size = 32.dp,
+                                            iconSize = 17.dp,
                                             onClick = action
                                         )
                                     }
@@ -237,8 +246,8 @@ fun XvoxBox(
                                         icon = R.drawable.ic_xvox_close,
                                         contentDescription = "Close $title",
                                         tint = colors.secondaryText,
-                                        size = 34.dp,
-                                        iconSize = 18.dp,
+                                        size = 32.dp,
+                                        iconSize = 17.dp,
                                         onClick = ::close
                                     )
                                 }
@@ -307,9 +316,9 @@ fun XvoxBox(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = (maxBoxHeight - 64.dp).coerceAtLeast(100.dp))
+                                .heightIn(max = (maxBoxHeight - if (songOptionsPresentation) 54.dp else 64.dp).coerceAtLeast(100.dp))
                                 .wrapContentHeight()
-                                .padding(14.dp)
+                                .padding(if (songOptionsPresentation) 12.dp else 14.dp)
                         ) {
                             content()
                         }

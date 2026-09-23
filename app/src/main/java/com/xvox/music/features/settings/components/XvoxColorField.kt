@@ -125,7 +125,7 @@ private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
 }
 
 private val DefaultWheelSwatches = listOf(
-    "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#AF52DE", "#FF2D92"
+    "#F01E2C", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#AF52DE", "#FF2D92"
 )
 
 // Shared dynamic swatches list so user-made colors persist during the session

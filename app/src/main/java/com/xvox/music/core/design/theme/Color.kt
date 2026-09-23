@@ -20,7 +20,7 @@ data class XvoxPalette(
     /**
      * Applies the chosen accent. `light` selects the correct pair of the iOS-style palette:
      *
-     *   Red    #FF3B30 (light) / #FF453A (dark, AMOLED)
+     *   Red    #F01E2C (the XVOX brand red in every theme)
      *   Blue   #007AFF (light) / #0A84FF (dark, AMOLED)
      *   White  monochrome accent (ink on light themes, pure white on dark)
      *
@@ -40,7 +40,7 @@ data class XvoxPalette(
         }
         val accentColor = customAccent ?: when (normalized) {
             "Blue" -> if (light) Color(0xFF007AFF) else Color(0xFF0A84FF)
-            "Red" -> if (light) Color(0xFFFF3B30) else Color(0xFFFF453A)
+            "Red" -> XvoxRed
             else -> if (light) Color(0xFF0A0A0A) else Color(0xFFFFFFFF) // White / Default is pure white
         }
         return this.copy(
@@ -70,6 +70,9 @@ data class XvoxPalette(
         )
     }
 }
+
+/** The single branded red used by the XVOX Red accent and compact destructive actions. */
+val XvoxRed = Color(0xFFF01E2C)
 
 val XvoxWhitePalette = XvoxPalette(
     background = Color(0xFFFAFAFA),

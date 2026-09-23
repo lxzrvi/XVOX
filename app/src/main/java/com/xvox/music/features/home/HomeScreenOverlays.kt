@@ -229,6 +229,16 @@ fun showSongOptionsOverlay(
         SongOptionsBox(
             song = sourcedSong,
             liked = isLiked,
+            onPlay = {
+                val currentSongId = playerViewModel.state.value.currentSongId
+                if (recent) {
+                    viewModel.recordPlayedFromRecent(sourcedSong, currentSongId)
+                } else {
+                    viewModel.recordPlayedFromLibrary(sourcedSong, currentSongId, sourcedSong.source)
+                }
+                playerViewModel.play(sourcedSong, sourcedSong.source)
+                overlays.hideBox()
+            },
             onSelect = onSelect?.let { select -> { overlays.hideBox(); select() } },
             onPlayNext = {
                 val msg = playerViewModel.playNextInQueue(sourcedSong)
