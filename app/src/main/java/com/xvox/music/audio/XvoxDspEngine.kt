@@ -19,7 +19,11 @@ data class AudioDspSettings(
     val roomAmount: Float = .5f,
     val reverbAmount: Float = 0f,
     val hrtf: Float = .6f,
-    val centerPreservation: Float = 0f
+    val centerPreservation: Float = 0f,
+    /** The selected room character; its wet amount is [reverbAmount]. */
+    val reverbPreset: String = if (reverbAmount > .001f) "Medium Room" else ReverbPresets.OFF,
+    val noiseReductionEnabled: Boolean = noiseReduction > .001f,
+    val grainControlEnabled: Boolean = softenHighs > .001f
 )
 
 /**
@@ -71,12 +75,20 @@ class XvoxDspEngine {
     private var currentPosition = 0.0
     private var currentRoom = 1.0
     private var currentReverb = 0.0
+    private var currentReverbFeedbackBase = 0.0
+    private var currentReverbFeedbackDepth = 0.0
+    private var currentReverbWetBase = 0.0
+    private var currentReverbWetDepth = 0.0
     private var currentHrtf = 0.6
     private var currentCenter = 0.0
     private var targetWidth = 0.78
     private var targetPosition = 0.0
     private var targetRoom = 1.0
     private var targetReverb = 0.0
+    private var targetReverbFeedbackBase = 0.0
+    private var targetReverbFeedbackDepth = 0.0
+    private var targetReverbWetBase = 0.0
+    private var targetReverbWetDepth = 0.0
     private var targetHrtf = 0.6
     private var targetCenter = 0.0
     private var phase = 0.0
@@ -145,6 +157,10 @@ class XvoxDspEngine {
         currentPosition = targetPosition
         currentRoom = targetRoom
         currentReverb = targetReverb
+        currentReverbFeedbackBase = targetReverbFeedbackBase
+        currentReverbFeedbackDepth = targetReverbFeedbackDepth
+        currentReverbWetBase = targetReverbWetBase
+        currentReverbWetDepth = targetReverbWetDepth
         currentHrtf = targetHrtf
         currentCenter = targetCenter
     }
@@ -160,8 +176,12 @@ class XvoxDspEngine {
             targetBand[i] = 10.0.pow(db / 20.0) - 1.0
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
-        targetSoftHighs = 10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
-        targetNoise = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
+        targetSoftHighs = if (s.grainControlEnabled) {
+            10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
+        } else {
+            1.0
+        }
+        targetNoise = if (s.noiseReductionEnabled) s.noiseReduction.toDouble().coerceIn(0.0, 1.0) else 0.0
         val spatialActive = s.surroundEnabled && !splitStems
         targetDepth = if (spatialActive) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
         targetWidth = if (spatialActive) s.surroundWidth.toDouble().coerceIn(0.05, 1.0) else 0.78
@@ -169,7 +189,12 @@ class XvoxDspEngine {
         targetRoom = if (spatialActive) s.roomAmount.toDouble().coerceIn(0.0, 1.0) * 2.0 else 1.0
         targetHrtf = if (spatialActive) s.hrtf.toDouble().coerceIn(0.0, 1.0) else 0.6
         targetCenter = if (spatialActive) s.centerPreservation.toDouble().coerceIn(0.0, 1.0) else 0.0
+        val reverbProfile = ReverbPresets.profile(s.reverbPreset)
         targetReverb = s.reverbAmount.toDouble().coerceIn(0.0, 1.0)
+        targetReverbFeedbackBase = reverbProfile.feedbackBase
+        targetReverbFeedbackDepth = reverbProfile.feedbackDepth
+        targetReverbWetBase = reverbProfile.wetBase
+        targetReverbWetDepth = reverbProfile.wetDepth
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = if (s.orbitSeconds > 0f) s.orbitSeconds.toDouble().coerceIn(1.0, 20.0) else 100000.0
@@ -203,6 +228,10 @@ class XvoxDspEngine {
         currentHrtf += (targetHrtf - currentHrtf) * controlAlpha
         currentCenter += (targetCenter - currentCenter) * controlAlpha
         currentReverb += (targetReverb - currentReverb) * controlAlpha
+        currentReverbFeedbackBase += (targetReverbFeedbackBase - currentReverbFeedbackBase) * controlAlpha
+        currentReverbFeedbackDepth += (targetReverbFeedbackDepth - currentReverbFeedbackDepth) * controlAlpha
+        currentReverbWetBase += (targetReverbWetBase - currentReverbWetBase) * controlAlpha
+        currentReverbWetDepth += (targetReverbWetDepth - currentReverbWetDepth) * controlAlpha
         currentPeriod += (targetPeriod - currentPeriod) * controlAlpha
         if (settings.orbitSeconds > 0f) {
             phase += 2 * PI / (rate * currentPeriod)
@@ -267,13 +296,14 @@ class XvoxDspEngine {
         val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + (delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02) * currentRoom
         l += (spatialL - l) * currentDepth
         r += (spatialR - r) * currentDepth
-        // Reverb: a damped feedback tail that works with XvoxMix and inside 3D sound. The wet mix
-        // and feedback rise steeply with the preset so Room, Hall and Cathedral are clearly heard —
-        // the previous fixed curve barely whispered.
+        // Reverb: the selected preset changes its room character, while currentReverb is only
+        // the wet amount. This separation means dragging Amount can never switch the room chip.
         if (currentReverb > .001 && tailDelayLeft.isNotEmpty()) {
             val tailSize = tailDelayLeft.size
-            val feedback = (.18 + .58 * currentReverb).coerceAtMost(.72)
-            val wet = .10 + .42 * currentReverb
+            val feedback = (currentReverbFeedbackBase + currentReverbFeedbackDepth * currentReverb)
+                .coerceIn(0.0, .72)
+            val wet = (currentReverb * (currentReverbWetBase + currentReverbWetDepth * currentReverb))
+                .coerceIn(0.0, .56)
             val staleL = tailDelayLeft[tailCursor]
             val staleR = tailDelayRight[tailCursor]
             tailDelayLeft[tailCursor] = l + staleL * feedback

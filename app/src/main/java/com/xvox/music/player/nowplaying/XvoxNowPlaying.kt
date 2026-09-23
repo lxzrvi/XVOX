@@ -45,9 +45,11 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
+import com.xvox.music.features.settings.EqualizerControlsSnapshot
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
 import com.xvox.music.features.settings.sections.HeadsetSettingsSection
@@ -124,6 +126,14 @@ fun XvoxNowPlaying(
     }
 
     var activeSettingsBox by rememberSaveable { mutableStateOf<String?>(null) }
+    var equalizerSnapshot by remember { mutableStateOf<EqualizerControlsSnapshot?>(null) }
+    LaunchedEffect(activeSettingsBox) {
+        equalizerSnapshot = if (activeSettingsBox == "Equalizer") {
+            settingsViewModel.snapshotEqualizerControls()
+        } else {
+            null
+        }
+    }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     // Separate visual browsing from the audio deck. Covers may move immediately while the
@@ -756,8 +766,19 @@ fun XvoxNowPlaying(
                 }
 
                 XvoxBox(
-                    onDismiss = { activeSettingsBox = null },
-                    title = boxTitle
+                    onDismiss = {
+                        // Closing the header or tapping the scrim acts like Cancel for live EQ edits.
+                        if (activeSettingsBox == "Equalizer") {
+                            equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
+                        }
+                        activeSettingsBox = null
+                    },
+                    title = boxTitle,
+                    presentation = if (activeSettingsBox == "Equalizer") {
+                        XvoxBoxPresentation.EQUALIZER
+                    } else {
+                        XvoxBoxPresentation.DEFAULT
+                    }
                 ) {
                     val scrollState = rememberScrollState()
                     Column(
@@ -767,7 +788,15 @@ fun XvoxNowPlaying(
                             .xvoxBoxScroll(scrollState)
                     ) {
                         when (activeSettingsBox) {
-                            "Equalizer" -> EqualizerSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "Equalizer" -> EqualizerSettingsSection(
+                                state = settingsState,
+                                viewModel = settingsViewModel,
+                                onCancel = {
+                                    equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
+                                    activeSettingsBox = null
+                                },
+                                onDone = { activeSettingsBox = null }
+                            )
                             "3D sound" -> ThreeDSoundSettingsSection(state = settingsState, viewModel = settingsViewModel)
                             "Crossfade" -> PlaybackSettingsSection(state = settingsState, viewModel = settingsViewModel)
                             "Bluetooth" -> HeadsetSettingsSection(state = settingsState, viewModel = settingsViewModel)

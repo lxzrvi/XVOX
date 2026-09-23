@@ -62,7 +62,9 @@ data class SettingsState(
     val eqPreset: String = "Flat",
     val eqBandCount: Int = 5,
     val noiseReduction: Float = 0f,
+    val noiseReductionEnabled: Boolean = false,
     val softenHighs: Float = 0f,
+    val grainControlEnabled: Boolean = false,
     val eqBands: List<Int> = listOf(0, 0, 0, 0, 0),
     val balance: Float = 0f,
     val stereoWidening: Boolean = false,
@@ -70,6 +72,8 @@ data class SettingsState(
     val surroundWidth: Float = 0.78f,
     val surroundPosition: Float = 0f,
     val roomAmount: Float = 0.5f,
+    /** Room character selected independently from [reverbAmount]. */
+    val reverbPreset: String = "Off",
     val reverbAmount: Float = 0f,
     val hrtf: Float = 0.6f,
     val centerPreservation: Float = 0f,

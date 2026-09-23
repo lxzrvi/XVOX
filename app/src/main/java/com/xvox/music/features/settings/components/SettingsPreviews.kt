@@ -133,6 +133,9 @@ fun EqSettingsPreview(state: SettingsState) {
             val w = size.width
             val h = size.height
             val middle = h * 0.55f
+            val activeNoiseReduction = if (state.noiseReductionEnabled) state.noiseReduction.coerceIn(0f, 1f) else 0f
+            val activeGrainControl = if (state.grainControlEnabled) state.softenHighs.coerceIn(0f, 1f) else 0f
+            val reverbGlow = if (state.reverbPreset == com.xvox.music.audio.ReverbPresets.OFF) 0f else state.reverbAmount.coerceIn(0f, 1f)
 
             // Headroom ceiling guide line (drops down with eqHeadroomDb)
             val ceilingY = (18f - state.eqHeadroomDb.coerceIn(0f, 18f)) / 18f * (h * 0.28f)
@@ -155,10 +158,10 @@ fun EqSettingsPreview(state: SettingsState) {
             )
 
             // Noise floor (bottom shaded band that shrinks with noise reduction)
-            val noiseHeight = 24.dp.toPx() * (1f - state.noiseReduction.coerceIn(0f, 1f))
+            val noiseHeight = 24.dp.toPx() * (1f - activeNoiseReduction)
             if (noiseHeight > 1f) {
                 drawRect(
-                    color = Color.Red.copy(alpha = 0.14f * (1f - state.noiseReduction)),
+                    color = Color.Red.copy(alpha = 0.14f * (1f - activeNoiseReduction)),
                     topLeft = Offset(0f, h - noiseHeight),
                     size = Size(w, noiseHeight)
                 )
@@ -171,7 +174,7 @@ fun EqSettingsPreview(state: SettingsState) {
             }
 
             // Grain control visualization: high-frequency smoothing & grain particle ripples
-            val grainSmooth = state.softenHighs.coerceIn(0f, 1f)
+            val grainSmooth = activeGrainControl
             if (grainSmooth > 0.05f) {
                 val grainWidth = w * 0.4f
                 drawRect(
@@ -186,14 +189,13 @@ fun EqSettingsPreview(state: SettingsState) {
             }
 
             // Reverb / Room reflection echoes
-            val reverbGlow = state.reverbAmount.coerceIn(0f, 1f)
             val roomScale = 1f + state.roomAmount * 0.6f
 
             if (reverbGlow > 0.05f) {
                 val echoPath = Path()
                 repeat(state.eqBandCount) { i ->
                     val f = i.toFloat() / (state.eqBandCount - 1)
-                    val highCut = state.softenHighs * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
+                    val highCut = activeGrainControl * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
                     val balanceBias = if (f < 0.5f) (1f - state.balance * 0.4f) else (1f + state.balance * 0.4f)
                     val rawDb = if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f
                     val db = (rawDb - state.eqHeadroomDb - highCut) * state.appVolume * state.volumeLimit * balanceBias
@@ -209,7 +211,7 @@ fun EqSettingsPreview(state: SettingsState) {
             val fillPath = Path()
             repeat(state.eqBandCount) { i ->
                 val f = i.toFloat() / (state.eqBandCount - 1)
-                val highCut = state.softenHighs * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
+                val highCut = activeGrainControl * 9f * ((f - 0.60f) / 0.40f).coerceIn(0f, 1f)
                 val balanceBias = if (f < 0.5f) (1f - state.balance * 0.4f) else (1f + state.balance * 0.4f)
                 val rawDb = if (state.equalizerEnabled) state.eqBands.getOrElse(i) { 0 }.toFloat() else 0f
                 val db = (rawDb - state.eqHeadroomDb - highCut) * state.appVolume * state.volumeLimit * balanceBias

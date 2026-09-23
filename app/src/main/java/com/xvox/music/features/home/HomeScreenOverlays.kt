@@ -236,6 +236,9 @@ fun showSongOptionsOverlay(
                 } else {
                     viewModel.recordPlayedFromLibrary(sourcedSong, currentSongId, sourcedSong.source)
                 }
+                // The identity card is a play surface. Re-tapping its current song must replay
+                // from the start rather than merely resuming at the old timestamp.
+                if (currentSongId == sourcedSong.id) playerViewModel.seekTo(0L)
                 playerViewModel.play(sourcedSong, sourcedSong.source)
                 overlays.hideBox()
             },

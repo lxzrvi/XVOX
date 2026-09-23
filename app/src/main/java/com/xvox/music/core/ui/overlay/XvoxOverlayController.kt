@@ -19,7 +19,9 @@ data class XvoxPopupMessage(
 /** Presentation variants for the shared overlay shell. */
 enum class XvoxBoxPresentation {
     DEFAULT,
-    SONG_OPTIONS
+    SONG_OPTIONS,
+    /** Compact audio-control modal with the supplied Equalizer styling. */
+    EQUALIZER
 }
 
 @Stable

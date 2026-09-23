@@ -93,6 +93,9 @@ class UserPreferencesRepository(
         val surroundPosition = floatPreferencesKey("surround_position")
         val roomAmount = floatPreferencesKey("room_amount")
         val reverbAmount = floatPreferencesKey("reverb_amount")
+        val reverbPreset = stringPreferencesKey("reverb_preset")
+        val noiseReductionEnabled = booleanPreferencesKey("noise_reduction_enabled")
+        val grainControlEnabled = booleanPreferencesKey("grain_control_enabled")
         val hrtf = floatPreferencesKey("hrtf")
         val centerPreservation = floatPreferencesKey("center_preservation")
 
@@ -299,10 +302,18 @@ class UserPreferencesRepository(
     val btConnectAction: Flow<String> = context.xvoxDataStore.data.map { it[Keys.btConnectAction] ?: "none" }.distinctUntilChanged()
 
     val equalizerEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.equalizerEnabled] ?: false }.distinctUntilChanged()
-    val eqPreset: Flow<String> = context.xvoxDataStore.data.map { it[Keys.eqPreset] ?: "Flat" }.distinctUntilChanged()
+    val eqPreset: Flow<String> = context.xvoxDataStore.data.map {
+        com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(it[Keys.eqPreset])
+    }.distinctUntilChanged()
     val eqBandCount: Flow<Int> = context.xvoxDataStore.data.map { com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5) }.distinctUntilChanged()
     val noiseReduction: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.noiseReduction] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val noiseReductionEnabled: Flow<Boolean> = context.xvoxDataStore.data.map {
+        it[Keys.noiseReductionEnabled] ?: ((it[Keys.noiseReduction] ?: 0f) > .001f)
+    }.distinctUntilChanged()
     val softenHighs: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.softenHighs] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val grainControlEnabled: Flow<Boolean> = context.xvoxDataStore.data.map {
+        it[Keys.grainControlEnabled] ?: ((it[Keys.softenHighs] ?: 0f) > .001f)
+    }.distinctUntilChanged()
     val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map {
         com.xvox.music.audio.EqBands.convert(decodeBands(it[Keys.eqBands].orEmpty()), com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5))
     }.distinctUntilChanged()
@@ -313,6 +324,14 @@ class UserPreferencesRepository(
     val surroundPosition: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f) }.distinctUntilChanged()
     val roomAmount: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val reverbAmount: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.reverbAmount] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val reverbPreset: Flow<String> = context.xvoxDataStore.data.map { prefs ->
+        com.xvox.music.audio.ReverbPresets.normalize(
+            prefs[Keys.reverbPreset] ?: com.xvox.music.audio.ReverbPresets.legacySelection(
+                prefs[Keys.roomAmount] ?: .5f,
+                prefs[Keys.reverbAmount] ?: 0f
+            )
+        )
+    }.distinctUntilChanged()
     val hrtf: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val centerPreservation: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
@@ -345,13 +364,24 @@ class UserPreferencesRepository(
 
     // Read audio settings atomically, so a preset never passes through a half-updated state.
     val audioDspSettings: Flow<com.xvox.music.audio.AudioDspSettings> = context.xvoxDataStore.data.map {
-        val preset = it[Keys.eqPreset] ?: "Flat"
+        val preset = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(it[Keys.eqPreset])
         val count = com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5)
         val bands = com.xvox.music.audio.EqBands.convert(com.xvox.music.audio.AudioEffectsManager.PRESETS[preset] ?: decodeBands(it[Keys.eqBands].orEmpty()), count)
+        val noiseAmount = (it[Keys.noiseReduction] ?: 0f).coerceIn(0f, 1f)
+        val grainAmount = (it[Keys.softenHighs] ?: 0f).coerceIn(0f, 1f)
+        val reverbAmount = (it[Keys.reverbAmount] ?: 0f).coerceIn(0f, 1f)
+        val reverbPreset = com.xvox.music.audio.ReverbPresets.normalize(
+            it[Keys.reverbPreset] ?: com.xvox.music.audio.ReverbPresets.legacySelection(
+                it[Keys.roomAmount] ?: .5f,
+                reverbAmount
+            )
+        )
         com.xvox.music.audio.AudioDspSettings(
             equalizerEnabled = it[Keys.equalizerEnabled] ?: false,
             bands = bands.map { it.toFloat() }, bandCount = count,
-            noiseReduction = (it[Keys.noiseReduction] ?: 0f).coerceIn(0f, 1f), softenHighs = (it[Keys.softenHighs] ?: 0f).coerceIn(0f, 1f),
+            noiseReduction = noiseAmount, softenHighs = grainAmount,
+            noiseReductionEnabled = it[Keys.noiseReductionEnabled] ?: (noiseAmount > .001f),
+            grainControlEnabled = it[Keys.grainControlEnabled] ?: (grainAmount > .001f),
             headroomDb = (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f),
             balance = (it[Keys.balance] ?: 0f).coerceIn(-1f, 1f),
             surroundEnabled = it[Keys.stereoWidening] ?: false,
@@ -361,7 +391,8 @@ class UserPreferencesRepository(
             surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
             surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
             roomAmount = (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f),
-            reverbAmount = (it[Keys.reverbAmount] ?: 0f).coerceIn(0f, 1f),
+            reverbAmount = reverbAmount,
+            reverbPreset = reverbPreset,
             hrtf = (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f),
             centerPreservation = (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f)
         )
@@ -507,7 +538,9 @@ class UserPreferencesRepository(
     suspend fun setBtConnectAction(v: String) { context.xvoxDataStore.edit { it[Keys.btConnectAction] = v } }
 
     suspend fun setEqualizerEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.equalizerEnabled] = v } }
-    suspend fun setEqPreset(preset: String) { context.xvoxDataStore.edit { it[Keys.eqPreset] = preset } }
+    suspend fun setEqPreset(preset: String) {
+        context.xvoxDataStore.edit { it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset) }
+    }
     suspend fun setEqBands(bands: List<Int>) { context.xvoxDataStore.edit { it[Keys.eqBands] = bands.joinToString(",") } }
     suspend fun setBalance(v: Float) { context.xvoxDataStore.edit { it[Keys.balance] = v } }
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
@@ -559,11 +592,13 @@ class UserPreferencesRepository(
     suspend fun setAudioState(state: com.xvox.music.audio.LiveEqState) {
         context.xvoxDataStore.edit {
             it[Keys.equalizerEnabled] = state.enabled
-            it[Keys.eqPreset] = state.preset
+            it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(state.preset)
             it[Keys.eqBands] = state.bands.joinToString(",")
             it[Keys.eqBandCount] = com.xvox.music.audio.EqBands.count(state.bandCount)
             it[Keys.noiseReduction] = state.noiseReduction.coerceIn(0f, 1f)
+            it[Keys.noiseReductionEnabled] = state.noiseReductionEnabled
             it[Keys.softenHighs] = state.softenHighs.coerceIn(0f, 1f)
+            it[Keys.grainControlEnabled] = state.grainControlEnabled
             it[Keys.eqHeadroomDb] = state.headroomDb.coerceIn(0f, 18f)
             it[Keys.balance] = state.balance.coerceIn(-1f, 1f)
             it[Keys.stereoWidening] = state.surroundEnabled
@@ -573,6 +608,7 @@ class UserPreferencesRepository(
             it[Keys.surroundPosition] = state.surroundPosition.coerceIn(-1.5f, 1.5f)
             it[Keys.roomAmount] = state.roomAmount.coerceIn(0f, 1f)
             it[Keys.reverbAmount] = state.reverbAmount.coerceIn(0f, 1f)
+            it[Keys.reverbPreset] = com.xvox.music.audio.ReverbPresets.normalize(state.reverbPreset)
             it[Keys.hrtf] = state.hrtf.coerceIn(0f, 1f)
             it[Keys.centerPreservation] = state.centerPreservation.coerceIn(0f, 1f)
             it[Keys.appVolume] = state.appVolume.coerceIn(0f, 1f)
@@ -582,13 +618,13 @@ class UserPreferencesRepository(
     suspend fun setEqState(enabled: Boolean, preset: String, bands: List<Int>) {
         context.xvoxDataStore.edit {
             it[Keys.equalizerEnabled] = enabled
-            it[Keys.eqPreset] = preset
+            it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
             it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
         }
     }
     suspend fun setEqConfiguration(preset: String, bands: List<Int>) {
         context.xvoxDataStore.edit {
-            it[Keys.eqPreset] = preset
+            it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
             it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
         }
     }

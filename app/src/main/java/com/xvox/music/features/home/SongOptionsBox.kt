@@ -58,7 +58,8 @@ fun SongOptionsBox(
 ) {
     val colors = XvoxTheme.colors
     val identityShape = RoundedCornerShape(16.dp)
-    val tileShape = RoundedCornerShape(10.dp)
+    // Action cards deliberately share the song identity card's rounded silhouette.
+    val tileShape = identityShape
     val tileFill = colors.primaryText.copy(alpha = if (colors.isLight) 0.035f else 0.055f)
     val tileBorder = colors.primaryText.copy(alpha = 0.10f)
     val contextLabel = song.source.ifBlank {

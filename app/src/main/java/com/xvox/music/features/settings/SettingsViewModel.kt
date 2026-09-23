@@ -13,6 +13,37 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** A reversible live-preview snapshot for the compact Equalizer sheet. */
+data class EqualizerControlsSnapshot(
+    val equalizerEnabled: Boolean,
+    val eqPreset: String,
+    val eqBandCount: Int,
+    val eqBands: List<Int>,
+    val appVolume: Float,
+    val reverbPreset: String,
+    val reverbAmount: Float,
+    val noiseReduction: Float,
+    val noiseReductionEnabled: Boolean,
+    val softenHighs: Float,
+    val grainControlEnabled: Boolean
+) {
+    companion object {
+        fun from(state: SettingsState) = EqualizerControlsSnapshot(
+            equalizerEnabled = state.equalizerEnabled,
+            eqPreset = state.eqPreset,
+            eqBandCount = state.eqBandCount,
+            eqBands = state.eqBands.toList(),
+            appVolume = state.appVolume,
+            reverbPreset = state.reverbPreset,
+            reverbAmount = state.reverbAmount,
+            noiseReduction = state.noiseReduction,
+            noiseReductionEnabled = state.noiseReductionEnabled,
+            softenHighs = state.softenHighs,
+            grainControlEnabled = state.grainControlEnabled
+        )
+    }
+}
+
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = UserPreferencesRepository(application)
@@ -91,15 +122,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.eqPreset.collect { v -> _state.update { it.copy(eqPreset = AudioEffectsManager.liveEq.value?.preset ?: v) } } }
             launch { prefs.eqBandCount.collect { v -> _state.update { it.copy(eqBandCount = AudioEffectsManager.liveEq.value?.bandCount ?: v) } } }
             launch { prefs.noiseReduction.collect { v -> _state.update { it.copy(noiseReduction = AudioEffectsManager.liveEq.value?.noiseReduction ?: v) } } }
+            launch { prefs.noiseReductionEnabled.collect { v -> _state.update { it.copy(noiseReductionEnabled = AudioEffectsManager.liveEq.value?.noiseReductionEnabled ?: v) } } }
             launch { prefs.softenHighs.collect { v -> _state.update { it.copy(softenHighs = AudioEffectsManager.liveEq.value?.softenHighs ?: v) } } }
+            launch { prefs.grainControlEnabled.collect { v -> _state.update { it.copy(grainControlEnabled = AudioEffectsManager.liveEq.value?.grainControlEnabled ?: v) } } }
             launch { prefs.eqBands.collect { v -> _state.update { it.copy(eqBands = AudioEffectsManager.liveEq.value?.bands ?: v) } } }
             launch { prefs.balance.collect { v -> _state.update { it.copy(balance = AudioEffectsManager.liveEq.value?.balance ?: v) } } }
             launch { prefs.stereoWidening.collect { v -> _state.update { it.copy(stereoWidening = AudioEffectsManager.liveEq.value?.surroundEnabled ?: v) } } }
             launch { prefs.surroundPanSpeed.collect { v -> _state.update { it.copy(surroundPanSpeed = AudioEffectsManager.liveEq.value?.orbitSeconds ?: v) } } }
             launch { prefs.surroundWidth.collect { v -> _state.update { it.copy(surroundWidth = v) } } }
             launch { prefs.surroundPosition.collect { v -> _state.update { it.copy(surroundPosition = v) } } }
-            launch { prefs.roomAmount.collect { v -> _state.update { it.copy(roomAmount = v) } } }
-            launch { prefs.reverbAmount.collect { v -> _state.update { it.copy(reverbAmount = v) } } }
+            launch { prefs.roomAmount.collect { v -> _state.update { it.copy(roomAmount = AudioEffectsManager.liveEq.value?.roomAmount ?: v) } } }
+            launch { prefs.reverbPreset.collect { v -> _state.update { it.copy(reverbPreset = AudioEffectsManager.liveEq.value?.reverbPreset ?: v) } } }
+            launch { prefs.reverbAmount.collect { v -> _state.update { it.copy(reverbAmount = AudioEffectsManager.liveEq.value?.reverbAmount ?: v) } } }
             launch { prefs.hrtf.collect { v -> _state.update { it.copy(hrtf = v) } } }
             launch { prefs.centerPreservation.collect { v -> _state.update { it.copy(centerPreservation = v) } } }
 
@@ -200,6 +234,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSurroundWidth(value: Float) = changeAudio { it.copy(surroundWidth = value.coerceIn(.05f, 1f)) }
     fun setSurroundPosition(value: Float) = changeAudio { it.copy(surroundPosition = value.coerceIn(-1.5f, 1.5f)) }
     fun setRoomAmount(value: Float) = changeAudio { it.copy(roomAmount = value.coerceIn(0f, 1f)) }
+    fun setReverbPreset(preset: String) = changeAudio { current ->
+        val selected = com.xvox.music.audio.ReverbPresets.normalize(preset)
+        current.copy(
+            reverbPreset = selected,
+            // A room selection should be audible immediately, but its amount never chooses another room.
+            reverbAmount = if (selected != com.xvox.music.audio.ReverbPresets.OFF && current.reverbAmount <= .001f) .50f else current.reverbAmount
+        )
+    }
     fun setReverbAmount(value: Float) = changeAudio { it.copy(reverbAmount = value.coerceIn(0f, 1f)) }
     fun setHrtf(value: Float) = changeAudio { it.copy(hrtf = value.coerceIn(0f, 1f)) }
     fun setCenterPreservation(value: Float) = changeAudio { it.copy(centerPreservation = value.coerceIn(0f, 1f)) }
@@ -218,21 +260,84 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBtDisconnectAction(action: String) = viewModelScope.launch { prefs.setBtDisconnectAction(action) }
     fun setBtConnectAction(action: String) = viewModelScope.launch { prefs.setBtConnectAction(action) }
 
+    /** Captures only controls owned by the Equalizer sheet so Cancel can restore its live preview. */
+    fun snapshotEqualizerControls(): EqualizerControlsSnapshot = EqualizerControlsSnapshot.from(_state.value)
+
+    fun restoreEqualizerControls(snapshot: EqualizerControlsSnapshot) = changeAudio { current ->
+        current.copy(
+            equalizerEnabled = snapshot.equalizerEnabled,
+            eqPreset = snapshot.eqPreset,
+            eqBandCount = snapshot.eqBandCount,
+            eqBands = snapshot.eqBands,
+            appVolume = snapshot.appVolume,
+            reverbPreset = snapshot.reverbPreset,
+            reverbAmount = snapshot.reverbAmount,
+            noiseReduction = snapshot.noiseReduction,
+            noiseReductionEnabled = snapshot.noiseReductionEnabled,
+            softenHighs = snapshot.softenHighs,
+            grainControlEnabled = snapshot.grainControlEnabled
+        )
+    }
+
+    /** Restores the compact Equalizer controls to the supplied HTML design's default values. */
+    fun resetEqualizerControls() = changeAudio { current ->
+        current.copy(
+            equalizerEnabled = false,
+            eqPreset = "Flat",
+            eqBandCount = 5,
+            eqBands = List(5) { 0 },
+            appVolume = 1f,
+            reverbPreset = com.xvox.music.audio.ReverbPresets.OFF,
+            reverbAmount = .50f,
+            noiseReduction = .40f,
+            noiseReductionEnabled = false,
+            softenHighs = .30f,
+            grainControlEnabled = false
+        )
+    }
+
     private fun changeAudio(change: (SettingsState) -> SettingsState) {
         _state.update(change)
         val value = _state.value
-        AudioEffectsManager.submit(getApplication<Application>(), LiveEqState(value.equalizerEnabled, value.eqPreset, value.eqBands,
-            value.eqHeadroomDb, value.balance, value.stereoWidening, value.surroundDepth, value.surroundPanSpeed,
-            value.appVolume, value.volumeLimit, value.eqBandCount, value.noiseReduction, value.softenHighs,
-            value.surroundWidth, value.surroundPosition, value.roomAmount, value.reverbAmount, value.hrtf, value.centerPreservation))
+        AudioEffectsManager.submit(
+            getApplication<Application>(),
+            LiveEqState(
+                enabled = value.equalizerEnabled,
+                preset = value.eqPreset,
+                bands = value.eqBands,
+                headroomDb = value.eqHeadroomDb,
+                balance = value.balance,
+                surroundEnabled = value.stereoWidening,
+                surroundDepth = value.surroundDepth,
+                orbitSeconds = value.surroundPanSpeed,
+                appVolume = value.appVolume,
+                volumeLimit = value.volumeLimit,
+                bandCount = value.eqBandCount,
+                noiseReduction = value.noiseReduction,
+                softenHighs = value.softenHighs,
+                surroundWidth = value.surroundWidth,
+                surroundPosition = value.surroundPosition,
+                roomAmount = value.roomAmount,
+                reverbAmount = value.reverbAmount,
+                hrtf = value.hrtf,
+                centerPreservation = value.centerPreservation,
+                reverbPreset = value.reverbPreset,
+                noiseReductionEnabled = value.noiseReductionEnabled,
+                grainControlEnabled = value.grainControlEnabled
+            )
+        )
     }
     private fun applyEq(enabled: Boolean, preset: String, bands: List<Int>) {
         val safe = EqBands.convert(bands, _state.value.eqBandCount)
-        changeAudio { it.copy(equalizerEnabled = enabled, eqPreset = preset, eqBands = safe) }
+        val normalizedPreset = AudioEffectsManager.normalizeEqPreset(preset)
+        changeAudio { it.copy(equalizerEnabled = enabled, eqPreset = normalizedPreset, eqBands = safe) }
     }
     fun setEqualizerEnabled(enabled: Boolean) = applyEq(enabled, _state.value.eqPreset, _state.value.eqBands)
-    fun setEqPreset(preset: String) = applyEq(_state.value.equalizerEnabled, preset,
-        AudioEffectsManager.PRESETS[preset] ?: _state.value.eqBands)
+    fun setEqPreset(preset: String) = applyEq(
+        _state.value.equalizerEnabled,
+        preset,
+        AudioEffectsManager.PRESETS[AudioEffectsManager.normalizeEqPreset(preset)] ?: _state.value.eqBands
+    )
     fun setEqBands(bands: List<Int>) = applyEq(_state.value.equalizerEnabled, "Custom", bands)
     fun setEqBand(index: Int, value: Int) {
         if (index !in 0 until _state.value.eqBandCount) return
@@ -243,7 +348,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setEqBandCount(count: Int) = changeAudio { it.copy(eqBandCount = EqBands.count(count), eqBands = EqBands.convert(it.eqBands, EqBands.count(count))) }
     fun setNoiseReduction(value: Float) = changeAudio { it.copy(noiseReduction = value.coerceIn(0f, 1f)) }
+    fun setNoiseReductionEnabled(enabled: Boolean) = changeAudio { current ->
+        current.copy(
+            noiseReductionEnabled = enabled,
+            noiseReduction = if (enabled && current.noiseReduction <= .001f) .40f else current.noiseReduction
+        )
+    }
     fun setSoftenHighs(value: Float) = changeAudio { it.copy(softenHighs = value.coerceIn(0f, 1f)) }
+    fun setGrainControlEnabled(enabled: Boolean) = changeAudio { current ->
+        current.copy(
+            grainControlEnabled = enabled,
+            softenHighs = if (enabled && current.softenHighs <= .001f) .30f else current.softenHighs
+        )
+    }
     fun setBalance(balance: Float) = changeAudio { it.copy(balance = balance.coerceIn(-1f, 1f)) }
     fun setStereoWidening(enabled: Boolean) = changeAudio { it.copy(stereoWidening = enabled) }
     fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(0, 20)) }
