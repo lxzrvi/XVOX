@@ -16,12 +16,21 @@ data class XvoxPopupMessage(
     val persistent: Boolean = false
 )
 
+/** Presentation variants for the shared overlay shell. */
+enum class XvoxBoxPresentation {
+    DEFAULT,
+    SONG_OPTIONS
+}
+
 @Stable
 class XvoxOverlayController {
     var listKey by mutableLongStateOf(0L)
         private set
 
     internal var boxTitle by mutableStateOf("XVOX")
+        private set
+
+    internal var boxPresentation by mutableStateOf(XvoxBoxPresentation.DEFAULT)
         private set
 
     internal var boxSettingsAction by mutableStateOf<(() -> Unit)?>(null)
@@ -52,10 +61,12 @@ class XvoxOverlayController {
         onSettings: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
+        presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
         content: @Composable () -> Unit
     ) {
         boxMini = false
         boxTitle = title
+        boxPresentation = presentation
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
@@ -69,10 +80,12 @@ class XvoxOverlayController {
         onSettings: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
+        presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
         content: @Composable () -> Unit
     ) {
         boxMini = true
         boxTitle = title
+        boxPresentation = presentation
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
@@ -83,6 +96,7 @@ class XvoxOverlayController {
     fun hideBox() {
         listContent = null
         boxMini = false
+        boxPresentation = XvoxBoxPresentation.DEFAULT
         boxSettingsAction = null
         boxUndoAction = null
         boxHeaderTitleContent = null

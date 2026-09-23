@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.CreatePlaylistBox
@@ -218,11 +219,12 @@ fun showSongOptionsOverlay(
         song.source.isNotBlank() -> song.source
         else -> "All Songs"
     }
-    val sourcedSong = if (song.source.isBlank()) song.copy(source = actualSource) else song
+    val sourcedSong = song.copy(source = actualSource)
 
     overlays.showBox(
-        title = "Song options",
-        onSettings = onSectionSettings?.let { act -> { act() } }
+        title = "Song Options",
+        onSettings = onSectionSettings?.let { act -> { act() } },
+        presentation = XvoxBoxPresentation.SONG_OPTIONS
     ) {
         SongOptionsBox(
             song = sourcedSong,
@@ -241,6 +243,17 @@ fun showSongOptionsOverlay(
             onPlaylist = {
                 overlays.hideBox()
                 showPlaylistPickerOverlay(overlays, viewModel, sourcedSong, playlists, songs)
+            },
+            playlistName = playlist?.name,
+            onRemovePlaylist = playlist?.let { activePlaylist ->
+                {
+                    viewModel.removeFromPlaylist(activePlaylist.id, sourcedSong) { updated ->
+                        if (updated != null) {
+                            overlays.hideBox()
+                            overlays.showP("Removed from ${updated.name}")
+                        }
+                    }
+                }
             },
             onLiked = {
                 viewModel.toggleLiked(sourcedSong)

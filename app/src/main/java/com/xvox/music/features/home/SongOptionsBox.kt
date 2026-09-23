@@ -1,29 +1,18 @@
 package com.xvox.music.features.home
 
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,140 +21,238 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.effects.xvoxPressScale
 
-data class SongOption(
-    val title: String,
-    @DrawableRes
+private data class SongOptionGridAction(
+    val label: String,
     val icon: Int,
-    val action: () -> Unit
+    val onClick: () -> Unit
 )
 
+/**
+ * Compact song action panel shared by song cards and search results. The callbacks remain
+ * deliberately contextual: callers only supply the actions that make sense for their entry point.
+ */
 @Composable
 fun SongOptionsBox(
     song: Song,
     liked: Boolean,
-    playlistName: String? = null,
-    membership: List<Pair<String, () -> Unit>> = emptyList(),
-    onAddToEach: (() -> Unit)? = null,
-    onPlayNext: () -> Unit,
     onAddQueue: () -> Unit,
     onPlaylist: () -> Unit,
-    onRemovePlaylist: (() -> Unit)? = null,
-    onRemoveRecent: (() -> Unit)? = null,
     onLiked: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
     onRingtone: () -> Unit,
     onShare: () -> Unit,
+    onPlayNext: () -> Unit,
     onSelect: (() -> Unit)? = null,
-    sectionSettingsLabel: String? = null,
-    onSectionSettings: (() -> Unit)? = null
+    onAddToEach: (() -> Unit)? = null,
+    membership: List<String> = emptyList(),
+    playlistName: String? = null,
+    onRemovePlaylist: (() -> Unit)? = null,
+    onRemoveRecent: (() -> Unit)? = null,
+    sectionSettingsLabel: String? = null
 ) {
     val colors = XvoxTheme.colors
-
-    // Clean, direct song menu options
-    val options = buildList {
-        add(SongOption("Play next", R.drawable.ic_xvox_play, onPlayNext))
-        add(SongOption("Add to queue", R.drawable.ic_xvox_queue, onAddQueue))
-        if (onSelect != null) {
-            add(SongOption("Select", R.drawable.ic_xvox_check, onSelect))
-        }
-        add(
-            SongOption(
-                if (liked) "Remove from Liked" else "Like song",
-                if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-                onLiked
-            )
-        )
-        add(SongOption("Add / Remove from Playlist", R.drawable.ic_xvox_playlist, onPlaylist))
-        add(SongOption("Info", R.drawable.ic_xvox_info, onInfo))
-        add(SongOption("Set ringtone", R.drawable.ic_xvox_music_note, onRingtone))
-        add(SongOption("Share", R.drawable.ic_xvox_share, onShare))
-        if (onRemoveRecent != null) {
-            add(SongOption("Remove from Recently Played", R.drawable.ic_xvox_close, onRemoveRecent))
-        }
-        add(SongOption("Delete from library", R.drawable.ic_xvox_delete, onDelete))
+    val identityShape = RoundedCornerShape(18.dp)
+    val tileFill = colors.primaryText.copy(alpha = if (colors.isLight) 0.045f else 0.055f)
+    val destructiveColor = Color(0xFFFF5252)
+    val tileBorder = colors.cardBorder.copy(alpha = 0.78f)
+    val contextLabel = song.source.ifBlank {
+        song.folderName.ifBlank { "XVOX library" }
     }
+
+    // Keep menu order stable so the compact two-column layout stays easy to scan.
+    val actions = mutableListOf(
+        SongOptionGridAction("Play next", R.drawable.ic_xvox_play, onPlayNext),
+        SongOptionGridAction("Add to queue", R.drawable.ic_xvox_queue, onAddQueue)
+    )
+    onSelect?.let { actions += SongOptionGridAction("Select", R.drawable.ic_xvox_check, it) }
+    actions += SongOptionGridAction(
+        if (liked) "Unlike" else "Like",
+        if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+        onLiked
+    )
+    actions += SongOptionGridAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist)
+    actions += SongOptionGridAction("Info", R.drawable.ic_xvox_info, onInfo)
+    actions += SongOptionGridAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone)
+    actions += SongOptionGridAction("Share", R.drawable.ic_xvox_share, onShare)
+    onAddToEach?.let { actions += SongOptionGridAction("Add to each", R.drawable.ic_xvox_add, it) }
+    onRemovePlaylist?.let { remove ->
+        actions += SongOptionGridAction(
+            "Remove from ${playlistName ?: "playlist"}",
+            R.drawable.ic_xvox_close,
+            remove
+        )
+    }
+    onRemoveRecent?.let { actions += SongOptionGridAction("Remove from recent", R.drawable.ic_xvox_close, it) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight()
+            .heightIn(max = 430.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(identityShape)
+                .background(tileFill)
+                .border(1.dp, tileBorder, identityShape)
+                .padding(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                requestSize = 128,
+            Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            )
+                    .size(82.dp)
+                    .clip(RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    requestSize = 240,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 14.dp),
+                    .padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = song.title,
                     color = colors.primaryText,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 19.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = song.artist,
+                    text = song.artist.ifBlank { "Unknown artist" },
                     color = colors.secondaryText,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+                Text(
+                    text = contextLabel,
+                    color = colors.mutedText,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 420.dp)
-                .wrapContentHeight()
-        ) {
-            items(options, key = { it.title }) { option ->
-                val isDelete = option.icon == R.drawable.ic_xvox_delete
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = option.action
-                        )
-                        .padding(horizontal = 4.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(option.icon),
-                        contentDescription = option.title,
-                        tint = if (isDelete) androidx.compose.ui.graphics.Color(0xFFFF5252) else colors.primaryText,
-                        modifier = Modifier.size(19.dp)
+        actions.chunked(2).forEach { pair ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                pair.forEach { action ->
+                    SongOptionGridTile(
+                        action = action,
+                        background = tileFill,
+                        border = tileBorder,
+                        modifier = Modifier.weight(1f)
                     )
-                    Text(
-                        text = option.title,
-                        color = if (isDelete) androidx.compose.ui.graphics.Color(0xFFFF5252) else colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = if (isDelete) FontWeight.SemiBold else FontWeight.Normal,
-                        modifier = Modifier.padding(start = 14.dp)
-                    )
+                }
+                if (pair.size == 1) {
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
+
+        SongOptionDeleteTile(
+            color = destructiveColor,
+            background = destructiveColor.copy(alpha = if (colors.isLight) 0.10f else 0.16f),
+            border = destructiveColor.copy(alpha = 0.42f),
+            onClick = onDelete
+        )
+    }
+}
+
+@Composable
+private fun SongOptionGridTile(
+    action: SongOptionGridAction,
+    background: Color,
+    border: Color,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+
+    Row(
+        modifier = modifier
+            .heightIn(min = 50.dp)
+            .clip(shape)
+            .background(background)
+            .border(1.dp, border, shape)
+            .xvoxPressScale(onClick = action.onClick)
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(action.icon),
+            contentDescription = null,
+            tint = colors.primaryText.copy(alpha = 0.86f),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = action.label,
+            color = colors.primaryText,
+            fontSize = 12.5.sp,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun SongOptionDeleteTile(
+    color: Color,
+    background: Color,
+    border: Color,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 50.dp)
+            .clip(shape)
+            .background(background)
+            .border(1.dp, border, shape)
+            .xvoxPressScale(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_xvox_delete),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(17.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Delete from library",
+            color = color,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

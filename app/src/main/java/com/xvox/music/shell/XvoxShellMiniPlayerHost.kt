@@ -39,9 +39,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onOpenPlayer: () -> Unit,
     isLiked: Boolean = false,
     onLike: () -> Unit,
-    onAdd: () -> Unit,
-    onDelete: () -> Unit = {},
-    onSettings: () -> Unit = {}
+    onSongOptions: () -> Unit = {}
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -102,9 +100,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 openPlayer = onOpenPlayer,
                 isLiked = isLiked,
                 onLike = onLike,
-                onAdd = onAdd,
-                onDelete = onDelete,
-                onSettings = onSettings,
+                onSongOptions = onSongOptions,
                 modifier = miniModifier
             )
         }

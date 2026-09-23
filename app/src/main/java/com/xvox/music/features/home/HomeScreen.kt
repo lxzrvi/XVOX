@@ -383,7 +383,8 @@ fun HomeScreen(
                     }
                 },
                 onSongOptions = { song ->
-                    handleSongLongClick(song, "Recently Played")
+                    if (isSelectionMode) handleSongLongClick(song, "Recently Played")
+                    else openSingleSongOptions(song, recent = true)
                 },
                 sources = state.recentSources
             )

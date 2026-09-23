@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -44,6 +46,7 @@ fun XvoxBox(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "XVOX",
+    presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
     mini: Boolean = false,
     onAddClick: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
@@ -115,25 +118,38 @@ fun XvoxBox(
                     enter = fadeIn(tween(180, easing = XvoxBoxEasing)),
                     exit = fadeOut(tween(140, easing = XvoxBoxEasing))
                 ) {
+                    val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
                     val shape = if (mini) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
                     else RoundedCornerShape(26.dp)
                     val boxFill = colors.cardElevated
 
                     Column(
                         Modifier
-                            .widthIn(max = if (mini) 520.dp else 560.dp)
+                            .widthIn(max = if (mini) 520.dp else if (songOptionsPresentation) 440.dp else 560.dp)
                             .fillMaxWidth()
                             .heightIn(max = maxBoxHeight)
                             .wrapContentHeight()
                             .clip(shape)
                             .background(boxFill)
+                            .then(
+                                if (songOptionsPresentation) {
+                                    Modifier.border(1.dp, colors.cardBorder.copy(alpha = 0.78f), shape)
+                                } else {
+                                    Modifier
+                                }
+                            )
                             .clickable(swallowInteraction, indication = null) { }
                             .semantics { paneTitle = title }
                     ) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                                .padding(
+                                    start = 18.dp,
+                                    end = if (songOptionsPresentation) 12.dp else 8.dp,
+                                    top = if (songOptionsPresentation) 8.dp else 6.dp,
+                                    bottom = if (songOptionsPresentation) 8.dp else 6.dp
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             onBack?.let { back ->
@@ -166,87 +182,126 @@ fun XvoxBox(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
-                            if (onSettingsClick != null) {
-                                Box(
-                                    Modifier
-                                        .size(42.dp)
-                                        .clip(CircleShape)
-                                        .xvoxPressScale { onSettingsClick() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painterResource(R.drawable.ic_xvox_settings),
-                                        "Settings",
-                                        tint = colors.primaryAccent,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                            if (onUndoClick != null) {
-                                Box(
-                                    Modifier
-                                        .size(42.dp)
-                                        .clip(CircleShape)
-                                        .xvoxPressScale { onUndoClick() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painterResource(R.drawable.ic_xvox_undo),
-                                        "Undo",
-                                        tint = colors.primaryAccent,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                            if (onEditClick != null) {
-                                Box(
-                                    Modifier
-                                        .size(42.dp)
-                                        .clip(CircleShape)
-                                        .xvoxPressScale { onEditClick() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painterResource(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit),
-                                        if (isEditing) "Save" else "Edit",
-                                        tint = colors.primaryAccent,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                            if (onAddClick != null) {
-                                Icon(
-                                    painterResource(R.drawable.ic_xvox_add),
-                                    "Add",
-                                    tint = colors.primaryAccent,
+
+                            if (songOptionsPresentation) {
+                                Row(
                                     modifier = Modifier
-                                        .size(48.dp)
-                                        .xvoxPressScale(onClick = onAddClick)
-                                        .padding(14.dp)
-                                )
-                            }
-                            Box(
-                                Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .xvoxPressScale { close() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painterResource(R.drawable.ic_xvox_close),
-                                    "Close $title",
+                                        .height(38.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(colors.primaryText.copy(alpha = if (colors.isLight) 0.05f else 0.07f))
+                                        .border(1.dp, colors.cardBorder.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+                                        .padding(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    onSettingsClick?.let { action ->
+                                        XvoxBoxHeaderIconButton(
+                                            icon = R.drawable.ic_xvox_settings,
+                                            contentDescription = "Settings",
+                                            tint = colors.primaryAccent,
+                                            size = 34.dp,
+                                            iconSize = 18.dp,
+                                            onClick = action
+                                        )
+                                    }
+                                    onUndoClick?.let { action ->
+                                        XvoxBoxHeaderIconButton(
+                                            icon = R.drawable.ic_xvox_undo,
+                                            contentDescription = "Undo",
+                                            tint = colors.primaryAccent,
+                                            size = 34.dp,
+                                            iconSize = 18.dp,
+                                            onClick = action
+                                        )
+                                    }
+                                    onEditClick?.let { action ->
+                                        XvoxBoxHeaderIconButton(
+                                            icon = if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
+                                            contentDescription = if (isEditing) "Save" else "Edit",
+                                            tint = colors.primaryAccent,
+                                            size = 34.dp,
+                                            iconSize = 18.dp,
+                                            onClick = action
+                                        )
+                                    }
+                                    onAddClick?.let { action ->
+                                        XvoxBoxHeaderIconButton(
+                                            icon = R.drawable.ic_xvox_add,
+                                            contentDescription = "Add",
+                                            tint = colors.primaryAccent,
+                                            size = 34.dp,
+                                            iconSize = 18.dp,
+                                            onClick = action
+                                        )
+                                    }
+                                    XvoxBoxHeaderIconButton(
+                                        icon = R.drawable.ic_xvox_close,
+                                        contentDescription = "Close $title",
+                                        tint = colors.secondaryText,
+                                        size = 34.dp,
+                                        iconSize = 18.dp,
+                                        onClick = ::close
+                                    )
+                                }
+                            } else {
+                                onSettingsClick?.let { action ->
+                                    XvoxBoxHeaderIconButton(
+                                        icon = R.drawable.ic_xvox_settings,
+                                        contentDescription = "Settings",
+                                        tint = colors.primaryAccent,
+                                        size = 42.dp,
+                                        iconSize = 19.dp,
+                                        onClick = action
+                                    )
+                                }
+                                onUndoClick?.let { action ->
+                                    XvoxBoxHeaderIconButton(
+                                        icon = R.drawable.ic_xvox_undo,
+                                        contentDescription = "Undo",
+                                        tint = colors.primaryAccent,
+                                        size = 42.dp,
+                                        iconSize = 19.dp,
+                                        onClick = action
+                                    )
+                                }
+                                onEditClick?.let { action ->
+                                    XvoxBoxHeaderIconButton(
+                                        icon = if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
+                                        contentDescription = if (isEditing) "Save" else "Edit",
+                                        tint = colors.primaryAccent,
+                                        size = 42.dp,
+                                        iconSize = 19.dp,
+                                        onClick = action
+                                    )
+                                }
+                                onAddClick?.let { action ->
+                                    XvoxBoxHeaderIconButton(
+                                        icon = R.drawable.ic_xvox_add,
+                                        contentDescription = "Add",
+                                        tint = colors.primaryAccent,
+                                        size = 48.dp,
+                                        iconSize = 20.dp,
+                                        onClick = action
+                                    )
+                                }
+                                XvoxBoxHeaderIconButton(
+                                    icon = R.drawable.ic_xvox_close,
+                                    contentDescription = "Close $title",
                                     tint = colors.primaryText,
-                                    modifier = Modifier.size(20.dp)
+                                    size = 48.dp,
+                                    iconSize = 20.dp,
+                                    onClick = ::close
                                 )
                             }
                         }
 
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(0.7.dp)
-                                .background(colors.cardBorder.copy(alpha = 0.55f))
-                        )
+                        if (!songOptionsPresentation) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(0.7.dp)
+                                    .background(colors.cardBorder.copy(alpha = 0.55f))
+                            )
+                        }
 
                         // Adaptive content container: hugs exact content height with no forced expansion
                         Box(
@@ -272,6 +327,31 @@ fun XvoxBox(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun XvoxBoxHeaderIconButton(
+    icon: Int,
+    contentDescription: String,
+    tint: Color,
+    size: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .xvoxPressScale(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(iconSize)
+        )
     }
 }
 

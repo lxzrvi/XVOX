@@ -18,6 +18,7 @@ fun XvoxOverlayHost(
                 XvoxBox(
                     onDismiss = controller::hideBox,
                     title = controller.boxTitle,
+                    presentation = controller.boxPresentation,
                     mini = controller.boxMini,
                     onSettingsClick = controller.boxSettingsAction,
                     onUndoClick = controller.boxUndoAction,

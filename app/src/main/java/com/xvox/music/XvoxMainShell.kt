@@ -72,8 +72,8 @@ import com.xvox.music.features.home.ProfileEditorBox
 import com.xvox.music.features.home.SongInfoBox
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.showCreatePlaylistOverlay
-import com.xvox.music.features.home.showDeleteOverlay
 import com.xvox.music.features.home.showLibraryRefresh
+import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
@@ -320,6 +320,22 @@ fun XvoxMainShell(
         }
     }
 
+    fun showMiniPlayerSongOptions(song: Song) {
+        showSongOptionsOverlay(
+            overlays = overlays,
+            context = context,
+            song = song,
+            isLiked = song.id in homeState.likedSongIds,
+            viewModel = homeViewModel,
+            playerViewModel = playerViewModel,
+            playlists = homeState.playlists,
+            songs = homeState.songs,
+            deleteLauncher = miniDeleteLauncher,
+            onPendingDelete = { pendingDeleteSong = it },
+            onSectionSettings = ::showMiniPlayerSettings
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -465,21 +481,7 @@ fun XvoxMainShell(
                                     overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                                 }
                             },
-                            onAdd = { currentSong?.let(::showAddCurrentSongToPlaylist) },
-                            onDelete = {
-                                currentSong?.let { song ->
-                                    showDeleteOverlay(
-                                        overlays = overlays,
-                                        context = context,
-                                        song = song,
-                                        playerViewModel = playerViewModel,
-                                        viewModel = homeViewModel,
-                                        deleteLauncher = miniDeleteLauncher,
-                                        onPendingDelete = { pendingDeleteSong = it }
-                                    )
-                                }
-                            },
-                            onSettings = ::showMiniPlayerSettings,
+                            onSongOptions = { currentSong?.let(::showMiniPlayerSongOptions) },
                             modifier = Modifier.fillMaxWidth().height(60.dp)
                         )
                     }
@@ -530,21 +532,7 @@ fun XvoxMainShell(
                         overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                     }
                 },
-                onAdd = { currentSong?.let(::showAddCurrentSongToPlaylist) },
-                onDelete = {
-                    currentSong?.let { song ->
-                        showDeleteOverlay(
-                            overlays = overlays,
-                            context = context,
-                            song = song,
-                            playerViewModel = playerViewModel,
-                            viewModel = homeViewModel,
-                            deleteLauncher = miniDeleteLauncher,
-                            onPendingDelete = { pendingDeleteSong = it }
-                        )
-                    }
-                },
-                onSettings = ::showMiniPlayerSettings
+                onSongOptions = { currentSong?.let(::showMiniPlayerSongOptions) }
             )
 
             Box(

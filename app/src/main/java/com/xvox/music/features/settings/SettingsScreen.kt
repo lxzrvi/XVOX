@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -240,35 +243,65 @@ private fun XvoxSegmentedPill(
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(50)
     val selectedTextColor = xvoxOnAccent(colors.primaryAccent)
+    val selectedIndex = options.indexOfFirst { (key, _) -> key == selectedKey }
+    val hasSelection = selectedIndex >= 0
 
-    Row(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(if (compact) 40.dp else 42.dp)
             .clip(shape)
             .background(colors.cardElevated)
             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), shape)
-            .padding(3.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        options.forEach { (key, label) ->
-            val isSelected = key == selectedKey
+        val horizontalInset = 3.dp
+        val verticalInset = 3.dp
+        val usableWidth = (maxWidth - (horizontalInset * 2)).coerceAtLeast(0.dp)
+        val segmentWidth = if (options.isEmpty()) 0.dp else usableWidth / options.size.toFloat()
+        val targetOffset = horizontalInset + (segmentWidth * selectedIndex.coerceAtLeast(0).toFloat())
+        val animatedOffset by animateDpAsState(
+            targetValue = targetOffset,
+            animationSpec = tween(300, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)),
+            label = "settingsSegmentedPillSlide"
+        )
+
+        // One persistent selection surface moves between slots; changing an option never redraws
+        // the highlight in place, so every Settings pill visibly glides to its next choice.
+        if (hasSelection) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
+                    .offset(x = animatedOffset, y = verticalInset)
+                    .width(segmentWidth)
+                    .height((maxHeight - (verticalInset * 2)).coerceAtLeast(0.dp))
                     .clip(CircleShape)
-                    .background(if (isSelected) colors.primaryAccent else Color.Transparent)
-                    .xvoxPressScale { onSelect(key) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (isSelected) selectedTextColor else colors.mutedText,
-                    fontSize = if (compact) 11.5.sp else 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    maxLines = 1
-                )
+                    .background(colors.primaryAccent)
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(horizontal = horizontalInset, vertical = verticalInset),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            options.forEach { (key, label) ->
+                val isSelected = key == selectedKey
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .xvoxPressScale { onSelect(key) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) selectedTextColor else colors.mutedText,
+                        fontSize = if (compact) 11.5.sp else 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }

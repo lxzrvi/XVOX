@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,7 +22,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.xvox.music.core.model.Song
 import kotlin.math.abs
 import kotlinx.coroutines.Job
@@ -43,9 +43,7 @@ fun XvoxMiniPlayer(
     openPlayer: () -> Unit,
     isLiked: Boolean = false,
     onLike: () -> Unit,
-    onAdd: () -> Unit,
-    onDelete: () -> Unit = {},
-    onSettings: () -> Unit = {},
+    onSongOptions: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -59,13 +57,9 @@ fun XvoxMiniPlayer(
     var rawY by remember { mutableFloatStateOf(0f) }
     var axis by remember { mutableStateOf(XvoxMiniAxis.NONE) }
     var moved by remember { mutableStateOf(false) }
-    var actionsVisible by remember { mutableStateOf(false) }
     var exiting by remember { mutableStateOf(false) }
     var commitJob by remember { mutableStateOf<Job?>(null) }
-
-    androidx.activity.compose.BackHandler(enabled = actionsVisible) {
-        actionsVisible = false
-    }
+    val showSongOptions by rememberUpdatedState(onSongOptions)
 
     var previewIndex by remember(currentSongId, queue) {
         mutableIntStateOf(currentIndex.takeIf { it in queue.indices } ?: 0)
@@ -106,7 +100,6 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            actionsVisible = false
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
@@ -125,8 +118,7 @@ fun XvoxMiniPlayer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            // Keep enough room for the long-press actions, but make the resting mini player lighter.
-            .height(102.dp),
+            .height(68.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
@@ -140,7 +132,6 @@ fun XvoxMiniPlayer(
                     detectDragGestures(
                         onDragStart = {
                             cancelCommit()
-                            actionsVisible = false
                             axis = XvoxMiniAxis.NONE
                             rawX = 0f
                             rawY = 0f
@@ -241,17 +232,13 @@ fun XvoxMiniPlayer(
                         onLongPress = {
                             if (!moved) {
                                 cancelCommit()
-                                actionsVisible = !actionsVisible
+                                showSongOptions()
                             }
                         },
                         onTap = {
                             if (!moved) {
                                 cancelCommit()
-                                if (actionsVisible) {
-                                    actionsVisible = false
-                                } else {
-                                    exit(y.value, false)
-                                }
+                                exit(y.value, false)
                             }
                         }
                     )
@@ -275,26 +262,5 @@ fun XvoxMiniPlayer(
             )
         }
 
-        XvoxMiniPlayerActions(
-            visible = actionsVisible,
-            onAdd = {
-                actionsVisible = false
-                onAdd()
-            },
-            onSettings = {
-                actionsVisible = false
-                onSettings()
-            },
-            onDelete = {
-                actionsVisible = false
-                onDelete()
-            },
-            onClose = {
-                exit(y.value + dragY, true)
-            },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .zIndex(10f)
-        )
     }
 }
