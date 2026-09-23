@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -101,65 +102,67 @@ fun BackupSettingsSection(
         }
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text(
             text = "Export and restore your app settings, preferences, and custom data.",
-            color = colors.secondaryText,
-            fontSize = 11.5.sp,
-            lineHeight = 15.sp,
-            modifier = Modifier.padding(bottom = 12.dp)
+            color = colors.mutedText,
+            fontSize = 11.sp,
+            lineHeight = 15.sp
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Export Button
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(50))
                     .background(colors.cardElevated)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), RoundedCornerShape(50))
                     .xvoxPressScale {
                         haptics.tap()
                         create.launch(defaultBackupFileName)
                     }
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                    .padding(vertical = 11.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_xvox_share),
-                    contentDescription = null,
+                    contentDescription = "Export backup",
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Export Backup", color = colors.primaryText, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                Text("Export Backup", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
-            // Import Button
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(50))
                     .background(colors.cardElevated)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), RoundedCornerShape(50))
                     .xvoxPressScale {
                         haptics.tap()
                         open.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
                     }
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                    .padding(vertical = 11.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_xvox_refresh),
-                    contentDescription = null,
+                    contentDescription = "Import backup",
                     tint = colors.primaryAccent,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Import Backup", color = colors.primaryText, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                Text("Import Backup", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

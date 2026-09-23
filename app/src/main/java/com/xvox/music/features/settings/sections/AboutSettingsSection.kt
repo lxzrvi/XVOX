@@ -3,16 +3,8 @@ package com.xvox.music.features.settings.sections
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -29,21 +21,22 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 
 @Composable
 fun AboutSettingsSection() {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
+    val pillShape = RoundedCornerShape(50)
 
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Share XVOX Button
+    Column(
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(pillShape)
                 .background(colors.primaryAccent)
                 .xvoxPressScale {
                     haptics.tap()
@@ -56,72 +49,57 @@ fun AboutSettingsSection() {
             Icon(
                 painter = painterResource(R.drawable.ic_xvox_share),
                 contentDescription = "Share XVOX",
-                tint = colors.background,
-                modifier = Modifier.size(18.dp)
+                tint = aboutOnAccent(colors.primaryAccent),
+                modifier = Modifier.size(17.dp)
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "Share XVOX",
-                color = colors.background,
-                fontSize = 14.sp,
+                color = aboutOnAccent(colors.primaryAccent),
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "XVOX Music Player",
+                color = colors.primaryAccent,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "v0.1.0",
+                color = colors.mutedText,
+                fontSize = 11.sp
+            )
+        }
 
-        // App Information & Features Description
-        Column(
+        Text(
+            text = "A modern, ultra-responsive music player designed with fluid swipe gestures, continuous playback engines, live synchronized lyrics, real-time audio DSP, and elegant adaptive aesthetics.",
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            lineHeight = 16.sp
+        )
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(colors.cardElevated)
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .background(colors.cardElevated.copy(alpha = 0.58f))
+                .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                .padding(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "XVOX Music Player",
-                    color = colors.primaryAccent,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "v0.1.0",
-                    color = colors.mutedText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
             Text(
-                text = "A modern, ultra-responsive music player designed with fluid swipe gestures, continuous playback engines, live synchronized lyrics, real-time audio DSP, and elegant adaptive aesthetics.",
-                color = colors.primaryText,
-                fontSize = 12.sp,
-                lineHeight = 17.sp
+                text = "Note: Feature settings and customizations (Equalizer, 3D Sound, Lyrics styling, Layout grids) are accessible directly inside their dedicated pages and long-press option menus, keeping Settings clean and minimal.",
+                color = colors.mutedText,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
             )
-
-            Spacer(Modifier.height(2.dp))
-
-            // Note about contextual settings
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.card)
-                    .padding(10.dp)
-            ) {
-                Text(
-                    text = "Note: Feature settings and customizations (Equalizer, 3D Sound, Lyrics styling, Layout grids) are accessible directly inside their dedicated pages and long-press option menus, keeping Settings clean and minimal.",
-                    color = colors.secondaryText,
-                    fontSize = 11.5.sp,
-                    lineHeight = 16.sp
-                )
-            }
         }
     }
 }
@@ -136,8 +114,13 @@ private fun shareXvoxApp(context: Context) {
             )
             type = "text/plain"
         }
-        val shareIntent = Intent.createChooser(sendIntent, "Share XVOX")
-        shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(shareIntent)
+        context.startActivity(Intent.createChooser(sendIntent, "Share XVOX").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
+}
+
+private fun aboutOnAccent(accent: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Color {
+    val luminance = 0.2126f * accent.red + 0.7152f * accent.green + 0.0722f * accent.blue
+    return if (luminance > 0.62f) androidx.compose.ui.graphics.Color(0xFF111111) else androidx.compose.ui.graphics.Color.White
 }
