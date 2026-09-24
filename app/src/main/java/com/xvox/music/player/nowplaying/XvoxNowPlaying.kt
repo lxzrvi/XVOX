@@ -51,6 +51,7 @@ import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.features.settings.EqualizerControlsSnapshot
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.features.settings.sections.EqualizerFooterActions
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
 import com.xvox.music.features.settings.sections.HeadsetSettingsSection
 import com.xvox.music.features.settings.sections.LyricsSettingsSection
@@ -75,6 +76,8 @@ fun XvoxNowPlaying(
     position: Long,
     duration: Long,
     onClose: () -> Unit,
+    /** Starts the Mini Player entrance concurrently with this screen's existing dismissal motion. */
+    onDismissStart: () -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
@@ -176,6 +179,7 @@ fun XvoxNowPlaying(
     fun dismiss() {
         if (dismissing) return
         dismissing = true
+        onDismissStart()
         animateScreen(target = screenHeight, finished = onClose)
     }
 
@@ -778,12 +782,27 @@ fun XvoxNowPlaying(
                         XvoxBoxPresentation.EQUALIZER
                     } else {
                         XvoxBoxPresentation.DEFAULT
-                    }
+                    },
+                    bottomAction = if (activeSettingsBox == "Equalizer") {
+                        {
+                            EqualizerFooterActions(
+                                onCancel = {
+                                    equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
+                                    activeSettingsBox = null
+                                },
+                                onReset = settingsViewModel::resetEqualizerControls,
+                                onDone = { activeSettingsBox = null }
+                            )
+                        }
+                    } else null
                 ) {
                     val scrollState = rememberScrollState()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // XvoxBox reserves its footer height; make the Equalizer's scroll
+                            // viewport consume that space so its actions never travel with content.
+                            .then(if (activeSettingsBox == "Equalizer") Modifier.fillMaxHeight() else Modifier)
                             .verticalScroll(scrollState)
                             .xvoxBoxScroll(scrollState)
                     ) {
@@ -795,7 +814,8 @@ fun XvoxNowPlaying(
                                     equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
                                     activeSettingsBox = null
                                 },
-                                onDone = { activeSettingsBox = null }
+                                onDone = { activeSettingsBox = null },
+                                showFooter = false
                             )
                             "3D sound" -> ThreeDSoundSettingsSection(state = settingsState, viewModel = settingsViewModel)
                             "Crossfade" -> PlaybackSettingsSection(state = settingsState, viewModel = settingsViewModel)

@@ -171,10 +171,11 @@ private fun AppearanceSectionCard(
         else -> "custom"
     }
 
+    // The former M option is represented by the requested XL setting; the remaining choices
+    // retain their own labels and persisted scale values.
     val scaleOptions = listOf(
         Triple("xs", "XS", 0.80f),
         Triple("s", "S", 0.90f),
-        Triple("m", "M", 1.00f),
         Triple("l", "L", 1.20f),
         Triple("xl", "XL", 1.40f)
     )
@@ -207,6 +208,17 @@ private fun AppearanceSectionCard(
                     onSelect = { key ->
                         scaleOptions.firstOrNull { it.first == key }?.let { viewModel.setFontSizeScale(it.third) }
                     },
+                    compact = true
+                )
+            }
+
+            // 3 preserves the original top-action layout; 4 and 5 progressively move library
+            // destinations into the bottom navigation. Four is intentionally the new default.
+            SettingsField("Extended") {
+                XvoxSegmentedPill(
+                    options = listOf("3" to "3", "4" to "4", "5" to "5"),
+                    selectedKey = state.homeNavigationSlots.coerceIn(3, 5).toString(),
+                    onSelect = { value -> viewModel.setHomeNavigationSlots(value.toIntOrNull() ?: 4) },
                     compact = true
                 )
             }

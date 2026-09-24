@@ -2,6 +2,7 @@ package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -9,8 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -43,6 +42,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -54,7 +54,9 @@ fun EqualizerSettingsSection(
     state: SettingsState,
     viewModel: SettingsViewModel,
     onCancel: () -> Unit = {},
-    onDone: () -> Unit = {}
+    onDone: () -> Unit = {},
+    /** XvoxBox hosts the fixed footer when this editor is used inside Now Playing. */
+    showFooter: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
@@ -67,7 +69,7 @@ fun EqualizerSettingsSection(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         saveError?.let {
             Text(
@@ -78,21 +80,21 @@ fun EqualizerSettingsSection(
             )
         }
 
-        EqualizerToggleRow(
-            title = "Enable equalizer",
-            subtitle = "Boost dynamic clarity and output loudness",
-            checked = state.equalizerEnabled,
-            onCheckedChange = viewModel::setEqualizerEnabled
-        )
-
-        EqualizerBlock {
+        // Enable and the five editable bands deliberately live in one Settings-matched card.
+        EqualizerCard {
+            EqualizerToggleRow(
+                title = "Enable equalizer",
+                subtitle = "Boost or cut each band without weakening the full mix",
+                checked = state.equalizerEnabled,
+                onCheckedChange = viewModel::setEqualizerEnabled
+            )
+            EqualizerHairline()
             EqualizerSectionLabel("EQ preset")
             EqualizerChipRow(
-                options = AudioEffectsManager.EQ_PRESET_NAMES + "Custom",
+                options = AudioEffectsManager.EQ_PRESET_NAMES,
                 selected = state.eqPreset,
                 onSelect = viewModel::setEqPreset
             )
-
             Spacer(Modifier.height(12.dp))
             EqualizerSectionLabel("Bands")
             Box(
@@ -100,8 +102,8 @@ fun EqualizerSettingsSection(
                     .fillMaxWidth()
                     .height(176.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(colors.cardElevated.copy(alpha = if (colors.isLight) .88f else .72f))
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = .82f), RoundedCornerShape(14.dp))
+                    .background(colors.cardElevated)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = .72f), RoundedCornerShape(14.dp))
                     .padding(horizontal = 6.dp, vertical = 7.dp)
             ) {
                 Row(
@@ -120,26 +122,26 @@ fun EqualizerSettingsSection(
             }
         }
 
-        EqualizerBlock {
-            EqualizerSliderRow(
-                label = "App volume",
-                valueText = "${(state.appVolume * 100).roundToInt()}%",
-                value = state.appVolume,
-                onValueChange = viewModel::setAppVolume,
-                defaultValue = 1f
-            )
-        }
+        // The remaining controls intentionally sit directly on the sheet rather than each being
+        // boxed into a card. That preserves the compact single-surface reference hierarchy.
+        EqualizerSliderRow(
+            label = "App volume",
+            valueText = "${(state.appVolume * 100).roundToInt()}%",
+            value = (state.appVolume / 2f).coerceIn(0f, 1f),
+            onValueChange = { viewModel.setAppVolume(it * 2f) },
+            defaultValue = .50f,
+            defaultText = "100%"
+        )
 
-        EqualizerBlock {
+        EqualizerHairline()
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EqualizerSectionLabel("Reverb preset")
             EqualizerChipRow(
                 options = ReverbPresets.names,
                 selected = state.reverbPreset,
                 onSelect = viewModel::setReverbPreset
             )
-
             if (state.reverbPreset != ReverbPresets.OFF) {
-                Spacer(Modifier.height(12.dp))
                 EqualizerSliderRow(
                     label = "Amount",
                     valueText = "${(state.reverbAmount * 100).roundToInt()}%",
@@ -150,81 +152,96 @@ fun EqualizerSettingsSection(
             }
         }
 
-        EqualizerBlock {
+        EqualizerHairline()
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Noise reduction",
-                subtitle = "Reduce steady background noise",
+                subtitle = "Reduce hiss and quiet background noise",
                 checked = state.noiseReductionEnabled,
                 onCheckedChange = viewModel::setNoiseReductionEnabled
             )
             if (state.noiseReductionEnabled) {
-                Spacer(Modifier.height(7.dp))
                 EqualizerSliderRow(
                     label = "Amount",
                     valueText = "${(state.noiseReduction * 100).roundToInt()}%",
                     value = state.noiseReduction,
                     onValueChange = viewModel::setNoiseReduction,
-                    defaultValue = .40f
+                    defaultValue = .50f
                 )
             }
         }
 
-        EqualizerBlock {
+        EqualizerHairline()
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Grain control",
-                subtitle = "Soften harsh highs and digital grain",
+                subtitle = "Smooth harsh highs and digital grain",
                 checked = state.grainControlEnabled,
                 onCheckedChange = viewModel::setGrainControlEnabled
             )
             if (state.grainControlEnabled) {
-                Spacer(Modifier.height(7.dp))
                 EqualizerSliderRow(
                     label = "Amount",
                     valueText = "${(state.softenHighs * 100).roundToInt()}%",
                     value = state.softenHighs,
                     onValueChange = viewModel::setSoftenHighs,
-                    defaultValue = .30f
+                    defaultValue = .50f
                 )
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            EqualizerFooterButton(
-                label = "Cancel",
-                onClick = onCancel,
-                modifier = Modifier.weight(1f)
-            )
-            EqualizerFooterButton(
-                label = "Reset",
-                onClick = viewModel::resetEqualizerControls,
-                modifier = Modifier.weight(1f)
-            )
-            EqualizerFooterButton(
-                label = "Okay",
-                onClick = onDone,
-                prominent = true,
-                modifier = Modifier.weight(1f)
+        if (showFooter) {
+            EqualizerFooterActions(
+                onCancel = onCancel,
+                onReset = viewModel::resetEqualizerControls,
+                onDone = onDone
             )
         }
     }
 }
 
+/** Fixed action row supplied to XvoxBox when the overlay owns its viewport. */
 @Composable
-private fun EqualizerBlock(content: @Composable ColumnScope.() -> Unit) {
+fun EqualizerFooterActions(
+    onCancel: () -> Unit,
+    onReset: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        EqualizerFooterButton("Cancel", onCancel, Modifier.weight(1f))
+        EqualizerFooterButton("Reset", onReset, Modifier.weight(1f))
+        EqualizerFooterButton("Okay", onDone, Modifier.weight(1f), prominent = true)
+    }
+}
+
+@Composable
+private fun EqualizerCard(content: @Composable ColumnScope.() -> Unit) {
     val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(22.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.card.copy(alpha = if (colors.isLight) .50f else .42f))
-            .border(0.7.dp, colors.cardBorder.copy(alpha = .72f), RoundedCornerShape(14.dp))
-            .padding(12.dp),
+            // Match the Settings-page cards exactly in both light and dark palettes.
+            .clip(shape)
+            .background(colors.card)
+            .border(1.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .8f else .72f), shape)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         content = content
+    )
+}
+
+@Composable
+private fun EqualizerHairline() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(.8.dp)
+            .background(XvoxTheme.colors.cardBorder.copy(alpha = .72f))
     )
 }
 
@@ -234,8 +251,7 @@ private fun EqualizerSectionLabel(text: String) {
         text = text,
         color = XvoxTheme.colors.primaryText,
         fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 8.dp)
+        fontWeight = FontWeight.Bold
     )
 }
 
@@ -291,7 +307,7 @@ private fun EqualizerChipRow(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        options.forEach { option ->
+        options.distinct().forEach { option ->
             val selectedChip = option == selected
             val colors = XvoxTheme.colors
             val shape = RoundedCornerShape(18.dp)
@@ -327,10 +343,11 @@ private fun EqualizerSliderRow(
     valueText: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float
+    defaultValue: Float,
+    defaultText: String = "${(defaultValue * 100).roundToInt()}%"
 ) {
     val colors = XvoxTheme.colors
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -349,25 +366,87 @@ private fun EqualizerSliderRow(
                 fontWeight = FontWeight.Bold
             )
         }
-        Slider(
-            value = value.coerceIn(0f, 1f),
-            onValueChange = { onValueChange(it.coerceIn(0f, 1f)) },
-            valueRange = 0f..1f,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = colors.primaryAccent,
-                activeTrackColor = colors.primaryAccent,
-                inactiveTrackColor = colors.progressTrack
-            )
+        EqualizerThinSlider(
+            value = value,
+            onValueChange = onValueChange,
+            defaultValue = defaultValue,
+            contentDescription = "$label amount"
         )
         Text(
-            text = "Default: ${(defaultValue * 100).roundToInt()}%",
+            text = "Default: $defaultText",
             color = colors.mutedText.copy(alpha = .80f),
             fontSize = 9.5.sp,
-            lineHeight = 12.sp,
-            modifier = Modifier.padding(top = 1.dp)
+            lineHeight = 12.sp
+        )
+    }
+}
+
+/** Thin, rounded amount slider with an intentional snap at its default/midpoint. */
+@Composable
+private fun EqualizerThinSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    defaultValue: Float,
+    contentDescription: String
+) {
+    val colors = XvoxTheme.colors
+    val latestChange by rememberUpdatedState(onValueChange)
+    val current = value.coerceIn(0f, 1f)
+    fun snap(raw: Float): Float {
+        val safe = raw.coerceIn(0f, 1f)
+        return if (abs(safe - defaultValue) <= .035f) defaultValue else safe
+    }
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(30.dp)
+            .semantics {
+                this.contentDescription = contentDescription
+                progressBarRangeInfo = ProgressBarRangeInfo(current, 0f..1f, 100)
+                setProgress { requested ->
+                    latestChange(snap(requested))
+                    true
+                }
+            }
+            .pointerInput(latestChange, defaultValue) {
+                detectTapGestures { offset ->
+                    val raw = offset.x / size.width.toFloat().coerceAtLeast(1f)
+                    latestChange(snap(raw))
+                }
+            }
+            .pointerInput(latestChange, defaultValue) {
+                detectHorizontalDragGestures { change, _ ->
+                    change.consume()
+                    val raw = change.position.x / size.width.toFloat().coerceAtLeast(1f)
+                    latestChange(snap(raw))
+                }
+            }
+    ) {
+        val shape = RoundedCornerShape(50)
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(shape)
+                .background(colors.progressTrack)
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(maxWidth * current)
+                .height(4.dp)
+                .clip(shape)
+                .background(colors.primaryAccent)
+        )
+        // The fine default marker makes the centered snap discoverable without a bulky thumb.
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (maxWidth * defaultValue) - .5.dp)
+                .width(1.dp)
+                .height(10.dp)
+                .background(colors.primaryText.copy(alpha = .42f))
         )
     }
 }
@@ -381,7 +460,7 @@ private fun EqualizerFooterButton(
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(10.dp)
-    val fill = if (prominent) colors.primaryAccent else colors.cardElevated
+    val fill = if (prominent) colors.primaryAccent else colors.card
     val textColor = if (prominent) colors.background else colors.primaryText
     Box(
         modifier = modifier
@@ -445,7 +524,7 @@ fun SevenButtonLevelSelector(
     }
 }
 
-/** Five-band vertical control with pointer, tap, and accessibility progress support. */
+/** Five-band vertical control with rounded track tips, pointer, tap, and accessibility support. */
 @Composable
 fun VerticalEqBandSlider(
     label: String,
@@ -459,6 +538,11 @@ fun VerticalEqBandSlider(
     var localValue by remember(value) { mutableIntStateOf(value.coerceIn(minDb, maxDb)) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val fraction = ((localValue - minDb).toFloat() / (maxDb - minDb).toFloat()).coerceIn(0f, 1f)
+
+    fun snappedDb(raw: Float): Int {
+        val db = raw.roundToInt().coerceIn(minDb, maxDb)
+        return if (abs(db) <= 1) 0 else db
+    }
 
     Column(
         modifier = modifier
@@ -482,7 +566,7 @@ fun VerticalEqBandSlider(
                     contentDescription = "$label equalizer band"
                     progressBarRangeInfo = ProgressBarRangeInfo(localValue.toFloat(), -12f..12f, 23)
                     setProgress { requested ->
-                        val db = requested.roundToInt().coerceIn(minDb, maxDb)
+                        val db = snappedDb(requested)
                         localValue = db
                         currentOnValueChange(db)
                         true
@@ -491,7 +575,7 @@ fun VerticalEqBandSlider(
                 .pointerInput(label) {
                     detectTapGestures { offset ->
                         val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)
-                        val db = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                        val db = snappedDb(minDb + f * (maxDb - minDb))
                         localValue = db
                         currentOnValueChange(db)
                     }
@@ -500,7 +584,7 @@ fun VerticalEqBandSlider(
                     detectVerticalDragGestures(onVerticalDrag = { change, _ ->
                         change.consume()
                         val f = (1f - (change.position.y / size.height)).coerceIn(0f, 1f)
-                        val db = (minDb + f * (maxDb - minDb)).roundToInt().coerceIn(minDb, maxDb)
+                        val db = snappedDb(minDb + f * (maxDb - minDb))
                         if (db != localValue) {
                             localValue = db
                             currentOnValueChange(db)
@@ -509,6 +593,7 @@ fun VerticalEqBandSlider(
                 },
             contentAlignment = Alignment.Center
         ) {
+            // No circular thumb: the rounded active fill itself is the position indicator.
             Box(
                 modifier = Modifier
                     .width(4.dp)
@@ -526,12 +611,10 @@ fun VerticalEqBandSlider(
             )
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = (98 * fraction).dp)
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(colors.primaryAccent)
-                    .border(1.dp, colors.background.copy(alpha = .70f), CircleShape)
+                    .align(Alignment.Center)
+                    .width(10.dp)
+                    .height(1.dp)
+                    .background(colors.cardBorder.copy(alpha = .72f))
             )
         }
 

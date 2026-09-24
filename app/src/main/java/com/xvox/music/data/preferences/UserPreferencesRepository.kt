@@ -82,6 +82,8 @@ class UserPreferencesRepository(
         val noiseReduction = floatPreferencesKey("noise_reduction")
         val softenHighs = floatPreferencesKey("soften_highs")
         val eqBands = stringPreferencesKey("eq_bands")
+        /** User-authored bands retained even after a temporary factory preset selection. */
+        val customEqBands = stringPreferencesKey("custom_eq_bands")
         val balance = floatPreferencesKey("balance_l_r")
         val stereoWidening = booleanPreferencesKey("stereo_widening")
         val surroundPanSpeed = intPreferencesKey("surround_pan_speed")
@@ -111,6 +113,8 @@ class UserPreferencesRepository(
         val homeLayoutStyle = stringPreferencesKey("home_layout_style")
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
+        /** 3 = standard nav, 4 = Liked in nav, 5 = Liked + Playlists in nav. */
+        val homeNavigationSlots = intPreferencesKey("home_navigation_slots")
         val recentsPlacement = stringPreferencesKey("recents_placement")
         val eqHeadroomDb = floatPreferencesKey("eq_headroom_db")
         val surroundDepth = floatPreferencesKey("surround_depth")
@@ -317,6 +321,13 @@ class UserPreferencesRepository(
     val eqBands: Flow<List<Int>> = context.xvoxDataStore.data.map {
         com.xvox.music.audio.EqBands.convert(decodeBands(it[Keys.eqBands].orEmpty()), com.xvox.music.audio.EqBands.count(it[Keys.eqBandCount] ?: 5))
     }.distinctUntilChanged()
+    val customEqBands: Flow<List<Int>> = context.xvoxDataStore.data.map { prefs ->
+        val saved = prefs[Keys.customEqBands]
+        val legacyCustom = if (saved.isNullOrBlank() &&
+            com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(prefs[Keys.eqPreset]) == "Custom"
+        ) prefs[Keys.eqBands].orEmpty() else saved.orEmpty()
+        com.xvox.music.audio.EqBands.convert(decodeBands(legacyCustom), 5)
+    }.distinctUntilChanged()
     val balance: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.balance] ?: 0f }.distinctUntilChanged()
     val stereoWidening: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.stereoWidening] ?: false }.distinctUntilChanged()
     val surroundPanSpeed: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.surroundPanSpeed] ?: 6 }.distinctUntilChanged()
@@ -335,7 +346,7 @@ class UserPreferencesRepository(
     val hrtf: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val centerPreservation: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
-    val appVolume: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.appVolume] ?: 1.0f }.distinctUntilChanged()
+    val appVolume: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.appVolume] ?: 1.0f).coerceIn(0f, 2f) }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
     val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
@@ -352,12 +363,14 @@ class UserPreferencesRepository(
     val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
     val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
     val hideStatusBar: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideStatusBar] ?: false }.distinctUntilChanged()
-    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.0f }.distinctUntilChanged()
+    // Default to the requested XL visual scale; explicit choices continue to persist verbatim.
+    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.4f }.distinctUntilChanged()
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
     val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }.distinctUntilChanged()
+    val homeNavigationSlots: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeNavigationSlots] ?: 4).coerceIn(3, 5) }.distinctUntilChanged()
     val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
     val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f) }.distinctUntilChanged()
     val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
@@ -387,7 +400,7 @@ class UserPreferencesRepository(
             surroundEnabled = it[Keys.stereoWidening] ?: false,
             surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
             orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(0f, 20f),
-            masterVolume = ((it[Keys.appVolume] ?: 1f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 1f),
+            masterVolume = ((it[Keys.appVolume] ?: 1f).coerceIn(0f, 2f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 2f),
             surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
             surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
             roomAmount = (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f),
@@ -541,12 +554,18 @@ class UserPreferencesRepository(
     suspend fun setEqPreset(preset: String) {
         context.xvoxDataStore.edit { it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset) }
     }
-    suspend fun setEqBands(bands: List<Int>) { context.xvoxDataStore.edit { it[Keys.eqBands] = bands.joinToString(",") } }
+    suspend fun setEqBands(bands: List<Int>) {
+        context.xvoxDataStore.edit {
+            val safe = com.xvox.music.audio.EqBands.convert(bands, 5).joinToString(",")
+            it[Keys.eqBands] = safe
+            it[Keys.customEqBands] = safe
+        }
+    }
     suspend fun setBalance(v: Float) { context.xvoxDataStore.edit { it[Keys.balance] = v } }
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
     suspend fun setSurroundPanSpeed(v: Int) { context.xvoxDataStore.edit { it[Keys.surroundPanSpeed] = v.coerceIn(0, 20) } }
 
-    suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v } }
+    suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v.coerceIn(0f, 2f) } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 
     suspend fun setHapticFeedbackEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedbackEnabled] = v } }
@@ -578,6 +597,7 @@ class UserPreferencesRepository(
     suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = normalizeHomeStyle(style) } }
     suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
+    suspend fun setHomeNavigationSlots(slots: Int) { context.xvoxDataStore.edit { it[Keys.homeNavigationSlots] = slots.coerceIn(3, 5) } }
     suspend fun setRecentsPlacement(value: String) {
         context.xvoxDataStore.edit {
             val placement = if (value == "top") "top" else "bottom"
@@ -594,6 +614,7 @@ class UserPreferencesRepository(
             it[Keys.equalizerEnabled] = state.enabled
             it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(state.preset)
             it[Keys.eqBands] = state.bands.joinToString(",")
+            it[Keys.customEqBands] = com.xvox.music.audio.EqBands.convert(state.customBands, 5).joinToString(",")
             it[Keys.eqBandCount] = com.xvox.music.audio.EqBands.count(state.bandCount)
             it[Keys.noiseReduction] = state.noiseReduction.coerceIn(0f, 1f)
             it[Keys.noiseReductionEnabled] = state.noiseReductionEnabled
@@ -611,21 +632,27 @@ class UserPreferencesRepository(
             it[Keys.reverbPreset] = com.xvox.music.audio.ReverbPresets.normalize(state.reverbPreset)
             it[Keys.hrtf] = state.hrtf.coerceIn(0f, 1f)
             it[Keys.centerPreservation] = state.centerPreservation.coerceIn(0f, 1f)
-            it[Keys.appVolume] = state.appVolume.coerceIn(0f, 1f)
+            it[Keys.appVolume] = state.appVolume.coerceIn(0f, 2f)
             it[Keys.volumeLimit] = state.volumeLimit.coerceIn(0f, 1f)
         }
     }
     suspend fun setEqState(enabled: Boolean, preset: String, bands: List<Int>) {
         context.xvoxDataStore.edit {
             it[Keys.equalizerEnabled] = enabled
-            it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
-            it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+            val normalized = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
+            val safe = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+            it[Keys.eqPreset] = normalized
+            it[Keys.eqBands] = safe
+            if (normalized == "Custom") it[Keys.customEqBands] = safe
         }
     }
     suspend fun setEqConfiguration(preset: String, bands: List<Int>) {
         context.xvoxDataStore.edit {
-            it[Keys.eqPreset] = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
-            it[Keys.eqBands] = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+            val normalized = com.xvox.music.audio.AudioEffectsManager.normalizeEqPreset(preset)
+            val safe = List(5) { i -> bands.getOrElse(i) { 0 }.coerceIn(-12, 12) }.joinToString(",")
+            it[Keys.eqPreset] = normalized
+            it[Keys.eqBands] = safe
+            if (normalized == "Custom") it[Keys.customEqBands] = safe
         }
     }
     suspend fun setHideRecentlyPlayed(hide: Boolean) { setHomeSectionVisible(HomeSections.RECENT, !hide) }

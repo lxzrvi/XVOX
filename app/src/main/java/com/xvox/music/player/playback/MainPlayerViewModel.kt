@@ -634,17 +634,31 @@ class MainPlayerViewModel(
         _state.update { it.copy(nowPlayingVisible = true, miniPlayerVisible = false) }
     }
 
-    fun closeNowPlaying() {
+    /**
+     * Starts the Now Playing → Mini Player handoff without waiting for the outgoing 320ms sheet
+     * motion. The two existing motions overlap; neither animation itself is sped up.
+     */
+    fun beginNowPlayingDismissal() {
         controller.setFastProgress(false)
+        _state.update { current ->
+            if (current.currentSongId == null) {
+                current.copy(miniPlayerVisible = false)
+            } else {
+                current.copy(
+                    miniPlayerVisible = true,
+                    miniPlayerRiseKey = current.miniPlayerRiseKey + 1
+                )
+            }
+        }
+    }
+
+    /** Completes the visual handoff once Now Playing has reached its existing off-screen target. */
+    fun closeNowPlaying() {
         _state.update { current ->
             if (current.currentSongId == null) {
                 current.copy(nowPlayingVisible = false, miniPlayerVisible = false)
             } else {
-                current.copy(
-                    nowPlayingVisible = false,
-                    miniPlayerVisible = true,
-                    miniPlayerRiseKey = current.miniPlayerRiseKey + 1
-                )
+                current.copy(nowPlayingVisible = false, miniPlayerVisible = true)
             }
         }
     }

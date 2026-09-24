@@ -100,7 +100,9 @@ class XvoxCrossfadeEngine(
     private fun createDeck(gain: Float): Deck {
         val processor = StereoBalanceAudioProcessor().apply {
             // Preload full PCM, not silence: output envelopes belong AFTER the buffered audio sink.
-            engine.settings = parameters.copy(masterVolume = 1f)
+            // App volume belongs to the PCM DSP before the peak guard, so values above 100%
+            // remain real gain instead of being clipped by ExoPlayer's 0..1 volume property.
+            engine.settings = parameters
         }
         val sink = DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(processor)).build()
         val factory = object : DefaultRenderersFactory(context) {
@@ -111,7 +113,7 @@ class XvoxCrossfadeEngine(
             setAudioAttributes(attributes, false)
             setWakeMode(C.WAKE_MODE_LOCAL)
             repeatMode = Player.REPEAT_MODE_OFF
-            volume = (gain * duck * parameters.masterVolume).coerceIn(0f, 1f)
+            volume = (gain * duck).coerceIn(0f, 1f)
             if (outputSpeed != 1f || outputPitch != 1f) {
                 runCatching { setPlaybackParameters(PlaybackParameters(outputSpeed, outputPitch)) }
             }
@@ -231,8 +233,7 @@ class XvoxCrossfadeEngine(
         if (parameters == settings) return
         parameters = settings
         decks().forEach {
-            val dsp = settings.copy(masterVolume = 1f)
-            if (it.processor.engine.settings != dsp) it.processor.engine.settings = dsp
+            if (it.processor.engine.settings != settings) it.processor.engine.settings = settings
             applyOutputVolume(it)
         }
     }
@@ -370,7 +371,7 @@ class XvoxCrossfadeEngine(
     // would otherwise swallow the first buffered portion of the next song when the blend starts.
     private fun setGain(deck: Deck, gain: Float) { deck.gain = gain; applyOutputVolume(deck) }
     private fun applyOutputVolume(deck: Deck) {
-        deck.player.volume = (deck.gain * duck * parameters.masterVolume).coerceIn(0f, 1f)
+        deck.player.volume = (deck.gain * duck).coerceIn(0f, 1f)
     }
     private fun discardPrepared() {
         cancelAnalysis()

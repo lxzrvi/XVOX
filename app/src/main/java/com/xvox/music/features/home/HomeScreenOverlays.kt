@@ -223,7 +223,9 @@ fun showSongOptionsOverlay(
 
     overlays.showBox(
         title = "Song Options",
-        onSettings = onSectionSettings?.let { act -> { act() } },
+        // Playlist rows have contextual actions only; their Song Options must not expose the
+        // unrelated section gear.
+        onSettings = if (playlist == null) onSectionSettings?.let { act -> { act() } } else null,
         presentation = XvoxBoxPresentation.SONG_OPTIONS
     ) {
         SongOptionsBox(

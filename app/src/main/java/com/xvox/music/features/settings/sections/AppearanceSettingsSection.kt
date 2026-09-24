@@ -246,7 +246,7 @@ fun AppearanceSettingsSection(
         ) {
             val sizeOptions = listOf(
                 Triple(0.80f, "Small", 10.5.sp),
-                Triple(1.00f, "Medium", 12.5.sp),
+                Triple(1.00f, "XL", 12.5.sp),
                 Triple(1.20f, "Large", 14.5.sp),
                 Triple(1.40f, "Extra", 16.5.sp)
             )
@@ -280,6 +280,18 @@ fun AppearanceSettingsSection(
                     }
                 }
             }
+        }
+
+        SettingsAccordionItem(
+            title = "Extended",
+            expanded = expandedGroup == "Extended",
+            onToggle = { toggle("Extended") }
+        ) {
+            SettingsChoiceRow(
+                options = listOf("3" to "3", "4" to "4", "5" to "5"),
+                selected = state.homeNavigationSlots.coerceIn(3, 5).toString(),
+                onSelect = { value -> viewModel.setHomeNavigationSlots(value.toIntOrNull() ?: 4) }
+            )
         }
     })
 }

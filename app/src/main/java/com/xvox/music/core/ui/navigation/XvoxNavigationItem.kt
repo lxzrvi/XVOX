@@ -12,88 +12,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
-import com.xvox.music.R
 
+/** Generic item so the Extended layouts can mix destinations with library actions. */
 @Composable
 fun XvoxNavigationItem(
-    destination: XvoxDestination,
+    @DrawableRes icon: Int,
+    label: String,
     proximity: Float,
     dragging: Boolean,
     inactiveColor: Color,
     activeColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val tint =
-        navigationColor(
-            inactive =
-                inactiveColor,
-            active =
-                activeColor,
-            proximity =
-                proximity
-        )
-
-    val iconScale =
-        1f +
-            if (dragging) {
-                0.10f *
-                    proximity
-            } else {
-                0f
-            }
+    val tint = navigationColor(
+        inactive = inactiveColor,
+        active = activeColor,
+        proximity = proximity
+    )
+    val iconScale = 1f + if (dragging) .10f * proximity else 0f
 
     Box(
-        modifier =
-            modifier.fillMaxHeight(),
-        contentAlignment =
-            Alignment.Center
+        modifier = modifier.fillMaxHeight(),
+        contentAlignment = Alignment.Center
     ) {
         Image(
-            painter =
-                painterResource(
-                    navigationIcon(
-                        destination
-                    )
-                ),
-            contentDescription =
-                destination.label,
-            colorFilter =
-                ColorFilter.tint(
-                    tint
-                ),
+            painter = painterResource(icon),
+            contentDescription = label,
+            colorFilter = ColorFilter.tint(tint),
             modifier = Modifier
-                .size(
-                    XvoxNavigationGeometry
-                        .iconSize
-                )
+                .size(XvoxNavigationGeometry.iconSize)
                 .graphicsLayer {
-                    scaleX =
-                        iconScale
-
-                    scaleY =
-                        iconScale
-
-                    alpha =
-                        0.88f +
-                            0.12f *
-                            proximity
+                    scaleX = iconScale
+                    scaleY = iconScale
+                    alpha = .88f + .12f * proximity
                 }
         )
-    }
-}
-
-@DrawableRes
-private fun navigationIcon(
-    destination: XvoxDestination
-): Int {
-    return when (destination) {
-        XvoxDestination.HOME ->
-            R.drawable.ic_xvox_home
-
-        XvoxDestination.SEARCH ->
-            R.drawable.ic_xvox_search
-
-        XvoxDestination.SETTINGS ->
-            R.drawable.ic_xvox_settings
     }
 }

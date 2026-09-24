@@ -26,7 +26,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -128,13 +127,9 @@ fun XvoxBox(
                         equalizerPresentation -> RoundedCornerShape(20.dp)
                         else -> RoundedCornerShape(26.dp)
                     }
-                    // Compact reference panels remain solid in dark / AMOLED themes; light mode
-                    // keeps the selected palette's elevated surface for readable contrast.
-                    val boxFill = if (compactPresentation && !colors.isLight) {
-                        Color(0xFF1C1C1E)
-                    } else {
-                        colors.cardElevated
-                    }
+                    // Song Options and Equalizer share the Settings-page canvas exactly. Their
+                    // actionable surfaces use Settings-card colors inside this background.
+                    val boxFill = if (compactPresentation) colors.background else colors.cardElevated
 
                     Column(
                         Modifier
@@ -155,8 +150,60 @@ fun XvoxBox(
                             .semantics { paneTitle = title }
                     ) {
                         @Composable
+                        fun SongHeaderAction(
+                            icon: Int,
+                            contentDescription: String,
+                            tint: Color = colors.primaryAccent,
+                            onClick: () -> Unit
+                        ) {
+                            // Song Options intentionally exposes two independent circular actions
+                            // rather than merging gear and close into one oversized pill.
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.card)
+                                    .border(0.8.dp, colors.cardBorder.copy(alpha = .78f), CircleShape)
+                                    .xvoxPressScale(onClick = onClick),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(icon),
+                                    contentDescription = contentDescription,
+                                    tint = tint,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+
+                        @Composable
                         fun HeaderActions(compact: Boolean) {
-                            if (compact) {
+                            if (songOptionsPresentation) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    onSettingsClick?.let { action ->
+                                        SongHeaderAction(R.drawable.ic_xvox_settings, "Settings", onClick = action)
+                                    }
+                                    onUndoClick?.let { action ->
+                                        SongHeaderAction(R.drawable.ic_xvox_undo, "Undo", onClick = action)
+                                    }
+                                    onEditClick?.let { action ->
+                                        SongHeaderAction(
+                                            if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
+                                            if (isEditing) "Save" else "Edit",
+                                            onClick = action
+                                        )
+                                    }
+                                    onAddClick?.let { action ->
+                                        SongHeaderAction(R.drawable.ic_xvox_add, "Add", onClick = action)
+                                    }
+                                    SongHeaderAction(
+                                        icon = R.drawable.ic_xvox_close,
+                                        contentDescription = "Close $title",
+                                        tint = colors.secondaryText,
+                                        onClick = ::close
+                                    )
+                                }
+                            } else if (compact) {
                                 Row(
                                     modifier = Modifier
                                         .height(36.dp)
@@ -167,200 +214,97 @@ fun XvoxBox(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     onSettingsClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_settings,
-                                            contentDescription = "Settings",
-                                            tint = colors.primaryAccent,
-                                            size = 32.dp,
-                                            iconSize = 17.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_settings, "Settings", colors.primaryAccent, 32.dp, 17.dp, action)
                                     }
                                     onUndoClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_undo,
-                                            contentDescription = "Undo",
-                                            tint = colors.primaryAccent,
-                                            size = 32.dp,
-                                            iconSize = 17.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_undo, "Undo", colors.primaryAccent, 32.dp, 17.dp, action)
                                     }
                                     onEditClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
-                                            contentDescription = if (isEditing) "Save" else "Edit",
-                                            tint = colors.primaryAccent,
-                                            size = 32.dp,
-                                            iconSize = 17.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit, if (isEditing) "Save" else "Edit", colors.primaryAccent, 32.dp, 17.dp, action)
                                     }
                                     onAddClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_add,
-                                            contentDescription = "Add",
-                                            tint = colors.primaryAccent,
-                                            size = 32.dp,
-                                            iconSize = 17.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_add, "Add", colors.primaryAccent, 32.dp, 17.dp, action)
                                     }
-                                    XvoxBoxHeaderIconButton(
-                                        icon = R.drawable.ic_xvox_close,
-                                        contentDescription = "Close $title",
-                                        tint = if (songOptionsPresentation) colors.secondaryText else colors.primaryText,
-                                        size = 32.dp,
-                                        iconSize = 17.dp,
-                                        onClick = ::close
-                                    )
+                                    XvoxBoxHeaderIconButton(R.drawable.ic_xvox_close, "Close $title", colors.primaryText, 32.dp, 17.dp, ::close)
                                 }
                             } else {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     onSettingsClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_settings,
-                                            contentDescription = "Settings",
-                                            tint = colors.primaryAccent,
-                                            size = 42.dp,
-                                            iconSize = 19.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_settings, "Settings", colors.primaryAccent, 42.dp, 19.dp, action)
                                     }
                                     onUndoClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_undo,
-                                            contentDescription = "Undo",
-                                            tint = colors.primaryAccent,
-                                            size = 42.dp,
-                                            iconSize = 19.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_undo, "Undo", colors.primaryAccent, 42.dp, 19.dp, action)
                                     }
                                     onEditClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
-                                            contentDescription = if (isEditing) "Save" else "Edit",
-                                            tint = colors.primaryAccent,
-                                            size = 42.dp,
-                                            iconSize = 19.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit, if (isEditing) "Save" else "Edit", colors.primaryAccent, 42.dp, 19.dp, action)
                                     }
                                     onAddClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(
-                                            icon = R.drawable.ic_xvox_add,
-                                            contentDescription = "Add",
-                                            tint = colors.primaryAccent,
-                                            size = 48.dp,
-                                            iconSize = 20.dp,
-                                            onClick = action
-                                        )
+                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_add, "Add", colors.primaryAccent, 48.dp, 20.dp, action)
                                     }
-                                    XvoxBoxHeaderIconButton(
-                                        icon = R.drawable.ic_xvox_close,
-                                        contentDescription = "Close $title",
-                                        tint = colors.primaryText,
-                                        size = 48.dp,
-                                        iconSize = 20.dp,
-                                        onClick = ::close
-                                    )
+                                    XvoxBoxHeaderIconButton(R.drawable.ic_xvox_close, "Close $title", colors.primaryText, 48.dp, 20.dp, ::close)
                                 }
                             }
                         }
 
-                        if (songOptionsPresentation && onBack == null && headerLeadingContent == null) {
-                            // The title is centred in the full header, not merely in the remaining
-                            // space beside the action pill. The pill is explicitly centred vertically.
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .padding(horizontal = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (headerTitleContent != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 56.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) { headerTitleContent() }
-                                } else {
-                                    Text(
-                                        text = title,
-                                        color = colors.primaryText,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 56.dp)
-                                    )
-                                }
-                                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                                    HeaderActions(compact = true)
-                                }
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = 18.dp,
+                                    end = if (songOptionsPresentation) 12.dp else 8.dp,
+                                    top = 6.dp,
+                                    bottom = 6.dp
+                                ),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            onBack?.let { back ->
+                                Icon(
+                                    painterResource(R.drawable.ic_xvox_arrow_left),
+                                    "Back",
+                                    tint = colors.primaryText,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .xvoxPressScale(onClick = back)
+                                        .padding(10.dp)
+                                )
                             }
-                        } else {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        start = 18.dp,
-                                        end = if (songOptionsPresentation) 12.dp else 8.dp,
-                                        top = 6.dp,
-                                        bottom = 6.dp
-                                    ),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                onBack?.let { back ->
-                                    Icon(
-                                        painterResource(R.drawable.ic_xvox_arrow_left),
-                                        "Back",
-                                        tint = colors.primaryText,
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .xvoxPressScale(onClick = back)
-                                            .padding(10.dp)
-                                    )
-                                }
-                                if (headerLeadingContent != null) {
-                                    headerLeadingContent()
-                                    Spacer(Modifier.width(10.dp))
-                                }
-                                if (headerTitleContent != null) {
-                                    Box(modifier = Modifier.weight(1f)) { headerTitleContent() }
-                                } else {
-                                    Text(
-                                        title,
-                                        color = colors.primaryText,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                HeaderActions(compact = songOptionsPresentation || equalizerPresentation)
+                            if (headerLeadingContent != null) {
+                                headerLeadingContent()
+                                Spacer(Modifier.width(10.dp))
                             }
+                            if (headerTitleContent != null) {
+                                Box(modifier = Modifier.weight(1f)) { headerTitleContent() }
+                            } else {
+                                Text(
+                                    title,
+                                    color = colors.primaryText,
+                                    fontSize = if (songOptionsPresentation) 16.sp else 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            HeaderActions(compact = songOptionsPresentation || equalizerPresentation)
                         }
-                        if (!songOptionsPresentation) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(0.7.dp)
-                                    .background(colors.cardBorder.copy(alpha = 0.55f))
-                            )
-                        }
-
-                        // Adaptive content container: hugs exact content height with no forced expansion
+                        // Every compact surface gets the same visual divider directly under its
+                        // heading, including the Song Options panel.
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = (maxBoxHeight - if (songOptionsPresentation) 54.dp else 64.dp).coerceAtLeast(100.dp))
+                                .height(0.7.dp)
+                                .background(colors.cardBorder.copy(alpha = .55f))
+                        )
+
+                        // Reserve footer space before measuring scrollable content. The Equalizer
+                        // action row therefore remains pinned while only its controls scroll.
+                        // Row height includes its 6dp top/bottom padding and the divider below.
+                        val headerReserve = 68.dp
+                        val footerReserve = if (bottomAction == null) 0.dp else 66.dp
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = (maxBoxHeight - headerReserve - footerReserve).coerceAtLeast(100.dp))
                                 .wrapContentHeight()
                                 .padding(if (songOptionsPresentation) 12.dp else 14.dp)
                         ) {
@@ -371,7 +315,13 @@ fun XvoxBox(
                             Box(
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+                                    .height(.7.dp)
+                                    .background(colors.cardBorder.copy(alpha = .55f))
+                            )
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 14.dp)
                             ) {
                                 bottomAction()
                             }

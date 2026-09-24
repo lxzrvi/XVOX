@@ -11,13 +11,16 @@ data class SettingsState(
     val backgroundImageUri: String? = null,
     val hideStatusBar: Boolean = false,
     val cardTransparency: Float = 0f,
-    val fontSizeScale: Float = 1.0f,
+    // New installations use the requested XL visual scale by default.
+    val fontSizeScale: Float = 1.4f,
     val hapticFeedbackEnabled: Boolean = true,
     val hapticIntensity: String = "medium",
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",
     val homeScrollDirection: String = "horizontal",
     val homeHorizontalRows: Int = 4,
+    /** 3 keeps the original header actions; 4/5 move library actions into navigation. */
+    val homeNavigationSlots: Int = 4,
     val hideRecentlyPlayed: Boolean = false,
     val recentsPlacement: String = "bottom",
     val eqHeadroomDb: Float = 0f,
@@ -66,6 +69,8 @@ data class SettingsState(
     val softenHighs: Float = 0f,
     val grainControlEnabled: Boolean = false,
     val eqBands: List<Int> = listOf(0, 0, 0, 0, 0),
+    /** Saved manual EQ curve, preserved while a factory preset is selected. */
+    val customEqBands: List<Int> = listOf(0, 0, 0, 0, 0),
     val balance: Float = 0f,
     val stereoWidening: Boolean = false,
     val surroundPanSpeed: Int = 6,

@@ -19,6 +19,7 @@ data class EqualizerControlsSnapshot(
     val eqPreset: String,
     val eqBandCount: Int,
     val eqBands: List<Int>,
+    val customEqBands: List<Int>,
     val appVolume: Float,
     val reverbPreset: String,
     val reverbAmount: Float,
@@ -33,6 +34,7 @@ data class EqualizerControlsSnapshot(
             eqPreset = state.eqPreset,
             eqBandCount = state.eqBandCount,
             eqBands = state.eqBands.toList(),
+            customEqBands = state.customEqBands.toList(),
             appVolume = state.appVolume,
             reverbPreset = state.reverbPreset,
             reverbAmount = state.reverbAmount,
@@ -100,6 +102,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.homeLayoutStyle.collect { v -> _state.update { it.copy(homeLayoutStyle = v) } } }
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
+            launch { prefs.homeNavigationSlots.collect { v -> _state.update { it.copy(homeNavigationSlots = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
             launch { prefs.recentsPlacement.collect { v -> _state.update { it.copy(recentsPlacement = v) } } }
             launch { prefs.eqHeadroomDb.collect { v -> _state.update { it.copy(eqHeadroomDb = AudioEffectsManager.liveEq.value?.headroomDb ?: v) } } }
@@ -126,6 +129,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.softenHighs.collect { v -> _state.update { it.copy(softenHighs = AudioEffectsManager.liveEq.value?.softenHighs ?: v) } } }
             launch { prefs.grainControlEnabled.collect { v -> _state.update { it.copy(grainControlEnabled = AudioEffectsManager.liveEq.value?.grainControlEnabled ?: v) } } }
             launch { prefs.eqBands.collect { v -> _state.update { it.copy(eqBands = AudioEffectsManager.liveEq.value?.bands ?: v) } } }
+            launch { prefs.customEqBands.collect { v -> _state.update { it.copy(customEqBands = AudioEffectsManager.liveEq.value?.customBands ?: v) } } }
             launch { prefs.balance.collect { v -> _state.update { it.copy(balance = AudioEffectsManager.liveEq.value?.balance ?: v) } } }
             launch { prefs.stereoWidening.collect { v -> _state.update { it.copy(stereoWidening = AudioEffectsManager.liveEq.value?.surroundEnabled ?: v) } } }
             launch { prefs.surroundPanSpeed.collect { v -> _state.update { it.copy(surroundPanSpeed = AudioEffectsManager.liveEq.value?.orbitSeconds ?: v) } } }
@@ -227,6 +231,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { prefs.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
+    fun setHomeNavigationSlots(slots: Int) = viewModelScope.launch { prefs.setHomeNavigationSlots(slots) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
     fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }
     fun setEqHeadroomDb(value: Float) = changeAudio { it.copy(eqHeadroomDb = value.coerceIn(0f, 18f)) }
@@ -269,6 +274,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             eqPreset = snapshot.eqPreset,
             eqBandCount = snapshot.eqBandCount,
             eqBands = snapshot.eqBands,
+            customEqBands = snapshot.customEqBands,
             appVolume = snapshot.appVolume,
             reverbPreset = snapshot.reverbPreset,
             reverbAmount = snapshot.reverbAmount,
@@ -286,12 +292,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             eqPreset = "Flat",
             eqBandCount = 5,
             eqBands = List(5) { 0 },
+            customEqBands = List(5) { 0 },
             appVolume = 1f,
             reverbPreset = com.xvox.music.audio.ReverbPresets.OFF,
             reverbAmount = .50f,
-            noiseReduction = .40f,
+            noiseReduction = .50f,
             noiseReductionEnabled = false,
-            softenHighs = .30f,
+            softenHighs = .50f,
             grainControlEnabled = false
         )
     }
@@ -323,49 +330,65 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 centerPreservation = value.centerPreservation,
                 reverbPreset = value.reverbPreset,
                 noiseReductionEnabled = value.noiseReductionEnabled,
-                grainControlEnabled = value.grainControlEnabled
+                grainControlEnabled = value.grainControlEnabled,
+                customBands = value.customEqBands
             )
         )
     }
     private fun applyEq(enabled: Boolean, preset: String, bands: List<Int>) {
-        val safe = EqBands.convert(bands, _state.value.eqBandCount)
         val normalizedPreset = AudioEffectsManager.normalizeEqPreset(preset)
-        changeAudio { it.copy(equalizerEnabled = enabled, eqPreset = normalizedPreset, eqBands = safe) }
+        val safe = EqBands.convert(bands, _state.value.eqBandCount)
+        changeAudio { current ->
+            current.copy(
+                equalizerEnabled = enabled,
+                eqPreset = normalizedPreset,
+                eqBands = safe,
+                // A manual adjustment is the only operation that overwrites the retained Custom curve.
+                customEqBands = if (normalizedPreset == "Custom") EqBands.convert(safe, 5) else current.customEqBands
+            )
+        }
     }
     fun setEqualizerEnabled(enabled: Boolean) = applyEq(enabled, _state.value.eqPreset, _state.value.eqBands)
-    fun setEqPreset(preset: String) = applyEq(
-        _state.value.equalizerEnabled,
-        preset,
-        AudioEffectsManager.PRESETS[AudioEffectsManager.normalizeEqPreset(preset)] ?: _state.value.eqBands
-    )
+    fun setEqPreset(preset: String) {
+        val normalized = AudioEffectsManager.normalizeEqPreset(preset)
+        val bands = when (normalized) {
+            "Custom" -> EqBands.convert(_state.value.customEqBands, _state.value.eqBandCount)
+            else -> AudioEffectsManager.PRESETS[normalized] ?: _state.value.eqBands
+        }
+        applyEq(_state.value.equalizerEnabled, normalized, bands)
+    }
     fun setEqBands(bands: List<Int>) = applyEq(_state.value.equalizerEnabled, "Custom", bands)
     fun setEqBand(index: Int, value: Int) {
         if (index !in 0 until _state.value.eqBandCount) return
+        // Start from what is visibly being edited, then retain that new hand-authored curve as Custom.
         val bands = _state.value.eqBands.toMutableList()
         while (bands.size < _state.value.eqBandCount) bands.add(0)
         bands[index] = value.coerceIn(-12, 12)
         applyEq(_state.value.equalizerEnabled, "Custom", bands)
     }
-    fun setEqBandCount(count: Int) = changeAudio { it.copy(eqBandCount = EqBands.count(count), eqBands = EqBands.convert(it.eqBands, EqBands.count(count))) }
+    fun setEqBandCount(count: Int) = changeAudio { current ->
+        val safeCount = EqBands.count(count)
+        current.copy(eqBandCount = safeCount, eqBands = EqBands.convert(current.eqBands, safeCount))
+    }
     fun setNoiseReduction(value: Float) = changeAudio { it.copy(noiseReduction = value.coerceIn(0f, 1f)) }
     fun setNoiseReductionEnabled(enabled: Boolean) = changeAudio { current ->
         current.copy(
             noiseReductionEnabled = enabled,
-            noiseReduction = if (enabled && current.noiseReduction <= .001f) .40f else current.noiseReduction
+            noiseReduction = if (enabled && current.noiseReduction <= .001f) .50f else current.noiseReduction
         )
     }
     fun setSoftenHighs(value: Float) = changeAudio { it.copy(softenHighs = value.coerceIn(0f, 1f)) }
     fun setGrainControlEnabled(enabled: Boolean) = changeAudio { current ->
         current.copy(
             grainControlEnabled = enabled,
-            softenHighs = if (enabled && current.softenHighs <= .001f) .30f else current.softenHighs
+            softenHighs = if (enabled && current.softenHighs <= .001f) .50f else current.softenHighs
         )
     }
     fun setBalance(balance: Float) = changeAudio { it.copy(balance = balance.coerceIn(-1f, 1f)) }
     fun setStereoWidening(enabled: Boolean) = changeAudio { it.copy(stereoWidening = enabled) }
     fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(0, 20)) }
 
-    fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 1f)) }
+    fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 2f)) }
     fun setVolumeLimit(limit: Float) = changeAudio { it.copy(volumeLimit = limit.coerceIn(0f, 1f)) }
 
     fun setWidgetTransparency(t: Float) = viewModelScope.launch { prefs.setWidgetTransparency(t) }

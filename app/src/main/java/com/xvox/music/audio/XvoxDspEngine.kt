@@ -79,6 +79,9 @@ class XvoxDspEngine {
     private var currentReverbFeedbackDepth = 0.0
     private var currentReverbWetBase = 0.0
     private var currentReverbWetDepth = 0.0
+    private var currentReverbDelayScale = 1.0
+    private var currentReverbDamping = 0.0
+    private var currentReverbStereoWidth = 0.0
     private var currentHrtf = 0.6
     private var currentCenter = 0.0
     private var targetWidth = 0.78
@@ -89,6 +92,9 @@ class XvoxDspEngine {
     private var targetReverbFeedbackDepth = 0.0
     private var targetReverbWetBase = 0.0
     private var targetReverbWetDepth = 0.0
+    private var targetReverbDelayScale = 1.0
+    private var targetReverbDamping = 0.0
+    private var targetReverbStereoWidth = 0.0
     private var targetHrtf = 0.6
     private var targetCenter = 0.0
     private var phase = 0.0
@@ -100,15 +106,14 @@ class XvoxDspEngine {
     private var delayLeft = DoubleArray(1600)
     private var delayRight = DoubleArray(1600)
     private var cursor = 0
-    private var tailDelayLeft = DoubleArray(0)
-    private var tailDelayRight = DoubleArray(0)
-    private var tailCursor = 0
+    private val reverb = StereoReverbNetwork()
     private var shadowLeft = 0.0
     private var shadowRight = 0.0
     private var softL = 0.0; private var softR = 0.0
     private var bassL = 0.0; private var bassR = 0.0
     private var spatialBassL = 0.0; private var spatialBassR = 0.0
-    private var toneAlpha = 0.0; private var bassAlpha = 0.0; private var spatialBassAlpha = 0.0
+    private var toneAlpha = 0.0; private var noiseToneAlpha = 0.0; private var bassAlpha = 0.0; private var spatialBassAlpha = 0.0
+    private var noiseToneL = 0.0; private var noiseToneR = 0.0
     private var currentSoftHighs = 1.0; private var targetSoftHighs = 1.0
     private var currentNoise = 0.0; private var targetNoise = 0.0; private var noiseEnvelope = 0.0; private var noiseGain = 1.0
     private var currentBassGain = 1.0
@@ -121,14 +126,14 @@ class XvoxDspEngine {
         fastAlpha = 1 - exp(-1.0 / (rate * .008))
         for (i in filters.indices) filters[i].configure(frequencies[i].coerceAtMost(rate * .43), rate, .82)
         toneAlpha = 1 - exp(-2 * PI * minOf(5500.0, rate * .35) / rate)
+        // Noise reduction works on the high-frequency residual and a stronger quiet-level gate.
+        noiseToneAlpha = 1 - exp(-2 * PI * minOf(6200.0, rate * .36) / rate)
         bassAlpha = 1 - exp(-2 * PI * 180 / rate)
         spatialBassAlpha = 1 - exp(-2 * PI * 700 / rate)
         pinna.configure(minOf(6800.0, rate * .40), rate, 1.15)
         delayLeft = DoubleArray((rate * .024).toInt() + 8)
         delayRight = DoubleArray(delayLeft.size)
-        tailDelayLeft = DoubleArray(maxOf(64, (rate * 0.12).toInt()))
-        tailDelayRight = DoubleArray(tailDelayLeft.size)
-        tailCursor = 0
+        reverb.configure(rate)
         peakGuard.configure(rate)
         reset()
     }
@@ -137,14 +142,14 @@ class XvoxDspEngine {
         filters.forEach { it.reset() }; pinna.reset(); peakGuard.reset()
         currentBand.fill(0.0); targetBand.fill(0.0)
         delayLeft.fill(0.0); delayRight.fill(0.0)
-        if (tailDelayLeft.isNotEmpty()) { tailDelayLeft.fill(0.0); tailDelayRight.fill(0.0) }
-        tailCursor = 0
+        reverb.reset()
         cursor = 0; phase = 0.0; splitPhase = 0.0; block = 0
         shadowLeft = 0.0; shadowRight = 0.0
-        softL = 0.0; softR = 0.0; bassL = 0.0; bassR = 0.0; spatialBassL = 0.0; spatialBassR = 0.0
+        softL = 0.0; softR = 0.0; noiseToneL = 0.0; noiseToneR = 0.0
+        bassL = 0.0; bassR = 0.0; spatialBassL = 0.0; spatialBassR = 0.0
         noiseEnvelope = 0.0; noiseGain = 1.0; currentNoise = 0.0; currentSoftHighs = 1.0
         currentBassGain = transitionBassGain.toDouble().coerceIn(0.0, 1.0)
-        currentVolume = settings.masterVolume.toDouble().coerceIn(0.0, 1.0)
+        currentVolume = settings.masterVolume.toDouble().coerceIn(0.0, 2.0)
         currentMix = mixGain.toDouble().coerceIn(0.0, 1.0)
         currentBalance = settings.balance.toDouble().coerceIn(-1.0, 1.0)
         currentDepth = 0.0
@@ -161,6 +166,9 @@ class XvoxDspEngine {
         currentReverbFeedbackDepth = targetReverbFeedbackDepth
         currentReverbWetBase = targetReverbWetBase
         currentReverbWetDepth = targetReverbWetDepth
+        currentReverbDelayScale = targetReverbDelayScale
+        currentReverbDamping = targetReverbDamping
+        currentReverbStereoWidth = targetReverbStereoWidth
         currentHrtf = targetHrtf
         currentCenter = targetCenter
     }
@@ -177,7 +185,7 @@ class XvoxDspEngine {
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = if (s.grainControlEnabled) {
-            10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 9.0 / 20.0)
+            10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 18.0 / 20.0)
         } else {
             1.0
         }
@@ -195,7 +203,10 @@ class XvoxDspEngine {
         targetReverbFeedbackDepth = reverbProfile.feedbackDepth
         targetReverbWetBase = reverbProfile.wetBase
         targetReverbWetDepth = reverbProfile.wetDepth
-        targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 1.0)
+        targetReverbDelayScale = reverbProfile.delayScale
+        targetReverbDamping = reverbProfile.damping
+        targetReverbStereoWidth = reverbProfile.stereoWidth
+        targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 2.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = if (s.orbitSeconds > 0f) s.orbitSeconds.toDouble().coerceIn(1.0, 20.0) else 100000.0
     }
@@ -206,7 +217,9 @@ class XvoxDspEngine {
             updateTargets()
             // User-controlled headroom only: raising a band must not secretly turn the entire track down.
             targetPreamp = targetHeadroom
-            noiseThreshold = 10.0.pow((-70 + currentNoise * 20) / 20)
+            // Quiet passages contain the most perceptible floor; this adaptive threshold gives
+            // the control a genuinely audible gate without flattening normal music dynamics.
+            noiseThreshold = .012 + currentNoise * .086
             pan = sin(phase + currentPosition) * currentWidth
             rear = (1 - cos(phase)) * .5
             shadowAlpha = 1 - exp(-2 * PI * (12000 - rear * 7000) / rate)
@@ -232,6 +245,9 @@ class XvoxDspEngine {
         currentReverbFeedbackDepth += (targetReverbFeedbackDepth - currentReverbFeedbackDepth) * controlAlpha
         currentReverbWetBase += (targetReverbWetBase - currentReverbWetBase) * controlAlpha
         currentReverbWetDepth += (targetReverbWetDepth - currentReverbWetDepth) * controlAlpha
+        currentReverbDelayScale += (targetReverbDelayScale - currentReverbDelayScale) * controlAlpha
+        currentReverbDamping += (targetReverbDamping - currentReverbDamping) * controlAlpha
+        currentReverbStereoWidth += (targetReverbStereoWidth - currentReverbStereoWidth) * controlAlpha
         currentPeriod += (targetPeriod - currentPeriod) * controlAlpha
         if (settings.orbitSeconds > 0f) {
             phase += 2 * PI / (rate * currentPeriod)
@@ -264,10 +280,17 @@ class XvoxDspEngine {
         softL += (l - softL) * toneAlpha; softR += (r - softR) * toneAlpha
         l = softL + (l - softL) * currentSoftHighs
         r = softR + (r - softR) * currentSoftHighs
+        // Suppress high-frequency residual (where hiss/grain lives) as well as low-level noise.
+        // The residual path is active only in proportion to the selected control, so an off
+        // setting remains bit-for-bit close to the dry path.
+        noiseToneL += (l - noiseToneL) * noiseToneAlpha
+        noiseToneR += (r - noiseToneR) * noiseToneAlpha
+        l = noiseToneL + (l - noiseToneL) * (1 - currentNoise * .66)
+        r = noiseToneR + (r - noiseToneR) * (1 - currentNoise * .66)
         val envelopeInput = max(abs(l), abs(r))
         noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
         val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
-        val desiredNoiseGain = 1 - currentNoise * .92 * (1 - ratio * ratio)
+        val desiredNoiseGain = 1 - currentNoise * .95 * (1 - ratio * ratio)
         noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
         l *= noiseGain; r *= noiseGain
         bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha
@@ -296,21 +319,23 @@ class XvoxDspEngine {
         val spatialR = (spatialBassR * (.90 + .10 * nearRight) + (filteredR - spatialBassR) * nearRight) * .94 + (delayed(delayLeft, rate * .013) * .04 + delayed(delayRight, rate * .019) * .02) * currentRoom
         l += (spatialL - l) * currentDepth
         r += (spatialR - r) * currentDepth
-        // Reverb: the selected preset changes its room character, while currentReverb is only
-        // the wet amount. This separation means dragging Amount can never switch the room chip.
-        if (currentReverb > .001 && tailDelayLeft.isNotEmpty()) {
-            val tailSize = tailDelayLeft.size
+        // A decorrelated multi-line feedback network replaces the old single delayed copy.
+        // The preset sets tail length/damping/stereo spread; Amount only changes its wet mix.
+        if (currentReverb > .001) {
             val feedback = (currentReverbFeedbackBase + currentReverbFeedbackDepth * currentReverb)
-                .coerceIn(0.0, .72)
+                .coerceIn(0.0, .86)
             val wet = (currentReverb * (currentReverbWetBase + currentReverbWetDepth * currentReverb))
-                .coerceIn(0.0, .56)
-            val staleL = tailDelayLeft[tailCursor]
-            val staleR = tailDelayRight[tailCursor]
-            tailDelayLeft[tailCursor] = l + staleL * feedback
-            tailDelayRight[tailCursor] = r + staleR * feedback
-            l += staleL * wet
-            r += staleR * wet
-            tailCursor = (tailCursor + 1) % tailSize
+                .coerceIn(0.0, .62)
+            reverb.process(
+                inputLeft = l,
+                inputRight = r,
+                feedback = feedback,
+                delayScale = currentReverbDelayScale,
+                damping = currentReverbDamping,
+                stereoWidth = currentReverbStereoWidth
+            )
+            l += reverb.left * wet
+            r += reverb.right * wet
         }
         // Center preservation keeps the phantom centre glued to the original mix while the
         // sides fan out; at the default (0) the behaviour is exactly the old widening.
@@ -326,10 +351,11 @@ class XvoxDspEngine {
             l = 0.0; r = 0.0
             filters.forEach { it.reset() }; pinna.reset()
         }
-        peakGuard.process(l, r)
-        val output = currentVolume * currentMix
-        left = (peakGuard.left * output).toFloat()
-        right = (peakGuard.right * output).toFloat()
+        // App volume is part of the PCM gain path, before the transparent look-ahead limiter.
+        // That makes 101–200% materially louder on quieter material while keeping peaks safe.
+        peakGuard.process(l * currentVolume * currentMix, r * currentVolume * currentMix)
+        left = peakGuard.left.toFloat()
+        right = peakGuard.right.toFloat()
     }
 
     private fun delayed(buffer: DoubleArray, samples: Double): Double {
@@ -338,6 +364,90 @@ class XvoxDspEngine {
         val a = (cursor - whole + buffer.size) % buffer.size
         val b = (a - 1 + buffer.size) % buffer.size
         return buffer[a] * (1 - fraction) + buffer[b] * fraction
+    }
+}
+
+/**
+ * Four decorrelated damped feedback lines. Unlike a single slap-back delay, their uneven lengths
+ * build a dense tail with stereo cross-feed. It allocates only when the audio format changes.
+ */
+private class StereoReverbNetwork {
+    private val baseSeconds = doubleArrayOf(.0297, .0371, .0411, .0437)
+    private var rate = 44100
+    private var leftLines: Array<DoubleArray> = emptyArray()
+    private var rightLines: Array<DoubleArray> = emptyArray()
+    private var cursors = IntArray(0)
+    private var dampedLeft = DoubleArray(0)
+    private var dampedRight = DoubleArray(0)
+    var left = 0.0
+        private set
+    var right = 0.0
+        private set
+
+    fun configure(sampleRate: Int) {
+        rate = sampleRate.coerceAtLeast(8000)
+        // The largest profile is Cathedral. Keep headroom for profile interpolation.
+        leftLines = Array(baseSeconds.size) { index ->
+            DoubleArray((baseSeconds[index] * rate * 1.85).toInt().coerceAtLeast(32) + 4)
+        }
+        rightLines = Array(baseSeconds.size) { index -> DoubleArray(leftLines[index].size) }
+        cursors = IntArray(baseSeconds.size)
+        dampedLeft = DoubleArray(baseSeconds.size)
+        dampedRight = DoubleArray(baseSeconds.size)
+        reset()
+    }
+
+    fun reset() {
+        leftLines.forEach { it.fill(0.0) }
+        rightLines.forEach { it.fill(0.0) }
+        cursors.fill(0)
+        dampedLeft.fill(0.0)
+        dampedRight.fill(0.0)
+        left = 0.0
+        right = 0.0
+    }
+
+    fun process(
+        inputLeft: Double,
+        inputRight: Double,
+        feedback: Double,
+        delayScale: Double,
+        damping: Double,
+        stereoWidth: Double
+    ) {
+        if (leftLines.isEmpty()) {
+            left = 0.0
+            right = 0.0
+            return
+        }
+        val safeFeedback = feedback.coerceIn(0.0, .86)
+        val safeScale = delayScale.coerceIn(.42, 1.78)
+        val safeDamping = damping.coerceIn(0.0, .82)
+        val cross = stereoWidth.coerceIn(0.0, .9) * .22
+        var sumLeft = 0.0
+        var sumRight = 0.0
+        for (index in leftLines.indices) {
+            val lLine = leftLines[index]
+            val rLine = rightLines[index]
+            val cursor = cursors[index]
+            val delay = (baseSeconds[index] * rate * safeScale).toInt().coerceIn(4, lLine.size - 2)
+            val read = (cursor - delay + lLine.size) % lLine.size
+            val delayedLeft = lLine[read]
+            val delayedRight = rLine[read]
+            // Damping lives in the feedback path, preserving the initial transient while each
+            // selected room gives its tail a recognisably different warmth.
+            dampedLeft[index] += (delayedLeft - dampedLeft[index]) * (1 - safeDamping)
+            dampedRight[index] += (delayedRight - dampedRight[index]) * (1 - safeDamping)
+            val inputGain = .32 + index * .018
+            lLine[cursor] = (inputLeft + inputRight * cross) * inputGain + dampedLeft[index] * safeFeedback
+            rLine[cursor] = (inputRight + inputLeft * cross) * inputGain + dampedRight[index] * safeFeedback
+            sumLeft += delayedLeft
+            sumRight += delayedRight
+            cursors[index] = (cursor + 1) % lLine.size
+        }
+        // Normalise the four uneven lines; their lengths and cross-feed keep comb peaks decorrelated.
+        left = (sumLeft * .25).coerceIn(-4.0, 4.0)
+        right = (sumRight * .25).coerceIn(-4.0, 4.0)
     }
 }
 

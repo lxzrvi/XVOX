@@ -12,19 +12,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -37,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -54,6 +43,18 @@ import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
 private val SmoothEase = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
+private data class HeaderLibraryAction(
+    val mode: XvoxHomeLibraryMode,
+    val icon: Int,
+    val label: String,
+    val onClick: () -> Unit
+)
+
+/**
+ * Fixed shell header. Its canvas and profile title stay below the status bar while scroll progress
+ * only moves the avatar and action controls out of view. Reversing a list scroll restores them
+ * from the exact same fraction rather than rebuilding or snapping the header.
+ */
 @Composable
 fun XvoxShellTopHeader(
     profile: UserPreferences,
@@ -64,10 +65,43 @@ fun XvoxShellTopHeader(
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
+    /** 3 keeps all library actions here; 4 moves Liked and 5 moves Liked + Playlists to nav. */
+    extendedSlots: Int = 3,
+    /** 0 = fully shown, 1 = avatar/actions have scrolled out while title/canvas remain anchored. */
+    collapseFraction: Float = 0f,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val density = LocalDensity.current
+    val collapsed = collapseFraction.coerceIn(0f, 1f)
+    val controlsAlpha = (1f - collapsed).coerceIn(0f, 1f)
+    val controlsShiftPx = with(density) { (72.dp * collapsed).toPx() }
+
+    val layout = extendedSlots.coerceIn(3, 5)
+    val libraryActions = buildList {
+        if (layout == 3) {
+            add(HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick))
+        }
+        if (layout <= 4) {
+            add(HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick))
+        }
+        // Artists always remains in the header, including the five-item navigation layout.
+        add(HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick))
+    }
+    val selectedActionIndex = libraryActions.indexOfFirst { it.mode == libraryMode }
+    val isLibraryActionSelected = selectedActionIndex >= 0
+    val targetIndicatorX = 3.dp + 36.dp * selectedActionIndex.coerceAtLeast(0).toFloat()
+    val animatedIndicatorX by animateDpAsState(
+        targetValue = targetIndicatorX,
+        animationSpec = tween(280, easing = SmoothEase),
+        label = "headerLibraryIndicatorX"
+    )
+    val indicatorAlpha by animateFloatAsState(
+        targetValue = if (isLibraryActionSelected) 1f else 0f,
+        animationSpec = tween(200),
+        label = "headerLibraryIndicatorAlpha"
+    )
 
     val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
     val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
@@ -106,14 +140,23 @@ fun XvoxShellTopHeader(
                 .height(54.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            HomeProfileAvatar(
-                profile = profile,
-                modifier = Modifier.size(42.dp),
-                onClick = onProfileClick
-            )
+            // Only the PFP leaves on scroll. The space stays reserved so the title does not jump.
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    translationY = -controlsShiftPx
+                    alpha = controlsAlpha
+                }
+            ) {
+                HomeProfileAvatar(
+                    profile = profile,
+                    modifier = Modifier.size(42.dp),
+                    onClick = onProfileClick
+                )
+            }
 
             Spacer(modifier = Modifier.width(10.dp))
 
+            // This is the sticky title portion of the header.
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = profile.username,
@@ -125,20 +168,20 @@ fun XvoxShellTopHeader(
                     overflow = TextOverflow.Ellipsis
                 )
                 val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
-                if (!profile.showProfileLines) {
-                    // nothing under the name
-                } else if (lines.isEmpty()) {
-                    HomeGreeting(intervalMs = profile.greetingIntervalMs)
-                } else {
-                    lines.take(2).forEach { line ->
-                        Text(
-                            text = line,
-                            color = colors.secondaryText,
-                            fontSize = 10.sp,
-                            lineHeight = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                if (profile.showProfileLines) {
+                    if (lines.isEmpty()) {
+                        HomeGreeting(intervalMs = profile.greetingIntervalMs)
+                    } else {
+                        lines.take(2).forEach { line ->
+                            Text(
+                                text = line,
+                                color = colors.secondaryText,
+                                fontSize = 10.sp,
+                                lineHeight = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -155,9 +198,12 @@ fun XvoxShellTopHeader(
                 ) + fadeOut(tween(220))
             ) {
                 Row(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = -controlsShiftPx
+                        alpha = controlsAlpha
+                    },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Standalone Refresh Icon (Circle)
                     Box(
                         modifier = Modifier
                             .size(42.dp)
@@ -176,52 +222,23 @@ fun XvoxShellTopHeader(
 
                     Spacer(Modifier.width(8.dp))
 
-                    // 2. 3-Item Pill (Liked, Playlists, Artists) with smooth shifting circle indicator
-                    val isTabSelected = libraryMode in listOf(
-                        XvoxHomeLibraryMode.LIKED,
-                        XvoxHomeLibraryMode.PLAYLISTS,
-                        XvoxHomeLibraryMode.ARTISTS
-                    )
-
-                    val targetIndicatorX = when (libraryMode) {
-                        XvoxHomeLibraryMode.LIKED -> 3.dp
-                        XvoxHomeLibraryMode.PLAYLISTS -> 39.dp
-                        XvoxHomeLibraryMode.ARTISTS -> 75.dp
-                        else -> 3.dp
-                    }
-
-                    val animatedIndicatorX by animateDpAsState(
-                        targetValue = targetIndicatorX,
-                        animationSpec = tween(280, easing = SmoothEase),
-                        label = "pillIndicatorX"
-                    )
-
-                    val animatedIndicatorAlpha by animateFloatAsState(
-                        targetValue = if (isTabSelected) 1f else 0f,
-                        animationSpec = tween(200),
-                        label = "pillIndicatorAlpha"
-                    )
-
                     val actionShape = RoundedCornerShape(21.dp)
-
+                    val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
                     Box(
                         modifier = Modifier
                             .height(42.dp)
-                            .width(114.dp)
+                            .width(actionPillWidth)
                             .clip(actionShape)
                             .background(colors.card.copy(alpha = 0.60f))
                     ) {
-                        // Smoothly shifting highlight circle
                         Box(
                             modifier = Modifier
                                 .offset { IntOffset(animatedIndicatorX.roundToPx(), 3.dp.roundToPx()) }
                                 .size(36.dp)
-                                .graphicsLayer { alpha = animatedIndicatorAlpha }
+                                .graphicsLayer { alpha = indicatorAlpha }
                                 .clip(CircleShape)
                                 .background(colors.cardElevated.copy(alpha = 0.95f))
                         )
-
-                        // 3 Persistent Icons (Do not change drawables on tap)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -229,64 +246,25 @@ fun XvoxShellTopHeader(
                                 .padding(horizontal = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Liked Tab
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = onLikedClick
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_heart),
-                                    contentDescription = "Liked Songs",
-                                    tint = if (libraryMode == XvoxHomeLibraryMode.LIKED) colors.primaryAccent else colors.primaryText.copy(alpha = 0.70f),
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-
-                            // Playlists Tab
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = onPlaylistClick
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_playlist),
-                                    contentDescription = "Playlists",
-                                    tint = if (libraryMode == XvoxHomeLibraryMode.PLAYLISTS) colors.primaryAccent else colors.primaryText.copy(alpha = 0.70f),
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-
-                            // Artists Tab
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = onArtistClick
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_artist),
-                                    contentDescription = "Artists",
-                                    tint = if (libraryMode == XvoxHomeLibraryMode.ARTISTS) colors.primaryAccent else colors.primaryText.copy(alpha = 0.70f),
-                                    modifier = Modifier.size(19.dp)
-                                )
+                            libraryActions.forEach { action ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .clickable(
+                                            interactionSource = remember(action.mode) { MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = action.onClick
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(action.icon),
+                                        contentDescription = action.label,
+                                        tint = if (libraryMode == action.mode) colors.primaryAccent else colors.primaryText.copy(alpha = 0.70f),
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
                             }
                         }
                     }

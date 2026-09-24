@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -97,6 +96,7 @@ fun XvoxMainShell(
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
+    val settingsState by settingsViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val homeConfig by homePreferences.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
@@ -336,6 +336,34 @@ fun XvoxMainShell(
         )
     }
 
+    fun selectNavigationDestination(next: XvoxDestination) {
+        if (next == XvoxDestination.HOME) {
+            hoistedSelectedPlaylistId = null
+            homeResetKey = System.currentTimeMillis()
+            homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+        }
+        if (next != destination) tabEpoch++
+        destination = next
+    }
+
+    fun openLikedFromNavigation() {
+        hoistedSelectedPlaylistId = null
+        val enteringHome = destination != XvoxDestination.HOME
+        if (enteringHome) tabEpoch++
+        destination = XvoxDestination.HOME
+        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED)
+        else homeViewModel.toggleLikedMode()
+    }
+
+    fun openPlaylistsFromNavigation() {
+        hoistedSelectedPlaylistId = null
+        val enteringHome = destination != XvoxDestination.HOME
+        if (enteringHome) tabEpoch++
+        destination = XvoxDestination.HOME
+        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS)
+        else homeViewModel.togglePlaylistMode()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -416,8 +444,7 @@ fun XvoxMainShell(
             exit = slideOutVertically(
                 targetOffsetY = { -it },
                 animationSpec = tween(220, easing = FastOutSlowInEasing)
-            ) + fadeOut(tween(160)),
-            modifier = Modifier.graphicsLayer { translationY = headerOffsetPx }
+            ) + fadeOut(tween(160))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
@@ -425,23 +452,21 @@ fun XvoxMainShell(
                 libraryMode = homeState.libraryMode,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
-                onLikedClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.toggleLikedMode()
-                },
-                onPlaylistClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.togglePlaylistMode()
-                },
+                onLikedClick = ::openLikedFromNavigation,
+                onPlaylistClick = ::openPlaylistsFromNavigation,
                 onArtistClick = {
                     hoistedSelectedPlaylistId = null
                     homeViewModel.toggleArtistMode()
-                }
+                },
+                extendedSlots = settingsState.homeNavigationSlots,
+                collapseFraction = (-headerOffsetPx / headerMaxScrollPx).coerceIn(0f, 1f)
             )
         }
 
         val currentSongId = player.currentSongId
-        val miniVisibleBase = player.miniPlayerVisible && !player.nowPlayingVisible && currentSongId != null && player.queue.isNotEmpty()
+        // During the closing handoff, Mini Player is allowed to rise underneath Now Playing so
+        // their unchanged 320ms motions overlap instead of leaving an empty interval.
+        val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
         val miniVisible = if (isLandscape) (player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()) else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
 
         if (isLandscape) {
@@ -495,17 +520,11 @@ fun XvoxMainShell(
                 ) {
                     XvoxBottomBar(
                         selected = destination,
-                        onSelected = { next ->
-                            if (next == XvoxDestination.HOME) {
-                                hoistedSelectedPlaylistId = null
-                                homeResetKey = System.currentTimeMillis()
-                                homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
-                            }
-                            if (next != destination) {
-                                tabEpoch++
-                            }
-                            destination = next
-                        }
+                        libraryMode = homeState.libraryMode,
+                        extendedSlots = settingsState.homeNavigationSlots,
+                        onSelected = ::selectNavigationDestination,
+                        onLikedClick = ::openLikedFromNavigation,
+                        onPlaylistClick = ::openPlaylistsFromNavigation
                     )
                 }
             }
@@ -543,17 +562,11 @@ fun XvoxMainShell(
             ) {
                 XvoxBottomBar(
                     selected = destination,
-                    onSelected = { next ->
-                        if (next == XvoxDestination.HOME) {
-                            hoistedSelectedPlaylistId = null
-                            homeResetKey = System.currentTimeMillis()
-                            homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
-                        }
-                        if (next != destination) {
-                            tabEpoch++
-                        }
-                        destination = next
-                    }
+                    libraryMode = homeState.libraryMode,
+                    extendedSlots = settingsState.homeNavigationSlots,
+                    onSelected = ::selectNavigationDestination,
+                    onLikedClick = ::openLikedFromNavigation,
+                    onPlaylistClick = ::openPlaylistsFromNavigation
                 )
             }
         }
@@ -575,6 +588,7 @@ fun XvoxMainShell(
                     position = player.position,
                     duration = player.duration,
                     onClose = { playerViewModel.closeNowPlaying() },
+                    onDismissStart = { playerViewModel.beginNowPlayingDismissal() },
                     displayMode = nowPlayingDisplayMode,
                     onDisplayModeChange = { nowPlayingDisplayMode = it },
                     onTogglePlay = { playerViewModel.togglePlay() },

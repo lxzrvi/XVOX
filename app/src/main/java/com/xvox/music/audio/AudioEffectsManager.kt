@@ -30,7 +30,9 @@ data class LiveEqState(
     /** Room identity is independent from the wet amount below it. */
     val reverbPreset: String = if (reverbAmount > .001f) "Medium Room" else ReverbPresets.OFF,
     val noiseReductionEnabled: Boolean = noiseReduction > .001f,
-    val grainControlEnabled: Boolean = softenHighs > .001f
+    val grainControlEnabled: Boolean = softenHighs > .001f,
+    /** The separately retained manual curve, independent from [bands] while presets are active. */
+    val customBands: List<Int> = bands
 ) {
     fun applyTo(saved: AudioDspSettings) = saved.copy(
         equalizerEnabled = enabled,
@@ -43,7 +45,7 @@ data class LiveEqState(
         surroundEnabled = surroundEnabled,
         surroundDepth = surroundDepth,
         orbitSeconds = orbitSeconds.toFloat(),
-        masterVolume = (appVolume * volumeLimit).coerceIn(0f, 1f),
+        masterVolume = (appVolume * volumeLimit).coerceIn(0f, 2f),
         surroundWidth = surroundWidth,
         surroundPosition = surroundPosition,
         roomAmount = roomAmount,
@@ -73,6 +75,7 @@ object AudioEffectsManager {
             preset = normalizeEqPreset(controls.preset),
             reverbPreset = ReverbPresets.normalize(controls.reverbPreset),
             bands = List(EqBands.count(controls.bandCount)) { controls.bands.getOrElse(it) { 0 }.coerceIn(-12, 12) },
+            customBands = EqBands.convert(controls.customBands, 5),
             revision = ++revision
         )
         _liveEq.value = state
@@ -100,6 +103,7 @@ object AudioEffectsManager {
 
     /** The compact equalizer's visible preset order. Custom is selected when a band is edited. */
     val EQ_PRESET_NAMES: List<String> = listOf(
+        "Custom",
         "Flat",
         "Bass Boost",
         "Bass Reducer",

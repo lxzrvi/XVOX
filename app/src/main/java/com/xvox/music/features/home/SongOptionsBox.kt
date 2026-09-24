@@ -60,8 +60,10 @@ fun SongOptionsBox(
     val identityShape = RoundedCornerShape(16.dp)
     // Action cards deliberately share the song identity card's rounded silhouette.
     val tileShape = identityShape
-    val tileFill = colors.primaryText.copy(alpha = if (colors.isLight) 0.035f else 0.055f)
-    val tileBorder = colors.primaryText.copy(alpha = 0.10f)
+    // Settings-page card fill/border: this overlay is intentionally the same palette in light,
+    // dark, and AMOLED themes rather than a separate translucent dark surface.
+    val tileFill = colors.card
+    val tileBorder = colors.cardBorder.copy(alpha = if (colors.isLight) .8f else .72f)
     val contextLabel = song.source.ifBlank {
         song.folderName.ifBlank { "XVOX library" }
     }
@@ -191,7 +193,7 @@ fun SongOptionsBox(
 
         if (!deletePairsWithLastAction) {
             SongOptionDeleteTile(
-                background = XvoxRed.copy(alpha = if (colors.isLight) 0.10f else 0.16f),
+                background = tileFill,
                 border = XvoxRed.copy(alpha = 0.42f),
                 tileShape = tileShape,
                 onClick = onDelete
@@ -209,11 +211,8 @@ private fun SongOptionGridTile(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val fill = if (action.destructive) {
-        XvoxRed.copy(alpha = if (colors.isLight) 0.10f else 0.16f)
-    } else {
-        background
-    }
+    // Keep destructive emphasis in the edge/text, but retain the exact Settings-card fill.
+    val fill = background
     val edge = if (action.destructive) XvoxRed.copy(alpha = 0.42f) else border
     val tint = if (action.destructive) XvoxRed else colors.primaryText.copy(alpha = 0.86f)
 
