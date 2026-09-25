@@ -237,13 +237,9 @@ fun HomeScreen(
         val sourcedSong = song.copy(source = actualSource)
 
         val settingsAction: (() -> Unit)? = when {
-            recent -> {
-                {
-                    overlays.showBox("Recently Played") {
-                        RecentLayoutBoxContent(config, viewModel)
-                    }
-                }
-            }
+            // Recently Played is a standalone upper-header destination, not a Home section.
+            // Its song menu has no Home-layout gear.
+            recent -> null
             selectionSource == XvoxHomeLibraryMode.LIKED -> null
             playlist != null -> {
                 {
@@ -589,9 +585,11 @@ fun HomeScreen(
                     XvoxHomeLibraryMode.LIKED -> likedSection()
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection(standalone = true)
                     XvoxHomeLibraryMode.ARTISTS -> artistsSection(standalone = true)
+                    XvoxHomeLibraryMode.RECENT -> recentSection()
                     XvoxHomeLibraryMode.SPLIT -> { }
                     XvoxHomeLibraryMode.ALL_SONGS -> {
-                        val sections = HomeSections.visible(config)
+                        // Recently Played now has its own upper-header destination, never a Home-feed card.
+                        val sections = HomeSections.visible(config).filterNot { it == HomeSections.RECENT }
                         sections.forEach { section ->
                             when (section) {
                                 HomeSections.ALL -> {

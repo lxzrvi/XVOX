@@ -102,7 +102,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.homeLayoutStyle.collect { v -> _state.update { it.copy(homeLayoutStyle = v) } } }
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
-            launch { prefs.homeNavigationSlots.collect { v -> _state.update { it.copy(homeNavigationSlots = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
             launch { prefs.recentsPlacement.collect { v -> _state.update { it.copy(recentsPlacement = v) } } }
             launch { prefs.eqHeadroomDb.collect { v -> _state.update { it.copy(eqHeadroomDb = AudioEffectsManager.liveEq.value?.headroomDb ?: v) } } }
@@ -231,7 +230,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { prefs.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
-    fun setHomeNavigationSlots(slots: Int) = viewModelScope.launch { prefs.setHomeNavigationSlots(slots) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
     fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }
     fun setEqHeadroomDb(value: Float) = changeAudio { it.copy(eqHeadroomDb = value.coerceIn(0f, 18f)) }

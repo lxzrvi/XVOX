@@ -80,7 +80,8 @@ fun EqualizerSettingsSection(
             )
         }
 
-        // Enable and the five editable bands deliberately live in one Settings-matched card.
+        // Enable remains available at all times, but a disabled EQ has no preset or band box
+        // to imply that those controls are currently active.
         EqualizerCard {
             EqualizerToggleRow(
                 title = "Enable equalizer",
@@ -88,35 +89,37 @@ fun EqualizerSettingsSection(
                 checked = state.equalizerEnabled,
                 onCheckedChange = viewModel::setEqualizerEnabled
             )
-            EqualizerHairline()
-            EqualizerSectionLabel("EQ preset")
-            EqualizerChipRow(
-                options = AudioEffectsManager.EQ_PRESET_NAMES,
-                selected = state.eqPreset,
-                onSelect = viewModel::setEqPreset
-            )
-            Spacer(Modifier.height(12.dp))
-            EqualizerSectionLabel("Bands")
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(176.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.cardElevated)
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = .72f), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 6.dp, vertical = 7.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+            if (state.equalizerEnabled) {
+                EqualizerHairline()
+                EqualizerSectionLabel("EQ preset")
+                EqualizerChipRow(
+                    options = AudioEffectsManager.EQ_PRESET_NAMES,
+                    selected = state.eqPreset,
+                    onSelect = viewModel::setEqPreset
+                )
+                Spacer(Modifier.height(12.dp))
+                EqualizerSectionLabel("Bands")
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(176.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colors.background)
+                        .border(0.8.dp, colors.cardBorder.copy(alpha = .72f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 6.dp, vertical = 7.dp)
                 ) {
-                    EqBands.frequencies(5).forEachIndexed { index, frequency ->
-                        VerticalEqBandSlider(
-                            label = EqBands.label(frequency),
-                            value = state.eqBands.getOrElse(index) { 0 },
-                            onValueChange = { viewModel.setEqBand(index, it) },
-                            modifier = Modifier.weight(1f)
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        EqBands.frequencies(5).forEachIndexed { index, frequency ->
+                            VerticalEqBandSlider(
+                                label = EqBands.label(frequency),
+                                value = state.eqBands.getOrElse(index) { 0 },
+                                onValueChange = { viewModel.setEqBand(index, it) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
@@ -133,13 +136,13 @@ fun EqualizerSettingsSection(
             defaultText = "100%"
         )
 
-        EqualizerHairline()
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EqualizerSectionLabel("Reverb preset")
             EqualizerChipRow(
                 options = ReverbPresets.names,
                 selected = state.reverbPreset,
-                onSelect = viewModel::setReverbPreset
+                onSelect = viewModel::setReverbPreset,
+                circularOption = ReverbPresets.OFF
             )
             if (state.reverbPreset != ReverbPresets.OFF) {
                 EqualizerSliderRow(
@@ -152,7 +155,6 @@ fun EqualizerSettingsSection(
             }
         }
 
-        EqualizerHairline()
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Noise reduction",
@@ -171,7 +173,6 @@ fun EqualizerSettingsSection(
             }
         }
 
-        EqualizerHairline()
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Grain control",
@@ -227,8 +228,8 @@ private fun EqualizerCard(content: @Composable ColumnScope.() -> Unit) {
             .fillMaxWidth()
             // Match the Settings-page cards exactly in both light and dark palettes.
             .clip(shape)
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .8f else .72f), shape)
+            .background(colors.cardElevated)
+            .border(0.8.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .80f else .72f), shape)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         content = content
@@ -299,7 +300,9 @@ private fun EqualizerToggleRow(
 private fun EqualizerChipRow(
     options: List<String>,
     selected: String,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    /** Off in the reverb row is intentionally a compact circular preset control. */
+    circularOption: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -310,10 +313,11 @@ private fun EqualizerChipRow(
         options.distinct().forEach { option ->
             val selectedChip = option == selected
             val colors = XvoxTheme.colors
-            val shape = RoundedCornerShape(18.dp)
+            val circular = option == circularOption
+            val shape = if (circular) CircleShape else RoundedCornerShape(18.dp)
             Box(
                 modifier = Modifier
-                    .height(34.dp)
+                    .then(if (circular) Modifier.size(34.dp) else Modifier.height(34.dp))
                     .clip(shape)
                     .background(if (selectedChip) colors.primaryAccent else colors.cardElevated)
                     .border(
@@ -322,7 +326,7 @@ private fun EqualizerChipRow(
                         shape
                     )
                     .xvoxPressScale { onSelect(option) }
-                    .padding(horizontal = 13.dp),
+                    .padding(horizontal = if (circular) 0.dp else 13.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -439,13 +443,13 @@ private fun EqualizerThinSlider(
                 .clip(shape)
                 .background(colors.primaryAccent)
         )
-        // The fine default marker makes the centered snap discoverable without a bulky thumb.
+        // Marker stays inside the 4dp track thickness instead of protruding above or below it.
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .offset(x = (maxWidth * defaultValue) - .5.dp)
                 .width(1.dp)
-                .height(10.dp)
+                .height(4.dp)
                 .background(colors.primaryText.copy(alpha = .42f))
         )
     }
@@ -460,7 +464,7 @@ private fun EqualizerFooterButton(
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(10.dp)
-    val fill = if (prominent) colors.primaryAccent else colors.card
+    val fill = if (prominent) colors.primaryAccent else colors.cardElevated
     val textColor = if (prominent) colors.background else colors.primaryText
     Box(
         modifier = modifier
@@ -537,12 +541,7 @@ fun VerticalEqBandSlider(
     val maxDb = 12
     var localValue by remember(value) { mutableIntStateOf(value.coerceIn(minDb, maxDb)) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
-    val fraction = ((localValue - minDb).toFloat() / (maxDb - minDb).toFloat()).coerceIn(0f, 1f)
-
-    fun snappedDb(raw: Float): Int {
-        val db = raw.roundToInt().coerceIn(minDb, maxDb)
-        return if (abs(db) <= 1) 0 else db
-    }
+    fun snappedDb(raw: Float): Int = raw.roundToInt().coerceIn(minDb, maxDb)
 
     Column(
         modifier = modifier
@@ -593,29 +592,39 @@ fun VerticalEqBandSlider(
                 },
             contentAlignment = Alignment.Center
         ) {
-            // No circular thumb: the rounded active fill itself is the position indicator.
+            // The active segment grows away from the zero line: up for boost, down for cut.
+            // It therefore represents sign as well as magnitude instead of pretending every
+            // adjustment starts from the bottom of the range.
+            val magnitude = (kotlin.math.abs(localValue).toFloat() / maxDb.toFloat()).coerceIn(0f, 1f)
+            val activeHeight = 55.dp * magnitude
             Box(
                 modifier = Modifier
                     .width(4.dp)
                     .height(110.dp)
+                    .align(Alignment.Center)
                     .clip(RoundedCornerShape(2.dp))
                     .background(colors.progressTrack)
-            )
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height((110 * fraction).dp)
-                    .align(Alignment.BottomCenter)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(colors.primaryAccent)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .width(10.dp)
-                    .height(1.dp)
-                    .background(colors.cardBorder.copy(alpha = .72f))
-            )
+            ) {
+                if (localValue != 0) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(activeHeight)
+                            .align(Alignment.Center)
+                            .offset(y = if (localValue > 0) -(activeHeight / 2) else activeHeight / 2)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(colors.primaryAccent)
+                    )
+                }
+                // Zero/default marker never extends beyond the track's own thickness.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .width(4.dp)
+                        .height(1.dp)
+                        .background(colors.cardBorder.copy(alpha = .72f))
+                )
+            }
         }
 
         Text(

@@ -15,11 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,60 +32,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.components.SettingsChoiceRow
-
-@Composable
-fun RecentLayoutBoxContent(
-    config: HomePresentation,
-    viewModel: HomeViewModel
-) {
-    val colors = XvoxTheme.colors
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .xvoxBoxScroll(scrollState)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text("Recently Played Settings", color = colors.primaryAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-
-        // Hide Recents Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Show Recently Played", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("Display recent songs strip on home", color = colors.secondaryText, fontSize = 11.sp)
-            }
-            Switch(
-                checked = !config.hideRecents,
-                onCheckedChange = { visible ->
-                    viewModel.setHomeSectionVisible(HomeSections.RECENT, visible)
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = colors.background,
-                    checkedTrackColor = colors.primaryAccent,
-                    uncheckedThumbColor = colors.secondaryText,
-                    uncheckedTrackColor = colors.cardElevated
-                )
-            )
-        }
-
-        // Placement Position
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Feed Position", color = colors.secondaryText, fontSize = 11.sp)
-            SettingsChoiceRow(
-                options = listOf("top" to "Top of Home", "bottom" to "Below All Songs"),
-                selected = config.recentsPlacement,
-                onSelect = { viewModel.setRecentsPlacement(it) }
-            )
-        }
-    }
-}
 
 @Composable
 fun AllSongsLayoutBoxContent(

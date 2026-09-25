@@ -113,8 +113,6 @@ class UserPreferencesRepository(
         val homeLayoutStyle = stringPreferencesKey("home_layout_style")
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
-        /** 3 = standard nav, 4 = Liked in nav, 5 = Liked + Playlists in nav. */
-        val homeNavigationSlots = intPreferencesKey("home_navigation_slots")
         val recentsPlacement = stringPreferencesKey("recents_placement")
         val eqHeadroomDb = floatPreferencesKey("eq_headroom_db")
         val surroundDepth = floatPreferencesKey("surround_depth")
@@ -152,6 +150,15 @@ class UserPreferencesRepository(
         val remindersDayCount = intPreferencesKey("reminders_day_count")
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
         val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
+    }
+
+    /** Collapses retired scale values onto the five supported physical sizes. */
+    private fun normalizeTextScale(value: Float): Float = when {
+        value < .65f -> .60f
+        value < .75f -> .70f
+        value < .85f -> .80f
+        value < .95f -> .90f
+        else -> 1.00f
     }
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
@@ -363,14 +370,15 @@ class UserPreferencesRepository(
     val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
     val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
     val hideStatusBar: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideStatusBar] ?: false }.distinctUntilChanged()
-    // Default to the requested XL visual scale; explicit choices continue to persist verbatim.
-    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.fontSizeScale] ?: 1.4f }.distinctUntilChanged()
+    // L deliberately uses the former Medium physical scale; smaller labels step down from it.
+    val fontSizeScale: Flow<Float> = context.xvoxDataStore.data
+        .map { normalizeTextScale(it[Keys.fontSizeScale] ?: 1.0f) }
+        .distinctUntilChanged()
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
     val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }.distinctUntilChanged()
-    val homeNavigationSlots: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeNavigationSlots] ?: 4).coerceIn(3, 5) }.distinctUntilChanged()
     val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
     val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f) }.distinctUntilChanged()
     val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
@@ -591,13 +599,14 @@ class UserPreferencesRepository(
     suspend fun setHideStatusBar(v: Boolean) {
         context.xvoxDataStore.edit { it[Keys.hideStatusBar] = v }
     }
-    suspend fun setFontSizeScale(v: Float) { context.xvoxDataStore.edit { it[Keys.fontSizeScale] = v } }
+    suspend fun setFontSizeScale(v: Float) {
+        context.xvoxDataStore.edit { it[Keys.fontSizeScale] = normalizeTextScale(v) }
+    }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
     suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = normalizeHomeStyle(style) } }
     suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
-    suspend fun setHomeNavigationSlots(slots: Int) { context.xvoxDataStore.edit { it[Keys.homeNavigationSlots] = slots.coerceIn(3, 5) } }
     suspend fun setRecentsPlacement(value: String) {
         context.xvoxDataStore.edit {
             val placement = if (value == "top") "top" else "bottom"

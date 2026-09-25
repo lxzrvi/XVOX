@@ -5,5 +5,7 @@ enum class XvoxHomeLibraryMode {
     SPLIT,
     LIKED,
     PLAYLISTS,
-    ARTISTS
+    ARTISTS,
+    /** Recently Played has moved from the Home feed into the shell's upper library pill. */
+    RECENT
 }

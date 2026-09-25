@@ -33,7 +33,8 @@ object HomeSections {
     const val SPLIT = "split"
     const val PLAYLISTS = "playlists"
 
-    val defaultOrder = listOf(ALL, RECENT, ARTISTS, LIKED, PLAYLISTS)
+    // Recent history is a dedicated shell-header destination rather than a Home-feed section.
+    val defaultOrder = listOf(ALL, ARTISTS, LIKED, PLAYLISTS)
 
     fun label(id: String): String = when (id) {
         ALL -> "All Songs"
@@ -47,30 +48,15 @@ object HomeSections {
     fun normalize(order: List<String>): List<String> =
         (order.filter { it in defaultOrder } + defaultOrder).distinct()
 
-    fun visible(config: HomePresentation): List<String> {
-        val showRecent = !config.hideRecents
-        return if (showRecent) {
-            if (config.recentsPlacement == "top") listOf(RECENT, ALL)
-            else listOf(ALL, RECENT)
-        } else {
-            listOf(ALL)
-        }
-    }
+    /** The Home feed always begins with All Songs; Recent now lives in the shell header. */
+    fun visible(@Suppress("UNUSED_PARAMETER") config: HomePresentation): List<String> = listOf(ALL)
 
-    fun placeRecent(order: List<String>, placement: String): List<String> {
-        val result = normalize(order).filterNot { it == RECENT }.toMutableList()
-        if (placement == "top") {
-            result.add(0, RECENT)
-        } else {
-            val allIdx = result.indexOf(ALL)
-            if (allIdx >= 0) {
-                result.add(allIdx + 1, RECENT)
-            } else {
-                result.add(RECENT)
-            }
-        }
-        return result
-    }
+    /**
+     * Retained as a harmless migration shim for older preference callers. It normalizes legacy
+     * orders while deliberately dropping the former Recent feed slot.
+     */
+    fun placeRecent(order: List<String>, @Suppress("UNUSED_PARAMETER") placement: String): List<String> =
+        normalize(order).filterNot { it == RECENT }
 }
 
 fun normalizeHomeStyle(value: String?): String = when (value) {

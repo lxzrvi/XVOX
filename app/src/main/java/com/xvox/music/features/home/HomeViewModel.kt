@@ -264,6 +264,12 @@ class HomeViewModel(
         }
     }
 
+    fun toggleRecentMode() {
+        _state.update {
+            it.copy(libraryMode = if (it.libraryMode == XvoxHomeLibraryMode.RECENT) XvoxHomeLibraryMode.ALL_SONGS else XvoxHomeLibraryMode.RECENT)
+        }
+    }
+
     fun setLibraryMode(mode: XvoxHomeLibraryMode) {
         _state.update { it.copy(libraryMode = mode) }
     }

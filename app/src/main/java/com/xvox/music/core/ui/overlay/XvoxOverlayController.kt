@@ -20,7 +20,7 @@ data class XvoxPopupMessage(
 enum class XvoxBoxPresentation {
     DEFAULT,
     SONG_OPTIONS,
-    /** Compact audio-control modal with the supplied Equalizer styling. */
+    /** Bottom-sheet audio editor with the supplied Equalizer styling. */
     EQUALIZER
 }
 

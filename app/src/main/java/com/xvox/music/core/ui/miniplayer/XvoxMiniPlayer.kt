@@ -100,15 +100,14 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            // Mount Now Playing immediately, then keep this same 320ms exit in flight beneath
-            // its entrance. This removes the empty handoff pause without altering motion pace.
-            if (!stop) openPlayer()
+            // This is intentionally sequential: the Mini Player clears downward first, then
+            // Now Playing begins its own 320ms entrance. Surfaces never overlap in the handoff.
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
             y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec)
 
-            if (stop) stopAndDismiss()
+            if (stop) stopAndDismiss() else openPlayer()
         }
     }
 

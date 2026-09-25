@@ -48,7 +48,6 @@ import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
-import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
@@ -245,10 +244,11 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Text size") }
         ) {
             val sizeOptions = listOf(
-                Triple(0.80f, "Small", 10.5.sp),
-                Triple(1.00f, "XL", 12.5.sp),
-                Triple(1.20f, "Large", 14.5.sp),
-                Triple(1.40f, "Extra", 16.5.sp)
+                Triple(0.60f, "XXS", 8.5.sp),
+                Triple(0.70f, "XS", 9.5.sp),
+                Triple(0.80f, "S", 10.5.sp),
+                Triple(0.90f, "M", 11.5.sp),
+                Triple(1.00f, "L", 12.5.sp)
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -280,18 +280,6 @@ fun AppearanceSettingsSection(
                     }
                 }
             }
-        }
-
-        SettingsAccordionItem(
-            title = "Extended",
-            expanded = expandedGroup == "Extended",
-            onToggle = { toggle("Extended") }
-        ) {
-            SettingsChoiceRow(
-                options = listOf("3" to "3", "4" to "4", "5" to "5"),
-                selected = state.homeNavigationSlots.coerceIn(3, 5).toString(),
-                onSelect = { value -> viewModel.setHomeNavigationSlots(value.toIntOrNull() ?: 4) }
-            )
         }
     })
 }

@@ -11,16 +11,14 @@ data class SettingsState(
     val backgroundImageUri: String? = null,
     val hideStatusBar: Boolean = false,
     val cardTransparency: Float = 0f,
-    // New installations use the requested XL visual scale by default.
-    val fontSizeScale: Float = 1.4f,
+    // L deliberately retains the former Medium physical scale.
+    val fontSizeScale: Float = 1.0f,
     val hapticFeedbackEnabled: Boolean = true,
     val hapticIntensity: String = "medium",
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",
     val homeScrollDirection: String = "horizontal",
     val homeHorizontalRows: Int = 4,
-    /** 3 keeps the original header actions; 4/5 move library actions into navigation. */
-    val homeNavigationSlots: Int = 4,
     val hideRecentlyPlayed: Boolean = false,
     val recentsPlacement: String = "bottom",
     val eqHeadroomDb: Float = 0f,

@@ -11,7 +11,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -31,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -82,6 +83,7 @@ import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
 import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
+import com.xvox.music.shell.XvoxShellTopHeaderBodyHeight
 import com.xvox.music.shell.XvoxTimerBoxContent
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -96,7 +98,6 @@ fun XvoxMainShell(
     val colors = XvoxTheme.colors
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
-    val settingsState by settingsViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val homeConfig by homePreferences.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
@@ -120,12 +121,33 @@ fun XvoxMainShell(
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
-    var headerVisible by rememberSaveable { mutableStateOf(true) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    var headerPinnedAway by rememberSaveable { mutableStateOf(false) }
     val density = LocalDensity.current
-    val headerMaxScrollPx = with(density) { 140.dp.toPx() }
+    val headerMaxScrollPx = with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
+
+    /** Once the body has left upward, it returns only when the list reaches its absolute top. */
+    fun updateHeaderScroll(index: Int, offset: Int) {
+        if (index == 0 && offset == 0) {
+            headerPinnedAway = false
+            headerOffsetPx = 0f
+        } else if (headerPinnedAway) {
+            headerOffsetPx = -headerMaxScrollPx
+        } else {
+            headerOffsetPx = if (index == 0) {
+                (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f)
+            } else {
+                -headerMaxScrollPx
+            }
+            if (index > 0 || offset >= headerMaxScrollPx.toInt()) {
+                headerPinnedAway = true
+                headerOffsetPx = -headerMaxScrollPx
+            }
+        }
+    }
 
     LaunchedEffect(destination) {
+        headerPinnedAway = false
         headerOffsetPx = 0f
     }
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
@@ -364,13 +386,23 @@ fun XvoxMainShell(
         else homeViewModel.togglePlaylistMode()
     }
 
+    fun openRecentFromHeader() {
+        hoistedSelectedPlaylistId = null
+        val enteringHome = destination != XvoxDestination.HOME
+        if (enteringHome) tabEpoch++
+        destination = XvoxDestination.HOME
+        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT)
+        else homeViewModel.toggleRecentMode()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.background)
     ) {
         val density = LocalDensity.current
-        val topInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 60.dp
+        val statusBarInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+        val topInset = statusBarInset + XvoxShellTopHeaderBodyHeight
         val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
             if (isLandscape) 84.dp
             else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) 180.dp
@@ -403,9 +435,7 @@ fun XvoxMainShell(
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    onScrollProgress = { index, offset ->
-                                        headerOffsetPx = if (index == 0) (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f) else -headerMaxScrollPx
-                                    }
+                                    onScrollProgress = ::updateHeaderScroll
                                 )
                             }
                             XvoxDestination.SEARCH -> {
@@ -417,9 +447,7 @@ fun XvoxMainShell(
                                         hoistedSelectedPlaylistId = playlistId
                                         destination = XvoxDestination.HOME
                                     },
-                                    onScrollProgress = { index, offset ->
-                                        headerOffsetPx = if (index == 0) (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f) else -headerMaxScrollPx
-                                    }
+                                    onScrollProgress = ::updateHeaderScroll
                                 )
                             }
                             XvoxDestination.SETTINGS -> {
@@ -435,37 +463,50 @@ fun XvoxMainShell(
             }
         }
 
-        AnimatedVisibility(
-            visible = destination != XvoxDestination.SETTINGS && (headerVisible || destination == XvoxDestination.SEARCH),
-            enter = slideInVertically(
-                initialOffsetY = { -it },
-                animationSpec = tween(260, easing = FastOutSlowInEasing)
-            ) + fadeIn(tween(200)),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = tween(220, easing = FastOutSlowInEasing)
-            ) + fadeOut(tween(160))
+        // This viewport begins below the status bar and owns the clip. The travelling header
+        // can therefore never draw into the status-bar region as it scrolls out.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(y = statusBarInset)
+                .fillMaxWidth()
+                .height(XvoxShellTopHeaderBodyHeight)
+                .clipToBounds()
         ) {
-            XvoxShellTopHeader(
-                profile = homeState.profile,
-                destination = destination,
-                libraryMode = homeState.libraryMode,
-                onProfileClick = ::showProfileEditor,
-                onRefreshClick = ::showRefreshOverlay,
-                onLikedClick = ::openLikedFromNavigation,
-                onPlaylistClick = ::openPlaylistsFromNavigation,
-                onArtistClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.toggleArtistMode()
-                },
-                extendedSlots = settingsState.homeNavigationSlots,
-                collapseFraction = (-headerOffsetPx / headerMaxScrollPx).coerceIn(0f, 1f)
-            )
+            AnimatedVisibility(
+                visible = destination != XvoxDestination.SETTINGS,
+                enter = slideInVertically(
+                    initialOffsetY = { -it },
+                    animationSpec = tween(260, easing = FastOutSlowInEasing)
+                ) + fadeIn(tween(200)),
+                exit = slideOutVertically(
+                    targetOffsetY = { -it },
+                    animationSpec = tween(220, easing = FastOutSlowInEasing)
+                ) + fadeOut(tween(160)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                XvoxShellTopHeader(
+                    profile = homeState.profile,
+                    destination = destination,
+                    libraryMode = homeState.libraryMode,
+                    onProfileClick = ::showProfileEditor,
+                    onRefreshClick = ::showRefreshOverlay,
+                    onLikedClick = ::openLikedFromNavigation,
+                    onPlaylistClick = ::openPlaylistsFromNavigation,
+                    onArtistClick = {
+                        hoistedSelectedPlaylistId = null
+                        homeViewModel.toggleArtistMode()
+                    },
+                    onRecentClick = ::openRecentFromHeader,
+                    scrollOffsetPx = headerOffsetPx,
+                    useSystemInsets = false
+                )
+            }
         }
 
         val currentSongId = player.currentSongId
-        // During the closing handoff, Mini Player is allowed to rise underneath Now Playing so
-        // their unchanged 320ms motions overlap instead of leaving an empty interval.
+        // Player surfaces hand off sequentially: each existing 320ms motion clears before the
+        // next surface enters.
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
         val miniVisible = if (isLandscape) (player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()) else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
 
@@ -520,11 +561,7 @@ fun XvoxMainShell(
                 ) {
                     XvoxBottomBar(
                         selected = destination,
-                        libraryMode = homeState.libraryMode,
-                        extendedSlots = settingsState.homeNavigationSlots,
-                        onSelected = ::selectNavigationDestination,
-                        onLikedClick = ::openLikedFromNavigation,
-                        onPlaylistClick = ::openPlaylistsFromNavigation
+                        onSelected = ::selectNavigationDestination
                     )
                 }
             }
@@ -562,11 +599,7 @@ fun XvoxMainShell(
             ) {
                 XvoxBottomBar(
                     selected = destination,
-                    libraryMode = homeState.libraryMode,
-                    extendedSlots = settingsState.homeNavigationSlots,
-                    onSelected = ::selectNavigationDestination,
-                    onLikedClick = ::openLikedFromNavigation,
-                    onPlaylistClick = ::openPlaylistsFromNavigation
+                    onSelected = ::selectNavigationDestination
                 )
             }
         }

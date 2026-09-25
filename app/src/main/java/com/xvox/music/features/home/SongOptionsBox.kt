@@ -62,8 +62,10 @@ fun SongOptionsBox(
     val tileShape = identityShape
     // Settings-page card fill/border: this overlay is intentionally the same palette in light,
     // dark, and AMOLED themes rather than a separate translucent dark surface.
-    val tileFill = colors.card
-    val tileBorder = colors.cardBorder.copy(alpha = if (colors.isLight) .8f else .72f)
+    // The sheet itself is a Settings section card; its actionable rows use the slightly raised
+    // inner-option surface from Settings, with the same restrained edge.
+    val tileFill = colors.cardElevated
+    val tileBorder = colors.cardBorder.copy(alpha = if (colors.isLight) .80f else .72f)
     val contextLabel = song.source.ifBlank {
         song.folderName.ifBlank { "XVOX library" }
     }

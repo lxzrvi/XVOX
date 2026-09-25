@@ -159,26 +159,6 @@ fun HomeSettingsSection(
         }
 
         SettingsAccordionItem(
-            title = "Recently played",
-            expanded = expandedGroup == "Recently played",
-            onToggle = { toggle("Recently played") }
-        ) {
-            SettingsToggle(
-                "Hide recents",
-                null,
-                state.hideRecentlyPlayed,
-                viewModel::setHideRecentlyPlayed
-            )
-            Spacer(Modifier.height(8.dp))
-            Label("Position")
-            SettingsChoiceRow(
-                listOf("top" to "Top", "bottom" to "Bottom"),
-                state.recentsPlacement,
-                viewModel::setRecentsPlacement
-            )
-        }
-
-        SettingsAccordionItem(
             title = "Merge sections",
             expanded = expandedGroup == "Merge sections",
             onToggle = { toggle("Merge sections") }
@@ -192,9 +172,11 @@ fun HomeSettingsSection(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    state.homeSectionOrder.forEachIndexed { index, section ->
+                    // Recent history moved to the shell header, so it is not an editable Home feed section.
+                    val editableSections = state.homeSectionOrder.filterNot { it == HomeSections.RECENT }
+                    editableSections.forEachIndexed { index, section ->
+                        val sourceIndex = state.homeSectionOrder.indexOf(section)
                         val visible = if (section == HomeSections.ALL) true
-                        else if (section == HomeSections.RECENT) !state.hideRecentlyPlayed
                         else section in state.homeMergedSections && section !in state.homeHiddenSections
                         Row(
                             modifier = Modifier
@@ -236,7 +218,8 @@ fun HomeSettingsSection(
                                         .clip(RoundedCornerShape(8.dp))
                                         .xvoxPressScale(enabled = index > 0) {
                                             haptics.tap()
-                                            viewModel.moveHomeSection(index, index - 1)
+                                            val previous = editableSections[index - 1]
+                                            viewModel.moveHomeSection(sourceIndex, state.homeSectionOrder.indexOf(previous))
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -246,13 +229,14 @@ fun HomeSettingsSection(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .xvoxPressScale(enabled = index < state.homeSectionOrder.lastIndex) {
+                                        .xvoxPressScale(enabled = index < editableSections.lastIndex) {
                                             haptics.tap()
-                                            viewModel.moveHomeSection(index, index + 1)
+                                            val next = editableSections[index + 1]
+                                            viewModel.moveHomeSection(sourceIndex, state.homeSectionOrder.indexOf(next))
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    SixDotsIcon(tint = if (index < state.homeSectionOrder.lastIndex) colors.primaryAccent else colors.mutedText.copy(alpha = 0.35f))
+                                    SixDotsIcon(tint = if (index < editableSections.lastIndex) colors.primaryAccent else colors.mutedText.copy(alpha = 0.35f))
                                 }
                             }
                         }

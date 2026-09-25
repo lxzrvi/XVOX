@@ -67,6 +67,9 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
+    // Keep this player visually in the same translucent, outlined family as the navigation chrome.
+    val miniAlpha = (chrome.miniBgAlpha.coerceIn(0f, 1f) * .64f).coerceIn(.24f, .78f)
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
             if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
@@ -90,7 +93,8 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
-            .background(colors.surface.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
+            .background(colors.card.copy(alpha = miniAlpha))
+            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.38f, .78f)), cardShape)
             .drawWithContent {
                 drawContent()
                 val radius = 15.dp.toPx()
@@ -111,7 +115,7 @@ fun XvoxMiniPlayerCard(
             }
     ) {
         if (isFullCover) {
-            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
+            val alphaFraction = chrome.miniBgAlpha.coerceIn(.30f, .84f)
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 requestSize = 512,
@@ -246,14 +250,7 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
-                    .border(
-                        0.75.dp,
-                        // On AMOLED, a card-border-on-black can disappear. Primary text always
-                        // provides a subtle but visible contrast in every app theme.
-                        if (isFullCover) Color.White.copy(alpha = 0.52f) else colors.primaryText.copy(alpha = 0.34f),
-                        CircleShape
-                    )
+                    // These are deliberately bare icon touch targets, not nested outlined circles.
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -273,12 +270,7 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(if (isFullCover) Color.Black.copy(alpha = 0.45f) else colors.cardElevated.copy(alpha = 0.68f))
-                    .border(
-                        0.75.dp,
-                        if (isFullCover) Color.White.copy(alpha = 0.52f) else colors.primaryText.copy(alpha = 0.34f),
-                        CircleShape
-                    )
+                    // Play follows the same bare-control treatment as Like.
                     .clickable(
                         interactionSource = controlInteraction,
                         indication = null,

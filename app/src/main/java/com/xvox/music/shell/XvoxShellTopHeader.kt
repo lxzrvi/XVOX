@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -25,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -50,10 +50,12 @@ private data class HeaderLibraryAction(
     val onClick: () -> Unit
 )
 
+/** Height of the body that sits below the status-bar clipping boundary in [XvoxMainShell]. */
+val XvoxShellTopHeaderBodyHeight = 66.dp
+
 /**
- * Fixed shell header. Its canvas and profile title stay below the status bar while scroll progress
- * only moves the avatar and action controls out of view. Reversing a list scroll restores them
- * from the exact same fraction rather than rebuilding or snapping the header.
+ * The shell header itself travels with its list, but its parent clips it at the status-bar edge.
+ * Therefore it can leave upward without ever drawing over the system status bar.
  */
 @Composable
 fun XvoxShellTopHeader(
@@ -65,32 +67,27 @@ fun XvoxShellTopHeader(
     onLikedClick: () -> Unit,
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
-    /** 3 keeps all library actions here; 4 moves Liked and 5 moves Liked + Playlists to nav. */
-    extendedSlots: Int = 3,
-    /** 0 = fully shown, 1 = avatar/actions have scrolled out while title/canvas remain anchored. */
-    collapseFraction: Float = 0f,
+    onRecentClick: () -> Unit = {},
+    /** Negative scroll translation, capped by the caller to [XvoxShellTopHeaderBodyHeight]. */
+    scrollOffsetPx: Float = 0f,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val density = LocalDensity.current
-    val collapsed = collapseFraction.coerceIn(0f, 1f)
-    val controlsAlpha = (1f - collapsed).coerceIn(0f, 1f)
-    val controlsShiftPx = with(density) { (72.dp * collapsed).toPx() }
-
-    val layout = extendedSlots.coerceIn(3, 5)
-    val libraryActions = buildList {
-        if (layout == 3) {
-            add(HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick))
-        }
-        if (layout <= 4) {
-            add(HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick))
-        }
-        // Artists always remains in the header, including the five-item navigation layout.
-        add(HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick))
-    }
+    val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder) ?: colors.cardBorder
+    val bodyOffset by animateFloatAsState(
+        targetValue = scrollOffsetPx,
+        animationSpec = tween(110, easing = SmoothEase),
+        label = "headerScrollOffset"
+    )
+    val libraryActions = listOf(
+        HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
+        HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
+        HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick),
+        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_timer, "Recently Played", onRecentClick)
+    )
     val selectedActionIndex = libraryActions.indexOfFirst { it.mode == libraryMode }
-    val isLibraryActionSelected = selectedActionIndex >= 0
+    val selected = selectedActionIndex >= 0
     val targetIndicatorX = 3.dp + 36.dp * selectedActionIndex.coerceAtLeast(0).toFloat()
     val animatedIndicatorX by animateDpAsState(
         targetValue = targetIndicatorX,
@@ -98,23 +95,24 @@ fun XvoxShellTopHeader(
         label = "headerLibraryIndicatorX"
     )
     val indicatorAlpha by animateFloatAsState(
-        targetValue = if (isLibraryActionSelected) 1f else 0f,
+        targetValue = if (selected) 1f else 0f,
         animationSpec = tween(200),
         label = "headerLibraryIndicatorAlpha"
     )
-
     val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
     val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(XvoxShellTopHeaderBodyHeight)
+            .graphicsLayer { translationY = bodyOffset }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated.copy(alpha = if (alphaFraction > 0f) alphaFraction else 0.85f))
+            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated.copy(alpha = if (alphaFraction > 0f) alphaFraction else .85f))
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(
@@ -125,11 +123,7 @@ fun XvoxShellTopHeader(
                     .matchParentSize()
                     .graphicsLayer { alpha = alphaFraction }
             )
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = 0.20f * alphaFraction))
-            )
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .20f * alphaFraction)))
         }
 
         Row(
@@ -140,23 +134,9 @@ fun XvoxShellTopHeader(
                 .height(54.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Only the PFP leaves on scroll. The space stays reserved so the title does not jump.
-            Box(
-                modifier = Modifier.graphicsLayer {
-                    translationY = -controlsShiftPx
-                    alpha = controlsAlpha
-                }
-            ) {
-                HomeProfileAvatar(
-                    profile = profile,
-                    modifier = Modifier.size(42.dp),
-                    onClick = onProfileClick
-                )
-            }
+            HomeProfileAvatar(profile = profile, modifier = Modifier.size(42.dp), onClick = onProfileClick)
+            Spacer(Modifier.width(10.dp))
 
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // This is the sticky title portion of the header.
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = profile.username,
@@ -190,26 +170,22 @@ fun XvoxShellTopHeader(
                 visible = destination == XvoxDestination.HOME,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
-                    animationSpec = tween(320, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
+                    animationSpec = tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f))
                 ) + fadeIn(tween(260)),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
-                    animationSpec = tween(280, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f))
+                    animationSpec = tween(280, easing = CubicBezierEasing(.16f, 1f, .3f, 1f))
                 ) + fadeOut(tween(220))
             ) {
-                Row(
-                    modifier = Modifier.graphicsLayer {
-                        translationY = -controlsShiftPx
-                        alpha = controlsAlpha
-                    },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Header controls use the same translucent, thin-edged language as navigation.
                     Box(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(colors.card.copy(alpha = 0.60f))
-                            .xvoxPressScale(pressedScale = 0.90f) { onRefreshClick() },
+                            .background(colors.card.copy(alpha = .46f))
+                            .border(.65.dp, headerEdge.copy(alpha = .72f), CircleShape)
+                            .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -219,7 +195,6 @@ fun XvoxShellTopHeader(
                             modifier = Modifier.size(19.dp)
                         )
                     }
-
                     Spacer(Modifier.width(8.dp))
 
                     val actionShape = RoundedCornerShape(21.dp)
@@ -229,7 +204,8 @@ fun XvoxShellTopHeader(
                             .height(42.dp)
                             .width(actionPillWidth)
                             .clip(actionShape)
-                            .background(colors.card.copy(alpha = 0.60f))
+                            .background(colors.card.copy(alpha = .46f))
+                            .border(.65.dp, headerEdge.copy(alpha = .72f), actionShape)
                     ) {
                         Box(
                             modifier = Modifier
@@ -237,7 +213,7 @@ fun XvoxShellTopHeader(
                                 .size(36.dp)
                                 .graphicsLayer { alpha = indicatorAlpha }
                                 .clip(CircleShape)
-                                .background(colors.cardElevated.copy(alpha = 0.95f))
+                                .background(colors.cardElevated.copy(alpha = .82f))
                         )
                         Row(
                             modifier = Modifier
@@ -261,7 +237,7 @@ fun XvoxShellTopHeader(
                                     Icon(
                                         painter = painterResource(action.icon),
                                         contentDescription = action.label,
-                                        tint = if (libraryMode == action.mode) colors.primaryAccent else colors.primaryText.copy(alpha = 0.70f),
+                                        tint = if (libraryMode == action.mode) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
                                         modifier = Modifier.size(19.dp)
                                     )
                                 }
@@ -272,8 +248,6 @@ fun XvoxShellTopHeader(
             }
         }
 
-        val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder)
-            ?: colors.cardBorder
         Box(
             Modifier
                 .fillMaxWidth()
