@@ -84,7 +84,7 @@ fun XvoxShellTopHeader(
         HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_timer, "Recently Played", onRecentClick)
+        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played", onRecentClick)
     )
     val selectedActionIndex = libraryActions.indexOfFirst { it.mode == libraryMode }
     val selected = selectedActionIndex >= 0
@@ -100,6 +100,9 @@ fun XvoxShellTopHeader(
         label = "headerLibraryIndicatorAlpha"
     )
     val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
+    val headerDimAlpha = if (chrome.headerDimEnabled) chrome.headerDimAmount.coerceIn(0f, 1f) else 0f
+    // Use a palette-owned dark tone rather than a hard-coded overlay colour.
+    val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
     val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
 
     Box(
@@ -123,7 +126,7 @@ fun XvoxShellTopHeader(
                     .matchParentSize()
                     .graphicsLayer { alpha = alphaFraction }
             )
-            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .20f * alphaFraction)))
+            Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
         }
 
         Row(

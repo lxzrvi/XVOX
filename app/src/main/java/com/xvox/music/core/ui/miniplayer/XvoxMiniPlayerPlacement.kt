@@ -1,5 +1,6 @@
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.ui.navigation.XvoxNavigationGeometry
 
@@ -7,8 +8,12 @@ object XvoxMiniPlayerPlacement {
     val horizontalEdge = 6.dp
     val controlGap = 9.dp
     val navigationHostBottom = 6.dp
-    val navigationVisualHeight = XvoxNavigationGeometry.barHeight
-    // Measure to the visible bar top, not the host's overflow / touch bounds.
-    val miniPlayerBottom = navigationHostBottom + XvoxNavigationGeometry.hostHeight -
-        XvoxNavigationGeometry.hostOverflow + controlGap
+
+    /** The floating nav retains its 20dp host allowance at every user-selected visual height. */
+    fun navigationHostHeight(navigationBarHeight: Dp): Dp = navigationBarHeight + 20.dp
+
+    /** Measure to the visible bar top, not the host's overflow / touch bounds. */
+    fun miniPlayerBottom(navigationBarHeight: Dp): Dp =
+        navigationHostBottom + navigationHostHeight(navigationBarHeight) -
+            XvoxNavigationGeometry.hostOverflow + controlGap
 }

@@ -149,17 +149,20 @@ class UserPreferencesRepository(
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
+        val nowPlayingBackgroundStyle = stringPreferencesKey("now_playing_background_style")
         val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
     }
 
-    /** Collapses retired scale values onto the five supported physical sizes. */
+    /** Collapses retired scale values onto the four supported physical sizes. */
     private fun normalizeTextScale(value: Float): Float = when {
-        value < .65f -> .60f
         value < .75f -> .70f
         value < .85f -> .80f
         value < .95f -> .90f
         else -> 1.00f
     }
+
+    private fun normalizeNowPlayingBackgroundStyle(value: String?): String =
+        com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(value)
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
         UserPreferences(
@@ -459,6 +462,8 @@ class UserPreferencesRepository(
         .distinctUntilChanged()
     val nowPlayingStyle: Flow<String> = context.xvoxDataStore.data
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
+    val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
+        .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
@@ -719,6 +724,9 @@ class UserPreferencesRepository(
     suspend fun setNowPlayingStyle(style: String) {
         val normalized = if (style == "compact" || style == "immersive") "compact" else "default"
         context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = normalized }
+    }
+    suspend fun setNowPlayingBackgroundStyle(style: String) {
+        context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style) }
     }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }

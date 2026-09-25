@@ -1,11 +1,26 @@
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,10 +33,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Icon
+import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import kotlin.math.abs
 import kotlinx.coroutines.Job
@@ -43,7 +63,10 @@ fun XvoxMiniPlayer(
     openPlayer: () -> Unit,
     isLiked: Boolean = false,
     onLike: () -> Unit,
-    onSongOptions: () -> Unit = {},
+    onAddToPlaylist: () -> Unit = {},
+    onOpenMiniPlayerSettings: () -> Unit = {},
+    quickActionsVisible: Boolean = false,
+    onQuickActionsVisibleChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -59,7 +82,9 @@ fun XvoxMiniPlayer(
     var moved by remember { mutableStateOf(false) }
     var exiting by remember { mutableStateOf(false) }
     var commitJob by remember { mutableStateOf<Job?>(null) }
-    val showSongOptions by rememberUpdatedState(onSongOptions)
+    val setQuickActionsVisible by rememberUpdatedState(onQuickActionsVisibleChange)
+    val addToPlaylist by rememberUpdatedState(onAddToPlaylist)
+    val openMiniSettings by rememberUpdatedState(onOpenMiniPlayerSettings)
 
     var previewIndex by remember(currentSongId, queue) {
         mutableIntStateOf(currentIndex.takeIf { it in queue.indices } ?: 0)
@@ -97,6 +122,7 @@ fun XvoxMiniPlayer(
     fun exit(currentY: Float, stop: Boolean) {
         if (exiting) return
         exiting = true
+        setQuickActionsVisible(false)
         cancelCommit()
 
         scope.launch {
@@ -116,7 +142,7 @@ fun XvoxMiniPlayer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(68.dp),
+            .height(122.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
@@ -129,6 +155,7 @@ fun XvoxMiniPlayer(
 
                     detectDragGestures(
                         onDragStart = {
+                            setQuickActionsVisible(false)
                             cancelCommit()
                             axis = XvoxMiniAxis.NONE
                             rawX = 0f
@@ -230,13 +257,17 @@ fun XvoxMiniPlayer(
                         onLongPress = {
                             if (!moved) {
                                 cancelCommit()
-                                showSongOptions()
+                                setQuickActionsVisible(true)
                             }
                         },
                         onTap = {
                             if (!moved) {
                                 cancelCommit()
-                                exit(y.value, false)
+                                if (quickActionsVisible) {
+                                    setQuickActionsVisible(false)
+                                } else {
+                                    exit(y.value, false)
+                                }
                             }
                         }
                     )
@@ -260,5 +291,76 @@ fun XvoxMiniPlayer(
             )
         }
 
+        AnimatedVisibility(
+            visible = quickActionsVisible,
+            enter = slideInVertically(
+                initialOffsetY = { it / 2 },
+                animationSpec = tween(180, easing = XvoxPlayerTransitionMotion.easing)
+            ) + fadeIn(tween(150, easing = XvoxPlayerTransitionMotion.easing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it / 2 },
+                animationSpec = tween(160, easing = XvoxPlayerTransitionMotion.easing)
+            ) + fadeOut(tween(130, easing = XvoxPlayerTransitionMotion.easing)),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            XvoxMiniQuickActionPill(
+                onAdd = {
+                    setQuickActionsVisible(false)
+                    addToPlaylist()
+                },
+                onSettings = {
+                    setQuickActionsVisible(false)
+                    openMiniSettings()
+                },
+                onDismiss = {
+                    setQuickActionsVisible(false)
+                    exit(y.value, true)
+                }
+            )
+        }
+    }
+}
+
+/** A compact long-press menu that rises from the Mini Player instead of opening a sheet. */
+@Composable
+private fun XvoxMiniQuickActionPill(
+    onAdd: () -> Unit,
+    onSettings: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(24.dp)
+    Row(
+        modifier = Modifier
+            .height(44.dp)
+            .width(164.dp)
+            .clip(shape)
+            .background(colors.cardElevated.copy(alpha = .94f))
+            .padding(horizontal = 5.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        XvoxMiniQuickAction(R.drawable.ic_xvox_add, "+ Add to playlist", onAdd)
+        XvoxMiniQuickAction(R.drawable.ic_xvox_settings, "Mini Player settings", onSettings)
+        XvoxMiniQuickAction(R.drawable.ic_xvox_close, "Dismiss Mini Player", onDismiss)
+    }
+}
+
+@Composable
+private fun XvoxMiniQuickAction(icon: Int, description: String, onClick: () -> Unit) {
+    val colors = XvoxTheme.colors
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = description,
+            tint = colors.primaryText,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }

@@ -69,15 +69,17 @@ fun XvoxMiniPlayerCard(
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
     // Keep this player visually in the same translucent, outlined family as the navigation chrome.
-    val miniAlpha = (chrome.miniBgAlpha.coerceIn(0f, 1f) * .64f).coerceIn(.24f, .78f)
+    val miniAlpha = chrome.miniBgAlpha.coerceIn(.22f, .82f)
+    val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f).dp
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
             if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
         }.distinctUntilChanged()
     }.collectAsState(initial = 0L to 0L)
 
-    val cardShape = RoundedCornerShape(15.dp)
-    val artworkShape = RoundedCornerShape(11.dp)
+    val cardShape = RoundedCornerShape(miniRadius)
+    // Artwork keeps its full 48dp footprint while following the card's corner language.
+    val artworkShape = RoundedCornerShape((chrome.miniCornerRadius - 4f).coerceIn(7f, 28f).dp)
     val isFullCover = chrome.miniCoverStyle == "full"
 
     val controlInteraction = remember { MutableInteractionSource() }
@@ -93,11 +95,11 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
-            .background(colors.card.copy(alpha = miniAlpha))
+            .background(colors.cardElevated.copy(alpha = miniAlpha))
             .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.38f, .78f)), cardShape)
             .drawWithContent {
                 drawContent()
-                val radius = 15.dp.toPx()
+                val radius = miniRadius.toPx()
                 val inside = Path().apply {
                     addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(radius)))
                 }
@@ -129,17 +131,17 @@ fun XvoxMiniPlayerCard(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.30f * alphaFraction),
+                                colors.background.copy(alpha = 0.30f * alphaFraction),
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.40f * alphaFraction)
+                                colors.background.copy(alpha = 0.40f * alphaFraction)
                             )
                         )
                     )
             )
         }
 
-        val titleColor = if (isFullCover) Color.White else colors.primaryText
-        val artistColor = if (isFullCover) Color.White.copy(alpha = 0.82f) else colors.secondaryText
+        val titleColor = colors.primaryText
+        val artistColor = colors.secondaryText
 
         Row(
             modifier = Modifier
@@ -261,7 +263,7 @@ fun XvoxMiniPlayerCard(
                 Icon(
                     painter = painterResource(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
                     contentDescription = "Like",
-                    tint = if (isLiked) colors.primaryAccent else (if (isFullCover) Color.White else colors.primaryText),
+                    tint = if (isLiked) colors.primaryAccent else colors.primaryText,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -280,7 +282,7 @@ fun XvoxMiniPlayerCard(
             ) {
                 XvoxMiniPlayerIcon(
                     icon = if (isPlaying) XvoxMiniIcon.PAUSE else XvoxMiniIcon.PLAY,
-                    color = if (isFullCover) Color.White else colors.primaryText,
+                    color = colors.primaryText,
                     modifier = Modifier.size(18.dp)
                 )
             }

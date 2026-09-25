@@ -37,7 +37,14 @@ data class XvoxChromeStyle(
     val cardBorder: String = "",
     val cardBorderAlpha: Float = 1f,
     // Mini player cover mode ("default" or "full").
-    val miniCoverStyle: String = "default"
+    val miniCoverStyle: String = "default",
+    /** Rounded corner radius for the Mini Player only, in dp. */
+    val miniCornerRadius: Float = 15f,
+    /** Visual floating-navigation height, in dp. */
+    val navigationBarHeight: Float = 64f,
+    /** A dim overlay is opt-in so a custom header remains bright by default. */
+    val headerDimEnabled: Boolean = false,
+    val headerDimAmount: Float = .50f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -47,7 +54,9 @@ data class XvoxChromeStyle(
         pillColor, pillAlpha,
         pillIconColor,
         cardBorder, cardBorderAlpha,
-        miniCoverStyle
+        miniCoverStyle,
+        miniCornerRadius, navigationBarHeight,
+        headerDimEnabled, headerDimAmount
     ).joinToString("|")
 
     companion object {
@@ -56,6 +65,8 @@ data class XvoxChromeStyle(
             fun str(i: Int): String = parts.getOrNull(i).orEmpty().trim()
             fun flt(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
+            fun number(i: Int, fallback: Float): Float =
+                parts.getOrNull(i)?.trim()?.toFloatOrNull() ?: fallback
             if (parts.size == 16) {
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
@@ -86,7 +97,11 @@ data class XvoxChromeStyle(
                 pillColor = str(12), pillAlpha = flt(13, 1f),
                 pillIconColor = str(14),
                 cardBorder = str(15), cardBorderAlpha = flt(16, 1f),
-                miniCoverStyle = if (str(17).isNotBlank()) str(17) else "default"
+                miniCoverStyle = if (str(17).isNotBlank()) str(17) else "default",
+                miniCornerRadius = number(18, 15f).coerceIn(6f, 32f),
+                navigationBarHeight = number(19, 64f).coerceIn(52f, 88f),
+                headerDimEnabled = parts.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
+                headerDimAmount = flt(21, .50f)
             )
         }
     }

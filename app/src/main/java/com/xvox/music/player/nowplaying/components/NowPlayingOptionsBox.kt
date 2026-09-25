@@ -2,14 +2,28 @@ package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,96 +35,56 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.features.settings.SettingsViewModel
+import com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundOption
+import com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles
+import com.xvox.music.player.nowplaying.xvoxNowPlayingBackgroundBrush
+import com.xvox.music.player.nowplaying.xvoxNowPlayingBackgroundColor
 
+/** The three-dot menu's exact ten artwork-derived Now Playing background treatments. */
 @Composable
 fun NowPlayingOptionsBox(
     onDismiss: () -> Unit,
+    dominant: Color,
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val overlays = com.xvox.music.core.ui.overlay.LocalXvoxOverlayController.current
-    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val state by settingsViewModel.state.collectAsState()
-    val storedCompact = state.nowPlayingStyle == "compact" || state.nowPlayingStyle == "immersive"
-    val isCompact = storedCompact && !isLandscape
+    val selected = XvoxNowPlayingBackgroundStyles.normalize(state.nowPlayingBackgroundStyle)
 
     XvoxBox(
         onDismiss = onDismiss,
-        title = "Now Playing Style"
+        title = "Now Playing background"
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Choose player layout style",
+                text = "Cover-derived background styles",
                 color = colors.secondaryText,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
+                fontSize = 12.sp
             )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                StyleOptionCard(
-                    title = "Default",
-                    subtitle = "Complete playback controls, info & actions",
-                    selected = !storedCompact || isLandscape,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        haptics.tap()
-                        settingsViewModel.setNowPlayingStyle("default")
-                    }
-                )
-
-                StyleOptionCard(
-                    title = "Compact",
-                    subtitle = "Tall expanded card with compact minimalist controls",
-                    selected = storedCompact && !isLandscape,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        haptics.tap()
-                        if (isLandscape) {
-                            overlays.showP("You can't activate compact mode on landscape")
-                        } else {
-                            settingsViewModel.setNowPlayingStyle("compact")
-                        }
-                    }
-                )
-            }
-
-            if (storedCompact && !isLandscape) {
-                Spacer(Modifier.height(14.dp))
-
-                // Notice / Note shown only when Compact style is selected
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.cardElevated.copy(alpha = 0.6f))
-                        .border(0.6.dp, colors.cardBorder, RoundedCornerShape(12.dp))
-                        .padding(12.dp)
+            XvoxNowPlayingBackgroundStyles.options.chunked(2).forEach { pair ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_info),
-                            contentDescription = null,
-                            tint = colors.primaryAccent,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .padding(top = 1.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Note: In Compact style, you can enjoy a larger artwork view with sleek essential controls. Extra actions can be managed in Default style anytime.",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
+                    pair.forEach { option ->
+                        BackgroundStyleCard(
+                            option = option,
+                            dominant = dominant,
+                            selected = option.key == selected,
+                            onClick = {
+                                haptics.tap()
+                                settingsViewModel.setNowPlayingBackgroundStyle(option.key)
+                            },
+                            modifier = Modifier.weight(1f)
                         )
                     }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -118,57 +92,43 @@ fun NowPlayingOptionsBox(
 }
 
 @Composable
-private fun StyleOptionCard(
-    title: String,
-    subtitle: String,
+private fun BackgroundStyleCard(
+    option: XvoxNowPlayingBackgroundOption,
+    dominant: Color,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-
+    val shape = RoundedCornerShape(14.dp)
+    val brush = xvoxNowPlayingBackgroundBrush(option.key, dominant)
+    val fill = xvoxNowPlayingBackgroundColor(option.key, dominant)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) colors.primaryAccent.copy(alpha = 0.16f) else colors.card)
+            .height(76.dp)
+            .clip(shape)
+            .then(if (brush != null) Modifier.background(brush) else Modifier.background(fill))
             .border(
-                width = if (selected) 1.4.dp else 0.6.dp,
-                color = if (selected) colors.primaryAccent else colors.cardBorder,
-                shape = RoundedCornerShape(14.dp)
+                width = if (selected) 1.8.dp else .7.dp,
+                color = if (selected) colors.primaryAccent else colors.cardBorder.copy(alpha = .78f),
+                shape = shape
             )
             .xvoxPressScale(onClick = onClick)
-            .padding(12.dp)
+            .padding(10.dp),
+        contentAlignment = Alignment.BottomStart
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    color = if (selected) colors.primaryAccent else colors.primaryText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                if (selected) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_check),
-                        contentDescription = null,
-                        tint = colors.primaryAccent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = subtitle,
-                color = colors.secondaryText,
-                fontSize = 11.sp,
-                lineHeight = 14.sp
+        Text(
+            text = option.title,
+            color = colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+        if (selected) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_check),
+                contentDescription = "Selected ${option.title}",
+                tint = colors.primaryAccent,
+                modifier = Modifier.align(Alignment.TopEnd).size(17.dp)
             )
         }
     }

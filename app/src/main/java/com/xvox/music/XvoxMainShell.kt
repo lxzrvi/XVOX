@@ -1,11 +1,7 @@
 package com.xvox.music
 
-import android.app.Activity
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
@@ -19,6 +15,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -73,7 +71,6 @@ import com.xvox.music.features.home.SongInfoBox
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.showCreatePlaylistOverlay
 import com.xvox.music.features.home.showLibraryRefresh
-import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
@@ -96,6 +93,8 @@ fun XvoxMainShell(
     backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val navigationBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
@@ -150,16 +149,6 @@ fun XvoxMainShell(
         headerPinnedAway = false
         headerOffsetPx = 0f
     }
-    var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
-    val miniDeleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK && pendingDeleteSong != null) {
-            playerViewModel.removeFromQueue(pendingDeleteSong!!.id)
-            homeViewModel.refresh()
-            overlays.showP("Song deleted from device")
-        }
-        pendingDeleteSong = null
-    }
-
     BackHandler(enabled = destination != XvoxDestination.HOME) {
         destination = XvoxDestination.HOME
     }
@@ -342,22 +331,6 @@ fun XvoxMainShell(
         }
     }
 
-    fun showMiniPlayerSongOptions(song: Song) {
-        showSongOptionsOverlay(
-            overlays = overlays,
-            context = context,
-            song = song,
-            isLiked = song.id in homeState.likedSongIds,
-            viewModel = homeViewModel,
-            playerViewModel = playerViewModel,
-            playlists = homeState.playlists,
-            songs = homeState.songs,
-            deleteLauncher = miniDeleteLauncher,
-            onPendingDelete = { pendingDeleteSong = it },
-            onSectionSettings = ::showMiniPlayerSettings
-        )
-    }
-
     fun selectNavigationDestination(next: XvoxDestination) {
         if (next == XvoxDestination.HOME) {
             hoistedSelectedPlaylistId = null
@@ -404,9 +377,9 @@ fun XvoxMainShell(
         val statusBarInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
         val topInset = statusBarInset + XvoxShellTopHeaderBodyHeight
         val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
-            if (isLandscape) 84.dp
-            else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) 180.dp
-            else 104.dp
+            if (isLandscape) navigationBarHeight + 20.dp
+            else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) navigationBarHeight + 116.dp
+            else navigationBarHeight + 40.dp
 
         val tabState = rememberSaveableStateHolder()
         CompositionLocalProvider(LocalXvoxTopInset provides topInset, LocalXvoxBottomInset provides bottomInset) {
@@ -509,8 +482,19 @@ fun XvoxMainShell(
         // next surface enters.
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
         val miniVisible = if (isLandscape) (player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()) else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
+        var landscapeQuickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
+        LaunchedEffect(miniVisible) {
+            if (!miniVisible) landscapeQuickActionsVisible = false
+        }
 
         if (isLandscape) {
+            if (landscapeQuickActionsVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) { detectTapGestures { landscapeQuickActionsVisible = false } }
+                )
+            }
             // Landscape Mode: Miniplayer and Navbar in one single balanced bottom row
             Row(
                 modifier = Modifier
@@ -524,7 +508,7 @@ fun XvoxMainShell(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(64.dp),
+                            .height(122.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         XvoxMiniPlayer(
@@ -547,8 +531,11 @@ fun XvoxMainShell(
                                     overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                                 }
                             },
-                            onSongOptions = { currentSong?.let(::showMiniPlayerSongOptions) },
-                            modifier = Modifier.fillMaxWidth().height(60.dp)
+                            onAddToPlaylist = { currentSong?.let(::showAddCurrentSongToPlaylist) },
+                            onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
+                            quickActionsVisible = landscapeQuickActionsVisible,
+                            onQuickActionsVisibleChange = { landscapeQuickActionsVisible = it },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 } else {
@@ -556,12 +543,13 @@ fun XvoxMainShell(
                 }
 
                 Box(
-                    modifier = Modifier.height(64.dp),
+                    modifier = Modifier.height(navigationBarHeight),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxBottomBar(
                         selected = destination,
-                        onSelected = ::selectNavigationDestination
+                        onSelected = ::selectNavigationDestination,
+                        headerImageUri = homeState.profile.headerImageUri
                     )
                 }
             }
@@ -588,7 +576,9 @@ fun XvoxMainShell(
                         overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                     }
                 },
-                onSongOptions = { currentSong?.let(::showMiniPlayerSongOptions) }
+                onAddToPlaylist = { currentSong?.let(::showAddCurrentSongToPlaylist) },
+                onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
+                navigationBarHeight = navigationBarHeight
             )
 
             Box(
@@ -599,7 +589,8 @@ fun XvoxMainShell(
             ) {
                 XvoxBottomBar(
                     selected = destination,
-                    onSelected = ::selectNavigationDestination
+                    onSelected = ::selectNavigationDestination,
+                    headerImageUri = homeState.profile.headerImageUri
                 )
             }
         }

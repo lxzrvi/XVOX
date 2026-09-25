@@ -80,7 +80,9 @@ fun SettingsScreen(
                     label = "Pick Accent Color",
                     hex = if (state.accentColor.startsWith("#")) state.accentColor else "#F01E2C",
                     onColorChange = settingsViewModel::setAccentColor,
-                    subtitle = "Applies across all buttons and highlights"
+                    subtitle = "Applies across all buttons and highlights",
+                    showPreview = false,
+                    initiallyExpanded = true
                 )
             }
         }
@@ -157,6 +159,7 @@ private fun AppearanceSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val chrome = state.chromeStyle
     val themeOptions = listOf("System" to "System", "Light" to "Light", "Dark" to "Dark")
     val selectedTheme = themeOptions.firstOrNull { it.first.equals(state.theme, ignoreCase = true) }?.first
         ?: if (state.theme.equals("AMOLED", ignoreCase = true)) "Dark" else null
@@ -173,7 +176,6 @@ private fun AppearanceSectionCard(
 
     // L retains the prior Medium physical scale; each lower label steps down one size.
     val scaleOptions = listOf(
-        Triple("xxs", "XXS", 0.60f),
         Triple("xs", "XS", 0.70f),
         Triple("s", "S", 0.80f),
         Triple("m", "M", 0.90f),
@@ -199,6 +201,37 @@ private fun AppearanceSectionCard(
                         if (key == "custom") onOpenColorWheel() else viewModel.setAccentColor(key)
                     }
                 )
+            }
+
+            SettingsField("Header") {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    SettingsToggle(
+                        title = "Header dimness",
+                        subtitle = "Dim the selected Header image",
+                        checked = chrome.headerDimEnabled,
+                        onChange = { enabled -> viewModel.setChromeStyle { it.copy(headerDimEnabled = enabled) } }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Dimness", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${(chrome.headerDimAmount.coerceIn(0f, 1f) * 100).toInt()}%",
+                            color = colors.primaryAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    XvoxContinuousSlider(
+                        value = chrome.headerDimAmount,
+                        onValueChange = { amount -> viewModel.setChromeStyle { it.copy(headerDimAmount = amount) } },
+                        defaultValue = .50f,
+                        enabled = chrome.headerDimEnabled,
+                        contentDescription = "Header dimness"
+                    )
+                }
             }
 
             SettingsField("Text Scale") {

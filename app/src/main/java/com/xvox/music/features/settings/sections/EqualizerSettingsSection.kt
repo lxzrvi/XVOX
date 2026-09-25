@@ -90,7 +90,6 @@ fun EqualizerSettingsSection(
                 onCheckedChange = viewModel::setEqualizerEnabled
             )
             if (state.equalizerEnabled) {
-                EqualizerHairline()
                 EqualizerSectionLabel("EQ preset")
                 EqualizerChipRow(
                     options = AudioEffectsManager.EQ_PRESET_NAMES,
@@ -132,8 +131,7 @@ fun EqualizerSettingsSection(
             valueText = "${(state.appVolume * 100).roundToInt()}%",
             value = (state.appVolume / 2f).coerceIn(0f, 1f),
             onValueChange = { viewModel.setAppVolume(it * 2f) },
-            defaultValue = .50f,
-            defaultText = "100%"
+            defaultValue = .50f
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -347,8 +345,7 @@ private fun EqualizerSliderRow(
     valueText: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float,
-    defaultText: String = "${(defaultValue * 100).roundToInt()}%"
+    defaultValue: Float
 ) {
     val colors = XvoxTheme.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -375,12 +372,6 @@ private fun EqualizerSliderRow(
             onValueChange = onValueChange,
             defaultValue = defaultValue,
             contentDescription = "$label amount"
-        )
-        Text(
-            text = "Default: $defaultText",
-            color = colors.mutedText.copy(alpha = .80f),
-            fontSize = 9.5.sp,
-            lineHeight = 12.sp
         )
     }
 }

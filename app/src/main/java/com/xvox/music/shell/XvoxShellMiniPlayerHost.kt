@@ -6,16 +6,26 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import com.xvox.music.core.model.Song
@@ -39,8 +49,23 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onOpenPlayer: () -> Unit,
     isLiked: Boolean = false,
     onLike: () -> Unit,
-    onSongOptions: () -> Unit = {}
+    onAddToPlaylist: () -> Unit = {},
+    onOpenMiniPlayerSettings: () -> Unit = {},
+    navigationBarHeight: Dp = 64.dp
 ) {
+    var quickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
+    LaunchedEffect(visible) {
+        if (!visible) quickActionsVisible = false
+    }
+    if (quickActionsVisible) {
+        // This sits behind the pill but above the underlying screen, so any outside tap cleanly
+        // reverses the pill rather than triggering Home/Now Playing beneath it.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .pointerInput(Unit) { detectTapGestures { quickActionsVisible = false } }
+        )
+    }
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(
@@ -75,7 +100,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 (imeBottomPx - navBottomPx).coerceAtLeast(0).toDp()
             }
 
-            val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom
+            val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)
             val currentBottomPadding = max(restingBottomPadding, effectiveImeDp + XvoxMiniPlayerPlacement.controlGap)
 
             val miniModifier = Modifier
@@ -100,7 +125,10 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 openPlayer = onOpenPlayer,
                 isLiked = isLiked,
                 onLike = onLike,
-                onSongOptions = onSongOptions,
+                onAddToPlaylist = onAddToPlaylist,
+                onOpenMiniPlayerSettings = onOpenMiniPlayerSettings,
+                quickActionsVisible = quickActionsVisible,
+                onQuickActionsVisibleChange = { quickActionsVisible = it },
                 modifier = miniModifier
             )
         }

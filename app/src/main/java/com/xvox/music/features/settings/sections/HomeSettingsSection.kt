@@ -26,6 +26,7 @@ import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
+import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
 
@@ -129,6 +130,34 @@ fun HomeSettingsSection(
                 onSelect = { style ->
                     viewModel.setChromeStyle { it.copy(miniCoverStyle = style) }
                 }
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f)
+            Label("Mini player corner radius · ${miniRadius.roundToInt()} dp")
+            XvoxContinuousSlider(
+                value = miniRadius,
+                onValueChange = { radius ->
+                    viewModel.setChromeStyle { it.copy(miniCornerRadius = radius.coerceIn(6f, 32f)) }
+                },
+                valueRange = 6f..32f,
+                defaultValue = 15f,
+                contentDescription = "Mini player corner radius"
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            val navHeight = chrome.navigationBarHeight.coerceIn(52f, 88f)
+            Label("Navigation bar height · ${navHeight.roundToInt()} dp")
+            XvoxContinuousSlider(
+                value = navHeight,
+                onValueChange = { height ->
+                    viewModel.setChromeStyle { it.copy(navigationBarHeight = height.coerceIn(52f, 88f)) }
+                },
+                valueRange = 52f..88f,
+                defaultValue = 64f,
+                contentDescription = "Navigation bar height"
             )
 
             Spacer(Modifier.height(10.dp))

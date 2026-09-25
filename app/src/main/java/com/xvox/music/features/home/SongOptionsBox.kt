@@ -109,9 +109,8 @@ fun SongOptionsBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 360.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier
@@ -176,7 +175,7 @@ fun SongOptionsBox(
         gridActions.chunked(2).forEach { pair ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 pair.forEach { action ->
                     SongOptionGridTile(

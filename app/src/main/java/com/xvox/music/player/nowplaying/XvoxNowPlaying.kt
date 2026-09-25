@@ -76,7 +76,7 @@ fun XvoxNowPlaying(
     position: Long,
     duration: Long,
     onClose: () -> Unit,
-    /** Starts the Mini Player entrance concurrently with this screen's existing dismissal motion. */
+    /** Begins dismissal housekeeping; the Mini Player is restored only after this surface exits. */
     onDismissStart: () -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
@@ -301,7 +301,7 @@ fun XvoxNowPlaying(
             .fillMaxSize()
             .graphicsLayer { translationY = screenY }
             .clip(sheetCorner)
-            .background(paletteState.color)
+            .background(colors.background)
             .pointerInput(Unit) {
                 // Consume clicks on backdrop to prevent click-through to home screen below
                 detectTapGestures { }
@@ -309,6 +309,7 @@ fun XvoxNowPlaying(
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
+            style = settingsState.nowPlayingBackgroundStyle,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -757,6 +758,7 @@ fun XvoxNowPlaying(
             if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
                     onDismiss = { activeSettingsBox = null },
+                    dominant = paletteState.color,
                     settingsViewModel = settingsViewModel
                 )
             } else {

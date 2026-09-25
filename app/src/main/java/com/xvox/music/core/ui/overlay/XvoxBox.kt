@@ -2,26 +2,53 @@ package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -40,7 +67,11 @@ import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-/** Shared modal shell: centred cards by default, or adaptive bottom sheets for compact presentations. */
+/**
+ * Backwards-compatible name for the application-wide option sheet.  Every overlay deliberately
+ * routes through [XvoxSheet] so Profile, pickers, confirmations, Song Options, and Equalizer all
+ * share the same full-width, bottom-touching behaviour.
+ */
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
@@ -58,294 +89,246 @@ fun XvoxBox(
     headerTitleContent: (@Composable () -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
+) = XvoxSheet(
+    onDismiss = onDismiss,
+    modifier = modifier,
+    title = title,
+    presentation = presentation,
+    mini = mini,
+    onAddClick = onAddClick,
+    onBack = onBack,
+    onSettingsClick = onSettingsClick,
+    onUndoClick = onUndoClick,
+    onEditClick = onEditClick,
+    isEditing = isEditing,
+    headerLeadingContent = headerLeadingContent,
+    headerTitleContent = headerTitleContent,
+    bottomAction = bottomAction,
+    content = content
+)
+
+/**
+ * Universal XVOX option sheet.
+ *
+ * It deliberately owns only the sheet chrome and a bounded content viewport. Existing pages keep
+ * their own LazyColumn/verticalScroll state, which means they scroll internally once the sheet
+ * has reached the status-bar boundary rather than leaking an unbounded vertical constraint.
+ */
+@Composable
+fun XvoxSheet(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String = "XVOX",
+    presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
+    /** Retained for source compatibility; compact boxes are sheets too. */
+    mini: Boolean = false,
+    onAddClick: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null,
+    onUndoClick: (() -> Unit)? = null,
+    onEditClick: (() -> Unit)? = null,
+    isEditing: Boolean = false,
+    headerLeadingContent: (@Composable () -> Unit)? = null,
+    headerTitleContent: (@Composable () -> Unit)? = null,
+    bottomAction: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val scrimColor = if (colors.isLight) colors.primaryText else colors.background
+    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
     val swallowInteraction = remember { MutableInteractionSource() }
 
-    val scrimAlpha by animateFloatAsState(
-        targetValue = if (visible) 0.40f else 0f,
-        animationSpec = tween(150),
-        label = "scrimAlpha"
-    )
-
     fun close() {
         if (closing) return
         closing = true
         visible = false
         scope.launch {
-            // Let a bottom-sheet's downward motion finish before unmounting the Dialog.
-            delay(if (presentation == XvoxBoxPresentation.DEFAULT && !mini) 140 else 230)
+            // Keep the host mounted until its downward exit has cleared the visible screen.
+            delay(235)
             dismiss()
         }
     }
 
-    LaunchedEffect(Unit) {
-        visible = true
-    }
+    LaunchedEffect(Unit) { visible = true }
 
     Dialog(
         onDismissRequest = ::close,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        Box(modifier.fillMaxSize()) {
-            // Synchronized background scrim dim
+        Box(modifier = modifier.fillMaxSize()) {
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = scrimAlpha))
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(scrimColor.copy(alpha = .40f))
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
 
             BoxWithConstraints(
-                Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.systemBars)
-                    .imePadding()
-                    .padding(
-                        // Compact presentations deliberately retain equal side margins while
-                        // docking to the bottom; the rest keep the centred dialog treatment.
-                        horizontal = if (mini) 0.dp else if (presentation != XvoxBoxPresentation.DEFAULT) 16.dp else 20.dp,
-                        vertical = if (mini || presentation != XvoxBoxPresentation.DEFAULT) 0.dp else 16.dp
-                    ),
-                contentAlignment = if (mini || presentation != XvoxBoxPresentation.DEFAULT) Alignment.BottomCenter else Alignment.Center
+                modifier = Modifier
+                    .matchParentSize()
+                    .imePadding(),
+                contentAlignment = Alignment.BottomCenter
             ) {
-                // Adaptive height up to maximum 90% of screen height
-                val maxBoxHeight = maxHeight * if (presentation == XvoxBoxPresentation.DEFAULT && !mini) 0.90f else 0.92f
+                val statusTopPx = WindowInsets.statusBars.getTop(density)
+                val maxSheetHeight = with(density) {
+                    (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
+                }
+                val maxSheetHeightPx = with(density) { maxSheetHeight.toPx() }
+                val equalizerPresentation = presentation == XvoxBoxPresentation.EQUALIZER
+                val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
+
+                // A zero target means "fit its content". Equalizer intentionally begins around
+                // sixty percent of the usable screen; dragging the pill upward can grow any sheet
+                // until its top reaches the status-bar boundary.
+                var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
+                var measuredHeightPx by remember { mutableIntStateOf(0) }
+                var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
+                var dragDeltaPx by remember { mutableFloatStateOf(0f) }
+
+                LaunchedEffect(maxSheetHeightPx, equalizerPresentation) {
+                    if (equalizerPresentation && requestedHeightPx <= 0f) {
+                        requestedHeightPx = maxSheetHeightPx * .60f
+                    } else if (requestedHeightPx > maxSheetHeightPx) {
+                        requestedHeightPx = maxSheetHeightPx
+                    }
+                }
+
+                val requestedHeight: Dp? = requestedHeightPx
+                    .takeIf { it > 0f }
+                    ?.let { with(density) { it.coerceIn(1f, maxSheetHeightPx).toDp() } }
+                val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+                val sheetSizing = if (requestedHeight != null) {
+                    Modifier.height(requestedHeight)
+                } else {
+                    Modifier.heightIn(max = maxSheetHeight)
+                }
 
                 AnimatedVisibility(
                     visible = visible,
-                    enter = if (presentation == XvoxBoxPresentation.SONG_OPTIONS || presentation == XvoxBoxPresentation.EQUALIZER) {
-                        slideInVertically(initialOffsetY = { it }, animationSpec = tween(280, easing = XvoxBoxEasing)) + fadeIn(tween(180, easing = XvoxBoxEasing))
-                    } else fadeIn(tween(180, easing = XvoxBoxEasing)),
-                    exit = if (presentation == XvoxBoxPresentation.SONG_OPTIONS || presentation == XvoxBoxPresentation.EQUALIZER) {
-                        slideOutVertically(targetOffsetY = { it }, animationSpec = tween(220, easing = XvoxBoxEasing)) + fadeOut(tween(140, easing = XvoxBoxEasing))
-                    } else fadeOut(tween(140, easing = XvoxBoxEasing))
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(280, easing = XvoxBoxEasing)
+                    ) + fadeIn(tween(180, easing = XvoxBoxEasing)),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(220, easing = XvoxBoxEasing)
+                    ) + fadeOut(tween(140, easing = XvoxBoxEasing))
                 ) {
-                    val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
-                    val equalizerPresentation = presentation == XvoxBoxPresentation.EQUALIZER
-                    val compactPresentation = songOptionsPresentation || equalizerPresentation
-                    val shape = when {
-                        mini -> RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
-                        songOptionsPresentation || equalizerPresentation -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-                        else -> RoundedCornerShape(26.dp)
-                    }
-                    // Song Options and Equalizer share the Settings-page canvas exactly. Their
-                    // actionable surfaces use Settings-card colors inside this background.
-                    // Match Settings section cards; option controls themselves use cardElevated.
-                    val boxFill = if (compactPresentation) colors.card else colors.cardElevated
-
                     Column(
-                        Modifier
-                            .widthIn(max = if (mini) 520.dp else if (compactPresentation) 560.dp else 560.dp)
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = maxBoxHeight)
-                            .wrapContentHeight()
-                            .clip(shape)
-                            .background(boxFill)
-                            .then(
-                                if (compactPresentation) {
-                                    Modifier.border(0.7.dp, colors.primaryText.copy(alpha = 0.10f), shape)
-                                } else {
-                                    Modifier
-                                }
-                            )
+                            .then(sheetSizing)
+                            .clip(sheetShape)
+                            .background(colors.card)
                             .clickable(swallowInteraction, indication = null) { }
+                            .onGloballyPositioned { measuredHeightPx = it.size.height }
                             .semantics { paneTitle = title }
                     ) {
-                        @Composable
-                        fun SongHeaderAction(
-                            icon: Int,
-                            contentDescription: String,
-                            tint: Color = colors.primaryAccent,
-                            onClick: () -> Unit
+                        // This is a real drag pill, not a decorative handle. Downward release
+                        // closes from wherever the sheet is currently expanded; upward movement
+                        // grows the sheet and leaves the bounded body to scroll at its maximum.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(28.dp)
+                                .pointerInput(maxSheetHeightPx, measuredHeightPx, presentation) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = {
+                                            dragDeltaPx = 0f
+                                            dragStartHeightPx = maxOf(
+                                                measuredHeightPx.toFloat(),
+                                                requestedHeightPx,
+                                                if (equalizerPresentation) maxSheetHeightPx * .60f else 0f
+                                            )
+                                        },
+                                        onVerticalDrag = { change, amount ->
+                                            change.consume()
+                                            dragDeltaPx += amount
+                                            if (dragDeltaPx < 0f) {
+                                                requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
+                                                    .coerceIn(1f, maxSheetHeightPx)
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            val dismissThreshold = with(density) { 52.dp.toPx() }
+                                            if (dragDeltaPx > dismissThreshold) {
+                                                close()
+                                            } else if (dragDeltaPx < 0f) {
+                                                requestedHeightPx = requestedHeightPx.coerceAtMost(maxSheetHeightPx)
+                                            }
+                                            dragDeltaPx = 0f
+                                        },
+                                        onDragCancel = { dragDeltaPx = 0f }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            // Song Options intentionally exposes two independent circular actions
-                            // rather than merging gear and close into one oversized pill.
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .width(36.dp)
+                                    .height(4.dp)
                                     .clip(CircleShape)
-                                    .background(colors.cardElevated)
-                                    .border(0.8.dp, colors.cardBorder.copy(alpha = .78f), CircleShape)
-                                    .xvoxPressScale(onClick = onClick),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(icon),
-                                    contentDescription = contentDescription,
-                                    tint = tint,
-                                    modifier = Modifier.size(17.dp)
-                                )
-                            }
+                                    .background(colors.secondaryText.copy(alpha = .42f))
+                            )
                         }
 
-                        @Composable
-                        fun HeaderActions(compact: Boolean) {
-                            if (songOptionsPresentation) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    onSettingsClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_settings, "Settings", onClick = action)
-                                    }
-                                    onUndoClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_undo, "Undo", onClick = action)
-                                    }
-                                    onEditClick?.let { action ->
-                                        SongHeaderAction(
-                                            if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
-                                            if (isEditing) "Save" else "Edit",
-                                            onClick = action
-                                        )
-                                    }
-                                    onAddClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_add, "Add", onClick = action)
-                                    }
-                                    SongHeaderAction(
-                                        icon = R.drawable.ic_xvox_close,
-                                        contentDescription = "Close $title",
-                                        tint = colors.secondaryText,
-                                        onClick = ::close
-                                    )
-                                }
-                            } else if (compact) {
-                                // Sheets keep their contextual actions distinct and easy to target.
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    onSettingsClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_settings, "Settings", onClick = action)
-                                    }
-                                    onUndoClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_undo, "Undo", onClick = action)
-                                    }
-                                    onEditClick?.let { action ->
-                                        SongHeaderAction(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit, if (isEditing) "Save" else "Edit", onClick = action)
-                                    }
-                                    onAddClick?.let { action ->
-                                        SongHeaderAction(R.drawable.ic_xvox_add, "Add", onClick = action)
-                                    }
-                                    SongHeaderAction(R.drawable.ic_xvox_close, "Close $title", tint = colors.secondaryText, onClick = ::close)
-                                }
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    onSettingsClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_settings, "Settings", colors.primaryAccent, 42.dp, 19.dp, action)
-                                    }
-                                    onUndoClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_undo, "Undo", colors.primaryAccent, 42.dp, 19.dp, action)
-                                    }
-                                    onEditClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit, if (isEditing) "Save" else "Edit", colors.primaryAccent, 42.dp, 19.dp, action)
-                                    }
-                                    onAddClick?.let { action ->
-                                        XvoxBoxHeaderIconButton(R.drawable.ic_xvox_add, "Add", colors.primaryAccent, 48.dp, 20.dp, action)
-                                    }
-                                    XvoxBoxHeaderIconButton(R.drawable.ic_xvox_close, "Close $title", colors.primaryText, 48.dp, 20.dp, ::close)
-                                }
-                            }
-                        }
-
-                        if (compactPresentation) {
-                            // Grab handle is intentionally plain: no border, no extra container.
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 9.dp, bottom = 4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    Modifier
-                                        .width(34.dp)
-                                        .height(4.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.secondaryText.copy(alpha = .42f))
-                                )
-                            }
-                        }
-
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = if (compactPresentation) 16.dp else 18.dp,
-                                    end = if (compactPresentation) 12.dp else 8.dp,
-                                    top = 4.dp,
-                                    bottom = 8.dp
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            onBack?.let { back ->
-                                Icon(
-                                    painterResource(R.drawable.ic_xvox_arrow_left),
-                                    "Back",
-                                    tint = colors.primaryText,
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .xvoxPressScale(onClick = back)
-                                        .padding(10.dp)
-                                )
-                            }
-                            if (headerLeadingContent != null) {
-                                headerLeadingContent()
-                                Spacer(Modifier.width(10.dp))
-                            }
-                            if (headerTitleContent != null) {
-                                Box(modifier = Modifier.weight(1f)) { headerTitleContent() }
-                            } else {
-                                Text(
-                                    title,
-                                    color = colors.primaryText,
-                                    fontSize = if (compactPresentation) 16.sp else 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            HeaderActions(compact = songOptionsPresentation || equalizerPresentation)
-                        }
-                        // A restrained divider separates the heading from controls.
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(0.7.dp)
-                                .background(colors.cardBorder.copy(alpha = .55f))
+                        XvoxSheetHeader(
+                            title = title,
+                            songOptionsPresentation = songOptionsPresentation,
+                            onBack = onBack,
+                            onAddClick = onAddClick,
+                            onSettingsClick = onSettingsClick,
+                            onUndoClick = onUndoClick,
+                            onEditClick = onEditClick,
+                            isEditing = isEditing,
+                            headerLeadingContent = headerLeadingContent,
+                            headerTitleContent = headerTitleContent,
+                            onClose = ::close
                         )
 
-                        // Reserve footer space before measuring scrollable content. The Equalizer
-                        // action row therefore remains pinned while only its controls scroll.
-                        // Row height includes its 6dp top/bottom padding and the divider below.
-                        val headerReserve = if (compactPresentation) 78.dp else 68.dp
-                        val footerReserve = if (bottomAction == null) 0.dp else 68.dp
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = (maxBoxHeight - headerReserve - footerReserve).coerceAtLeast(100.dp))
-                                .wrapContentHeight()
-                                .padding(horizontal = if (compactPresentation) 0.dp else 14.dp, vertical = 12.dp)
-                        ) {
-                            content()
-                        }
-
-                        if (bottomAction != null) {
+                        // Song Options specifically has no header separator. Its cards carry the
+                        // rhythm instead, while other sheets retain one unobtrusive guide line.
+                        if (!songOptionsPresentation) {
                             Box(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(.7.dp)
-                                    .background(colors.cardBorder.copy(alpha = .55f))
+                                    .background(colors.cardBorder.copy(alpha = .50f))
                             )
+                        }
+
+                        val bodyHorizontal = when {
+                            songOptionsPresentation -> 12.dp
+                            equalizerPresentation -> 16.dp
+                            else -> 16.dp
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
+                                .heightIn(min = 0.dp)
+                                .padding(horizontal = bodyHorizontal, vertical = 10.dp)
+                        ) {
+                            content()
+                        }
+
+                        bottomAction?.let { footer ->
                             Box(
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(
-                                        start = if (compactPresentation) 0.dp else 14.dp,
-                                        top = 10.dp,
-                                        end = if (compactPresentation) 0.dp else 14.dp,
-                                        bottom = 12.dp
-                                    )
+                                    .height(.7.dp)
+                                    .background(colors.cardBorder.copy(alpha = .50f))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
                             ) {
-                                bottomAction()
+                                footer()
                             }
                         }
                     }
@@ -356,28 +339,97 @@ fun XvoxBox(
 }
 
 @Composable
-private fun XvoxBoxHeaderIconButton(
+private fun XvoxSheetHeader(
+    title: String,
+    songOptionsPresentation: Boolean,
+    onBack: (() -> Unit)?,
+    onAddClick: (() -> Unit)?,
+    onSettingsClick: (() -> Unit)?,
+    onUndoClick: (() -> Unit)?,
+    onEditClick: (() -> Unit)?,
+    isEditing: Boolean,
+    headerLeadingContent: (@Composable () -> Unit)?,
+    headerTitleContent: (@Composable () -> Unit)?,
+    onClose: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 1.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        onBack?.let { back ->
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_arrow_left),
+                contentDescription = "Back",
+                tint = colors.primaryText,
+                modifier = Modifier
+                    .size(40.dp)
+                    .xvoxPressScale(onClick = back)
+                    .padding(10.dp)
+            )
+        }
+        headerLeadingContent?.let {
+            it()
+            Spacer(Modifier.width(10.dp))
+        }
+        if (headerTitleContent != null) {
+            Box(modifier = Modifier.weight(1f)) { headerTitleContent() }
+        } else {
+            Text(
+                text = title,
+                color = colors.primaryText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            onSettingsClick?.let { XvoxSheetHeaderAction(R.drawable.ic_xvox_settings, "Settings", it) }
+            onUndoClick?.let { XvoxSheetHeaderAction(R.drawable.ic_xvox_undo, "Undo", it) }
+            onEditClick?.let {
+                XvoxSheetHeaderAction(
+                    if (isEditing) R.drawable.ic_xvox_check else R.drawable.ic_xvox_edit,
+                    if (isEditing) "Save" else "Edit",
+                    it
+                )
+            }
+            onAddClick?.let { XvoxSheetHeaderAction(R.drawable.ic_xvox_add, "Add", it) }
+            XvoxSheetHeaderAction(
+                icon = R.drawable.ic_xvox_close,
+                description = "Close $title",
+                onClick = onClose,
+                tint = if (songOptionsPresentation) colors.secondaryText else colors.primaryText
+            )
+        }
+    }
+}
+
+@Composable
+private fun XvoxSheetHeaderAction(
     icon: Int,
-    contentDescription: String,
-    tint: Color,
-    size: Dp,
-    iconSize: Dp,
-    onClick: () -> Unit
+    description: String,
+    onClick: () -> Unit,
+    tint: Color = XvoxTheme.colors.primaryAccent
 ) {
     Box(
         modifier = Modifier
-            .size(size)
+            .size(40.dp)
             .clip(CircleShape)
             .xvoxPressScale(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(icon),
-            contentDescription = contentDescription,
+            contentDescription = description,
             tint = tint,
-            modifier = Modifier.size(iconSize)
+            modifier = Modifier.size(18.dp)
         )
     }
 }
 
+/** Legacy hook retained for callers that already own their scroll state. */
 fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier = this

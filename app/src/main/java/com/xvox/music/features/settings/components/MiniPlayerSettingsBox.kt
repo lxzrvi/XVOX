@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.SettingsViewModel
+import kotlin.math.roundToInt
 
 @Composable
 fun MiniPlayerSettingsBoxContent(
@@ -58,6 +59,24 @@ fun MiniPlayerSettingsBoxContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text("Mini Player radius", color = colors.secondaryText, fontSize = 11.sp)
+                Text("${chrome.miniCornerRadius.coerceIn(6f, 32f).roundToInt()} dp", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            XvoxContinuousSlider(
+                value = chrome.miniCornerRadius.coerceIn(6f, 32f),
+                onValueChange = { radius -> viewModel.setChromeStyle { it.copy(miniCornerRadius = radius.coerceIn(6f, 32f)) } },
+                valueRange = 6f..32f,
+                defaultValue = 15f,
+                contentDescription = "Mini Player radius"
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Mini Player Transparency", color = colors.secondaryText, fontSize = 11.sp)
                 Text("${((1f - chrome.miniBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
@@ -75,6 +94,24 @@ fun MiniPlayerSettingsBoxContent(
 
         // Navigation Bar section
         Text("Navigation Bar", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Navigation bar height", color = colors.secondaryText, fontSize = 11.sp)
+                Text("${chrome.navigationBarHeight.coerceIn(52f, 88f).roundToInt()} dp", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            XvoxContinuousSlider(
+                value = chrome.navigationBarHeight.coerceIn(52f, 88f),
+                onValueChange = { height -> viewModel.setChromeStyle { it.copy(navigationBarHeight = height.coerceIn(52f, 88f)) } },
+                valueRange = 52f..88f,
+                defaultValue = 64f,
+                contentDescription = "Navigation bar height"
+            )
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(

@@ -49,6 +49,8 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
+import com.xvox.music.features.settings.components.SettingsToggle
+import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
 
@@ -198,7 +200,9 @@ fun AppearanceSettingsSection(
                 label = "Custom accent",
                 hex = if (state.accentColor.startsWith("#")) state.accentColor else "",
                 onColorChange = { hex -> viewModel.setAccentColor(hex) },
-                subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour"
+                subtitle = if (state.accentColor.startsWith("#")) "Applied everywhere" else "Pick any colour",
+                showPreview = false,
+                initiallyExpanded = true
             )
         }
 
@@ -209,6 +213,33 @@ fun AppearanceSettingsSection(
         ) {
             HeaderPhotoRow(state, viewModel)
             Spacer(Modifier.height(10.dp))
+            SettingsToggle(
+                title = "Header dimness",
+                subtitle = "Dim the selected Header image",
+                checked = chrome.headerDimEnabled,
+                onChange = { enabled -> viewModel.setChromeStyle { it.copy(headerDimEnabled = enabled) } }
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Dimness", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${(chrome.headerDimAmount.coerceIn(0f, 1f) * 100).roundToInt()}%", color = colors.primaryText, fontSize = 11.sp)
+                }
+                XvoxContinuousSlider(
+                    value = chrome.headerDimAmount,
+                    onValueChange = { amount -> viewModel.setChromeStyle { it.copy(headerDimAmount = amount) } },
+                    defaultValue = .50f,
+                    enabled = chrome.headerDimEnabled,
+                    contentDescription = "Header dimness"
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -244,7 +275,6 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Text size") }
         ) {
             val sizeOptions = listOf(
-                Triple(0.60f, "XXS", 8.5.sp),
                 Triple(0.70f, "XS", 9.5.sp),
                 Triple(0.80f, "S", 10.5.sp),
                 Triple(0.90f, "M", 11.5.sp),
