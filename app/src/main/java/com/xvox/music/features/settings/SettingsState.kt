@@ -4,10 +4,6 @@ data class SettingsState(
     val nowPlayingStyle: String = "default",
     /** Retained migration field; Default is the only valid backdrop. */
     val nowPlayingBackgroundStyle: String = "default",
-    /** One of twenty persisted palette handoffs for the Default Now Playing backdrop. */
-    val nowPlayingBackgroundTransition: String = "dissolve",
-    /** One of twenty persisted methods for deriving a background colour from cover artwork. */
-    val nowPlayingBackgroundMethod: String = "dominant",
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
     val accentColor: String = "White",

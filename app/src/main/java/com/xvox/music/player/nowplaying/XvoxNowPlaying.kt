@@ -310,8 +310,6 @@ fun XvoxNowPlaying(
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
             style = settingsState.nowPlayingBackgroundStyle,
-            transition = settingsState.nowPlayingBackgroundTransition,
-            method = settingsState.nowPlayingBackgroundMethod,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -758,10 +756,7 @@ fun XvoxNowPlaying(
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
             if (activeSettingsBox == "Style") {
-                NowPlayingOptionsBox(
-                    onDismiss = { activeSettingsBox = null },
-                    settingsViewModel = settingsViewModel
-                )
+                NowPlayingOptionsBox(onDismiss = { activeSettingsBox = null })
             } else {
                 val boxTitle = when (activeSettingsBox) {
                     "Equalizer" -> "Equalizer"
