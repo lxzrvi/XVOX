@@ -1,5 +1,6 @@
 package com.xvox.music.player.nowplaying
 
+import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -27,7 +28,7 @@ fun XvoxNowPlayingBackdrop(
     modifier: Modifier = Modifier
 ) {
     val target = xvoxNowPlayingBackgroundColor(style, dominant)
-    val displayed = remember { Animatable(target, Color.VectorConverter) }
+    val displayed = remember { Animatable(target, Color.VectorConverter(target.colorSpace)) }
 
     LaunchedEffect(target, isCoverTransitionInProgress) {
         if (isCoverTransitionInProgress) {
