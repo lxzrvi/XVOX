@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -63,11 +65,14 @@ fun CreatePlaylistBox(
     val selectedSongs = remember(selected.toList(), safeSongs) {
         safeSongs.filter { it.id in selected }
     }
+    val songsListState = rememberLazyListState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 360.dp, max = 520.dp)
+            // Let XvoxSheet choose the viewport; a local max would leave empty sheet space and
+            // prevent the universal expand-to-status-bar gesture.
+            .heightIn(min = 360.dp)
             .imePadding()
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
@@ -156,9 +161,11 @@ fun CreatePlaylistBox(
         Spacer(Modifier.height(4.dp))
 
         LazyColumn(
+            state = songsListState,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .xvoxBoxScroll(songsListState),
             contentPadding = PaddingValues(bottom = 6.dp)
         ) {
             items(items = safeSongs, key = { "create_pl_${it.id}" }) { song ->

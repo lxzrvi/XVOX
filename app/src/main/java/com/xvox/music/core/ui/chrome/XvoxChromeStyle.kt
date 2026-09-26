@@ -52,7 +52,12 @@ data class XvoxChromeStyle(
     val navigationImageUri: String = "",
     /** A dim overlay is opt-in so a custom header remains bright by default. */
     val headerDimEnabled: Boolean = false,
-    val headerDimAmount: Float = .50f
+    val headerDimAmount: Float = .50f,
+    /** Per-surface manual placement offsets in dp; positive X = right and positive Y = down. */
+    val miniPlayerOffsetX: Float = 0f,
+    val miniPlayerOffsetY: Float = 0f,
+    val navigationBarOffsetX: Float = 0f,
+    val navigationBarOffsetY: Float = 0f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -65,7 +70,9 @@ data class XvoxChromeStyle(
         miniCoverStyle,
         miniCornerRadius, navigationBarHeight,
         headerDimEnabled, headerDimAmount,
-        navigationBarWidth, navigationImageUri
+        navigationBarWidth, navigationImageUri,
+        miniPlayerOffsetX, miniPlayerOffsetY,
+        navigationBarOffsetX, navigationBarOffsetY
     ).joinToString("|")
 
     companion object {
@@ -113,7 +120,11 @@ data class XvoxChromeStyle(
                 headerDimAmount = flt(21, .50f),
                 // Appended fields keep every earlier chrome_style_v1 record readable.
                 navigationBarWidth = number(22, 246f).coerceIn(190f, 380f),
-                navigationImageUri = str(23)
+                navigationImageUri = str(23),
+                miniPlayerOffsetX = number(24, 0f).coerceIn(-220f, 220f),
+                miniPlayerOffsetY = number(25, 0f).coerceIn(-260f, 260f),
+                navigationBarOffsetX = number(26, 0f).coerceIn(-220f, 220f),
+                navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f)
             )
         }
     }

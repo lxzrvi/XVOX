@@ -55,9 +55,9 @@ private data class HeaderLibraryAction(
 val XvoxShellTopHeaderBodyHeight = 66.dp
 
 /**
- * Header artwork deliberately starts at screen y=0, behind the status bar, and is translated by
- * the same scroll distance as the page.  There is no delayed/independent header animation and no
- * narrow clipping viewport that can shave the avatar while it leaves the screen.
+ * Header artwork deliberately starts at screen y=0, behind the status bar.  Callers place this
+ * composable as a real first item in their page list, so it moves, leaves, and returns only with
+ * that page's own scroll rather than through a separately translated shell viewport.
  */
 @Composable
 fun XvoxShellTopHeader(
@@ -70,8 +70,9 @@ fun XvoxShellTopHeader(
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
     onRecentClick: () -> Unit = {},
-    /** Negative page-scroll translation, supplied directly by the active page. */
-    scrollOffsetPx: Float = 0f,
+    /** Optional transactional preview supplied by the profile editor. */
+    headerDimEnabledOverride: Boolean? = null,
+    headerDimAmountOverride: Float? = null,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -101,7 +102,9 @@ fun XvoxShellTopHeader(
         animationSpec = tween(200),
         label = "headerLibraryIndicatorAlpha"
     )
-    val headerDimAlpha = if (chrome.headerDimEnabled) chrome.headerDimAmount.coerceIn(0f, 1f) else 0f
+    val dimEnabled = headerDimEnabledOverride ?: chrome.headerDimEnabled
+    val dimAmount = headerDimAmountOverride ?: chrome.headerDimAmount
+    val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
     val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
@@ -110,8 +113,6 @@ fun XvoxShellTopHeader(
         modifier = Modifier
             .fillMaxWidth()
             .height(headerHeight)
-            // Direct translation keeps profile, artwork, and page scroll in one motion.
-            .graphicsLayer { translationY = scrollOffsetPx }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -127,6 +128,10 @@ fun XvoxShellTopHeader(
                 modifier = Modifier
                     .matchParentSize()
             )
+        }
+        // Apply the transactional dim preview to both custom artwork and the default palette
+        // Header, so every slider movement has an immediate visible result.
+        if (headerDimAlpha > .001f) {
             Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
         }
 

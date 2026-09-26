@@ -1,22 +1,26 @@
 package com.xvox.music.core.design.theme
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
- * Frame-immediate custom-accent preview.  A colour wheel can update this state every drag frame
- * while persistence is coalesced separately, so a DataStore write never stalls pointer input.
+ * Frame-immediate custom-accent preview.
+ *
+ * This intentionally uses Compose snapshot state rather than a Flow. HSV wheel samples can then
+ * invalidate the themed composition in the same frame as the pointer move, without a coroutine
+ * hop, SettingsState emission, or DataStore collection round-trip. Persistence remains separately
+ * coalesced by SettingsViewModel.
  */
 object XvoxAccentPreview {
-    private val _value = MutableStateFlow<String?>(null)
-    val value: StateFlow<String?> = _value.asStateFlow()
+    var value: String? by mutableStateOf(null)
+        private set
 
     fun publish(color: String) {
-        _value.value = color
+        value = color
     }
 
     fun clearWhenPersisted(color: String) {
-        if (_value.value == color) _value.value = null
+        if (value == color) value = null
     }
 }

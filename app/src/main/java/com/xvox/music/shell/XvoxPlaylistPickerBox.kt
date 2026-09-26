@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 
 /**
@@ -58,6 +60,7 @@ fun XvoxPlaylistPickerBoxContent(
 ) {
     val colors = XvoxTheme.colors
     var selectedPlaylistId by remember { mutableStateOf<String?>(null) }
+    val playlistsListState = rememberLazyListState()
 
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp)) {
         Row(
@@ -85,8 +88,14 @@ fun XvoxPlaylistPickerBoxContent(
                 Text("No playlists yet", color = colors.mutedText, fontSize = 13.sp)
             }
         } else {
+            val listModifier = if (playlists.size > 6) {
+                Modifier.fillMaxWidth().heightIn(min = 140.dp)
+            } else {
+                Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 340.dp)
+            }
             LazyColumn(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 340.dp),
+                state = playlistsListState,
+                modifier = listModifier.xvoxBoxScroll(playlistsListState),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(items = playlists, key = { it.id }) { playlist ->

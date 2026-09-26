@@ -35,6 +35,7 @@ import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -111,6 +112,26 @@ fun MiniPlayerSettingsBoxContent(
             }
         )
 
+        Text("Mini Player position", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        ChromeSlider(
+            label = "Left / Right",
+            value = chrome.miniPlayerOffsetX.coerceIn(-220f, 220f),
+            range = -220f..220f,
+            default = 0f,
+            valueText = ::positionXText,
+            contentDescription = "Mini Player horizontal position",
+            onChange = { onChromeChange(chrome.copy(miniPlayerOffsetX = it.coerceIn(-220f, 220f))) }
+        )
+        ChromeSlider(
+            label = "Up / Down",
+            value = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f),
+            range = -260f..260f,
+            default = 0f,
+            valueText = ::positionYText,
+            contentDescription = "Mini Player vertical position",
+            onChange = { onChromeChange(chrome.copy(miniPlayerOffsetY = it.coerceIn(-260f, 260f))) }
+        )
+
         Text("Navigation Bar", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
 
         ChromeSlider(
@@ -145,6 +166,26 @@ fun MiniPlayerSettingsBoxContent(
             }
         )
 
+        Text("Navbar position", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        ChromeSlider(
+            label = "Left / Right",
+            value = chrome.navigationBarOffsetX.coerceIn(-220f, 220f),
+            range = -220f..220f,
+            default = 0f,
+            valueText = ::positionXText,
+            contentDescription = "Navbar horizontal position",
+            onChange = { onChromeChange(chrome.copy(navigationBarOffsetX = it.coerceIn(-220f, 220f))) }
+        )
+        ChromeSlider(
+            label = "Up / Down",
+            value = chrome.navigationBarOffsetY.coerceIn(-260f, 260f),
+            range = -260f..260f,
+            default = 0f,
+            valueText = ::positionYText,
+            contentDescription = "Navbar vertical position",
+            onChange = { onChromeChange(chrome.copy(navigationBarOffsetY = it.coerceIn(-260f, 260f))) }
+        )
+
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Text("Navbar image", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Text(
@@ -174,6 +215,18 @@ fun MiniPlayerSettingsBoxContent(
             }
         }
     }
+}
+
+private fun positionXText(value: Float): String = when {
+    value < -0.5f -> "Left ${abs(value).roundToInt()} dp"
+    value > 0.5f -> "Right ${value.roundToInt()} dp"
+    else -> "Centered"
+}
+
+private fun positionYText(value: Float): String = when {
+    value < -0.5f -> "Up ${abs(value).roundToInt()} dp"
+    value > 0.5f -> "Down ${value.roundToInt()} dp"
+    else -> "Default"
 }
 
 @Composable

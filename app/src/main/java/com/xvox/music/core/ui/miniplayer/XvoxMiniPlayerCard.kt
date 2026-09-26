@@ -97,7 +97,8 @@ fun XvoxMiniPlayerCard(
             .height(56.dp)
             .clip(cardShape)
             .background(colors.cardElevated.copy(alpha = miniAlpha))
-            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f)), cardShape)
+            // Surface chrome follows the same 0%=solid / 100%=transparent contract as the fill.
+            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha), cardShape)
             .drawWithContent {
                 drawContent()
                 val radius = miniRadius.toPx()
@@ -110,10 +111,10 @@ fun XvoxMiniPlayerCard(
                     if (duration > 0) {
                         val intro = (zones.first.toFloat() / duration).coerceIn(0f, .5f)
                         val tail = (zones.second.toFloat() / duration).coerceIn(0f, .5f)
-                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendInColor.copy(alpha = .45f), Offset.Zero, Size(size.width * intro, barHeight))
-                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendOutColor.copy(alpha = .45f), Offset(size.width * (1 - tail), 0f), Size(size.width * tail, barHeight))
+                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendInColor.copy(alpha = .45f * miniAlpha), Offset.Zero, Size(size.width * intro, barHeight))
+                        drawRect(com.xvox.music.player.nowplaying.XvoxBlendOutColor.copy(alpha = .45f * miniAlpha), Offset(size.width * (1 - tail), 0f), Size(size.width * tail, barHeight))
                     }
-                    if (progress > 0) drawRect(colors.primaryAccent, Offset.Zero, Size(size.width * progress, barHeight))
+                    if (progress > 0) drawRect(colors.primaryAccent.copy(alpha = miniAlpha), Offset.Zero, Size(size.width * progress, barHeight))
                 }
             }
     ) {
@@ -126,19 +127,25 @@ fun XvoxMiniPlayerCard(
                     .fillMaxSize()
                     .graphicsLayer { alpha = alphaFraction }
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                colors.background.copy(alpha = 0.30f * alphaFraction),
-                                Color.Transparent,
-                                colors.background.copy(alpha = 0.40f * alphaFraction)
+            // Solid (0% transparent) cover mode is intentionally un-tinted: the selected cover
+            // must remain the actual surface, not a theme-colour wash.  Any slight readability
+            // tint lives only between the two transparency endpoints and disappears again at 100%.
+            val surfaceTintAlpha = .36f * alphaFraction * (1f - alphaFraction)
+            if (surfaceTintAlpha > .001f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    colors.background.copy(alpha = .75f * surfaceTintAlpha),
+                                    Color.Transparent,
+                                    colors.background.copy(alpha = surfaceTintAlpha)
+                                )
                             )
                         )
-                    )
-            )
+                )
+            }
         }
 
         val titleColor = colors.primaryText

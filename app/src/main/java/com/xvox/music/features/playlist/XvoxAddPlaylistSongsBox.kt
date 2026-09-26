@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -57,11 +59,13 @@ fun XvoxAddPlaylistSongsBox(
     val availableSongs = remember(songs, existingSongIds) {
         songs.filterNot { it.id in existingSongIds }
     }
+    val availableSongsListState = rememberLazyListState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 660.dp)
+            // Bound this list by the shared sheet, not by a second private maximum.
+            .heightIn(min = 0.dp)
             .imePadding()
             .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
@@ -115,9 +119,14 @@ fun XvoxAddPlaylistSongsBox(
             }
         } else {
             LazyColumn(
+                state = availableSongsListState,
                 modifier = Modifier
-                    .weight(1f, fill = false)
-                    .fillMaxWidth(),
+                    .then(
+                        if (availableSongs.size > 6) Modifier.weight(1f)
+                        else Modifier.weight(1f, fill = false)
+                    )
+                    .fillMaxWidth()
+                    .xvoxBoxScroll(availableSongsListState),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(availableSongs, key = { it.id }) { song ->

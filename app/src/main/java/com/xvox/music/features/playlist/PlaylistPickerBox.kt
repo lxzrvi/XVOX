@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -39,6 +40,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 
 @Composable
@@ -67,6 +69,7 @@ fun PlaylistPickerBox(
 
     var singleSongToRemoveFrom by remember { mutableStateOf<XvoxPlaylist?>(null) }
     var batchConflictPlaylist by remember { mutableStateOf<Pair<XvoxPlaylist, List<Song>>?>(null) }
+    val playlistsListState = rememberLazyListState()
 
     Column(
         modifier = Modifier
@@ -305,8 +308,15 @@ fun PlaylistPickerBox(
                 }
             } else {
                 val safePlaylists = remember(playlists) { playlists.distinctBy { it.id } }
+                val listModifier = if (safePlaylists.size > 6) {
+                    // The enclosing XvoxSheet owns the max viewport and expansion gesture.
+                    Modifier.fillMaxWidth()
+                } else {
+                    Modifier.fillMaxWidth().heightIn(max = 340.dp)
+                }
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 340.dp),
+                    state = playlistsListState,
+                    modifier = listModifier.xvoxBoxScroll(playlistsListState),
                     contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
                     items(items = safePlaylists, key = { "pl_${it.id}" }) { playlist ->

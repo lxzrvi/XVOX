@@ -151,8 +151,8 @@ class UserPreferencesRepository(
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
         // Kept for migration; only Default is now valid.
         val nowPlayingBackgroundStyle = stringPreferencesKey("now_playing_background_style")
-        val nowPlayingCoverTransition = stringPreferencesKey("now_playing_cover_transition")
         val nowPlayingBackgroundTransition = stringPreferencesKey("now_playing_background_transition")
+        val nowPlayingBackgroundMethod = stringPreferencesKey("now_playing_background_method")
         val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
     }
 
@@ -166,10 +166,10 @@ class UserPreferencesRepository(
 
     private fun normalizeNowPlayingBackgroundStyle(value: String?): String =
         com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(value)
-    private fun normalizeNowPlayingCoverTransition(value: String?): String =
-        com.xvox.music.player.nowplaying.XvoxCoverTransitionStyles.normalize(value)
     private fun normalizeNowPlayingBackgroundTransition(value: String?): String =
         com.xvox.music.player.nowplaying.XvoxBackgroundTransitionStyles.normalize(value)
+    private fun normalizeNowPlayingBackgroundMethod(value: String?): String =
+        com.xvox.music.player.nowplaying.XvoxBackgroundMethodStyles.normalize(value)
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
         UserPreferences(
@@ -471,10 +471,10 @@ class UserPreferencesRepository(
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
     val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
-    val nowPlayingCoverTransition: Flow<String> = context.xvoxDataStore.data
-        .map { normalizeNowPlayingCoverTransition(it[Keys.nowPlayingCoverTransition]) }.distinctUntilChanged()
     val nowPlayingBackgroundTransition: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundTransition(it[Keys.nowPlayingBackgroundTransition]) }.distinctUntilChanged()
+    val nowPlayingBackgroundMethod: Flow<String> = context.xvoxDataStore.data
+        .map { normalizeNowPlayingBackgroundMethod(it[Keys.nowPlayingBackgroundMethod]) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
@@ -740,11 +740,11 @@ class UserPreferencesRepository(
         // Old callers/data are migrated to Default instead of retaining retired treatments.
         context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style) }
     }
-    suspend fun setNowPlayingCoverTransition(style: String) {
-        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverTransition] = normalizeNowPlayingCoverTransition(style) }
-    }
     suspend fun setNowPlayingBackgroundTransition(style: String) {
         context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundTransition] = normalizeNowPlayingBackgroundTransition(style) }
+    }
+    suspend fun setNowPlayingBackgroundMethod(method: String) {
+        context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundMethod] = normalizeNowPlayingBackgroundMethod(method) }
     }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }

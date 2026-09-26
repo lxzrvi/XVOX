@@ -4,15 +4,11 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,7 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,16 +24,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -81,12 +73,10 @@ import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
-import com.xvox.music.shell.ExitMusicBox
 import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
 import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
-import com.xvox.music.shell.XvoxShellTopHeaderBodyHeight
 import com.xvox.music.shell.XvoxTimerBoxContent
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -105,7 +95,6 @@ fun XvoxMainShell(
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
-    val homeConfig by homePreferences.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
@@ -129,24 +118,10 @@ fun XvoxMainShell(
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
+    var profileEditorOpen by remember { mutableStateOf(false) }
     var miniPlayerNavDraft by remember { mutableStateOf(chrome) }
-    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
-    val density = LocalDensity.current
-    // Header artwork begins behind the status bar, so the complete status + profile region moves
-    // with the page instead of leaving a separately animated strip behind.
-    val headerMaxScrollPx = WindowInsets.statusBars.getTop(density).toFloat() +
-        with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
-
-    /** Direct one-to-one page scroll: no pinned-away state and no secondary header motion. */
-    fun updateHeaderScroll(index: Int, offset: Int) {
-        headerOffsetPx = if (index == 0) {
-            (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f)
-        } else {
-            -headerMaxScrollPx
-        }
-    }
-
-    LaunchedEffect(destination) { headerOffsetPx = 0f }
+    // The Header is no longer shell-translated from a page scroll callback.  Each screen receives
+    // it as the first item of its own list, guaranteeing one real coordinate space.
     BackHandler(enabled = destination != XvoxDestination.HOME) {
         destination = XvoxDestination.HOME
     }
@@ -154,8 +129,15 @@ fun XvoxMainShell(
     fun showProfileEditor() {
         val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
         profileDraft = baseline
+        profileEditorOpen = true
         overlays.showBox(
             title = "Profile",
+            // Any close route—including back or an outside tap—rolls the live Header preview
+            // back to the persisted profile/chrome presentation.
+            onDismiss = {
+                profileEditorOpen = false
+                profileDraft = baseline
+            },
             bottomAction = {
                 val canSave = profileDraft.username.isNotBlank() &&
                     (profileDraft.selectedPfp != com.xvox.music.features.setup.PfpType.CUSTOM.name ||
@@ -244,7 +226,11 @@ fun XvoxMainShell(
                                 navigationBarHeight = 64f,
                                 navigationBarWidth = 246f,
                                 navBgAlpha = .88f,
-                                navigationImageUri = ""
+                                navigationImageUri = "",
+                                miniPlayerOffsetX = 0f,
+                                miniPlayerOffsetY = 0f,
+                                navigationBarOffsetX = 0f,
+                                navigationBarOffsetY = 0f
                             )
                         }
                     )
@@ -457,21 +443,54 @@ fun XvoxMainShell(
         else homeViewModel.toggleRecentMode()
     }
 
+    // Profile editing is transactionally staged, but its Header image, avatar, and dimness are
+    // intentionally rendered from this draft immediately.  The overlay's onDismiss restores the
+    // persisted presentation for Cancel/back/scrim paths.
+    val headerProfile = if (profileEditorOpen) {
+        homeState.profile.copy(
+            username = profileDraft.username,
+            selectedPfp = profileDraft.selectedPfp,
+            customPfpUri = profileDraft.customPfpUri,
+            showProfileLines = profileDraft.showProfileLines,
+            headerImageUri = profileDraft.headerImageUri
+        )
+    } else {
+        homeState.profile
+    }
+    val pageHeader: @Composable () -> Unit = {
+        XvoxShellTopHeader(
+            profile = headerProfile,
+            destination = destination,
+            libraryMode = homeState.libraryMode,
+            onProfileClick = ::showProfileEditor,
+            onRefreshClick = ::showRefreshOverlay,
+            onLikedClick = ::openLikedFromNavigation,
+            onPlaylistClick = ::openPlaylistsFromNavigation,
+            onArtistClick = {
+                hoistedSelectedPlaylistId = null
+                homeViewModel.toggleArtistMode()
+            },
+            onRecentClick = ::openRecentFromHeader,
+            headerDimEnabledOverride = if (profileEditorOpen) profileDraft.headerDimEnabled else null,
+            headerDimAmountOverride = if (profileEditorOpen) profileDraft.headerDimAmount else null,
+            useSystemInsets = true
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.background)
     ) {
         val density = LocalDensity.current
-        val statusBarInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
-        val topInset = statusBarInset + XvoxShellTopHeaderBodyHeight
         val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
             if (isLandscape) navigationBarHeight + 20.dp
             else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) navigationBarHeight + 116.dp
             else navigationBarHeight + 40.dp
 
         val tabState = rememberSaveableStateHolder()
-        CompositionLocalProvider(LocalXvoxTopInset provides topInset, LocalXvoxBottomInset provides bottomInset) {
+        // Each page owns a real Header item now; the shell does not reserve or translate one.
+        CompositionLocalProvider(LocalXvoxTopInset provides 0.dp, LocalXvoxBottomInset provides bottomInset) {
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
@@ -497,7 +516,7 @@ fun XvoxMainShell(
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    onScrollProgress = ::updateHeaderScroll
+                                    header = pageHeader
                                 )
                             }
                             XvoxDestination.SEARCH -> {
@@ -509,7 +528,7 @@ fun XvoxMainShell(
                                         hoistedSelectedPlaylistId = playlistId
                                         destination = XvoxDestination.HOME
                                     },
-                                    onScrollProgress = ::updateHeaderScroll
+                                    header = pageHeader
                                 )
                             }
                             XvoxDestination.SETTINGS -> {
@@ -525,45 +544,6 @@ fun XvoxMainShell(
             }
         }
 
-        // The header begins at y=0 so both default and custom artwork visibly continue through
-        // the status-bar area.  It is not placed in a second clipped viewport: its profile/avatar
-        // content receives exactly the page's scroll translation.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxWidth()
-                .height(topInset)
-        ) {
-            AnimatedVisibility(
-                visible = destination != XvoxDestination.SETTINGS,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(260, easing = FastOutSlowInEasing)
-                ) + fadeIn(tween(200)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(220, easing = FastOutSlowInEasing)
-                ) + fadeOut(tween(160)),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                XvoxShellTopHeader(
-                    profile = homeState.profile,
-                    destination = destination,
-                    libraryMode = homeState.libraryMode,
-                    onProfileClick = ::showProfileEditor,
-                    onRefreshClick = ::showRefreshOverlay,
-                    onLikedClick = ::openLikedFromNavigation,
-                    onPlaylistClick = ::openPlaylistsFromNavigation,
-                    onArtistClick = {
-                        hoistedSelectedPlaylistId = null
-                        homeViewModel.toggleArtistMode()
-                    },
-                    onRecentClick = ::openRecentFromHeader,
-                    scrollOffsetPx = headerOffsetPx,
-                    useSystemInsets = true
-                )
-            }
-        }
 
         val currentSongId = player.currentSongId
         // Player surfaces hand off sequentially: each existing 320ms motion clears before the
@@ -636,7 +616,8 @@ fun XvoxMainShell(
                 ) {
                     XvoxBottomBar(
                         selected = destination,
-                        onSelected = ::selectNavigationDestination
+                        onSelected = ::selectNavigationDestination,
+                        onLongPressSettings = ::showMiniPlayerSettings
                     )
                 }
             }
@@ -676,7 +657,8 @@ fun XvoxMainShell(
             ) {
                 XvoxBottomBar(
                     selected = destination,
-                    onSelected = ::selectNavigationDestination
+                    onSelected = ::selectNavigationDestination,
+                    onLongPressSettings = ::showMiniPlayerSettings
                 )
             }
         }

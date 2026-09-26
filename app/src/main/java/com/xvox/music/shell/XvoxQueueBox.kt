@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
@@ -229,10 +230,15 @@ fun XvoxQueueBoxContent(
                 )
             }
         } else {
+            val queueViewport = if (queue.size > 6) {
+                Modifier.heightIn(min = 180.dp)
+            } else {
+                Modifier.heightIn(min = 180.dp, max = 560.dp)
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 560.dp)
+                    .then(queueViewport)
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
                     }
@@ -310,7 +316,10 @@ fun XvoxQueueBoxContent(
                     userScrollEnabled = draggingSong == null,
                     contentPadding = PaddingValues(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
                         items = displayList,

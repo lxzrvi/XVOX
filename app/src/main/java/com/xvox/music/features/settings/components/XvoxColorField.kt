@@ -309,9 +309,12 @@ private fun ColorPickerEditor(
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             var wheelPx by remember { mutableStateOf(0) }
+            // No elevated/card background belongs behind the wheel.  Clipping to the wheel's
+            // circle also prevents the transparent bitmap corners from reading as a rectangle.
             Box(
                 modifier = Modifier
                     .size(212.dp)
+                    .clip(CircleShape)
                     .onSizeChanged { wheelPx = it.width }
             ) {
                 // The expensive HSV pixels are generated once per size, not once per drag value.

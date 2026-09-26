@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -70,6 +71,7 @@ fun XvoxMiniPlayer(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val scope = rememberCoroutineScope()
     val exitDistance = with(density) { 230.dp.toPx() }
     val y = remember(riseKey) { Animatable(exitDistance) }
@@ -141,6 +143,12 @@ fun XvoxMiniPlayer(
 
     Box(
         modifier = modifier
+            // Placement is deliberately applied to the complete Mini Player interaction surface,
+            // including the quick-action pill, rather than only moving its painted card.
+            .offset(
+                x = chrome.miniPlayerOffsetX.coerceIn(-220f, 220f).dp,
+                y = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
+            )
             .fillMaxWidth()
             .height(122.dp),
         contentAlignment = Alignment.BottomCenter

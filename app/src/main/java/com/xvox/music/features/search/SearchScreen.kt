@@ -71,7 +71,6 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.XvoxArtist
@@ -89,6 +88,8 @@ fun SearchScreen(
     playerViewModel: MainPlayerViewModel = viewModel(),
     topResetKey: Long = 0L,
     onPlaylistSelected: ((String) -> Unit)? = null,
+    /** Shell Header supplied as a first page item so it shares the list's exact scroll. */
+    header: (@Composable () -> Unit)? = null,
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val colors = XvoxTheme.colors
@@ -100,8 +101,8 @@ fun SearchScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val landscapeContentHeight = LocalConfiguration.current.screenHeightDp.coerceAtLeast(360).dp
     val bottomInset = LocalXvoxBottomInset.current
-    val topInset = LocalXvoxTopInset.current
 
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -227,14 +228,20 @@ fun SearchScreen(
     }
 
     if (isLandscape) {
-        // Landscape 2-pane layout: Left pane (pinned Search Bar + Recent searches) & Right pane (Scrollable Results)
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = topInset + 10.dp)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        // Keep the same Header as a real parent-list item in the two-pane layout.  The panes may
+        // scroll internally afterwards, but the Header itself is never a pinned shell overlay.
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            header?.let { pageHeader ->
+                item(key = "page_header") { pageHeader() }
+            }
+            item(key = "landscape_search_content") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(landscapeContentHeight)
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
             // Left pane: Search bar + Recent Searches + Library summary (Pinned at top)
             Column(
                 modifier = Modifier
@@ -427,33 +434,30 @@ fun SearchScreen(
                 }
             }
         }
+        }
+        }
     } else {
-        // The shell header starts above this list.  Its reserved space scrolls away first, then
-        // this sticky search field settles immediately below the system status bar.
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
+        // Header and results live in one LazyColumn.  There is no fake spacer or independently
+        // moving shell strip: scrolling this list carries the Header through the status-bar area.
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item(key = "search_shell_header_space") {
-                    // Shell header is a 54 dp row plus its 6 dp top/bottom breathing room.
-                    Spacer(Modifier.height(66.dp))
-                }
+            header?.let { pageHeader ->
+                item(key = "page_header") { pageHeader() }
+            }
 
-                stickyHeader(key = "sticky_search_bar") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(colors.background)
-                            .padding(horizontal = 14.dp, vertical = 4.dp)
-                    ) {
-                        SearchBarComponent(
+            stickyHeader(key = "sticky_search_bar") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colors.background)
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                ) {
+                    SearchBarComponent(
                             query = query,
                             onQueryChange = { query = it },
                             onClear = { query = "" },
@@ -620,7 +624,6 @@ fun SearchScreen(
                     )
                 }
             }
-        }
 
     }
 }

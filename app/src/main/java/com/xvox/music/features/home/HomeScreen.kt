@@ -20,12 +20,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.zIndex
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -45,7 +42,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -71,6 +67,8 @@ fun HomeScreen(
     onPlay: (Song) -> Unit,
     playerViewModel: MainPlayerViewModel = viewModel(),
     viewModel: HomeViewModel = viewModel(),
+    /** The shell Header is a real first LazyColumn item, never a separately translated overlay. */
+    header: (@Composable () -> Unit)? = null,
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
@@ -450,7 +448,6 @@ fun HomeScreen(
         )
     }
 
-    val topInset = LocalXvoxTopInset.current
     val bottomInset = LocalXvoxBottomInset.current
     val targetKey = when {
         selectedArtist != null -> "artist_${selectedArtist!!.name}"
@@ -553,10 +550,14 @@ fun HomeScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    top = if (isSelectionMode) 8.dp else topInset + 10.dp,
+                    // Header owns the status-bar reach itself and scrolls with this list.
+                    top = 0.dp,
                     bottom = bottomInset
                 )
             ) {
+                header?.let { pageHeader ->
+                    item(key = "page_header") { pageHeader() }
+                }
                 if (targetArtist != null) {
                     librarySongItems(
                         keyPrefix = "artist_detail",

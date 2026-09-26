@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -109,13 +110,19 @@ private class XvoxSheetScrollBridge(
         if (availableY > 0f) {
             val floor = minOf(current, max * .40f)
             if (current > floor) {
-                continuedDownwardPx = 0f
                 val shrink = minOf(availableY, current - floor)
                 setSheetHeight(current - shrink)
-                return shrink
+                // Preserve the finger's remaining motion after contraction. This makes one
+                // continuous downward pull contract to ~40% and then close, rather than forcing
+                // the user to lift and start a second gesture.
+                val remainder = availableY - shrink
+                continuedDownwardPx = remainder.coerceAtLeast(0f)
+                if (continuedDownwardPx >= dismissDistancePx) dismiss()
+                return if (remainder > 0f) availableY else shrink
             }
             continuedDownwardPx += availableY
             if (continuedDownwardPx >= dismissDistancePx) dismiss()
+            return availableY
         } else {
             continuedDownwardPx = 0f
         }
@@ -225,7 +232,7 @@ fun XvoxSheet(
         visible = false
         scope.launch {
             // Keep the host mounted until its downward exit has cleared the visible screen.
-            delay(235)
+            delay(280)
             dismiss()
         }
     }
@@ -258,10 +265,11 @@ fun XvoxSheet(
                 val equalizerPresentation = presentation == XvoxBoxPresentation.EQUALIZER
                 val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
 
-                // Compact interfaces keep their measured content height.  When content needs
-                // more room, it settles at roughly half the usable screen first; it then grows
-                // with an upward drag/scroll until just below the status bar.
-                val largeStartHeightPx = maxSheetHeightPx * .50f
+                // Compact interfaces keep their measured content height. Overflowing lists start
+                // around six rows (roughly half the usable screen), then grow one-for-one with an
+                // upward list gesture until they approach the status bar.  The 40% compact floor
+                // is where a reversed downward gesture starts the close path.
+                val largeStartHeightPx = maxSheetHeightPx * .52f
                 val contractFloorPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
@@ -307,16 +315,16 @@ fun XvoxSheet(
 
                 AnimatedVisibility(
                     visible = visible,
-                    // Sheets are spatial surfaces: opening and closing only travel vertically.
-                    // Deliberately no fade is mixed into the motion.
+                    // A short opacity settle keeps the bottom motion tangible without the abrupt
+                    // black/empty-frame look that can occur when a large sheet mounts at once.
                     enter = slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = tween(280, easing = XvoxBoxEasing)
-                    ),
+                        animationSpec = tween(320, easing = XvoxBoxEasing)
+                    ) + fadeIn(tween(190, easing = XvoxBoxEasing)),
                     exit = slideOutVertically(
                         targetOffsetY = { it },
-                        animationSpec = tween(220, easing = XvoxBoxEasing)
-                    )
+                        animationSpec = tween(260, easing = XvoxBoxEasing)
+                    ) + fadeOut(tween(150, easing = XvoxBoxEasing))
                 ) {
                     Column(
                         modifier = Modifier
@@ -335,7 +343,10 @@ fun XvoxSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(28.dp)
-                                .pointerInput(maxSheetHeightPx, measuredHeightPx, presentation) {
+                                // Never key this gesture detector to the measured/requested
+                                // height: those values change while dragging and used to restart
+                                // the handler beneath the user's finger.
+                                .pointerInput(maxSheetHeightPx, presentation) {
                                     detectVerticalDragGestures(
                                         onDragStart = {
                                             dragDeltaPx = 0f
@@ -359,7 +370,8 @@ fun XvoxSheet(
                                         },
                                         onDragEnd = {
                                             val dismissThreshold = with(density) { 52.dp.toPx() }
-                                            val currentHeight = maxOf(measuredHeightPx.toFloat(), requestedHeightPx)
+                                            val currentHeight = requestedHeightPx.takeIf { it > 0f }
+                                                ?: measuredHeightPx.toFloat()
                                             // A continued pull only dismisses once the sheet has
                                             // reached the compact ~40% point.
                                             if (dragDeltaPx > dismissThreshold && currentHeight <= contractFloorPx + 2f) {
@@ -413,10 +425,13 @@ fun XvoxSheet(
                             equalizerPresentation -> 16.dp
                             else -> 16.dp
                         }
+                        // Only fixed (overflowing) sheets fill their bounded viewport. Compact
+                        // content keeps its intrinsic height instead of gaining blank space.
+                        val bodyViewport = if (requestedHeight != null) Modifier.weight(1f) else Modifier
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f, fill = false)
+                                .then(bodyViewport)
                                 .heightIn(min = 0.dp)
                                 .padding(horizontal = bodyHorizontal, vertical = 10.dp)
                         ) {
@@ -662,17 +677,30 @@ private fun XvoxSheetHeaderAction(
 @Composable
 fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier {
     val bridge = LocalXvoxSheetScrollBridge.current ?: return this
-    val state = scrollState as? ScrollState ?: return this
-    val connection = remember(bridge, state) {
+    // Both ScrollState and LazyListState are common inside XvoxBox.  Supporting both keeps the
+    // expand → internal-scroll → contract → close model available to every list-style sheet.
+    val isAtTop: () -> Boolean
+    val hasOverflow: () -> Boolean
+    when (scrollState) {
+        is ScrollState -> {
+            isAtTop = { scrollState.value == 0 }
+            hasOverflow = { scrollState.maxValue > 0 }
+        }
+        is LazyListState -> {
+            isAtTop = { scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0 }
+            hasOverflow = { scrollState.canScrollForward || scrollState.firstVisibleItemIndex > 0 }
+        }
+        else -> return this
+    }
+    val connection = remember(bridge, scrollState) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 // Do not grow a compact body that has no hidden content; that would expose empty
-                // sheet space.  Large/overflowing bodies consume upward movement to grow first.
-                if (available.y < 0f && state.maxValue <= 0) return Offset.Zero
-                val consumedY = bridge.consume(available.y, atTop = state.value == 0)
+                // sheet space. Large/overflowing bodies consume upward movement to grow first.
+                if (available.y < 0f && !hasOverflow()) return Offset.Zero
+                val consumedY = bridge.consume(available.y, atTop = isAtTop())
                 return Offset(0f, consumedY)
             }
-
         }
     }
     return this.nestedScroll(connection)

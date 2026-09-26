@@ -50,6 +50,9 @@ class XvoxOverlayController {
     internal var boxBottomAction by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
+    /** Called for every close path (footer, scrim, back), useful for transactional previews. */
+    private var boxOnDismiss: (() -> Unit)? = null
+
     val isBoxVisible: Boolean get() = listContent != null
 
     /** A compact bottom-anchored PIP-style popup instead of the centred box. */
@@ -70,6 +73,7 @@ class XvoxOverlayController {
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
         bottomAction: (@Composable () -> Unit)? = null,
+        onDismiss: (() -> Unit)? = null,
         presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
         content: @Composable () -> Unit
     ) {
@@ -86,6 +90,7 @@ class XvoxOverlayController {
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = bottomAction
+        boxOnDismiss = onDismiss
         listKey++
         listContent = content
     }
@@ -106,11 +111,14 @@ class XvoxOverlayController {
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = null
+        boxOnDismiss = null
         listKey++
         listContent = content
     }
 
     fun hideBox() {
+        val dismiss = boxOnDismiss
+        boxOnDismiss = null
         listContent = null
         boxMini = false
         boxPresentation = XvoxBoxPresentation.DEFAULT
@@ -118,6 +126,7 @@ class XvoxOverlayController {
         boxUndoAction = null
         boxHeaderTitleContent = null
         boxBottomAction = null
+        dismiss?.invoke()
     }
 
     fun showP(text: String) {

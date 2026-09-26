@@ -2,8 +2,7 @@ package com.xvox.music.core.ui.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -31,6 +31,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
+    /** The same transactional Mini Player / Navbar editor is available from a navbar long press. */
+    onLongPressSettings: () -> Unit = {},
     /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
 ) {
@@ -59,12 +61,19 @@ fun XvoxBottomBar(
     val selectorShape = RoundedCornerShape(selectorHeight / 2f)
 
     // Appearance › Home chrome overrides for the floating nav bar and its travelling pill.
+    val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
     val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
-    val navEdge = navEdgeBase.copy(alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(0f, 1f))
+    // At 100% transparency the bar's surface chrome disappears too; controls remain usable.
+    val navEdge = navEdgeBase.copy(alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
         ?: colors.cardElevated.copy(alpha = 0.42f)
-    val pillFill = if (chrome.pillColor.isBlank()) pillBase
-        else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f))
+    val customImageSurface = chrome.navigationImageUri.isNotBlank()
+    val pillFill = if (chrome.pillColor.isBlank()) {
+        // At 0% transparency a custom navbar image is the surface itself—do not wash a default
+        // theme pill over it. A deliberately chosen custom pill colour still remains respected.
+        val defaultPillAlpha = if (customImageSurface) navSurfaceAlpha * (1f - navSurfaceAlpha) else navSurfaceAlpha
+        pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
+    } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val actualHostHeight = if (isLandscape) navBarHeight else navBarHeight + 20.dp
@@ -72,6 +81,11 @@ fun XvoxBottomBar(
 
     Box(
         modifier = modifier
+            // Move the entire touch and paint surface together, so controls stay where they appear.
+            .offset(
+                x = chrome.navigationBarOffsetX.coerceIn(-220f, 220f).dp,
+                y = chrome.navigationBarOffsetY.coerceIn(-260f, 260f).dp
+            )
             .width(navBarWidth)
             .height(actualHostHeight)
     ) {
@@ -94,18 +108,15 @@ fun XvoxBottomBar(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
-                        .graphicsLayer { alpha = chrome.navBgAlpha.coerceIn(0f, 1f) }
+                        .graphicsLayer { alpha = navSurfaceAlpha }
                 )
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .background(colors.cardElevated.copy(alpha = .42f * chrome.navBgAlpha.coerceIn(0f, 1f)))
-                )
+                // A fully opaque custom image is the surface itself.  Do not put a theme wash
+                // over it at 0% transparency; the image should be seen exactly as chosen.
             } else {
                 Box(
                     Modifier
                         .matchParentSize()
-                        .background(colors.cardElevated.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f)))
+                        .background(colors.cardElevated.copy(alpha = navSurfaceAlpha))
                 )
             }
         }
@@ -140,19 +151,22 @@ fun XvoxBottomBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             destinations.forEachIndexed { index, destination ->
-                val interaction = remember(destination) { MutableInteractionSource() }
-
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
-                        .clickable(
-                            interactionSource = interaction,
-                            indication = null
-                        ) {
-                            position = index.toFloat()
-                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                            onSelected(destination)
+                        .pointerInput(destination, onLongPressSettings) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                                    onLongPressSettings()
+                                },
+                                onTap = {
+                                    position = index.toFloat()
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                    onSelected(destination)
+                                }
+                            )
                         },
                     contentAlignment = Alignment.Center
                 ) {

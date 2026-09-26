@@ -314,7 +314,37 @@ fun ProfileEditorBox(
         }
 
         val visibleDimness = if (draft.headerDimEnabled) draft.headerDimAmount.coerceIn(0f, 1f) else 0f
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val previewDimColor = if (colors.isLight) colors.primaryText else colors.background
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            // A local preview makes dimness legible even while the transactional sheet is covering
+            // the page Header. The actual scrolling Header receives the same draft concurrently.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(70.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(colors.cardElevated),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (!draft.headerImageUri.isNullOrBlank()) {
+                    AsyncImage(
+                        model = draft.headerImageUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.matchParentSize()
+                    )
+                }
+                if (visibleDimness > .001f) {
+                    Box(Modifier.matchParentSize().background(previewDimColor.copy(alpha = visibleDimness)))
+                }
+                Text(
+                    "Live Header preview",
+                    color = if (draft.headerImageUri.isNullOrBlank()) colors.primaryText else Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 13.dp)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
