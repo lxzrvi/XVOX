@@ -30,8 +30,9 @@ class StereoBalanceAudioProcessor : BaseAudioProcessor() {
             val l = inputBuffer.short / 32768f
             val r = if (channels == 2) inputBuffer.short / 32768f else l
             engine.process(l, r)
-            output.putShort((engine.left * 32767).toInt().toShort())
-            output.putShort((engine.right * 32767).toInt().toShort())
+            // Clamp PCM conversion so boosted App Volume cannot integer-wrap into a quieter signal.
+            output.putShort((engine.left.coerceIn(-1f, 1f) * 32767).toInt().toShort())
+            output.putShort((engine.right.coerceIn(-1f, 1f) * 32767).toInt().toShort())
         }
         output.flip()
     }
@@ -43,8 +44,9 @@ class StereoBalanceAudioProcessor : BaseAudioProcessor() {
         val output = replaceOutputBuffer(tailFrames * 4).order(ByteOrder.LITTLE_ENDIAN)
         repeat(tailFrames) {
             engine.process(0f, 0f)
-            output.putShort((engine.left * 32767).toInt().toShort())
-            output.putShort((engine.right * 32767).toInt().toShort())
+            // Clamp PCM conversion so boosted App Volume cannot integer-wrap into a quieter signal.
+            output.putShort((engine.left.coerceIn(-1f, 1f) * 32767).toInt().toShort())
+            output.putShort((engine.right.coerceIn(-1f, 1f) * 32767).toInt().toShort())
         }
         tailFrames = 0
         output.flip()

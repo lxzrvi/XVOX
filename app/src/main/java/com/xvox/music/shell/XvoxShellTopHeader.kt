@@ -72,9 +72,9 @@ fun XvoxShellTopHeader(
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick)
     )
-    // The Header stays visually invariant while Home swaps its library page or the user enters
-    // Search. Destination-specific motion belongs to the content below this line, not this chrome.
-    // Use only persisted chrome state: profile editing deliberately has no live Header preview.
+    // Home library changes keep this Header stable. Destination-level motion is owned by the
+    // shell, which slides the complete Home Header away before Search/Settings and returns it on
+    // Home. Use only persisted chrome state: profile editing deliberately has no live preview.
     val dimEnabled = chrome.headerDimEnabled
     val dimAmount = chrome.headerDimAmount
     val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f

@@ -9,10 +9,13 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -234,7 +238,10 @@ fun HomeScreen(
         }
     }
 
-    BackHandler(enabled = isSelectionMode) { selectedSongIds = emptySet() }
+    BackHandler(enabled = isSelectionMode) {
+        selectedSongIds = emptySet()
+        selectionCategoryName = null
+    }
     BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtistName = null }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist != null) { setSelectedPlaylistId(null) }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist == null && state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
@@ -582,7 +589,18 @@ fun HomeScreen(
                 )
             ) {
                 header?.let { pageHeader ->
-                    item(key = "page_header") { pageHeader() }
+                    item(key = "page_header") {
+                        // Normal Header chrome leaves upward when selection begins and returns
+                        // from below on clear. The fixed selection rail itself lives outside this
+                        // LazyColumn, so it never follows Home's scroll position.
+                        AnimatedVisibility(
+                            visible = !isSelectionMode,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(210)) + fadeIn(tween(150)),
+                            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(180)) + fadeOut(tween(120))
+                        ) {
+                            pageHeader()
+                        }
+                    }
                 }
                 if (targetArtist != null) {
                     librarySongItems(
@@ -648,7 +666,16 @@ fun HomeScreen(
             }
         }
 
-        if (isSelectionMode) {
+        AnimatedVisibility(
+            visible = isSelectionMode,
+            enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(130)) + fadeIn(tween(100)),
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(180)) + fadeOut(tween(120)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, top = 6.dp)
+                .zIndex(9999f)
+        ) {
             HomeMultiSelectBar(
                 selectedSongs = selectedSongsList,
                 selectedPlaylist = selectedPlaylist,
@@ -658,16 +685,11 @@ fun HomeScreen(
                 overlays = overlays,
                 context = context,
                 categoryName = selectionCategoryName,
-                onClearSelection = { selectedSongIds = emptySet() },
-                onDeleteSelected = { requestDeleteSelected() },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        // Long-press selection actions remain just 10dp above the currently
-                        // reserved floating chrome instead of floating an extra card-height away.
-                        bottom = bottomInset + 10.dp
-                    )
-                    .zIndex(9999f)
+                onClearSelection = {
+                    selectedSongIds = emptySet()
+                    selectionCategoryName = null
+                },
+                onDeleteSelected = { requestDeleteSelected() }
             )
         }
     }

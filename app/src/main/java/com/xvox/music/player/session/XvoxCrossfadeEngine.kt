@@ -25,6 +25,7 @@ import com.xvox.music.player.playback.EnergyBlendPlanner
 import com.xvox.music.player.playback.TrackBlendProfile
 import com.xvox.music.player.playback.XvoxBeatAnalyzer
 import com.xvox.music.player.playback.XvoxBlendMonitor
+import com.xvox.music.player.playback.xvoxOriginalSongId
 import com.xvox.music.player.playback.BlendVisualState
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
@@ -94,7 +95,7 @@ class XvoxCrossfadeEngine(
     }
 
     private fun refreshZones() {
-        XvoxBlendMonitor.current(player.currentMediaItem?.mediaId?.toLongOrNull(), player.duration,
+        XvoxBlendMonitor.current(player.currentMediaItem?.xvoxOriginalSongId(), player.duration,
             player.hasNextMediaItem() || player.repeatMode != Player.REPEAT_MODE_OFF)
     }
     private fun createDeck(gain: Float): Deck {
@@ -137,13 +138,13 @@ class XvoxCrossfadeEngine(
                 if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT ||
                     reason == Player.DISCONTINUITY_REASON_REMOVE) {
                     finishOverlap(); discardPrepared()
-                    if (newPosition.positionMs == 0L) XvoxBlendMonitor.newTrack(exo.currentMediaItem?.mediaId?.toLongOrNull())
+                    if (newPosition.positionMs == 0L) XvoxBlendMonitor.newTrack(exo.currentMediaItem?.xvoxOriginalSongId())
                 }
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (!released && exo === player) {
                     failedForId = null; finishOverlap(); discardPrepared()
-                    XvoxBlendMonitor.newTrack(exo.currentMediaItem?.mediaId?.toLongOrNull())
+                    XvoxBlendMonitor.newTrack(exo.currentMediaItem?.xvoxOriginalSongId())
                 }
             }
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -162,7 +163,7 @@ class XvoxCrossfadeEngine(
             }
             override fun onEvents(player: Player, events: Player.Events) {
                 if (!released && exo === this@XvoxCrossfadeEngine.player) {
-                    XvoxBlendMonitor.current(exo.currentMediaItem?.mediaId?.toLongOrNull(), exo.duration,
+                    XvoxBlendMonitor.current(exo.currentMediaItem?.xvoxOriginalSongId(), exo.duration,
                         exo.hasNextMediaItem() || exo.repeatMode != Player.REPEAT_MODE_OFF)
                     onStateChanged(exo)
                 }
@@ -317,7 +318,7 @@ class XvoxCrossfadeEngine(
         overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50),
             ready.plan?.beatAligned == true, ready.plan?.handoff ?: .5f, ready.plan?.incomingTrim ?: 1f)
         cancelAnalysis()
-        XvoxBlendMonitor.markIncoming(player.currentMediaItem?.mediaId?.toLongOrNull(), remaining)
+        XvoxBlendMonitor.markIncoming(player.currentMediaItem?.xvoxOriginalSongId(), remaining)
         publishBlend(overlap!!, 0f, force = true)
         onActivePlayerChanged(player) // Retains the preloaded next track's position and buffers.
         onStateChanged(player)
@@ -350,7 +351,7 @@ class XvoxCrossfadeEngine(
         val old = mix.outgoing.player
         XvoxBlendMonitor.publish(XvoxBlendMonitor.state.value.copy(
             enabled = crossfadeEnabled, configuredSeconds = crossfadeSeconds, active = true,
-            outgoingId = old.currentMediaItem?.mediaId?.toLongOrNull(), incomingId = player.currentMediaItem?.mediaId?.toLongOrNull(),
+            outgoingId = old.currentMediaItem?.xvoxOriginalSongId(), incomingId = player.currentMediaItem?.xvoxOriginalSongId(),
             outgoingTitle = old.mediaMetadata.title?.toString().orEmpty(), incomingTitle = player.mediaMetadata.title?.toString().orEmpty(),
             outgoingPosition = old.currentPosition, outgoingDuration = old.duration.coerceAtLeast(0),
             incomingPosition = player.currentPosition, incomingDuration = player.duration.coerceAtLeast(0),

@@ -94,7 +94,7 @@ private fun ActionButton(
             .size(38.dp)
             .clip(CircleShape)
             .background(
-                colors.cardElevated.copy(alpha = chrome.miniBgAlpha.coerceIn(0.25f, 1f))
+                colors.background.copy(alpha = chrome.miniBgAlpha.coerceIn(0.25f, 1f))
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

@@ -50,12 +50,10 @@ fun XvoxNowPlayingArtworkForStyle(
                 navigationRequest = navigationRequest,
                 onArtworkTap = onArtworkTap,
                 onSwipePalette = onSwipePalette,
-                onSettledPage = { settledSong ->
-                    // This legacy style wrapper exposes indices, so resolve only at the bridge.
-                    // The main Now Playing surface commits stable song identities directly.
-                    queue.indexOfFirst { it.id == settledSong.id }
-                        .takeIf { it >= 0 }
-                        ?.let(onSettledPage)
+                onSettledPage = { settledIndex, _ ->
+                    // The pager supplies the actual occurrence index, which keeps repeated songs
+                    // independent instead of resolving every duplicate to the first matching ID.
+                    onSettledPage(settledIndex)
                 },
                 modifier = modifier,
                 repeatMode = repeatMode

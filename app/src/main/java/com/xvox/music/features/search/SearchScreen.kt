@@ -40,7 +40,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,11 +107,8 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    // The bar is close to Header at rest, but once its sticky slot reaches the top it reserves the
-    // system area instead of sliding underneath / into the status bar.
-    val searchBarPinned by remember {
-        derivedStateOf { listState.firstVisibleItemIndex > 0 }
-    }
+    // Search has no Home chrome above it. The sticky slot permanently reserves the real status
+    // area, so it snaps/holds directly below the status bar rather than ever traveling behind it.
     val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
@@ -275,7 +271,8 @@ fun SearchScreen(
                         focusManager.clearFocus()
                     },
                     onRemove = { q -> homeViewModel.removeRecentSearch(q) },
-                    onClearAll = { homeViewModel.clearRecentSearches() }
+                    onClearAll = { homeViewModel.clearRecentSearches() },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
                 )
 
                 Spacer(Modifier.weight(1f))
@@ -466,7 +463,7 @@ fun SearchScreen(
                         // search field never travels into that system region.
                         .padding(
                             start = 14.dp,
-                            top = if (searchBarPinned) statusBarHeight + 2.dp else 2.dp,
+                            top = statusBarHeight + 2.dp,
                             end = 14.dp,
                             bottom = 4.dp
                         )
@@ -735,7 +732,7 @@ private fun RecentSearchesSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(

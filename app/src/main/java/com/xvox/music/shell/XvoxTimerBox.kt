@@ -58,11 +58,24 @@ fun XvoxTimerBoxContent(
 ) {
     val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
-    var showCustom by remember { mutableStateOf(false) }
-    var minText by remember { mutableStateOf("") }
-    var secText by remember { mutableStateOf("") }
-    var pauseMusic by remember { mutableStateOf(true) }
-    var closeApp by remember { mutableStateOf(false) }
+    val presets = remember { listOf(5, 10, 15, 30, 45, 60) }
+    val draftIsCustom = draft != null && (draft.seconds > 0 || draft.minutes !in presets)
+    var showCustom by remember { mutableStateOf(draftIsCustom) }
+    var minText by remember { mutableStateOf(if (draftIsCustom) draft?.minutes?.toString().orEmpty() else "") }
+    var secText by remember { mutableStateOf(if (draftIsCustom && (draft?.seconds ?: 0) > 0) draft?.seconds?.toString().orEmpty() else "") }
+    var pauseMusic by remember { mutableStateOf(draft?.pauseMusic ?: true) }
+    var closeApp by remember { mutableStateOf(draft?.closeApp ?: false) }
+
+    fun publishCustom(minutesText: String = minText, secondsText: String = secText) {
+        onDraftChange(
+            XvoxTimerDraft(
+                minutes = minutesText.toIntOrNull()?.coerceIn(0, 999) ?: 0,
+                seconds = (secondsText.toIntOrNull() ?: 0).coerceIn(0, 59),
+                pauseMusic = pauseMusic,
+                closeApp = closeApp
+            )
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -89,7 +102,6 @@ fun XvoxTimerBoxContent(
             )
         }
 
-        val presets = listOf(5, 10, 15, 30, 45, 60)
         presets.chunked(3).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -106,6 +118,7 @@ fun XvoxTimerBoxContent(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
+                                showCustom = false
                                 onDraftChange(XvoxTimerDraft(minutes = minutes))
                             }
                             .padding(vertical = 14.dp),
@@ -130,7 +143,18 @@ fun XvoxTimerBoxContent(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) { showCustom = !showCustom }
+                ) {
+                    // Selecting Custom is itself the selection; no second "Use custom time"
+                    // action is needed before the fixed Okay footer can commit it.
+                    showCustom = true
+                    if (!draftIsCustom) {
+                        minText = ""
+                        secText = ""
+                        pauseMusic = true
+                        closeApp = false
+                        publishCustom()
+                    }
+                }
                 .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -156,7 +180,12 @@ fun XvoxTimerBoxContent(
             ) {
                 BasicTextField(
                     value = minText,
-                    onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) minText = it },
+                    onValueChange = {
+                        if (it.length <= 3 && it.all(Char::isDigit)) {
+                            minText = it
+                            publishCustom(minutesText = it)
+                        }
+                    },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
                     cursorBrush = SolidColor(colors.primaryAccent),
@@ -172,7 +201,12 @@ fun XvoxTimerBoxContent(
                 )
                 BasicTextField(
                     value = secText,
-                    onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) secText = it },
+                    onValueChange = {
+                        if (it.length <= 2 && it.all(Char::isDigit)) {
+                            secText = it
+                            publishCustom(secondsText = it)
+                        }
+                    },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
                     cursorBrush = SolidColor(colors.primaryAccent),
@@ -198,11 +232,16 @@ fun XvoxTimerBoxContent(
                     ) {
                         pauseMusic = true
                         closeApp = false
+                        publishCustom()
                     }
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(selected = pauseMusic, onClick = { pauseMusic = true; closeApp = false })
+                RadioButton(selected = pauseMusic, onClick = {
+                    pauseMusic = true
+                    closeApp = false
+                    publishCustom()
+                })
                 Text("Pause music", color = colors.primaryText, fontSize = 13.sp)
             }
             Row(
@@ -215,45 +254,17 @@ fun XvoxTimerBoxContent(
                     ) {
                         closeApp = true
                         pauseMusic = false
+                        publishCustom()
                     }
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(selected = closeApp, onClick = { closeApp = true; pauseMusic = false })
+                RadioButton(selected = closeApp, onClick = {
+                    closeApp = true
+                    pauseMusic = false
+                    publishCustom()
+                })
                 Text("Close full app", color = colors.primaryText, fontSize = 13.sp)
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardElevated)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        val minutes = minText.toIntOrNull() ?: 0
-                        val seconds = secText.toIntOrNull() ?: 0
-                        if (minutes > 0 || seconds > 0) {
-                            onDraftChange(
-                                XvoxTimerDraft(
-                                    minutes = minutes,
-                                    seconds = seconds.coerceIn(0, 59),
-                                    pauseMusic = pauseMusic,
-                                    closeApp = closeApp
-                                )
-                            )
-                        }
-                    }
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = if ((draft?.seconds ?: 0) > 0) "Custom timer selected" else "Use custom time",
-                    color = colors.primaryText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
         }
     }

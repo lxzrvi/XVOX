@@ -27,6 +27,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.player.playback.PlaybackLibraryLoader
 import com.xvox.music.player.playback.toMediaItem
+import com.xvox.music.player.playback.xvoxOriginalSongId
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import kotlinx.coroutines.*
 import com.xvox.music.audio.AudioEffectsManager
@@ -80,7 +81,7 @@ class XvoxPlaybackService : MediaSessionService() {
                     }
                     XvoxWidgetHelper.ACTION_PREVIOUS -> if (p.hasPreviousMediaItem()) p.seekToPreviousMediaItem() else if (p.mediaItemCount > 0) p.seekTo(0)
                     XvoxWidgetHelper.ACTION_NEXT -> if (p.hasNextMediaItem()) p.seekToNextMediaItem()
-                    XvoxWidgetHelper.ACTION_TOGGLE_LIKE -> p.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
+                    XvoxWidgetHelper.ACTION_TOGGLE_LIKE -> p.currentMediaItem?.xvoxOriginalSongId()?.let { id ->
                         val library = XvoxLibraryPreferences(this@XvoxPlaybackService)
                         library.setLiked(id, id !in library.likedSongIds.first())
                     }
@@ -268,7 +269,7 @@ class XvoxPlaybackService : MediaSessionService() {
     private fun syncWidgetState(player: Player) {
         val item = player.currentMediaItem
         val song = item?.let {
-            Song(id = it.mediaId.toLongOrNull() ?: 0L,
+            Song(id = it.xvoxOriginalSongId() ?: 0L,
                 title = it.mediaMetadata.title?.toString() ?: "Unknown title",
                 artist = it.mediaMetadata.artist?.toString() ?: "Unknown artist",
                 contentUri = it.mediaMetadata.extras?.getString("xvox_original_uri")?.let(Uri::parse) ?: it.localConfiguration?.uri ?: Uri.EMPTY,

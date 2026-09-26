@@ -5,11 +5,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -284,11 +277,23 @@ fun ProfileEditorBox(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Header", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "Image / GIF",
-                color = colors.secondaryText,
-                fontSize = 11.sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Image / GIF",
+                    color = colors.secondaryText,
+                    fontSize = 11.sp
+                )
+                Text(
+                    text = "NEW",
+                    color = colors.background,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(colors.primaryAccent)
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -306,7 +311,6 @@ fun ProfileEditorBox(
                     title = if (draft.headerImageUri.isNullOrBlank()) "Image / GIF" else "Image / GIF ✓",
                     active = !draft.headerImageUri.isNullOrBlank(),
                     imageUri = draft.headerImageUri ?: draft.rememberedHeaderImageUri,
-                    showNewBadge = true,
                     onClick = {
                         haptics.tap()
                         val remembered = draft.rememberedHeaderImageUri
@@ -360,82 +364,25 @@ fun ProfileEditorBox(
 
 private const val HeaderIdeasPinterestUrl = "https://in.pinterest.com/ideas/loop-banner-gif/939795684803/"
 
-/** An in-app looping banner replaces the old live Header preview and opens the supplied Pinterest ideas board. */
+/** A deliberately plain link: profile editing has no live Header preview or animated banner. */
 @Composable
 private fun HeaderIdeasLoopBanner() {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
-    val transition = rememberInfiniteTransition(label = "headerIdeasGifLoop")
-    val travel by transition.animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1_850, easing = LinearEasing)),
-        label = "headerIdeasBannerTravel"
-    )
-
-    Box(
+    Text(
+        text = "Need more cool Header ideas? Tap here",
+        color = colors.primaryAccent,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
         modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.cardElevated)
-            .border(.8.dp, colors.cardBorder.copy(alpha = .65f), RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(7.dp))
             .clickable {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(HeaderIdeasPinterestUrl)))
                 }
-            },
-        contentAlignment = Alignment.CenterStart
-    ) {
-        // A lightweight in-app looping motion makes the callout read as a GIF banner without
-        // downloading an untrusted remote image inside the settings sheet.
-        Box(
-            modifier = Modifier
-                .width(94.dp)
-                .height(94.dp)
-                .graphicsLayer {
-                    translationX = (travel * 260f).dp.toPx()
-                    rotationZ = travel * 18f
-                    alpha = .18f
-                }
-                .clip(RoundedCornerShape(42.dp))
-                .background(colors.primaryAccent)
-        )
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = "Need more cool Header ideas?",
-                color = colors.primaryText,
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Tap here",
-                color = colors.primaryAccent,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Pinterest · loop banner GIF ideas",
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
-        }
-        Text(
-            text = "GIF LOOP",
-            color = colors.background,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(7.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(colors.primaryAccent)
-                .padding(horizontal = 6.dp, vertical = 3.dp)
-        )
-    }
+            }
+            .padding(vertical = 4.dp)
+    )
 }
 
 @Composable
@@ -444,8 +391,7 @@ private fun HeaderImageChoice(
     active: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    imageUri: String? = null,
-    showNewBadge: Boolean = false
+    imageUri: String? = null
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(21.dp)
@@ -473,19 +419,5 @@ private fun HeaderImageChoice(
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
-        if (showNewBadge) {
-            Text(
-                text = "NEW",
-                color = colors.background,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 3.dp, end = 5.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(colors.primaryAccent)
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
-            )
-        }
     }
 }

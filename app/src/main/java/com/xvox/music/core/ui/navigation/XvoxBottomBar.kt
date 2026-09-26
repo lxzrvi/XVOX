@@ -66,12 +66,21 @@ fun XvoxBottomBar(
     // At 100% transparency the bar's surface chrome disappears too; controls remain usable.
     val navEdge = navEdgeBase.copy(alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
-        ?: colors.cardElevated.copy(alpha = 0.42f)
+        // The bar itself follows the app background; this is the one quietly elevated element
+        // that keeps the active destination legible in either theme.
+        ?: colors.cardElevated.copy(alpha = if (colors.isLight) .62f else .54f)
     val customImageSurface = chrome.navigationImageUri.isNotBlank()
     val pillFill = if (chrome.pillColor.isBlank()) {
         // At 0% transparency a custom navbar image is the surface itself—do not wash a default
         // theme pill over it. A deliberately chosen custom pill colour still remains respected.
-        val defaultPillAlpha = if (customImageSurface) navSurfaceAlpha * (1f - navSurfaceAlpha) else navSurfaceAlpha
+        val defaultPillAlpha = if (customImageSurface) {
+            // Preserve the previously requested completely clear custom-image endpoint.
+            navSurfaceAlpha * (1f - navSurfaceAlpha)
+        } else {
+            // Even when the navbar surface is transparent, retain a quiet active-destination
+            // pill; otherwise the three fixed destinations lose their only selected state.
+            .30f + .28f * navSurfaceAlpha
+        }
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
 
@@ -119,7 +128,7 @@ fun XvoxBottomBar(
                 Box(
                     Modifier
                         .matchParentSize()
-                        .background(colors.cardElevated.copy(alpha = navSurfaceAlpha))
+                        .background(colors.background.copy(alpha = navSurfaceAlpha))
                 )
             }
         }

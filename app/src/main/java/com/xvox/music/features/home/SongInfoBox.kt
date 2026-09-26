@@ -69,8 +69,10 @@ private fun InfoRow(
             text = value,
             color = colors.primaryText,
             fontSize = 11.sp,
-            maxLines = if (label == "Location") 3 else 2,
-            overflow = TextOverflow.Ellipsis,
+            // Metadata is shown in full. The containing sheet only becomes scrollable when this
+            // genuine content height cannot fit on the physical display.
+            maxLines = Int.MAX_VALUE,
+            overflow = TextOverflow.Clip,
             modifier = Modifier.weight(0.66f)
         )
     }

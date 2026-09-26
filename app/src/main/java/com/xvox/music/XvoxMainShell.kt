@@ -8,7 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,6 +122,8 @@ fun XvoxMainShell(
     // The Sleep Timer sheet owns a transient selection until its fixed Okay footer commits it.
     var timerDraft by remember { mutableStateOf<XvoxTimerDraft?>(null) }
     var nowPlayingDisplayMode by rememberSaveable { mutableIntStateOf(0) }
+    // Survives closing/reopening Now Playing, unlike an action-page remember inside its subtree.
+    var nowPlayingActionsPage by rememberSaveable { mutableIntStateOf(0) }
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -317,6 +321,7 @@ fun XvoxMainShell(
             XvoxQueueBoxContent(
                 queue = currentList,
                 currentSongId = liveState.currentSongId,
+                currentIndex = if (isViewingActiveQueue) liveState.currentIndex else -1,
                 isPlaying = liveState.isPlaying,
                 savedQueues = liveState.savedQueues,
                 activeQueueName = viewingName,
@@ -410,8 +415,11 @@ fun XvoxMainShell(
         }
     }
 
-    val currentSong = remember(player.queue, player.currentSongId, homeState.songs) {
-        player.queue.firstOrNull { it.id == player.currentSongId }
+    val currentSong = remember(player.queue, player.currentSongId, player.currentIndex, homeState.songs) {
+        // Queue position is authoritative for a repeated occurrence; an ID lookup alone would
+        // always reopen the first copy in Now Playing.
+        player.queue.getOrNull(player.currentIndex)?.takeIf { it.id == player.currentSongId }
+            ?: player.queue.firstOrNull { it.id == player.currentSongId }
             ?: homeState.songs.firstOrNull { it.id == player.currentSongId }
     }
     // Start palette work while the Mini Player is on screen. This shared cache is then ready when
@@ -431,11 +439,8 @@ fun XvoxMainShell(
     }
 
     fun selectNavigationDestination(next: XvoxDestination) {
-        if (next == XvoxDestination.HOME) {
-            hoistedSelectedPlaylistId = null
-            homeResetKey = System.currentTimeMillis()
-            homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
-        }
+        // Home is a retained destination, not a reset button. Returning from Search or Settings
+        // must restore its exact library page, detail context, and LazyColumn position.
         if (next != destination) tabEpoch++
         destination = next
     }
@@ -467,24 +472,36 @@ fun XvoxMainShell(
         else homeViewModel.toggleRecentMode()
     }
 
-    // Profile editing remains transactional. The underlying Header deliberately stays on its
-    // saved presentation until Save; the profile sheet no longer renders a live Header preview.
+    // Profile editing remains transactional. The actual Home Header is a page item, while this
+    // visibility wrapper gives the chrome its own vertical exit/return during destination moves.
     val pageHeader: @Composable () -> Unit = {
-        XvoxShellTopHeader(
-            profile = homeState.profile,
-            destination = destination,
-            libraryMode = homeState.libraryMode,
-            onProfileClick = ::showProfileEditor,
-            onRefreshClick = ::showRefreshOverlay,
-            onLikedClick = ::openLikedFromNavigation,
-            onPlaylistClick = ::openPlaylistsFromNavigation,
-            onArtistClick = {
-                hoistedSelectedPlaylistId = null
-                homeViewModel.toggleArtistMode()
-            },
-            onRecentClick = ::openRecentFromHeader,
-            useSystemInsets = true
-        )
+        AnimatedVisibility(
+            visible = destination == XvoxDestination.HOME,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(260)
+            ) + fadeIn(tween(160)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(220)
+            ) + fadeOut(tween(130))
+        ) {
+            XvoxShellTopHeader(
+                profile = homeState.profile,
+                destination = destination,
+                libraryMode = homeState.libraryMode,
+                onProfileClick = ::showProfileEditor,
+                onRefreshClick = ::showRefreshOverlay,
+                onLikedClick = ::openLikedFromNavigation,
+                onPlaylistClick = ::openPlaylistsFromNavigation,
+                onArtistClick = {
+                    hoistedSelectedPlaylistId = null
+                    homeViewModel.toggleArtistMode()
+                },
+                onRecentClick = ::openRecentFromHeader,
+                useSystemInsets = true
+            )
+        }
     }
 
     Box(
@@ -504,22 +521,15 @@ fun XvoxMainShell(
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    val isHeaderStableSwitch =
-                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
-                            (initialState == XvoxDestination.SEARCH && targetState == XvoxDestination.HOME)
-                    if (isHeaderStableSwitch) {
-                        // Home and Search deliberately share an unanimated Header identity. Do
-                        // not slide/fade that strip (or its close search-bar relationship) when
-                        // moving between the two destinations.
-                        androidx.compose.animation.EnterTransition.None
-                            .togetherWith(androidx.compose.animation.ExitTransition.None)
-                            .using(null)
-                    } else {
-                        val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                        ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
-                            togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
-                            .using(null)
-                    }
+                    // Home → Search, Home → Settings, and Settings → Search are forward routes:
+                    // their content travels right-to-left. Every reverse route mirrors it.
+                    val forward = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
+                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SETTINGS) ||
+                        (initialState == XvoxDestination.SETTINGS && targetState == XvoxDestination.SEARCH)
+                    val direction = if (forward) 1 else -1
+                    ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
+                        togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
+                        .using(null)
                 },
                 label = "directionalTabs",
                 modifier = Modifier.fillMaxSize()
@@ -532,7 +542,7 @@ fun XvoxMainShell(
                                     currentSongId = player.currentSongId,
                                     isPlaying = player.isPlaying,
                                     homeResetKey = homeResetKey,
-                                    scrollResetKey = tabEpoch,
+                                    scrollResetKey = 0L,
                                     selectedPlaylistId = hoistedSelectedPlaylistId,
                                     onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
                                     onQueueReady = playerViewModel::setQueue,
@@ -550,7 +560,7 @@ fun XvoxMainShell(
                                         hoistedSelectedPlaylistId = playlistId
                                         destination = XvoxDestination.HOME
                                     },
-                                    header = pageHeader
+                                    header = null
                                 )
                             }
                             XvoxDestination.SETTINGS -> {
@@ -747,6 +757,8 @@ fun XvoxMainShell(
                     sleepTimerProgress = player.sleepTimerProgress,
                     playingSource = player.playingSource,
                     isInPlaylist = isInPlaylist,
+                    actionPageIndex = nowPlayingActionsPage,
+                    onActionPageChange = { nowPlayingActionsPage = it },
                     settingsViewModel = settingsViewModel
                 )
             }

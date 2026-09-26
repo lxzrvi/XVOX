@@ -266,14 +266,11 @@ fun XvoxSheet(
                     (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
                 }
                 val maxSheetHeightPx = with(density) { maxSheetHeight.toPx() }
-                val equalizerPresentation = presentation == XvoxBoxPresentation.EQUALIZER
                 val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
 
-                // Compact interfaces keep their measured content height. Overflowing lists start
-                // around six rows (roughly half the usable screen), then grow one-for-one with an
-                // upward list gesture until they approach the status bar. Content drag can later
-                // compact them to 20%; the pill has its own gentler 40% close threshold.
-                val largeStartHeightPx = maxSheetHeightPx * .50f
+                // A sheet now always opens at its measured content height.  No presentation is
+                // allowed to claim a speculative half screen: the max bound is only reached when
+                // its real body cannot physically fit above the status bar.
                 val contentContractFloorPx = maxSheetHeightPx * .20f
                 val pillCloseHeightPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
@@ -281,20 +278,9 @@ fun XvoxSheet(
                 var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
                 var dragDeltaPx by remember { mutableFloatStateOf(0f) }
 
-                LaunchedEffect(maxSheetHeightPx, equalizerPresentation) {
-                    if (equalizerPresentation && requestedHeightPx <= 0f) {
-                        requestedHeightPx = largeStartHeightPx
-                    } else if (requestedHeightPx > maxSheetHeightPx) {
+                LaunchedEffect(maxSheetHeightPx) {
+                    if (requestedHeightPx > maxSheetHeightPx) {
                         requestedHeightPx = maxSheetHeightPx
-                    }
-                }
-                LaunchedEffect(measuredHeightPx, maxSheetHeightPx, requestedHeightPx) {
-                    // Let small sheets remain content-sized.  The first measured large layout
-                    // immediately settles into the half-screen starting point.
-                    if (!equalizerPresentation && requestedHeightPx <= 0f &&
-                        measuredHeightPx > (largeStartHeightPx * 1.05f)
-                    ) {
-                        requestedHeightPx = largeStartHeightPx
                     }
                 }
                 val contentScrollBridge = remember(maxSheetHeightPx, density) {
@@ -307,10 +293,9 @@ fun XvoxSheet(
                         dismissDistancePx = with(density) { 52.dp.toPx() }
                     )
                 }
-                // All sheet bodies receive the Queue sheet's expand/contract behavior, even when
-                // a legacy body has not yet attached xvoxBoxScroll itself. Upward content motion
-                // grows a long sheet first; leftover downward content motion at its top contracts
-                // it and then follows the normal close path.
+                // A manually expanded sheet can still be resized through its drag pill. Normal
+                // content scrolling never creates a blank intermediate viewport: it stays at its
+                // intrinsic measurement until the content itself overflows the available height.
                 val universalBodySheetConnection = remember(contentScrollBridge) {
                     object : NestedScrollConnection {
                         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -380,8 +365,7 @@ fun XvoxSheet(
                                             dragDeltaPx = 0f
                                             dragStartHeightPx = maxOf(
                                                 measuredHeightPx.toFloat(),
-                                                requestedHeightPx,
-                                                if (equalizerPresentation) largeStartHeightPx else 0f
+                                                requestedHeightPx
                                             )
                                         },
                                         onVerticalDrag = { change, amount ->
@@ -442,7 +426,7 @@ fun XvoxSheet(
                         // body begins directly after Header's own touch-safe lower inset.
                         val bodyHorizontal = when {
                             songOptionsPresentation -> 12.dp
-                            equalizerPresentation -> 16.dp
+                            presentation == XvoxBoxPresentation.EQUALIZER -> 16.dp
                             else -> 16.dp
                         }
                         // Only fixed (overflowing) sheets fill their bounded viewport. Compact

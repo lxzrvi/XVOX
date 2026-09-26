@@ -313,8 +313,9 @@ fun XvoxMiniPlayer(
             XvoxMiniPlayerCard(
                 song = visualSong,
                 isPlaying = isPlaying,
-                position = if (visualSong.id == currentSongId) position else 0L,
-                duration = if (visualSong.id == currentSongId) duration else visualSong.duration,
+                // Queue occurrence, not Song.id, decides whether this preview owns live progress.
+                position = if (previewIndex == currentIndex) position else 0L,
+                duration = if (previewIndex == currentIndex) duration else visualSong.duration,
                 direction = transitionDirection,
                 togglePlay = togglePlay,
                 isLiked = isLiked,
@@ -338,7 +339,11 @@ fun XvoxMiniPlayer(
                 targetOffsetY = { it / 2 },
                 animationSpec = tween(160, easing = XvoxPlayerTransitionMotion.easing)
             ) + fadeOut(tween(130, easing = XvoxPlayerTransitionMotion.easing)),
-            modifier = Modifier.align(Alignment.TopCenter)
+            // Keep the menu intentionally close to the Mini Player, but lower than the former
+            // top-anchored position so it reads as attached to the card rather than a header.
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 10.dp)
         ) {
             XvoxMiniQuickActionPill(
                 onAdd = {
@@ -372,7 +377,7 @@ private fun XvoxMiniQuickActionPill(
             .height(44.dp)
             .width(164.dp)
             .clip(shape)
-            .background(colors.cardElevated.copy(alpha = .94f))
+            .background(colors.background.copy(alpha = .94f))
             .padding(horizontal = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically

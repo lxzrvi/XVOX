@@ -8,20 +8,34 @@ object PlayerQueueReorderHelper {
         currentQueue: List<Song>,
         reordered: List<Song>,
         currentSongId: Long?,
+        currentIndex: Int = -1,
         onQueueCommitted: (List<Song>, Int) -> Unit
     ) {
         if (reordered.size != currentQueue.size) return
-        if (currentQueue == reordered) return
+        if (reordered.indices.all { index -> reordered[index] === currentQueue[index] }) return
 
-        val newCurrentIndex = reordered.indexOfFirst { it.id == currentSongId }
+        val occurrence = if (currentIndex in currentQueue.indices && currentQueue[currentIndex].id == currentSongId) {
+            currentQueue.take(currentIndex + 1).count { it.id == currentSongId } - 1
+        } else {
+            0
+        }
+        val activeReference = currentQueue.getOrNull(currentIndex)
+        val matching = reordered.indices.filter { reordered[it].id == currentSongId }
+        val newCurrentIndex = reordered.indexOfFirst { it === activeReference }
+            .takeIf { it >= 0 }
+            ?: matching.getOrNull(occurrence)
+            ?: matching.firstOrNull()
+            ?: -1
         onQueueCommitted(reordered, if (newCurrentIndex >= 0) newCurrentIndex else 0)
     }
 
     fun shuffleQueue(
         currentSongId: Long?,
-        currentQueue: List<Song>
+        currentQueue: List<Song>,
+        currentIndexHint: Int = -1
     ): List<Song>? {
-        val currentIndex = currentQueue.indexOfFirst { it.id == currentSongId }
+        val currentIndex = currentIndexHint.takeIf { it in currentQueue.indices && currentQueue[it].id == currentSongId }
+            ?: currentQueue.indexOfFirst { it.id == currentSongId }
         if (currentIndex >= 0 && currentQueue.size > 2) {
             val currentSong = currentQueue[currentIndex]
             val others = currentQueue.filterIndexed { index, _ -> index != currentIndex }.shuffled()

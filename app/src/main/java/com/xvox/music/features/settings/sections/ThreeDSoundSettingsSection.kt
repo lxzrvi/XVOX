@@ -53,6 +53,44 @@ import kotlin.math.sin
 
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
+    ThreeDSoundContent(
+        state = state,
+        onStereoWidening = viewModel::setStereoWidening,
+        onSurroundWidth = viewModel::setSurroundWidth,
+        onSurroundDepth = viewModel::setSurroundDepth,
+        onSurroundPanSpeed = viewModel::setSurroundPanSpeed,
+        onHrtf = viewModel::setHrtf,
+        onBalance = viewModel::setBalance
+    )
+}
+
+/** Local-only form used by the transactional Now Playing 3D Sound sheet. */
+@Composable
+fun ThreeDSoundDraftSection(
+    state: SettingsState,
+    onStateChange: (SettingsState) -> Unit
+) {
+    ThreeDSoundContent(
+        state = state,
+        onStereoWidening = { onStateChange(state.copy(stereoWidening = it)) },
+        onSurroundWidth = { onStateChange(state.copy(surroundWidth = it.coerceIn(.05f, 1f))) },
+        onSurroundDepth = { onStateChange(state.copy(surroundDepth = it.coerceIn(0f, 1f))) },
+        onSurroundPanSpeed = { onStateChange(state.copy(surroundPanSpeed = it.coerceIn(0, 20))) },
+        onHrtf = { onStateChange(state.copy(hrtf = it.coerceIn(0f, 1f))) },
+        onBalance = { onStateChange(state.copy(balance = it.coerceIn(-1f, 1f))) }
+    )
+}
+
+@Composable
+private fun ThreeDSoundContent(
+    state: SettingsState,
+    onStereoWidening: (Boolean) -> Unit,
+    onSurroundWidth: (Float) -> Unit,
+    onSurroundDepth: (Float) -> Unit,
+    onSurroundPanSpeed: (Int) -> Unit,
+    onHrtf: (Float) -> Unit,
+    onBalance: (Float) -> Unit
+) {
     val colors = XvoxTheme.colors
     var expandedGroup by remember { mutableStateOf<String?>(null) }
 
@@ -76,7 +114,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
             title = "3D sound",
             subtitle = "Widen, move and place the sound around you",
             checked = state.stereoWidening,
-            onChange = viewModel::setStereoWidening
+            onChange = onStereoWidening
         )
 
         if (state.stereoWidening) {
@@ -88,7 +126,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 EqL("Width · ${(state.surroundWidth * 100).roundToInt()}%")
                 XvoxSlider(
                     state.surroundWidth,
-                    viewModel::setSurroundWidth,
+                    onSurroundWidth,
                     .05f..1f,
                     defaultValue = .78f,
                     valueLabel = { width -> "${(width * 100).roundToInt()}%" }
@@ -97,7 +135,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 EqL("Depth · ${(state.surroundDepth * 100).roundToInt()}%")
                 XvoxSlider(
                     state.surroundDepth,
-                    viewModel::setSurroundDepth,
+                    onSurroundDepth,
                     0f..1f,
                     defaultValue = .65f,
                     valueLabel = { depth -> "${(depth * 100).roundToInt()}%" }
@@ -126,7 +164,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                                 .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                                 .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape)
                                 .xvoxPressScale {
-                                    viewModel.setSurroundPanSpeed(sec)
+                                    onSurroundPanSpeed(sec)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -149,7 +187,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 EqL("HRTF / Spatial binaural · ${(state.hrtf * 100).roundToInt()}%")
                 XvoxSlider(
                     state.hrtf,
-                    viewModel::setHrtf,
+                    onHrtf,
                     0f..1f,
                     defaultValue = .6f,
                     valueLabel = { hrtf -> "${(hrtf * 100).roundToInt()}%" }
@@ -159,7 +197,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
                 else "Center"
                 EqL("Stereo Balance · $balText")
-                XvoxSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+                XvoxSlider(state.balance, onBalance, -1f..1f, defaultValue = 0f)
             }
         } else {
             SettingsAccordionItem(
@@ -171,7 +209,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
                 else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
                 else "Center"
                 EqL("Stereo Balance · $balText")
-                XvoxSlider(state.balance, viewModel::setBalance, -1f..1f, defaultValue = 0f)
+                XvoxSlider(state.balance, onBalance, -1f..1f, defaultValue = 0f)
             }
         }
     })

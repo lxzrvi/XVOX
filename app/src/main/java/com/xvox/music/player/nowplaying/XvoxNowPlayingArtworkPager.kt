@@ -53,18 +53,23 @@ fun XvoxNowPlayingArtworkPager(
     @Suppress("UNUSED_PARAMETER") navigationRequest: Int,
     /** Page currently being previewed by the previous/next controls. */
     previewIndex: Int = currentIndex,
-    /** Stable visual target used to survive a queue reorder while this pager is mounted. */
+    /**
+     * Retained for source compatibility with callers that restore a single non-repeated song.
+     * [previewIndex] is authoritative: an ID alone cannot identify one repeated occurrence.
+     */
     previewSongId: Long? = queue.getOrNull(previewIndex)?.id,
     onPreviewIndexChange: (Int) -> Unit = {},
     onArtworkTap: () -> Unit,
     onSwipePalette: (Song, Song?, Float) -> Unit,
-    /** Supplies the stable visible song, never only an index that a shuffled queue can invalidate. */
-    onSettledPage: (Song) -> Unit,
+    /** Supplies the settled queue occurrence as well as its visible Song. */
+    onSettledPage: (Int, Song) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     pageSpacing: Dp = 12.dp,
     /** Insets the cover inside an edge-clipped page without exposing neighbouring artwork. */
     artworkHorizontalInset: Dp = 0.dp,
+    /** 0dp lets an edge-to-edge landscape deck touch all screen boundaries. */
+    artworkCornerRadius: Dp = 20.dp,
     /** Landscape uses a vertical deck so no left/right neighbouring covers can appear. */
     verticalPaging: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF
@@ -72,10 +77,9 @@ fun XvoxNowPlayingArtworkPager(
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
     val queueIdentity = remember(queue) { queue.map { it.xvoxArtworkPaletteKey() } }
-    val stableInitialPage = previewSongId
-        ?.let { targetId -> queue.indexOfFirst { it.id == targetId } }
-        ?.takeIf { it in queue.indices }
-        ?: initialIdx
+    // Page indices intentionally identify queue occurrences. Repeated library IDs must retain
+    // distinct pages, even if their cover art happens to be identical.
+    val stableInitialPage = previewIndex.takeIf { it in queue.indices } ?: initialIdx
     // A reordered queue creates a fresh pager at the stable target song rather than retaining an
     // old numeric page that now belongs to a different cover.
     val pager = key(queueIdentity) {
@@ -100,12 +104,12 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // The visible deck follows the preview song rather than trusting a numerical page after a
-    // queue reorder. This is especially important when Shuffle moves the current item to index 0.
-    val targetPreviewSongId = previewSongId ?: queue.getOrNull(previewIndex)?.id
-    LaunchedEffect(targetPreviewSongId, queue) {
+    // The visible deck follows the preview occurrence. A numerical index is deliberately used
+    // here because a repeated Song.id cannot tell the second copy from the first.
+    val targetPreviewPage = previewIndex.takeIf { it in queue.indices } ?: initialIdx
+    LaunchedEffect(targetPreviewPage, queue) {
         userSwiped = false
-        val targetPage = targetPreviewSongId?.let { id -> queue.indexOfFirst { it.id == id } } ?: -1
+        val targetPage = targetPreviewPage
         if (targetPage in queue.indices && targetPage != pager.currentPage) {
             // Never scrollToPage here: a held or rapidly tapped control can move more than one
             // index, but the visible cover and the live palette must still travel continuously.
@@ -136,27 +140,26 @@ fun XvoxNowPlayingArtworkPager(
     }
 
     // Playback changes only after a manual swipe has genuinely settled for 300 ms. Capture the
-    // target Song itself before waiting: an index can mean a different cover after Shuffle.
+    // queue occurrence before waiting so two equal Song IDs never collapse to the first copy.
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
         }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
             val targetSong = queue.getOrNull(settledIndex)
-            val currentSongId = queue.getOrNull(latestCurrentIndex)?.id
-            if (!inProgress && !dragging && userSwiped && targetSong != null && targetSong.id != currentSongId) {
+            if (!inProgress && !dragging && userSwiped && targetSong != null && settledIndex != latestCurrentIndex) {
                 userSwiped = false
                 previewChanged(settledIndex)
                 val settledEpoch = swipeEpoch
-                val settledSongId = targetSong.id
+                val settledOccurrence = settledIndex
                 delay(300)
                 if (
                     settledEpoch == swipeEpoch &&
                     !pager.isScrollInProgress &&
                     !isUserDragging &&
-                    queue.getOrNull(pager.settledPage)?.id == settledSongId &&
-                    queue.getOrNull(latestCurrentIndex)?.id != settledSongId
+                    pager.settledPage == settledOccurrence &&
+                    latestCurrentIndex != settledOccurrence
                 ) {
-                    settled(targetSong)
+                    settled(settledOccurrence, targetSong)
                 }
             } else if (!inProgress && !dragging) {
                 userSwiped = false
@@ -178,13 +181,14 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
+            key = { page -> "${queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: "missing"}:$page" }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,
                 queue = queue,
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
+                artworkCornerRadius = artworkCornerRadius,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -197,13 +201,14 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
+            key = { page -> "${queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: "missing"}:$page" }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,
                 queue = queue,
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
+                artworkCornerRadius = artworkCornerRadius,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -216,6 +221,7 @@ private fun XvoxNowPlayingArtworkPage(
     queue: List<Song>,
     pager: PagerState,
     artworkHorizontalInset: Dp,
+    artworkCornerRadius: Dp,
     onArtworkTap: () -> Unit
 ) {
     val song = queue.getOrNull(page) ?: return
@@ -244,7 +250,7 @@ private fun XvoxNowPlayingArtworkPage(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = artworkHorizontalInset)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(artworkCornerRadius))
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,

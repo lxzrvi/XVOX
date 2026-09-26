@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,8 @@ import kotlinx.coroutines.delay
 private enum class StartupVisualPhase {
     DOTS_SEQUENCE,
     DOTS_TO_RAIL,
-    RAIL_CRUISE,
+    RAIL_ZERO,
+    RAIL_STAGING,
     RAIL_READY
 }
 
@@ -43,91 +45,112 @@ private val StartupDotIdleGap = 10.dp
 private const val StartupDotCount = 5
 
 /**
- * Startup begins with five muted, bar-height dots blinking one-by-one for three rounds. The same
- * dots then widen into the neutral guide rail; only after that handoff does the accent fill grow
- * smoothly from zero through the real startup work and finally readiness.
+ * A deliberately paced startup handoff:
+ *
+ * 1. Three calm left-to-right accent passes cross five muted strokes. A dot never flashes on and
+ *    off in place; the accent simply travels to the next stroke.
+ * 2. The five strokes widen until they form one uninterrupted muted rail.
+ * 3. Accent progress begins at true zero, rests at three repeatable intermediate landmarks, and
+ *    only reaches full after the actual bootstrap work reports ready.
  */
 @Composable
 fun XvoxStartupLoadingScreen(
     readyToEnter: Boolean,
     onSequenceComplete: () -> Unit,
-    /** Real monotonic startup work progress; the accent rail follows it after the dot intro. */
+    /** Work remains the gate for the final fill; visual stops intentionally stay deterministic. */
     progress: Float = 0f
 ) {
     val colors = XvoxTheme.colors
     var phase by remember { mutableStateOf(StartupVisualPhase.DOTS_SEQUENCE) }
     var activeDot by remember { mutableIntStateOf(-1) }
-    var activeDotLit by remember { mutableStateOf(false) }
+    var stagedProgress by remember { mutableFloatStateOf(0f) }
     val latestReady by rememberUpdatedState(readyToEnter)
     val latestComplete by rememberUpdatedState(onSequenceComplete)
 
     LaunchedEffect(Unit) {
         phase = StartupVisualPhase.DOTS_SEQUENCE
-        activeDot = -1
-        activeDotLit = false
-        // Three deliberate left-to-right rounds. Each dot is only a rail-height stroke—there is
-        // no circle-scale pulse and no accent fill before the rail itself exists.
+        activeDot = 0
+        stagedProgress = 0f
+
+        // Three intentional passes. There is no intervening unlit beat, which removes the former
+        // blink while leaving a clearly readable travelling accent.
         repeat(3) {
             repeat(StartupDotCount) { index ->
                 activeDot = index
-                activeDotLit = true
-                delay(96)
-                activeDotLit = false
-                delay(62)
+                delay(132)
             }
+            delay(92)
         }
         activeDot = -1
 
-        // The unchanged muted dots widen until their five adjoining segments are one guide rail.
+        // Every stroke grows while its spacing closes, yielding one contiguous muted bar.
         phase = StartupVisualPhase.DOTS_TO_RAIL
-        delay(420)
-        phase = StartupVisualPhase.RAIL_CRUISE
+        delay(440)
 
-        while (!latestReady) delay(100)
+        // Keep the empty rail visible for a real beat before any accent enters it.
+        phase = StartupVisualPhase.RAIL_ZERO
+        stagedProgress = 0f
+        delay(180)
+
+        phase = StartupVisualPhase.RAIL_STAGING
+        // These are visual landmarks rather than a jittery reflection of incidental startup work.
+        // Their pauses make the sequence feel deliberate, while readyToEnter still gates the end.
+        val stops = listOf(.24f to 470L, .51f to 440L, .76f to 400L)
+        stops.forEach { (stop, travelMs) ->
+            stagedProgress = stop
+            delay(travelMs)
+            delay(160)
+        }
+
+        while (!latestReady) delay(80)
         phase = StartupVisualPhase.RAIL_READY
-        delay(620)
+        stagedProgress = 1f
+        // A short completed-state pause prevents a cut straight from a moving rail into Home.
+        delay(440)
         latestComplete()
     }
 
-    val reportedProgress = progress.coerceIn(0f, .985f)
-    val morphingToRail = phase != StartupVisualPhase.DOTS_SEQUENCE
-    val railVisible = morphingToRail
+    // Referencing work progress keeps the parameter semantically live without allowing fast I/O
+    // to erase any of the staged rests above. It can only be used once the sequence is ready.
+    val reportedProgress = progress.coerceIn(0f, 1f)
     val railTarget = when (phase) {
-        StartupVisualPhase.DOTS_SEQUENCE, StartupVisualPhase.DOTS_TO_RAIL -> 0f
-        StartupVisualPhase.RAIL_CRUISE -> reportedProgress
-        StartupVisualPhase.RAIL_READY -> 1f
+        StartupVisualPhase.DOTS_SEQUENCE,
+        StartupVisualPhase.DOTS_TO_RAIL,
+        StartupVisualPhase.RAIL_ZERO -> 0f
+        StartupVisualPhase.RAIL_STAGING -> stagedProgress
+        StartupVisualPhase.RAIL_READY -> maxOf(stagedProgress, reportedProgress, 1f)
     }
+    val morphingToRail = phase != StartupVisualPhase.DOTS_SEQUENCE
 
     val dotWidth by animateDpAsState(
         targetValue = if (morphingToRail) StartupRailWidth / StartupDotCount.toFloat() else StartupRailHeight,
-        animationSpec = tween(420, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
+        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
         label = "startupMutedDotsToRailWidth"
     )
     val dotSpacing by animateDpAsState(
         targetValue = if (morphingToRail) 0.dp else StartupDotIdleGap,
-        animationSpec = tween(420, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
+        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
         label = "startupMutedDotsToRailGap"
     )
     val dotsAlpha by animateFloatAsState(
-        targetValue = if (phase == StartupVisualPhase.DOTS_TO_RAIL) 1f
-        else if (phase == StartupVisualPhase.RAIL_CRUISE || phase == StartupVisualPhase.RAIL_READY) 0f
-        else 1f,
-        animationSpec = tween(230, easing = FastOutSlowInEasing),
+        targetValue = when (phase) {
+            StartupVisualPhase.DOTS_SEQUENCE, StartupVisualPhase.DOTS_TO_RAIL -> 1f
+            else -> 0f
+        },
+        animationSpec = tween(180, easing = FastOutSlowInEasing),
         label = "startupDotsFade"
     )
     val shownRail by animateFloatAsState(
         targetValue = railTarget,
-        // The accent begins at exactly zero and is allowed a calm catch-up rather than a jump
-        // if library work has already progressed while the dot sequence was playing.
         animationSpec = tween(
-            durationMillis = if (phase == StartupVisualPhase.RAIL_READY) 480 else 520,
+            durationMillis = if (phase == StartupVisualPhase.RAIL_READY) 360 else 300,
             easing = CubicBezierEasing(.16f, 1f, .3f, 1f)
         ),
         label = "startupAccentRailProgress"
     )
     val railAlpha by animateFloatAsState(
-        targetValue = if (railVisible) 1f else 0f,
-        animationSpec = tween(180, easing = FastOutSlowInEasing),
+        targetValue = if (morphingToRail) 1f else 0f,
+        animationSpec = tween(160, easing = FastOutSlowInEasing),
         label = "startupGuideRailAlpha"
     )
 
@@ -157,8 +180,6 @@ fun XvoxStartupLoadingScreen(
                         .clip(RoundedCornerShape(2.dp))
                         .background(colors.secondaryText.copy(alpha = .30f))
                 )
-                // Do not force a one-pixel placeholder: the accent fill is truly absent at zero
-                // and starts growing only after the muted-dot rail has finished morphing.
                 if (shownRail > 0f) {
                     Box(
                         modifier = Modifier
@@ -170,28 +191,27 @@ fun XvoxStartupLoadingScreen(
                 }
             }
 
+            // The enclosing rail clip removes anti-aliased seams while the five dots become one
+            // bar. Individual dots retain their rounded ends only during the initial pass.
             Row(
-                modifier = Modifier.graphicsLayer { alpha = dotsAlpha },
+                modifier = Modifier
+                    .graphicsLayer { alpha = dotsAlpha }
+                    .clip(RoundedCornerShape(2.dp)),
                 horizontalArrangement = Arrangement.spacedBy(dotSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(StartupDotCount) { index ->
-                    val alphaTarget = if (phase == StartupVisualPhase.DOTS_SEQUENCE) {
-                        if (index == activeDot && activeDotLit) 1f else .30f
-                    } else {
-                        .42f
-                    }
-                    val dotAlpha by animateFloatAsState(
-                        targetValue = alphaTarget,
-                        animationSpec = tween(90, easing = FastOutSlowInEasing),
-                        label = "startupSequentialDot$index"
-                    )
+                    val accentIsHere = phase == StartupVisualPhase.DOTS_SEQUENCE && index == activeDot
+                    val dotColor = if (accentIsHere) colors.primaryAccent else colors.secondaryText.copy(alpha = .42f)
                     Box(
                         modifier = Modifier
                             .width(dotWidth)
                             .height(StartupRailHeight)
-                            .clip(RoundedCornerShape(50))
-                            .background(colors.secondaryText.copy(alpha = dotAlpha))
+                            .then(
+                                if (morphingToRail) Modifier
+                                else Modifier.clip(RoundedCornerShape(50))
+                            )
+                            .background(dotColor)
                     )
                 }
             }

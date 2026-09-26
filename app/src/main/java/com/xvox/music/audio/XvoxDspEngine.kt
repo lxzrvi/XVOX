@@ -351,9 +351,16 @@ class XvoxDspEngine {
             l = 0.0; r = 0.0
             filters.forEach { it.reset() }; pinna.reset()
         }
-        // App volume is part of the PCM gain path, before the transparent look-ahead limiter.
-        // That makes 101–200% materially louder on quieter material while keeping peaks safe.
-        peakGuard.process(l * currentVolume * currentMix, r * currentVolume * currentMix)
+        // App volume is part of the PCM gain path. Above 100%, use a gentle soft-drive before
+        // the transparent look-ahead guard: a peak-only limiter would otherwise cancel nearly
+        // all of a 101–200% boost on mastered tracks. At and below 100% this remains exact linear
+        // gain; above it, quieter detail and average loudness genuinely rise while output peaks
+        // stay protected for PCM conversion.
+        val mixedL = l * currentMix
+        val mixedR = r * currentMix
+        val boostedL = if (currentVolume <= 1.0001) mixedL * currentVolume else tanh(mixedL * currentVolume)
+        val boostedR = if (currentVolume <= 1.0001) mixedR * currentVolume else tanh(mixedR * currentVolume)
+        peakGuard.process(boostedL, boostedR)
         left = peakGuard.left.toFloat()
         right = peakGuard.right.toFloat()
     }

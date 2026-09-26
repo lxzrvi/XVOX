@@ -96,7 +96,7 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
-            .background(colors.cardElevated.copy(alpha = miniAlpha))
+            .background(colors.background.copy(alpha = miniAlpha))
             // Surface chrome follows the same 0%=solid / 100%=transparent contract as the fill.
             .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha), cardShape)
             .drawWithContent {

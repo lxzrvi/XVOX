@@ -132,6 +132,8 @@ private data class QueueEntry(val stableKey: String, val song: Song)
 fun XvoxQueueBoxContent(
     queue: List<Song>,
     currentSongId: Long?,
+    /** An occurrence index distinguishes repeated copies of the same library song. */
+    currentIndex: Int = -1,
     isPlaying: Boolean,
     savedQueues: List<XvoxSavedQueue> = emptyList(),
     activeQueueName: String = "Queue 1",
@@ -216,13 +218,14 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    val longQueue = queue.size > 6
+    // The viewport begins at the actual rows' combined height. Its parent constrains that request
+    // on smaller displays, at which point LazyColumn alone becomes scrollable. This removes the
+    // former fixed long-queue gap and keeps the final row fully reachable.
+    val desiredQueueHeight = (queue.size * 64 + 16).dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            // Long queues occupy the bounded sheet viewport so LazyColumn, not the sheet body,
-            // owns scrolling. Short queues still measure to their content without blank space.
-            .then(if (longQueue) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
+            .wrapContentHeight()
             .animateContentSize(animationSpec = tween(180, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
     ) {
         if (queue.isEmpty()) {
@@ -240,17 +243,10 @@ fun XvoxQueueBoxContent(
                 )
             }
         } else {
-            val queueViewport = if (longQueue) {
-                Modifier
-                    .fillMaxHeight()
-                    .heightIn(min = 180.dp)
-            } else {
-                Modifier.heightIn(min = 180.dp, max = 560.dp)
-            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(queueViewport)
+                    .height(desiredQueueHeight)
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
                     }
@@ -326,7 +322,7 @@ fun XvoxQueueBoxContent(
                 LazyColumn(
                     state = listState,
                     userScrollEnabled = draggingEntry == null,
-                    contentPadding = PaddingValues(vertical = 4.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
                     modifier = Modifier
                         .fillMaxSize()
@@ -352,7 +348,7 @@ fun XvoxQueueBoxContent(
                             QueueItemRow(
                                 song = song,
                                 index = idx,
-                                isPlayingThis = isPlaybackActiveInThisQueue && song.id == currentSongId,
+                                isPlayingThis = isPlaybackActiveInThisQueue && idx == currentIndex,
                                 isPlayingAudio = isPlaying,
                                 totalCount = displayEntries.size,
                                 onPlay = { play(idx) },
@@ -377,7 +373,7 @@ fun XvoxQueueBoxContent(
                         QueueItemRow(
                             song = draggedSong,
                             index = currentDragIndex,
-                            isPlayingThis = isPlaybackActiveInThisQueue && draggedSong.id == currentSongId,
+                            isPlayingThis = isPlaybackActiveInThisQueue && currentDragIndex == currentIndex,
                             isPlayingAudio = isPlaying,
                             totalCount = displayEntries.size,
                             onPlay = {},

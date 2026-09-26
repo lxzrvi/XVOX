@@ -139,12 +139,11 @@ class MainPlayerViewModel(
         controller.setQueue(previous)
         libraryQueueSize = previous.size
         libraryQueueSignature = queueSignature(previous)
-        val currentSongId = _state.value.currentSongId
-        val newIdx = previous.indexOfFirst { it.id == currentSongId }
+        val controllerIndex = controller.state.value.currentIndex
         _state.update {
             it.copy(
                 queue = previous,
-                currentIndex = if (newIdx >= 0) newIdx else it.currentIndex
+                currentIndex = if (controllerIndex in previous.indices) controllerIndex else it.currentIndex
             )
         }
         return true
@@ -152,7 +151,9 @@ class MainPlayerViewModel(
 
     fun reorderQueue(reordered: List<Song>) {
         val currentQueue = _state.value.queue
-        if (reordered.size != currentQueue.size || reordered == currentQueue) return
+        if (reordered.size != currentQueue.size ||
+            reordered.indices.all { index -> reordered[index] === currentQueue[index] }
+        ) return
 
         queueUndoStack.addLast(currentQueue.toList())
         if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
@@ -160,7 +161,8 @@ class MainPlayerViewModel(
         PlayerQueueReorderHelper.reorderQueue(
             currentQueue = currentQueue,
             reordered = reordered,
-            currentSongId = _state.value.currentSongId
+            currentSongId = _state.value.currentSongId,
+            currentIndex = _state.value.currentIndex
         ) { validQueue, newIdx ->
             controller.setQueue(validQueue)
             libraryQueueSize = validQueue.size
@@ -170,16 +172,32 @@ class MainPlayerViewModel(
     }
 
     fun playFromSource(song: Song, sourceQueue: List<Song>, source: String) {
-        val sourcedQueue = (if (sourceQueue.isEmpty()) listOf(song) else sourceQueue).map {
-            it.copy(source = source)
-        }
-        val targetSong = song.copy(source = source)
+        val suppliedItems = if (sourceQueue.isEmpty()) listOf(song) else sourceQueue
+        // Prefer object identity when the source itself intentionally contains repeated songs;
+        // Song.id alone would always select the first occurrence.
+        val selectedInSource = suppliedItems.indexOfFirst { it === song }
+            .takeIf { it >= 0 }
+            ?: suppliedItems.indexOfFirst { it.id == song.id }
+        val sourceItems = if (selectedInSource >= 0) suppliedItems else suppliedItems + song
+        val targetIndex = if (selectedInSource >= 0) selectedInSource else sourceItems.lastIndex
+        val sourcedQueue = sourceItems.map { it.copy(source = source) }
         controller.setQueue(sourcedQueue)
         libraryQueueSize = sourcedQueue.size
         libraryQueueSignature = queueSignature(sourcedQueue)
 
-        _state.update { it.copy(queue = sourcedQueue, playingSource = source) }
-        play(targetSong, source)
+        val needsEntrance = !_state.value.miniPlayerVisible && !_state.value.nowPlayingVisible
+        controller.playQueueIndex(targetIndex, keepPlayingState = false)
+        persistSong(sourcedQueue[targetIndex].id, source)
+        _state.update { current ->
+            current.copy(
+                queue = controller.currentQueue(),
+                currentIndex = targetIndex,
+                currentSongId = sourcedQueue[targetIndex].id,
+                miniPlayerVisible = true,
+                miniPlayerRiseKey = if (needsEntrance) current.miniPlayerRiseKey + 1 else current.miniPlayerRiseKey,
+                playingSource = source
+            )
+        }
     }
 
     fun setPlayingSource(source: String) {
@@ -195,15 +213,17 @@ class MainPlayerViewModel(
         if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
 
         val mutable = currentQueue.toMutableList()
-        val activeIdx = mutable.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: currentIndex
+        val activeIdx = currentIndex.takeIf { it in mutable.indices && mutable[it].id == currentId }
+            ?: mutable.indexOfFirst { it.id == currentId }
         val insertAt = (activeIdx + 1).coerceIn(0, mutable.size)
-        mutable.add(insertAt, song)
+        // Never de-duplicate here: this call creates an independent occurrence directly after
+        // the active occurrence, even when it is the same library Song.
+        mutable.add(insertAt, song.copy())
 
         controller.setQueue(mutable)
         libraryQueueSize = mutable.size
         libraryQueueSignature = queueSignature(mutable)
-        val newIdx = mutable.indexOfFirst { it.id == currentId }
-        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        _state.update { it.copy(queue = mutable, currentIndex = activeIdx.takeIf { idx -> idx >= 0 } ?: it.currentIndex) }
         return "Playing next"
     }
 
@@ -219,37 +239,35 @@ class MainPlayerViewModel(
         if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
 
         val mutable = currentQueue.toMutableList()
-        val activeIdx = mutable.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: currentIndex
+        val activeIdx = currentIndex.takeIf { it in mutable.indices && mutable[it].id == currentId }
+            ?: mutable.indexOfFirst { it.id == currentId }
         var insertAt = (activeIdx + 1).coerceIn(0, mutable.size)
 
         for (song in songs) {
-            mutable.add(insertAt.coerceIn(0, mutable.size), song)
+            mutable.add(insertAt.coerceIn(0, mutable.size), song.copy())
             insertAt++
         }
 
         controller.setQueue(mutable)
         libraryQueueSize = mutable.size
         libraryQueueSignature = queueSignature(mutable)
-        val newIdx = mutable.indexOfFirst { it.id == currentId }
-        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        _state.update { it.copy(queue = mutable, currentIndex = activeIdx.takeIf { idx -> idx >= 0 } ?: it.currentIndex) }
         return "${songs.size} songs playing next"
     }
 
     fun addToQueue(song: Song): String {
-        val currentId = _state.value.currentSongId
         val currentQueue = _state.value.queue
 
         queueUndoStack.addLast(currentQueue.toList())
         if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
 
         val mutable = currentQueue.toMutableList()
-        mutable.add(song)
+        mutable.add(song.copy())
 
         controller.setQueue(mutable)
         libraryQueueSize = mutable.size
         libraryQueueSignature = queueSignature(mutable)
-        val newIdx = mutable.indexOfFirst { it.id == currentId }
-        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        _state.update { it.copy(queue = mutable) }
         return "Added to queue"
     }
 
@@ -257,20 +275,18 @@ class MainPlayerViewModel(
         if (songs.isEmpty()) return ""
         if (songs.size == 1) return addToQueue(songs[0])
 
-        val currentId = _state.value.currentSongId
         val currentQueue = _state.value.queue
 
         queueUndoStack.addLast(currentQueue.toList())
         if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
 
         val mutable = currentQueue.toMutableList()
-        mutable.addAll(songs)
+        mutable.addAll(songs.map { it.copy() })
 
         controller.setQueue(mutable)
         libraryQueueSize = mutable.size
         libraryQueueSignature = queueSignature(mutable)
-        val newIdx = mutable.indexOfFirst { it.id == currentId }
-        _state.update { it.copy(queue = mutable, currentIndex = if (newIdx >= 0) newIdx else it.currentIndex) }
+        _state.update { it.copy(queue = mutable) }
         return "${songs.size} songs added to queue"
     }
 
@@ -315,7 +331,8 @@ class MainPlayerViewModel(
 
     fun addToSavedQueue(queueId: String, song: Song): String {
         val target = _state.value.savedQueues.firstOrNull { it.id == queueId } ?: return addToQueue(song)
-        val updatedSongs = target.songs.filterNot { it.id == song.id } + song
+        // Saved queues also retain repeated occurrences instead of silently replacing one.
+        val updatedSongs = target.songs + song.copy()
         val updatedQueue = target.copy(songs = updatedSongs)
         val updatedSaved = _state.value.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q }
         _state.update {
@@ -327,8 +344,7 @@ class MainPlayerViewModel(
 
     fun addToSavedQueue(queueId: String, songs: List<Song>): String {
         val target = _state.value.savedQueues.firstOrNull { it.id == queueId } ?: return addToQueue(songs)
-        val songIds = songs.map { it.id }.toSet()
-        val updatedSongs = target.songs.filterNot { it.id in songIds } + songs
+        val updatedSongs = target.songs + songs.map { it.copy() }
         val updatedQueue = target.copy(songs = updatedSongs)
         val updatedSaved = _state.value.savedQueues.map { q -> if (q.id == queueId) updatedQueue else q }
         _state.update {
@@ -522,13 +538,17 @@ class MainPlayerViewModel(
         libraryQueueSize = mutable.size
         libraryQueueSignature = queueSignature(mutable)
 
-        val currentSongId = _state.value.currentSongId
-        val newIdx = mutable.indexOfFirst { it.id == currentSongId }
+        val oldCurrentIndex = _state.value.currentIndex
+        val adjustedIndex = when {
+            wasCurrent -> -1
+            oldCurrentIndex > index -> oldCurrentIndex - 1
+            else -> oldCurrentIndex
+        }
 
         _state.update {
             it.copy(
                 queue = mutable,
-                currentIndex = if (wasCurrent) -1 else (if (newIdx >= 0) newIdx else it.currentIndex),
+                currentIndex = adjustedIndex,
                 miniPlayerVisible = if (wasCurrent) false else it.miniPlayerVisible,
                 nowPlayingVisible = if (wasCurrent) false else it.nowPlayingVisible
             )
@@ -674,7 +694,11 @@ class MainPlayerViewModel(
         if (newShuffle) {
             val currentQueue = _state.value.queue
             originalQueueBeforeShuffle = currentQueue.toList()
-            val shuffled = PlayerQueueReorderHelper.shuffleQueue(_state.value.currentSongId, currentQueue)
+            val shuffled = PlayerQueueReorderHelper.shuffleQueue(
+                currentSongId = _state.value.currentSongId,
+                currentQueue = currentQueue,
+                currentIndexHint = _state.value.currentIndex
+            )
             if (shuffled != null) {
                 controller.setQueue(shuffled)
                 _state.update { it.copy(queue = shuffled, currentIndex = 0) }
@@ -703,20 +727,26 @@ class MainPlayerViewModel(
 
     fun moveQueueItem(from: Int, to: Int) {
         val queue = controller.moveQueueItem(from, to)
-        val currentId = _state.value.currentSongId
-        val currentIndex = queue.indexOfFirst { it.id == currentId }
+        val oldIndex = _state.value.currentIndex
+        val adjustedIndex = when {
+            oldIndex == from -> to
+            from < oldIndex && to >= oldIndex -> oldIndex - 1
+            from > oldIndex && to <= oldIndex -> oldIndex + 1
+            else -> oldIndex
+        }
         libraryQueueSize = queue.size
         libraryQueueSignature = queueSignature(queue)
-        _state.update { it.copy(queue = queue, currentIndex = currentIndex) }
+        _state.update { it.copy(queue = queue, currentIndex = adjustedIndex) }
     }
 
     fun setQueueOrder(newQueue: List<Song>) {
         controller.setQueue(newQueue)
-        val currentId = _state.value.currentSongId
-        val currentIndex = newQueue.indexOfFirst { it.id == currentId }
+        // The controller tracks the currently audible occurrence by its private token. Prefer
+        // that index over a Song.id lookup, which would collapse two repeated rows into one.
+        val controllerIndex = controller.state.value.currentIndex
         libraryQueueSize = newQueue.size
         libraryQueueSignature = queueSignature(newQueue)
-        _state.update { it.copy(queue = newQueue, currentIndex = currentIndex) }
+        _state.update { it.copy(queue = newQueue, currentIndex = if (controllerIndex in newQueue.indices) controllerIndex else it.currentIndex) }
     }
 
     fun setSleepTimer(minutes: Int?) {

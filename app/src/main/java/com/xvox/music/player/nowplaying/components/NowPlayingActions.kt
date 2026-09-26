@@ -78,14 +78,31 @@ fun NowPlayingActions(
     onToggleEqualizer: (() -> Unit)? = null,
     onToggleSpace: (() -> Unit)? = null,
     onToggleLyrics: (() -> Unit)? = null,
-    onOpenOptions: ((String) -> Unit)? = null
+    onOpenOptions: ((String) -> Unit)? = null,
+    /** Hoisted by Now Playing so a reopened surface restores the user's action page. */
+    actionPageIndex: Int = 0,
+    onActionPageChange: (Int) -> Unit = {}
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
-    var pageIndex by remember { mutableIntStateOf(0) }
+    var pageIndex by remember { mutableIntStateOf(actionPageIndex.coerceIn(0, 2)) }
     var swipeForward by remember { mutableStateOf(true) }
     var showIndicator by remember { mutableStateOf(true) }
+
+    LaunchedEffect(actionPageIndex) {
+        val next = actionPageIndex.coerceIn(0, 2)
+        if (next != pageIndex) pageIndex = next
+    }
+
+    fun selectActionPage(next: Int, forward: Boolean = next >= pageIndex) {
+        val normalized = ((next % 3) + 3) % 3
+        swipeForward = forward
+        if (normalized != pageIndex) {
+            pageIndex = normalized
+            onActionPageChange(normalized)
+        }
+    }
 
     LaunchedEffect(pageIndex) {
         showIndicator = true
@@ -150,12 +167,10 @@ fun NowPlayingActions(
                             },
                             onDragEnd = {
                                 if (drag <= -20f) {
-                                    swipeForward = true
-                                    pageIndex = (pageIndex + 1) % 3
+                                    selectActionPage(pageIndex + 1, forward = true)
                                     haptics.tap()
                                 } else if (drag >= 20f) {
-                                    swipeForward = false
-                                    pageIndex = (pageIndex - 1 + 3) % 3
+                                    selectActionPage(pageIndex - 1, forward = false)
                                     haptics.tap()
                                 }
                             },
@@ -320,8 +335,7 @@ fun NowPlayingActions(
                                 indication = null
                             ) {
                                 haptics.tap()
-                                swipeForward = dotIdx >= pageIndex
-                                pageIndex = dotIdx
+                                selectActionPage(dotIdx, forward = dotIdx >= pageIndex)
                             }
                     )
                 }

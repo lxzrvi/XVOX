@@ -58,7 +58,7 @@ import com.xvox.music.features.settings.components.XvoxTransactionalFooterAction
 import com.xvox.music.features.settings.sections.HeadsetSettingsDraftSection
 import com.xvox.music.features.settings.sections.LyricsSettingsDraftSection
 import com.xvox.music.features.settings.sections.PlaybackSettingsDraftSection
-import com.xvox.music.features.settings.sections.ThreeDSoundSettingsSection
+import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
@@ -115,6 +115,9 @@ fun XvoxNowPlaying(
     sleepTimerProgress: Float? = null,
     playingSource: String = "All Songs",
     isInPlaylist: Boolean = false,
+    /** Durable selection for the swipable right-side action cluster. */
+    actionPageIndex: Int = 0,
+    onActionPageChange: (Int) -> Unit = {},
     lyricsViewModel: XvoxLyricsViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
@@ -157,7 +160,7 @@ fun XvoxNowPlaying(
     // sheet immediately, but no preference/audio setting is touched until Okay is pressed.
     var optionDraft by remember { mutableStateOf(settingsState) }
     fun openSettingsBox(name: String) {
-        if (name == "Crossfade" || name == "Bluetooth" || name == "Lyrics") {
+        if (name == "Crossfade" || name == "Bluetooth" || name == "Lyrics" || name == "3D sound") {
             optionDraft = settingsState
         }
         activeSettingsBox = name
@@ -170,6 +173,15 @@ fun XvoxNowPlaying(
         settingsViewModel.setCrossfadeSmart(draft.crossfadeSmart)
         settingsViewModel.setCrossfadeClashControl(draft.crossfadeClashControl)
         settingsViewModel.setCrossfadeBeatSync(draft.crossfadeBeatSync)
+    }
+    fun applyThreeDSoundDraft() {
+        val draft = optionDraft
+        settingsViewModel.setStereoWidening(draft.stereoWidening)
+        settingsViewModel.setSurroundWidth(draft.surroundWidth)
+        settingsViewModel.setSurroundDepth(draft.surroundDepth)
+        settingsViewModel.setSurroundPanSpeed(draft.surroundPanSpeed)
+        settingsViewModel.setHrtf(draft.hrtf)
+        settingsViewModel.setBalance(draft.balance)
     }
     fun applyBluetoothDraft() {
         val draft = optionDraft
@@ -194,12 +206,9 @@ fun XvoxNowPlaying(
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     // Separate visual browsing from the audio deck. Covers may move immediately while the
-    // audible item stays untouched until the navigation button is released. Keep the target Song
-    // ID alongside the pager index: queue reorders (especially Shuffle) invalidate bare indices.
+    // audible item stays untouched until the navigation button is released. Queue indices are
+    // occurrence identities here: two copies of one Song.id must remain independently swipeable.
     var previewIndex by rememberSaveable { mutableIntStateOf(currentIndex.coerceIn(0, queue.lastIndex.coerceAtLeast(0))) }
-    var previewSongId by rememberSaveable {
-        mutableLongStateOf(queue.getOrNull(currentIndex)?.id ?: queue.firstOrNull()?.id ?: -1L)
-    }
     var previewGestureActive by remember { mutableStateOf(false) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
@@ -267,28 +276,19 @@ fun XvoxNowPlaying(
     }
 
     fun setPreviewTarget(index: Int, sourceQueue: List<Song> = queue): Boolean {
-        val targetSong = sourceQueue.getOrNull(index) ?: return false
+        if (index !in sourceQueue.indices) return false
         previewIndex = index
-        previewSongId = targetSong.id
         return true
     }
 
     LaunchedEffect(currentIndex, queue) {
-        // An external player change wins over an old delayed button-release request. When a queue
-        // order changes while browsing, resolve the currently visible cover by ID before using it.
+        // External playback changes win over an old release request. A held preview retains its
+        // actual occurrence index; outside a gesture the audible occurrence is authoritative.
         if (!previewGestureActive) cancelPendingPreviewCommit()
-        val currentSong = queue.getOrNull(currentIndex)
-        val samePreviewIndex = queue.indexOfFirst { it.id == previewSongId }
         when {
-            previewGestureActive && samePreviewIndex >= 0 -> previewIndex = samePreviewIndex
-            currentSong != null -> {
-                previewIndex = currentIndex
-                previewSongId = currentSong.id
-            }
-            previewIndex !in queue.indices && queue.isNotEmpty() -> {
-                previewIndex = 0
-                previewSongId = queue.first().id
-            }
+            previewGestureActive && previewIndex in queue.indices -> Unit
+            currentIndex in queue.indices -> previewIndex = currentIndex
+            queue.isNotEmpty() -> previewIndex = 0
         }
     }
 
@@ -305,9 +305,7 @@ fun XvoxNowPlaying(
     fun movePreview(direction: Int): Boolean {
         if (queue.isEmpty() || repeatMode == RepeatMode.ONE) return false
         cancelPendingPreviewCommit()
-        val stablePreviewIndex = queue.indexOfFirst { it.id == previewSongId }
-        val from = stablePreviewIndex.takeIf { it in queue.indices }
-            ?: previewIndex.takeIf { it in queue.indices }
+        val from = previewIndex.takeIf { it in queue.indices }
             ?: currentIndex.takeIf { it in queue.indices }
             ?: return false
         val target = when {
@@ -324,51 +322,43 @@ fun XvoxNowPlaying(
     }
 
     fun commitPreview() {
-        val targetSongId = previewSongId
+        val targetOccurrence = previewIndex
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        val targetNow = latestQueue.indexOfFirst { it.id == targetSongId }
-        if (targetNow !in latestQueue.indices || targetNow == latestCurrentIndex) return
+        if (targetOccurrence !in latestQueue.indices || targetOccurrence == latestCurrentIndex) return
 
         val requestVersion = previewCommitVersion
         previewCommitJob = scope.launch {
             // Keep audio on the current song until the released cover has rested in place.
             delay(300)
-            val stableQueue = latestQueue
-            val stableTarget = stableQueue.indexOfFirst { it.id == targetSongId }
             if (
                 requestVersion == previewCommitVersion &&
                 !previewGestureActive &&
-                previewSongId == targetSongId &&
-                stableTarget in stableQueue.indices &&
-                stableTarget != latestCurrentIndex
+                previewIndex == targetOccurrence &&
+                targetOccurrence in latestQueue.indices &&
+                targetOccurrence != latestCurrentIndex
             ) {
-                onPlayQueueIndex(stableTarget)
+                onPlayQueueIndex(targetOccurrence)
             }
             if (requestVersion == previewCommitVersion) previewCommitJob = null
         }
     }
 
-    /** The pager already waited its 300 ms release window; resolve its visual Song by ID once. */
-    fun commitSettledPreview(songId: Long) {
+    /** The pager has already waited its 300 ms release window; commit that exact occurrence. */
+    fun commitSettledPreview(index: Int, settledSong: Song) {
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        val stableQueue = latestQueue
-        val stableTarget = stableQueue.indexOfFirst { it.id == songId }
-        if (stableTarget !in stableQueue.indices) return
-        previewIndex = stableTarget
-        previewSongId = songId
-        if (stableTarget != latestCurrentIndex) onPlayQueueIndex(stableTarget)
+        if (index !in latestQueue.indices) return
+        // The song check protects against a queue replacement that happened during the release.
+        if (latestQueue[index].id != settledSong.id) return
+        previewIndex = index
+        if (index != latestCurrentIndex) onPlayQueueIndex(index)
     }
 
     fun cancelPreview() {
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        val currentSong = latestQueue.getOrNull(latestCurrentIndex)
-        if (currentSong != null) {
-            previewIndex = latestCurrentIndex
-            previewSongId = currentSong.id
-        }
+        if (latestCurrentIndex in latestQueue.indices) previewIndex = latestCurrentIndex
     }
 
     LaunchedEffect(song.id) {
@@ -432,10 +422,13 @@ fun XvoxNowPlaying(
     val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
 
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(isLandscape) {
+    // Portrait status chrome follows the fullscreen lyrics morph rather than disappearing for
+    // ordinary lyrics-sheet mode. Landscape remains edge-to-edge while this player is mounted.
+    DisposableEffect(isLandscape, isFullscreen) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        if (isLandscape) {
+        val hideStatus = isLandscape || isFullscreen
+        if (hideStatus) {
             insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
         } else {
@@ -443,9 +436,9 @@ fun XvoxNowPlaying(
             insetsController?.isAppearanceLightStatusBars = false
         }
         onDispose {
-            if (isLandscape) {
-                insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-            }
+            // Returning from fullscreen or leaving Now Playing restores portrait status chrome in
+            // the same lifecycle turn as the geometry's reverse animation.
+            if (hideStatus) insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
         }
     }
 
@@ -481,12 +474,14 @@ fun XvoxNowPlaying(
                 val frameInset = lerp(compactInset, 0.dp, fullscreenProgress)
                 val artworkWidth = lerp(compactArtworkWidth, maxWidth, fullscreenProgress)
                 val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
-                val controlsSlidePx = with(density) { (compactControlsWidth + compactInset).toPx() }
+                // Travel past the right edge rather than merely fading in place during lyric
+                // fullscreen, so the adjacent card is visibly pushed out by the expanding pager.
+                val controlsSlidePx = with(density) { (compactControlsWidth + compactInset + 18.dp).toPx() }
 
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = frameInset, top = frameInset, bottom = frameInset)
+                        .padding(start = frameInset)
                         .width(artworkWidth)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(artworkRadius))
@@ -529,7 +524,6 @@ fun XvoxNowPlaying(
                                 currentIndex = currentIndex,
                                 navigationRequest = navigationRequest,
                                 previewIndex = previewIndex,
-                                previewSongId = previewSongId.takeIf { it >= 0L },
                                 onPreviewIndexChange = { setPreviewTarget(it) },
                                 onArtworkTap = { setMode(1) },
                                 onSwipePalette = { base, adjacent, fraction ->
@@ -537,10 +531,11 @@ fun XvoxNowPlaying(
                                         paletteState.blend(base, adjacent, fraction)
                                     }
                                 },
-                                onSettledPage = { settledSong -> commitSettledPreview(settledSong.id) },
+                                onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(0.dp),
                                 pageSpacing = 0.dp,
+                                artworkCornerRadius = 0.dp,
                                 verticalPaging = true,
                                 repeatMode = repeatMode
                             )
@@ -566,7 +561,7 @@ fun XvoxNowPlaying(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp, topEnd = 0.dp, bottomEnd = 0.dp))
                             .background(colors.background.copy(alpha = 0.35f))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -615,7 +610,9 @@ fun XvoxNowPlaying(
                             onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
                             onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
-                            onOpenOptions = { optionName -> openSettingsBox(optionName) }
+                            onOpenOptions = { optionName -> openSettingsBox(optionName) },
+                            actionPageIndex = actionPageIndex,
+                            onActionPageChange = onActionPageChange
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -739,7 +736,6 @@ fun XvoxNowPlaying(
                             currentIndex = currentIndex,
                             navigationRequest = navigationRequest,
                             previewIndex = previewIndex,
-                            previewSongId = previewSongId.takeIf { it >= 0L },
                             onPreviewIndexChange = { setPreviewTarget(it) },
                             onArtworkTap = { setMode(1) },
                             onSwipePalette = { base, adjacent, fraction ->
@@ -747,7 +743,7 @@ fun XvoxNowPlaying(
                                     paletteState.blend(base, adjacent, fraction)
                                 }
                             },
-                            onSettledPage = { settledSong -> commitSettledPreview(settledSong.id) },
+                            onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = currentPadH),
                             pageSpacing = 12.dp,
@@ -764,7 +760,9 @@ fun XvoxNowPlaying(
                     .align(Alignment.TopCenter)
                     .onGloballyPositioned { headerHeightDp = with(density) { it.size.height.toDp() } }
                     .graphicsLayer {
-                        translationY = -fullscreenProgress * 120.dp.toPx()
+                        // Travel fully beyond the top edge rather than stopping part-way under
+                        // the fullscreen lyric surface.
+                        translationY = -fullscreenProgress * (headerHeightDp + 28.dp).toPx()
                         alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
                     }
             ) {
@@ -794,7 +792,14 @@ fun XvoxNowPlaying(
             // Bottom Controls Area: smooth slide down & fade out during fullscreen opening
             // Match the cover's horizontal frame with a floating bottom-control card, including
             // the same bottom breathing room. Fullscreen interpolates those gaps back to zero.
-            val bottomBoxShape = RoundedCornerShape(animTopRadius)
+            // This card remains detached from all three lower edges, but its bottom edge is
+            // deliberately square rather than reading as a floating all-rounded capsule.
+            val bottomBoxShape = RoundedCornerShape(
+                topStart = animTopRadius,
+                topEnd = animTopRadius,
+                bottomStart = 0.dp,
+                bottomEnd = 0.dp
+            )
 
             Column(
                 modifier = Modifier
@@ -803,7 +808,9 @@ fun XvoxNowPlaying(
                     .padding(start = currentPadH, end = currentPadH, bottom = currentPadH)
                     .onGloballyPositioned { bottomHeightDp = with(density) { it.size.height.toDp() } }
                     .graphicsLayer {
-                        translationY = fullscreenProgress * 300.dp.toPx()
+                        // Push the entire bottom card below the screen during fullscreen, not
+                        // merely past its normal controls' center line.
+                        translationY = fullscreenProgress * (bottomHeightDp + 34.dp).toPx()
                         alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
                     }
                     .clip(bottomBoxShape)
@@ -839,7 +846,9 @@ fun XvoxNowPlaying(
                             onToggleEqualizer = { settingsViewModel.setEqualizerEnabled(!settingsState.equalizerEnabled) },
                             onToggleSpace = { settingsViewModel.setStereoWidening(!settingsState.stereoWidening) },
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
-                            onOpenOptions = { optionName -> openSettingsBox(optionName) }
+                            onOpenOptions = { optionName -> openSettingsBox(optionName) },
+                            actionPageIndex = actionPageIndex,
+                            onActionPageChange = onActionPageChange
                         )
 
                         Spacer(Modifier.height(14.dp))
@@ -956,6 +965,27 @@ fun XvoxNowPlaying(
                                 )
                             }
                         }
+                        "3D sound" -> {
+                            {
+                                XvoxTransactionalFooterActions(
+                                    onCancel = { activeSettingsBox = null },
+                                    onReset = {
+                                        optionDraft = optionDraft.copy(
+                                            stereoWidening = false,
+                                            surroundWidth = .78f,
+                                            surroundDepth = .65f,
+                                            surroundPanSpeed = 6,
+                                            hrtf = .6f,
+                                            balance = 0f
+                                        )
+                                    },
+                                    onOkay = {
+                                        applyThreeDSoundDraft()
+                                        activeSettingsBox = null
+                                    }
+                                )
+                            }
+                        }
                         "Crossfade" -> {
                             {
                                 XvoxTransactionalFooterActions(
@@ -1003,13 +1033,11 @@ fun XvoxNowPlaying(
                     }
                 ) {
                     val scrollState = rememberScrollState()
-                    val longEditor = activeSettingsBox == "Equalizer" || activeSettingsBox == "Lyrics"
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // Long editors claim the supplied viewport; short sheets keep their
-                            // natural measured height so the universal box can fit content.
-                            .then(if (longEditor) Modifier.fillMaxHeight() else Modifier)
+                            // The universal sheet constrains only genuine screen overflow. Every
+                            // editor therefore begins at its own content height, including EQ.
                             .verticalScroll(scrollState)
                             .xvoxBoxScroll(scrollState)
                     ) {
@@ -1024,7 +1052,10 @@ fun XvoxNowPlaying(
                                 onDone = { activeSettingsBox = null },
                                 showFooter = false
                             )
-                            "3D sound" -> ThreeDSoundSettingsSection(state = settingsState, viewModel = settingsViewModel)
+                            "3D sound" -> ThreeDSoundDraftSection(
+                                state = optionDraft,
+                                onStateChange = { optionDraft = it }
+                            )
                             "Crossfade" -> PlaybackSettingsDraftSection(
                                 state = optionDraft,
                                 onStateChange = { optionDraft = it }
