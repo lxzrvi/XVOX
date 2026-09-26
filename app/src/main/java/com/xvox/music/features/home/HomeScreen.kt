@@ -673,7 +673,7 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, top = 6.dp)
+                .padding(start = 8.dp, top = 6.dp, end = 8.dp)
                 .zIndex(9999f)
         ) {
             HomeMultiSelectBar(
