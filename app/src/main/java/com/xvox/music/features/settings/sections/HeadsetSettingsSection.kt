@@ -28,7 +28,7 @@ fun HeadsetSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
     )
 }
 
-/** Local-draft form used by the transactional Now Playing Bluetooth sheet. */
+/** State-hoisted form used by the live Now Playing Bluetooth sheet. */
 @Composable
 fun HeadsetSettingsDraftSection(
     state: SettingsState,

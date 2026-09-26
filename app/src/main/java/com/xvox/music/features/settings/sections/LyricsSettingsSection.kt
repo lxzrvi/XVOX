@@ -42,8 +42,8 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 }
 
 /**
- * Controls-only lyrics editor. The caller owns the snapshot: every gesture changes [settings]
- * locally, so a surrounding sheet can show a genuine Cancel/Okay transaction.
+ * Controls-only lyrics editor. State is hoisted so each gesture can be applied immediately by a
+ * settings page or live sheet host; Cancel/Okay only close the host surface.
  */
 @Composable
 fun LyricsSettingsDraftSection(

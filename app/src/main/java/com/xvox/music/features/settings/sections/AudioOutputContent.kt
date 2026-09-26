@@ -50,7 +50,7 @@ fun AudioOutputContent(state: SettingsState, viewModel: SettingsViewModel) {
     AudioOutputControls(state = state, onRouteChange = viewModel::setAudioOutputRoute)
 }
 
-/** Local-draft route picker used by the transactional Now Playing Bluetooth sheet. */
+/** State-hoisted route picker used by the live Now Playing Bluetooth sheet. */
 @Composable
 fun AudioOutputDraftContent(state: SettingsState, onStateChange: (SettingsState) -> Unit) {
     AudioOutputControls(

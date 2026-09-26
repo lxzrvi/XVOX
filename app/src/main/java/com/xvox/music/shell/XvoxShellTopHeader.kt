@@ -1,5 +1,11 @@
 package com.xvox.music.shell
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -9,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +42,28 @@ private data class HeaderLibraryAction(
     val onClick: () -> Unit
 )
 
+/**
+ * Kept outside the enclosing Header Row so Compose resolves the generic AnimatedVisibility,
+ * rather than the RowScope-specific overload. The reserved slot avoids profile-text reflow while
+ * Home controls move upward for Search.
+ */
+@Composable
+private fun XvoxHeaderActionSlot(
+    visible: Boolean,
+    modifier: Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.CenterEnd) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(190)) + fadeIn(tween(140)),
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(190)) + fadeOut(tween(125))
+        ) {
+            content()
+        }
+    }
+}
+
 /** Height of the profile/header controls below the system status-bar area. */
 val XvoxShellTopHeaderBodyHeight = 66.dp
 
@@ -56,6 +83,8 @@ fun XvoxShellTopHeader(
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
     onRecentClick: () -> Unit = {},
+    /** Search keeps the visual/profile Header but deliberately has no Home action cluster. */
+    showHomeControls: Boolean = destination == XvoxDestination.HOME,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -72,9 +101,9 @@ fun XvoxShellTopHeader(
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick)
     )
-    // Home library changes keep this Header stable. Destination-level motion is owned by the
-    // shell, which slides the complete Home Header away before Search/Settings and returns it on
-    // Home. Use only persisted chrome state: profile editing deliberately has no live preview.
+    // Home library changes keep this Header stable. Search retains the profile/header surface but
+    // sends only Home's refresh/pill actions upward; Settings owns the complete-header exit.
+    // Use only persisted chrome state: profile editing deliberately has no live preview.
     val dimEnabled = chrome.headerDimEnabled
     val dimAmount = chrome.headerDimAmount
     val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
@@ -91,7 +120,13 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated)
+            // In Light mode match the All Songs card's near-white surface instead of the former
+            // grey elevated header. Custom artwork remains completely unwashed at its endpoint.
+            .background(
+                if (hasCustomHeader) Color.Transparent
+                else (if (colors.isLight) colors.card else colors.cardElevated)
+                    .copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
+            )
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(
@@ -102,8 +137,8 @@ fun XvoxShellTopHeader(
                     .matchParentSize()
             )
         }
-        // Apply the transactional dim preview to both custom artwork and the default palette
-        // Header, so every slider movement has an immediate visible result.
+        // Apply the persisted Header dim style to both custom artwork and the default palette.
+        // Profile editing intentionally does not inject a live Header preview into this surface.
         if (headerDimAlpha > .001f) {
             Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
         }
@@ -148,66 +183,73 @@ fun XvoxShellTopHeader(
                 }
             }
 
-            // Keep this control group mounted at a fixed position. Only the destination's active
-            // library icon receives the accent; the Header itself never slides or rebuilds.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(colors.card.copy(alpha = .46f))
-                        .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_refresh),
-                        contentDescription = "Refresh Library",
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
+            // Search retains the Header/profile surface, while this reserved action slot sends
+            // Home-only controls upward and out of sight. Reserving the width stops username text
+            // from reflowing/flickering as a library pill changes or a Search route begins.
+            val actionShape = RoundedCornerShape(21.dp)
+            val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
+            XvoxHeaderActionSlot(
+                visible = showHomeControls,
+                modifier = Modifier.width(42.dp + 8.dp + actionPillWidth)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(colors.card.copy(alpha = .46f))
+                                .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_xvox_refresh),
+                                contentDescription = "Refresh Library",
+                                tint = colors.primaryText,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
 
-                val actionShape = RoundedCornerShape(21.dp)
-                val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
-                Box(
-                    modifier = Modifier
-                        .height(42.dp)
-                        .width(actionPillWidth)
-                        .clip(actionShape)
-                        .background(colors.card.copy(alpha = .46f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp)
-                            .padding(horizontal = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        libraryActions.forEach { action ->
-                            val isCurrentLibrary = destination == XvoxDestination.HOME && libraryMode == action.mode
-                            Box(
+                        Box(
+                            modifier = Modifier
+                                .height(42.dp)
+                                .width(actionPillWidth)
+                                .clip(actionShape)
+                                .background(colors.card.copy(alpha = .46f))
+                        ) {
+                            Row(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        interactionSource = remember(action.mode) { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = action.onClick
-                                    ),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                                    .padding(horizontal = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    painter = painterResource(action.icon),
-                                    contentDescription = action.label,
-                                    tint = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                    modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
-                                )
+                                libraryActions.forEach { action ->
+                                    val isCurrentLibrary = libraryMode == action.mode
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .clickable(
+                                                interactionSource = remember(action.mode) { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = action.onClick
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(action.icon),
+                                            contentDescription = action.label,
+                                            tint = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
+                                            modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
+
         }
 
         Box(

@@ -40,8 +40,8 @@ fun PlaybackSettingsSection(
 }
 
 /**
- * Local-draft form used by the Now Playing sheet. It deliberately makes no ViewModel calls;
- * callers persist [onStateChange] only after their Okay action.
+ * State-hoisted form used by the Now Playing sheet. Its host forwards every [onStateChange]
+ * immediately to Settings, while this composable stays reusable without owning a ViewModel.
  */
 @Composable
 fun PlaybackSettingsDraftSection(

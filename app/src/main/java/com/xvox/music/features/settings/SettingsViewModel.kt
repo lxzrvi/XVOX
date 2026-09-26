@@ -13,39 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** A reversible live-preview snapshot for the compact Equalizer sheet. */
-data class EqualizerControlsSnapshot(
-    val equalizerEnabled: Boolean,
-    val eqPreset: String,
-    val eqBandCount: Int,
-    val eqBands: List<Int>,
-    val customEqBands: List<Int>,
-    val appVolume: Float,
-    val reverbPreset: String,
-    val reverbAmount: Float,
-    val noiseReduction: Float,
-    val noiseReductionEnabled: Boolean,
-    val softenHighs: Float,
-    val grainControlEnabled: Boolean
-) {
-    companion object {
-        fun from(state: SettingsState) = EqualizerControlsSnapshot(
-            equalizerEnabled = state.equalizerEnabled,
-            eqPreset = state.eqPreset,
-            eqBandCount = state.eqBandCount,
-            eqBands = state.eqBands.toList(),
-            customEqBands = state.customEqBands.toList(),
-            appVolume = state.appVolume,
-            reverbPreset = state.reverbPreset,
-            reverbAmount = state.reverbAmount,
-            noiseReduction = state.noiseReduction,
-            noiseReductionEnabled = state.noiseReductionEnabled,
-            softenHighs = state.softenHighs,
-            grainControlEnabled = state.grainControlEnabled
-        )
-    }
-}
-
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = UserPreferencesRepository(application)
@@ -271,26 +238,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBtDisconnectAction(action: String) = viewModelScope.launch { prefs.setBtDisconnectAction(action) }
     fun setBtConnectAction(action: String) = viewModelScope.launch { prefs.setBtConnectAction(action) }
 
-    /** Captures only controls owned by the Equalizer sheet so Cancel can restore its live preview. */
-    fun snapshotEqualizerControls(): EqualizerControlsSnapshot = EqualizerControlsSnapshot.from(_state.value)
-
-    fun restoreEqualizerControls(snapshot: EqualizerControlsSnapshot) = changeAudio { current ->
-        current.copy(
-            equalizerEnabled = snapshot.equalizerEnabled,
-            eqPreset = snapshot.eqPreset,
-            eqBandCount = snapshot.eqBandCount,
-            eqBands = snapshot.eqBands,
-            customEqBands = snapshot.customEqBands,
-            appVolume = snapshot.appVolume,
-            reverbPreset = snapshot.reverbPreset,
-            reverbAmount = snapshot.reverbAmount,
-            noiseReduction = snapshot.noiseReduction,
-            noiseReductionEnabled = snapshot.noiseReductionEnabled,
-            softenHighs = snapshot.softenHighs,
-            grainControlEnabled = snapshot.grainControlEnabled
-        )
-    }
-
     /** Restores the compact Equalizer controls to the supplied HTML design's default values. */
     fun resetEqualizerControls() = changeAudio { current ->
         current.copy(
@@ -406,6 +353,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setChromeStyle(change: (com.xvox.music.core.ui.chrome.XvoxChromeStyle) -> com.xvox.music.core.ui.chrome.XvoxChromeStyle) {
         val next = change(_state.value.chromeStyle)
         _state.update { it.copy(chromeStyle = next) }
+        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(next)
         viewModelScope.launch { prefs.setChromeStyle(next) }
     }
     fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }

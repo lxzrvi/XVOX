@@ -78,6 +78,7 @@ import com.xvox.music.player.nowplaying.XvoxArtworkPaletteLoader
 import com.xvox.music.player.nowplaying.xvoxArtworkPaletteKey
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
+import com.xvox.music.shell.XvoxConfirmBox
 import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
 import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
@@ -119,21 +120,28 @@ fun XvoxMainShell(
     }
 
     var destination by rememberSaveable { mutableStateOf(XvoxDestination.HOME) }
-    // The Sleep Timer sheet owns a transient selection until its fixed Okay footer commits it.
+    // Settings is a forward route from either page; system Back returns to the page that opened it.
+    var settingsReturnDestination by rememberSaveable { mutableStateOf(XvoxDestination.HOME) }
+    // Sleep-timer input remains locally editable while typing, but every valid selection starts
+    // or updates the timer immediately; the footer only closes the ordinary sheet.
     var timerDraft by remember { mutableStateOf<XvoxTimerDraft?>(null) }
     var nowPlayingDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     // Survives closing/reopening Now Playing, unlike an action-page remember inside its subtree.
     var nowPlayingActionsPage by rememberSaveable { mutableIntStateOf(0) }
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
-    var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
+    // A destination return deliberately preserves the chosen library page, but always lands that
+    // page at its own top rather than reviving an old deep Home scroll position.
+    var homeScrollResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    // Search and Settings reset only when they are newly selected, not when Settings Back
+    // restores Search as the reverse route.
+    var searchTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
-    var miniPlayerNavDraft by remember { mutableStateOf(chrome) }
-    // The Header is no longer shell-translated from a page scroll callback.  Each screen receives
-    // it as the first item of its own list, guaranteeing one real coordinate space.
-    BackHandler(enabled = destination != XvoxDestination.HOME) {
-        destination = XvoxDestination.HOME
-    }
+    // Live mirror for the compact chrome sheet. It makes slider drags coherent even before the
+    // asynchronous persistence flow emits its matching composition-local value.
+    var miniPlayerNavLive by remember { mutableStateOf(chrome) }
+    // The Header is a real first item in Home/Search rather than a shell-translated overlay.
 
     fun showProfileEditor() {
         val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
@@ -206,8 +214,7 @@ fun XvoxMainShell(
     }
 
     fun showMiniPlayerSettings() {
-        val baseline = chrome
-        miniPlayerNavDraft = baseline
+        miniPlayerNavLive = chrome
         overlays.showBox(
             title = "Mini Player / Navbar Settings",
             bottomAction = {
@@ -219,6 +226,7 @@ fun XvoxMainShell(
                         text = "Cancel",
                         primary = false,
                         modifier = Modifier.weight(1f),
+                        // This is a live editor: Cancel only dismisses; it never rolls back.
                         onClick = overlays::hideBox
                     )
                     ProfileSheetFooterButton(
@@ -226,32 +234,33 @@ fun XvoxMainShell(
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            // Only the controls still exposed by this compact editor reset. Hidden
-                            // placement, sizing, radius, and image preferences remain untouched.
-                            miniPlayerNavDraft = miniPlayerNavDraft.copy(
+                            // Only controls exposed by this compact editor reset. All changes
+                            // apply at the moment the control is touched, including this reset.
+                            val reset = miniPlayerNavLive.copy(
                                 miniCoverStyle = "default",
-                                miniBgAlpha = 1f,
-                                navBgAlpha = .88f
+                                miniBgAlpha = .94f,
+                                navBgAlpha = .94f
                             )
+                            miniPlayerNavLive = reset
+                            settingsViewModel.setChromeStyle { reset }
                         }
                     )
                     ProfileSheetFooterButton(
                         text = "Okay",
                         primary = true,
                         modifier = Modifier.weight(1f),
-                        onClick = {
-                            val saved = miniPlayerNavDraft
-                            settingsViewModel.setChromeStyle { saved }
-                            overlays.hideBox()
-                            overlays.showP("Mini Player / Navbar settings saved")
-                        }
+                        // Okay acknowledges the already-live values and closes the sheet.
+                        onClick = overlays::hideBox
                     )
                 }
             }
         ) {
             com.xvox.music.features.settings.components.MiniPlayerSettingsBoxContent(
-                chrome = miniPlayerNavDraft,
-                onChromeChange = { miniPlayerNavDraft = it }
+                chrome = miniPlayerNavLive,
+                onChromeChange = { updated ->
+                    miniPlayerNavLive = updated
+                    settingsViewModel.setChromeStyle { updated }
+                }
             )
         }
     }
@@ -373,6 +382,21 @@ fun XvoxMainShell(
     fun showTimerBox() {
         val initiallyActive = player.sleepTimerMinutes != null
         timerDraft = player.sleepTimerMinutes?.let { XvoxTimerDraft(minutes = it) }
+
+        fun applyLiveTimer(draft: XvoxTimerDraft?) {
+            val value = draft ?: return
+            when {
+                value.seconds > 0 -> playerViewModel.setCustomSleepTimer(
+                    value.minutes,
+                    value.seconds,
+                    value.pauseMusic,
+                    value.closeApp
+                )
+                value.minutes > 0 -> playerViewModel.setSleepTimer(value.minutes)
+                // An incomplete custom field must not unexpectedly cancel a running timer.
+            }
+        }
+
         overlays.showBox(
             title = "Sleep timer",
             bottomAction = {
@@ -386,23 +410,8 @@ fun XvoxMainShell(
                         }
                     } else null,
                     resetLabel = "Off",
-                    onOkay = {
-                        timerDraft?.let { draft ->
-                            if (draft.seconds > 0) {
-                                playerViewModel.setCustomSleepTimer(
-                                    draft.minutes,
-                                    draft.seconds,
-                                    draft.pauseMusic,
-                                    draft.closeApp
-                                )
-                                overlays.showP("Custom timer ${draft.minutes}m ${draft.seconds}s")
-                            } else if (draft.minutes > 0) {
-                                playerViewModel.setSleepTimer(draft.minutes)
-                                overlays.showP("Timer set ${draft.minutes} min")
-                            }
-                        }
-                        overlays.hideBox()
-                    }
+                    // Values have already applied as soon as the user selected or edited them.
+                    onOkay = overlays::hideBox
                 )
             },
             onDismiss = { timerDraft = null }
@@ -410,7 +419,10 @@ fun XvoxMainShell(
             XvoxTimerBoxContent(
                 currentMinutes = player.sleepTimerMinutes,
                 draft = timerDraft,
-                onDraftChange = { timerDraft = it }
+                onDraftChange = { draft ->
+                    timerDraft = draft
+                    applyLiveTimer(draft)
+                }
             )
         }
     }
@@ -438,69 +450,147 @@ fun XvoxMainShell(
         }
     }
 
+    fun returnToHome(resetScroll: Boolean = true) {
+        if (destination != XvoxDestination.HOME) {
+            destination = XvoxDestination.HOME
+        }
+        if (resetScroll) homeScrollResetKey++
+    }
+
     fun selectNavigationDestination(next: XvoxDestination) {
-        // Home is a retained destination, not a reset button. Returning from Search or Settings
-        // must restore its exact library page, detail context, and LazyColumn position.
-        if (next != destination) tabEpoch++
-        destination = next
+        if (next == XvoxDestination.HOME) {
+            if (destination == XvoxDestination.HOME) {
+                // A second Home tap is the familiar home action: return to All Songs at its top.
+                hoistedSelectedPlaylistId = null
+                homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+                homeResetKey++
+                homeScrollResetKey++
+            } else {
+                // Returning by navbar preserves the selected Home pill/page but never an old
+                // deep scroll position.
+                returnToHome(resetScroll = true)
+            }
+            return
+        }
+        if (next != destination) {
+            when (next) {
+                XvoxDestination.SEARCH -> searchTopResetKey++
+                XvoxDestination.SETTINGS -> {
+                    settingsReturnDestination = destination
+                    settingsTopResetKey++
+                }
+                XvoxDestination.HOME -> Unit
+            }
+            destination = next
+        }
     }
 
-    fun openLikedFromNavigation() {
+    fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
         hoistedSelectedPlaylistId = null
-        val enteringHome = destination != XvoxDestination.HOME
-        if (enteringHome) tabEpoch++
-        destination = XvoxDestination.HOME
-        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED)
-        else homeViewModel.toggleLikedMode()
+        if (destination != XvoxDestination.HOME) {
+            destination = XvoxDestination.HOME
+        }
+        homeViewModel.setLibraryMode(mode)
+        // Every header-pill selection deliberately opens its page at the beginning.
+        homeScrollResetKey++
     }
 
-    fun openPlaylistsFromNavigation() {
-        hoistedSelectedPlaylistId = null
-        val enteringHome = destination != XvoxDestination.HOME
-        if (enteringHome) tabEpoch++
-        destination = XvoxDestination.HOME
-        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS)
-        else homeViewModel.togglePlaylistMode()
-    }
+    fun openLikedFromNavigation() =
+        openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED)
 
-    fun openRecentFromHeader() {
-        hoistedSelectedPlaylistId = null
-        val enteringHome = destination != XvoxDestination.HOME
-        if (enteringHome) tabEpoch++
-        destination = XvoxDestination.HOME
-        if (enteringHome) homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT)
-        else homeViewModel.toggleRecentMode()
-    }
+    fun openPlaylistsFromNavigation() =
+        openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS)
 
-    // Profile editing remains transactional. The actual Home Header is a page item, while this
-    // visibility wrapper gives the chrome its own vertical exit/return during destination moves.
-    val pageHeader: @Composable () -> Unit = {
+    fun openRecentFromHeader() =
+        openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT)
+
+    fun openArtistsFromHeader() =
+        openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS)
+
+    // Home and Search each own an actual Header list item. Search intentionally retains the
+    // profile/Header surface while the Home-only refresh/action pill exits upward.
+    val homePageHeader: @Composable () -> Unit = {
         AnimatedVisibility(
-            visible = destination == XvoxDestination.HOME,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(260)
-            ) + fadeIn(tween(160)),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = tween(220)
-            ) + fadeOut(tween(130))
+            visible = destination != XvoxDestination.SETTINGS,
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(240)) + fadeIn(tween(150)),
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(210)) + fadeOut(tween(120))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
-                destination = destination,
+                destination = XvoxDestination.HOME,
                 libraryMode = homeState.libraryMode,
                 onProfileClick = ::showProfileEditor,
                 onRefreshClick = ::showRefreshOverlay,
                 onLikedClick = ::openLikedFromNavigation,
                 onPlaylistClick = ::openPlaylistsFromNavigation,
-                onArtistClick = {
-                    hoistedSelectedPlaylistId = null
-                    homeViewModel.toggleArtistMode()
-                },
+                onArtistClick = ::openArtistsFromHeader,
                 onRecentClick = ::openRecentFromHeader,
+                showHomeControls = destination == XvoxDestination.HOME,
                 useSystemInsets = true
             )
+        }
+    }
+    val searchPageHeader: @Composable () -> Unit = {
+        AnimatedVisibility(
+            visible = destination != XvoxDestination.SETTINGS,
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(240)) + fadeIn(tween(150)),
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(210)) + fadeOut(tween(120))
+        ) {
+            XvoxShellTopHeader(
+                profile = homeState.profile,
+                destination = XvoxDestination.SEARCH,
+                libraryMode = homeState.libraryMode,
+                onProfileClick = ::showProfileEditor,
+                onRefreshClick = {},
+                onLikedClick = {},
+                onPlaylistClick = {},
+                onArtistClick = {},
+                onRecentClick = {},
+                showHomeControls = false,
+                useSystemInsets = true
+            )
+        }
+    }
+
+    BackHandler(enabled = destination != XvoxDestination.HOME) {
+        if (destination == XvoxDestination.SETTINGS) {
+            val returnDestination = settingsReturnDestination
+                .takeIf { it != XvoxDestination.SETTINGS }
+                ?: XvoxDestination.HOME
+            if (returnDestination == XvoxDestination.HOME) {
+                returnToHome(resetScroll = true)
+            } else {
+                // Settings → Search is the exact reverse route, retaining Search's page/header.
+                destination = returnDestination
+            }
+        } else {
+            returnToHome(resetScroll = true)
+        }
+    }
+    BackHandler(enabled = destination == XvoxDestination.HOME && !overlays.isBoxVisible) {
+        when {
+            hoistedSelectedPlaylistId != null -> {
+                // A selected playlist is a Home detail route, not an app-exit state.
+                hoistedSelectedPlaylistId = null
+                homeScrollResetKey++
+            }
+            homeState.libraryMode != com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS -> {
+                // Only All Songs is the terminal Home destination. Other library pages Back to it.
+                homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+                homeScrollResetKey++
+            }
+            else -> overlays.showBox(title = "Want to close app soon :(") {
+                XvoxConfirmBox(
+                    question = "Want to close app soon :(",
+                    confirmLabel = "Okay",
+                    cancelLabel = "Cancel",
+                    onConfirm = {
+                        overlays.hideBox()
+                        (context as? android.app.Activity)?.finish()
+                    },
+                    onCancel = overlays::hideBox
+                )
+            }
         }
     }
 
@@ -521,11 +611,11 @@ fun XvoxMainShell(
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    // Home → Search, Home → Settings, and Settings → Search are forward routes:
-                    // their content travels right-to-left. Every reverse route mirrors it.
-                    val forward = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
-                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SETTINGS) ||
-                        (initialState == XvoxDestination.SETTINGS && targetState == XvoxDestination.SEARCH)
+                    // Home → Search and either page → Settings enter from the right. Leaving
+                    // Settings is therefore the true reverse: its destination enters from left
+                    // while Settings travels away to the right.
+                    val forward = (targetState == XvoxDestination.SETTINGS && initialState != XvoxDestination.SETTINGS) ||
+                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH)
                     val direction = if (forward) 1 else -1
                     ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
                         togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
@@ -542,32 +632,32 @@ fun XvoxMainShell(
                                     currentSongId = player.currentSongId,
                                     isPlaying = player.isPlaying,
                                     homeResetKey = homeResetKey,
-                                    scrollResetKey = 0L,
+                                    scrollResetKey = homeScrollResetKey,
                                     selectedPlaylistId = hoistedSelectedPlaylistId,
                                     onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    header = pageHeader
+                                    header = homePageHeader
                                 )
                             }
                             XvoxDestination.SEARCH -> {
                                 SearchScreen(
                                     homeViewModel = homeViewModel,
                                     playerViewModel = playerViewModel,
-                                    topResetKey = tabEpoch,
+                                    topResetKey = searchTopResetKey,
                                     onPlaylistSelected = { playlistId ->
                                         hoistedSelectedPlaylistId = playlistId
-                                        destination = XvoxDestination.HOME
+                                        returnToHome(resetScroll = true)
                                     },
-                                    header = null
+                                    header = searchPageHeader
                                 )
                             }
                             XvoxDestination.SETTINGS -> {
                                 SettingsScreen(
                                     homeViewModel = homeViewModel,
                                     settingsViewModel = settingsViewModel,
-                                    topResetKey = tabEpoch
+                                    topResetKey = settingsTopResetKey
                                 )
                             }
                         }
@@ -649,7 +739,7 @@ fun XvoxMainShell(
                     XvoxBottomBar(
                         selected = destination,
                         onSelected = ::selectNavigationDestination,
-                        onLongPressSettings = ::showMiniPlayerSettings
+                        onLongPressSettings = {}
                     )
                 }
             }
@@ -690,7 +780,7 @@ fun XvoxMainShell(
                 XvoxBottomBar(
                     selected = destination,
                     onSelected = ::selectNavigationDestination,
-                    onLongPressSettings = ::showMiniPlayerSettings
+                    onLongPressSettings = {}
                 )
             }
         }

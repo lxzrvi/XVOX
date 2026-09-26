@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -53,7 +51,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -107,9 +104,8 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    // Search has no Home chrome above it. The sticky slot permanently reserves the real status
-    // area, so it snaps/holds directly below the status bar rather than ever traveling behind it.
-    val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
+    // Search is a real page list: Header first, then the field directly beneath it. The field's
+    // sticky surface owns only its own compact rhythm rather than reserving a phantom top gap.
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -233,7 +229,10 @@ fun SearchScreen(
     if (isLandscape) {
         // Keep the same Header as a real parent-list item in the two-pane layout.  The panes may
         // scroll internally afterwards, but the Header itself is never a pinned shell overlay.
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+        ) {
             header?.let { pageHeader ->
                 item(key = "page_header") { pageHeader() }
             }
@@ -458,12 +457,12 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colors.background)
-                        // The list's 8dp rhythm plus 2dp here gives the requested 10dp below
-                        // Header at rest. Once sticky, reserve the real status-bar height so the
-                        // search field never travels into that system region.
+                        // Keep the field immediately beneath the real Header on entry. The
+                        // Header itself owns status-bar reach; no phantom status-bar gap belongs
+                        // between the two page items.
                         .padding(
                             start = 14.dp,
-                            top = statusBarHeight + 2.dp,
+                            top = 2.dp,
                             end = 14.dp,
                             bottom = 4.dp
                         )

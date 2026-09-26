@@ -707,7 +707,12 @@ class MainPlayerViewModel(
             val unshuffleResult = PlayerQueueReorderHelper.unshuffleQueue(_state.value.queue, originalQueueBeforeShuffle)
             if (unshuffleResult != null) {
                 val orig = unshuffleResult.first
-                val newIndex = orig.indexOfFirst { it.id == _state.value.currentSongId }.coerceAtLeast(0)
+                // Restore the exact audible occurrence, not merely the first library ID. A queue
+                // may intentionally contain the same Song more than once.
+                val activeOccurrence = _state.value.queue.getOrNull(_state.value.currentIndex)
+                val newIndex = orig.indexOfFirst { it === activeOccurrence }
+                    .takeIf { it >= 0 }
+                    ?: orig.indexOfFirst { it.id == _state.value.currentSongId }.coerceAtLeast(0)
                 controller.setQueue(orig)
                 _state.update { it.copy(queue = orig, currentIndex = newIndex) }
             }

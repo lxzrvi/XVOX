@@ -38,7 +38,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
-/** Unsaved timer choice owned by XvoxMainShell until the sheet's Okay footer is tapped. */
+/** Local timer input state reported live to XvoxMainShell as the user edits the sheet. */
 data class XvoxTimerDraft(
     val minutes: Int,
     val seconds: Int = 0,
@@ -47,8 +47,8 @@ data class XvoxTimerDraft(
 )
 
 /**
- * Content only: the parent XvoxBox supplies the transactional Cancel / [Off] / Okay footer.
- * Presets and custom input update [draft] locally and never start/cancel a timer by themselves.
+ * Content only: the parent supplies the fixed Cancel / [Off] / Okay footer. The selected draft is
+ * reported immediately so the host can update the real timer live; Cancel and Okay only close.
  */
 @Composable
 fun XvoxTimerBoxContent(

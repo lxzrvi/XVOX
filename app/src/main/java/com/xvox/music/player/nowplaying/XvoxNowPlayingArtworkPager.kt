@@ -53,6 +53,8 @@ fun XvoxNowPlayingArtworkPager(
     @Suppress("UNUSED_PARAMETER") navigationRequest: Int,
     /** Page currently being previewed by the previous/next controls. */
     previewIndex: Int = currentIndex,
+    /** Temporarily pins the deck to the audible occurrence while a queue reorder settles. */
+    forceCurrentIndex: Boolean = false,
     /**
      * Retained for source compatibility with callers that restore a single non-repeated song.
      * [previewIndex] is authoritative: an ID alone cannot identify one repeated occurrence.
@@ -79,9 +81,10 @@ fun XvoxNowPlayingArtworkPager(
     val queueIdentity = remember(queue) { queue.map { it.xvoxArtworkPaletteKey() } }
     // Page indices intentionally identify queue occurrences. Repeated library IDs must retain
     // distinct pages, even if their cover art happens to be identical.
-    val stableInitialPage = previewIndex.takeIf { it in queue.indices } ?: initialIdx
-    // A reordered queue creates a fresh pager at the stable target song rather than retaining an
-    // old numeric page that now belongs to a different cover.
+    // A queue reorder must start its fresh pager at the audible occurrence, never a stale page
+    // number that belonged to a different cover a frame earlier. This is especially important
+    // while Shuffle moves the active row to index zero.
+    val stableInitialPage = initialIdx
     val pager = key(queueIdentity) {
         rememberPagerState(initialPage = stableInitialPage, pageCount = { queue.size })
     }
@@ -106,8 +109,9 @@ fun XvoxNowPlayingArtworkPager(
 
     // The visible deck follows the preview occurrence. A numerical index is deliberately used
     // here because a repeated Song.id cannot tell the second copy from the first.
-    val targetPreviewPage = previewIndex.takeIf { it in queue.indices } ?: initialIdx
-    LaunchedEffect(targetPreviewPage, queue) {
+    val targetPreviewPage = if (forceCurrentIndex) initialIdx
+    else previewIndex.takeIf { it in queue.indices } ?: initialIdx
+    LaunchedEffect(targetPreviewPage, queue, forceCurrentIndex) {
         userSwiped = false
         val targetPage = targetPreviewPage
         if (targetPage in queue.indices && targetPage != pager.currentPage) {

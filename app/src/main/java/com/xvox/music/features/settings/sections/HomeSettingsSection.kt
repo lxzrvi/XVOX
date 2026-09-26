@@ -162,28 +162,30 @@ fun HomeSettingsSection(
 
             Spacer(Modifier.height(10.dp))
 
-            Label("Mini player transparency · ${(chrome.miniBgAlpha * 100).roundToInt()}%")
+            val miniTransparency = 1f - chrome.miniBgAlpha.coerceIn(0f, 1f)
+            Label("Mini player transparency · ${(miniTransparency * 100).roundToInt()}%")
             XvoxSlider(
-                value = chrome.miniBgAlpha,
-                onValueChange = { alpha ->
-                    viewModel.setChromeStyle { it.copy(miniBgAlpha = alpha) }
+                value = miniTransparency,
+                onValueChange = { transparency ->
+                    viewModel.setChromeStyle { it.copy(miniBgAlpha = 1f - transparency.coerceIn(0f, 1f)) }
                 },
                 valueRange = 0f..1f,
-                defaultValue = 1f,
-                valueLabel = { alpha -> "${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%" }
+                defaultValue = .06f,
+                valueLabel = { transparency -> "${(transparency.coerceIn(0f, 1f) * 100).roundToInt()}%" }
             )
 
             Spacer(Modifier.height(10.dp))
 
-            Label("Navigation bar transparency · ${(chrome.navBgAlpha * 100).roundToInt()}%")
+            val navTransparency = 1f - chrome.navBgAlpha.coerceIn(0f, 1f)
+            Label("Navigation bar transparency · ${(navTransparency * 100).roundToInt()}%")
             XvoxSlider(
-                value = chrome.navBgAlpha,
-                onValueChange = { alpha ->
-                    viewModel.setChromeStyle { it.copy(navBgAlpha = alpha) }
+                value = navTransparency,
+                onValueChange = { transparency ->
+                    viewModel.setChromeStyle { it.copy(navBgAlpha = 1f - transparency.coerceIn(0f, 1f)) }
                 },
                 valueRange = 0f..1f,
-                defaultValue = 0.88f,
-                valueLabel = { alpha -> "${(alpha.coerceIn(0f, 1f) * 100).roundToInt()}%" }
+                defaultValue = .06f,
+                valueLabel = { transparency -> "${(transparency.coerceIn(0f, 1f) * 100).roundToInt()}%" }
             )
         }
 

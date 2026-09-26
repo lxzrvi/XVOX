@@ -20,9 +20,8 @@ import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import kotlin.math.roundToInt
 
 /**
- * Draft-only body for the Mini Player / Navbar editor. Placement, radius, width, height, and
- * image choices intentionally retain their existing saved values but are no longer editable here.
- * The caller commits this draft only when the user presses Okay.
+ * Live body for the Mini Player / Navbar editor. Placement, radius, width, height, and image
+ * choices retain their existing saved values but are not edited in this compact sheet.
  */
 @Composable
 fun MiniPlayerSettingsBoxContent(
@@ -67,7 +66,7 @@ fun MiniPlayerSettingsBoxContent(
         ChromeTransparencySlider(
             label = "Navbar transparency",
             value = 1f - chrome.navBgAlpha.coerceIn(0f, 1f),
-            default = .12f,
+            default = .06f,
             contentDescription = "Navbar transparency",
             onChange = { transparency ->
                 onChromeChange(chrome.copy(navBgAlpha = (1f - transparency).coerceIn(0f, 1f)))

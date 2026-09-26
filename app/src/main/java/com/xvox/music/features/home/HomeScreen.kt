@@ -8,15 +8,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -523,32 +520,12 @@ fun HomeScreen(
         val artistsScrollState = rememberLazyListState()
         val detailScrollState = rememberLazyListState()
 
-        LaunchedEffect(homeResetKey, scrollResetKey) {
-            if (homeResetKey > 0L || scrollResetKey > 0L) {
-                homeScrollState.scrollToItem(0)
-            }
-        }
-
-        AnimatedContent(
-            targetState = targetKey,
-            transitionSpec = {
-                // All library pages retain their own scroll state, while a short same-coordinate
-                // fade keeps the shared Header visually fixed instead of sliding/rebuilding it.
-                // The library body still changes smoothly, without a jump or directional jitter.
-                val easing = CubicBezierEasing(.2f, 0f, 0f, 1f)
-                fadeIn(tween(190, easing = easing))
-                    .togetherWith(fadeOut(tween(170, easing = easing)))
-                    .using(null)
-            },
-            modifier = Modifier.fillMaxSize(),
-            label = "librarySwitch"
-        ) { target ->
-            val targetArtistName = (target as? String)?.takeIf { it.startsWith("artist_") }?.removePrefix("artist_")
+            val targetArtistName = (targetKey as? String)?.takeIf { it.startsWith("artist_") }?.removePrefix("artist_")
             val targetArtist = remember(targetArtistName, artists) {
                 targetArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
             }
 
-            val targetPlaylist = (target as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
+            val targetPlaylist = (targetKey as? String)?.takeIf { !it.startsWith("artist_") }?.let { id ->
                 state.playlists.firstOrNull { it.id == id }
             }
             val detailTracks = remember(targetPlaylist, playlistContents) {
@@ -558,10 +535,16 @@ fun HomeScreen(
             val listState = when {
                 targetArtist != null -> detailScrollState
                 targetPlaylist != null -> detailScrollState
-                target == XvoxHomeLibraryMode.LIKED -> likedScrollState
-                target == XvoxHomeLibraryMode.PLAYLISTS -> playlistsScrollState
-                target == XvoxHomeLibraryMode.ARTISTS -> artistsScrollState
+                targetKey == XvoxHomeLibraryMode.LIKED -> likedScrollState
+                targetKey == XvoxHomeLibraryMode.PLAYLISTS -> playlistsScrollState
+                targetKey == XvoxHomeLibraryMode.ARTISTS -> artistsScrollState
                 else -> homeScrollState
+            }
+
+            // Library pills and navbar returns always start their selected page at the top. The
+            // same LazyColumn remains mounted, so the Header is never rebuilt/faded during this.
+            LaunchedEffect(targetKey, homeResetKey, scrollResetKey) {
+                listState.scrollToItem(0)
             }
 
             LaunchedEffect(targetArtist?.name, targetPlaylist?.id) {
@@ -626,7 +609,7 @@ fun HomeScreen(
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, targetPlaylist.name) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) }
                     )
-                } else when (target as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
+                } else when (targetKey as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                     XvoxHomeLibraryMode.LIKED -> likedSection()
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection(standalone = true)
                     XvoxHomeLibraryMode.ARTISTS -> artistsSection(standalone = true)
@@ -664,7 +647,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
 
         AnimatedVisibility(
             visible = isSelectionMode,

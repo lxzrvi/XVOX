@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 
-/** Shared fixed sheet footer for transactional Cancel / optional Reset / Okay flows. */
+/** Shared fixed footer for live option sheets: Cancel/Okay close, while Reset applies immediately. */
 @Composable
 fun XvoxTransactionalFooterActions(
     onCancel: () -> Unit,

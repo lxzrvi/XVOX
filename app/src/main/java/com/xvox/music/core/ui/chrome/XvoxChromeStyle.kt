@@ -1,5 +1,6 @@
 package com.xvox.music.core.ui.chrome
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
@@ -21,11 +22,11 @@ data class XvoxChromeStyle(
     val headerBorder: String = "",
     val headerBorderAlpha: Float = 0f,
     // Mini player bar.
-    val miniBgAlpha: Float = 1f,
+    val miniBgAlpha: Float = .94f,
     val miniBorder: String = "",
     val miniBorderAlpha: Float = 0.62f,
     // Floating navigation bar.
-    val navBgAlpha: Float = 0.88f,
+    val navBgAlpha: Float = .94f,
     val navBorder: String = "",
     val navBorderAlpha: Float = 0.62f,
     // Navigation selector "pill".
@@ -87,8 +88,8 @@ data class XvoxChromeStyle(
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
                     headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
-                    miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
-                    navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
+                    miniBgAlpha = flt(6, .94f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
+                    navBgAlpha = flt(9, .94f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
                     pillColor = str(12), pillAlpha = flt(13, 1f),
                     cardBorder = str(14), cardBorderAlpha = flt(15, 1f)
                 )
@@ -97,8 +98,8 @@ data class XvoxChromeStyle(
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
                     headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
-                    miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
-                    navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
+                    miniBgAlpha = flt(6, .94f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
+                    navBgAlpha = flt(9, .94f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
                     pillColor = str(12), pillAlpha = flt(13, 1f),
                     pillIconColor = str(14),
                     cardBorder = str(15), cardBorderAlpha = flt(16, 1f)
@@ -108,8 +109,8 @@ data class XvoxChromeStyle(
             return XvoxChromeStyle(
                 optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
                 headerBgAlpha = flt(3, 1f), headerBorder = str(4), headerBorderAlpha = flt(5, 0f),
-                miniBgAlpha = flt(6, 1f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
-                navBgAlpha = flt(9, 0.88f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
+                miniBgAlpha = flt(6, .94f), miniBorder = str(7), miniBorderAlpha = flt(8, 0.62f),
+                navBgAlpha = flt(9, .94f), navBorder = str(10), navBorderAlpha = flt(11, 0.62f),
                 pillColor = str(12), pillAlpha = flt(13, 1f),
                 pillIconColor = str(14),
                 cardBorder = str(15), cardBorderAlpha = flt(16, 1f),
@@ -131,6 +132,24 @@ data class XvoxChromeStyle(
 }
 
 val LocalXvoxChromeStyle = staticCompositionLocalOf { XvoxChromeStyle() }
+
+/**
+ * Frame-immediate chrome preview, analogous to the custom-accent preview. Slider/toggle changes
+ * should repaint Mini Player, Navbar, and Header in the same composition frame while DataStore
+ * persists the value in the background.
+ */
+object XvoxChromePreview {
+    private val state = mutableStateOf<XvoxChromeStyle?>(null)
+    val value: XvoxChromeStyle? get() = state.value
+
+    fun publish(style: XvoxChromeStyle) {
+        state.value = style
+    }
+
+    fun clearWhenPersisted(style: XvoxChromeStyle) {
+        if (state.value == style) state.value = null
+    }
+}
 
 /** Parses "#RRGGBB" (or short "#RGB") into a colour; null when blank/invalid. */
 fun parseHexColor(hex: String): Color? {

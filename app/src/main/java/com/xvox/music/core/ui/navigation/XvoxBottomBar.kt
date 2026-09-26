@@ -31,8 +31,8 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
-    /** The same transactional Mini Player / Navbar editor is available from a navbar long press. */
-    onLongPressSettings: () -> Unit = {},
+    /** Retained for call-site compatibility; Navbar long presses intentionally do nothing. */
+    @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
     /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
 ) {
@@ -77,9 +77,9 @@ fun XvoxBottomBar(
             // Preserve the previously requested completely clear custom-image endpoint.
             navSurfaceAlpha * (1f - navSurfaceAlpha)
         } else {
-            // Even when the navbar surface is transparent, retain a quiet active-destination
-            // pill; otherwise the three fixed destinations lose their only selected state.
-            .30f + .28f * navSurfaceAlpha
+            // Surface transparency applies to the travelling pill as well. Icons remain the
+            // accessible destination cue at the fully transparent endpoint.
+            (.30f + .28f * navSurfaceAlpha) * navSurfaceAlpha
         }
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
@@ -167,12 +167,8 @@ fun XvoxBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
-                        .pointerInput(destination, onLongPressSettings) {
+                        .pointerInput(destination) {
                             detectTapGestures(
-                                onLongPress = {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                                    onLongPressSettings()
-                                },
                                 onTap = {
                                     position = index.toFloat()
                                     view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)

@@ -46,8 +46,8 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Compact live Equalizer editor modeled on the supplied reference. Controls apply as a live
- * preview; Cancel restores the snapshot held by the containing sheet and Okay keeps the changes.
+ * Compact live Equalizer editor modeled on the supplied reference. Every toggle, preset, and
+ * slider updates immediately; Cancel and Okay merely close or acknowledge the ordinary sheet.
  */
 @Composable
 fun EqualizerSettingsSection(

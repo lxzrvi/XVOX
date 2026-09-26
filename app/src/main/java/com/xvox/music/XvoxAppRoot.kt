@@ -92,6 +92,13 @@ fun XvoxAppRoot(
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
+    val chromePreview = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
+    LaunchedEffect(chrome, chromePreview) {
+        if (chromePreview != null && chromePreview == chrome) {
+            com.xvox.music.core.ui.chrome.XvoxChromePreview.clearWhenPersisted(chrome)
+        }
+    }
+    val effectiveChrome = chromePreview ?: chrome
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
@@ -132,14 +139,14 @@ fun XvoxAppRoot(
         accent = effectiveAccent,
         background = backgroundStr,
         cardTransparency = cardTransparency,
-        cardBorder = chrome.cardBorder,
-        cardBorderAlpha = chrome.cardBorderAlpha
+        cardBorder = effectiveChrome.cardBorder,
+        cardBorderAlpha = effectiveChrome.cardBorderAlpha
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
-            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides chrome,
+            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics
         ) {
             Box(modifier = Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {

@@ -262,7 +262,7 @@ fun XvoxMiniPlayerCard(
                     .clip(CircleShape)
                     // Home Mini Player actions sit on a distinct, half-transparent circular
                     // surface so Like and Play read as controls without competing with the card.
-                    .background(colors.background.copy(alpha = .50f))
+                    .background(colors.background.copy(alpha = .50f * miniAlpha))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -282,8 +282,9 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(colors.background.copy(alpha = .50f))
-                    // Play intentionally shares Like's half-transparent circular treatment.
+                    .background(colors.cardElevated.copy(alpha = .62f * miniAlpha))
+                    // Play is deliberately a shade more elevated than Like. Both colours come
+                    // from the active theme, while their surfaces still disappear at 100% transparency.
                     .clickable(
                         interactionSource = controlInteraction,
                         indication = null,

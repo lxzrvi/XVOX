@@ -40,7 +40,8 @@ private enum class StartupVisualPhase {
 }
 
 private val StartupRailWidth = 180.dp
-private val StartupRailHeight = 4.dp
+// Six dp keeps the travelling dots visibly substantial before they become the progress rail.
+private val StartupRailHeight = 6.dp
 private val StartupDotIdleGap = 10.dp
 private const val StartupDotCount = 5
 

@@ -156,6 +156,10 @@ fun XvoxQueueBoxContent(
     val sourceEntries = remember(queue) {
         queue.mapIndexed { index, song -> QueueEntry(stableKey = "${song.id}:$index", song = song) }
     }
+    // Keep the active occurrence by its stable row identity rather than by a live display index.
+    // A drag rearranges display slots before playback is committed, so `idx == currentIndex`
+    // would temporarily light/hold a neighbouring duplicate instead of the finger-held row.
+    val activeEntryKey = sourceEntries.getOrNull(currentIndex)?.stableKey
     var draggingEntry by remember { mutableStateOf<QueueEntry?>(null) }
     var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
     var initialDragIndex by remember { mutableIntStateOf(-1) }
@@ -348,7 +352,7 @@ fun XvoxQueueBoxContent(
                             QueueItemRow(
                                 song = song,
                                 index = idx,
-                                isPlayingThis = isPlaybackActiveInThisQueue && idx == currentIndex,
+                                isPlayingThis = isPlaybackActiveInThisQueue && entry.stableKey == activeEntryKey,
                                 isPlayingAudio = isPlaying,
                                 totalCount = displayEntries.size,
                                 onPlay = { play(idx) },
@@ -373,7 +377,7 @@ fun XvoxQueueBoxContent(
                         QueueItemRow(
                             song = draggedSong,
                             index = currentDragIndex,
-                            isPlayingThis = isPlaybackActiveInThisQueue && currentDragIndex == currentIndex,
+                            isPlayingThis = isPlaybackActiveInThisQueue && draggingEntry!!.stableKey == activeEntryKey,
                             isPlayingAudio = isPlaying,
                             totalCount = displayEntries.size,
                             onPlay = {},
@@ -494,7 +498,9 @@ private fun QueueItemRow(
 
             Text(
                 text = song.artist,
-                color = colors.secondaryText,
+                // The active occurrence and its floating held copy share this exact treatment.
+                // It avoids the old index-based drag state making the artist color jump rows.
+                color = if (isPlayingThis) colors.primaryAccent.copy(alpha = .82f) else colors.secondaryText,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -25,7 +25,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
@@ -50,7 +49,6 @@ import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
-import com.xvox.music.features.settings.EqualizerControlsSnapshot
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.sections.EqualizerFooterActions
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
@@ -156,17 +154,14 @@ fun XvoxNowPlaying(
     }
 
     var activeSettingsBox by rememberSaveable { mutableStateOf<String?>(null) }
-    // Crossfade, Bluetooth and Lyrics use one local sheet snapshot. Draft gestures recompose the
-    // sheet immediately, but no preference/audio setting is touched until Okay is pressed.
+    // Ordinary setting sheets are live: this local value only supplies immediate UI state while
+    // the persisted Settings flow catches up. Closing, Cancel, and Okay never roll back a change.
     var optionDraft by remember { mutableStateOf(settingsState) }
     fun openSettingsBox(name: String) {
-        if (name == "Crossfade" || name == "Bluetooth" || name == "Lyrics" || name == "3D sound") {
-            optionDraft = settingsState
-        }
+        optionDraft = settingsState
         activeSettingsBox = name
     }
-    fun applyCrossfadeDraft() {
-        val draft = optionDraft
+    fun applyCrossfadeDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
         settingsViewModel.setCrossfade(draft.crossfade)
         settingsViewModel.setGapless(draft.gapless)
         settingsViewModel.setCrossfadeDuration(draft.crossfadeDuration)
@@ -174,8 +169,7 @@ fun XvoxNowPlaying(
         settingsViewModel.setCrossfadeClashControl(draft.crossfadeClashControl)
         settingsViewModel.setCrossfadeBeatSync(draft.crossfadeBeatSync)
     }
-    fun applyThreeDSoundDraft() {
-        val draft = optionDraft
+    fun applyThreeDSoundDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
         settingsViewModel.setStereoWidening(draft.stereoWidening)
         settingsViewModel.setSurroundWidth(draft.surroundWidth)
         settingsViewModel.setSurroundDepth(draft.surroundDepth)
@@ -183,25 +177,15 @@ fun XvoxNowPlaying(
         settingsViewModel.setHrtf(draft.hrtf)
         settingsViewModel.setBalance(draft.balance)
     }
-    fun applyBluetoothDraft() {
-        val draft = optionDraft
+    fun applyBluetoothDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
         settingsViewModel.setAudioOutputRoute(draft.audioOutputRoute)
         settingsViewModel.setBtConnectAction(draft.btConnectAction)
         settingsViewModel.setPlayOnHeadsetConnect(draft.playOnHeadsetConnect)
         settingsViewModel.setBtDisconnectAction(draft.btDisconnectAction)
         settingsViewModel.setPauseOnHeadphoneDisconnect(draft.pauseOnHeadphoneDisconnect)
     }
-    fun applyLyricsDraft() {
-        val lyrics = optionDraft.lyrics
-        settingsViewModel.updateLyrics { lyrics }
-    }
-    var equalizerSnapshot by remember { mutableStateOf<EqualizerControlsSnapshot?>(null) }
-    LaunchedEffect(activeSettingsBox) {
-        equalizerSnapshot = if (activeSettingsBox == "Equalizer") {
-            settingsViewModel.snapshotEqualizerControls()
-        } else {
-            null
-        }
+    fun applyLyricsDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
+        settingsViewModel.updateLyrics { draft.lyrics }
     }
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
@@ -368,10 +352,7 @@ fun XvoxNowPlaying(
     BackHandler {
         when {
             activeSettingsBox != null -> {
-                if (activeSettingsBox == "Equalizer") {
-                    equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
-                }
-                // Draft-backed editors have made no persistent change, so Back is Cancel.
+                // Ordinary sheet controls are already applied live; Back simply closes.
                 activeSettingsBox = null
             }
             currentMode == 2 -> setMode(1)
@@ -417,9 +398,9 @@ fun XvoxNowPlaying(
     val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
-    // The control card now has its own 6dp bottom frame; retain the original 6dp cover-to-card
-    // clearance as well so it floats with equal side/bottom/adjacent breathing room.
-    val currentPadBottom = lerp(bottomHeightDp + 12.dp, 0.dp, fullscreenProgress)
+    // The artwork keeps a small relationship gap above the controls. The control card itself is
+    // edge-flush; during fullscreen this final bottom reservation collapses on the same clock.
+    val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
 
     val view = androidx.compose.ui.platform.LocalView.current
     // Portrait status chrome follows the fullscreen lyrics morph rather than disappearing for
@@ -469,19 +450,25 @@ fun XvoxNowPlaying(
                 val compactGutter = 10.dp
                 val compactArtworkWidth = ((maxWidth - compactInset * 2 - compactGutter) * .60f)
                     .coerceAtLeast(0.dp)
-                val compactControlsWidth = (maxWidth - compactInset * 2 - compactGutter - compactArtworkWidth)
+                // The control card is deliberately edge-flush. Reserve only the cover's leading
+                // inset plus one explicit gutter so its left edge never collides with the pager.
+                val compactControlsWidth = (maxWidth - compactInset - compactGutter - compactArtworkWidth)
                     .coerceAtLeast(0.dp)
                 val frameInset = lerp(compactInset, 0.dp, fullscreenProgress)
                 val artworkWidth = lerp(compactArtworkWidth, maxWidth, fullscreenProgress)
                 val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
                 // Travel past the right edge rather than merely fading in place during lyric
                 // fullscreen, so the adjacent card is visibly pushed out by the expanding pager.
-                val controlsSlidePx = with(density) { (compactControlsWidth + compactInset + 18.dp).toPx() }
+                // Match the pager's right-edge travel so the explicit compact gutter stays
+                // visually consistent until the card has cleared the screen.
+                val controlsSlidePx = with(density) {
+                    (maxWidth - compactArtworkWidth - compactInset).coerceAtLeast(0.dp).toPx()
+                }
 
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = frameInset)
+                        .padding(start = frameInset, top = frameInset, bottom = frameInset)
                         .width(artworkWidth)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(artworkRadius))
@@ -524,6 +511,7 @@ fun XvoxNowPlaying(
                                 currentIndex = currentIndex,
                                 navigationRequest = navigationRequest,
                                 previewIndex = previewIndex,
+                                forceCurrentIndex = holdPagerPaletteDuringShuffle,
                                 onPreviewIndexChange = { setPreviewTarget(it) },
                                 onArtworkTap = { setMode(1) },
                                 onSwipePalette = { base, adjacent, fraction ->
@@ -548,12 +536,11 @@ fun XvoxNowPlaying(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = frameInset, end = frameInset, bottom = frameInset)
                         .width(compactControlsWidth)
                         .fillMaxHeight()
                         .graphicsLayer {
                             translationX = fullscreenProgress * controlsSlidePx
-                            alpha = (1f - fullscreenProgress * 1.45f).coerceIn(0f, 1f)
+                            alpha = 1f - fullscreenProgress
                         }
                 ) {
                     // Right: Option/Control Card (40% width), intentionally borderless.
@@ -736,6 +723,7 @@ fun XvoxNowPlaying(
                             currentIndex = currentIndex,
                             navigationRequest = navigationRequest,
                             previewIndex = previewIndex,
+                            forceCurrentIndex = holdPagerPaletteDuringShuffle,
                             onPreviewIndexChange = { setPreviewTarget(it) },
                             onArtworkTap = { setMode(1) },
                             onSwipePalette = { base, adjacent, fraction ->
@@ -763,7 +751,7 @@ fun XvoxNowPlaying(
                         // Travel fully beyond the top edge rather than stopping part-way under
                         // the fullscreen lyric surface.
                         translationY = -fullscreenProgress * (headerHeightDp + 28.dp).toPx()
-                        alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                        alpha = 1f - fullscreenProgress
                     }
             ) {
                 XvoxNowPlayingHeader(
@@ -789,11 +777,9 @@ fun XvoxNowPlaying(
                 )
             }
 
-            // Bottom Controls Area: smooth slide down & fade out during fullscreen opening
-            // Match the cover's horizontal frame with a floating bottom-control card, including
-            // the same bottom breathing room. Fullscreen interpolates those gaps back to zero.
-            // This card remains detached from all three lower edges, but its bottom edge is
-            // deliberately square rather than reading as a floating all-rounded capsule.
+            // Bottom controls are physically flush to the left, right, and bottom screen edges.
+            // The single fullscreen clock carries this whole card beyond the bottom edge while
+            // the lyrics surface expands through the newly released space; only top corners round.
             val bottomBoxShape = RoundedCornerShape(
                 topStart = animTopRadius,
                 topEnd = animTopRadius,
@@ -805,13 +791,13 @@ fun XvoxNowPlaying(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(start = currentPadH, end = currentPadH, bottom = currentPadH)
+                    .padding(start = 0.dp, end = 0.dp, bottom = 0.dp)
                     .onGloballyPositioned { bottomHeightDp = with(density) { it.size.height.toDp() } }
                     .graphicsLayer {
                         // Push the entire bottom card below the screen during fullscreen, not
                         // merely past its normal controls' center line.
                         translationY = fullscreenProgress * (bottomHeightDp + 34.dp).toPx()
-                        alpha = (1f - fullscreenProgress * 1.5f).coerceIn(0f, 1f)
+                        alpha = 1f - fullscreenProgress
                     }
                     .clip(bottomBoxShape)
                     .background(colors.background.copy(alpha = 0.35f))
@@ -891,12 +877,12 @@ fun XvoxNowPlaying(
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
-                            onShuffle = {
-                                cancelPreview()
-                                holdPagerPaletteDuringShuffle = true
-                                paletteState.pin(song)
-                                onToggleShuffle?.invoke()
-                            },
+                    onShuffle = {
+                        cancelPreview()
+                        holdPagerPaletteDuringShuffle = true
+                        paletteState.pin(song)
+                        onToggleShuffle?.invoke()
+                    },
                     onPreviewPrevious = { movePreview(-1) },
                     onTogglePlay = onTogglePlay,
                     onPreviewNext = { movePreview(1) },
@@ -939,11 +925,7 @@ fun XvoxNowPlaying(
 
                 XvoxBox(
                     onDismiss = {
-                        // Scrim/back/Header close is Cancel for every transactional draft. EQ is
-                        // exceptional because it previews live audio and must restore its snapshot.
-                        if (activeSettingsBox == "Equalizer") {
-                            equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
-                        }
+                        // These are live option sheets: any dismiss route is just a close.
                         activeSettingsBox = null
                     },
                     title = boxTitle,
@@ -956,10 +938,7 @@ fun XvoxNowPlaying(
                         "Equalizer" -> {
                             {
                                 EqualizerFooterActions(
-                                    onCancel = {
-                                        equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
-                                        activeSettingsBox = null
-                                    },
+                                    onCancel = { activeSettingsBox = null },
                                     onReset = settingsViewModel::resetEqualizerControls,
                                     onDone = { activeSettingsBox = null }
                                 )
@@ -978,11 +957,9 @@ fun XvoxNowPlaying(
                                             hrtf = .6f,
                                             balance = 0f
                                         )
-                                    },
-                                    onOkay = {
                                         applyThreeDSoundDraft()
-                                        activeSettingsBox = null
-                                    }
+                                    },
+                                    onOkay = { activeSettingsBox = null }
                                 )
                             }
                         }
@@ -999,11 +976,9 @@ fun XvoxNowPlaying(
                                             crossfadeClashControl = .7f,
                                             crossfadeBeatSync = true
                                         )
-                                    },
-                                    onOkay = {
                                         applyCrossfadeDraft()
-                                        activeSettingsBox = null
-                                    }
+                                    },
+                                    onOkay = { activeSettingsBox = null }
                                 )
                             }
                         }
@@ -1011,10 +986,7 @@ fun XvoxNowPlaying(
                             {
                                 XvoxTransactionalFooterActions(
                                     onCancel = { activeSettingsBox = null },
-                                    onOkay = {
-                                        applyBluetoothDraft()
-                                        activeSettingsBox = null
-                                    }
+                                    onOkay = { activeSettingsBox = null }
                                 )
                             }
                         }
@@ -1022,10 +994,7 @@ fun XvoxNowPlaying(
                             {
                                 XvoxTransactionalFooterActions(
                                     onCancel = { activeSettingsBox = null },
-                                    onOkay = {
-                                        applyLyricsDraft()
-                                        activeSettingsBox = null
-                                    }
+                                    onOkay = { activeSettingsBox = null }
                                 )
                             }
                         }
@@ -1045,28 +1014,37 @@ fun XvoxNowPlaying(
                             "Equalizer" -> EqualizerSettingsSection(
                                 state = settingsState,
                                 viewModel = settingsViewModel,
-                                onCancel = {
-                                    equalizerSnapshot?.let(settingsViewModel::restoreEqualizerControls)
-                                    activeSettingsBox = null
-                                },
+                                onCancel = { activeSettingsBox = null },
                                 onDone = { activeSettingsBox = null },
                                 showFooter = false
                             )
                             "3D sound" -> ThreeDSoundDraftSection(
                                 state = optionDraft,
-                                onStateChange = { optionDraft = it }
+                                onStateChange = { updated ->
+                                    optionDraft = updated
+                                    applyThreeDSoundDraft(updated)
+                                }
                             )
                             "Crossfade" -> PlaybackSettingsDraftSection(
                                 state = optionDraft,
-                                onStateChange = { optionDraft = it }
+                                onStateChange = { updated ->
+                                    optionDraft = updated
+                                    applyCrossfadeDraft(updated)
+                                }
                             )
                             "Bluetooth" -> HeadsetSettingsDraftSection(
                                 state = optionDraft,
-                                onStateChange = { optionDraft = it }
+                                onStateChange = { updated ->
+                                    optionDraft = updated
+                                    applyBluetoothDraft(updated)
+                                }
                             )
                             "Lyrics" -> LyricsSettingsDraftSection(
                                 settings = optionDraft.lyrics,
-                                onSettingsChange = { lyrics -> optionDraft = optionDraft.copy(lyrics = lyrics) }
+                                onSettingsChange = { lyrics ->
+                                    optionDraft = optionDraft.copy(lyrics = lyrics)
+                                    applyLyricsDraft(optionDraft)
+                                }
                             )
                         }
                     }

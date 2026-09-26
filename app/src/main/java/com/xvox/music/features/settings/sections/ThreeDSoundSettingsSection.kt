@@ -64,7 +64,7 @@ fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewMode
     )
 }
 
-/** Local-only form used by the transactional Now Playing 3D Sound sheet. */
+/** State-hoisted form used by the live Now Playing 3D Sound sheet. */
 @Composable
 fun ThreeDSoundDraftSection(
     state: SettingsState,
