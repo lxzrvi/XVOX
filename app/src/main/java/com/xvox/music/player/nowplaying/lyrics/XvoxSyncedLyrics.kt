@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.LyricsSettings
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.delay
@@ -28,9 +28,9 @@ import kotlin.math.roundToInt
 
 @Composable
 fun XvoxSyncedLyrics(lyrics: XvoxLyrics, position: Long, onSeek: (Long) -> Unit, modifier: Modifier = Modifier,
-    strongEdgeFade: Boolean = false, settingsOverride: LyricsSettings? = null, preview: Boolean = false,
-    textColor: Color = Color.White) {
+    strongEdgeFade: Boolean = false, settingsOverride: LyricsSettings? = null, preview: Boolean = false) {
     if (lyrics.lines.isEmpty()) return
+    val colors = XvoxTheme.colors
     val context = LocalContext.current
     val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
     val saved by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
@@ -83,7 +83,7 @@ fun XvoxSyncedLyrics(lyrics: XvoxLyrics, position: Long, onSeek: (Long) -> Unit,
             modifier = Modifier.fillMaxSize().lyricsEdgeFade(settings.fadeTop, settings.fadeBottom)) {
             item(key = "lyrics-top") { Spacer(Modifier.height(maxHeight / 2)) }
             itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
-                LyricPresentationLine(line.text, index == active, index - active, settings, color = textColor,
+                LyricPresentationLine(line.text, index == active, index - active, settings, color = colors.primaryText,
                     synchronized = lyrics.synchronized,
                     modifier = Modifier.clickable(enabled = !preview && line.timeMs != null,
                         interactionSource = remember { MutableInteractionSource() }, indication = null) { line.timeMs?.let { onSeek(settings.seekPosition(it)) } })

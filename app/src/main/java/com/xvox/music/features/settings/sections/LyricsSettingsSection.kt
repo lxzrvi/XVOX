@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -296,31 +294,6 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
                         )
                     }
                 }
-            }
-        }
-
-        SettingsAccordionItem(
-            title = "Color & Contrast"
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Match text with cover color", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Extract vibrant, readable color from current song artwork", color = colors.secondaryText, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = settings.matchCoverColor,
-                    onCheckedChange = { on -> viewModel.updateLyrics { it.copy(matchCoverColor = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primaryAccent,
-                        uncheckedThumbColor = colors.secondaryText,
-                        uncheckedTrackColor = colors.cardElevated
-                    )
-                )
             }
         }
 

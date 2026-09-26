@@ -77,7 +77,7 @@ fun XvoxArtworkLyrics(
     onDismissNowPlaying: (() -> Unit)? = null,
     onSwipeDownDelta: ((Float) -> Unit)? = null,
     onSwipeDownEnd: (() -> Unit)? = null,
-    textColor: Color = Color.White,
+    textColor: Color = Color.Unspecified,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -158,39 +158,12 @@ fun XvoxArtworkLyrics(
         overlays.showP(label)
     }
 
-    val effectiveTextColor = if (lyricsSettings.matchCoverColor) {
-        val hsv = FloatArray(3)
-        android.graphics.Color.colorToHSV(
-            android.graphics.Color.rgb(
-                (textColor.red * 255).toInt(),
-                (textColor.green * 255).toInt(),
-                (textColor.blue * 255).toInt()
-            ),
-            hsv
-        )
-        hsv[1] = hsv[1].coerceIn(0.4f, 0.9f)
-        hsv[2] = 0.96f
-        Color(android.graphics.Color.HSVToColor(hsv))
-    } else Color.White
-
-    val vibrantCoverColor = remember(textColor) {
-        val hsv = FloatArray(3)
-        android.graphics.Color.colorToHSV(
-            android.graphics.Color.rgb(
-                (textColor.red * 255).toInt(),
-                (textColor.green * 255).toInt(),
-                (textColor.blue * 255).toInt()
-            ),
-            hsv
-        )
-        if (hsv[1] < 0.15f) {
-            Color(0xFFE2E6FF)
-        } else {
-            hsv[1] = hsv[1].coerceIn(0.60f, 0.95f)
-            hsv[2] = hsv[2].coerceIn(0.80f, 1.0f)
-            Color(android.graphics.Color.HSVToColor(hsv))
-        }
-    }
+    // Lyrics and chrome remain theme-driven. Cover analysis is used only for the backdrop, never
+    // to turn text into a per-song colour that could fight the selected theme.
+    val effectiveTextColor = textColor.takeIf {
+        it != Color.Unspecified && it != Color.Transparent
+    } ?: colors.primaryText
+    val vibrantCoverColor = colors.primaryAccent
 
     BoxWithConstraints(
         modifier = modifier

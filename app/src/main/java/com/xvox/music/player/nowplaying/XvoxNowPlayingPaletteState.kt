@@ -12,17 +12,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.model.Song
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
+/**
+ * Keeps cover colours ready before a pager reaches them. Pixel work lives in the loader's IO
+ * context; the UI state only receives completed colours, so rapid cover browsing stays smooth.
+ */
 @Stable
 class XvoxNowPlayingPaletteState internal constructor(
     private val loader: XvoxArtworkPaletteLoader,
     initial: Color
 ) {
     private val cache = mutableStateMapOf<Long, Color>()
+    private val loadingSongIds = mutableSetOf<Long>()
 
     var color by mutableStateOf(initial)
+        private set
+
+    /** True only while the pager is between two covers, so the backdrop can follow the finger. */
+    var isCoverTransitionInProgress by mutableStateOf(false)
         private set
 
     fun getOrFallback(song: Song?): Color {
@@ -32,28 +41,45 @@ class XvoxNowPlayingPaletteState internal constructor(
 
     suspend fun preload(song: Song?) {
         song ?: return
-        if (cache.containsKey(song.id)) return
-        val fast = loader.fastEstimate(song.artworkUri, "${song.title}_${song.artist}")
-        cache[song.id] = fast
-        val extracted = withContext(Dispatchers.IO) {
-            loader.load(song.artworkUri, "${song.title}_${song.artist}")
+        if (cache.containsKey(song.id) || !loadingSongIds.add(song.id)) return
+        try {
+            cache[song.id] = loader.load(song.artworkUri, "${song.title}_${song.artist}")
+        } finally {
+            loadingSongIds.remove(song.id)
         }
-        cache[song.id] = extracted
+    }
+
+    /** Prioritise the immediate neighbours, then warm several covers in both directions. */
+    suspend fun preloadNeighborhood(queue: List<Song>, currentIndex: Int) {
+        val offsets = listOf(0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8)
+        val neighbours = offsets.mapNotNull { offset -> queue.getOrNull(currentIndex + offset) }
+            .distinctBy { it.id }
+
+        // A few concurrent jobs make the next/previous cover ready quickly without flooding Coil
+        // when a long queue is opened for the first time.
+        for (batch in neighbours.chunked(3)) {
+            coroutineScope {
+                batch.forEach { neighbour ->
+                    launch { preload(neighbour) }
+                }
+            }
+        }
     }
 
     suspend fun show(song: Song) {
-        val targetColor = getOrFallback(song)
-        color = targetColor
+        isCoverTransitionInProgress = false
+        color = getOrFallback(song)
         preload(song)
-        cache[song.id]?.let {
-            color = it
-        }
+        color = cache[song.id] ?: color
     }
 
+    /** Called every pager frame, producing a direct colour blend with no animation lag. */
     fun blend(base: Song, adjacent: Song?, fraction: Float) {
+        val amount = fraction.coerceIn(0f, 1f)
         val from = getOrFallback(base)
         val to = adjacent?.let { getOrFallback(it) } ?: from
-        color = lerp(from, to, fraction.coerceIn(0f, 1f))
+        color = lerp(from, to, amount)
+        isCoverTransitionInProgress = amount > .0001f
     }
 }
 
@@ -75,12 +101,7 @@ fun rememberXvoxNowPlayingPalette(
     }
 
     LaunchedEffect(queue, currentIndex) {
-        for (offset in -8..8) {
-            val s = queue.getOrNull(currentIndex + offset)
-            if (s != null) {
-                state.preload(s)
-            }
-        }
+        state.preloadNeighborhood(queue, currentIndex)
     }
 
     return state

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxUiFont
 import com.xvox.music.data.preferences.LyricsSettings
 import kotlin.math.abs
@@ -39,9 +40,12 @@ fun LyricPresentationLine(
     distance: Int,
     settings: LyricsSettings,
     modifier: Modifier = Modifier,
-    color: Color = Color.White,
+    color: Color = Color.Unspecified,
     synchronized: Boolean = true
 ) {
+    val colors = XvoxTheme.colors
+    val themedColor = color.takeIf { it != Color.Unspecified && it != Color.Transparent }
+        ?: colors.primaryText
     // With individual sizing off, the master size is genuinely used by every line.
     // Per-line values remain saved, but cannot affect presentation until the toggle is enabled.
     val maximumSize = if (settings.individualLineSizes) {
@@ -127,11 +131,8 @@ fun LyricPresentationLine(
         label = "lineShiftY"
     )
 
-    val resolvedColor = if (active) {
-        if (settings.matchCoverColor) color else Color.White
-    } else {
-        if (settings.matchCoverColor) color.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f)
-    }
+    // The caller supplies the active theme's text colour. Cover artwork must not recolour lyrics.
+    val resolvedColor = if (active) themedColor else themedColor.copy(alpha = 0.75f)
 
     val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp
 

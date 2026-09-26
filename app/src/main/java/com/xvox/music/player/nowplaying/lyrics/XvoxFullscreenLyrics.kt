@@ -150,20 +150,8 @@ fun XvoxFullscreenLyrics(
 
     val baseColor = if (backgroundColor != Color.Transparent) backgroundColor else colors.surface
 
-    val lyricColor = remember(baseColor) {
-        val hsv = FloatArray(3)
-        android.graphics.Color.colorToHSV(
-            android.graphics.Color.rgb(
-                (baseColor.red * 255).toInt(),
-                (baseColor.green * 255).toInt(),
-                (baseColor.blue * 255).toInt()
-            ),
-            hsv
-        )
-        hsv[1] = hsv[1].coerceIn(0.4f, 0.9f)
-        hsv[2] = 0.95f
-        Color(android.graphics.Color.HSVToColor(hsv))
-    }
+    // Background art can change per song; lyric text remains the active theme's text colour.
+    val lyricColor = colors.primaryText
 
     val listState = rememberLazyListState()
 

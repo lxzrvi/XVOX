@@ -12,16 +12,17 @@ import com.xvox.music.artwork.XvoxArtworkCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Cover-palette extraction for Now Playing.
+ * Now Playing's faithful cover-background extractor.
  *
- * Pipeline: sampled cover pixels → similar-pixel clusters → actual dominant cluster → HSL →
- * adaptive safety adjustment → final background. It intentionally avoids fixed colour presets:
- * cover hue is retained, dark/light variants of the same hue remain distinct, and only unusable
- * extremes (black, white, or very harsh neon) are softened.
+ * Every cover is first reduced to a stable 64 × 64 image, then similar RGB pixels are clustered.
+ * Tiny logo, text, and accent clusters are ignored before the largest meaningful region is mapped
+ * from RGB to HSL. Hue stays untouched; only extreme lightness and extremely harsh saturation are
+ * balanced so both light and dark theme text remain usable over the resulting background.
  */
 class XvoxArtworkPaletteLoader(
     context: Context
@@ -30,22 +31,30 @@ class XvoxArtworkPaletteLoader(
 
     companion object {
         private val cache = android.util.LruCache<String, Color>(1024)
-        private const val HueBins = 24
-        private const val SaturationBins = 5
-        private const val LightnessBins = 10
+        private const val TargetSide = 64
+        private const val SimilarRgbDistance = 48
+        private const val SimilarRgbDistanceSquared = SimilarRgbDistance * SimilarRgbDistance
+        private const val TinyClusterShare = .015f
     }
 
     private data class Hsl(val hue: Float, val saturation: Float, val lightness: Float)
 
-    private class PixelCluster(
-        val hueBin: Int,
-        val saturationBin: Int,
-        val lightnessBin: Int
-    ) {
-        var population = 0
-        var redTotal = 0L
-        var greenTotal = 0L
-        var blueTotal = 0L
+    /** An online RGB cluster whose centre continuously follows its member pixels. */
+    private class RgbCluster(red: Int, green: Int, blue: Int) {
+        var population = 1
+            private set
+        private var redTotal = red.toLong()
+        private var greenTotal = green.toLong()
+        private var blueTotal = blue.toLong()
+
+        fun distanceSquared(red: Int, green: Int, blue: Int): Int {
+            val redDifference = red - averageRed
+            val greenDifference = green - averageGreen
+            val blueDifference = blue - averageBlue
+            return redDifference * redDifference +
+                greenDifference * greenDifference +
+                blueDifference * blueDifference
+        }
 
         fun add(red: Int, green: Int, blue: Int) {
             population++
@@ -53,6 +62,10 @@ class XvoxArtworkPaletteLoader(
             greenTotal += green
             blueTotal += blue
         }
+
+        val averageRed: Int get() = (redTotal / population).toInt()
+        val averageGreen: Int get() = (greenTotal / population).toInt()
+        val averageBlue: Int get() = (blueTotal / population).toInt()
     }
 
     private fun getCachedBitmap(uri: Uri): Bitmap? {
@@ -66,20 +79,14 @@ class XvoxArtworkPaletteLoader(
             ?: XvoxArtworkCache.get(base)
     }
 
+    /**
+     * Never decode or examine pixels on the UI thread. The surrounding palette state preloads the
+     * current and neighbouring covers, while this immediate value keeps a first frame responsive.
+     */
     fun fastEstimate(uri: Uri?, songKey: String = ""): Color {
         val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
         if (key.isBlank()) return fallback(songKey)
-        cache[key]?.let { return it }
-
-        if (uri != null) {
-            val cached = getCachedBitmap(uri)
-            if (cached != null) {
-                val extracted = extract(cached)
-                cache.put(key, extracted)
-                return extracted
-            }
-        }
-        return fallback(songKey)
+        return cache[key] ?: fallback(songKey)
     }
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
@@ -88,33 +95,21 @@ class XvoxArtworkPaletteLoader(
         cache[key]?.let { return it }
 
         val result = withContext(Dispatchers.IO) {
-            if (uri != null) {
-                val cached = getCachedBitmap(uri)
-                if (cached != null) {
-                    val extracted = extract(cached)
-                    cache.put(key, extracted)
-                    return@withContext extracted
-                }
-            }
-
-            if (uri != null) {
-                runCatching {
+            val bitmap = uri?.let { coverUri ->
+                getCachedBitmap(coverUri) ?: runCatching {
                     val loader = SingletonImageLoader.get(appContext)
-                    val req = ImageRequest.Builder(appContext)
-                        .data(uri)
-                        .size(240, 240)
+                    val request = ImageRequest.Builder(appContext)
+                        .data(coverUri)
+                        .size(TargetSide, TargetSide)
                         .allowHardware(false)
                         .build()
-                    val res = loader.execute(req)
-                    (res.image as? coil3.BitmapImage)?.bitmap
-                }.getOrNull()?.let { bitmap ->
-                    val extracted = extract(bitmap)
-                    cache.put(key, extracted)
-                    return@withContext extracted
-                }
+                    val response = loader.execute(request)
+                    (response.image as? coil3.BitmapImage)?.bitmap
+                }.getOrNull()
             }
-
-            fallback(songKey)
+            bitmap?.let { source ->
+                runCatching { extract(source) }.getOrElse { fallback(songKey) }
+            } ?: fallback(songKey)
         }
 
         cache.put(key, result)
@@ -122,81 +117,67 @@ class XvoxArtworkPaletteLoader(
     }
 
     /**
-     * Build small HSL neighbourhood clusters rather than trusting one raw pixel or a fixed palette
-     * swatch. A tiny logo or line of text has too little population to win; broad, visually similar
-     * cover regions merge into the dominant candidate.
+     * 64 × 64 RGB clustering deliberately favours the largest meaningful cover region. At this
+     * scale a 1.5% cluster is roughly sixty pixels: small title lettering or a badge falls away,
+     * while a genuine colourful region remains eligible.
      */
     private fun extract(bitmap: Bitmap): Color {
         if (bitmap.width <= 0 || bitmap.height <= 0) return fallback("")
-        val step = max(1, max(bitmap.width, bitmap.height) / 84)
-        val clusters = HashMap<Int, PixelCluster>()
-        var sampleCount = 0
+        val resized = if (bitmap.width == TargetSide && bitmap.height == TargetSide) bitmap
+        else Bitmap.createScaledBitmap(bitmap, TargetSide, TargetSide, true)
 
-        var y = 0
-        while (y < bitmap.height) {
-            var x = 0
-            while (x < bitmap.width) {
-                val pixel = bitmap.getPixel(x, y)
-                if (AndroidColor.alpha(pixel) >= 224) {
+        try {
+            val clusters = ArrayList<RgbCluster>()
+            var opaqueSamples = 0
+
+            for (y in 0 until TargetSide) {
+                for (x in 0 until TargetSide) {
+                    val pixel = resized.getPixel(x, y)
+                    if (AndroidColor.alpha(pixel) < 224) continue
                     val red = AndroidColor.red(pixel)
                     val green = AndroidColor.green(pixel)
                     val blue = AndroidColor.blue(pixel)
-                    val hsl = rgbToHsl(red, green, blue)
-                    // Near greys do not get an arbitrary hue bucket; lightness alone separates
-                    // black covers, dark grey covers, white covers, and light grey covers.
-                    val hueBin = if (hsl.saturation < .055f) -1
-                    else (hsl.hue / 360f * HueBins).toInt().coerceIn(0, HueBins - 1)
-                    val saturationBin = (hsl.saturation * SaturationBins).toInt()
-                        .coerceIn(0, SaturationBins - 1)
-                    val lightnessBin = (hsl.lightness * LightnessBins).toInt()
-                        .coerceIn(0, LightnessBins - 1)
-                    val key = ((hueBin + 1) shl 8) or (saturationBin shl 4) or lightnessBin
-                    val cluster = clusters.getOrPut(key) {
-                        PixelCluster(hueBin, saturationBin, lightnessBin)
+
+                    var nearest: RgbCluster? = null
+                    var nearestDistance = Int.MAX_VALUE
+                    for (cluster in clusters) {
+                        val distance = cluster.distanceSquared(red, green, blue)
+                        if (distance < nearestDistance) {
+                            nearest = cluster
+                            nearestDistance = distance
+                        }
                     }
-                    cluster.add(red, green, blue)
-                    sampleCount++
+
+                    if (nearest != null && nearestDistance <= SimilarRgbDistanceSquared) {
+                        nearest.add(red, green, blue)
+                    } else {
+                        clusters += RgbCluster(red, green, blue)
+                    }
+                    opaqueSamples++
                 }
-                x += step
             }
-            y += step
+
+            if (clusters.isEmpty() || opaqueSamples == 0) return fallback("")
+            val minimumMeaningfulPopulation = max(
+                4,
+                ceil(opaqueSamples.toDouble() * TinyClusterShare.toDouble()).toInt()
+            )
+            val meaningful = clusters.filter { it.population >= minimumMeaningfulPopulation }
+                .ifEmpty { clusters }
+            val dominant = meaningful.maxByOrNull { it.population } ?: return fallback("")
+
+            return adaptForBackground(
+                rgbColor(dominant.averageRed, dominant.averageGreen, dominant.averageBlue)
+            )
+        } finally {
+            if (resized !== bitmap && !resized.isRecycled) resized.recycle()
         }
-
-        if (clusters.isEmpty() || sampleCount == 0) return fallback("")
-
-        // A logo/text colour generally occupies far below this share. If an artistic cover is very
-        // detailed and no bin clears the threshold, retain all clusters rather than forcing a hue.
-        val minimumUsefulPopulation = max(4, sampleCount / 150)
-        val eligible = clusters.values.filter { it.population >= minimumUsefulPopulation }
-            .ifEmpty { clusters.values.toList() }
-
-        val dominantSeed = eligible.maxByOrNull { candidate ->
-            eligible.sumOf { neighbour ->
-                if (areSimilar(candidate, neighbour)) neighbour.population else 0
-            }
-        } ?: return fallback("")
-
-        val merged = eligible.filter { areSimilar(dominantSeed, it) }
-        val population = merged.sumOf { it.population }.coerceAtLeast(1)
-        val red = (merged.sumOf { it.redTotal } / population.toLong()).toInt().coerceIn(0, 255)
-        val green = (merged.sumOf { it.greenTotal } / population.toLong()).toInt().coerceIn(0, 255)
-        val blue = (merged.sumOf { it.blueTotal } / population.toLong()).toInt().coerceIn(0, 255)
-
-        return adaptForBackground(rgbColor(red, green, blue))
-    }
-
-    private fun areSimilar(first: PixelCluster, second: PixelCluster): Boolean {
-        if (first.hueBin < 0 || second.hueBin < 0) {
-            return first.hueBin == second.hueBin && abs(first.lightnessBin - second.lightnessBin) <= 1
-        }
-        return circularDistance(first.hueBin, second.hueBin, HueBins) <= 1 &&
-            abs(first.saturationBin - second.saturationBin) <= 1 &&
-            abs(first.lightnessBin - second.lightnessBin) <= 1
     }
 
     /**
-     * Preserve hue and almost all of the cover's saturation/lightness. Only extremes move toward
-     * readable neighbours; this keeps dark red and light red, for example, visibly different.
+     * Preserve the cover's hue exactly and almost all of its saturation. Lightness is compressed
+     * into a durable middle band: black becomes charcoal, white becomes light grey, while dark
+     * and light variants of red, blue, or green remain distinct rather than converging to a preset.
      */
     private fun adaptForBackground(color: Color): Color {
         val hsl = rgbToHsl(
@@ -205,33 +186,25 @@ class XvoxArtworkPaletteLoader(
             (color.blue * 255f).toInt()
         )
 
-        if (hsl.saturation <= .045f && hsl.lightness <= .035f) {
-            // Pure black needs a little surface detail, but remains a dark neutral grey.
-            return hslToColor(0f, .02f, .16f)
-        }
-        if (hsl.saturation <= .045f && hsl.lightness >= .965f) {
-            // Pure white similarly becomes a light neutral grey, not a fixed themed colour.
-            return hslToColor(0f, .02f, .84f)
-        }
+        // Only take the hard edge off neon-level saturation. Ordinary artwork saturation stays as-is.
+        val harshness = ((hsl.saturation - .92f) / .08f).coerceIn(0f, 1f)
+        val saturation = (hsl.saturation - .08f * harshness).coerceIn(0f, 1f)
 
-        val harshness = ((hsl.saturation - .90f) / .10f).coerceIn(0f, 1f)
-        val saturation = (hsl.saturation - .10f * harshness).coerceIn(0f, 1f)
-        val lowerReadableLightness = .09f + (1f - saturation) * .035f
-        val upperReadableLightness = .91f - (1f - saturation) * .035f
-        val lightness = when {
-            hsl.lightness < lowerReadableLightness ->
-                hsl.lightness + (lowerReadableLightness - hsl.lightness) * .72f
-            hsl.lightness > upperReadableLightness ->
-                hsl.lightness + (upperReadableLightness - hsl.lightness) * .72f
-            else -> hsl.lightness
+        // This ordered, centre-preserving mapping keeps light/dark cover identity while removing
+        // unusable extremes: 0.00 -> 0.30 charcoal, 0.50 -> 0.50, 1.00 -> 0.62 mid/light grey.
+        // Dark-red versus light-red (and the other hues) therefore remain visibly distinct.
+        val lightness = if (hsl.lightness <= .50f) {
+            .30f + .40f * hsl.lightness
+        } else {
+            .50f + .24f * (hsl.lightness - .50f)
         }
-        return hslToColor(hsl.hue, saturation, lightness)
+        return hslToColor(hsl.hue, saturation, lightness.coerceIn(.30f, .62f))
     }
 
     private fun fallback(seed: String): Color {
-        if (seed.isBlank()) return hslToColor(235f, .10f, .20f)
+        if (seed.isBlank()) return hslToColor(235f, .18f, .50f)
         val hue = (abs(seed.hashCode()) % 360).toFloat()
-        return hslToColor(hue, .40f, .52f)
+        return hslToColor(hue, .40f, .50f)
     }
 
     private fun rgbToHsl(red: Int, green: Int, blue: Int): Hsl {
@@ -276,9 +249,4 @@ class XvoxArtworkPaletteLoader(
         green = green / 255f,
         blue = blue / 255f
     )
-
-    private fun circularDistance(first: Int, second: Int, size: Int): Int {
-        val difference = abs(first - second)
-        return min(difference, size - difference)
-    }
 }

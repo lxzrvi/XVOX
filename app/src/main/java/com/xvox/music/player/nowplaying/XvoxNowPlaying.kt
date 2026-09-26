@@ -26,7 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -63,6 +62,7 @@ import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
@@ -143,6 +143,8 @@ fun XvoxNowPlaying(
     // audible item stays untouched until the navigation button is released.
     var previewIndex by rememberSaveable { mutableIntStateOf(currentIndex.coerceIn(0, queue.lastIndex.coerceAtLeast(0))) }
     var previewGestureActive by remember { mutableStateOf(false) }
+    var previewCommitJob by remember { mutableStateOf<Job?>(null) }
+    var previewCommitVersion by remember { mutableIntStateOf(0) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
 
     var headerHeightDp by remember { mutableStateOf(56.dp) }
@@ -179,6 +181,9 @@ fun XvoxNowPlaying(
     fun dismiss() {
         if (dismissing) return
         dismissing = true
+        previewCommitVersion++
+        previewCommitJob?.cancel()
+        previewCommitJob = null
         onDismissStart()
         animateScreen(target = screenHeight, finished = onClose)
     }
@@ -187,7 +192,15 @@ fun XvoxNowPlaying(
         animateScreen(0f)
     }
 
+    fun cancelPendingPreviewCommit() {
+        previewCommitVersion++
+        previewCommitJob?.cancel()
+        previewCommitJob = null
+    }
+
     LaunchedEffect(currentIndex, queue) {
+        // An external player change wins over an old delayed button-release request.
+        if (!previewGestureActive) cancelPendingPreviewCommit()
         if (!previewGestureActive && currentIndex in queue.indices) {
             previewIndex = currentIndex
         } else if (previewIndex !in queue.indices && currentIndex in queue.indices) {
@@ -197,6 +210,7 @@ fun XvoxNowPlaying(
 
     fun movePreview(direction: Int): Boolean {
         if (queue.isEmpty() || repeatMode == RepeatMode.ONE) return false
+        cancelPendingPreviewCommit()
         val from = previewIndex.takeIf { it in queue.indices }
             ?: currentIndex.takeIf { it in queue.indices }
             ?: return false
@@ -215,13 +229,29 @@ fun XvoxNowPlaying(
 
     fun commitPreview() {
         val target = previewIndex
+        cancelPendingPreviewCommit()
         previewGestureActive = false
-        if (target in queue.indices && target != currentIndex) {
-            onPlayQueueIndex(target)
+        if (target !in queue.indices || target == currentIndex) return
+
+        val requestVersion = previewCommitVersion
+        previewCommitJob = scope.launch {
+            // Keep audio on the current song until the released cover has rested in place.
+            delay(300)
+            if (
+                requestVersion == previewCommitVersion &&
+                !previewGestureActive &&
+                previewIndex == target &&
+                target in queue.indices &&
+                target != currentIndex
+            ) {
+                onPlayQueueIndex(target)
+            }
+            if (requestVersion == previewCommitVersion) previewCommitJob = null
         }
     }
 
     fun cancelPreview() {
+        cancelPendingPreviewCommit()
         previewGestureActive = false
         previewIndex = currentIndex.takeIf { it in queue.indices } ?: previewIndex
     }
@@ -310,6 +340,7 @@ fun XvoxNowPlaying(
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
             style = settingsState.nowPlayingBackgroundStyle,
+            isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -343,7 +374,7 @@ fun XvoxNowPlaying(
                     onSwipeDownEnd = {
                         if (screenY > screenHeight * 0.18f) dismiss() else returnToRest()
                     },
-                    textColor = paletteState.color,
+                    textColor = colors.primaryText,
                     modifier = Modifier.fillMaxSize()
                 )
                 }
@@ -388,7 +419,7 @@ fun XvoxNowPlaying(
                                     onToggleExpand = { setMode(2) },
                                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                                     onDismissNowPlaying = ::dismiss,
-                                    textColor = paletteState.color,
+                                    textColor = colors.primaryText,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(20.dp))
@@ -577,7 +608,7 @@ fun XvoxNowPlaying(
                                     returnToRest()
                                 }
                             },
-                            textColor = paletteState.color,
+                            textColor = colors.primaryText,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = currentPadH)

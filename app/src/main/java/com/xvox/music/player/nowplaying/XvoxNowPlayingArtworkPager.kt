@@ -70,9 +70,12 @@ fun XvoxNowPlayingArtworkPager(
 
     val isUserDragging by pager.interactionSource.collectIsDraggedAsState()
     var userSwiped by remember { mutableStateOf(false) }
+    // Prevent a stale 300 ms release commit when the user begins a fresh fast swipe.
+    var swipeEpoch by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(isUserDragging) {
         if (isUserDragging) {
+            swipeEpoch++
             userSwiped = true
         }
     }
@@ -82,18 +85,15 @@ fun XvoxNowPlayingArtworkPager(
     LaunchedEffect(previewIndex, queue.size) {
         userSwiped = false
         if (previewIndex in queue.indices && previewIndex != pager.currentPage) {
-            val dist = abs(previewIndex - pager.currentPage)
-            if (dist > 1) {
-                pager.scrollToPage(previewIndex)
-            } else {
-                pager.animateScrollToPage(
-                    page = previewIndex,
-                    animationSpec = tween(
-                        durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
-                        easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
-                    )
+            // Never scrollToPage here: a held or rapidly tapped control can move more than one
+            // index, but the visible cover and the live palette must still travel continuously.
+            pager.animateScrollToPage(
+                page = previewIndex,
+                animationSpec = tween(
+                    durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
+                    easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
                 )
-            }
+            )
         }
     }
 
@@ -113,7 +113,9 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Playback change triggered ONLY when the user manually swiped and pager settles
+    // Playback changes only after a manual swipe has genuinely settled for 300 ms. This lets the
+    // current audio continue through fast browsing and commits exactly the cover where the user
+    // stopped, rather than a transient page passed during a fling.
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
@@ -121,8 +123,10 @@ fun XvoxNowPlayingArtworkPager(
             if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != latestCurrentIndex) {
                 userSwiped = false
                 previewChanged(settledIndex)
-                delay(60)
+                val settledEpoch = swipeEpoch
+                delay(300)
                 if (
+                    settledEpoch == swipeEpoch &&
                     !pager.isScrollInProgress &&
                     !isUserDragging &&
                     pager.settledPage == settledIndex &&
