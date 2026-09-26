@@ -1,46 +1,77 @@
 package com.xvox.music.features.settings.sections
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
+import com.xvox.music.features.settings.components.XvoxSlider
+import kotlin.math.roundToInt
 
+/** Direct-persistence form retained for the standalone Settings page. */
 @Composable
 fun PlaybackSettingsSection(
     state: SettingsState,
     viewModel: SettingsViewModel,
     showPreview: Boolean = true
 ) {
-    var expandedGroup by remember { mutableStateOf<String?>(null) }
+    PlaybackSettingsContent(
+        state = state,
+        showPreview = showPreview,
+        onCrossfade = viewModel::setCrossfade,
+        onGapless = viewModel::setGapless,
+        onDuration = viewModel::setCrossfadeDuration,
+        onSmartBlend = viewModel::setCrossfadeSmart,
+        onClashControl = viewModel::setCrossfadeClashControl,
+        onBeatSync = viewModel::setCrossfadeBeatSync
+    )
+}
 
+/**
+ * Local-draft form used by the Now Playing sheet. It deliberately makes no ViewModel calls;
+ * callers persist [onStateChange] only after their Okay action.
+ */
+@Composable
+fun PlaybackSettingsDraftSection(
+    state: SettingsState,
+    onStateChange: (SettingsState) -> Unit
+) {
+    PlaybackSettingsContent(
+        state = state,
+        showPreview = false,
+        onCrossfade = { value -> onStateChange(state.copy(crossfade = value)) },
+        onGapless = { value -> onStateChange(state.copy(gapless = value)) },
+        onDuration = { value -> onStateChange(state.copy(crossfadeDuration = value)) },
+        onSmartBlend = { value -> onStateChange(state.copy(crossfadeSmart = value)) },
+        onClashControl = { value -> onStateChange(state.copy(crossfadeClashControl = value)) },
+        onBeatSync = { value -> onStateChange(state.copy(crossfadeBeatSync = value)) }
+    )
+}
+
+@Composable
+private fun PlaybackSettingsContent(
+    state: SettingsState,
+    showPreview: Boolean,
+    onCrossfade: (Boolean) -> Unit,
+    onGapless: (Boolean) -> Unit,
+    onDuration: (Int) -> Unit,
+    onSmartBlend: (Boolean) -> Unit,
+    onClashControl: (Float) -> Unit,
+    onBeatSync: (Boolean) -> Unit
+) {
+    var expandedGroup by remember { mutableStateOf<String?>(null) }
     fun toggle(group: String) {
         expandedGroup = if (expandedGroup == group) null else group
     }
@@ -48,79 +79,56 @@ fun PlaybackSettingsSection(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
 
-        SettingsToggle("Crossfade", "Smoothly transition between consecutive songs", state.crossfade, viewModel::setCrossfade)
-
-        // Gapless Playback / Skip Silence toggle shown always
+        SettingsToggle(
+            title = "Crossfade",
+            subtitle = "Smoothly transition between consecutive songs",
+            checked = state.crossfade,
+            onChange = onCrossfade
+        )
         SettingsToggle(
             title = "Gapless Playback",
             subtitle = "Trim empty silence at the end of songs for instant seamless playback",
             checked = state.gapless,
-            onChange = viewModel::setGapless
+            onChange = onGapless
         )
 
         if (state.crossfade) {
             SettingsAccordionItem(
-                title = "Transition length · ${state.crossfadeDuration}s",
+                title = "Transition Length · ${state.crossfadeDuration}s",
                 expanded = expandedGroup == "Duration",
                 onToggle = { toggle("Duration") }
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(3, 5, 8, 10, 12, 15).forEach { sec ->
-                        Choice("${sec}s", state.crossfadeDuration == sec, Modifier.weight(1f)) {
-                            viewModel.setCrossfadeDuration(sec)
-                        }
-                    }
-                }
+                XvoxSlider(
+                    value = state.crossfadeDuration.toFloat(),
+                    onValueChange = { onDuration(it.roundToInt()) },
+                    valueRange = 1f..20f,
+                    defaultValue = 3f,
+                    steps = 19,
+                    valueLabel = { "${it.roundToInt()} s" }
+                )
             }
 
             SettingsAccordionItem(
-                title = "Smart blend & Beat align",
+                title = "Smart Blend & Beat Align",
                 expanded = expandedGroup == "Blend",
                 onToggle = { toggle("Blend") }
             ) {
-                SettingsToggle("Seamless blend", null, state.crossfadeSmart, viewModel::setCrossfadeSmart)
+                SettingsToggle("Seamless Blend", null, state.crossfadeSmart, onSmartBlend)
                 if (state.crossfadeSmart) {
                     Spacer(Modifier.height(8.dp))
-                    Label("Bass hand-off · ${(state.crossfadeClashControl * 100).toInt()}%")
-                    com.xvox.music.features.settings.sections.SevenButtonLevelSelector(
+                    XvoxSlider(
                         value = state.crossfadeClashControl,
-                        onValueChange = viewModel::setCrossfadeClashControl
+                        onValueChange = onClashControl,
+                        valueRange = 0f..1f,
+                        defaultValue = .7f,
+                        steps = 20,
+                        valueLabel = { "Bass hand-off · ${(it * 100).roundToInt()}%" }
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                SettingsToggle("Beat align", null, state.crossfadeBeatSync, viewModel::setCrossfadeBeatSync)
+                SettingsToggle("Beat Align", null, state.crossfadeBeatSync, onBeatSync)
             }
         }
-    }
-}
-
-@Composable
-private fun Label(text: String) {
-    Text(
-        text,
-        color = XvoxTheme.colors.primaryAccent,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 4.dp)
-    )
-}
-
-@Composable
-private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(19.dp)
-    val fill by animateColorAsState(if (selected) colors.primaryAccent else colors.cardElevated, tween(180), label = "fill")
-    val border by animateColorAsState(if (selected) colors.primaryAccent else colors.cardBorder.copy(alpha = 0.55f), tween(180), label = "border")
-    Box(
-        modifier = modifier.height(38.dp).clip(shape).background(fill)
-            .border(if (selected) 1.6.dp else 0.8.dp, border, shape)
-            .xvoxPressScale(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label, color = if (selected) colors.background else colors.primaryText,
-            fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
     }
 }
 

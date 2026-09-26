@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -124,6 +125,9 @@ fun QueueHeaderDropdown(
 private val RowHeight = 60.dp
 private val RowSpacing = 4.dp
 
+/** Stable visual identity survives drag reorders, including repeated copies of the same Song. */
+private data class QueueEntry(val stableKey: String, val song: Song)
+
 @Composable
 fun XvoxQueueBoxContent(
     queue: List<Song>,
@@ -147,13 +151,16 @@ fun XvoxQueueBoxContent(
     val remove by rememberUpdatedState(onRemoveIndex)
     val play by rememberUpdatedState(onPlayIndex)
 
-    var draggingSong by remember { mutableStateOf<Song?>(null) }
+    val sourceEntries = remember(queue) {
+        queue.mapIndexed { index, song -> QueueEntry(stableKey = "${song.id}:$index", song = song) }
+    }
+    var draggingEntry by remember { mutableStateOf<QueueEntry?>(null) }
     var dragCardOffsetY by remember { mutableFloatStateOf(0f) }
     var initialDragIndex by remember { mutableIntStateOf(-1) }
     var currentDragIndex by remember { mutableIntStateOf(-1) }
 
-    var dragList by remember { mutableStateOf<List<Song>?>(null) }
-    val displayList = dragList ?: queue
+    var dragList by remember { mutableStateOf<List<QueueEntry>?>(null) }
+    val displayEntries = dragList ?: sourceEntries
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
     val rowSpacingPx = with(density) { RowSpacing.toPx() }
@@ -162,7 +169,7 @@ fun XvoxQueueBoxContent(
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
     fun checkAndSwapSlots() {
-        val currSong = draggingSong ?: return
+        if (draggingEntry == null) return
         val currentLocalList = dragList ?: return
         val fromSlot = currentDragIndex
         if (fromSlot !in currentLocalList.indices) return
@@ -190,10 +197,10 @@ fun XvoxQueueBoxContent(
     }
 
     // Auto-scroll when holding and dragging near top or bottom of list viewport
-    LaunchedEffect(draggingSong, dragCardOffsetY, listViewportHeight) {
-        if (draggingSong != null && listViewportHeight > 0f) {
+    LaunchedEffect(draggingEntry, dragCardOffsetY, listViewportHeight) {
+        if (draggingEntry != null && listViewportHeight > 0f) {
             val scrollEdgeThreshold = with(density) { 56.dp.toPx() }
-            while (isActive && draggingSong != null) {
+            while (isActive && draggingEntry != null) {
                 if (dragCardOffsetY < scrollEdgeThreshold && listState.canScrollBackward) {
                     val speed = ((scrollEdgeThreshold - dragCardOffsetY) / scrollEdgeThreshold).coerceIn(0.2f, 1f) * with(density) { 14.dp.toPx() }
                     listState.scrollBy(-speed)
@@ -209,10 +216,13 @@ fun XvoxQueueBoxContent(
         }
     }
 
+    val longQueue = queue.size > 6
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight()
+            // Long queues occupy the bounded sheet viewport so LazyColumn, not the sheet body,
+            // owns scrolling. Short queues still measure to their content without blank space.
+            .then(if (longQueue) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
             .animateContentSize(animationSpec = tween(180, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
     ) {
         if (queue.isEmpty()) {
@@ -230,8 +240,10 @@ fun XvoxQueueBoxContent(
                 )
             }
         } else {
-            val queueViewport = if (queue.size > 6) {
-                Modifier.heightIn(min = 180.dp)
+            val queueViewport = if (longQueue) {
+                Modifier
+                    .fillMaxHeight()
+                    .heightIn(min = 180.dp)
             } else {
                 Modifier.heightIn(min = 180.dp, max = 560.dp)
             }
@@ -251,7 +263,7 @@ fun XvoxQueueBoxContent(
                                 downY >= item.offset && downY <= (item.offset + item.size)
                             }
 
-                            if (hitItem != null && hitItem.index in queue.indices) {
+                            if (hitItem != null && hitItem.index in sourceEntries.indices) {
                                 val hitIndex = hitItem.index
                                 val initialItemTop = hitItem.offset.toFloat()
                                 val touchOffsetYInCard = downY - initialItemTop
@@ -270,9 +282,9 @@ fun XvoxQueueBoxContent(
 
                                 if (longPressTriggered) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val song = queue[hitIndex]
-                                    draggingSong = song
-                                    dragList = queue.toList()
+                                    val entry = sourceEntries[hitIndex]
+                                    draggingEntry = entry
+                                    dragList = sourceEntries.toList()
                                     initialDragIndex = hitIndex
                                     currentDragIndex = hitIndex
                                     dragCardOffsetY = (downY - touchOffsetYInCard).coerceAtLeast(0f)
@@ -295,13 +307,13 @@ fun XvoxQueueBoxContent(
                                     val finalList = dragList
                                     val from = initialDragIndex
                                     val to = currentDragIndex
-                                    draggingSong = null
+                                    draggingEntry = null
                                     dragList = null
                                     initialDragIndex = -1
                                     currentDragIndex = -1
                                     if (finalList != null) {
                                         if (onReorderQueue != null) {
-                                            onReorderQueue(finalList)
+                                            onReorderQueue(finalList.map(QueueEntry::song))
                                         } else if (from in queue.indices && to in queue.indices && from != to) {
                                             move(from, to)
                                         }
@@ -313,20 +325,20 @@ fun XvoxQueueBoxContent(
             ) {
                 LazyColumn(
                     state = listState,
-                    userScrollEnabled = draggingSong == null,
+                    userScrollEnabled = draggingEntry == null,
                     contentPadding = PaddingValues(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
+                        .fillMaxSize()
                         .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
-                        items = displayList,
-                        key = { idx, song -> "${song.id}_$idx" },
+                        items = displayEntries,
+                        key = { _, entry -> entry.stableKey },
                         contentType = { _, _ -> "queue_row" }
-                    ) { idx, song ->
-                        val isThisItemBeingDragged = draggingSong?.id == song.id && idx == currentDragIndex
+                    ) { idx, entry ->
+                        val song = entry.song
+                        val isThisItemBeingDragged = draggingEntry?.stableKey == entry.stableKey && idx == currentDragIndex
 
                         Box(
                             modifier = Modifier
@@ -342,18 +354,18 @@ fun XvoxQueueBoxContent(
                                 index = idx,
                                 isPlayingThis = isPlaybackActiveInThisQueue && song.id == currentSongId,
                                 isPlayingAudio = isPlaying,
-                                totalCount = displayList.size,
+                                totalCount = displayEntries.size,
                                 onPlay = { play(idx) },
                                 onRemove = { remove(idx) },
                                 onMoveUp = if (idx > 0) { { move(idx, idx - 1) } } else null,
-                                onMoveDown = if (idx < displayList.lastIndex) { { move(idx, idx + 1) } } else null
+                                onMoveDown = if (idx < displayEntries.lastIndex) { { move(idx, idx + 1) } } else null
                             )
                         }
                     }
                 }
 
-                if (draggingSong != null) {
-                    val draggedSong = draggingSong!!
+                if (draggingEntry != null) {
+                    val draggedSong = draggingEntry!!.song
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -367,7 +379,7 @@ fun XvoxQueueBoxContent(
                             index = currentDragIndex,
                             isPlayingThis = isPlaybackActiveInThisQueue && draggedSong.id == currentSongId,
                             isPlayingAudio = isPlaying,
-                            totalCount = displayList.size,
+                            totalCount = displayEntries.size,
                             onPlay = {},
                             onRemove = {},
                             onMoveUp = null,

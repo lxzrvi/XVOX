@@ -193,7 +193,24 @@ fun WidgetSettingsSection(
             Group("Placement & Free Movement")
             SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> editWidget { it.copy(coverPlacement = value) } }
             Spacer(Modifier.height(8.dp))
-            SettingsChoiceRow(listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300).map { "$it" to if (it == 0) "Auto" else "$it" }, c.coverSize.toString()) { value -> editWidget { it.copy(coverSize = value.toInt()) } }
+            // Twelve discrete legacy buttons made this row wrap/scroll unpredictably. The shared
+            // stepped slider retains every exact size while staying responsive at all widths.
+            val coverSizes = listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300)
+            val selectedCoverIndex = coverSizes.indexOf(c.coverSize).takeIf { it >= 0 } ?: 0
+            XvoxSlider(
+                value = selectedCoverIndex.toFloat(),
+                onValueChange = { raw ->
+                    val index = raw.roundToInt().coerceIn(coverSizes.indices)
+                    editWidget { it.copy(coverSize = coverSizes[index]) }
+                },
+                valueRange = 0f..coverSizes.lastIndex.toFloat(),
+                defaultValue = 0f,
+                steps = coverSizes.lastIndex,
+                valueLabel = { raw ->
+                    val size = coverSizes[raw.roundToInt().coerceIn(coverSizes.indices)]
+                    if (size == 0) "Auto" else "$size dp"
+                }
+            )
 
             Spacer(Modifier.height(8.dp))
             Group("Surface Offsets")

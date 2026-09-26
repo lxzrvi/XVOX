@@ -6,6 +6,7 @@ import android.net.Uri
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.features.settings.components.XvoxTransactionalFooterActions
 import com.xvox.music.features.playlist.PlaylistInfoBox
 import com.xvox.music.features.playlist.PlaylistPickerBox
 import com.xvox.music.features.playlist.XvoxAddPlaylistSongsBox
@@ -75,7 +76,15 @@ fun showPlaylistActions(
                 }
             },
             onInfo = {
-                overlays.showBox("Playlist info") {
+                overlays.showBox(
+                    title = "Playlist info",
+                    bottomAction = {
+                        XvoxTransactionalFooterActions(
+                            onCancel = overlays::hideBox,
+                            onOkay = overlays::hideBox
+                        )
+                    }
+                ) {
                     PlaylistInfoBox(
                         playlist = current,
                         songCount = viewModel.playlistSongs(current).size

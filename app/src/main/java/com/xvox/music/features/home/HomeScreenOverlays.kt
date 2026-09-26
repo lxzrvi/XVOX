@@ -7,6 +7,7 @@ import androidx.activity.result.IntentSenderRequest
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
+import com.xvox.music.features.settings.components.XvoxTransactionalFooterActions
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.CreatePlaylistBox
 import com.xvox.music.features.playlist.PlaylistPickerBox
@@ -226,7 +227,15 @@ fun showSongOptionsOverlay(
         // Playlist rows have contextual actions only; their Song Options must not expose the
         // unrelated section gear.
         onSettings = if (playlist == null) onSectionSettings?.let { act -> { act() } } else null,
-        presentation = XvoxBoxPresentation.SONG_OPTIONS
+        presentation = XvoxBoxPresentation.SONG_OPTIONS,
+        // Long-press menus always expose an explicit, theme-consistent close footer. Actions may
+        // still execute immediately; Cancel/Okay simply leave an untouched menu predictably.
+        bottomAction = {
+            XvoxTransactionalFooterActions(
+                onCancel = overlays::hideBox,
+                onOkay = overlays::hideBox
+            )
+        }
     ) {
         SongOptionsBox(
             song = sourcedSong,
@@ -289,7 +298,15 @@ fun showSongOptionsOverlay(
             onInfo = {
                 overlays.hideBox()
                 viewModel.loadInfo(sourcedSong) { info ->
-                    overlays.showBox("Song info") { SongInfoBox(info) }
+                    overlays.showBox(
+                        title = "Song info",
+                        bottomAction = {
+                            XvoxTransactionalFooterActions(
+                                onCancel = overlays::hideBox,
+                                onOkay = overlays::hideBox
+                            )
+                        }
+                    ) { SongInfoBox(info) }
                 }
             },
             onRingtone = {

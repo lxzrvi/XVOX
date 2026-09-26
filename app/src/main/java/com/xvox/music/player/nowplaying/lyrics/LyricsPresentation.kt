@@ -6,9 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -137,22 +135,8 @@ fun LyricPresentationLine(
 
     // The caller supplies the lyric-only Cover / Black / White color; player chrome remains themed elsewhere.
     val resolvedColor = if (active) themedColor else themedColor.copy(alpha = .88f)
-    // Cover matching can legitimately be close to the extracted background. A soft halo uses the
-    // active theme's darkest/lightest text pair—not a new accent—to preserve the chosen text
-    // color while separating glyph edges from that similarly coloured backdrop.
-    val themeDark = if (colors.background.luminance() <= colors.primaryText.luminance()) {
-        colors.background
-    } else {
-        colors.primaryText
-    }
-    val themeLight = if (themeDark == colors.background) colors.primaryText else colors.background
-    val haloColor = if (themedColor.luminance() > .52f) themeDark else themeLight
-    val textShadow = Shadow(
-        color = haloColor.copy(alpha = if (active) .76f else .58f),
-        offset = Offset.Zero,
-        blurRadius = if (active) 4f else 3f
-    )
-
+    // Colour separation is resolved before this composable; lyrics intentionally have no glow
+    // or shadow layer, so cover matching remains clean and typographic.
     val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp
 
     Text(
@@ -164,7 +148,6 @@ fun LyricPresentationLine(
             lineHeight = (maximumSize * 1.30f).sp,
             fontWeight = if (active) FontWeight(settings.fontWeight) else FontWeight((settings.fontWeight - 150).coerceAtLeast(300)),
             textAlign = textAlign,
-            shadow = textShadow,
             platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(
                 includeFontPadding = false
             )

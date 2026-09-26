@@ -31,15 +31,6 @@ fun SongInfoBox(
             .verticalScroll(scrollState)
             .xvoxBoxScroll(scrollState)
     ) {
-        Text(
-            text = "Song info",
-            color = colors.primaryText,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(Modifier.height(12.dp))
-
         InfoRow("Title", info.title)
         InfoRow("Artist", info.artist)
         InfoRow("Album", info.album)

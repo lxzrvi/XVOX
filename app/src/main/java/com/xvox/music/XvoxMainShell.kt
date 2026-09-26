@@ -61,6 +61,7 @@ import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.navigation.XvoxBottomBar
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.features.settings.components.XvoxTransactionalFooterActions
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
@@ -80,6 +81,7 @@ import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
 import com.xvox.music.shell.XvoxTimerBoxContent
+import com.xvox.music.shell.XvoxTimerDraft
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -115,12 +117,13 @@ fun XvoxMainShell(
     }
 
     var destination by rememberSaveable { mutableStateOf(XvoxDestination.HOME) }
+    // The Sleep Timer sheet owns a transient selection until its fixed Okay footer commits it.
+    var timerDraft by remember { mutableStateOf<XvoxTimerDraft?>(null) }
     var nowPlayingDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
-    var profileEditorOpen by remember { mutableStateOf(false) }
     var miniPlayerNavDraft by remember { mutableStateOf(chrome) }
     // The Header is no longer shell-translated from a page scroll callback.  Each screen receives
     // it as the first item of its own list, guaranteeing one real coordinate space.
@@ -131,13 +134,11 @@ fun XvoxMainShell(
     fun showProfileEditor() {
         val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
         profileDraft = baseline
-        profileEditorOpen = true
         overlays.showBox(
             title = "Profile",
-            // Any close route—including back or an outside tap—rolls the live Header preview
-            // back to the persisted profile/chrome presentation.
+            // Any close route discards the local profile draft. The underlying Header has stayed
+            // on its persisted presentation throughout this editor transaction.
             onDismiss = {
-                profileEditorOpen = false
                 profileDraft = baseline
             },
             bottomAction = {
@@ -221,18 +222,12 @@ fun XvoxMainShell(
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
+                            // Only the controls still exposed by this compact editor reset. Hidden
+                            // placement, sizing, radius, and image preferences remain untouched.
                             miniPlayerNavDraft = miniPlayerNavDraft.copy(
                                 miniCoverStyle = "default",
-                                miniCornerRadius = 15f,
                                 miniBgAlpha = 1f,
-                                navigationBarHeight = 62f,
-                                navigationBarWidth = 246f,
-                                navBgAlpha = .88f,
-                                navigationImageUri = "",
-                                miniPlayerOffsetX = 0f,
-                                miniPlayerOffsetY = 0f,
-                                navigationBarOffsetX = 0f,
-                                navigationBarOffsetY = 0f
+                                navBgAlpha = .88f
                             )
                         }
                     )
@@ -371,27 +366,46 @@ fun XvoxMainShell(
     }
 
     fun showTimerBox() {
-        overlays.showBox("Sleep timer") {
+        val initiallyActive = player.sleepTimerMinutes != null
+        timerDraft = player.sleepTimerMinutes?.let { XvoxTimerDraft(minutes = it) }
+        overlays.showBox(
+            title = "Sleep timer",
+            bottomAction = {
+                XvoxTransactionalFooterActions(
+                    onCancel = { overlays.hideBox() },
+                    onReset = if (initiallyActive) {
+                        {
+                            playerViewModel.cancelSleepTimer()
+                            overlays.hideBox()
+                            overlays.showP("Timer off")
+                        }
+                    } else null,
+                    resetLabel = "Off",
+                    onOkay = {
+                        timerDraft?.let { draft ->
+                            if (draft.seconds > 0) {
+                                playerViewModel.setCustomSleepTimer(
+                                    draft.minutes,
+                                    draft.seconds,
+                                    draft.pauseMusic,
+                                    draft.closeApp
+                                )
+                                overlays.showP("Custom timer ${draft.minutes}m ${draft.seconds}s")
+                            } else if (draft.minutes > 0) {
+                                playerViewModel.setSleepTimer(draft.minutes)
+                                overlays.showP("Timer set ${draft.minutes} min")
+                            }
+                        }
+                        overlays.hideBox()
+                    }
+                )
+            },
+            onDismiss = { timerDraft = null }
+        ) {
             XvoxTimerBoxContent(
                 currentMinutes = player.sleepTimerMinutes,
-                onSetMinutes = { minutes ->
-                    playerViewModel.setSleepTimer(minutes)
-                    overlays.hideBox()
-                    overlays.showP("Timer set $minutes min")
-                },
-                onCustom = { minutes, seconds, pause, closeApp ->
-                    playerViewModel.setCustomSleepTimer(minutes, seconds, pause, closeApp)
-                    overlays.hideBox()
-                    val total = minutes * 60 + seconds
-                    if (total > 0) {
-                        overlays.showP("Custom timer ${minutes}m ${seconds}s")
-                    }
-                },
-                onCancel = {
-                    playerViewModel.cancelSleepTimer()
-                    overlays.hideBox()
-                    overlays.showP("Timer off")
-                }
+                draft = timerDraft,
+                onDraftChange = { timerDraft = it }
             )
         }
     }
@@ -453,23 +467,11 @@ fun XvoxMainShell(
         else homeViewModel.toggleRecentMode()
     }
 
-    // Profile editing is transactionally staged, but its Header image, avatar, and dimness are
-    // intentionally rendered from this draft immediately.  The overlay's onDismiss restores the
-    // persisted presentation for Cancel/back/scrim paths.
-    val headerProfile = if (profileEditorOpen) {
-        homeState.profile.copy(
-            username = profileDraft.username,
-            selectedPfp = profileDraft.selectedPfp,
-            customPfpUri = profileDraft.customPfpUri,
-            showProfileLines = profileDraft.showProfileLines,
-            headerImageUri = profileDraft.headerImageUri
-        )
-    } else {
-        homeState.profile
-    }
+    // Profile editing remains transactional. The underlying Header deliberately stays on its
+    // saved presentation until Save; the profile sheet no longer renders a live Header preview.
     val pageHeader: @Composable () -> Unit = {
         XvoxShellTopHeader(
-            profile = headerProfile,
+            profile = homeState.profile,
             destination = destination,
             libraryMode = homeState.libraryMode,
             onProfileClick = ::showProfileEditor,
@@ -481,8 +483,6 @@ fun XvoxMainShell(
                 homeViewModel.toggleArtistMode()
             },
             onRecentClick = ::openRecentFromHeader,
-            headerDimEnabledOverride = if (profileEditorOpen) profileDraft.headerDimEnabled else null,
-            headerDimAmountOverride = if (profileEditorOpen) profileDraft.headerDimAmount else null,
             useSystemInsets = true
         )
     }
@@ -719,9 +719,15 @@ fun XvoxMainShell(
                     onQueue = ::showQueueBox,
                     onInfo = {
                         homeViewModel.loadInfo(playingSong) { info ->
-                            overlays.showBox("Song info") {
-                                SongInfoBox(info = info)
-                            }
+                            overlays.showBox(
+                                title = "Song info",
+                                bottomAction = {
+                                    XvoxTransactionalFooterActions(
+                                        onCancel = overlays::hideBox,
+                                        onOkay = overlays::hideBox
+                                    )
+                                }
+                            ) { SongInfoBox(info = info) }
                         }
                     },
                     onShare = {

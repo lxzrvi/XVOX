@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -38,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +54,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -104,6 +108,12 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    // The bar is close to Header at rest, but once its sticky slot reaches the top it reserves the
+    // system area instead of sliding underneath / into the status bar.
+    val searchBarPinned by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 }
+    }
+    val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -451,10 +461,15 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colors.background)
-                        // The list's shared 8dp item rhythm already separates this from Header;
-                        // add only 2dp here to preserve the requested 10dp total relationship.
-                        // Header itself owns the status-bar inset, so do not duplicate it.
-                        .padding(start = 14.dp, top = 2.dp, end = 14.dp, bottom = 4.dp)
+                        // The list's 8dp rhythm plus 2dp here gives the requested 10dp below
+                        // Header at rest. Once sticky, reserve the real status-bar height so the
+                        // search field never travels into that system region.
+                        .padding(
+                            start = 14.dp,
+                            top = if (searchBarPinned) statusBarHeight + 2.dp else 2.dp,
+                            end = 14.dp,
+                            bottom = 4.dp
+                        )
                 ) {
                     SearchBarComponent(
                             query = query,
@@ -971,8 +986,7 @@ private fun SearchArtistCircleItem(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(colors.cardElevated)
-                .border(1.dp, colors.cardBorder, CircleShape),
+                .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {
             if (!artist.customImageUri.isNullOrBlank()) {

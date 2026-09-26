@@ -186,7 +186,10 @@ fun XvoxSlider(
                                     resetToDefault = true
                                     selectedStep = stepForValue(defaultValue)
                                     haptics.heavy()
-                                    currentOnValueChange(valueForStep(selectedStep))
+                                    // Keep the documented default exact even when the visible
+                                    // stepped rail's nearest division is fractional (for example
+                                    // a .22 fade default on a .45 range).
+                                    currentOnValueChange(defaultValue.coerceIn(valueRange))
                                     continue
                                 }
                             }

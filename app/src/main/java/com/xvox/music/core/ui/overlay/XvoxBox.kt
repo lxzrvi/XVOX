@@ -110,12 +110,14 @@ private class XvoxSheetScrollBridge(
             }
         }
         if (availableY > 0f) {
-            val floor = minOf(current, max * .50f)
+            // Content-led downward motion can compact a long sheet as far as 20% of the usable
+            // screen before its continued pull closes it.
+            val floor = minOf(current, max * .20f)
             if (current > floor) {
                 val shrink = minOf(availableY, current - floor)
                 setSheetHeight(current - shrink)
                 // Preserve the finger's remaining motion after contraction. This makes one
-                // continuous downward pull contract to ~50% and then close, rather than forcing
+                // continuous downward pull contract to ~20% and then close, rather than forcing
                 // the user to lift and start a second gesture.
                 val remainder = availableY - shrink
                 continuedDownwardPx = remainder.coerceAtLeast(0f)
@@ -269,10 +271,11 @@ fun XvoxSheet(
 
                 // Compact interfaces keep their measured content height. Overflowing lists start
                 // around six rows (roughly half the usable screen), then grow one-for-one with an
-                // upward list gesture until they approach the status bar.  The 50% compact floor
-                // is where a reversed downward gesture starts the close path.
+                // upward list gesture until they approach the status bar. Content drag can later
+                // compact them to 20%; the pill has its own gentler 40% close threshold.
                 val largeStartHeightPx = maxSheetHeightPx * .50f
-                val contractFloorPx = maxSheetHeightPx * .50f
+                val contentContractFloorPx = maxSheetHeightPx * .20f
+                val pillCloseHeightPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
                 var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
@@ -387,19 +390,20 @@ fun XvoxSheet(
                                             if (dragDeltaPx < 0f) {
                                                 requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
                                                     .coerceIn(1f, maxSheetHeightPx)
-                                            } else if (dragStartHeightPx > contractFloorPx) {
-                                                // At the top, a downward pull contracts first.
+                                            } else if (dragStartHeightPx > contentContractFloorPx) {
+                                                // A pill drag can compact continuously; it only
+                                                // closes after the sheet has crossed 40% height.
                                                 requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
-                                                    .coerceAtLeast(contractFloorPx)
+                                                    .coerceAtLeast(contentContractFloorPx)
                                             }
                                         },
                                         onDragEnd = {
                                             val dismissThreshold = with(density) { 52.dp.toPx() }
                                             val currentHeight = requestedHeightPx.takeIf { it > 0f }
                                                 ?: measuredHeightPx.toFloat()
-                                            // A continued pull only dismisses once the sheet has
-                                            // reached the compact ~50% point.
-                                            if (dragDeltaPx > dismissThreshold && currentHeight <= contractFloorPx + 2f) {
+                                            // A direct pill drag only dismisses after crossing
+                                            // the requested ~40% visible-height point.
+                                            if (dragDeltaPx > dismissThreshold && currentHeight <= pillCloseHeightPx + 2f) {
                                                 close()
                                             } else if (dragDeltaPx < 0f) {
                                                 requestedHeightPx = requestedHeightPx.coerceAtMost(maxSheetHeightPx)
@@ -434,17 +438,8 @@ fun XvoxSheet(
                             onClose = ::close
                         )
 
-                        // Song Options specifically has no header separator. Its cards carry the
-                        // rhythm instead, while other sheets retain one unobtrusive guide line.
-                        if (!songOptionsPresentation) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(.7.dp)
-                                    .background(colors.cardBorder.copy(alpha = .50f))
-                            )
-                        }
-
+                        // All sheets are deliberately line-free beneath the Header. The clipped
+                        // body begins directly after Header's own touch-safe lower inset.
                         val bodyHorizontal = when {
                             songOptionsPresentation -> 12.dp
                             equalizerPresentation -> 16.dp
@@ -459,8 +454,8 @@ fun XvoxSheet(
                                 .then(bodyViewport)
                                 .heightIn(min = 0.dp)
                                 .nestedScroll(universalBodySheetConnection)
-                                // Keep a small, stable air gap under the separator and clip the
-                                // scrolling viewport, so content cannot travel over the header.
+                                // The viewport stays clipped beneath Header/footer. Keep a small
+                                // content-safe inset, but deliberately draw no separator line.
                                 .clipToBounds()
                                 .padding(start = bodyHorizontal, top = 6.dp, end = bodyHorizontal, bottom = 10.dp)
                         ) {
@@ -470,12 +465,6 @@ fun XvoxSheet(
                         }
 
                         bottomAction?.let { footer ->
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(.7.dp)
-                                    .background(colors.cardBorder.copy(alpha = .50f))
-                            )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -573,27 +562,16 @@ private fun XvoxCenteredBox(
                         onClose = ::close
                     )
                     Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(.7.dp)
-                            .background(colors.cardBorder.copy(alpha = .50f))
-                    )
-                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
                             .heightIn(min = 0.dp)
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .clipToBounds()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
                         content()
                     }
                     bottomAction?.let { footer ->
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(.7.dp)
-                                .background(colors.cardBorder.copy(alpha = .50f))
-                        )
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -681,7 +659,7 @@ private fun XvoxSheetHeaderAction(
     icon: Int,
     description: String,
     onClick: () -> Unit,
-    tint: Color = XvoxTheme.colors.primaryAccent
+    tint: Color = XvoxTheme.colors.primaryText
 ) {
     Box(
         modifier = Modifier

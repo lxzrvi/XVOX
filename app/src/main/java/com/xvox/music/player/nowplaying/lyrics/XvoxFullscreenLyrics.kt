@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -155,7 +156,7 @@ fun XvoxFullscreenLyrics(
     val lyricColor = when (lyricsSettings.textColorMode) {
         "black" -> Color.Black
         "white" -> Color.White
-        else -> baseColor
+        else -> baseColor.xvoxFullscreenReadableLyricColor()
     }
 
     val listState = rememberLazyListState()
@@ -707,6 +708,18 @@ fun XvoxFullscreenLyrics(
             }
         }
     }
+}
+
+/** Cover-hued but contrast-pulled lyric text; no glow/shadow fallback is needed. */
+private fun Color.xvoxFullscreenReadableLyricColor(): Color {
+    val pole = if (luminance() > .48f) Color.Black else Color.White
+    val pull = .64f
+    return Color(
+        red = red * (1f - pull) + pole.red * pull,
+        green = green * (1f - pull) + pole.green * pull,
+        blue = blue * (1f - pull) + pole.blue * pull,
+        alpha = 1f
+    )
 }
 
 @Composable

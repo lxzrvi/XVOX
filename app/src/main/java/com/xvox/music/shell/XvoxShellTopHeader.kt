@@ -56,9 +56,6 @@ fun XvoxShellTopHeader(
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
     onRecentClick: () -> Unit = {},
-    /** Optional transactional preview supplied by the profile editor. */
-    headerDimEnabledOverride: Boolean? = null,
-    headerDimAmountOverride: Float? = null,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -77,8 +74,9 @@ fun XvoxShellTopHeader(
     )
     // The Header stays visually invariant while Home swaps its library page or the user enters
     // Search. Destination-specific motion belongs to the content below this line, not this chrome.
-    val dimEnabled = headerDimEnabledOverride ?: chrome.headerDimEnabled
-    val dimAmount = headerDimAmountOverride ?: chrome.headerDimAmount
+    // Use only persisted chrome state: profile editing deliberately has no live Header preview.
+    val dimEnabled = chrome.headerDimEnabled
+    val dimAmount = chrome.headerDimAmount
     val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
@@ -150,9 +148,8 @@ fun XvoxShellTopHeader(
                 }
             }
 
-            // Keep this control group mounted and unselected for Home, Search, and each library
-            // destination. It therefore never slides, fades, or recolours when only page content
-            // changes beneath the Header.
+            // Keep this control group mounted at a fixed position. Only the destination's active
+            // library icon receives the accent; the Header itself never slides or rebuilds.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -188,6 +185,7 @@ fun XvoxShellTopHeader(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         libraryActions.forEach { action ->
+                            val isCurrentLibrary = destination == XvoxDestination.HOME && libraryMode == action.mode
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
@@ -202,7 +200,7 @@ fun XvoxShellTopHeader(
                                 Icon(
                                     painter = painterResource(action.icon),
                                     contentDescription = action.label,
-                                    tint = colors.primaryText.copy(alpha = .70f),
+                                    tint = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
                                     modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
                                 )
                             }

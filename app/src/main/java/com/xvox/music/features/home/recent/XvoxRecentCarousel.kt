@@ -3,6 +3,8 @@ package com.xvox.music.features.home.recent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -12,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -46,25 +49,54 @@ fun XvoxRecentCarousel(
             Text("Nothing played yet", color = XvoxTheme.colors.secondaryText, fontSize = 12.sp)
         }
     } else {
+        val isLandscape = LocalConfiguration.current.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 6.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            songs.forEach { song ->
-                XvoxRecentArtwork(
-                    song = song,
-                    current = song.id == currentSongId,
-                    playing = song.id == currentSongId && isPlaying,
-                    selected = song.id in selectedSongIds,
-                    onClick = { click(song) },
-                    onLongClick = { options(song) },
-                    source = sources[song.id] ?: song.source,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(96.dp)
-                )
+            if (isLandscape) {
+                // Landscape Recent is a compact two-column list rather than an over-wide single
+                // card. The final single card retains the same measured column width.
+                songs.chunked(2).forEach { rowSongs ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowSongs.forEach { song ->
+                            XvoxRecentArtwork(
+                                song = song,
+                                current = song.id == currentSongId,
+                                playing = song.id == currentSongId && isPlaying,
+                                selected = song.id in selectedSongIds,
+                                onClick = { click(song) },
+                                onLongClick = { options(song) },
+                                source = sources[song.id] ?: song.source,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(96.dp)
+                            )
+                        }
+                        if (rowSongs.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            } else {
+                songs.forEach { song ->
+                    XvoxRecentArtwork(
+                        song = song,
+                        current = song.id == currentSongId,
+                        playing = song.id == currentSongId && isPlaying,
+                        selected = song.id in selectedSongIds,
+                        onClick = { click(song) },
+                        onLongClick = { options(song) },
+                        source = sources[song.id] ?: song.source,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                    )
+                }
             }
         }
     }

@@ -12,10 +12,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -65,7 +65,7 @@ fun SettingsScreen(
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val bottomInset = LocalXvoxBottomInset.current
     val bottomPadding = bottomInset + if (isLandscape) 16.dp else 30.dp
-    val scrollState = rememberLazyStaggeredGridState()
+    val scrollState = rememberLazyGridState()
 
     LaunchedEffect(topResetKey) {
         runCatching { scrollState.scrollToItem(0) }
@@ -113,10 +113,10 @@ fun SettingsScreen(
             .background(colors.background),
         contentAlignment = Alignment.TopCenter
     ) {
-        LazyVerticalStaggeredGrid(
-            // Landscape keeps each Settings section full-width. The modest outer/row spacing is
-            // retained, but sections no longer split into two narrow columns.
-            columns = StaggeredGridCells.Fixed(1),
+        LazyVerticalGrid(
+            // Landscape returns to two equal columns. A regular grid (rather than a staggered
+            // masonry layout) keeps each row aligned, with equal outer and inter-section gaps.
+            columns = GridCells.Fixed(if (isLandscape) 2 else 1),
             state = scrollState,
             modifier = Modifier
                 .then(if (isLandscape) Modifier else Modifier.widthIn(max = 440.dp))
@@ -128,12 +128,12 @@ fun SettingsScreen(
                 end = if (isLandscape) 10.dp else 6.dp,
                 bottom = bottomPadding
             ),
-            verticalItemSpacing = if (isLandscape) 8.dp else 12.dp,
-            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp)
         ) {
             item(
                 key = "settings_title",
-                span = StaggeredGridItemSpan.FullLine
+                span = { GridItemSpan(maxLineSpan) }
             ) {
                 Text(
                     text = "Settings",
@@ -145,16 +145,55 @@ fun SettingsScreen(
                 )
             }
 
-            item(key = "section_appearance") {
-                AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker)
+            if (isLandscape) {
+                // Pair cards in explicit full-width grid rows. Row IntrinsicSize.Max and each
+                // child's fillMaxHeight make sibling section cards genuinely equal-height rather
+                // than merely aligning their next lazy-grid line after an uneven blank area.
+                item(key = "settings_pair_appearance_widget", span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AppearanceSectionCard(
+                            state, settingsViewModel, ::openCustomColorPicker,
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
+                        WidgetSectionCard(
+                            onOpenStudio = { showingWidgetStudio = true },
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
+                    }
+                }
+                item(key = "settings_pair_support_backup", span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SupportDeveloperCard(Modifier.weight(1f).fillMaxHeight())
+                        BackupSectionCard(homeViewModel, Modifier.weight(1f).fillMaxHeight())
+                    }
+                }
+                item(key = "settings_pair_system_about", span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SystemSectionCard(state, settingsViewModel, Modifier.weight(1f).fillMaxHeight())
+                        AboutSectionCard(Modifier.weight(1f).fillMaxHeight())
+                    }
+                }
+            } else {
+                item(key = "section_appearance") {
+                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker)
+                }
+                item(key = "section_widget") {
+                    WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
+                }
+                item(key = "section_support_dev") { SupportDeveloperCard() }
+                item(key = "section_backup") { BackupSectionCard(homeViewModel) }
+                item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
+                item(key = "section_about") { AboutSectionCard() }
             }
-            item(key = "section_widget") {
-                WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
-            }
-            item(key = "section_support_dev") { SupportDeveloperCard() }
-            item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-            item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
-            item(key = "section_about") { AboutSectionCard() }
         }
     }
 }

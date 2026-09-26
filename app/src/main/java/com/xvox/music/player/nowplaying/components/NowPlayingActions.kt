@@ -252,13 +252,13 @@ fun NowPlayingActions(
                         }
                         else -> {
                             // Page 3: Bluetooth + Crossfade
-                            val bluetoothReady = rememberBluetoothReady()
+                            val bluetoothRouted = rememberActualBluetoothRoute()
                             val enableBluetooth = rememberBluetoothEnableRequest()
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_bluetooth,
                                     
-                                    active = bluetoothReady,
+                                    active = bluetoothRouted,
                                     contentDescription = "Bluetooth / audio output",
                                     onClick = if (onOpenOptions != null) ({
                                         haptics.tap()
@@ -430,39 +430,53 @@ fun NowPlayingCircleAction(
     }
 }
 
-/** True once the adapter is on and at least one headset is connected. */
+/** True only while Android reports the selected playback path as Bluetooth, not merely paired. */
 @Composable
-private fun rememberBluetoothReady(): Boolean {
+private fun rememberActualBluetoothRoute(): Boolean {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val manager = remember(context) { context.getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager }
-    var ready by remember { mutableStateOf(currentBluetoothReady(manager)) }
-    DisposableEffect(manager) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) {
-                ready = currentBluetoothReady(manager)
+    val audioManager = remember(context) {
+        context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+    }
+    var routed by remember(audioManager) { mutableStateOf(audioManager.xvoxHasActualBluetoothRoute()) }
+    // Some OEMs do not emit a device-list callback when the user switches an already connected
+    // Bluetooth device between speaker and media output, so refresh the route flag while this
+    // compact action page is visible as well.
+    LaunchedEffect(audioManager) {
+        while (true) {
+            routed = audioManager.xvoxHasActualBluetoothRoute()
+            delay(750)
+        }
+    }
+    DisposableEffect(audioManager) {
+        val callback = object : android.media.AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>) {
+                routed = audioManager.xvoxHasActualBluetoothRoute()
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>) {
+                routed = audioManager.xvoxHasActualBluetoothRoute()
             }
         }
-        val filter = android.content.IntentFilter().apply {
-            addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED)
-            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
-            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
-        }
-        runCatching { context.registerReceiver(receiver, filter) }
-        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+        audioManager.registerAudioDeviceCallback(callback, null)
+        onDispose { audioManager.unregisterAudioDeviceCallback(callback) }
     }
-    return ready
+    return routed
 }
 
-private fun currentBluetoothReady(manager: android.bluetooth.BluetoothManager?): Boolean {
-    val adapter = runCatching { manager?.adapter }.getOrNull() ?: return false
-    if (!adapter.isEnabled) return false
-    return runCatching {
-        adapter.bondedDevices?.any { device ->
-            val major = device.bluetoothClass?.majorDeviceClass
-            major == android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO ||
-                major == android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL
-        } == true
-    }.getOrDefault(false)
+@Suppress("DEPRECATION")
+private fun android.media.AudioManager.xvoxHasActualBluetoothRoute(): Boolean {
+    // Device enumeration tells us what is attached, while the manager flags tell us that BT is
+    // actually the selected media/communication route. Both must be true for accent treatment.
+    if (!isBluetoothA2dpOn && !isBluetoothScoOn) return false
+    return getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { device ->
+        when (device.type) {
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> true
+            else -> android.os.Build.VERSION.SDK_INT >= 31 &&
+                (device.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    device.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER)
+        }
+    }
 }
 
 /** A one-shot "turn Bluetooth on" request, or null while it is already on / unavailable. */

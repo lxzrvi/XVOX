@@ -1,7 +1,5 @@
 package com.xvox.music.shell
 
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,9 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -28,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -40,12 +38,23 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
+/** Unsaved timer choice owned by XvoxMainShell until the sheet's Okay footer is tapped. */
+data class XvoxTimerDraft(
+    val minutes: Int,
+    val seconds: Int = 0,
+    val pauseMusic: Boolean = true,
+    val closeApp: Boolean = false
+)
+
+/**
+ * Content only: the parent XvoxBox supplies the transactional Cancel / [Off] / Okay footer.
+ * Presets and custom input update [draft] locally and never start/cancel a timer by themselves.
+ */
 @Composable
 fun XvoxTimerBoxContent(
     currentMinutes: Int?,
-    onSetMinutes: (Int) -> Unit,
-    onCustom: (Int, Int, Boolean, Boolean) -> Unit,
-    onCancel: () -> Unit
+    draft: XvoxTimerDraft?,
+    onDraftChange: (XvoxTimerDraft?) -> Unit
 ) {
     val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
@@ -60,54 +69,44 @@ fun XvoxTimerBoxContent(
             .fillMaxWidth()
             .verticalScroll(scrollState)
             .xvoxBoxScroll(scrollState)
-            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (currentMinutes != null) {
             Text(
-                text = "Sleep Timer",
-                color = colors.primaryText,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                text = "$currentMinutes min active",
+                color = colors.primaryAccent,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             )
-
-            if (currentMinutes != null) {
-                Text(
-                    text = "$currentMinutes min active",
-                    color = colors.primaryAccent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+        } else {
+            Text(
+                text = "Choose when playback should stop",
+                color = colors.secondaryText,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
         }
-
-        Spacer(Modifier.height(10.dp))
 
         val presets = listOf(5, 10, 15, 30, 45, 60)
         presets.chunked(3).forEach { row ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 row.forEach { minutes ->
-                    val selected = currentMinutes == minutes
+                    val selected = draft?.minutes == minutes && draft.seconds == 0
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) colors.primaryAccent else colors.card.copy(alpha = 0.97f))
+                            .background(if (selected) colors.primaryAccent else colors.card.copy(alpha = .97f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
-                                onSetMinutes(minutes)
+                                onDraftChange(XvoxTimerDraft(minutes = minutes))
                             }
                             .padding(vertical = 14.dp),
                         contentAlignment = Alignment.Center
@@ -123,34 +122,27 @@ fun XvoxTimerBoxContent(
             }
         }
 
-        Spacer(Modifier.size(6.dp))
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(colors.card.copy(alpha = 0.97f))
+                .background(colors.card.copy(alpha = .97f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) {
-                    showCustom = !showCustom
-                }
+                ) { showCustom = !showCustom }
                 .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Custom time...",
+                text = "Custom time…",
                 color = colors.primaryText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
-
             Icon(
-                painter = painterResource(
-                    if (showCustom) R.drawable.ic_xvox_collapse else R.drawable.ic_xvox_caret_right
-                ),
+                painter = painterResource(if (showCustom) R.drawable.ic_xvox_collapse else R.drawable.ic_xvox_caret_right),
                 contentDescription = null,
                 tint = colors.secondaryText,
                 modifier = Modifier.size(16.dp)
@@ -158,61 +150,44 @@ fun XvoxTimerBoxContent(
         }
 
         if (showCustom) {
-            Spacer(Modifier.size(8.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 BasicTextField(
                     value = minText,
-                    onValueChange = {
-                        if (it.length <= 3 && it.all { ch -> ch.isDigit() }) {
-                            minText = it
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) minText = it },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
                     cursorBrush = SolidColor(colors.primaryAccent),
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(colors.card.copy(alpha = 0.97f))
+                        .background(colors.card.copy(alpha = .97f))
                         .padding(horizontal = 12.dp, vertical = 12.dp),
                     decorationBox = { inner ->
-                        if (minText.isEmpty()) {
-                            Text(text = "Minutes", color = colors.mutedText, fontSize = 14.sp)
-                        }
+                        if (minText.isEmpty()) Text("Minutes", color = colors.mutedText, fontSize = 14.sp)
                         inner()
                     }
                 )
-
                 BasicTextField(
                     value = secText,
-                    onValueChange = {
-                        if (it.length <= 2 && it.all { ch -> ch.isDigit() }) {
-                            secText = it
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) secText = it },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
                     cursorBrush = SolidColor(colors.primaryAccent),
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(colors.card.copy(alpha = 0.97f))
+                        .background(colors.card.copy(alpha = .97f))
                         .padding(horizontal = 12.dp, vertical = 12.dp),
                     decorationBox = { inner ->
-                        if (secText.isEmpty()) {
-                            Text(text = "Seconds", color = colors.mutedText, fontSize = 14.sp)
-                        }
+                        if (secText.isEmpty()) Text("Seconds", color = colors.mutedText, fontSize = 14.sp)
                         inner()
                     }
                 )
             }
 
-            Spacer(Modifier.size(8.dp))
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,20 +202,9 @@ fun XvoxTimerBoxContent(
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(
-                    selected = pauseMusic,
-                    onClick = {
-                        pauseMusic = true
-                        closeApp = false
-                    }
-                )
-                Text(
-                    text = "Pause music",
-                    color = colors.primaryText,
-                    fontSize = 13.sp
-                )
+                RadioButton(selected = pauseMusic, onClick = { pauseMusic = true; closeApp = false })
+                Text("Pause music", color = colors.primaryText, fontSize = 13.sp)
             }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -255,71 +219,40 @@ fun XvoxTimerBoxContent(
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(
-                    selected = closeApp,
-                    onClick = {
-                        closeApp = true
-                        pauseMusic = false
-                    }
-                )
-                Text(
-                    text = "Close full app",
-                    color = colors.primaryText,
-                    fontSize = 13.sp
-                )
+                RadioButton(selected = closeApp, onClick = { closeApp = true; pauseMusic = false })
+                Text("Close full app", color = colors.primaryText, fontSize = 13.sp)
             }
-
-            Spacer(Modifier.size(8.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(colors.primaryAccent)
+                    .background(colors.cardElevated)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
                         val minutes = minText.toIntOrNull() ?: 0
                         val seconds = secText.toIntOrNull() ?: 0
-                        if (minutes == 0 && seconds == 0) return@clickable
-                        onCustom(minutes, seconds, pauseMusic, closeApp)
+                        if (minutes > 0 || seconds > 0) {
+                            onDraftChange(
+                                XvoxTimerDraft(
+                                    minutes = minutes,
+                                    seconds = seconds.coerceIn(0, 59),
+                                    pauseMusic = pauseMusic,
+                                    closeApp = closeApp
+                                )
+                            )
+                        }
                     }
                     .padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Start custom timer",
-                    color = colors.background,
+                    text = if ((draft?.seconds ?: 0) > 0) "Custom timer selected" else "Use custom time",
+                    color = colors.primaryText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        if (currentMinutes != null) {
-            Spacer(Modifier.size(8.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card.copy(alpha = 0.97f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    onCancel()
-                }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Cancel Timer",
-                    color = Color(0xFFDC2626),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
                 )
             }
         }

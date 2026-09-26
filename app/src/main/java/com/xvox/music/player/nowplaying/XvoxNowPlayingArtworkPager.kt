@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -63,6 +65,8 @@ fun XvoxNowPlayingArtworkPager(
     pageSpacing: Dp = 12.dp,
     /** Insets the cover inside an edge-clipped page without exposing neighbouring artwork. */
     artworkHorizontalInset: Dp = 0.dp,
+    /** Landscape uses a vertical deck so no left/right neighbouring covers can appear. */
+    verticalPaging: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
@@ -160,56 +164,93 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    HorizontalPager(
+    val pagerFlingBehavior = PagerDefaults.flingBehavior(
         state = pager,
-        beyondViewportPageCount = 3,
-        snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
-        flingBehavior = PagerDefaults.flingBehavior(
+        snapAnimationSpec = tween(120, easing = FastOutSlowInEasing),
+        snapPositionalThreshold = 0.35f
+    )
+    if (verticalPaging) {
+        VerticalPager(
             state = pager,
-            snapAnimationSpec = tween(120, easing = FastOutSlowInEasing),
-            snapPositionalThreshold = 0.35f
-        ),
-        contentPadding = contentPadding,
-        pageSpacing = pageSpacing,
-        modifier = modifier.fillMaxSize(),
-        key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
-    ) { page ->
-        val song = queue.getOrNull(page) ?: return@HorizontalPager
-        val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
-        val amount = abs(pageOffset)
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    // Now Playing artwork has one intentional treatment: Depth. It remains
-                    // responsive to native pager drag while the background owns its own variety.
-                    scaleX = 1f - .20f * amount
-                    scaleY = scaleX
-                    alpha = 1f - .36f * amount
-                }
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {
-                        if (!pager.isScrollInProgress) tap()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            // The page retains its full edge-to-edge clipping boundary. In landscape an inner
-            // inset reduces cover width, while adjacent covers remain outside that boundary.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = artworkHorizontalInset)
-                    .clip(RoundedCornerShape(20.dp))
-            ) {
-                XvoxSongArtwork(
-                    artwork = song.artworkUri,
-                    requestSize = XvoxNowPlayingArtworkSize,
-                    modifier = Modifier.fillMaxSize()
-                )
+            beyondViewportPageCount = 3,
+            snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
+            flingBehavior = pagerFlingBehavior,
+            contentPadding = contentPadding,
+            pageSpacing = pageSpacing,
+            modifier = modifier.fillMaxSize(),
+            key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
+        ) { page ->
+            XvoxNowPlayingArtworkPage(
+                page = page,
+                queue = queue,
+                pager = pager,
+                artworkHorizontalInset = artworkHorizontalInset,
+                onArtworkTap = { if (!pager.isScrollInProgress) tap() }
+            )
+        }
+    } else {
+        HorizontalPager(
+            state = pager,
+            beyondViewportPageCount = 3,
+            snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
+            flingBehavior = pagerFlingBehavior,
+            contentPadding = contentPadding,
+            pageSpacing = pageSpacing,
+            modifier = modifier.fillMaxSize(),
+            key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
+        ) { page ->
+            XvoxNowPlayingArtworkPage(
+                page = page,
+                queue = queue,
+                pager = pager,
+                artworkHorizontalInset = artworkHorizontalInset,
+                onArtworkTap = { if (!pager.isScrollInProgress) tap() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun XvoxNowPlayingArtworkPage(
+    page: Int,
+    queue: List<Song>,
+    pager: PagerState,
+    artworkHorizontalInset: Dp,
+    onArtworkTap: () -> Unit
+) {
+    val song = queue.getOrNull(page) ?: return
+    val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
+    val amount = abs(pageOffset)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                // Now Playing artwork has one intentional treatment: Depth. It remains
+                // responsive to native pager drag while the background owns its own variety.
+                scaleX = 1f - .20f * amount
+                scaleY = scaleX
+                alpha = 1f - .36f * amount
             }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onArtworkTap
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        // The page retains its full edge-to-edge clipping boundary. In landscape an inner
+        // inset reduces cover width, while adjacent covers remain outside that boundary.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = artworkHorizontalInset)
+                .clip(RoundedCornerShape(20.dp))
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = XvoxNowPlayingArtworkSize,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

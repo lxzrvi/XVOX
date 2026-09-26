@@ -39,15 +39,6 @@ fun PlaylistInfoBox(
             .xvoxBoxScroll(scrollState)
     ) {
         Text(
-            text = "Playlist info",
-            color = colors.primaryText,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(Modifier.height(14.dp))
-
-        Text(
             text = playlist.name,
             color = colors.primaryText,
             fontSize = 14.sp
