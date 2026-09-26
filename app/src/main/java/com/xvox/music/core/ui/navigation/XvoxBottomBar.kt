@@ -31,14 +31,19 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
-    /** The selected Header image is also used as subtle navigation chrome. */
-    headerImageUri: String? = null,
+    /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
+    val availableWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 24.dp)
+        .coerceAtLeast(190.dp)
+    val navBarWidth = chrome.navigationBarWidth.coerceIn(190f, 380f).dp.coerceAtMost(availableWidth)
+    val slotWidth = navBarWidth / 3f
+    val selectorWidth = (slotWidth - 8.dp).coerceAtLeast(52.dp)
+    val selectorTravel = navBarWidth - selectorWidth - 8.dp
     val selectorHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
@@ -67,14 +72,14 @@ fun XvoxBottomBar(
 
     Box(
         modifier = modifier
-            .width(XvoxNavigationGeometry.barWidth)
+            .width(navBarWidth)
             .height(actualHostHeight)
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
-                .size(XvoxNavigationGeometry.barWidth, navBarHeight)
+                .size(navBarWidth, navBarHeight)
                 .clip(parentShape)
                 .border(
                     width = XvoxNavigationGeometry.barBorderWidth,
@@ -82,25 +87,25 @@ fun XvoxBottomBar(
                     shape = parentShape
                 )
         ) {
-            if (!headerImageUri.isNullOrBlank()) {
+            if (chrome.navigationImageUri.isNotBlank()) {
                 AsyncImage(
-                    model = headerImageUri,
+                    model = chrome.navigationImageUri,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
-                        .graphicsLayer { alpha = chrome.navBgAlpha.coerceIn(.32f, .92f) }
+                        .graphicsLayer { alpha = chrome.navBgAlpha.coerceIn(0f, 1f) }
                 )
                 Box(
                     Modifier
                         .matchParentSize()
-                        .background(colors.cardElevated.copy(alpha = .42f))
+                        .background(colors.cardElevated.copy(alpha = .42f * chrome.navBgAlpha.coerceIn(0f, 1f)))
                 )
             } else {
                 Box(
                     Modifier
                         .matchParentSize()
-                        .background(colors.cardElevated.copy(alpha = chrome.navBgAlpha.coerceIn(.20f, .92f)))
+                        .background(colors.cardElevated.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f)))
                 )
             }
         }
@@ -112,11 +117,12 @@ fun XvoxBottomBar(
                     y = topOffset + navBarHeight / 2 - selectorHeight / 2
                 )
                 .graphicsLayer {
-                    translationX = (XvoxNavigationGeometry.selectorStart + XvoxNavigationGeometry.selectorTravel * (motion.position / 2f)).toPx()
+                    // Three destinations remain fixed; only their shared bar width is adjustable.
+                    translationX = (4.dp + selectorTravel * (motion.position / 2f)).toPx()
                     shape = selectorShape
                     clip = true
                 }
-                .size(XvoxNavigationGeometry.selectorRestWidth, selectorHeight)
+                .size(selectorWidth, selectorHeight)
                 .clip(selectorShape)
                 .background(pillFill)
                 .border(
@@ -130,7 +136,7 @@ fun XvoxBottomBar(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
-                .size(XvoxNavigationGeometry.barWidth, navBarHeight),
+                .size(navBarWidth, navBarHeight),
             verticalAlignment = Alignment.CenterVertically
         ) {
             destinations.forEachIndexed { index, destination ->

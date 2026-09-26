@@ -15,6 +15,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -40,19 +43,21 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -67,6 +72,7 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.features.home.HomeScreen
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.home.ProfileEditorBox
+import com.xvox.music.features.home.ProfileEditorDraft
 import com.xvox.music.features.home.SongInfoBox
 import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.home.showCreatePlaylistOverlay
@@ -84,6 +90,7 @@ import com.xvox.music.shell.XvoxShellTopHeaderBodyHeight
 import com.xvox.music.shell.XvoxTimerBoxContent
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 @Composable
 fun XvoxMainShell(
@@ -102,6 +109,7 @@ fun XvoxMainShell(
     val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     LaunchedEffect(overlays) {
@@ -120,50 +128,86 @@ fun XvoxMainShell(
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var tabEpoch by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
+    var miniPlayerNavDraft by remember { mutableStateOf(chrome) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
-    var headerPinnedAway by rememberSaveable { mutableStateOf(false) }
     val density = LocalDensity.current
-    val headerMaxScrollPx = with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
+    // Header artwork begins behind the status bar, so the complete status + profile region moves
+    // with the page instead of leaving a separately animated strip behind.
+    val headerMaxScrollPx = WindowInsets.statusBars.getTop(density).toFloat() +
+        with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
 
-    /** Once the body has left upward, it returns only when the list reaches its absolute top. */
+    /** Direct one-to-one page scroll: no pinned-away state and no secondary header motion. */
     fun updateHeaderScroll(index: Int, offset: Int) {
-        if (index == 0 && offset == 0) {
-            headerPinnedAway = false
-            headerOffsetPx = 0f
-        } else if (headerPinnedAway) {
-            headerOffsetPx = -headerMaxScrollPx
+        headerOffsetPx = if (index == 0) {
+            (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f)
         } else {
-            headerOffsetPx = if (index == 0) {
-                (-offset.toFloat()).coerceIn(-headerMaxScrollPx, 0f)
-            } else {
-                -headerMaxScrollPx
-            }
-            if (index > 0 || offset >= headerMaxScrollPx.toInt()) {
-                headerPinnedAway = true
-                headerOffsetPx = -headerMaxScrollPx
-            }
+            -headerMaxScrollPx
         }
     }
 
-    LaunchedEffect(destination) {
-        headerPinnedAway = false
-        headerOffsetPx = 0f
-    }
+    LaunchedEffect(destination) { headerOffsetPx = 0f }
     BackHandler(enabled = destination != XvoxDestination.HOME) {
         destination = XvoxDestination.HOME
     }
 
     fun showProfileEditor() {
-        overlays.showBox("Profile") {
+        val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
+        profileDraft = baseline
+        overlays.showBox(
+            title = "Profile",
+            bottomAction = {
+                val canSave = profileDraft.username.isNotBlank() &&
+                    (profileDraft.selectedPfp != com.xvox.music.features.setup.PfpType.CUSTOM.name ||
+                        profileDraft.customPfpUri != null)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ProfileSheetFooterButton(
+                        text = "Cancel",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = overlays::hideBox
+                    )
+                    ProfileSheetFooterButton(
+                        text = "Reset",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = { profileDraft = baseline }
+                    )
+                    ProfileSheetFooterButton(
+                        text = "Save",
+                        primary = true,
+                        enabled = canSave,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val saved = profileDraft
+                            // The whole profile/header edit is committed only from this fixed
+                            // footer.  Cancel and Reset never need to roll a persisted value back.
+                            scope.launch {
+                                homePreferences.setHeaderImageUri(saved.headerImageUri)
+                                homePreferences.setShowProfileLines(saved.showProfileLines)
+                                settingsViewModel.setChromeStyle {
+                                    it.copy(
+                                        headerDimEnabled = saved.headerDimEnabled,
+                                        headerDimAmount = saved.headerDimAmount.coerceIn(0f, 1f)
+                                    )
+                                }
+                                homeViewModel.saveProfile(saved.username.trim(), saved.selectedPfp, saved.customPfpUri) {
+                                    overlays.hideBox()
+                                    overlays.showP("Profile updated")
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        ) {
             ProfileEditorBox(
                 profile = homeState.profile,
-                onCancel = overlays::hideBox,
-                onSave = { name, pfp, pfpType ->
-                    homeViewModel.saveProfile(name, pfp, pfpType) {
-                        overlays.hideBox()
-                        overlays.showP("Profile updated")
-                    }
-                }
+                draft = profileDraft,
+                onDraftChange = { profileDraft = it }
             )
         }
     }
@@ -173,9 +217,54 @@ fun XvoxMainShell(
     }
 
     fun showMiniPlayerSettings() {
-        overlays.showBox("Mini player style") {
+        val baseline = chrome
+        miniPlayerNavDraft = baseline
+        overlays.showBox(
+            title = "Mini Player / Navbar Settings",
+            bottomAction = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ProfileSheetFooterButton(
+                        text = "Cancel",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = overlays::hideBox
+                    )
+                    ProfileSheetFooterButton(
+                        text = "Reset",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            miniPlayerNavDraft = miniPlayerNavDraft.copy(
+                                miniCoverStyle = "default",
+                                miniCornerRadius = 15f,
+                                miniBgAlpha = 1f,
+                                navigationBarHeight = 64f,
+                                navigationBarWidth = 246f,
+                                navBgAlpha = .88f,
+                                navigationImageUri = ""
+                            )
+                        }
+                    )
+                    ProfileSheetFooterButton(
+                        text = "Okay",
+                        primary = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val saved = miniPlayerNavDraft
+                            settingsViewModel.setChromeStyle { saved }
+                            overlays.hideBox()
+                            overlays.showP("Mini Player / Navbar settings saved")
+                        }
+                    )
+                }
+            }
+        ) {
             com.xvox.music.features.settings.components.MiniPlayerSettingsBoxContent(
-                viewModel = settingsViewModel
+                chrome = miniPlayerNavDraft,
+                onChromeChange = { miniPlayerNavDraft = it }
             )
         }
     }
@@ -436,15 +525,14 @@ fun XvoxMainShell(
             }
         }
 
-        // This viewport begins below the status bar and owns the clip. The travelling header
-        // can therefore never draw into the status-bar region as it scrolls out.
+        // The header begins at y=0 so both default and custom artwork visibly continue through
+        // the status-bar area.  It is not placed in a second clipped viewport: its profile/avatar
+        // content receives exactly the page's scroll translation.
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = statusBarInset)
                 .fillMaxWidth()
-                .height(XvoxShellTopHeaderBodyHeight)
-                .clipToBounds()
+                .height(topInset)
         ) {
             AnimatedVisibility(
                 visible = destination != XvoxDestination.SETTINGS,
@@ -472,7 +560,7 @@ fun XvoxMainShell(
                     },
                     onRecentClick = ::openRecentFromHeader,
                     scrollOffsetPx = headerOffsetPx,
-                    useSystemInsets = false
+                    useSystemInsets = true
                 )
             }
         }
@@ -548,8 +636,7 @@ fun XvoxMainShell(
                 ) {
                     XvoxBottomBar(
                         selected = destination,
-                        onSelected = ::selectNavigationDestination,
-                        headerImageUri = homeState.profile.headerImageUri
+                        onSelected = ::selectNavigationDestination
                     )
                 }
             }
@@ -589,8 +676,7 @@ fun XvoxMainShell(
             ) {
                 XvoxBottomBar(
                     selected = destination,
-                    onSelected = ::selectNavigationDestination,
-                    headerImageUri = homeState.profile.headerImageUri
+                    onSelected = ::selectNavigationDestination
                 )
             }
         }
@@ -655,6 +741,48 @@ fun XvoxMainShell(
                 )
             }
         }
+    }
+}
+
+
+/** Shared fixed-footer button language used by transactional profile and chrome editors. */
+@Composable
+private fun ProfileSheetFooterButton(
+    text: String,
+    primary: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(19.dp)
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .clip(shape)
+            .background(
+                when {
+                    primary && enabled -> colors.primaryAccent
+                    else -> colors.cardElevated
+                }
+            )
+            .then(
+                if (primary && enabled) Modifier
+                else Modifier.border(.8.dp, colors.cardBorder.copy(alpha = .80f), shape)
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.Text(
+            text = text,
+            color = when {
+                primary && enabled -> colors.background
+                enabled -> colors.primaryText
+                else -> colors.mutedText
+            },
+            fontSize = 12.sp,
+            fontWeight = if (primary) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.SemiBold
+        )
     }
 }
 

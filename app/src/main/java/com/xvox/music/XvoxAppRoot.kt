@@ -39,8 +39,6 @@ fun XvoxAppRoot(
 ) {
     val state by viewModel.state.collectAsState()
     val minimumReady by viewModel.minimumReady.collectAsState()
-    val progress by viewModel.progress.collectAsState()
-    val stage by viewModel.stage.collectAsState()
     val preparing = state == AppUiState.Preparing || state == AppUiState.Home
     val homeVm: com.xvox.music.features.home.HomeViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
@@ -68,11 +66,17 @@ fun XvoxAppRoot(
     LaunchedEffect(shellMounted) {
         if (!shellMounted) return@LaunchedEffect
         viewModel.report(0.93f, "Building your Home")
-        // Three frames: compose, measure/place, first draw of the mosaic pages.
+        // Keep the real preparation work under the staged loading surface long enough for the
+        // shell to compose, measure, and prime its first artwork/layout frame.
         repeat(3) { withFrameNanos { } }
         delay(60)
-        viewModel.report(1f, "Ready")
-        viewModel.onHomeReady()
+    }
+    var startupSequenceReleased by remember { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        if (state == AppUiState.Setup) {
+            startupSequenceReleased = false
+            shellMounted = false
+        }
     }
 
     val overlays = remember { XvoxOverlayController() }
@@ -80,6 +84,7 @@ fun XvoxAppRoot(
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
     val accentStr by prefs.accentColor.collectAsState(initial = "White")
+    val accentPreview by com.xvox.music.core.design.theme.XvoxAccentPreview.value.collectAsState()
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
@@ -95,6 +100,14 @@ fun XvoxAppRoot(
         insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
         onDispose { }
     }
+
+    LaunchedEffect(accentStr, accentPreview) {
+        // Once DataStore catches up, let its persisted value become the source of truth again.
+        if (accentPreview != null && accentPreview == accentStr) {
+            com.xvox.music.core.design.theme.XvoxAccentPreview.clearWhenPersisted(accentStr)
+        }
+    }
+    val effectiveAccent = accentPreview ?: accentStr
 
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
@@ -113,7 +126,7 @@ fun XvoxAppRoot(
 
     XvoxTheme(
         mode = mode,
-        accent = accentStr,
+        accent = effectiveAccent,
         background = backgroundStr,
         cardTransparency = cardTransparency,
         cardBorder = chrome.cardBorder,
@@ -139,7 +152,16 @@ fun XvoxAppRoot(
                         enter = fadeIn(tween(120)),
                         exit = fadeOut(tween(260))
                     ) {
-                        XvoxStartupLoadingScreen(progress = progress, stage = stage)
+                        XvoxStartupLoadingScreen(
+                            readyToEnter = shellMounted && dataReady,
+                            onSequenceComplete = {
+                                if (!startupSequenceReleased && shellMounted) {
+                                    startupSequenceReleased = true
+                                    viewModel.report(1f, "Ready")
+                                    viewModel.onHomeReady()
+                                }
+                            }
+                        )
                     }
                 }
 

@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,8 +97,11 @@ private fun hexToHsv(hex: String): FloatArray? = parseHexColor(hex)?.let(::color
 private fun hsvToHex(h: Float, s: Float, v: Float): String =
     "#%06X".format(hsvColor(h, s, v).toArgb() and 0xFFFFFF)
 
-/** A real HSV wheel: hue around the circle, saturation by radius, brightness by the separate rail. */
-private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
+/**
+ * A real HSV wheel at full value. Brightness is drawn as a cheap black overlay at interaction
+ * time, avoiding a full bitmap allocation/repaint for every brightness drag frame.
+ */
+private fun buildWheelBitmap(size: Int): ImageBitmap {
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val center = size / 2f
     val radius = center
@@ -117,7 +121,7 @@ private fun buildWheelBitmap(size: Int, value: Float): ImageBitmap {
                 }
                 var angle = atan2(dy, dx) * 180f / PI.toFloat() + 90f
                 if (angle < 0f) angle += 360f
-                hsvColor(angle, (distance / radius).coerceIn(0f, 1f), value)
+                hsvColor(angle, (distance / radius).coerceIn(0f, 1f), 1f)
                     .copy(alpha = edgeAlpha)
                     .toArgb()
             }
@@ -169,10 +173,15 @@ fun ColorPickerRow(
 
     LaunchedEffect(hex) {
         hexToHsv(hex)?.let { hsv ->
-            wheelH = hsv[0]
-            wheelS = hsv[1]
-            wheelV = hsv[2]
-            hexInput = hex.uppercase()
+            // Ignore the editor's own optimistic publication. Re-applying a rounded hex value on
+            // every drag sample used to nudge HSV state under the finger and cause jitter.
+            val alreadyLive = hex.equals(hsvToHex(wheelH, wheelS, wheelV), ignoreCase = true)
+            if (!alreadyLive) {
+                wheelH = hsv[0]
+                wheelS = hsv[1]
+                wheelV = hsv[2]
+                hexInput = hex.uppercase()
+            }
         }
     }
 
@@ -305,11 +314,19 @@ private fun ColorPickerEditor(
                     .size(212.dp)
                     .onSizeChanged { wheelPx = it.width }
             ) {
-                val bitmap = remember(wheelPx, wheelV) {
-                    if (wheelPx == 0) null else buildWheelBitmap(wheelPx, wheelV)
+                // The expensive HSV pixels are generated once per size, not once per drag value.
+                val bitmap = remember(wheelPx) {
+                    if (wheelPx == 0) null else buildWheelBitmap(wheelPx)
                 }
                 bitmap?.let {
                     Image(bitmap = it, contentDescription = "Accent colour wheel", modifier = Modifier.fillMaxSize())
+                }
+                if (wheelV < .999f) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = (1f - wheelV).coerceIn(0f, 1f)))
+                    )
                 }
                 val half = if (wheelPx == 0) 106f else wheelPx / 2f
                 val markerRadians = (wheelH - 90f) * PI.toFloat() / 180f
@@ -322,21 +339,27 @@ private fun ColorPickerEditor(
                     drawCircle(colors.primaryText, radius = 6.dp.toPx(), center = marker)
                     drawCircle(colors.background.copy(alpha = .75f), radius = 2.dp.toPx(), center = marker)
                 }
+                // Stable pointer handlers are essential: keying them to HSV values used to cancel
+                // and restart a drag on every emitted colour, producing visible jitter.
+                val latestBrightness by rememberUpdatedState(wheelV)
+                val latestWheelChange by rememberUpdatedState(onWheelChange)
+                val latestWheelSize by rememberUpdatedState(half)
                 fun updateFromPosition(position: Offset) {
-                    val dx = position.x - half
-                    val dy = position.y - half
+                    val currentHalf = latestWheelSize
+                    val dx = position.x - currentHalf
+                    val dy = position.y - currentHalf
                     val distance = sqrt(dx * dx + dy * dy)
                     var hue = atan2(dy, dx) * 180f / PI.toFloat() + 90f
                     if (hue < 0f) hue += 360f
-                    onWheelChange(hue % 360f, (distance / half).coerceIn(0f, 1f), wheelV)
+                    latestWheelChange(hue % 360f, (distance / currentHalf).coerceIn(0f, 1f), latestBrightness)
                 }
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .pointerInput(wheelH, wheelS, wheelV) {
+                        .pointerInput(Unit) {
                             detectTapGestures { updateFromPosition(it) }
                         }
-                        .pointerInput(wheelH, wheelS, wheelV) {
+                        .pointerInput(Unit) {
                             detectDragGestures { change, _ ->
                                 change.consume()
                                 updateFromPosition(change.position)

@@ -58,6 +58,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             launch { prefs.nowPlayingStyle.collect { v -> _state.update { it.copy(nowPlayingStyle = v) } } }
             launch { prefs.nowPlayingBackgroundStyle.collect { v -> _state.update { it.copy(nowPlayingBackgroundStyle = v) } } }
+            launch { prefs.nowPlayingCoverTransition.collect { v -> _state.update { it.copy(nowPlayingCoverTransition = v) } } }
+            launch { prefs.nowPlayingBackgroundTransition.collect { v -> _state.update { it.copy(nowPlayingBackgroundTransition = v) } } }
             launch { prefs.splitShowPill.collect { v -> _state.update { it.copy(splitShowPill = v) } } }
             launch { prefs.splitHideCollection.collect { v -> _state.update { it.copy(splitHideCollection = v) } } }
             launch { prefs.playlistStyle.collect { v -> _state.update { it.copy(playlistStyle = v) } } }
@@ -172,6 +174,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
     fun setNowPlayingStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingStyle(style) }
     fun setNowPlayingBackgroundStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingBackgroundStyle(style) }
+    fun setNowPlayingCoverTransition(style: String) = viewModelScope.launch { prefs.setNowPlayingCoverTransition(style) }
+    fun setNowPlayingBackgroundTransition(style: String) = viewModelScope.launch { prefs.setNowPlayingBackgroundTransition(style) }
     fun setPersistentBackgroundPlayback(enabled: Boolean) = viewModelScope.launch { prefs.setPersistentBackgroundPlayback(enabled) }
     fun setGreetingIntervalMs(value: Long) = viewModelScope.launch { prefs.setGreetingIntervalMs(value) }
     fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
@@ -221,7 +225,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHapticFeedbackEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setHapticFeedbackEnabled(enabled) }
     fun setHapticIntensity(v: String) = viewModelScope.launch { prefs.setHapticIntensity(v) }
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
-    fun setAccentColor(color: String) = viewModelScope.launch { prefs.setAccentColor(color) }
+    fun setAccentColor(color: String) {
+        // Publish before persistence so HSV wheel/brightness drags are visually live.  The queued
+        // write collapses high-frequency drag samples into the final selected accent.
+        _state.update { it.copy(accentColor = color) }
+        com.xvox.music.core.design.theme.XvoxAccentPreview.publish(color)
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("accent") { prefs.setAccentColor(color) }
+    }
     fun setBackgroundName(name: String) = viewModelScope.launch { prefs.setThemeBackground(name) }
     fun setBackgroundImage(uri: String?) = viewModelScope.launch { prefs.setThemeBackgroundImage(uri) }
     fun setHideStatusBar(hide: Boolean) = viewModelScope.launch { prefs.setHideStatusBar(hide) }

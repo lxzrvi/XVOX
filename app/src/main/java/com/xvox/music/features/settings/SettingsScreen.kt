@@ -159,7 +159,6 @@ private fun AppearanceSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val chrome = state.chromeStyle
     val themeOptions = listOf("System" to "System", "Light" to "Light", "Dark" to "Dark")
     val selectedTheme = themeOptions.firstOrNull { it.first.equals(state.theme, ignoreCase = true) }?.first
         ?: if (state.theme.equals("AMOLED", ignoreCase = true)) "Dark" else null
@@ -201,37 +200,6 @@ private fun AppearanceSectionCard(
                         if (key == "custom") onOpenColorWheel() else viewModel.setAccentColor(key)
                     }
                 )
-            }
-
-            SettingsField("Header") {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    SettingsToggle(
-                        title = "Header dimness",
-                        subtitle = "Dim the selected Header image",
-                        checked = chrome.headerDimEnabled,
-                        onChange = { enabled -> viewModel.setChromeStyle { it.copy(headerDimEnabled = enabled) } }
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Dimness", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "${(chrome.headerDimAmount.coerceIn(0f, 1f) * 100).toInt()}%",
-                            color = colors.primaryAccent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    XvoxContinuousSlider(
-                        value = chrome.headerDimAmount,
-                        onValueChange = { amount -> viewModel.setChromeStyle { it.copy(headerDimAmount = amount) } },
-                        defaultValue = .50f,
-                        enabled = chrome.headerDimEnabled,
-                        contentDescription = "Header dimness"
-                    )
-                }
             }
 
             SettingsField("Text Scale") {

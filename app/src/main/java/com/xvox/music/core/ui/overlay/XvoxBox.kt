@@ -7,8 +7,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -31,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -40,10 +44,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -64,6 +73,57 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+
+/**
+ * A bridge installed around scrollable sheet content.  It gives vertical space back to the sheet
+ * before the child begins consuming an upward gesture, and contracts the sheet at content top on
+ * the way down.  This keeps expansion attached to real content instead of revealing blank space.
+ */
+private class XvoxSheetScrollBridge(
+    private val sheetHeight: () -> Float,
+    private val measuredHeight: () -> Float,
+    private val maxHeight: () -> Float,
+    private val setSheetHeight: (Float) -> Unit,
+    private val dismiss: () -> Unit,
+    private val dismissDistancePx: Float
+) {
+    private var continuedDownwardPx = 0f
+
+    fun consume(availableY: Float, atTop: Boolean): Float {
+        if (!atTop) {
+            continuedDownwardPx = 0f
+            return 0f
+        }
+        val max = maxHeight()
+        if (max <= 0f) return 0f
+        val current = maxOf(sheetHeight(), measuredHeight())
+        if (availableY < 0f && current < max) {
+            continuedDownwardPx = 0f
+            val grow = minOf(-availableY, max - current)
+            if (grow > 0f) {
+                setSheetHeight(current + grow)
+                return -grow
+            }
+        }
+        if (availableY > 0f) {
+            val floor = minOf(current, max * .40f)
+            if (current > floor) {
+                continuedDownwardPx = 0f
+                val shrink = minOf(availableY, current - floor)
+                setSheetHeight(current - shrink)
+                return shrink
+            }
+            continuedDownwardPx += availableY
+            if (continuedDownwardPx >= dismissDistancePx) dismiss()
+        } else {
+            continuedDownwardPx = 0f
+        }
+        return 0f
+    }
+}
+
+private val LocalXvoxSheetScrollBridge = staticCompositionLocalOf<XvoxSheetScrollBridge?> { null }
 
 /**
  * Backwards-compatible name for the application-wide option sheet.  Every overlay deliberately
@@ -131,6 +191,25 @@ fun XvoxSheet(
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    if (presentation == XvoxBoxPresentation.CENTERED) {
+        XvoxCenteredBox(
+            onDismiss = onDismiss,
+            modifier = modifier,
+            title = title,
+            onAddClick = onAddClick,
+            onBack = onBack,
+            onSettingsClick = onSettingsClick,
+            onUndoClick = onUndoClick,
+            onEditClick = onEditClick,
+            isEditing = isEditing,
+            headerLeadingContent = headerLeadingContent,
+            headerTitleContent = headerTitleContent,
+            bottomAction = bottomAction,
+            content = content
+        )
+        return
+    }
+
     val colors = XvoxTheme.colors
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val density = LocalDensity.current
@@ -179,9 +258,11 @@ fun XvoxSheet(
                 val equalizerPresentation = presentation == XvoxBoxPresentation.EQUALIZER
                 val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
 
-                // A zero target means "fit its content". Equalizer intentionally begins around
-                // sixty percent of the usable screen; dragging the pill upward can grow any sheet
-                // until its top reaches the status-bar boundary.
+                // Compact interfaces keep their measured content height.  When content needs
+                // more room, it settles at roughly half the usable screen first; it then grows
+                // with an upward drag/scroll until just below the status bar.
+                val largeStartHeightPx = maxSheetHeightPx * .50f
+                val contractFloorPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
                 var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
@@ -189,10 +270,29 @@ fun XvoxSheet(
 
                 LaunchedEffect(maxSheetHeightPx, equalizerPresentation) {
                     if (equalizerPresentation && requestedHeightPx <= 0f) {
-                        requestedHeightPx = maxSheetHeightPx * .60f
+                        requestedHeightPx = largeStartHeightPx
                     } else if (requestedHeightPx > maxSheetHeightPx) {
                         requestedHeightPx = maxSheetHeightPx
                     }
+                }
+                LaunchedEffect(measuredHeightPx, maxSheetHeightPx, requestedHeightPx) {
+                    // Let small sheets remain content-sized.  The first measured large layout
+                    // immediately settles into the half-screen starting point.
+                    if (!equalizerPresentation && requestedHeightPx <= 0f &&
+                        measuredHeightPx > (largeStartHeightPx * 1.05f)
+                    ) {
+                        requestedHeightPx = largeStartHeightPx
+                    }
+                }
+                val contentScrollBridge = remember(maxSheetHeightPx, density) {
+                    XvoxSheetScrollBridge(
+                        sheetHeight = { requestedHeightPx },
+                        measuredHeight = { measuredHeightPx.toFloat() },
+                        maxHeight = { maxSheetHeightPx },
+                        setSheetHeight = { next -> requestedHeightPx = next.coerceIn(1f, maxSheetHeightPx) },
+                        dismiss = ::close,
+                        dismissDistancePx = with(density) { 52.dp.toPx() }
+                    )
                 }
 
                 val requestedHeight: Dp? = requestedHeightPx
@@ -207,14 +307,16 @@ fun XvoxSheet(
 
                 AnimatedVisibility(
                     visible = visible,
+                    // Sheets are spatial surfaces: opening and closing only travel vertically.
+                    // Deliberately no fade is mixed into the motion.
                     enter = slideInVertically(
                         initialOffsetY = { it },
                         animationSpec = tween(280, easing = XvoxBoxEasing)
-                    ) + fadeIn(tween(180, easing = XvoxBoxEasing)),
+                    ),
                     exit = slideOutVertically(
                         targetOffsetY = { it },
                         animationSpec = tween(220, easing = XvoxBoxEasing)
-                    ) + fadeOut(tween(140, easing = XvoxBoxEasing))
+                    )
                 ) {
                     Column(
                         modifier = Modifier
@@ -240,7 +342,7 @@ fun XvoxSheet(
                                             dragStartHeightPx = maxOf(
                                                 measuredHeightPx.toFloat(),
                                                 requestedHeightPx,
-                                                if (equalizerPresentation) maxSheetHeightPx * .60f else 0f
+                                                if (equalizerPresentation) largeStartHeightPx else 0f
                                             )
                                         },
                                         onVerticalDrag = { change, amount ->
@@ -249,11 +351,18 @@ fun XvoxSheet(
                                             if (dragDeltaPx < 0f) {
                                                 requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
                                                     .coerceIn(1f, maxSheetHeightPx)
+                                            } else if (dragStartHeightPx > contractFloorPx) {
+                                                // At the top, a downward pull contracts first.
+                                                requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
+                                                    .coerceAtLeast(contractFloorPx)
                                             }
                                         },
                                         onDragEnd = {
                                             val dismissThreshold = with(density) { 52.dp.toPx() }
-                                            if (dragDeltaPx > dismissThreshold) {
+                                            val currentHeight = maxOf(measuredHeightPx.toFloat(), requestedHeightPx)
+                                            // A continued pull only dismisses once the sheet has
+                                            // reached the compact ~40% point.
+                                            if (dragDeltaPx > dismissThreshold && currentHeight <= contractFloorPx + 2f) {
                                                 close()
                                             } else if (dragDeltaPx < 0f) {
                                                 requestedHeightPx = requestedHeightPx.coerceAtMost(maxSheetHeightPx)
@@ -311,7 +420,9 @@ fun XvoxSheet(
                                 .heightIn(min = 0.dp)
                                 .padding(horizontal = bodyHorizontal, vertical = 10.dp)
                         ) {
-                            content()
+                            CompositionLocalProvider(LocalXvoxSheetScrollBridge provides contentScrollBridge) {
+                                content()
+                            }
                         }
 
                         bottomAction?.let { footer ->
@@ -329,6 +440,121 @@ fun XvoxSheet(
                                 footer()
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/** A compact centred surface reserved for a secondary picker, confirmation, or deeper choice. */
+@Composable
+private fun XvoxCenteredBox(
+    onDismiss: () -> Unit,
+    modifier: Modifier,
+    title: String,
+    onAddClick: (() -> Unit)?,
+    onBack: (() -> Unit)?,
+    onSettingsClick: (() -> Unit)?,
+    onUndoClick: (() -> Unit)?,
+    onEditClick: (() -> Unit)?,
+    isEditing: Boolean,
+    headerLeadingContent: (@Composable () -> Unit)?,
+    headerTitleContent: (@Composable () -> Unit)?,
+    bottomAction: (@Composable () -> Unit)?,
+    content: @Composable () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val scrimColor = if (colors.isLight) colors.primaryText else colors.background
+    val scope = rememberCoroutineScope()
+    val dismiss by rememberUpdatedState(onDismiss)
+    var visible by remember { mutableStateOf(false) }
+    var closing by remember { mutableStateOf(false) }
+    val swallowInteraction = remember { MutableInteractionSource() }
+
+    fun close() {
+        if (closing) return
+        closing = true
+        visible = false
+        scope.launch {
+            delay(180)
+            dismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) { visible = true }
+
+    Dialog(
+        onDismissRequest = ::close,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        BoxWithConstraints(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(scrimColor.copy(alpha = .48f))
+                    .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
+            )
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(150, easing = XvoxBoxEasing)) +
+                    scaleIn(initialScale = .94f, animationSpec = tween(200, easing = XvoxBoxEasing)),
+                exit = fadeOut(tween(120, easing = XvoxBoxEasing)) +
+                    scaleOut(targetScale = .96f, animationSpec = tween(150, easing = XvoxBoxEasing))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(.90f)
+                        .heightIn(max = maxHeight * .78f)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(colors.card)
+                        .clickable(swallowInteraction, indication = null) { }
+                        .semantics { paneTitle = title }
+                ) {
+                    XvoxSheetHeader(
+                        title = title,
+                        songOptionsPresentation = false,
+                        onBack = onBack,
+                        onAddClick = onAddClick,
+                        onSettingsClick = onSettingsClick,
+                        onUndoClick = onUndoClick,
+                        onEditClick = onEditClick,
+                        isEditing = isEditing,
+                        headerLeadingContent = headerLeadingContent,
+                        headerTitleContent = headerTitleContent,
+                        onClose = ::close
+                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(.7.dp)
+                            .background(colors.cardBorder.copy(alpha = .50f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .heightIn(min = 0.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        content()
+                    }
+                    bottomAction?.let { footer ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(.7.dp)
+                                .background(colors.cardBorder.copy(alpha = .50f))
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                        ) { footer() }
                     }
                 }
             }
@@ -429,5 +655,25 @@ private fun XvoxSheetHeaderAction(
     }
 }
 
-/** Legacy hook retained for callers that already own their scroll state. */
-fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier = this
+/**
+ * Attach a normal [ScrollState] to the containing sheet's expand/contract mechanics.  Non-scroll
+ * callers remain source-compatible and simply receive their original modifier.
+ */
+@Composable
+fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier {
+    val bridge = LocalXvoxSheetScrollBridge.current ?: return this
+    val state = scrollState as? ScrollState ?: return this
+    val connection = remember(bridge, state) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Do not grow a compact body that has no hidden content; that would expose empty
+                // sheet space.  Large/overflowing bodies consume upward movement to grow first.
+                if (available.y < 0f && state.maxValue <= 0) return Offset.Zero
+                val consumedY = bridge.consume(available.y, atTop = state.value == 0)
+                return Offset(0f, consumedY)
+            }
+
+        }
+    }
+    return this.nestedScroll(connection)
+}

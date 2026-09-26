@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -40,33 +39,61 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.features.setup.PfpType
 import com.xvox.music.features.setup.XvoxAvatarPicker
 import kotlinx.coroutines.launch
 
 /**
- * Profile & Header Editor Box:
- * Avatar picker with crop, username, greeting lines ON/OFF toggle, interval slider,
- * and integrated Header photo customizer with GIF and preview states.
+ * All profile/header changes are held here until the fixed sheet footer chooses Save.  Asset
+ * creation (cropping a newly chosen image) may happen immediately, but the selected profile,
+ * Header image, and dimness values are never written by this editor itself.
  */
+data class ProfileEditorDraft(
+    val username: String,
+    val selectedPfp: String,
+    val customPfpUri: String?,
+    val showProfileLines: Boolean,
+    val headerImageUri: String?,
+    val rememberedHeaderImageUri: String?,
+    val headerDimEnabled: Boolean,
+    val headerDimAmount: Float
+) {
+    companion object {
+        fun from(
+            profile: UserPreferences,
+            chrome: com.xvox.music.core.ui.chrome.XvoxChromeStyle
+        ) = ProfileEditorDraft(
+            username = profile.username,
+            selectedPfp = profile.selectedPfp,
+            customPfpUri = profile.customPfpUri,
+            showProfileLines = profile.showProfileLines,
+            headerImageUri = profile.headerImageUri,
+            rememberedHeaderImageUri = profile.headerImageUri,
+            headerDimEnabled = chrome.headerDimEnabled,
+            headerDimAmount = chrome.headerDimAmount.coerceIn(0f, 1f)
+        )
+    }
+}
+
+/** Scrollable body for the Profile sheet; its Save/Reset/Cancel footer is owned by the caller. */
 @Composable
 fun ProfileEditorBox(
     profile: UserPreferences,
-    onCancel: () -> Unit,
-    onSave: (String, String, String?) -> Unit,
+    draft: ProfileEditorDraft,
+    onDraftChange: (ProfileEditorDraft) -> Unit
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -74,61 +101,48 @@ fun ProfileEditorBox(
     val scope = rememberCoroutineScope()
     val prefs = remember(context) { UserPreferencesRepository(context.applicationContext) }
     val storedCustoms by prefs.customPfpUris.collectAsState(initial = profile.customPfpUris)
-    val greetingInterval by prefs.greetingIntervalMs.collectAsState(initial = profile.greetingIntervalMs)
-    val currentHeaderUri by prefs.headerImageUri.collectAsState(initial = null)
-    val persistentCustomHeaderUri by prefs.savedCustomHeaderUri.collectAsState(initial = null)
-    val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
-
-    var name by remember(profile.username) { mutableStateOf(profile.username) }
-    var selected by remember(profile.selectedPfp) {
-        mutableStateOf(runCatching { PfpType.valueOf(profile.selectedPfp) }.getOrDefault(PfpType.DEFAULT))
-    }
-    var customUri by remember(profile.customPfpUri) { mutableStateOf(profile.customPfpUri) }
+    val persistedHeaderUri by prefs.savedCustomHeaderUri.collectAsState(initial = null)
     var croppingAvatarUri by remember { mutableStateOf<Uri?>(null) }
     var croppingHeaderUri by remember { mutableStateOf<Uri?>(null) }
 
-    var savedCustomHeaderUri by remember(currentHeaderUri, persistentCustomHeaderUri) {
-        mutableStateOf(currentHeaderUri ?: persistentCustomHeaderUri)
-    }
-    var isCustomHeaderMode by remember(currentHeaderUri) {
-        mutableStateOf(currentHeaderUri != null)
+    val selected = remember(draft.selectedPfp) {
+        runCatching { PfpType.valueOf(draft.selectedPfp) }.getOrDefault(PfpType.DEFAULT)
     }
 
-    val avatarPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            croppingAvatarUri = uri
+    // A saved custom Header remains available after choosing Default, but it is only activated
+    // when the user presses Custom and finally saves the transaction.
+    LaunchedEffect(persistedHeaderUri, draft.rememberedHeaderImageUri) {
+        if (draft.rememberedHeaderImageUri.isNullOrBlank() && !persistedHeaderUri.isNullOrBlank()) {
+            onDraftChange(draft.copy(rememberedHeaderImageUri = persistedHeaderUri))
         }
     }
 
+    val avatarPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) croppingAvatarUri = uri
+    }
     val headerPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
-                    (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
-            if (isGif) {
-                // Persist GIF in internal app storage so user deleting from gallery does not break it
-                val persistentUri = try {
-                    val destFile = java.io.File(context.filesDir, "xvox_header_gif_${System.currentTimeMillis()}.gif")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        java.io.FileOutputStream(destFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    Uri.fromFile(destFile)
-                } catch (e: Exception) {
-                    uri
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
+            (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
+        if (isGif) {
+            // Preserve animation by keeping an internal copy rather than sending a GIF through a
+            // bitmap cropper.  Selecting it is still draft-only until Save.
+            val saved = runCatching {
+                val file = java.io.File(context.filesDir, "xvox_header_gif_${System.currentTimeMillis()}.gif")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    java.io.FileOutputStream(file).use { output -> input.copyTo(output) }
                 }
-                savedCustomHeaderUri = persistentUri.toString()
-                isCustomHeaderMode = true
-                scope.launch { prefs.setHeaderImageUri(persistentUri.toString()) }
-            } else {
-                croppingHeaderUri = uri
-            }
+                Uri.fromFile(file).toString()
+            }.getOrElse { uri.toString() }
+            onDraftChange(draft.copy(headerImageUri = saved, rememberedHeaderImageUri = saved))
+        } else {
+            croppingHeaderUri = uri
         }
     }
 
@@ -140,8 +154,12 @@ fun ProfileEditorBox(
                 croppingAvatarUri = null
                 scope.launch {
                     prefs.addCustomPfp(croppedUri.toString())?.let { stored ->
-                        customUri = stored
-                        selected = PfpType.CUSTOM
+                        onDraftChange(
+                            draft.copy(
+                                selectedPfp = PfpType.CUSTOM.name,
+                                customPfpUri = stored
+                            )
+                        )
                     }
                 }
             },
@@ -156,75 +174,97 @@ fun ProfileEditorBox(
             aspectRatio = 2.2f,
             onCropped = { croppedUri ->
                 croppingHeaderUri = null
-                savedCustomHeaderUri = croppedUri.toString()
-                isCustomHeaderMode = true
-                scope.launch {
-                    prefs.setHeaderImageUri(croppedUri.toString())
-                }
+                val saved = croppedUri.toString()
+                onDraftChange(draft.copy(headerImageUri = saved, rememberedHeaderImageUri = saved))
             },
             onDismiss = { croppingHeaderUri = null }
         )
     }
 
-    LaunchedEffect(storedCustoms) {
-        if (selected == PfpType.CUSTOM && customUri != null && customUri !in storedCustoms) {
-            customUri = storedCustoms.firstOrNull()
-            if (customUri == null) selected = PfpType.DEFAULT
+    LaunchedEffect(storedCustoms, draft.selectedPfp, draft.customPfpUri) {
+        if (selected == PfpType.CUSTOM && draft.customPfpUri != null && draft.customPfpUri !in storedCustoms) {
+            val fallback = storedCustoms.firstOrNull()
+            onDraftChange(
+                draft.copy(
+                    selectedPfp = if (fallback == null) PfpType.DEFAULT.name else PfpType.CUSTOM.name,
+                    customPfpUri = fallback
+                )
+            )
         }
     }
 
-    val canSave = name.isNotBlank() && (selected != PfpType.CUSTOM || customUri != null)
-    var showLines by remember(profile.showProfileLines) { mutableStateOf(profile.showProfileLines) }
-
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 4.dp, vertical = 6.dp)
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         XvoxAvatarPicker(
-            username = name,
+            username = draft.username,
             selectedType = selected,
-            selectedCustomUri = if (selected == PfpType.CUSTOM) customUri else null,
+            selectedCustomUri = if (selected == PfpType.CUSTOM) draft.customPfpUri else null,
             customUris = storedCustoms,
-            onSelectBuiltIn = { haptics.tap(); selected = it; customUri = null },
-            onSelectCustom = { haptics.tap(); selected = PfpType.CUSTOM; customUri = it },
+            onSelectBuiltIn = {
+                haptics.tap()
+                onDraftChange(draft.copy(selectedPfp = it.name, customPfpUri = null))
+            },
+            onSelectCustom = {
+                haptics.tap()
+                onDraftChange(draft.copy(selectedPfp = PfpType.CUSTOM.name, customPfpUri = it))
+            },
             onAddCustom = {
                 haptics.tap()
                 avatarPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
-            onDeleteCustom = { uri -> haptics.tap(); scope.launch { prefs.removeCustomPfp(uri) } }
-        )
-
-        Spacer(Modifier.height(14.dp))
-
-        Text("Username", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
-
-        BasicTextField(
-            value = name,
-            onValueChange = { if (it.length <= 16) name = it },
-            singleLine = true,
-            textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
-            cursorBrush = SolidColor(colors.primaryAccent),
-            modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(12.dp)).background(colors.card),
-            decorationBox = { field ->
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) { field() }
+            onDeleteCustom = { uri ->
+                haptics.tap()
+                scope.launch { prefs.removeCustomPfp(uri) }
             }
         )
 
-        Spacer(Modifier.height(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Username", color = colors.secondaryText, fontSize = 11.sp)
+            BasicTextField(
+                value = draft.username,
+                onValueChange = { value ->
+                    if (value.length <= 16) onDraftChange(draft.copy(username = value))
+                },
+                singleLine = true,
+                textStyle = TextStyle(color = colors.primaryText, fontSize = 14.sp),
+                cursorBrush = SolidColor(colors.primaryAccent),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardElevated),
+                decorationBox = { field ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) { field() }
+                }
+            )
+        }
 
-        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Greeting lines under name", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Greeting lines under name", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Keep your rotating profile greeting visible", color = colors.secondaryText, fontSize = 11.sp)
+            }
             Switch(
-                checked = showLines,
-                onCheckedChange = { on ->
-                    showLines = on
-                    scope.launch { prefs.setShowProfileLines(on) }
+                checked = draft.showProfileLines,
+                onCheckedChange = { enabled ->
+                    haptics.tap()
+                    onDraftChange(draft.copy(showProfileLines = enabled))
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = colors.background,
@@ -235,204 +275,113 @@ fun ProfileEditorBox(
             )
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        // Header Background Photo Section in Profile Box
-        Text("Header Settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text("Image/GIF and Default Header", color = colors.secondaryText, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            // Default Button
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(21.dp))
-                    .background(if (!isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
-                    .border(0.8.dp, if (!isCustomHeaderMode) Color.Transparent else colors.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(21.dp))
-                    .xvoxPressScale {
-                        haptics.tap()
-                        isCustomHeaderMode = false
-                        scope.launch { prefs.setHeaderImageUri(null) }
-                    },
-                contentAlignment = Alignment.Center
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Header", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "The selected Header artwork continues through the status-bar area.",
+                color = colors.secondaryText,
+                fontSize = 11.sp
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    "Default",
-                    color = if (!isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.85f),
-                    fontSize = 12.5.sp,
-                    fontWeight = if (!isCustomHeaderMode) FontWeight.Bold else FontWeight.Medium
-                )
-            }
-
-            // Custom Button with embedded photo/GIF background preview
-            val activeCustomUri = currentHeaderUri ?: savedCustomHeaderUri
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(21.dp))
-                    .background(if (isCustomHeaderMode) colors.primaryAccent else colors.cardElevated)
-                    .border(0.8.dp, if (isCustomHeaderMode) Color.Transparent else colors.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(21.dp))
-                    .xvoxPressScale {
+                HeaderImageChoice(
+                    title = "Default",
+                    active = draft.headerImageUri.isNullOrBlank(),
+                    onClick = {
                         haptics.tap()
-                        if (!isCustomHeaderMode && activeCustomUri != null) {
-                            isCustomHeaderMode = true
-                            scope.launch { prefs.setHeaderImageUri(activeCustomUri) }
+                        onDraftChange(draft.copy(headerImageUri = null))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                HeaderImageChoice(
+                    title = if (draft.headerImageUri.isNullOrBlank()) "Custom" else "Custom ✓",
+                    active = !draft.headerImageUri.isNullOrBlank(),
+                    imageUri = draft.headerImageUri ?: draft.rememberedHeaderImageUri,
+                    onClick = {
+                        haptics.tap()
+                        val remembered = draft.rememberedHeaderImageUri
+                        if (draft.headerImageUri.isNullOrBlank() && !remembered.isNullOrBlank()) {
+                            onDraftChange(draft.copy(headerImageUri = remembered))
                         } else {
-                            // If already active or no photo set yet, launch photo/GIF picker
-                            isCustomHeaderMode = true
                             headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }
                     },
-                contentAlignment = Alignment.Center
-            ) {
-                if (activeCustomUri != null) {
-                    // Photo / GIF preview as button background
-                    AsyncImage(
-                        model = Uri.parse(activeCustomUri),
-                        contentDescription = "Custom header preview",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(21.dp))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = if (isCustomHeaderMode) 0.35f else 0.55f))
-                    )
-                }
-
-                Text(
-                    text = if (activeCustomUri != null && isCustomHeaderMode) "Custom ✓" else "Custom",
-                    color = if (activeCustomUri != null) Color.White else if (isCustomHeaderMode) colors.background else colors.primaryText.copy(alpha = 0.85f),
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        if (isCustomHeaderMode) {
+        val visibleDimness = if (draft.headerDimEnabled) draft.headerDimAmount.coerceIn(0f, 1f) else 0f
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .clickable {
-                        runCatching {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                Uri.parse("https://www.pinterest.com/search/pins/?q=hd%20banner%20loop%20gif")
-                            )
-                            context.startActivity(intent)
-                        }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text("Header Dimness", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = "Want some ideas for header? ",
-                    color = colors.secondaryText,
-                    fontSize = 11.5.sp
-                )
-                Text(
-                    text = "Tap here",
+                    "${(visibleDimness * 100).toInt()}%",
                     color = colors.primaryAccent,
-                    fontSize = 11.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        // Header Background Transparency Preset Boxes: 0%, 15%, 25%, 50%, 75%, 85%
-        val transparencyPercent = ((1f - chrome.headerBgAlpha.coerceIn(0f, 1f)) * 100f).toInt()
-        val transparencyPresets = listOf(0, 15, 25, 50, 75, 85)
-
-        Text(
-            text = "Header Dimness",
-            color = colors.secondaryText,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            transparencyPresets.forEach { pct ->
-                val isSelected = (transparencyPercent - pct) in -4..4 || (pct == 0 && transparencyPercent < 8) || (pct == 85 && transparencyPercent >= 80)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                        .then(
-                            if (!isSelected) Modifier.border(0.7.dp, colors.cardBorder, RoundedCornerShape(8.dp))
-                            else Modifier
+            Text("Drag for a continuous dim overlay.", color = colors.secondaryText, fontSize = 11.sp)
+            XvoxContinuousSlider(
+                value = visibleDimness,
+                onValueChange = { amount ->
+                    onDraftChange(
+                        draft.copy(
+                            headerDimEnabled = amount > .005f,
+                            headerDimAmount = amount.coerceIn(0f, 1f)
                         )
-                        .xvoxPressScale {
-                            haptics.tap()
-                            val targetAlpha = (1f - (pct / 100f)).coerceIn(0f, 1f)
-                            scope.launch { prefs.setChromeStyle(chrome.copy(headerBgAlpha = targetAlpha)) }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "$pct%",
-                        color = if (isSelected) colors.background else colors.primaryText,
-                        fontSize = 11.5.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
-                }
-            }
+                },
+                valueRange = 0f..1f,
+                defaultValue = .50f,
+                contentDescription = "Header dimness"
+            )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(4.dp))
+    }
+}
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(110.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(19.dp))
-                    .background(colors.cardElevated)
-                    .border(1.dp, colors.cardBorder, RoundedCornerShape(19.dp))
-                    .clickable { haptics.tap(); onCancel() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Cancel",
-                    color = colors.primaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Box(
-                modifier = Modifier.width(110.dp).height(38.dp).clip(RoundedCornerShape(19.dp))
-                    .background(if (canSave) colors.primaryAccent else colors.cardElevated)
-                    .xvoxPressScale(enabled = canSave) {
-                        haptics.success()
-                        onSave(name.trim(), selected.name, customUri)
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Save",
-                    color = if (canSave) colors.background else colors.mutedText,
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold
-                )
-            }
+@Composable
+private fun HeaderImageChoice(
+    title: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    imageUri: String? = null
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(21.dp)
+    Box(
+        modifier = modifier
+            .height(42.dp)
+            .clip(shape)
+            .background(if (active) colors.primaryAccent else colors.cardElevated)
+            .border(.8.dp, if (active) Color.Transparent else colors.cardBorder.copy(alpha = .65f), shape)
+            .xvoxPressScale(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUri.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+            Box(Modifier.matchParentSize().background(colors.background.copy(alpha = if (active) .40f else .62f)))
         }
+        Text(
+            title,
+            color = if (!imageUri.isNullOrBlank()) Color.White else if (active) colors.background else colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

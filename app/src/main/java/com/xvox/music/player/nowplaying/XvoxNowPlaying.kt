@@ -310,6 +310,7 @@ fun XvoxNowPlaying(
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
             style = settingsState.nowPlayingBackgroundStyle,
+            transition = settingsState.nowPlayingBackgroundTransition,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -408,7 +409,8 @@ fun XvoxNowPlaying(
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(0.dp),
                                     pageSpacing = 10.dp,
-                                    repeatMode = repeatMode
+                                    repeatMode = repeatMode,
+                                    coverTransition = settingsState.nowPlayingCoverTransition
                                 )
                             }
                         }
@@ -598,7 +600,8 @@ fun XvoxNowPlaying(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = currentPadH),
                             pageSpacing = 12.dp,
-                            repeatMode = repeatMode
+                            repeatMode = repeatMode,
+                            coverTransition = settingsState.nowPlayingCoverTransition
                         )
                     }
                 }

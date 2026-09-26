@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -50,12 +51,13 @@ private data class HeaderLibraryAction(
     val onClick: () -> Unit
 )
 
-/** Height of the body that sits below the status-bar clipping boundary in [XvoxMainShell]. */
+/** Height of the profile/header controls below the system status-bar area. */
 val XvoxShellTopHeaderBodyHeight = 66.dp
 
 /**
- * The shell header itself travels with its list, but its parent clips it at the status-bar edge.
- * Therefore it can leave upward without ever drawing over the system status bar.
+ * Header artwork deliberately starts at screen y=0, behind the status bar, and is translated by
+ * the same scroll distance as the page.  There is no delayed/independent header animation and no
+ * narrow clipping viewport that can shave the avatar while it leaves the screen.
  */
 @Composable
 fun XvoxShellTopHeader(
@@ -68,18 +70,18 @@ fun XvoxShellTopHeader(
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
     onRecentClick: () -> Unit = {},
-    /** Negative scroll translation, capped by the caller to [XvoxShellTopHeaderBodyHeight]. */
+    /** Negative page-scroll translation, supplied directly by the active page. */
     scrollOffsetPx: Float = 0f,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder) ?: colors.cardBorder
-    val bodyOffset by animateFloatAsState(
-        targetValue = scrollOffsetPx,
-        animationSpec = tween(110, easing = SmoothEase),
-        label = "headerScrollOffset"
-    )
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) {
+        if (useSystemInsets) WindowInsets.statusBars.getTop(this).toDp() else 0.dp
+    }
+    val headerHeight = statusBarHeight + XvoxShellTopHeaderBodyHeight
     val libraryActions = listOf(
         HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
@@ -99,7 +101,6 @@ fun XvoxShellTopHeader(
         animationSpec = tween(200),
         label = "headerLibraryIndicatorAlpha"
     )
-    val alphaFraction = chrome.headerBgAlpha.coerceIn(0f, 1f)
     val headerDimAlpha = if (chrome.headerDimEnabled) chrome.headerDimAmount.coerceIn(0f, 1f) else 0f
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
@@ -108,14 +109,15 @@ fun XvoxShellTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(XvoxShellTopHeaderBodyHeight)
-            .graphicsLayer { translationY = bodyOffset }
+            .height(headerHeight)
+            // Direct translation keeps profile, artwork, and page scroll in one motion.
+            .graphicsLayer { translationY = scrollOffsetPx }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated.copy(alpha = if (alphaFraction > 0f) alphaFraction else .85f))
+            .background(if (hasCustomHeader) Color.Transparent else colors.cardElevated)
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(
@@ -124,7 +126,6 @@ fun XvoxShellTopHeader(
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier
                     .matchParentSize()
-                    .graphicsLayer { alpha = alphaFraction }
             )
             Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
         }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
@@ -55,7 +56,9 @@ fun XvoxNowPlayingArtworkPager(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     pageSpacing: androidx.compose.ui.unit.Dp = 12.dp,
-    repeatMode: RepeatMode = RepeatMode.OFF
+    repeatMode: RepeatMode = RepeatMode.OFF,
+    /** Persisted cover-change treatment selected from Now Playing → Cover transition. */
+    coverTransition: String = XvoxCoverTransitionStyles.SLIDE
 ) {
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
@@ -136,6 +139,8 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
+    val selectedCoverTransition = XvoxCoverTransitionStyles.normalize(coverTransition)
+
     HorizontalPager(
         state = pager,
         beyondViewportPageCount = 3,
@@ -151,9 +156,36 @@ fun XvoxNowPlayingArtworkPager(
         key = { page -> queue.getOrNull(page)?.id ?: page }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
+        val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
+        val amount = abs(pageOffset)
         Box(
             Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    // Each option remains compatible with the pager's native drag and adds a
+                    // distinct, lightweight treatment rather than swapping covers abruptly.
+                    when (selectedCoverTransition) {
+                        "push" -> { scaleX = 1f - .08f * amount; scaleY = scaleX }
+                        "parallax" -> translationX = -pageOffset * 34f
+                        "fade" -> alpha = 1f - .55f * amount
+                        "scale" -> { scaleX = 1f - .14f * amount; scaleY = scaleX }
+                        "zoom" -> { scaleX = 1f + .14f * amount; scaleY = scaleX; alpha = 1f - .22f * amount }
+                        "depth" -> { scaleX = 1f - .20f * amount; scaleY = scaleX; alpha = 1f - .36f * amount }
+                        "flip_x" -> { rotationY = pageOffset * 68f; alpha = 1f - .24f * amount }
+                        "flip_y" -> { rotationX = -pageOffset * 62f; alpha = 1f - .24f * amount }
+                        "rotate_cw" -> rotationZ = pageOffset * 18f
+                        "rotate_ccw" -> rotationZ = -pageOffset * 18f
+                        "tilt" -> rotationZ = pageOffset * 10f
+                        "rise" -> translationY = -pageOffset * 42f
+                        "drop" -> translationY = pageOffset * 42f
+                        "reveal" -> { scaleX = 1f - .22f * amount; alpha = 1f - .18f * amount }
+                        "stack" -> { scaleX = 1f - .12f * amount; scaleY = scaleX; translationY = amount * 18f }
+                        "pop" -> { scaleX = 1f + .08f * (1f - amount); scaleY = scaleX; alpha = 1f - .28f * amount }
+                        "drift" -> translationX = pageOffset * 18f
+                        "swing" -> rotationZ = pageOffset * 24f
+                        "glide" -> { translationX = -pageOffset * 10f; alpha = 1f - .16f * amount }
+                    }
+                }
                 .clip(RoundedCornerShape(20.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

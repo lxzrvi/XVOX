@@ -21,7 +21,9 @@ enum class XvoxBoxPresentation {
     DEFAULT,
     SONG_OPTIONS,
     /** Bottom-sheet audio editor with the supplied Equalizer styling. */
-    EQUALIZER
+    EQUALIZER,
+    /** Secondary/deeper choice presented as a centred dialog over its parent sheet. */
+    CENTERED
 }
 
 @Stable
@@ -44,6 +46,10 @@ class XvoxOverlayController {
     internal var boxHeaderTitleContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
+    /** Optional fixed footer rendered outside the sheet's scrolling content. */
+    internal var boxBottomAction by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
+
     val isBoxVisible: Boolean get() = listContent != null
 
     /** A compact bottom-anchored PIP-style popup instead of the centred box. */
@@ -63,15 +69,23 @@ class XvoxOverlayController {
         onSettings: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
+        bottomAction: (@Composable () -> Unit)? = null,
         presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
         content: @Composable () -> Unit
     ) {
         boxMini = false
         boxTitle = title
-        boxPresentation = presentation
+        // A box opened from a visible box is a deeper choice.  It intentionally becomes centred
+        // rather than creating a stack of bottom sheets.
+        boxPresentation = if (isBoxVisible && presentation == XvoxBoxPresentation.DEFAULT) {
+            XvoxBoxPresentation.CENTERED
+        } else {
+            presentation
+        }
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
+        boxBottomAction = bottomAction
         listKey++
         listContent = content
     }
@@ -91,6 +105,7 @@ class XvoxOverlayController {
         boxSettingsAction = onSettings
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
+        boxBottomAction = null
         listKey++
         listContent = content
     }
@@ -102,6 +117,7 @@ class XvoxOverlayController {
         boxSettingsAction = null
         boxUndoAction = null
         boxHeaderTitleContent = null
+        boxBottomAction = null
     }
 
     fun showP(text: String) {

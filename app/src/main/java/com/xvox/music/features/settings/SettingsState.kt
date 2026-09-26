@@ -2,8 +2,12 @@ package com.xvox.music.features.settings
 
 data class SettingsState(
     val nowPlayingStyle: String = "default",
-    /** Selected Now Playing artwork-derived backdrop treatment. */
+    /** Retained migration field; Default is the only valid backdrop. */
     val nowPlayingBackgroundStyle: String = "default",
+    /** One of the twenty persisted cover-change treatments. */
+    val nowPlayingCoverTransition: String = "slide",
+    /** Palette handoff for the Default Now Playing backdrop. */
+    val nowPlayingBackgroundTransition: String = "transition",
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
     val accentColor: String = "White",

@@ -68,8 +68,9 @@ fun XvoxMiniPlayerCard(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
-    // Keep this player visually in the same translucent, outlined family as the navigation chrome.
-    val miniAlpha = chrome.miniBgAlpha.coerceIn(.22f, .82f)
+    // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
+    // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
+    val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
     val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f).dp
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
@@ -96,7 +97,7 @@ fun XvoxMiniPlayerCard(
             .height(56.dp)
             .clip(cardShape)
             .background(colors.cardElevated.copy(alpha = miniAlpha))
-            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.38f, .78f)), cardShape)
+            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f)), cardShape)
             .drawWithContent {
                 drawContent()
                 val radius = miniRadius.toPx()
@@ -117,7 +118,7 @@ fun XvoxMiniPlayerCard(
             }
     ) {
         if (isFullCover) {
-            val alphaFraction = chrome.miniBgAlpha.coerceIn(.30f, .84f)
+            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 requestSize = 512,

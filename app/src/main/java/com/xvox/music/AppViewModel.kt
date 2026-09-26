@@ -15,14 +15,14 @@ import kotlinx.coroutines.delay
 /**
  * Startup is gated on real work, never on a stopwatch.
  *
- * Loading stays up until the whole Home layout is genuinely ready, but it can never look stuck:
- * every prepared stage moves a determinate bar, an idle creep keeps the bar alive while a slow
- * stage runs, and a hard ceiling releases the UI even if one stage never reports back.
+ * Loading stays up until the whole Home layout is genuinely ready. Real preparation milestones
+ * remain available to the app, while the UI itself uses a separate staged visual sequence and
+ * never reveals Home simply because a timer has elapsed.
  */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
-        /** Nothing may hold the loading screen longer than this, whatever happens. */
+        /** After this interval, minimum readiness is relaxed but visual/shell readiness still gates entry. */
         const val HARD_CEILING_MS = 9000L
 
         /** Enough for the shell to lay out once, so Home never appears half-drawn. */
@@ -58,13 +58,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Absolute ceiling: a stage that never answers cannot freeze the app on the logo.
+        // Keep the visual gate available after the safety interval; it must still wait for the
+        // mounted shell and staged loading sequence rather than revealing a half-prepared Home.
         viewModelScope.launch {
             delay(HARD_CEILING_MS)
             if (!released && _state.value == AppUiState.Preparing) {
                 _stage.value = "Almost there"
                 _minimumReady.value = true
-                forceHome()
             }
         }
 
@@ -108,7 +108,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { delay(MIN_VISIBLE_MS); _minimumReady.value = true }
         viewModelScope.launch {
             delay(HARD_CEILING_MS)
-            if (!released) { _minimumReady.value = true; forceHome() }
+            // Match the initial-start behaviour: a safety interval may relax minimum readiness,
+            // but the staged screen still waits for the mounted, prepared shell.
+            if (!released) _minimumReady.value = true
         }
         _state.value = AppUiState.Preparing
     }

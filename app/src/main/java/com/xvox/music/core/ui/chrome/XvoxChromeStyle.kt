@@ -42,6 +42,14 @@ data class XvoxChromeStyle(
     val miniCornerRadius: Float = 15f,
     /** Visual floating-navigation height, in dp. */
     val navigationBarHeight: Float = 64f,
+    /** Visual floating-navigation width, in dp. The three fixed destinations share it evenly. */
+    val navigationBarWidth: Float = 246f,
+    /**
+     * Image used exclusively inside the floating navigation bar.  This intentionally never falls
+     * back to the Header image: Header/status-bar artwork and navigation artwork are separate
+     * choices.
+     */
+    val navigationImageUri: String = "",
     /** A dim overlay is opt-in so a custom header remains bright by default. */
     val headerDimEnabled: Boolean = false,
     val headerDimAmount: Float = .50f
@@ -56,7 +64,8 @@ data class XvoxChromeStyle(
         cardBorder, cardBorderAlpha,
         miniCoverStyle,
         miniCornerRadius, navigationBarHeight,
-        headerDimEnabled, headerDimAmount
+        headerDimEnabled, headerDimAmount,
+        navigationBarWidth, navigationImageUri
     ).joinToString("|")
 
     companion object {
@@ -101,7 +110,10 @@ data class XvoxChromeStyle(
                 miniCornerRadius = number(18, 15f).coerceIn(6f, 32f),
                 navigationBarHeight = number(19, 64f).coerceIn(52f, 88f),
                 headerDimEnabled = parts.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
-                headerDimAmount = flt(21, .50f)
+                headerDimAmount = flt(21, .50f),
+                // Appended fields keep every earlier chrome_style_v1 record readable.
+                navigationBarWidth = number(22, 246f).coerceIn(190f, 380f),
+                navigationImageUri = str(23)
             )
         }
     }
