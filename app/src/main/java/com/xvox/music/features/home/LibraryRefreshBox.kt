@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 @Composable
 fun LibraryRefreshBox(
@@ -50,6 +51,7 @@ fun LibraryRefreshBox(
     onCancel: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = androidx.compose.foundation.rememberScrollState()
 
     val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
     val spinRotation by infiniteTransition.animateFloat(
@@ -63,7 +65,11 @@ fun LibraryRefreshBox(
     )
 
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(

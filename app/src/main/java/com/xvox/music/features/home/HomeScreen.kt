@@ -13,8 +13,6 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -527,27 +525,13 @@ fun HomeScreen(
         AnimatedContent(
             targetState = targetKey,
             transitionSpec = {
-                // Keep the independently saved list states intact while each of the four header
-                // libraries glides through a small directional overlap instead of hard-cutting.
-                val order: (Any?) -> Int = { key ->
-                    when (key) {
-                        XvoxHomeLibraryMode.RECENT -> 0
-                        XvoxHomeLibraryMode.LIKED -> 1
-                        XvoxHomeLibraryMode.PLAYLISTS -> 2
-                        XvoxHomeLibraryMode.ARTISTS -> 3
-                        XvoxHomeLibraryMode.ALL_SONGS -> -1
-                        else -> 4
-                    }
-                }
-                val direction = if (order(targetState) >= order(initialState)) 1 else -1
+                // All library pages retain their own scroll state, while a short same-coordinate
+                // fade keeps the shared Header visually fixed instead of sliding/rebuilding it.
+                // The library body still changes smoothly, without a jump or directional jitter.
                 val easing = CubicBezierEasing(.2f, 0f, 0f, 1f)
-                (
-                    slideInHorizontally(tween(280, easing = easing)) { width -> direction * width / 12 } +
-                        fadeIn(tween(210, easing = easing))
-                    ).togetherWith(
-                    slideOutHorizontally(tween(240, easing = easing)) { width -> -direction * width / 14 } +
-                        fadeOut(tween(170, easing = easing))
-                ).using(null)
+                fadeIn(tween(190, easing = easing))
+                    .togetherWith(fadeOut(tween(170, easing = easing)))
+                    .using(null)
             },
             modifier = Modifier.fillMaxSize(),
             label = "librarySwitch"
@@ -678,7 +662,11 @@ fun HomeScreen(
                 onDeleteSelected = { requestDeleteSelected() },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomInset + (if (currentSongId != null) 72.dp else 16.dp))
+                    .padding(
+                        // Long-press selection actions remain just 10dp above the currently
+                        // reserved floating chrome instead of floating an extra card-height away.
+                        bottom = bottomInset + 10.dp
+                    )
                     .zIndex(9999f)
             )
         }

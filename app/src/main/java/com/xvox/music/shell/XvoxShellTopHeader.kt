@@ -1,14 +1,5 @@
 package com.xvox.music.shell
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,11 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
@@ -40,8 +29,6 @@ import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.features.home.HomeGreeting
 import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
-
-private val SmoothEase = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 private data class HeaderLibraryAction(
     val mode: XvoxHomeLibraryMode,
@@ -88,19 +75,8 @@ fun XvoxShellTopHeader(
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick)
     )
-    val selectedActionIndex = libraryActions.indexOfFirst { it.mode == libraryMode }
-    val selected = selectedActionIndex >= 0
-    val targetIndicatorX = 3.dp + 36.dp * selectedActionIndex.coerceAtLeast(0).toFloat()
-    val animatedIndicatorX by animateDpAsState(
-        targetValue = targetIndicatorX,
-        animationSpec = tween(280, easing = SmoothEase),
-        label = "headerLibraryIndicatorX"
-    )
-    val indicatorAlpha by animateFloatAsState(
-        targetValue = if (selected) 1f else 0f,
-        animationSpec = tween(200),
-        label = "headerLibraryIndicatorAlpha"
-    )
+    // The Header stays visually invariant while Home swaps its library page or the user enters
+    // Search. Destination-specific motion belongs to the content below this line, not this chrome.
     val dimEnabled = headerDimEnabledOverride ?: chrome.headerDimEnabled
     val dimAmount = headerDimAmountOverride ?: chrome.headerDimAmount
     val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
@@ -174,79 +150,61 @@ fun XvoxShellTopHeader(
                 }
             }
 
-            AnimatedVisibility(
-                visible = destination == XvoxDestination.HOME,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f))
-                ) + fadeIn(tween(260)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(280, easing = CubicBezierEasing(.16f, 1f, .3f, 1f))
-                ) + fadeOut(tween(220))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Header controls use the same translucent, thin-edged language as navigation.
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(colors.card.copy(alpha = .46f))
-                            .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_refresh),
-                            contentDescription = "Refresh Library",
-                            tint = colors.primaryText,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
+            // Keep this control group mounted and unselected for Home, Search, and each library
+            // destination. It therefore never slides, fades, or recolours when only page content
+            // changes beneath the Header.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(colors.card.copy(alpha = .46f))
+                        .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_refresh),
+                        contentDescription = "Refresh Library",
+                        tint = colors.primaryText,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
 
-                    val actionShape = RoundedCornerShape(21.dp)
-                    val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
-                    Box(
+                val actionShape = RoundedCornerShape(21.dp)
+                val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
+                Box(
+                    modifier = Modifier
+                        .height(42.dp)
+                        .width(actionPillWidth)
+                        .clip(actionShape)
+                        .background(colors.card.copy(alpha = .46f))
+                ) {
+                    Row(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .height(42.dp)
-                            .width(actionPillWidth)
-                            .clip(actionShape)
-                            .background(colors.card.copy(alpha = .46f))
+                            .padding(horizontal = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .offset { IntOffset(animatedIndicatorX.roundToPx(), 3.dp.roundToPx()) }
-                                .size(36.dp)
-                                .graphicsLayer { alpha = indicatorAlpha }
-                                .clip(CircleShape)
-                                .background(colors.cardElevated.copy(alpha = .82f))
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp)
-                                .padding(horizontal = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            libraryActions.forEach { action ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .clickable(
-                                            interactionSource = remember(action.mode) { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = action.onClick
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(action.icon),
-                                        contentDescription = action.label,
-                                        tint = if (libraryMode == action.mode) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                        modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
-                                    )
-                                }
+                        libraryActions.forEach { action ->
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        interactionSource = remember(action.mode) { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = action.onClick
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(action.icon),
+                                    contentDescription = action.label,
+                                    tint = colors.primaryText.copy(alpha = .70f),
+                                    modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
+                                )
                             }
                         }
                     }

@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 import kotlin.math.roundToInt
 
@@ -283,8 +286,14 @@ fun PlaylistLayoutEditorBox(
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
     val auto = state.playlistLongHeight <= 0
+    val scrollState = rememberScrollState()
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
+    ) {
         Text(
             text = "Playlist Layout & Settings",
             color = colors.primaryAccent,

@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -24,6 +25,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.FolderInfo
 import com.xvox.music.features.home.FolderPaths
 import com.xvox.music.features.home.HomeViewModel
@@ -88,7 +90,14 @@ private fun CustomThresholdBox(initial: Int, size: Boolean, onCancel: () -> Unit
     val max = if (size) 10_485_760 else 86_400
     val number = input.toDoubleOrNull()?.times(factor)
     val valid = number != null && number.isFinite() && number in 0.0..max.toDouble()
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scrollState = rememberScrollState()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text(if (size) "Files below this size are ignored." else "Audio below this duration is ignored.", color = colors.secondaryText, fontSize = 13.sp)
         OutlinedTextField(value = input, onValueChange = { if (it.length <= 12) input = it },
             singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -113,6 +122,7 @@ private fun FolderBrowserBox(folders: List<FolderInfo>, initial: Set<String>, on
     val colors = XvoxTheme.colors
     var path by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(initial) }
+    val folderListState = rememberLazyListState()
     val paths = remember(folders) { folders.map { FolderPaths.normalize(it.path) }.distinct() }
     val roots = remember(paths) {
         paths.map { full ->
@@ -137,7 +147,14 @@ private fun FolderBrowserBox(folders: List<FolderInfo>, initial: Set<String>, on
                 modifier = Modifier.size(44.dp).clickable { up() }.padding(12.dp))
             Text(path.ifEmpty { "Device storage" }, color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
         }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 360.dp)) {
+        LazyColumn(
+            state = folderListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .heightIn(max = 360.dp)
+                .xvoxBoxScroll(folderListState)
+        ) {
             items(children, key = { it }) { child ->
                 val matching = folders.filter { FolderPaths.contains(child, it.path) }
                 val checked = selected.any { FolderPaths.contains(it, child) || it == child.substringAfterLast('/') }

@@ -23,6 +23,7 @@ import com.xvox.music.core.design.theme.XvoxRed
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 private data class SongOptionGridAction(
     val label: String,
@@ -57,6 +58,7 @@ fun SongOptionsBox(
     sectionSettingsLabel: String? = null
 ) {
     val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
     val identityShape = RoundedCornerShape(16.dp)
     // Action cards deliberately share the song identity card's rounded silhouette.
     val tileShape = identityShape
@@ -109,7 +111,8 @@ fun SongOptionsBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(

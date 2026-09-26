@@ -386,7 +386,7 @@ fun XvoxArtworkLyrics(
                         ) {
                             Text(
                                 text = rawLine.text.ifBlank { "♪" },
-                                color = effectiveTextColor.copy(alpha = 0.85f),
+                                color = effectiveTextColor.copy(alpha = .93f),
                                 fontFamily = XvoxUiFont,
                                 fontSize = lyricsSettings.currentSize.sp,
                                 lineHeight = (lyricsSettings.currentSize * 1.30f).sp,

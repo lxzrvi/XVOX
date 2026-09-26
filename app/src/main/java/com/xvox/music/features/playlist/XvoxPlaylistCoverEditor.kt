@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.platform.LocalContext
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -104,6 +106,7 @@ fun XvoxPlaylistCoverEditor(
 
     // Any pick between 1 and 4 covers is valid; the mosaic renders whichever count is kept.
     val canApply = (selected.isNotEmpty() && selected.size <= 4) || customUri != null
+    val coverGridState = rememberLazyGridState()
 
     Column(modifier = Modifier.fillMaxWidth().heightIn(max = 660.dp)) {
         Text(
@@ -127,11 +130,13 @@ fun XvoxPlaylistCoverEditor(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
+            state = coverGridState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = false)
                 .padding(top = 14.dp)
-                .heightIn(max = 540.dp),
+                .heightIn(max = 540.dp)
+                .xvoxBoxScroll(coverGridState),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {

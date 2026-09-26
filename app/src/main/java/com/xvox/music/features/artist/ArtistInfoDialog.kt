@@ -1,6 +1,8 @@
 package com.xvox.music.features.artist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @Composable
@@ -53,6 +56,7 @@ fun ArtistInfoDialog(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val sheetScrollState = rememberScrollState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     XvoxBox(
@@ -94,6 +98,8 @@ fun ArtistInfoDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(sheetScrollState)
+                    .xvoxBoxScroll(sheetScrollState)
                     .padding(vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -154,6 +160,8 @@ fun ArtistInfoDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(sheetScrollState)
+                    .xvoxBoxScroll(sheetScrollState)
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {

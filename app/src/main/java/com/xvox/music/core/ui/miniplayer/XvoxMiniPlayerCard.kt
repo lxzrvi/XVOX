@@ -260,7 +260,9 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    // These are deliberately bare icon touch targets, not nested outlined circles.
+                    // Home Mini Player actions sit on a distinct, half-transparent circular
+                    // surface so Like and Play read as controls without competing with the card.
+                    .background(colors.background.copy(alpha = .50f))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -280,7 +282,8 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    // Play follows the same bare-control treatment as Like.
+                    .background(colors.background.copy(alpha = .50f))
+                    // Play intentionally shares Like's half-transparent circular treatment.
                     .clickable(
                         interactionSource = controlInteraction,
                         indication = null,

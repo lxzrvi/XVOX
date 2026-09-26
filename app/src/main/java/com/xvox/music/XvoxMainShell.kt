@@ -72,6 +72,7 @@ import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
 import com.xvox.music.player.nowplaying.XvoxArtworkPaletteLoader
+import com.xvox.music.player.nowplaying.xvoxArtworkPaletteKey
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
 import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
@@ -402,9 +403,9 @@ fun XvoxMainShell(
     // Start palette work while the Mini Player is on screen. This shared cache is then ready when
     // the sequential 50ms handoff mounts Now Playing, avoiding an unrelated fallback flash.
     val nowPlayingPaletteLoader = remember(context) { XvoxArtworkPaletteLoader(context) }
-    LaunchedEffect(currentSong?.id, currentSong?.artworkUri) {
+    LaunchedEffect(currentSong?.xvoxArtworkPaletteKey()) {
         currentSong?.let { selected ->
-            nowPlayingPaletteLoader.load(selected.artworkUri, "${selected.title}_${selected.artist}")
+            nowPlayingPaletteLoader.load(selected.artworkUri, selected.xvoxArtworkPaletteKey())
         }
     }
 
@@ -503,10 +504,22 @@ fun XvoxMainShell(
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                    ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
-                        togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
-                        .using(null)
+                    val isHeaderStableSwitch =
+                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
+                            (initialState == XvoxDestination.SEARCH && targetState == XvoxDestination.HOME)
+                    if (isHeaderStableSwitch) {
+                        // Home and Search deliberately share an unanimated Header identity. Do
+                        // not slide/fade that strip (or its close search-bar relationship) when
+                        // moving between the two destinations.
+                        androidx.compose.animation.EnterTransition.None
+                            .togetherWith(androidx.compose.animation.ExitTransition.None)
+                            .using(null)
+                    } else {
+                        val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                        ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
+                            togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
+                            .using(null)
+                    }
                 },
                 label = "directionalTabs",
                 modifier = Modifier.fillMaxSize()

@@ -25,7 +25,7 @@ fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

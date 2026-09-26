@@ -78,7 +78,15 @@ fun BoxScope.XvoxShellMiniPlayerHost(
             }
 
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)
-            val currentBottomPadding = max(restingBottomPadding, effectiveImeDp + XvoxMiniPlayerPlacement.controlGap)
+            // Keyboard mode deliberately uses the same 10dp value as the Mini Player ↔ Navbar
+            // gap. navigationBarsPadding contributes the system inset, so this remaining value
+            // is the visible air between the card and the keyboard edge.
+            val keyboardBottomPadding = if (effectiveImeDp > 0.dp) {
+                effectiveImeDp + XvoxMiniPlayerPlacement.controlGap
+            } else {
+                restingBottomPadding
+            }
+            val currentBottomPadding = max(restingBottomPadding, keyboardBottomPadding)
 
             val miniModifier = Modifier
                 .navigationBarsPadding()

@@ -50,7 +50,13 @@ fun XvoxNowPlayingArtworkForStyle(
                 navigationRequest = navigationRequest,
                 onArtworkTap = onArtworkTap,
                 onSwipePalette = onSwipePalette,
-                onSettledPage = onSettledPage,
+                onSettledPage = { settledSong ->
+                    // This legacy style wrapper exposes indices, so resolve only at the bridge.
+                    // The main Now Playing surface commits stable song identities directly.
+                    queue.indexOfFirst { it.id == settledSong.id }
+                        .takeIf { it >= 0 }
+                        ?.let(onSettledPage)
+                },
                 modifier = modifier,
                 repeatMode = repeatMode
             )

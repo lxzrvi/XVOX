@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 /**
  * One confirmation shape for the whole app: exit, delete a song, delete a playlist.
@@ -35,8 +36,12 @@ fun XvoxConfirmBox(
 ) {
     val colors = XvoxTheme.colors
     val confirmColor = if (danger) Color(0xFFEF4444) else colors.primaryAccent
+    val scrollState = rememberScrollState()
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Plain emoji, no circle around it.

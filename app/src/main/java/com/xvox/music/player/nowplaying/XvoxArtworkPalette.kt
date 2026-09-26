@@ -9,12 +9,17 @@ import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import com.xvox.music.artwork.XvoxArtworkCache
+import com.xvox.music.core.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+
+/** A song-specific key prevents album-art/cache lookups from being reused for a different track. */
+internal fun Song.xvoxArtworkPaletteKey(): String =
+    "${id}|${contentUri}|${artworkUri?.toString().orEmpty()}"
 
 /**
  * Now Playing's faithful cover-background extractor.
@@ -80,14 +85,23 @@ class XvoxArtworkPaletteLoader(
     }
 
     /**
+     * A palette cache is scoped to the song identity as well as its artwork URI. Some media
+     * providers recycle cover references while changing a track's artwork, so URI-only caching can
+     * paint a valid-but-wrong previous palette on the next song.
+     */
+    private fun paletteCacheKey(uri: Uri?, songKey: String): String {
+        val normalizedSongKey = songKey.trim()
+        if (normalizedSongKey.isNotBlank()) return normalizedSongKey
+        return uri?.toString()?.takeIf { it.isNotBlank() }.orEmpty()
+    }
+
+    /**
      * Never decode or examine pixels on the UI thread during ordinary paging. The surrounding
      * palette state preloads the current and neighbouring covers, while this immediate value keeps
      * a first frame responsive.
      */
-    fun cachedColor(uri: Uri?, songKey: String = ""): Color? {
-        val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
-        return key.takeIf { it.isNotBlank() }?.let(cache::get)
-    }
+    fun cachedColor(uri: Uri?, songKey: String = ""): Color? =
+        paletteCacheKey(uri, songKey).takeIf { it.isNotBlank() }?.let(cache::get)
 
     fun fastEstimate(uri: Uri?, songKey: String = ""): Color =
         cachedColor(uri, songKey) ?: fallback(songKey)
@@ -100,7 +114,7 @@ class XvoxArtworkPaletteLoader(
     fun initialEstimate(uri: Uri?, songKey: String = ""): Color = fastEstimate(uri, songKey)
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
-        val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
+        val key = paletteCacheKey(uri, songKey)
         if (key.isBlank()) return fallback(songKey)
         cache[key]?.let { return it }
 

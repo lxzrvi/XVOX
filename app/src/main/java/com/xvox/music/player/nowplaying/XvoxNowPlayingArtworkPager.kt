@@ -3,8 +3,8 @@ package com.xvox.music.player.nowplaying
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
@@ -39,28 +41,42 @@ import kotlin.math.abs
  * Full-queue smooth HorizontalPager for Now Playing.
  * - Instant cover swiping with zero delay.
  * - Fast Next/Previous button taps immediately animate the cover without getting stuck.
- * - Currently playing audio remains playing while swiping fast; only when the
- *   user finishes a manual touch swipe on a target song does it begin playback.
+ * - Currently playing audio remains playing while swiping fast; only when the user finishes a
+ *   manual touch swipe on a stable song does the parent commit that song identity to playback.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
     currentIndex: Int,
-    navigationRequest: Int,
+    @Suppress("UNUSED_PARAMETER") navigationRequest: Int,
     /** Page currently being previewed by the previous/next controls. */
     previewIndex: Int = currentIndex,
+    /** Stable visual target used to survive a queue reorder while this pager is mounted. */
+    previewSongId: Long? = queue.getOrNull(previewIndex)?.id,
     onPreviewIndexChange: (Int) -> Unit = {},
     onArtworkTap: () -> Unit,
     onSwipePalette: (Song, Song?, Float) -> Unit,
-    onSettledPage: (Int) -> Unit,
+    /** Supplies the stable visible song, never only an index that a shuffled queue can invalidate. */
+    onSettledPage: (Song) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    pageSpacing: androidx.compose.ui.unit.Dp = 12.dp,
+    pageSpacing: Dp = 12.dp,
+    /** Insets the cover inside an edge-clipped page without exposing neighbouring artwork. */
+    artworkHorizontalInset: Dp = 0.dp,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
-    val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
+    val queueIdentity = remember(queue) { queue.map { it.xvoxArtworkPaletteKey() } }
+    val stableInitialPage = previewSongId
+        ?.let { targetId -> queue.indexOfFirst { it.id == targetId } }
+        ?.takeIf { it in queue.indices }
+        ?: initialIdx
+    // A reordered queue creates a fresh pager at the stable target song rather than retaining an
+    // old numeric page that now belongs to a different cover.
+    val pager = key(queueIdentity) {
+        rememberPagerState(initialPage = stableInitialPage, pageCount = { queue.size })
+    }
 
     val settled by rememberUpdatedState(onSettledPage)
     val previewChanged by rememberUpdatedState(onPreviewIndexChange)
@@ -69,9 +85,9 @@ fun XvoxNowPlayingArtworkPager(
     val tap by rememberUpdatedState(onArtworkTap)
 
     val isUserDragging by pager.interactionSource.collectIsDraggedAsState()
-    var userSwiped by remember { mutableStateOf(false) }
+    var userSwiped by remember(queueIdentity) { mutableStateOf(false) }
     // Prevent a stale 300 ms release commit when the user begins a fresh fast swipe.
-    var swipeEpoch by remember { mutableIntStateOf(0) }
+    var swipeEpoch by remember(queueIdentity) { mutableIntStateOf(0) }
 
     LaunchedEffect(isUserDragging) {
         if (isUserDragging) {
@@ -80,15 +96,17 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // The visible deck follows the preview index. Player state may remain on the old song while
-    // the user presses/holds next or previous, which lets the cover animate like a real swipe.
-    LaunchedEffect(previewIndex, queue.size) {
+    // The visible deck follows the preview song rather than trusting a numerical page after a
+    // queue reorder. This is especially important when Shuffle moves the current item to index 0.
+    val targetPreviewSongId = previewSongId ?: queue.getOrNull(previewIndex)?.id
+    LaunchedEffect(targetPreviewSongId, queue) {
         userSwiped = false
-        if (previewIndex in queue.indices && previewIndex != pager.currentPage) {
+        val targetPage = targetPreviewSongId?.let { id -> queue.indexOfFirst { it.id == id } } ?: -1
+        if (targetPage in queue.indices && targetPage != pager.currentPage) {
             // Never scrollToPage here: a held or rapidly tapped control can move more than one
             // index, but the visible cover and the live palette must still travel continuously.
             pager.animateScrollToPage(
-                page = previewIndex,
+                page = targetPage,
                 animationSpec = tween(
                     durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
                     easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
@@ -97,7 +115,7 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Real-time backdrop color crossfading matching finger/pager position with zero latency
+    // Real-time backdrop color crossfading matching finger/pager position with zero latency.
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Pair(pager.currentPage, pager.currentPageOffsetFraction)
@@ -113,27 +131,28 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Playback changes only after a manual swipe has genuinely settled for 300 ms. This lets the
-    // current audio continue through fast browsing and commits exactly the cover where the user
-    // stopped, rather than a transient page passed during a fling.
+    // Playback changes only after a manual swipe has genuinely settled for 300 ms. Capture the
+    // target Song itself before waiting: an index can mean a different cover after Shuffle.
     LaunchedEffect(pager, queue) {
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
         }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
-            if (!inProgress && !dragging && userSwiped && settledIndex in queue.indices && settledIndex != latestCurrentIndex) {
+            val targetSong = queue.getOrNull(settledIndex)
+            val currentSongId = queue.getOrNull(latestCurrentIndex)?.id
+            if (!inProgress && !dragging && userSwiped && targetSong != null && targetSong.id != currentSongId) {
                 userSwiped = false
                 previewChanged(settledIndex)
                 val settledEpoch = swipeEpoch
+                val settledSongId = targetSong.id
                 delay(300)
                 if (
                     settledEpoch == swipeEpoch &&
                     !pager.isScrollInProgress &&
                     !isUserDragging &&
-                    pager.settledPage == settledIndex &&
-                    settledIndex in queue.indices &&
-                    settledIndex != latestCurrentIndex
+                    queue.getOrNull(pager.settledPage)?.id == settledSongId &&
+                    queue.getOrNull(latestCurrentIndex)?.id != settledSongId
                 ) {
-                    settled(settledIndex)
+                    settled(targetSong)
                 }
             } else if (!inProgress && !dragging) {
                 userSwiped = false
@@ -153,7 +172,7 @@ fun XvoxNowPlayingArtworkPager(
         contentPadding = contentPadding,
         pageSpacing = pageSpacing,
         modifier = modifier.fillMaxSize(),
-        key = { page -> queue.getOrNull(page)?.id ?: page }
+        key = { page -> queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: page }
     ) { page ->
         val song = queue.getOrNull(page) ?: return@HorizontalPager
         val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
@@ -162,13 +181,12 @@ fun XvoxNowPlayingArtworkPager(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    // Now Playing artwork has one intentional treatment: Depth.  It remains
+                    // Now Playing artwork has one intentional treatment: Depth. It remains
                     // responsive to native pager drag while the background owns its own variety.
                     scaleX = 1f - .20f * amount
                     scaleY = scaleX
                     alpha = 1f - .36f * amount
                 }
-                .clip(RoundedCornerShape(20.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -178,11 +196,20 @@ fun XvoxNowPlayingArtworkPager(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                requestSize = XvoxNowPlayingArtworkSize,
-                modifier = Modifier.fillMaxSize()
-            )
+            // The page retains its full edge-to-edge clipping boundary. In landscape an inner
+            // inset reduces cover width, while adjacent covers remain outside that boundary.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = artworkHorizontalInset)
+                    .clip(RoundedCornerShape(20.dp))
+            ) {
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    requestSize = XvoxNowPlayingArtworkSize,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }

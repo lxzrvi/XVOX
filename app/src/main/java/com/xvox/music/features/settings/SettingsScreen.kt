@@ -9,6 +9,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -38,6 +40,7 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
@@ -70,9 +73,12 @@ fun SettingsScreen(
 
     fun openCustomColorPicker() {
         overlays.showBox("Custom Accent Color") {
+            val accentScroll = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(accentScroll)
+                    .xvoxBoxScroll(accentScroll)
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -108,20 +114,22 @@ fun SettingsScreen(
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Fixed(if (isLandscape) 2 else 1),
+            // Landscape keeps each Settings section full-width. The modest outer/row spacing is
+            // retained, but sections no longer split into two narrow columns.
+            columns = StaggeredGridCells.Fixed(1),
             state = scrollState,
             modifier = Modifier
-                .widthIn(max = if (isLandscape) 900.dp else 440.dp)
+                .then(if (isLandscape) Modifier else Modifier.widthIn(max = 440.dp))
                 .fillMaxWidth()
                 .fillMaxHeight(),
             contentPadding = PaddingValues(
-                start = 6.dp,
+                start = if (isLandscape) 10.dp else 6.dp,
                 top = statusTop + 6.dp,
-                end = 6.dp,
+                end = if (isLandscape) 10.dp else 6.dp,
                 bottom = bottomPadding
             ),
-            verticalItemSpacing = 12.dp,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            verticalItemSpacing = if (isLandscape) 8.dp else 12.dp,
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
         ) {
             item(
                 key = "settings_title",

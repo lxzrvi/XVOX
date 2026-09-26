@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
 @Composable
 fun DeleteSongBox(
@@ -35,9 +36,14 @@ fun DeleteSongBox(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .xvoxBoxScroll(scrollState)
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Text(
             text = "Delete Track",

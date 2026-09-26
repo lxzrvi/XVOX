@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -302,6 +304,29 @@ fun XvoxSheet(
                         dismissDistancePx = with(density) { 52.dp.toPx() }
                     )
                 }
+                // All sheet bodies receive the Queue sheet's expand/contract behavior, even when
+                // a legacy body has not yet attached xvoxBoxScroll itself. Upward content motion
+                // grows a long sheet first; leftover downward content motion at its top contracts
+                // it and then follows the normal close path.
+                val universalBodySheetConnection = remember(contentScrollBridge) {
+                    object : NestedScrollConnection {
+                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                            if (available.y >= 0f || requestedHeightPx <= 0f) return Offset.Zero
+                            val consumedY = contentScrollBridge.consume(available.y, atTop = true)
+                            return Offset(0f, consumedY)
+                        }
+
+                        override fun onPostScroll(
+                            consumed: Offset,
+                            available: Offset,
+                            source: NestedScrollSource
+                        ): Offset {
+                            if (available.y <= 0f || requestedHeightPx <= 0f) return Offset.Zero
+                            val consumedY = contentScrollBridge.consume(available.y, atTop = true)
+                            return Offset(0f, consumedY)
+                        }
+                    }
+                }
 
                 val requestedHeight: Dp? = requestedHeightPx
                     .takeIf { it > 0f }
@@ -433,7 +458,11 @@ fun XvoxSheet(
                                 .fillMaxWidth()
                                 .then(bodyViewport)
                                 .heightIn(min = 0.dp)
-                                .padding(horizontal = bodyHorizontal, vertical = 10.dp)
+                                .nestedScroll(universalBodySheetConnection)
+                                // Keep a small, stable air gap under the separator and clip the
+                                // scrolling viewport, so content cannot travel over the header.
+                                .clipToBounds()
+                                .padding(start = bodyHorizontal, top = 6.dp, end = bodyHorizontal, bottom = 10.dp)
                         ) {
                             CompositionLocalProvider(LocalXvoxSheetScrollBridge provides contentScrollBridge) {
                                 content()
@@ -677,8 +706,8 @@ private fun XvoxSheetHeaderAction(
 @Composable
 fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier {
     val bridge = LocalXvoxSheetScrollBridge.current ?: return this
-    // Both ScrollState and LazyListState are common inside XvoxBox.  Supporting both keeps the
-    // expand → internal-scroll → contract → close model available to every list-style sheet.
+    // ScrollState, LazyListState, and LazyGridState cover the sheet bodies in this app. Supporting
+    // all three keeps the expand → internal-scroll → contract → close model consistent.
     val isAtTop: () -> Boolean
     val hasOverflow: () -> Boolean
     when (scrollState) {
@@ -687,6 +716,10 @@ fun Modifier.xvoxBoxScroll(scrollState: Any? = null): Modifier {
             hasOverflow = { scrollState.maxValue > 0 }
         }
         is LazyListState -> {
+            isAtTop = { scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0 }
+            hasOverflow = { scrollState.canScrollForward || scrollState.firstVisibleItemIndex > 0 }
+        }
+        is LazyGridState -> {
             isAtTop = { scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0 }
             hasOverflow = { scrollState.canScrollForward || scrollState.firstVisibleItemIndex > 0 }
         }

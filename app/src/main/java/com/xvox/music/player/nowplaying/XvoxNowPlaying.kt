@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -26,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -148,12 +148,19 @@ fun XvoxNowPlaying(
     var dismissing by remember { mutableStateOf(false) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     // Separate visual browsing from the audio deck. Covers may move immediately while the
-    // audible item stays untouched until the navigation button is released.
+    // audible item stays untouched until the navigation button is released. Keep the target Song
+    // ID alongside the pager index: queue reorders (especially Shuffle) invalidate bare indices.
     var previewIndex by rememberSaveable { mutableIntStateOf(currentIndex.coerceIn(0, queue.lastIndex.coerceAtLeast(0))) }
+    var previewSongId by rememberSaveable {
+        mutableLongStateOf(queue.getOrNull(currentIndex)?.id ?: queue.firstOrNull()?.id ?: -1L)
+    }
     var previewGestureActive by remember { mutableStateOf(false) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
+    var holdPagerPaletteDuringShuffle by remember { mutableStateOf(false) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
+    val latestQueue by rememberUpdatedState(queue)
+    val latestCurrentIndex by rememberUpdatedState(currentIndex)
 
     var headerHeightDp by remember { mutableStateOf(56.dp) }
     var bottomHeightDp by remember { mutableStateOf(if (isCompact) 175.dp else 245.dp) }
@@ -213,20 +220,48 @@ fun XvoxNowPlaying(
         previewCommitJob = null
     }
 
+    fun setPreviewTarget(index: Int, sourceQueue: List<Song> = queue): Boolean {
+        val targetSong = sourceQueue.getOrNull(index) ?: return false
+        previewIndex = index
+        previewSongId = targetSong.id
+        return true
+    }
+
     LaunchedEffect(currentIndex, queue) {
-        // An external player change wins over an old delayed button-release request.
+        // An external player change wins over an old delayed button-release request. When a queue
+        // order changes while browsing, resolve the currently visible cover by ID before using it.
         if (!previewGestureActive) cancelPendingPreviewCommit()
-        if (!previewGestureActive && currentIndex in queue.indices) {
-            previewIndex = currentIndex
-        } else if (previewIndex !in queue.indices && currentIndex in queue.indices) {
-            previewIndex = currentIndex
+        val currentSong = queue.getOrNull(currentIndex)
+        val samePreviewIndex = queue.indexOfFirst { it.id == previewSongId }
+        when {
+            previewGestureActive && samePreviewIndex >= 0 -> previewIndex = samePreviewIndex
+            currentSong != null -> {
+                previewIndex = currentIndex
+                previewSongId = currentSong.id
+            }
+            previewIndex !in queue.indices && queue.isNotEmpty() -> {
+                previewIndex = 0
+                previewSongId = queue.first().id
+            }
+        }
+    }
+
+    // Shuffle must keep the current song's already-selected palette pinned while the pager
+    // remaps pages to the new queue order. Release the hold only after that short reflow settles.
+    LaunchedEffect(holdPagerPaletteDuringShuffle, queue, currentIndex, song.id) {
+        if (holdPagerPaletteDuringShuffle) {
+            paletteState.pin(song)
+            delay(XvoxPlayerTransitionMotion.Duration.toLong() + 40L)
+            holdPagerPaletteDuringShuffle = false
         }
     }
 
     fun movePreview(direction: Int): Boolean {
         if (queue.isEmpty() || repeatMode == RepeatMode.ONE) return false
         cancelPendingPreviewCommit()
-        val from = previewIndex.takeIf { it in queue.indices }
+        val stablePreviewIndex = queue.indexOfFirst { it.id == previewSongId }
+        val from = stablePreviewIndex.takeIf { it in queue.indices }
+            ?: previewIndex.takeIf { it in queue.indices }
             ?: currentIndex.takeIf { it in queue.indices }
             ?: return false
         val target = when {
@@ -237,38 +272,57 @@ fun XvoxNowPlaying(
             else -> return false
         }
         previewGestureActive = true
-        previewIndex = target
+        setPreviewTarget(target)
         navigationRequest += direction.coerceIn(-1, 1)
         return true
     }
 
     fun commitPreview() {
-        val target = previewIndex
+        val targetSongId = previewSongId
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        if (target !in queue.indices || target == currentIndex) return
+        val targetNow = latestQueue.indexOfFirst { it.id == targetSongId }
+        if (targetNow !in latestQueue.indices || targetNow == latestCurrentIndex) return
 
         val requestVersion = previewCommitVersion
         previewCommitJob = scope.launch {
             // Keep audio on the current song until the released cover has rested in place.
             delay(300)
+            val stableQueue = latestQueue
+            val stableTarget = stableQueue.indexOfFirst { it.id == targetSongId }
             if (
                 requestVersion == previewCommitVersion &&
                 !previewGestureActive &&
-                previewIndex == target &&
-                target in queue.indices &&
-                target != currentIndex
+                previewSongId == targetSongId &&
+                stableTarget in stableQueue.indices &&
+                stableTarget != latestCurrentIndex
             ) {
-                onPlayQueueIndex(target)
+                onPlayQueueIndex(stableTarget)
             }
             if (requestVersion == previewCommitVersion) previewCommitJob = null
         }
     }
 
+    /** The pager already waited its 300 ms release window; resolve its visual Song by ID once. */
+    fun commitSettledPreview(songId: Long) {
+        cancelPendingPreviewCommit()
+        previewGestureActive = false
+        val stableQueue = latestQueue
+        val stableTarget = stableQueue.indexOfFirst { it.id == songId }
+        if (stableTarget !in stableQueue.indices) return
+        previewIndex = stableTarget
+        previewSongId = songId
+        if (stableTarget != latestCurrentIndex) onPlayQueueIndex(stableTarget)
+    }
+
     fun cancelPreview() {
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        previewIndex = currentIndex.takeIf { it in queue.indices } ?: previewIndex
+        val currentSong = latestQueue.getOrNull(latestCurrentIndex)
+        if (currentSong != null) {
+            previewIndex = latestCurrentIndex
+            previewSongId = currentSong.id
+        }
     }
 
     LaunchedEffect(song.id) {
@@ -402,22 +456,22 @@ fun XvoxNowPlaying(
                     exit = fadeOut(tween(320, easing = XvoxPlayerTransitionMotion.easing)) +
                         androidx.compose.animation.scaleOut(targetScale = 0.96f, animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing))
                 ) {
-                // Landscape 2-Pane Mode: Left (0.65f Artwork/Lyrics) & Right (0.35f Controls Card)
+                // Landscape 2-Pane Mode: a deliberately narrower artwork lane and a balanced
+                // 10dp frame/gutter. The pager is clipped to its own lane, so neighbouring covers
+                // still arrive from that edge but can never sit visibly beside the active cover.
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        // The cover deck begins at the real left screen edge and ends directly on
-                        // the right control box's border. Its pager can therefore enter/exit at
-                        // exactly those two edges with no intermediate gutter.
-                        .padding(top = 10.dp, bottom = 10.dp, end = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: Artwork or Lyrics Card (65% width)
+                    // Left: Artwork or Lyrics Card (60% of the remaining width)
                     Box(
                         modifier = Modifier
-                            .weight(0.65f)
-                            .fillMaxHeight(),
+                            .weight(0.60f)
+                            .fillMaxHeight()
+                            .clipToBounds(),
                         contentAlignment = Alignment.Center
                     ) {
                         Crossfade(
@@ -450,12 +504,15 @@ fun XvoxNowPlaying(
                                     currentIndex = currentIndex,
                                     navigationRequest = navigationRequest,
                                     previewIndex = previewIndex,
-                                    onPreviewIndexChange = { previewIndex = it },
+                                    previewSongId = previewSongId.takeIf { it >= 0L },
+                                    onPreviewIndexChange = { setPreviewTarget(it) },
                                     onArtworkTap = { setMode(1) },
                                     onSwipePalette = { base, adjacent, fraction ->
-                                        paletteState.blend(base, adjacent, fraction)
+                                        if (!holdPagerPaletteDuringShuffle) {
+                                            paletteState.blend(base, adjacent, fraction)
+                                        }
                                     },
-                                    onSettledPage = onPlayQueueIndex,
+                                    onSettledPage = { settledSong -> commitSettledPreview(settledSong.id) },
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(0.dp),
                                     pageSpacing = 0.dp,
@@ -465,15 +522,14 @@ fun XvoxNowPlaying(
                         }
                     }
 
-                    // Right: Option/Control Card (35% width)
+                    // Right: Option/Control Card (40% width), intentionally borderless.
                     val landscapeScroll = rememberScrollState()
                     Column(
                         modifier = Modifier
-                            .weight(0.35f)
+                            .weight(0.40f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(18.dp))
                             .background(colors.background.copy(alpha = 0.35f))
-                            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.75f), RoundedCornerShape(18.dp))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -564,7 +620,12 @@ fun XvoxNowPlaying(
                             isPlaying = isPlaying,
                             isShuffleEnabled = isShuffleEnabled,
                             repeatMode = repeatMode,
-                            onShuffle = { onToggleShuffle?.invoke() },
+                            onShuffle = {
+                                cancelPreview()
+                                holdPagerPaletteDuringShuffle = true
+                                paletteState.pin(song)
+                                onToggleShuffle?.invoke()
+                            },
                             onPreviewPrevious = { movePreview(-1) },
                             onTogglePlay = onTogglePlay,
                             onPreviewNext = { movePreview(1) },
@@ -641,12 +702,15 @@ fun XvoxNowPlaying(
                             currentIndex = currentIndex,
                             navigationRequest = navigationRequest,
                             previewIndex = previewIndex,
-                            onPreviewIndexChange = { previewIndex = it },
+                            previewSongId = previewSongId.takeIf { it >= 0L },
+                            onPreviewIndexChange = { setPreviewTarget(it) },
                             onArtworkTap = { setMode(1) },
                             onSwipePalette = { base, adjacent, fraction ->
-                                paletteState.blend(base, adjacent, fraction)
+                                if (!holdPagerPaletteDuringShuffle) {
+                                    paletteState.blend(base, adjacent, fraction)
+                                }
                             },
-                            onSettledPage = onPlayQueueIndex,
+                            onSettledPage = { settledSong -> commitSettledPreview(settledSong.id) },
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = currentPadH),
                             pageSpacing = 12.dp,
@@ -778,7 +842,12 @@ fun XvoxNowPlaying(
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
-                    onShuffle = { onToggleShuffle?.invoke() },
+                            onShuffle = {
+                                cancelPreview()
+                                holdPagerPaletteDuringShuffle = true
+                                paletteState.pin(song)
+                                onToggleShuffle?.invoke()
+                            },
                     onPreviewPrevious = { movePreview(-1) },
                     onTogglePlay = onTogglePlay,
                     onPreviewNext = { movePreview(1) },

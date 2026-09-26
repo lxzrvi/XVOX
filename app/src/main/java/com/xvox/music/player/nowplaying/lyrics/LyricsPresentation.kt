@@ -6,7 +6,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -101,9 +103,11 @@ fun LyricPresentationLine(
         label = "lineScale"
     )
 
-    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .65f; 2 -> .36f; else -> .22f }
+    // Keep neighbouring lines readable enough to provide lyric context, especially when Cover
+    // matching is selected and its hue is close to the adaptive player background.
+    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .78f; 2 -> .52f; else -> .34f }
     val dimTarget = if (settings.fadeEqual) {
-        if (distance == 0) 1f else (1f - settings.fadeIntensity).coerceIn(0f, 1f)
+        if (distance == 0) 1f else (1f - settings.fadeIntensity * .82f).coerceIn(.28f, 1f)
     } else baseAlpha
 
     val alpha by animateFloatAsState(
@@ -132,7 +136,22 @@ fun LyricPresentationLine(
     )
 
     // The caller supplies the lyric-only Cover / Black / White color; player chrome remains themed elsewhere.
-    val resolvedColor = if (active) themedColor else themedColor.copy(alpha = 0.75f)
+    val resolvedColor = if (active) themedColor else themedColor.copy(alpha = .88f)
+    // Cover matching can legitimately be close to the extracted background. A soft halo uses the
+    // active theme's darkest/lightest text pair—not a new accent—to preserve the chosen text
+    // color while separating glyph edges from that similarly coloured backdrop.
+    val themeDark = if (colors.background.luminance() <= colors.primaryText.luminance()) {
+        colors.background
+    } else {
+        colors.primaryText
+    }
+    val themeLight = if (themeDark == colors.background) colors.primaryText else colors.background
+    val haloColor = if (themedColor.luminance() > .52f) themeDark else themeLight
+    val textShadow = Shadow(
+        color = haloColor.copy(alpha = if (active) .76f else .58f),
+        offset = Offset.Zero,
+        blurRadius = if (active) 4f else 3f
+    )
 
     val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp
 
@@ -145,6 +164,7 @@ fun LyricPresentationLine(
             lineHeight = (maximumSize * 1.30f).sp,
             fontWeight = if (active) FontWeight(settings.fontWeight) else FontWeight((settings.fontWeight - 150).coerceAtLeast(300)),
             textAlign = textAlign,
+            shadow = textShadow,
             platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(
                 includeFontPadding = false
             )

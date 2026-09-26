@@ -402,7 +402,7 @@ fun XvoxFullscreenLyrics(
                             ) {
                                 Text(
                                     text = rawLine.text.ifBlank { "♪" },
-                                    color = lyricColor.copy(alpha = 0.85f),
+                                    color = lyricColor.copy(alpha = .93f),
                                     fontSize = lyricsSettings.currentSize.sp,
                                     textAlign = when (lyricsSettings.alignment) {
                                         "left" -> TextAlign.Start
