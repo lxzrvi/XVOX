@@ -1,7 +1,6 @@
 package com.xvox.music.features.artist
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +61,7 @@ fun XvoxArtistGrid(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(gap.dp)
         ) {
             items(chunkedCols) { colArtists ->
@@ -86,7 +85,7 @@ fun XvoxArtistGrid(
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             chunked.forEach { rowArtists ->
@@ -137,8 +136,7 @@ fun ArtistCircleItem(
             modifier = Modifier
                 .size(76.dp)
                 .clip(CircleShape)
-                .background(colors.card)
-                .border(1.2.dp, colors.cardBorder.copy(alpha = 0.45f), CircleShape),
+                .background(colors.card),
             contentAlignment = Alignment.Center
         ) {
             if (artist.customImageUri != null) {

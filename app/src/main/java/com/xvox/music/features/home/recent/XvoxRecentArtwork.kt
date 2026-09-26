@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +36,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
-import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.PlaybackIcon
@@ -59,7 +57,6 @@ fun XvoxRecentArtwork(
     source: String? = null,
     modifier: Modifier = Modifier
 ) {
-    val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
 
@@ -68,11 +65,6 @@ fun XvoxRecentArtwork(
             .xvoxSongPress(onClick, onLongClick, pressedScale = 0.95f)
             .clip(shape)
             .background(cardColor)
-            .border(
-                width = if (selected) 2.dp else 0.7.dp,
-                color = if (selected) colors.primaryAccent else colors.cardBorder,
-                shape = shape
-            )
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,

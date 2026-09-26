@@ -9,9 +9,12 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -195,6 +198,23 @@ fun HomeScreen(
         state.playlists.associate { it.id to it.songIds.mapNotNull(songsById::get) }
     }
 
+    // Recent history is allowed to update immediately in storage, but the page currently being
+    // read remains visually stable. Capture its order when entering Recent and reveal updates only
+    // after navigating away, so an advancing/paused player never makes cards jump under a finger.
+    var frozenRecentPageSongs by remember { mutableStateOf<List<Song>?>(null) }
+    LaunchedEffect(state.libraryMode) {
+        frozenRecentPageSongs = if (state.libraryMode == XvoxHomeLibraryMode.RECENT) {
+            state.recentlyPlayed.toList()
+        } else {
+            null
+        }
+    }
+    val visibleRecentPageSongs = if (state.libraryMode == XvoxHomeLibraryMode.RECENT) {
+        frozenRecentPageSongs ?: state.recentlyPlayed
+    } else {
+        state.recentlyPlayed
+    }
+
     LaunchedEffect(state.songs) {
         selectedSongIds = selectedSongIds.intersect(state.songs.mapTo(HashSet()) { it.id })
         if (!state.loading) onQueueReady(state.songs)
@@ -360,7 +380,7 @@ fun HomeScreen(
         item(key = "recent") {
             val recentSelected = if (selectionCategoryName == "Recently Played") selectedSongIds else emptySet()
             XvoxRecentlyPlayedSection(
-                songs = state.recentlyPlayed,
+                songs = visibleRecentPageSongs,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
                 transition = state.recentTransition,
@@ -506,9 +526,31 @@ fun HomeScreen(
 
         AnimatedContent(
             targetState = targetKey,
-            transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(140))).using(null) },
+            transitionSpec = {
+                // Keep the independently saved list states intact while each of the four header
+                // libraries glides through a small directional overlap instead of hard-cutting.
+                val order: (Any?) -> Int = { key ->
+                    when (key) {
+                        XvoxHomeLibraryMode.RECENT -> 0
+                        XvoxHomeLibraryMode.LIKED -> 1
+                        XvoxHomeLibraryMode.PLAYLISTS -> 2
+                        XvoxHomeLibraryMode.ARTISTS -> 3
+                        XvoxHomeLibraryMode.ALL_SONGS -> -1
+                        else -> 4
+                    }
+                }
+                val direction = if (order(targetState) >= order(initialState)) 1 else -1
+                val easing = CubicBezierEasing(.2f, 0f, 0f, 1f)
+                (
+                    slideInHorizontally(tween(280, easing = easing)) { width -> direction * width / 12 } +
+                        fadeIn(tween(210, easing = easing))
+                    ).togetherWith(
+                    slideOutHorizontally(tween(240, easing = easing)) { width -> -direction * width / 14 } +
+                        fadeOut(tween(170, easing = easing))
+                ).using(null)
+            },
             modifier = Modifier.fillMaxSize(),
-            label = "libraryFade"
+            label = "librarySwitch"
         ) { target ->
             val targetArtistName = (target as? String)?.takeIf { it.startsWith("artist_") }?.removePrefix("artist_")
             val targetArtist = remember(targetArtistName, artists) {

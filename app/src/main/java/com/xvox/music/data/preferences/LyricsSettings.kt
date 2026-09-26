@@ -19,7 +19,12 @@ data class LyricsSettings(
     val lineGap: Int = 14,
     /** "orb" | "aurora" | "off" — moving canvas backdrop in lyrics card. */
     val gradientAnimation: String = "orb",
-    /** When true, current line takes vivid cover palette color. */
+    /**
+     * Lyric-only text colour: "cover", "black", or "white". This supersedes the older
+     * matchColor toggle while keeping its wire value readable for existing installations.
+     */
+    val textColorMode: String = "cover",
+    /** Legacy compatibility mirror for records written before [textColorMode] existed. */
     val matchCoverColor: Boolean = true,
     /** When true, auto-scroll and line-by-line synced playback is active. */
     val timeSync: Boolean = true,
@@ -28,24 +33,32 @@ data class LyricsSettings(
     /** Whether top, active and bottom lyric lines retain their own independent size choices. */
     val individualLineSizes: Boolean = false
 ) {
-    fun normalized(): LyricsSettings = copy(
-        offsetMs = offsetMs.coerceIn(-1000, 1000),
-        // 50 sp is intentionally supported in every line role; it is an exposed editor preset.
-        topSize = topSize.coerceIn(10, 50),
-        currentSize = currentSize.coerceIn(14, 50),
-        bottomSize = bottomSize.coerceIn(10, 50),
-        otherSize = otherSize.coerceIn(10, 50),
-        fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
-        animation = animation.takeIf { it in ANIMATIONS } ?: "rise",
-        fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
-        alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
-        lineGap = lineGap.coerceIn(4, 40),
-        gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "orb",
-        matchCoverColor = matchCoverColor,
-        timeSync = timeSync,
-        fontWeight = fontWeight.coerceIn(300, 900)
-    )
+    fun normalized(): LyricsSettings {
+        // A legacy matchColor=false record had opted out of cover matching. White is the stable
+        // theme-neutral migration target; newer records always carry one of these three keys.
+        val resolvedTextColorMode = textColorMode.takeIf { it in TEXT_COLOR_MODES }
+            ?: if (matchCoverColor) "cover" else "white"
+        return copy(
+            offsetMs = offsetMs.coerceIn(-1000, 1000),
+            // 50 sp is intentionally supported in every line role; it is an exposed editor preset.
+            topSize = topSize.coerceIn(10, 50),
+            currentSize = currentSize.coerceIn(14, 50),
+            bottomSize = bottomSize.coerceIn(10, 50),
+            otherSize = otherSize.coerceIn(10, 50),
+            fadeTop = (fadeTop.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
+            fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
+            animation = animation.takeIf { it in ANIMATIONS } ?: "rise",
+            fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
+            alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
+            lineGap = lineGap.coerceIn(4, 40),
+            gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "orb",
+            textColorMode = resolvedTextColorMode,
+            // Keep old readers useful if a downgraded build encounters a newly saved record.
+            matchCoverColor = resolvedTextColorMode == "cover",
+            timeSync = timeSync,
+            fontWeight = fontWeight.coerceIn(300, 900)
+        )
+    }
 
     fun sanitized(): LyricsSettings = normalized()
 
@@ -66,7 +79,9 @@ data class LyricsSettings(
         .put("align", alignment)
         .put("gap", lineGap)
         .put("gradient", gradientAnimation)
-        .put("matchColor", matchCoverColor)
+        .put("textColor", textColorMode)
+        // Retain this legacy mirror for a safe downgrade path.
+        .put("matchColor", textColorMode == "cover")
         .put("timeSync", timeSync)
         .put("fontWeight", fontWeight)
         .put("individualSizes", individualLineSizes)
@@ -76,6 +91,7 @@ data class LyricsSettings(
         val ANIMATIONS = listOf("rise", "glide", "pop", "off", "wave", "drift", "aurora", "classic")
         val GRADIENT_ANIMATIONS = listOf("orb", "aurora", "off", "wave")
         val ALIGNMENTS = listOf("left", "center", "right")
+        val TEXT_COLOR_MODES = listOf("cover", "black", "white")
 
         fun decode(raw: String): LyricsSettings = runCatching {
             val j = JSONObject(raw)
@@ -93,6 +109,8 @@ data class LyricsSettings(
                 "wave" -> "orb"
                 else -> gradRaw
             }
+            val savedTextColor = j.optString("textColor", "").takeIf { it in TEXT_COLOR_MODES }
+                ?: if (j.optBoolean("matchColor", true)) "cover" else "white"
             LyricsSettings(
                 offsetMs = j.optInt("offset", 0),
                 topSize = j.optInt("topSize", other),
@@ -107,7 +125,8 @@ data class LyricsSettings(
                 alignment = j.optString("align", "center"),
                 lineGap = j.optInt("gap", 14),
                 gradientAnimation = mappedGrad,
-                matchCoverColor = j.optBoolean("matchColor", true),
+                textColorMode = savedTextColor,
+                matchCoverColor = savedTextColor == "cover",
                 timeSync = j.optBoolean("timeSync", true),
                 fontWeight = j.optInt("fontWeight", 600),
                 // Older installations had no explicit flag; keep their previous master-size behavior.

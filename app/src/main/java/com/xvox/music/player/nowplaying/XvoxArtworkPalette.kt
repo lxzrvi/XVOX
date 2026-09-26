@@ -80,14 +80,24 @@ class XvoxArtworkPaletteLoader(
     }
 
     /**
-     * Never decode or examine pixels on the UI thread. The surrounding palette state preloads the
-     * current and neighbouring covers, while this immediate value keeps a first frame responsive.
+     * Never decode or examine pixels on the UI thread during ordinary paging. The surrounding
+     * palette state preloads the current and neighbouring covers, while this immediate value keeps
+     * a first frame responsive.
      */
-    fun fastEstimate(uri: Uri?, songKey: String = ""): Color {
+    fun cachedColor(uri: Uri?, songKey: String = ""): Color? {
         val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey
-        if (key.isBlank()) return fallback(songKey)
-        return cache[key] ?: fallback(songKey)
+        return key.takeIf { it.isNotBlank() }?.let(cache::get)
     }
+
+    fun fastEstimate(uri: Uri?, songKey: String = ""): Color =
+        cachedColor(uri, songKey) ?: fallback(songKey)
+
+    /**
+     * The Mini Player warms the selected cover on IO before Now Playing can rise. Opening then
+     * reads that completed shared value only—never image pixels on the UI thread—so the current
+     * cover keeps its own backdrop instead of flashing through a temporary palette.
+     */
+    fun initialEstimate(uri: Uri?, songKey: String = ""): Color = fastEstimate(uri, songKey)
 
     suspend fun load(uri: Uri?, songKey: String = ""): Color {
         val key = uri?.toString()?.takeIf { it.isNotBlank() } ?: songKey

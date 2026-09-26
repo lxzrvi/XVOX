@@ -76,6 +76,9 @@ fun XvoxBottomBar(
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    // Device-orientation baselines requested for the chrome remain separate from the editable
+    // offset below, so a user's custom placement is always additive.
+    val defaultPlacementY = if (isLandscape) 31.5.dp else 10.5.dp
     val actualHostHeight = if (isLandscape) navBarHeight else navBarHeight + 20.dp
     val topOffset = if (isLandscape) 0.dp else XvoxNavigationGeometry.hostOverflow
 
@@ -84,7 +87,7 @@ fun XvoxBottomBar(
             // Move the entire touch and paint surface together, so controls stay where they appear.
             .offset(
                 x = chrome.navigationBarOffsetX.coerceIn(-220f, 220f).dp,
-                y = chrome.navigationBarOffsetY.coerceIn(-260f, 260f).dp
+                y = defaultPlacementY + chrome.navigationBarOffsetY.coerceIn(-260f, 260f).dp
             )
             .width(navBarWidth)
             .height(actualHostHeight)

@@ -607,7 +607,7 @@ class MainPlayerViewModel(
             return
         }
         val target = if (atFirst && _state.value.repeatMode == RepeatMode.ALL) queue.lastIndex else index - 1
-        playQueueIndex(target, keepPlayingState = false)
+        playQueueIndex(target, keepPlayingState = true)
     }
 
     fun playNext() {
@@ -617,7 +617,7 @@ class MainPlayerViewModel(
         val atLast = index >= queue.lastIndex
         if (atLast && _state.value.repeatMode == RepeatMode.OFF) return
         val target = if (atLast && _state.value.repeatMode == RepeatMode.ALL) 0 else index + 1
-        playQueueIndex(target, keepPlayingState = false)
+        playQueueIndex(target, keepPlayingState = true)
     }
 
     fun seekTo(positionMs: Long) {

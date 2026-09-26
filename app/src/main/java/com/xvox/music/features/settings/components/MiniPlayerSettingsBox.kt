@@ -138,7 +138,7 @@ fun MiniPlayerSettingsBoxContent(
             label = "Navbar height",
             value = chrome.navigationBarHeight.coerceIn(52f, 88f),
             range = 52f..88f,
-            default = 64f,
+            default = 62f,
             valueText = { "${it.roundToInt()} dp" },
             contentDescription = "Navbar height",
             onChange = { onChromeChange(chrome.copy(navigationBarHeight = it.coerceIn(52f, 88f))) }

@@ -115,43 +115,35 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .height(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(colors.card.copy(alpha = 0.35f))
-                .padding(horizontal = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onShare != null) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_share),
-                    contentDescription = "Share",
-                    tint = colors.primaryText,
+        // Keep the source-compatible onMore callback for callers that still provide it, but
+        // the visible header intentionally contains only Share. The 20dp glyph exactly matches
+        // the collapse/down control on the opposite side.
+        if (onShare != null) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(colors.card.copy(alpha = 0.35f))
+                    .padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(36.dp)
                         .xvoxPressScale(pressedScale = 0.90f) {
                             haptics.tap()
                             onShare()
-                        }
-                        .padding(7.dp)
-                )
-            }
-
-            if (onMore != null) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_more),
-                    contentDescription = "More",
-                    tint = colors.primaryText,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .xvoxPressScale(pressedScale = 0.90f) {
-                            haptics.tap()
-                            onMore()
-                        }
-                        .padding(7.dp)
-                )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_share),
+                        contentDescription = "Share",
+                        tint = colors.primaryText,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

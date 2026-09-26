@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -108,6 +109,13 @@ fun XvoxNowPlaying(
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
+    // This is intentionally scoped to lyric text. All visible Now Playing chrome keeps its
+    // theme-derived colors; cover analysis is not allowed to recolour controls or metadata.
+    val lyricsTextColor = when (settingsState.lyrics.textColorMode) {
+        "black" -> Color.Black
+        "white" -> Color.White
+        else -> paletteState.color
+    }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val screenHeight = with(density) {
@@ -185,7 +193,14 @@ fun XvoxNowPlaying(
         previewCommitJob?.cancel()
         previewCommitJob = null
         onDismissStart()
-        animateScreen(target = screenHeight, finished = onClose)
+        animateScreen(target = screenHeight) {
+            // Match the opening handoff in reverse: the full player is entirely below the
+            // viewport, then the Mini Player receives a clean 50ms visible-free beat to rise.
+            scope.launch {
+                delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                onClose()
+            }
+        }
     }
 
     fun returnToRest() {
@@ -374,7 +389,8 @@ fun XvoxNowPlaying(
                     onSwipeDownEnd = {
                         if (screenY > screenHeight * 0.18f) dismiss() else returnToRest()
                     },
-                    textColor = colors.primaryText,
+                    backgroundColor = paletteState.color,
+                    textColor = lyricsTextColor,
                     modifier = Modifier.fillMaxSize()
                 )
                 }
@@ -390,8 +406,11 @@ fun XvoxNowPlaying(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        // The cover deck begins at the real left screen edge and ends directly on
+                        // the right control box's border. Its pager can therefore enter/exit at
+                        // exactly those two edges with no intermediate gutter.
+                        .padding(top = 10.dp, bottom = 10.dp, end = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left: Artwork or Lyrics Card (65% width)
@@ -419,7 +438,8 @@ fun XvoxNowPlaying(
                                     onToggleExpand = { setMode(2) },
                                     onOpenSettings = { activeSettingsBox = "Lyrics" },
                                     onDismissNowPlaying = ::dismiss,
-                                    textColor = colors.primaryText,
+                                    backgroundColor = paletteState.color,
+                                    textColor = lyricsTextColor,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(20.dp))
@@ -438,7 +458,7 @@ fun XvoxNowPlaying(
                                     onSettledPage = onPlayQueueIndex,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(0.dp),
-                                    pageSpacing = 10.dp,
+                                    pageSpacing = 0.dp,
                                     repeatMode = repeatMode
                                 )
                             }
@@ -608,7 +628,8 @@ fun XvoxNowPlaying(
                                     returnToRest()
                                 }
                             },
-                            textColor = colors.primaryText,
+                            backgroundColor = paletteState.color,
+                            textColor = lyricsTextColor,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = currentPadH)

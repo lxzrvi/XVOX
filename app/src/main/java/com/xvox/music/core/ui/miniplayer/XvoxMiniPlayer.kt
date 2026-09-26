@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -73,7 +74,16 @@ fun XvoxMiniPlayer(
     val density = LocalDensity.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val scope = rememberCoroutineScope()
-    val exitDistance = with(density) { 230.dp.toPx() }
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
+    val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
+    val totalPlacementY = defaultPlacementY + userPlacementY
+    // The card itself is 68dp tall. One extra dp clears the landscape -0.5dp baseline too. Custom
+    // placement remains additive even for the handoff: a user-raised card travels far enough to
+    // be fully below the viewport before Now Playing can start.
+    val fullyHiddenDistanceDp = (69.dp - totalPlacementY).coerceAtLeast(0.dp)
+    val exitDistance = with(density) { maxOf(230.dp, fullyHiddenDistanceDp + 24.dp).toPx() }
+    val fullyHiddenDistance = with(density) { fullyHiddenDistanceDp.toPx() }
     val y = remember(riseKey) { Animatable(exitDistance) }
 
     var dragX by remember { mutableFloatStateOf(0f) }
@@ -128,14 +138,31 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            // This is intentionally sequential: the Mini Player clears downward first, then
-            // Now Playing begins its own 320ms entrance. Surfaces never overlap in the handoff.
+            // This is intentionally sequential: the card first clears below the viewport. Once
+            // its top is no longer visible, wait exactly one short beat before mounting Now
+            // Playing. The rest of the downward motion may finish offscreen without overlap.
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec)
+            var handoffRequested = false
+            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec) {
+                if (!stop && !handoffRequested && value >= fullyHiddenDistance) {
+                    handoffRequested = true
+                    scope.launch {
+                        delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                        if (exiting) openPlayer()
+                    }
+                }
+            }
 
-            if (stop) stopAndDismiss() else openPlayer()
+            if (stop) {
+                stopAndDismiss()
+            } else if (!handoffRequested) {
+                // Covers an interrupted / already-offscreen card without ever overlapping the
+                // full player.
+                delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                openPlayer()
+            }
         }
     }
 
@@ -147,7 +174,9 @@ fun XvoxMiniPlayer(
             // including the quick-action pill, rather than only moving its painted card.
             .offset(
                 x = chrome.miniPlayerOffsetX.coerceIn(-220f, 220f).dp,
-                y = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
+                // Requested baseline placement plus the user's persisted adjustment. The editor
+                // remains additive instead of replacing portrait/landscape defaults.
+                y = totalPlacementY
             )
             .fillMaxWidth()
             .height(122.dp),

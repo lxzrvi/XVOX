@@ -108,10 +108,10 @@ fun SettingsScreen(
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Fixed(1),
+            columns = StaggeredGridCells.Fixed(if (isLandscape) 2 else 1),
             state = scrollState,
             modifier = Modifier
-                .widthIn(max = 440.dp)
+                .widthIn(max = if (isLandscape) 900.dp else 440.dp)
                 .fillMaxWidth()
                 .fillMaxHeight(),
             contentPadding = PaddingValues(

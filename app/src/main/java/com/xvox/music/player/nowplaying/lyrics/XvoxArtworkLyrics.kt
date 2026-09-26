@@ -77,6 +77,9 @@ fun XvoxArtworkLyrics(
     onDismissNowPlaying: (() -> Unit)? = null,
     onSwipeDownDelta: ((Float) -> Unit)? = null,
     onSwipeDownEnd: (() -> Unit)? = null,
+    /** The live adaptive-cover color already painted by the surrounding Now Playing backdrop. */
+    backgroundColor: Color = Color.Unspecified,
+    /** Lyric-only color resolved from the explicit Cover / Black / White setting. */
     textColor: Color = Color.Unspecified,
     modifier: Modifier = Modifier
 ) {
@@ -158,12 +161,15 @@ fun XvoxArtworkLyrics(
         overlays.showP(label)
     }
 
-    // Lyrics and chrome remain theme-driven. Cover analysis is used only for the backdrop, never
-    // to turn text into a per-song colour that could fight the selected theme.
+    // Only lyric text gets the explicit cover/black/white exception. The surrounding player
+    // chrome remains theme-driven. Orb and aurora always originate from the live Now Playing
+    // backdrop rather than the app accent.
     val effectiveTextColor = textColor.takeIf {
         it != Color.Unspecified && it != Color.Transparent
     } ?: colors.primaryText
-    val vibrantCoverColor = colors.primaryAccent
+    val lyricsBackdropColor = backgroundColor.takeIf {
+        it != Color.Unspecified && it != Color.Transparent
+    } ?: colors.background
 
     BoxWithConstraints(
         modifier = modifier
@@ -207,9 +213,9 @@ fun XvoxArtworkLyrics(
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    vibrantCoverColor.copy(alpha = 0.85f),
-                                    vibrantCoverColor.copy(alpha = 0.50f),
-                                    vibrantCoverColor.copy(alpha = 0.18f),
+                                    lyricsBackdropColor.copy(alpha = 0.85f),
+                                    lyricsBackdropColor.copy(alpha = 0.50f),
+                                    lyricsBackdropColor.copy(alpha = 0.18f),
                                     Color.Transparent
                                 ),
                                 center = Offset(cx, cy),
@@ -239,8 +245,8 @@ fun XvoxArtworkLyrics(
                             path = pTop,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    vibrantCoverColor.copy(alpha = 0.55f),
-                                    vibrantCoverColor.copy(alpha = 0.30f),
+                                    lyricsBackdropColor.copy(alpha = 0.55f),
+                                    lyricsBackdropColor.copy(alpha = 0.30f),
                                     Color.Transparent
                                 )
                             )
@@ -263,8 +269,8 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    vibrantCoverColor.copy(alpha = 0.30f),
-                                    vibrantCoverColor.copy(alpha = 0.55f)
+                                    lyricsBackdropColor.copy(alpha = 0.30f),
+                                    lyricsBackdropColor.copy(alpha = 0.55f)
                                 )
                             )
                         )

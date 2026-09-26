@@ -1,11 +1,8 @@
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -30,7 +27,6 @@ import androidx.compose.ui.unit.max
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
-import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
@@ -50,7 +46,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onLike: () -> Unit,
     onAddToPlaylist: () -> Unit = {},
     onOpenMiniPlayerSettings: () -> Unit = {},
-    navigationBarHeight: Dp = 64.dp
+    navigationBarHeight: Dp = 62.dp
 ) {
     var quickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
     LaunchedEffect(visible) {
@@ -67,28 +63,10 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     }
     AnimatedVisibility(
         visible = visible,
-        enter = slideInVertically(
-            animationSpec = tween(
-                durationMillis = XvoxPlayerTransitionMotion.Duration,
-                easing = XvoxPlayerTransitionMotion.easing
-            )
-        ) { it } + fadeIn(
-            animationSpec = tween(
-                durationMillis = XvoxPlayerTransitionMotion.Duration,
-                easing = XvoxPlayerTransitionMotion.easing
-            )
-        ),
-        exit = slideOutVertically(
-            animationSpec = tween(
-                durationMillis = XvoxPlayerTransitionMotion.Duration,
-                easing = XvoxPlayerTransitionMotion.easing
-            )
-        ) { it } + fadeOut(
-            animationSpec = tween(
-                durationMillis = XvoxPlayerTransitionMotion.Duration,
-                easing = XvoxPlayerTransitionMotion.easing
-            )
-        ),
+        // XvoxMiniPlayer owns the complete rise/exit motion. Keeping this host structural avoids
+        // a second, competing slide that made Navbar/Mini Player handoffs look delayed.
+        enter = EnterTransition.None,
+        exit = ExitTransition.None,
         modifier = Modifier.align(Alignment.BottomCenter)
     ) {
         if (currentSongId != null) {

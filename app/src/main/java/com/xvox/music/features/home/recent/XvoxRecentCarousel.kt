@@ -49,7 +49,7 @@ fun XvoxRecentCarousel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 6.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             songs.forEach { song ->

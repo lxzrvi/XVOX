@@ -156,7 +156,7 @@ fun HomeSettingsSection(
                     viewModel.setChromeStyle { it.copy(navigationBarHeight = height.coerceIn(52f, 88f)) }
                 },
                 valueRange = 52f..88f,
-                defaultValue = 64f,
+                defaultValue = 62f,
                 contentDescription = "Navigation bar height"
             )
 

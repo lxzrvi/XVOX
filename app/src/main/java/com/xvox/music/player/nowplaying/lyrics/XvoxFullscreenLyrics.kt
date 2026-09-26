@@ -150,8 +150,13 @@ fun XvoxFullscreenLyrics(
 
     val baseColor = if (backgroundColor != Color.Transparent) backgroundColor else colors.surface
 
-    // Background art can change per song; lyric text remains the active theme's text colour.
-    val lyricColor = colors.primaryText
+    // Lyric text alone follows the explicit Cover / Black / White choice. Cover means the
+    // adaptive Now Playing background supplied by the caller; all non-lyric chrome stays themed.
+    val lyricColor = when (lyricsSettings.textColorMode) {
+        "black" -> Color.Black
+        "white" -> Color.White
+        else -> baseColor
+    }
 
     val listState = rememberLazyListState()
 
@@ -220,7 +225,7 @@ fun XvoxFullscreenLyrics(
                         brush = Brush.radialGradient(
                             colors = listOf(
                                 baseColor.copy(alpha = 0.58f),
-                                colors.primaryAccent.copy(alpha = 0.38f),
+                                baseColor.copy(alpha = 0.38f),
                                 colors.background.copy(alpha = 0.12f),
                                 Color.Transparent
                             ),
@@ -238,8 +243,8 @@ fun XvoxFullscreenLyrics(
                         brush = Brush.linearGradient(
                             colors = listOf(
                                 baseColor.copy(alpha = 0.55f),
-                                colors.primaryAccent.copy(alpha = 0.28f),
-                                Color(0xFF007AFF).copy(alpha = 0.18f),
+                                baseColor.copy(alpha = 0.28f),
+                                baseColor.copy(alpha = 0.18f),
                                 baseColor.copy(alpha = 0.45f)
                             ),
                             start = Offset(w * progress * 0.5f, 0f),
@@ -266,7 +271,7 @@ fun XvoxFullscreenLyrics(
                         path = pTop,
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                colors.primaryAccent.copy(alpha = 0.38f),
+                                baseColor.copy(alpha = 0.38f),
                                 baseColor.copy(alpha = 0.50f),
                                 Color.Transparent
                             )
@@ -290,7 +295,7 @@ fun XvoxFullscreenLyrics(
                             colors = listOf(
                                 Color.Transparent,
                                 baseColor.copy(alpha = 0.45f),
-                                colors.primaryAccent.copy(alpha = 0.32f)
+                                baseColor.copy(alpha = 0.32f)
                             )
                         )
                     )

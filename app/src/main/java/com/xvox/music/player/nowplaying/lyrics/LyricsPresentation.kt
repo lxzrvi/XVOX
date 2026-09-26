@@ -131,7 +131,7 @@ fun LyricPresentationLine(
         label = "lineShiftY"
     )
 
-    // The caller supplies the active theme's text colour. Cover artwork must not recolour lyrics.
+    // The caller supplies the lyric-only Cover / Black / White color; player chrome remains themed elsewhere.
     val resolvedColor = if (active) themedColor else themedColor.copy(alpha = 0.75f)
 
     val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp

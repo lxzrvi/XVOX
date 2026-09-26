@@ -108,12 +108,12 @@ private class XvoxSheetScrollBridge(
             }
         }
         if (availableY > 0f) {
-            val floor = minOf(current, max * .40f)
+            val floor = minOf(current, max * .50f)
             if (current > floor) {
                 val shrink = minOf(availableY, current - floor)
                 setSheetHeight(current - shrink)
                 // Preserve the finger's remaining motion after contraction. This makes one
-                // continuous downward pull contract to ~40% and then close, rather than forcing
+                // continuous downward pull contract to ~50% and then close, rather than forcing
                 // the user to lift and start a second gesture.
                 val remainder = availableY - shrink
                 continuedDownwardPx = remainder.coerceAtLeast(0f)
@@ -267,10 +267,10 @@ fun XvoxSheet(
 
                 // Compact interfaces keep their measured content height. Overflowing lists start
                 // around six rows (roughly half the usable screen), then grow one-for-one with an
-                // upward list gesture until they approach the status bar.  The 40% compact floor
+                // upward list gesture until they approach the status bar.  The 50% compact floor
                 // is where a reversed downward gesture starts the close path.
-                val largeStartHeightPx = maxSheetHeightPx * .52f
-                val contractFloorPx = maxSheetHeightPx * .40f
+                val largeStartHeightPx = maxSheetHeightPx * .50f
+                val contractFloorPx = maxSheetHeightPx * .50f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
                 var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
@@ -373,7 +373,7 @@ fun XvoxSheet(
                                             val currentHeight = requestedHeightPx.takeIf { it > 0f }
                                                 ?: measuredHeightPx.toFloat()
                                             // A continued pull only dismisses once the sheet has
-                                            // reached the compact ~40% point.
+                                            // reached the compact ~50% point.
                                             if (dragDeltaPx > dismissThreshold && currentHeight <= contractFloorPx + 2f) {
                                                 close()
                                             } else if (dragDeltaPx < 0f) {

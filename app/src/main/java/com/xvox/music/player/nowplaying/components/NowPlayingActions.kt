@@ -395,19 +395,11 @@ fun NowPlayingCircleAction(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val isLightMode = colors.isLight
-
-    val isWhiteAccent = colors.primaryAccent == Color.White || colors.primaryAccent == Color(0xFFFFFFFF) || colors.primaryAccent == Color(0xFF171717)
-
-    val bgColor = if (active) {
-        if (isLightMode) Color.Black.copy(alpha = 0.45f)
-        else colors.primaryAccent.copy(alpha = 0.32f)
-    } else colors.card.copy(alpha = 0.35f)
-
-    val effectiveTint = if (active) {
-        if (isLightMode) Color.White else if (isWhiteAccent) Color.White else colors.primaryAccent
-    } else {
-        if (isLightMode) Color.Black else colors.primaryText.copy(alpha = 0.85f)
+    // An active option keeps exactly the same surface as every other option. Only its icon
+    // changes to the accent, so toggling one never flashes or recolours the six-pill area.
+    val bgColor = colors.card.copy(alpha = 0.35f)
+    val effectiveTint = if (active) colors.primaryAccent else {
+        if (colors.isLight) Color.Black else colors.primaryText.copy(alpha = 0.85f)
     }
 
     Box(

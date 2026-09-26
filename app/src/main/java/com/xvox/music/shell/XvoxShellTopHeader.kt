@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -84,10 +83,10 @@ fun XvoxShellTopHeader(
     }
     val headerHeight = statusBarHeight + XvoxShellTopHeaderBodyHeight
     val libraryActions = listOf(
+        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played", onRecentClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played", onRecentClick)
+        HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick)
     )
     val selectedActionIndex = libraryActions.indexOfFirst { it.mode == libraryMode }
     val selected = selectedActionIndex >= 0
@@ -193,7 +192,6 @@ fun XvoxShellTopHeader(
                             .size(42.dp)
                             .clip(CircleShape)
                             .background(colors.card.copy(alpha = .46f))
-                            .border(.65.dp, headerEdge.copy(alpha = .72f), CircleShape)
                             .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                         contentAlignment = Alignment.Center
                     ) {
@@ -214,7 +212,6 @@ fun XvoxShellTopHeader(
                             .width(actionPillWidth)
                             .clip(actionShape)
                             .background(colors.card.copy(alpha = .46f))
-                            .border(.65.dp, headerEdge.copy(alpha = .72f), actionShape)
                     ) {
                         Box(
                             modifier = Modifier
@@ -247,7 +244,7 @@ fun XvoxShellTopHeader(
                                         painter = painterResource(action.icon),
                                         contentDescription = action.label,
                                         tint = if (libraryMode == action.mode) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                        modifier = Modifier.size(19.dp)
+                                        modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
                                     )
                                 }
                             }

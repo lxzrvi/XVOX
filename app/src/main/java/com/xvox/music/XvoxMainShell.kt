@@ -71,6 +71,7 @@ import com.xvox.music.features.home.showCreatePlaylistOverlay
 import com.xvox.music.features.home.showLibraryRefresh
 import com.xvox.music.features.search.SearchScreen
 import com.xvox.music.features.settings.SettingsScreen
+import com.xvox.music.player.nowplaying.XvoxArtworkPaletteLoader
 import com.xvox.music.player.nowplaying.XvoxNowPlaying
 import com.xvox.music.player.playback.MainPlayerViewModel
 import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
@@ -223,7 +224,7 @@ fun XvoxMainShell(
                                 miniCoverStyle = "default",
                                 miniCornerRadius = 15f,
                                 miniBgAlpha = 1f,
-                                navigationBarHeight = 64f,
+                                navigationBarHeight = 62f,
                                 navigationBarWidth = 246f,
                                 navBgAlpha = .88f,
                                 navigationImageUri = "",
@@ -331,7 +332,7 @@ fun XvoxMainShell(
                     if (!isViewingActiveQueue) {
                         playerViewModel.switchToQueue(viewingQueueId)
                     }
-                    playerViewModel.playQueueIndex(index, keepPlayingState = false)
+                    playerViewModel.playQueueIndex(index, keepPlayingState = true)
                     overlays.hideBox()
                 },
                 onMoveItem = { from, to ->
@@ -397,6 +398,14 @@ fun XvoxMainShell(
     val currentSong = remember(player.queue, player.currentSongId, homeState.songs) {
         player.queue.firstOrNull { it.id == player.currentSongId }
             ?: homeState.songs.firstOrNull { it.id == player.currentSongId }
+    }
+    // Start palette work while the Mini Player is on screen. This shared cache is then ready when
+    // the sequential 50ms handoff mounts Now Playing, avoiding an unrelated fallback flash.
+    val nowPlayingPaletteLoader = remember(context) { XvoxArtworkPaletteLoader(context) }
+    LaunchedEffect(currentSong?.id, currentSong?.artworkUri) {
+        currentSong?.let { selected ->
+            nowPlayingPaletteLoader.load(selected.artworkUri, "${selected.title}_${selected.artist}")
+        }
     }
 
     val isInPlaylist = remember(homeState.playlists, player.currentSongId) {
@@ -685,7 +694,7 @@ fun XvoxMainShell(
                     onDisplayModeChange = { nowPlayingDisplayMode = it },
                     onTogglePlay = { playerViewModel.togglePlay() },
                     // Now Playing commits the cover selected on button release.
-                    onPlayQueueIndex = { playerViewModel.playQueueIndex(it, keepPlayingState = false) },
+                    onPlayQueueIndex = { playerViewModel.playQueueIndex(it, keepPlayingState = true) },
                     onSeek = { playerViewModel.seekTo(it) },
                     isLiked = playingSong.id in homeState.likedSongIds,
                     onToggleLiked = {

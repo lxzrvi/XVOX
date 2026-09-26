@@ -10,6 +10,9 @@ object XvoxPlayerTransitionMotion {
     /** Shared deck motion: the mini player and Now Playing deliberately move at one calm pace. */
     const val Duration = 320
 
+    /** A short visible-free beat keeps the two player surfaces strictly sequential. */
+    const val HandoffDelay = 50L
+
     val easing: Easing =
         CubicBezierEasing(
             0.22f,

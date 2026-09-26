@@ -62,6 +62,47 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
         }
 
         SettingsAccordionItem(
+            title = "Lyric Text Colour"
+        ) {
+            // These are deliberately the complete lyric-only colour contract. Now Playing chrome
+            // remains theme based; cover colour is scoped to lyric text only.
+            val textColorOptions = listOf(
+                "cover" to "Cover matching",
+                "black" to "Black",
+                "white" to "White"
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                textColorOptions.forEach { (key, label) ->
+                    val isSelected = settings.textColorMode == key
+                    val shape = RoundedCornerShape(19.dp)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(shape)
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .border(0.8.dp, if (isSelected) Color.Transparent else colors.cardBorder.copy(alpha = 0.55f), shape)
+                            .xvoxPressScale {
+                                viewModel.updateLyrics { it.copy(textColorMode = key) }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+
+        SettingsAccordionItem(
             title = "Line Transition Style"
         ) {
             val currentAnim = when (settings.animation) {

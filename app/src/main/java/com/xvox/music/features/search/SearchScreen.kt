@@ -455,7 +455,7 @@ fun SearchScreen(
                         .fillMaxWidth()
                         .background(colors.background)
                         .windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .padding(horizontal = 14.dp, top = 10.dp, bottom = 4.dp)
                 ) {
                     SearchBarComponent(
                             query = query,

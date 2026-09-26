@@ -39,6 +39,7 @@ fun XvoxAppRoot(
 ) {
     val state by viewModel.state.collectAsState()
     val minimumReady by viewModel.minimumReady.collectAsState()
+    val startupProgress by viewModel.progress.collectAsState()
     val preparing = state == AppUiState.Preparing || state == AppUiState.Home
     val homeVm: com.xvox.music.features.home.HomeViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? = if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
@@ -156,6 +157,7 @@ fun XvoxAppRoot(
                     ) {
                         XvoxStartupLoadingScreen(
                             readyToEnter = shellMounted && dataReady,
+                            progress = startupProgress,
                             onSequenceComplete = {
                                 if (!startupSequenceReleased && shellMounted) {
                                     startupSequenceReleased = true

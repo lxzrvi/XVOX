@@ -34,9 +34,14 @@ class XvoxNowPlayingPaletteState internal constructor(
     var isCoverTransitionInProgress by mutableStateOf(false)
         private set
 
+    private fun knownColor(song: Song): Color? =
+        cache[song.id] ?: loader.cachedColor(song.artworkUri, "${song.title}_${song.artist}")
+
     fun getOrFallback(song: Song?): Color {
         if (song == null) return color
-        return cache[song.id] ?: loader.fastEstimate(song.artworkUri, "${song.title}_${song.artist}")
+        // An unprepared cover keeps the live player backdrop until its IO palette is available.
+        // This avoids flashing a synthetic hash colour when browsing or opening a selected song.
+        return knownColor(song) ?: color
     }
 
     suspend fun preload(song: Song?) {
@@ -68,7 +73,9 @@ class XvoxNowPlayingPaletteState internal constructor(
 
     suspend fun show(song: Song) {
         isCoverTransitionInProgress = false
-        color = getOrFallback(song)
+        // Do not replace a current cover backdrop with a synthetic fallback while the selected
+        // cover is still loading; the completed palette takes over as soon as IO finishes.
+        knownColor(song)?.let { color = it }
         preload(song)
         color = cache[song.id] ?: color
     }
@@ -92,7 +99,7 @@ fun rememberXvoxNowPlayingPalette(
     val context = LocalContext.current
     val loader = remember { XvoxArtworkPaletteLoader(context) }
     val state = remember {
-        val initialColor = loader.fastEstimate(song.artworkUri, "${song.title}_${song.artist}")
+        val initialColor = loader.initialEstimate(song.artworkUri, "${song.title}_${song.artist}")
         XvoxNowPlayingPaletteState(loader, initialColor)
     }
 

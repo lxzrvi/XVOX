@@ -41,7 +41,7 @@ data class XvoxChromeStyle(
     /** Rounded corner radius for the Mini Player only, in dp. */
     val miniCornerRadius: Float = 15f,
     /** Visual floating-navigation height, in dp. */
-    val navigationBarHeight: Float = 64f,
+    val navigationBarHeight: Float = 62f,
     /** Visual floating-navigation width, in dp. The three fixed destinations share it evenly. */
     val navigationBarWidth: Float = 246f,
     /**
@@ -115,7 +115,7 @@ data class XvoxChromeStyle(
                 cardBorder = str(15), cardBorderAlpha = flt(16, 1f),
                 miniCoverStyle = if (str(17).isNotBlank()) str(17) else "default",
                 miniCornerRadius = number(18, 15f).coerceIn(6f, 32f),
-                navigationBarHeight = number(19, 64f).coerceIn(52f, 88f),
+                navigationBarHeight = number(19, 62f).coerceIn(52f, 88f),
                 headerDimEnabled = parts.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
                 headerDimAmount = flt(21, .50f),
                 // Appended fields keep every earlier chrome_style_v1 record readable.
