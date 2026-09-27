@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility

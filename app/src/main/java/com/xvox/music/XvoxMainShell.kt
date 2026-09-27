@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.xvox.music
 
 import android.net.Uri
@@ -847,7 +849,7 @@ fun XvoxMainShell(
                     .padding(start = 16.dp, end = 16.dp, bottom = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+            ) row@ {
                 if (miniVisibleBase && currentSongId != null) {
                     Box(
                         modifier = Modifier
@@ -855,7 +857,7 @@ fun XvoxMainShell(
                             .height(122.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        AnimatedVisibility(
+                        this@row.AnimatedVisibility(
                             visible = miniVisible,
                             enter = androidx.compose.animation.EnterTransition.None,
                             exit = slideOutVertically(

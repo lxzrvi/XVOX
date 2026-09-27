@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
