@@ -72,8 +72,10 @@ fun XvoxNowPlayingArtworkPager(
     artworkHorizontalInset: Dp = 0.dp,
     /** 0dp lets an edge-to-edge landscape deck touch all screen boundaries. */
     artworkCornerRadius: Dp = 20.dp,
-    /** Landscape uses a vertical deck so no left/right neighbouring covers can appear. */
+    /** Retained only for source compatibility; Now Playing uses horizontal paging in every orientation. */
     verticalPaging: Boolean = false,
+    /** Landscape keeps full-size pages while they enter from the side, avoiding clipped strips. */
+    applyDepth: Boolean = true,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
@@ -193,6 +195,7 @@ fun XvoxNowPlayingArtworkPager(
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
+                applyDepth = applyDepth,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -213,6 +216,7 @@ fun XvoxNowPlayingArtworkPager(
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
+                applyDepth = applyDepth,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -226,6 +230,7 @@ private fun XvoxNowPlayingArtworkPage(
     pager: PagerState,
     artworkHorizontalInset: Dp,
     artworkCornerRadius: Dp,
+    applyDepth: Boolean,
     onArtworkTap: () -> Unit
 ) {
     val song = queue.getOrNull(page) ?: return
@@ -240,9 +245,9 @@ private fun XvoxNowPlayingArtworkPage(
             .graphicsLayer {
                 // Now Playing artwork has one intentional treatment: Depth. It remains
                 // responsive to native pager drag while the background owns its own variety.
-                scaleX = 1f - .20f * amount
+                scaleX = if (applyDepth) 1f - .20f * amount else 1f
                 scaleY = scaleX
-                alpha = 1f - .36f * amount
+                alpha = if (applyDepth) 1f - .36f * amount else 1f
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

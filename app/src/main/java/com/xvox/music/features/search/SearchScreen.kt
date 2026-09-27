@@ -4,8 +4,6 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -110,19 +108,26 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    // Search is a real page list: Header first, then the field directly beneath it. Once that
-    // field becomes sticky, it deliberately reserves the status-bar height plus a small gap so
-    // it remains visibly below system chrome instead of being pinned behind it.
-    val isSearchFieldPinned by remember {
-        derivedStateOf { listState.firstVisibleItemIndex > 0 }
-    }
+    // Search remains one real page list: Header first, then its sticky field.  Rather than
+    // waiting for the field to pin at y=0 and jumping it down afterwards, continuously grow the
+    // field's own top inset as its sticky container approaches the status-bar-safe line. Thus the
+    // editable surface never travels behind the system bar, including on a fresh first scroll.
     val density = LocalDensity.current
-    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
-    val stickySearchTop by animateDpAsState(
-        targetValue = if (isSearchFieldPinned) statusBarHeight + 6.dp else 2.dp,
-        animationSpec = tween(160),
-        label = "searchStatusSafeStickyInset"
-    )
+    val stickyContainerOffsetPx by remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.key == "sticky_search_bar" }
+                ?.offset
+                ?: Int.MAX_VALUE
+        }
+    }
+    val stickySearchTop = with(density) {
+        val compactTopPx = 2.dp.roundToPx()
+        val safeFieldTopPx = WindowInsets.statusBars.getTop(this) + 6.dp.roundToPx()
+        (safeFieldTopPx - stickyContainerOffsetPx)
+            .coerceAtLeast(compactTopPx)
+            .toDp()
+    }
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->

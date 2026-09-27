@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,9 +55,14 @@ private fun XvoxHeaderActionSlot(
     modifier: Modifier,
     content: @Composable () -> Unit
 ) {
+    // Begin false even when a newly composed Home Header requests controls. That lets the
+    // Search → Home reverse route animate the very same right cluster back down instead of
+    // popping it in with the replacement page.
+    val actionVisibility = remember { mutableStateOf(false) }
+    LaunchedEffect(visible) { actionVisibility.value = visible }
     Box(modifier = modifier, contentAlignment = Alignment.CenterEnd) {
         AnimatedVisibility(
-            visible = visible,
+            visible = actionVisibility.value,
             enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(190)) + fadeIn(tween(140)),
             exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(190)) + fadeOut(tween(125))
         ) {

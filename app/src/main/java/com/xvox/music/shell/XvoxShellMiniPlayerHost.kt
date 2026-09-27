@@ -71,17 +71,20 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     ) {
         if (currentSongId != null) {
             val density = LocalDensity.current
+            // Read the live IME inset rather than using a fixed keyboard height. Android reports
+            // different bottom insets for Gboard, OEM keyboards, split layouts, hardware-keyboard
+            // transitions, and gesture/navigation modes. navigationBarsPadding below owns the
+            // system-bar portion, so only the IME height above that baseline is added here.
             val imeBottomPx = WindowInsets.ime.getBottom(density)
             val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-            val effectiveImeDp = with(density) {
-                (imeBottomPx - navBottomPx).coerceAtLeast(0).toDp()
-            }
+            val imeAboveNavigationPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
+            val imeIsActuallyOccluding = imeBottomPx > navBottomPx && imeAboveNavigationPx > 1
+            val effectiveImeDp = with(density) { imeAboveNavigationPx.toDp() }
 
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)
-            // Keyboard mode deliberately uses the same 10dp value as the Mini Player ↔ Navbar
-            // gap. navigationBarsPadding contributes the system inset, so this remaining value
-            // is the visible air between the card and the keyboard edge.
-            val keyboardBottomPadding = if (effectiveImeDp > 0.dp) {
+            // Keep the card above the *actual* keyboard edge with the shared visible 5dp air.
+            // The physical navigation inset is applied exactly once by navigationBarsPadding.
+            val keyboardBottomPadding = if (imeIsActuallyOccluding) {
                 effectiveImeDp + XvoxMiniPlayerPlacement.controlGap
             } else {
                 restingBottomPadding

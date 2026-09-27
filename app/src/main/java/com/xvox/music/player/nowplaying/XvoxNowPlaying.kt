@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,9 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -391,18 +395,43 @@ fun XvoxNowPlaying(
     // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
-        animationSpec = tween(340, easing = XvoxPlayerTransitionMotion.easing),
+        // The card-to-lyrics transform is deliberately a little longer than the cover/lyrics
+        // crossfade so it reads as one calm physical expansion rather than a snap.
+        animationSpec = tween(460, easing = XvoxPlayerTransitionMotion.easing),
         label = "fullscreenProgress"
     )
 
-    // All four portrait edges participate in the lyric expansion on one shared clock.
-    val currentPadH = lerp(10.dp, 0.dp, fullscreenProgress)
+    // All four portrait edges participate in the lyric expansion on one shared clock. The
+    // compact 6dp side frame restores the earlier, tighter artwork geometry.
+    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 8.dp, 0.dp, fullscreenProgress)
 
-    // Do not hide or show status bars for a lyric-mode change. Switching system chrome while
-    // Compose is also relaying out causes a transient flash; stable bars keep the morph calm.
+    // System chrome is owned by the player, rather than by an individual lyrics surface. This
+    // makes the policy deterministic while the same lyric card is morphing: portrait hides only
+    // for fullscreen lyrics; landscape stays status-bar-free in every Now Playing state.
+    val playerView = LocalView.current
+    val playerWindow = (playerView.context as? android.app.Activity)?.window
+    val playerInsetsController = remember(playerWindow, playerView) {
+        playerWindow?.let { WindowCompat.getInsetsController(it, playerView) }
+    }
+    DisposableEffect(playerInsetsController) {
+        playerInsetsController?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        onDispose {
+            // The app root normally presents status bars. Restore that baseline only after the
+            // whole player leaves composition, never during a fullscreen reverse morph.
+            playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+        }
+    }
+    LaunchedEffect(isLandscape, isFullscreen, playerInsetsController) {
+        if (isLandscape || isFullscreen) {
+            playerInsetsController?.hide(WindowInsetsCompat.Type.statusBars())
+        } else {
+            playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+        }
+    }
 
     Box(
         modifier = modifier
@@ -424,35 +453,34 @@ fun XvoxNowPlaying(
 
         if (isLandscape) {
             // One persistent lyrics/artwork surface owns both the compact left card and the
-            // fullscreen stage. Its bounds interpolate from the originating card to the screen,
-            // while the adjacent controls are physically pushed right instead of being swapped.
+            // expanded lyric stage. Landscape intentionally keeps its 10dp top/bottom frame and
+            // rounded containment in *all* modes; rotating alone can never turn the cover into
+            // an edge-attached vertical deck.
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val compactInset = 10.dp
                 val compactGutter = 10.dp
                 val compactArtworkWidth = ((maxWidth - compactInset * 2 - compactGutter) * .60f)
                     .coerceAtLeast(0.dp)
-                // Compact landscape is a complete 10dp frame: artwork, gutter, and the right
-                // controls all have equal outer breathing room.
                 val compactControlsWidth = (maxWidth - compactInset * 2 - compactGutter - compactArtworkWidth)
                     .coerceAtLeast(0.dp)
-                val frameInset = lerp(compactInset, 0.dp, fullscreenProgress)
-                // Covers remain vertically edge-to-edge. Lyrics own a separate vertical inset so
-                // their compact card still grows from every side during fullscreen expansion.
-                val lyricsVerticalInset = lerp(compactInset, 0.dp, fullscreenProgress)
-                val artworkWidth = lerp(compactArtworkWidth, maxWidth, fullscreenProgress)
-                val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
-                // Travel past the right edge rather than merely fading in place during lyric
-                // fullscreen, so the adjacent card is visibly pushed out by the expanding pager.
-                // Match the pager's right-edge travel so the explicit compact gutter stays
-                // visually consistent until the card has cleared the screen.
+                val expandedArtworkWidth = (maxWidth - compactInset * 2).coerceAtLeast(0.dp)
+                val artworkWidth = lerp(compactArtworkWidth, expandedArtworkWidth, fullscreenProgress)
+                // Retain the framed silhouette through the fullscreen lyrics state as well.
+                val artworkRadius = 20.dp
+                // The right card travels exactly far enough to leave the stable 10dp gutter
+                // between itself and the expanding artwork; it is never faded prematurely.
                 val controlsSlidePx = with(density) {
-                    (maxWidth - compactArtworkWidth - compactInset).coerceAtLeast(0.dp).toPx()
+                    (maxWidth - compactArtworkWidth - compactInset * 2).coerceAtLeast(0.dp).toPx()
                 }
 
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = frameInset)
+                        .padding(
+                            start = compactInset,
+                            top = compactInset,
+                            bottom = compactInset
+                        )
                         .width(artworkWidth)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(artworkRadius))
@@ -489,7 +517,6 @@ fun XvoxNowPlaying(
                                 textColor = lyricsTextColor,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(vertical = lyricsVerticalInset)
                                     .clip(RoundedCornerShape(artworkRadius))
                             )
                         } else {
@@ -511,7 +538,10 @@ fun XvoxNowPlaying(
                                 contentPadding = PaddingValues(0.dp),
                                 pageSpacing = 0.dp,
                                 artworkCornerRadius = artworkRadius,
-                                verticalPaging = true,
+                                // Previous/next covers always enter horizontally from the side;
+                                // avoiding the old vertical deck also prevents thin clipped strips.
+                                verticalPaging = false,
+                                applyDepth = false,
                                 repeatMode = repeatMode
                             )
                         }
@@ -523,7 +553,7 @@ fun XvoxNowPlaying(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = frameInset, end = frameInset, bottom = frameInset)
+                        .padding(top = compactInset, end = compactInset, bottom = compactInset)
                         .width(compactControlsWidth)
                         .fillMaxHeight()
                         .graphicsLayer {
@@ -674,7 +704,7 @@ fun XvoxNowPlaying(
             ) {
                 Crossfade(
                     targetState = isLyricsShowing,
-                    animationSpec = tween(320, easing = XvoxPlayerTransitionMotion.easing),
+                    animationSpec = tween(400, easing = XvoxPlayerTransitionMotion.easing),
                     label = "coverLyricsFade"
                 ) { lyricsActive ->
                     if (lyricsActive) {
@@ -739,7 +769,7 @@ fun XvoxNowPlaying(
                     .graphicsLayer {
                         // Travel fully beyond the top edge rather than fading before it has
                         // actually left the visible player.
-                        translationY = -fullscreenProgress * (headerHeightDp + 28.dp).toPx()
+                        translationY = -fullscreenProgress * (headerHeightDp + 4.dp).toPx()
                     }
             ) {
                 XvoxNowPlayingHeader(
@@ -785,7 +815,7 @@ fun XvoxNowPlaying(
                         // Push the entire bottom card below the screen during fullscreen, not
                         // merely past its normal controls' center line. It remains opaque until
                         // it is genuinely outside the viewport.
-                        translationY = fullscreenProgress * (bottomHeightDp + 34.dp).toPx()
+                        translationY = fullscreenProgress * (bottomHeightDp + 8.dp).toPx()
                     }
                     .clip(bottomBoxShape)
                     .background(colors.background.copy(alpha = 0.35f))

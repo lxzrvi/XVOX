@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = UserPreferencesRepository(application)
+    private val sourceModeRepository = com.xvox.music.data.sourcemode.XvoxSourceModeRepository(application)
     private var pendingWidget: com.xvox.music.widget.WidgetCustomization? = null
     private var pendingLyrics: com.xvox.music.data.preferences.LyricsSettings? = null
     private val _state = MutableStateFlow(SettingsState())
@@ -23,6 +24,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
+            launch { sourceModeRepository.mode.collect { v -> _state.update { it.copy(sourceMode = v) } } }
             launch { prefs.nowPlayingStyle.collect { v -> _state.update { it.copy(nowPlayingStyle = v) } } }
             launch { prefs.nowPlayingBackgroundStyle.collect { v -> _state.update { it.copy(nowPlayingBackgroundStyle = v) } } }
             launch { prefs.splitShowPill.collect { v -> _state.update { it.copy(splitShowPill = v) } } }
@@ -230,6 +232,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setIgnoreBelowSec(sec: Int) = viewModelScope.launch { prefs.setIgnoreBelowSec(sec) }
     fun setIgnoreBelowKb(kb: Int) = viewModelScope.launch { prefs.setIgnoreBelowKb(kb) }
     fun toggleIgnoredFolder(folder: String) = viewModelScope.launch { prefs.toggleIgnoredFolder(folder) }
+
+    fun setSourceMode(mode: com.xvox.music.features.sourcemode.XvoxSourceMode) = viewModelScope.launch {
+        sourceModeRepository.select(mode)
+    }
 
     fun setCrossfade(enabled: Boolean) = viewModelScope.launch { prefs.setCrossfade(enabled) }
     fun setGapless(enabled: Boolean) = viewModelScope.launch { prefs.setGapless(enabled) }

@@ -42,6 +42,7 @@ import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.sourcemode.XvoxSourceModeSettingsSection
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
@@ -182,6 +183,13 @@ fun SettingsScreen(
                         AboutSectionCard(Modifier.weight(1f).fillMaxHeight())
                     }
                 }
+                // Experimental source selection deliberately remains the last Settings surface.
+                item(key = "section_experimental_source_mode", span = { GridItemSpan(maxLineSpan) }) {
+                    XvoxSourceModeSettingsSection(
+                        mode = state.sourceMode,
+                        onModeSelected = settingsViewModel::setSourceMode
+                    )
+                }
             } else {
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker)
@@ -193,6 +201,13 @@ fun SettingsScreen(
                 item(key = "section_backup") { BackupSectionCard(homeViewModel) }
                 item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
                 item(key = "section_about") { AboutSectionCard() }
+                // Keep Experimental at the very bottom, after ordinary product settings.
+                item(key = "section_experimental_source_mode") {
+                    XvoxSourceModeSettingsSection(
+                        mode = state.sourceMode,
+                        onModeSelected = settingsViewModel::setSourceMode
+                    )
+                }
             }
         }
     }

@@ -190,17 +190,20 @@ class XvoxDspEngine {
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = if (s.grainControlEnabled) {
-            10.0.pow(-s.softenHighs.coerceIn(0f, 1f) * 18.0 / 20.0)
+            // Grain control is a gentle high-residual blend, not a 18 dB blanket low-pass that
+            // turns an otherwise loud track dull. Even 100% leaves audible programme presence.
+            1.0 - s.softenHighs.coerceIn(0f, 1f) * .48
         } else {
             1.0
         }
         targetNoise = if (s.noiseReductionEnabled) s.noiseReduction.toDouble().coerceIn(0.0, 1.0) else 0.0
         val spatialActive = s.surroundEnabled && !splitStems
-        targetDepth = if (spatialActive) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) else 0.0
+        // Keep the processor spacious without fully replacing the dry stereo signal at its end.
+        targetDepth = if (spatialActive) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) * .72 else 0.0
         targetWidth = if (spatialActive) s.surroundWidth.toDouble().coerceIn(0.05, 1.0) else 0.78
         targetPosition = if (spatialActive) s.surroundPosition.toDouble() else 0.0
-        targetRoom = if (spatialActive) s.roomAmount.toDouble().coerceIn(0.0, 1.0) * 2.0 else 1.0
-        targetHrtf = if (spatialActive) s.hrtf.toDouble().coerceIn(0.0, 1.0) else 0.6
+        targetRoom = if (spatialActive) 1.0 + s.roomAmount.toDouble().coerceIn(0.0, 1.0) * .65 else 1.0
+        targetHrtf = if (spatialActive) s.hrtf.toDouble().coerceIn(0.0, 1.0) * .82 else 0.6
         targetCenter = if (spatialActive) s.centerPreservation.toDouble().coerceIn(0.0, 1.0) else 0.0
         val reverbProfile = ReverbPresets.profile(s.reverbPreset)
         targetReverb = s.reverbAmount.toDouble().coerceIn(0.0, 1.0)
@@ -223,9 +226,9 @@ class XvoxDspEngine {
             updateTargets()
             // User-controlled headroom only: raising a band must not secretly turn the entire track down.
             targetPreamp = targetHeadroom
-            // Quiet passages contain the most perceptible floor; this adaptive threshold gives
-            // the control a genuinely audible gate without flattening normal music dynamics.
-            noiseThreshold = .012 + currentNoise * .086
+            // Work only near the true noise floor. The former broad threshold could audibly gate
+            // quiet musical tails; this remains effective on hiss without making music pump.
+            noiseThreshold = .004 + currentNoise * .026
             pan = sin(phase + currentPosition) * currentWidth
             rear = (1 - cos(phase)) * .5
             shadowAlpha = 1 - exp(-2 * PI * (12000 - rear * 7000) / rate)
@@ -292,12 +295,14 @@ class XvoxDspEngine {
         // setting remains bit-for-bit close to the dry path.
         noiseToneL += (l - noiseToneL) * noiseToneAlpha
         noiseToneR += (r - noiseToneR) * noiseToneAlpha
-        l = noiseToneL + (l - noiseToneL) * (1 - currentNoise * .66)
-        r = noiseToneR + (r - noiseToneR) * (1 - currentNoise * .66)
+        l = noiseToneL + (l - noiseToneL) * (1 - currentNoise * .38)
+        r = noiseToneR + (r - noiseToneR) * (1 - currentNoise * .38)
         val envelopeInput = max(abs(l), abs(r))
         noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
         val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
-        val desiredNoiseGain = 1 - currentNoise * .95 * (1 - ratio * ratio)
+        // Never use the denoiser as a disguised volume knob: retain most low-level programme
+        // energy while gently lowering only the residual floor.
+        val desiredNoiseGain = 1 - currentNoise * .42 * (1 - ratio * ratio)
         noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
         l *= noiseGain; r *= noiseGain
         bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha
@@ -332,7 +337,7 @@ class XvoxDspEngine {
             val feedback = (currentReverbFeedbackBase + currentReverbFeedbackDepth * currentReverb)
                 .coerceIn(0.0, .86)
             val wet = (currentReverb * (currentReverbWetBase + currentReverbWetDepth * currentReverb))
-                .coerceIn(0.0, .62)
+                .coerceIn(0.0, .36)
             reverb.process(
                 inputLeft = l,
                 inputRight = r,
@@ -380,15 +385,23 @@ class XvoxDspEngine {
     private fun repairDistortion(sample: Double, amount: Double): Double {
         val strength = amount.coerceIn(0.0, 1.0)
         if (strength <= .0001) return sample
-        // The knee lowers only as the user asks for more repair. At full strength, quiet and
-        // normal musical body remain exact while overloaded crests receive a smooth re-curve.
+        // This is a genuine peak re-shaper, not a gain multiplier. The knee lowers only as the
+        // user asks for more repair, so normal programme body below it is mathematically exact.
+        // Above the knee, a normalized tanh curve rounds overloaded crests before the transparent
+        // guard. The selected amount blends this peak-only correction, making high settings
+        // clearly audible without pretending the whole song has been turned down.
         val knee = .96 - .32 * strength
         val magnitude = abs(sample)
         if (magnitude <= knee) return sample
         val headroom = (1.0 - knee).coerceAtLeast(.001)
-        val normalizedExcess = (magnitude - knee) / headroom
+        val normalizedExcess = ((magnitude - knee) / headroom).coerceIn(0.0, 1.0)
         val curve = 1.0 + strength * 2.4
-        val repairedMagnitude = knee + headroom * tanh(normalizedExcess * curve) / tanh(curve)
+        val normalizedTanh = tanh(curve).coerceAtLeast(.001)
+        // Unlike a plain tanh/excess normalization (which can expand mid-peaks), this mirrored
+        // tanh stays below the linear excess and therefore truly rounds harsh peak shoulders.
+        val roundedExcess = 1.0 - tanh((1.0 - normalizedExcess) * curve) / normalizedTanh
+        val reCurvedExcess = normalizedExcess + (roundedExcess - normalizedExcess) * .50
+        val repairedMagnitude = knee + headroom * reCurvedExcess
         val blended = magnitude + (repairedMagnitude - magnitude) * strength
         return if (sample < 0.0) -blended else blended
     }

@@ -2,6 +2,9 @@ package com.xvox.music.features.settings
 
 data class SettingsState(
     val nowPlayingStyle: String = "default",
+    /** Experimental source selection; Online is provider-gated and never enables unofficial streams. */
+    val sourceMode: com.xvox.music.features.sourcemode.XvoxSourceMode =
+        com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
     /** Retained migration field; Default is the only valid backdrop. */
     val nowPlayingBackgroundStyle: String = "default",
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),

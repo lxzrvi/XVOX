@@ -40,6 +40,8 @@ class UserPreferencesRepository(
 ) {
     private object Keys {
         val setupCompleted = booleanPreferencesKey("setup_completed")
+        /** Experimental Offline/Online source choice; online remains provider-gated. */
+        val sourceMode = stringPreferencesKey("source_mode")
         val username = stringPreferencesKey("username")
         val selectedPfp = stringPreferencesKey("selected_pfp")
         val customPfpUri = stringPreferencesKey("custom_pfp_uri")
@@ -381,6 +383,11 @@ class UserPreferencesRepository(
     val hrtf: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.hrtf] ?: .6f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val centerPreservation: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
+    /** Raw storage contract is intentionally owned by data/sourcemode's typed repository. */
+    val sourceMode: Flow<String> = context.xvoxDataStore.data
+        .map { it[Keys.sourceMode] ?: "offline" }
+        .distinctUntilChanged()
+
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.appVolume] ?: 1.0f).coerceIn(0f, 2f) }.distinctUntilChanged()
     val distortionControl: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.distortionControl] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
@@ -605,6 +612,11 @@ class UserPreferencesRepository(
     suspend fun setStereoWidening(v: Boolean) { context.xvoxDataStore.edit { it[Keys.stereoWidening] = v } }
     suspend fun setSurroundPanSpeed(v: Int) { context.xvoxDataStore.edit { it[Keys.surroundPanSpeed] = v.coerceIn(0, 20) } }
 
+    suspend fun setSourceMode(value: String) {
+        context.xvoxDataStore.edit {
+            it[Keys.sourceMode] = if (value.equals("online", ignoreCase = true)) "online" else "offline"
+        }
+    }
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v.coerceIn(0f, 2f) } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 

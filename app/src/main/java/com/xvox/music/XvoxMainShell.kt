@@ -85,6 +85,7 @@ import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
 import com.xvox.music.shell.XvoxTimerBoxContent
 import com.xvox.music.shell.XvoxTimerDraft
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -136,6 +137,10 @@ fun XvoxMainShell(
     // restores Search as the reverse route.
     var searchTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    // Home/Search share an identical Header list item. Keep only Home's right action cluster as
+    // independent transition state so the Header itself never fades/rebuilds in the route swap.
+    var homeHeaderControlsVisible by remember { mutableStateOf(true) }
+    var homeToSearchRouteJob by remember { mutableStateOf<Job?>(null) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
     // A saved Profile draft keeps its Header preview alive through the async preference round-trip
@@ -505,6 +510,9 @@ fun XvoxMainShell(
     }
 
     fun returnToHome(resetScroll: Boolean = true) {
+        homeToSearchRouteJob?.cancel()
+        homeToSearchRouteJob = null
+        homeHeaderControlsVisible = true
         if (destination != XvoxDestination.HOME) {
             destination = XvoxDestination.HOME
         }
@@ -515,6 +523,9 @@ fun XvoxMainShell(
         if (next == XvoxDestination.HOME) {
             if (destination == XvoxDestination.HOME) {
                 // A second Home tap is the familiar home action: return to All Songs at its top.
+                homeToSearchRouteJob?.cancel()
+                homeToSearchRouteJob = null
+                homeHeaderControlsVisible = true
                 hoistedSelectedPlaylistId = null
                 homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
                 homeResetKey++
@@ -526,9 +537,32 @@ fun XvoxMainShell(
             }
             return
         }
+
+        // First glide only Home's reserved right cluster away while the real Header stays in its
+        // list position. After that short motion Search replaces the body without two Headers
+        // crossfading over each other (the former flash/rebuild).
+        if (next == XvoxDestination.SEARCH && destination == XvoxDestination.HOME) {
+            homeToSearchRouteJob?.cancel()
+            homeHeaderControlsVisible = false
+            homeToSearchRouteJob = scope.launch {
+                delay(205)
+                if (destination == XvoxDestination.HOME && !homeHeaderControlsVisible) {
+                    searchTopResetKey++
+                    destination = XvoxDestination.SEARCH
+                }
+                homeToSearchRouteJob = null
+            }
+            return
+        }
+
+        homeToSearchRouteJob?.cancel()
+        homeToSearchRouteJob = null
         if (next != destination) {
             when (next) {
-                XvoxDestination.SEARCH -> searchTopResetKey++
+                XvoxDestination.SEARCH -> {
+                    homeHeaderControlsVisible = false
+                    searchTopResetKey++
+                }
                 XvoxDestination.SETTINGS -> {
                     settingsReturnDestination = destination
                     settingsTopResetKey++
@@ -541,6 +575,9 @@ fun XvoxMainShell(
 
     fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
         val isAlreadyOpen = destination == XvoxDestination.HOME && homeState.libraryMode == mode
+        homeToSearchRouteJob?.cancel()
+        homeToSearchRouteJob = null
+        homeHeaderControlsVisible = true
         hoistedSelectedPlaylistId = null
         if (destination != XvoxDestination.HOME) {
             destination = XvoxDestination.HOME
@@ -584,7 +621,7 @@ fun XvoxMainShell(
                 onPlaylistClick = ::openPlaylistsFromNavigation,
                 onArtistClick = ::openArtistsFromHeader,
                 onRecentClick = ::openRecentFromHeader,
-                showHomeControls = destination == XvoxDestination.HOME,
+                showHomeControls = homeHeaderControlsVisible && destination == XvoxDestination.HOME,
                 useSystemInsets = true
             )
         }
@@ -621,6 +658,7 @@ fun XvoxMainShell(
                 returnToHome(resetScroll = true)
             } else {
                 // Settings → Search is the exact reverse route, retaining Search's page/header.
+                homeHeaderControlsVisible = false
                 destination = returnDestination
             }
         } else {
@@ -674,10 +712,11 @@ fun XvoxMainShell(
                     val isHomeSearchSwap = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
                         (initialState == XvoxDestination.SEARCH && targetState == XvoxDestination.HOME)
                     if (isHomeSearchSwap) {
-                        // The Header is structurally the same real list item in Home and Search.
-                        // Fade only the page content so it never travels sideways or rebuilds in
-                        // view; Home's own right action cluster still exits upward independently.
-                        (fadeIn(tween(220)) togetherWith fadeOut(tween(220))).using(null)
+                        // The route handoff occurs only after Home's right action slot has moved.
+                        // Keeping the actual Header item unanimated here avoids a duplicate fade,
+                        // flash, or visual rebuild between the otherwise identical surfaces.
+                        (androidx.compose.animation.EnterTransition.None togetherWith
+                            androidx.compose.animation.ExitTransition.None).using(null)
                     } else {
                         // Settings keeps a clearly slower directional route so its Header's
                         // upward exit remains visible for the entire transition.
