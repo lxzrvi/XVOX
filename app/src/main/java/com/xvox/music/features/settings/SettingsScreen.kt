@@ -39,6 +39,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
@@ -65,6 +66,8 @@ fun SettingsScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val bottomInset = LocalXvoxBottomInset.current
+    // Settings is routed under the one shell Header, never a page-local duplicate.
+    val sharedHeaderInset = LocalXvoxTopInset.current
     val bottomPadding = bottomInset + if (isLandscape) 16.dp else 30.dp
     val scrollState = rememberLazyGridState()
 
@@ -125,7 +128,7 @@ fun SettingsScreen(
                 .fillMaxHeight(),
             contentPadding = PaddingValues(
                 start = if (isLandscape) 10.dp else 6.dp,
-                top = statusTop + 6.dp,
+                top = maxOf(statusTop + 6.dp, sharedHeaderInset + 6.dp),
                 end = if (isLandscape) 10.dp else 6.dp,
                 bottom = bottomPadding
             ),

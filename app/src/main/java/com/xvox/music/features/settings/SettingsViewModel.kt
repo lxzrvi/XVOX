@@ -71,6 +71,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
             launch { prefs.homeLayoutStyle.collect { v -> _state.update { it.copy(homeLayoutStyle = v) } } }
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
+            launch { prefs.homeColumns.collect { v -> _state.update { it.copy(homeColumns = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
             launch { prefs.recentsPlacement.collect { v -> _state.update { it.copy(recentsPlacement = v) } } }
@@ -207,6 +208,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { prefs.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
+    fun setHomeColumns(columns: Int) = viewModelScope.launch { prefs.setHomeColumns(columns) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
     fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }

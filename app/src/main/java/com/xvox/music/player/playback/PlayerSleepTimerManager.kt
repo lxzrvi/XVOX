@@ -98,8 +98,11 @@ class PlayerSleepTimerManager(
         }
 
         val totalMinutes = (totalMillis / 60000L).toInt().coerceAtLeast(1)
-        val doPause = if (pauseMusic && closeApp) true else pauseMusic
-        val doClose = if (pauseMusic && closeApp) false else closeApp
+        // The UI presents these as radio choices, but preserve the stronger semantic if a stale
+        // draft ever carries both flags: Close full app wins and is consumed by the shell task
+        // remover rather than degrading to a mere playback pause.
+        val doClose = closeApp
+        val doPause = pauseMusic && !doClose
 
         stateFlow.update {
             it.copy(

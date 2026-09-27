@@ -40,11 +40,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
 /**
- * Full-queue smooth HorizontalPager for Now Playing.
- * - Instant cover swiping with zero delay.
- * - Fast Next/Previous button taps immediately animate the cover without getting stuck.
- * - Currently playing audio remains playing while swiping fast; only when the user finishes a
- *   manual touch swipe on a stable song does the parent commit that song identity to playback.
+ * Full-queue artwork pager for Now Playing.
+ * - Portrait uses horizontal paging; landscape can opt into vertical paging so previous artwork
+ *   arrives from the top and next artwork arrives from the bottom.
+ * - Fast Next/Previous taps animate the cover without touching audio until the settled 300 ms
+ *   occurrence commit, preserving duplicate-song identity and swipe stability.
  */
 @Composable
 fun XvoxNowPlayingArtworkPager(
@@ -72,9 +72,9 @@ fun XvoxNowPlayingArtworkPager(
     artworkHorizontalInset: Dp = 0.dp,
     /** 0dp lets an edge-to-edge landscape deck touch all screen boundaries. */
     artworkCornerRadius: Dp = 20.dp,
-    /** Retained only for source compatibility; Now Playing uses horizontal paging in every orientation. */
+    /** Vertical mode makes previous/next covers travel top/bottom rather than side-to-side. */
     verticalPaging: Boolean = false,
-    /** Landscape keeps full-size pages while they enter from the side, avoiding clipped strips. */
+    /** Applies the same portrait-like inset/depth treatment in either pager orientation. */
     applyDepth: Boolean = true,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {

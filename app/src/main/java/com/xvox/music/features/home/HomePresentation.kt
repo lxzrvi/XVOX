@@ -4,6 +4,9 @@ package com.xvox.music.features.home
 data class HomePresentation(
     val style: String = "uniform",
     val direction: String = "vertical",
+    /** All Songs tile columns, exposed in both vertical and horizontal layouts. */
+    val columns: Int = 4,
+    /** Page grid depth, intentionally exposed only for horizontal All Songs pages. */
     val rows: Int = 4,
     val hideRecents: Boolean = false,
     val recentsPlacement: String = "bottom",

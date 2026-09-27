@@ -65,10 +65,13 @@ import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
+import com.xvox.music.player.nowplaying.lyrics.lyricsFullscreenMotion
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.sin
 
 private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
@@ -392,14 +395,20 @@ fun XvoxNowPlaying(
         label = "animBottomPadBottom"
     )
 
-    // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen)
+    // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen). The persisted
+    // experimental selector changes a real timing/geometry profile, not merely a preference label.
+    val fullscreenMotion = remember(settingsState.lyrics.fullscreenAnimationStyle) {
+        lyricsFullscreenMotion(settingsState.lyrics.fullscreenAnimationStyle)
+    }
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
-        // The card-to-lyrics transform is deliberately a little longer than the cover/lyrics
-        // crossfade so it reads as one calm physical expansion rather than a snap.
-        animationSpec = tween(460, easing = XvoxPlayerTransitionMotion.easing),
-        label = "fullscreenProgress"
+        animationSpec = tween(fullscreenMotion.durationMillis, easing = fullscreenMotion.easing),
+        label = "fullscreenProgress_style_${settingsState.lyrics.fullscreenAnimationStyle}"
     )
+    // The pulse is exactly zero at card and fullscreen endpoints. Therefore every temporary
+    // preset preserves a genuinely edge-to-edge final lyrics surface while still changing the
+    // travel between those endpoints.
+    val fullscreenMotionPulse = sin(fullscreenProgress * PI).toFloat()
 
     // All four portrait edges participate in the lyric expansion on one shared clock. The
     // compact 6dp side frame restores the earlier, tighter artwork geometry.
@@ -452,10 +461,9 @@ fun XvoxNowPlaying(
         )
 
         if (isLandscape) {
-            // One persistent lyrics/artwork surface owns both the compact left card and the
-            // expanded lyric stage. Landscape intentionally keeps its 10dp top/bottom frame and
-            // rounded containment in *all* modes; rotating alone can never turn the cover into
-            // an edge-attached vertical deck.
+            // The ordinary landscape cover keeps its framed, rounded top/bottom containment.
+            // Fully expanded lyrics deliberately override that frame: the newest fullscreen rule
+            // requires the lyric surface itself to reach every edge with no leftover card gap.
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val compactInset = 10.dp
                 val compactGutter = 10.dp
@@ -463,10 +471,10 @@ fun XvoxNowPlaying(
                     .coerceAtLeast(0.dp)
                 val compactControlsWidth = (maxWidth - compactInset * 2 - compactGutter - compactArtworkWidth)
                     .coerceAtLeast(0.dp)
-                val expandedArtworkWidth = (maxWidth - compactInset * 2).coerceAtLeast(0.dp)
+                val expandedArtworkWidth = maxWidth.coerceAtLeast(0.dp)
                 val artworkWidth = lerp(compactArtworkWidth, expandedArtworkWidth, fullscreenProgress)
-                // Retain the framed silhouette through the fullscreen lyrics state as well.
-                val artworkRadius = 20.dp
+                val artworkInset = lerp(compactInset, 0.dp, fullscreenProgress)
+                val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
                 // The right card travels exactly far enough to leave the stable 10dp gutter
                 // between itself and the expanding artwork; it is never faded prematurely.
                 val controlsSlidePx = with(density) {
@@ -477,9 +485,9 @@ fun XvoxNowPlaying(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(
-                            start = compactInset,
-                            top = compactInset,
-                            bottom = compactInset
+                            start = artworkInset,
+                            top = artworkInset,
+                            bottom = artworkInset
                         )
                         .width(artworkWidth)
                         .fillMaxHeight()
@@ -517,6 +525,18 @@ fun XvoxNowPlaying(
                                 textColor = lyricsTextColor,
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .graphicsLayer {
+                                        translationX = with(density) {
+                                            (fullscreenMotion.horizontalPulseDp * fullscreenMotionPulse).dp.toPx()
+                                        }
+                                        translationY = with(density) {
+                                            (fullscreenMotion.verticalPulseDp * fullscreenMotionPulse).dp.toPx()
+                                        }
+                                        val scale = 1f - fullscreenMotion.scaleDip * fullscreenMotionPulse
+                                        scaleX = scale
+                                        scaleY = scale
+                                        rotationZ = fullscreenMotion.tiltDegrees * fullscreenMotionPulse
+                                    }
                                     .clip(RoundedCornerShape(artworkRadius))
                             )
                         } else {
@@ -536,12 +556,14 @@ fun XvoxNowPlaying(
                                 onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(0.dp),
-                                pageSpacing = 0.dp,
                                 artworkCornerRadius = artworkRadius,
-                                // Previous/next covers always enter horizontally from the side;
-                                // avoiding the old vertical deck also prevents thin clipped strips.
-                                verticalPaging = false,
-                                applyDepth = false,
+                                // In landscape, previous art enters from the top and next art from
+                                // the bottom. A real vertical pager gives portrait-like inset/out
+                                // travel instead of adjacent left/right strips.
+                                verticalPaging = true,
+                                pageSpacing = 10.dp,
+                                artworkHorizontalInset = 8.dp,
+                                applyDepth = true,
                                 repeatMode = repeatMode
                             )
                         }
@@ -734,6 +756,18 @@ fun XvoxNowPlaying(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = currentPadH)
+                                .graphicsLayer {
+                                    translationX = with(density) {
+                                        (fullscreenMotion.horizontalPulseDp * fullscreenMotionPulse).dp.toPx()
+                                    }
+                                    translationY = with(density) {
+                                        (fullscreenMotion.verticalPulseDp * fullscreenMotionPulse).dp.toPx()
+                                    }
+                                    val scale = 1f - fullscreenMotion.scaleDip * fullscreenMotionPulse
+                                    scaleX = scale
+                                    scaleY = scale
+                                    rotationZ = fullscreenMotion.tiltDegrees * fullscreenMotionPulse
+                                }
                                 .clip(RoundedCornerShape(currentCardRadius))
                         )
                     } else {

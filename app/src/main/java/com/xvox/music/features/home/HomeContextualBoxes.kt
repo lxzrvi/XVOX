@@ -71,45 +71,69 @@ fun AllSongsLayoutBoxContent(
             )
         }
 
-        // Grid Rows only visible when horizontal scrolling is selected
-        if (config.direction == "horizontal") {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Grid Rows per Page", color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text("${config.rows} rows", color = colors.primaryAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                }
+        // Columns are meaningful in either list direction and directly change the real All Songs
+        // tile geometry. Grid is deliberately only a horizontal-page control.
+        AllSongsLayoutNumberPicker(
+            label = "Column",
+            value = config.columns,
+            valueLabel = "${config.columns} columns",
+            onSelected = viewModel::setHomeColumns
+        )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+        if (config.direction == "horizontal") {
+            AllSongsLayoutNumberPicker(
+                label = "Grid",
+                value = config.rows,
+                valueLabel = "${config.rows} rows per page",
+                onSelected = viewModel::setHomeHorizontalRows
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun AllSongsLayoutNumberPicker(
+    label: String,
+    value: Int,
+    valueLabel: String,
+    onSelected: (Int) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(valueLabel, color = colors.primaryAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            (3..8).forEach { option ->
+                val isSelected = value == option
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                        .then(
+                            if (!isSelected) Modifier.border(.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
+                            else Modifier
+                        )
+                        .xvoxPressScale { onSelected(option) },
+                    contentAlignment = Alignment.Center
                 ) {
-                    (3..8).forEach { r ->
-                        val isSelected = config.rows == r
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(34.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
-                                .then(
-                                    if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(8.dp))
-                                    else Modifier
-                                )
-                                .xvoxPressScale { viewModel.setHomeHorizontalRows(r) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "$r",
-                                color = if (isSelected) colors.background else colors.primaryText,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
-                        }
-                    }
+                    Text(
+                        text = "$option",
+                        color = if (isSelected) colors.background else colors.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    )
                 }
             }
         }

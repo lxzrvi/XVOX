@@ -72,6 +72,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.XvoxArtist
@@ -80,6 +81,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.features.home.showPlaylistActions
 import com.xvox.music.features.home.showSongOptionsOverlay
+import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -89,8 +91,7 @@ fun SearchScreen(
     playerViewModel: MainPlayerViewModel = viewModel(),
     topResetKey: Long = 0L,
     onPlaylistSelected: ((String) -> Unit)? = null,
-    /** Shell Header supplied as a first page item so it shares the list's exact scroll. */
-    header: (@Composable () -> Unit)? = null,
+    /** Reports the active list position to the one Header owned by XvoxMainShell. */
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val colors = XvoxTheme.colors
@@ -104,6 +105,7 @@ fun SearchScreen(
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val landscapeContentHeight = LocalConfiguration.current.screenHeightDp.coerceAtLeast(360).dp
     val bottomInset = LocalXvoxBottomInset.current
+    val topInset = LocalXvoxTopInset.current
 
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -174,8 +176,15 @@ fun SearchScreen(
             .sortedBy { it.name.lowercase() }
     }
 
+    val onlineProviderRequired = homeState.sourceMode == XvoxSourceMode.ONLINE
     var drillDownPlaylist by remember { mutableStateOf<XvoxPlaylist?>(null) }
     var drillDownArtist by remember { mutableStateOf<XvoxArtist?>(null) }
+    LaunchedEffect(onlineProviderRequired) {
+        if (onlineProviderRequired) {
+            drillDownPlaylist = null
+            drillDownArtist = null
+        }
+    }
 
     androidx.activity.compose.BackHandler(enabled = drillDownPlaylist != null || drillDownArtist != null) {
         drillDownPlaylist = null
@@ -200,11 +209,12 @@ fun SearchScreen(
         }
     }
 
-    val matchingPlaylists = remember(trimmedQuery, homeState.playlists) {
-        if (trimmedQuery.isEmpty()) homeState.playlists
-        else {
-            homeState.playlists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
-        }
+    val matchingPlaylists = remember(trimmedQuery, homeState.playlists, onlineProviderRequired) {
+        // Local playlists are a device-library surface too; Online must not leak them as a
+        // fallback while an approved provider is still unconfigured.
+        if (onlineProviderRequired) emptyList()
+        else if (trimmedQuery.isEmpty()) homeState.playlists
+        else homeState.playlists.filter { it.name.contains(trimmedQuery, ignoreCase = true) }
     }
 
     fun handleSongClick(song: Song) {
@@ -249,15 +259,13 @@ fun SearchScreen(
     }
 
     if (isLandscape) {
-        // Keep the same Header as a real parent-list item in the two-pane layout.  The panes may
-        // scroll internally afterwards, but the Header itself is never a pinned shell overlay.
+        // The shared shell Header stays mounted above this page; this parent list reports its
+        // own scroll instead of inserting a second Header item.
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = topInset, bottom = bottomInset)
         ) {
-            header?.let { pageHeader ->
-                item(key = "page_header") { pageHeader() }
-            }
             item(key = "landscape_search_content") {
                 Row(
                     modifier = Modifier
@@ -408,6 +416,7 @@ fun SearchScreen(
                             matchingArtists = matchingArtists,
                             matchingPlaylists = matchingPlaylists,
                             allSongs = homeState.songs,
+                            onlineProviderRequired = onlineProviderRequired,
                             currentSongId = playerState.currentSongId,
                             isPlaying = playerState.isPlaying,
                             onSongClick = ::handleSongClick,
@@ -462,18 +471,14 @@ fun SearchScreen(
         }
         }
     } else {
-        // Header and results live in one LazyColumn.  There is no fake spacer or independently
-        // moving shell strip: scrolling this list carries the Header through the status-bar area.
+        // Results use the shell's one Header inset. Scroll progress moves that Header itself,
+        // so Search never emits or crossfades a second copy.
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
+            contentPadding = PaddingValues(top = topInset, bottom = bottomInset + 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            header?.let { pageHeader ->
-                item(key = "page_header") { pageHeader() }
-            }
-
             stickyHeader(key = "sticky_search_bar") {
                 Box(
                     modifier = Modifier
@@ -607,6 +612,7 @@ fun SearchScreen(
                         matchingArtists = matchingArtists,
                         matchingPlaylists = matchingPlaylists,
                         allSongs = homeState.songs,
+                        onlineProviderRequired = onlineProviderRequired,
                         currentSongId = playerState.currentSongId,
                         isPlaying = playerState.isPlaying,
                         onSongClick = ::handleSongClick,
@@ -830,6 +836,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     matchingArtists: List<XvoxArtist>,
     matchingPlaylists: List<XvoxPlaylist>,
     allSongs: List<Song>,
+    /** Online is intentionally empty until an official provider gateway is configured. */
+    onlineProviderRequired: Boolean,
     currentSongId: Long?,
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit,
@@ -840,6 +848,24 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
     onPlaylistLongClick: (XvoxPlaylist) -> Unit,
     isLandscape: Boolean = false
 ) {
+    if (onlineProviderRequired) {
+        item(key = "online_provider_required_search") {
+            val colors = XvoxTheme.colors
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 42.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Online search needs an approved provider API or backend configuration. Device songs are hidden while Online mode is selected.",
+                    color = colors.secondaryText,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+
     if (query.isNotEmpty() && matchingSongs.isEmpty() && matchingArtists.isEmpty() && matchingPlaylists.isEmpty()) {
         item(key = "no_results") {
             val colors = XvoxTheme.colors

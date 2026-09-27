@@ -130,6 +130,9 @@ class UserPreferencesRepository(
 
         val homeLayoutStyle = stringPreferencesKey("home_layout_style")
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
+        /** All Songs columns apply in both vertical and horizontal presentation modes. */
+        val homeColumns = intPreferencesKey("home_columns")
+        /** Horizontal page grid depth (retains the legacy storage key for migration). */
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
         val recentsPlacement = stringPreferencesKey("recents_placement")
         val eqHeadroomDb = floatPreferencesKey("eq_headroom_db")
@@ -312,6 +315,7 @@ class UserPreferencesRepository(
         }
         HomePresentation(
             style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "horizontal",
+            columns = (it[Keys.homeColumns] ?: 4).coerceIn(3, 8),
             rows = (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8), hideRecents = it[Keys.hideRecentlyPlayed] ?: false,
             recentsPlacement = placement, merge = mergedSet.isNotEmpty(),
             mergedSections = mergedSet,
@@ -414,7 +418,8 @@ class UserPreferencesRepository(
 
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
-    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.homeHorizontalRows] ?: 4 }.distinctUntilChanged()
+    val homeColumns: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeColumns] ?: 4).coerceIn(3, 8) }.distinctUntilChanged()
+    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8) }.distinctUntilChanged()
     val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
     val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f) }.distinctUntilChanged()
     val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
@@ -649,7 +654,10 @@ class UserPreferencesRepository(
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
     suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = normalizeHomeStyle(style) } }
-    suspend fun setHomeScrollDirection(direction: String) { context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = direction } }
+    suspend fun setHomeScrollDirection(direction: String) {
+        context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = if (direction == "vertical") "vertical" else "horizontal" }
+    }
+    suspend fun setHomeColumns(columns: Int) { context.xvoxDataStore.edit { it[Keys.homeColumns] = columns.coerceIn(3, 8) } }
     suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
     suspend fun setRecentsPlacement(value: String) {
         context.xvoxDataStore.edit {

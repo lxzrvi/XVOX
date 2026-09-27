@@ -12,6 +12,7 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.recent.RecentTransitionMode
 import com.xvox.music.features.home.recent.RecentTransitionRequest
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.features.playlist.XvoxPlaylistCoverStorage
 import com.xvox.music.media.MediaStoreSongRepository
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,9 @@ class HomeViewModel(
     private var hiddenReady = false
     private var warmed = false
     private var splitHidden = false
+    // This build has no approved online gateway. Never quietly substitute the local library when
+    // Online is selected; a future official provider populates its own source explicitly.
+    private var sourceMode = XvoxSourceMode.OFFLINE
     private var publishJob: Job? = null
     private var allRawSongs: List<Song> = emptyList()
     private var recentIds: List<Long> = emptyList()
@@ -71,11 +75,22 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch { preferencesRepository.splitHideCollection.collect { splitHidden = it; if (it && _state.value.libraryMode == XvoxHomeLibraryMode.SPLIT) setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS) } }
+        observeSourceMode()
         observeProfile()
         observeRecent()
         observeLibraryPreferences()
         observeFilterPreferences()
         loadLibrary()
+    }
+
+    private fun observeSourceMode() {
+        viewModelScope.launch {
+            preferencesRepository.sourceMode.collect { stored ->
+                sourceMode = XvoxSourceMode.fromStorage(stored)
+                _state.update { it.copy(sourceMode = sourceMode) }
+                publishFilteredSongs()
+            }
+        }
     }
 
     private fun observeProfile() {
@@ -187,6 +202,21 @@ class HomeViewModel(
 
     private fun publishFilteredSongs() {
         if (!rawReady || !filterReady || !hiddenReady) return
+        // Online must never expose or search device-indexed tracks as a silent fallback. Until an
+        // approved provider gateway is configured, expose an intentionally empty provider surface.
+        if (sourceMode == XvoxSourceMode.ONLINE) {
+            publishJob?.cancel()
+            _state.update {
+                it.copy(
+                    songs = emptyList(),
+                    hiddenSongs = emptyList(),
+                    recentlyPlayed = emptyList(),
+                    loading = false,
+                    startupReady = true
+                )
+            }
+            return
+        }
         val raw = allRawSongs; val hidden = _state.value.hiddenSongIds; val config = filterConfig; val recent = recentIds
         publishJob?.cancel()
         publishJob = viewModelScope.launch {
@@ -529,6 +559,7 @@ class HomeViewModel(
     fun setPlaylistLongHeight(height: Int) = viewModelScope.launch { preferencesRepository.setPlaylistLongHeight(height) }
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { preferencesRepository.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { preferencesRepository.setHomeScrollDirection(direction) }
+    fun setHomeColumns(columns: Int) = viewModelScope.launch { preferencesRepository.setHomeColumns(columns) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { preferencesRepository.setHomeHorizontalRows(rows) }
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 

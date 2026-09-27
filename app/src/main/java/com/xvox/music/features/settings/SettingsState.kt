@@ -23,6 +23,7 @@ data class SettingsState(
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",
     val homeScrollDirection: String = "horizontal",
+    val homeColumns: Int = 4,
     val homeHorizontalRows: Int = 4,
     val hideRecentlyPlayed: Boolean = false,
     val recentsPlacement: String = "bottom",

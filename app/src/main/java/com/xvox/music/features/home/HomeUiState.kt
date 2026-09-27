@@ -4,6 +4,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.features.home.recent.RecentTransitionRequest
 import com.xvox.music.features.home.recent.RecentTransitionMode
 
@@ -11,6 +12,8 @@ data class HomeUiState(
     val loading: Boolean = true,
     val startupReady: Boolean = false,
     val refreshing: Boolean = false,
+    /** Online is provider-gated and never falls back to device songs. */
+    val sourceMode: XvoxSourceMode = XvoxSourceMode.OFFLINE,
     val songs: List<Song> =
         emptyList(),
     val recentlyPlayed: List<Song> =

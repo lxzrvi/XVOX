@@ -290,19 +290,19 @@ class XvoxDspEngine {
         softL += (l - softL) * toneAlpha; softR += (r - softR) * toneAlpha
         l = softL + (l - softL) * currentSoftHighs
         r = softR + (r - softR) * currentSoftHighs
-        // Suppress high-frequency residual (where hiss/grain lives) as well as low-level noise.
-        // The residual path is active only in proportion to the selected control, so an off
-        // setting remains bit-for-bit close to the dry path.
+        // Noise reduction is a real two-stage processor, not a fake volume response: attenuate
+        // the high-frequency residual where hiss lives, then apply an envelope-driven floor gate
+        // only when programme energy falls below its learned quiet threshold. The exact bypass
+        // at zero keeps the unprocessed waveform intact.
         noiseToneL += (l - noiseToneL) * noiseToneAlpha
         noiseToneR += (r - noiseToneR) * noiseToneAlpha
-        l = noiseToneL + (l - noiseToneL) * (1 - currentNoise * .38)
-        r = noiseToneR + (r - noiseToneR) * (1 - currentNoise * .38)
+        val residualMix = (1.0 - currentNoise * .62).coerceIn(.38, 1.0)
+        l = noiseToneL + (l - noiseToneL) * residualMix
+        r = noiseToneR + (r - noiseToneR) * residualMix
         val envelopeInput = max(abs(l), abs(r))
         noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
         val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
-        // Never use the denoiser as a disguised volume knob: retain most low-level programme
-        // energy while gently lowering only the residual floor.
-        val desiredNoiseGain = 1 - currentNoise * .42 * (1 - ratio * ratio)
+        val desiredNoiseGain = 1 - currentNoise * .58 * (1 - ratio * ratio)
         noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
         l *= noiseGain; r *= noiseGain
         bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha
@@ -363,45 +363,32 @@ class XvoxDspEngine {
             l = 0.0; r = 0.0
             filters.forEach { it.reset() }; pinna.reset()
         }
-        // App volume is part of the PCM gain path. Above 100%, use a gentle soft-drive before
-        // the transparent look-ahead guard: a peak-only limiter would otherwise cancel nearly
-        // all of a 101–200% boost on mastered tracks. At and below 100% this remains exact linear
-        // gain; above it, quieter detail and average loudness genuinely rise while output peaks
-        // stay protected for PCM conversion.
-        val mixedL = l * currentMix
-        val mixedR = r * currentMix
-        val boostedL = if (currentVolume <= 1.0001) mixedL * currentVolume else tanh(mixedL * currentVolume)
-        val boostedR = if (currentVolume <= 1.0001) mixedR * currentVolume else tanh(mixedR * currentVolume)
-        // Repair overload only where it exists before the transparent look-ahead guard. Normal
-        // programme material below the moving knee is mathematically untouched; this attenuates
-        // clipped peaks/harsh saturation, rather than lowering the song's overall volume.
+        // App volume is genuine PCM gain all the way to 200%; do not pre-soft-clip it with an
+        // always-on tanh curve. With Distortion Control at 0, only the final PCM safety rail is
+        // active. Raising Distortion Control adds the real peak re-shaper and look-ahead ceiling
+        // below, so high EQ boosts and 200% volume have a materially cleaner overload path.
+        val boostedL = l * currentMix * currentVolume
+        val boostedR = r * currentMix * currentVolume
         val repairedL = repairDistortion(boostedL, currentDistortionControl)
         val repairedR = repairDistortion(boostedR, currentDistortionControl)
-        peakGuard.process(repairedL, repairedR)
+        peakGuard.process(repairedL, repairedR, currentDistortionControl)
         left = peakGuard.left.toFloat()
         right = peakGuard.right.toFloat()
     }
 
     private fun repairDistortion(sample: Double, amount: Double): Double {
         val strength = amount.coerceIn(0.0, 1.0)
+        // 0 must mean no distortion control: no pre-shaping, no hidden loudness reduction.
         if (strength <= .0001) return sample
-        // This is a genuine peak re-shaper, not a gain multiplier. The knee lowers only as the
-        // user asks for more repair, so normal programme body below it is mathematically exact.
-        // Above the knee, a normalized tanh curve rounds overloaded crests before the transparent
-        // guard. The selected amount blends this peak-only correction, making high settings
-        // clearly audible without pretending the whole song has been turned down.
-        val knee = .96 - .32 * strength
+        // A strength-dependent soft knee performs actual crest repair. Programme below the knee
+        // stays exact; above it, tanh has unit slope at the knee and asymptotically approaches
+        // full scale. At 100% the knee is deliberately low enough to control a +12 dB EQ/200%
+        // App Volume overload before the linked true-peak guard has to clamp it.
+        val knee = .985 - .43 * strength
         val magnitude = abs(sample)
         if (magnitude <= knee) return sample
         val headroom = (1.0 - knee).coerceAtLeast(.001)
-        val normalizedExcess = ((magnitude - knee) / headroom).coerceIn(0.0, 1.0)
-        val curve = 1.0 + strength * 2.4
-        val normalizedTanh = tanh(curve).coerceAtLeast(.001)
-        // Unlike a plain tanh/excess normalization (which can expand mid-peaks), this mirrored
-        // tanh stays below the linear excess and therefore truly rounds harsh peak shoulders.
-        val roundedExcess = 1.0 - tanh((1.0 - normalizedExcess) * curve) / normalizedTanh
-        val reCurvedExcess = normalizedExcess + (roundedExcess - normalizedExcess) * .50
-        val repairedMagnitude = knee + headroom * reCurvedExcess
+        val repairedMagnitude = knee + headroom * tanh((magnitude - knee) / headroom)
         val blended = magnitude + (repairedMagnitude - magnitude) * strength
         return if (sample < 0.0) -blended else blended
     }

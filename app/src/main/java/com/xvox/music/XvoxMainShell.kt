@@ -5,12 +5,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -52,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -83,13 +85,14 @@ import com.xvox.music.shell.XvoxPlaylistPickerBoxContent
 import com.xvox.music.shell.XvoxQueueBoxContent
 import com.xvox.music.shell.XvoxShellMiniPlayerHost
 import com.xvox.music.shell.XvoxShellTopHeader
+import com.xvox.music.shell.XvoxShellTopHeaderBodyHeight
 import com.xvox.music.shell.XvoxTimerBoxContent
 import com.xvox.music.shell.XvoxTimerDraft
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 @Composable
 fun XvoxMainShell(
@@ -109,6 +112,16 @@ fun XvoxMainShell(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    // "Close full app" is intentionally different from pausing/clearing player UI. When its
+    // sleep timer expires, remove this Activity's task from Recents as well, so returning through
+    // the task switcher cannot revive a half-closed player surface.
+    LaunchedEffect(player.sleepTimerShouldCloseApp) {
+        if (player.sleepTimerShouldCloseApp) {
+            playerViewModel.consumeCloseApp()
+            (context as? android.app.Activity)?.finishAndRemoveTask()
+        }
+    }
 
     LaunchedEffect(overlays) {
         var popup: Long? = null
@@ -138,10 +151,10 @@ fun XvoxMainShell(
     // restores Search as the reverse route.
     var searchTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
-    // Home/Search share an identical Header list item. Keep only Home's right action cluster as
-    // independent transition state so the Header itself never fades/rebuilds in the route swap.
-    var homeHeaderControlsVisible by remember { mutableStateOf(true) }
-    var homeToSearchRouteJob by remember { mutableStateOf<Job?>(null) }
+    // A single shell Header owns the profile/artwork surface for all routes. Pages only report
+    // scroll progress; they never recreate a page-local Header while route content changes.
+    var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
+    var searchHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
     // A saved Profile draft keeps its Header preview alive through the async preference round-trip
@@ -172,7 +185,7 @@ fun XvoxMainShell(
     // Live mirror for the compact chrome sheet. It makes slider drags coherent even before the
     // asynchronous persistence flow emits its matching composition-local value.
     var miniPlayerNavLive by remember { mutableStateOf(chrome) }
-    // The Header is a real first item in Home/Search rather than a shell-translated overlay.
+    // The Header below is one shell overlay that receives scroll state from its active route.
 
     fun publishProfileHeaderPreview(draft: ProfileEditorDraft) {
         com.xvox.music.core.ui.chrome.XvoxHeaderPreview.publish(
@@ -446,7 +459,9 @@ fun XvoxMainShell(
         fun applyLiveTimer(draft: XvoxTimerDraft?) {
             val value = draft ?: return
             when {
-                value.seconds > 0 -> playerViewModel.setCustomSleepTimer(
+                // Close full app must retain its action even for an exact whole-minute custom
+                // time; the ordinary preset path only represents the pause/stop timer.
+                value.closeApp || value.seconds > 0 -> playerViewModel.setCustomSleepTimer(
                     value.minutes,
                     value.seconds,
                     value.pauseMusic,
@@ -511,12 +526,7 @@ fun XvoxMainShell(
     }
 
     fun returnToHome(resetScroll: Boolean = true) {
-        homeToSearchRouteJob?.cancel()
-        homeToSearchRouteJob = null
-        homeHeaderControlsVisible = true
-        if (destination != XvoxDestination.HOME) {
-            destination = XvoxDestination.HOME
-        }
+        if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
         if (resetScroll) homeScrollResetKey++
     }
 
@@ -524,9 +534,6 @@ fun XvoxMainShell(
         if (next == XvoxDestination.HOME) {
             if (destination == XvoxDestination.HOME) {
                 // A second Home tap is the familiar home action: return to All Songs at its top.
-                homeToSearchRouteJob?.cancel()
-                homeToSearchRouteJob = null
-                homeHeaderControlsVisible = true
                 hoistedSelectedPlaylistId = null
                 homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
                 homeResetKey++
@@ -539,31 +546,9 @@ fun XvoxMainShell(
             return
         }
 
-        // First glide only Home's reserved right cluster away while the real Header stays in its
-        // list position. After that short motion Search replaces the body without two Headers
-        // crossfading over each other (the former flash/rebuild).
-        if (next == XvoxDestination.SEARCH && destination == XvoxDestination.HOME) {
-            homeToSearchRouteJob?.cancel()
-            homeHeaderControlsVisible = false
-            homeToSearchRouteJob = scope.launch {
-                delay(205)
-                if (destination == XvoxDestination.HOME && !homeHeaderControlsVisible) {
-                    searchTopResetKey++
-                    destination = XvoxDestination.SEARCH
-                }
-                homeToSearchRouteJob = null
-            }
-            return
-        }
-
-        homeToSearchRouteJob?.cancel()
-        homeToSearchRouteJob = null
         if (next != destination) {
             when (next) {
-                XvoxDestination.SEARCH -> {
-                    homeHeaderControlsVisible = false
-                    searchTopResetKey++
-                }
+                XvoxDestination.SEARCH -> searchTopResetKey++
                 XvoxDestination.SETTINGS -> {
                     settingsReturnDestination = destination
                     settingsTopResetKey++
@@ -576,13 +561,8 @@ fun XvoxMainShell(
 
     fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
         val isAlreadyOpen = destination == XvoxDestination.HOME && homeState.libraryMode == mode
-        homeToSearchRouteJob?.cancel()
-        homeToSearchRouteJob = null
-        homeHeaderControlsVisible = true
         hoistedSelectedPlaylistId = null
-        if (destination != XvoxDestination.HOME) {
-            destination = XvoxDestination.HOME
-        }
+        if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
         // Header library pills are toggles: a second tap on the active library page closes it
         // back to All Songs, while every other choice still opens its own page at the top.
         homeViewModel.setLibraryMode(
@@ -603,51 +583,23 @@ fun XvoxMainShell(
     fun openArtistsFromHeader() =
         openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS)
 
-    // Home and Search each own an actual Header list item. Search intentionally retains the
-    // profile/Header surface while the Home-only refresh/action pill exits upward.
-    val homePageHeader: @Composable () -> Unit = {
-        AnimatedVisibility(
-            visible = destination != XvoxDestination.SETTINGS,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(320)) + fadeIn(tween(200)),
-            // Settings deliberately lets the real Header glide upward instead of vanishing.
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(420)) + fadeOut(tween(330))
-        ) {
-            XvoxShellTopHeader(
-                profile = homeState.profile,
-                destination = XvoxDestination.HOME,
-                libraryMode = homeState.libraryMode,
-                onProfileClick = ::showProfileEditor,
-                onRefreshClick = ::showRefreshOverlay,
-                onLikedClick = ::openLikedFromNavigation,
-                onPlaylistClick = ::openPlaylistsFromNavigation,
-                onArtistClick = ::openArtistsFromHeader,
-                onRecentClick = ::openRecentFromHeader,
-                showHomeControls = homeHeaderControlsVisible && destination == XvoxDestination.HOME,
-                useSystemInsets = true
-            )
-        }
-    }
-    val searchPageHeader: @Composable () -> Unit = {
-        AnimatedVisibility(
-            visible = destination != XvoxDestination.SETTINGS,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(320)) + fadeIn(tween(200)),
-            // Settings deliberately lets the real Header glide upward instead of vanishing.
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(420)) + fadeOut(tween(330))
-        ) {
-            XvoxShellTopHeader(
-                profile = homeState.profile,
-                destination = XvoxDestination.SEARCH,
-                libraryMode = homeState.libraryMode,
-                onProfileClick = ::showProfileEditor,
-                onRefreshClick = {},
-                onLikedClick = {},
-                onPlaylistClick = {},
-                onArtistClick = {},
-                onRecentClick = {},
-                showHomeControls = false,
-                useSystemInsets = true
-            )
-        }
+    // Exactly one Header is composed by the shell. It remains mounted as Home, Search, and
+    // Settings route bodies slide beneath it; only Home's action cluster animates in/out.
+    val sharedShellHeader: @Composable () -> Unit = {
+        XvoxShellTopHeader(
+            profile = homeState.profile,
+            destination = destination,
+            libraryMode = homeState.libraryMode,
+            onProfileClick = ::showProfileEditor,
+            onRefreshClick = ::showRefreshOverlay,
+            onLikedClick = ::openLikedFromNavigation,
+            onPlaylistClick = ::openPlaylistsFromNavigation,
+            onArtistClick = ::openArtistsFromHeader,
+            onRecentClick = ::openRecentFromHeader,
+            showHomeControls = destination == XvoxDestination.HOME &&
+                homeState.sourceMode == com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
+            useSystemInsets = true
+        )
     }
 
     BackHandler(enabled = destination != XvoxDestination.HOME) {
@@ -656,14 +608,18 @@ fun XvoxMainShell(
                 .takeIf { it != XvoxDestination.SETTINGS }
                 ?: XvoxDestination.HOME
             if (returnDestination == XvoxDestination.HOME) {
-                returnToHome(resetScroll = true)
+                // Back is a reverse route, not a fresh Home selection: restore Home's retained
+                // list and shared Header position exactly as it was before Settings.
+                returnToHome(resetScroll = false)
             } else {
-                // Settings → Search is the exact reverse route, retaining Search's page/header.
-                homeHeaderControlsVisible = false
+                // Settings → Search is the exact reverse route. The one shell Header remains
+                // mounted and returns to Search's stored visual scroll position.
                 destination = returnDestination
             }
         } else {
-            returnToHome(resetScroll = true)
+            // Search → Home reverses the forward swipe and restores Home's scroll/header rather
+            // than treating Back like a second Home-tab tap.
+            returnToHome(resetScroll = false)
         }
     }
     BackHandler(enabled = destination == XvoxDestination.HOME && !overlays.isBoxVisible) {
@@ -704,31 +660,44 @@ fun XvoxMainShell(
             else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) navigationBarHeight + 116.dp
             else navigationBarHeight + 40.dp
 
+        // One shell-owned Header spans every tab. Its background begins behind the status bar,
+        // while page content receives the same measured inset instead of composing its own copy.
+        val sharedHeaderHeight = with(density) {
+            WindowInsets.statusBars.getTop(this).toDp()
+        } + XvoxShellTopHeaderBodyHeight
+        val sharedHeaderHeightPx = with(density) { sharedHeaderHeight.toPx() }
+        val activeHeaderScrollPx = when (destination) {
+            XvoxDestination.HOME -> homeHeaderScrollPx
+            XvoxDestination.SEARCH -> searchHeaderScrollPx
+            XvoxDestination.SETTINGS -> 0
+        }.coerceAtLeast(0)
+        // Changing routes animates from the outgoing page's exact Header position. Thus a partly
+        // scrolled Home header carries its visible y into Search; a fully gone one starts above
+        // Search and slides in. Reversing destination uses the stored source offset in reverse.
+        val targetHeaderTranslationY = -min(activeHeaderScrollPx.toFloat(), sharedHeaderHeightPx)
+        val sharedHeaderTranslationY by animateFloatAsState(
+            targetValue = targetHeaderTranslationY,
+            animationSpec = tween(260),
+            label = "sharedHeaderScrollAndRoute"
+        )
         val tabState = rememberSaveableStateHolder()
-        // Each page owns a real Header item now; the shell does not reserve or translate one.
-        CompositionLocalProvider(LocalXvoxTopInset provides 0.dp, LocalXvoxBottomInset provides bottomInset) {
+        CompositionLocalProvider(
+            LocalXvoxTopInset provides sharedHeaderHeight,
+            LocalXvoxBottomInset provides bottomInset
+        ) {
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    val isHomeSearchSwap = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
-                        (initialState == XvoxDestination.SEARCH && targetState == XvoxDestination.HOME)
-                    if (isHomeSearchSwap) {
-                        // The route handoff occurs only after Home's right action slot has moved.
-                        // Keeping the actual Header item unanimated here avoids a duplicate fade,
-                        // flash, or visual rebuild between the otherwise identical surfaces.
-                        (androidx.compose.animation.EnterTransition.None togetherWith
-                            androidx.compose.animation.ExitTransition.None).using(null)
-                    } else {
-                        // Settings keeps a clearly slower directional route so its Header's
-                        // upward exit remains visible for the entire transition.
-                        val forward = targetState == XvoxDestination.SETTINGS
-                        val direction = if (forward) 1 else -1
-                        ((slideInHorizontally(tween(420)) { it * direction } + fadeIn(tween(220)))
-                            togetherWith (slideOutHorizontally(tween(420)) { -it * direction } + fadeOut(tween(220))))
-                            .using(null)
-                    }
+                    // Forward routes always arrive from the right: Home → Search and either
+                    // Home/Search → Settings. Back travels through the exact opposite vector.
+                    val forward = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
+                        targetState == XvoxDestination.SETTINGS
+                    val direction = if (forward) 1 else -1
+                    ((slideInHorizontally(tween(420)) { fullWidth -> fullWidth * direction } + fadeIn(tween(180)))
+                        togetherWith (slideOutHorizontally(tween(420)) { fullWidth -> -fullWidth * direction } + fadeOut(tween(180))))
+                        .using(null)
                 },
-                label = "stableHomeSearchTabs",
+                label = "sharedHeaderRouteBodies",
                 modifier = Modifier.fillMaxSize()
             ) { targetDestination ->
                 tabState.SaveableStateProvider(targetDestination.name) {
@@ -745,7 +714,11 @@ fun XvoxMainShell(
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    header = homePageHeader
+                                    onScrollProgress = { index, offset ->
+                                        if (destination == XvoxDestination.HOME) {
+                                            homeHeaderScrollPx = if (index > 0) sharedHeaderHeightPx.roundToInt() else offset
+                                        }
+                                    }
                                 )
                             }
                             XvoxDestination.SEARCH -> {
@@ -757,7 +730,11 @@ fun XvoxMainShell(
                                         hoistedSelectedPlaylistId = playlistId
                                         returnToHome(resetScroll = true)
                                     },
-                                    header = searchPageHeader
+                                    onScrollProgress = { index, offset ->
+                                        if (destination == XvoxDestination.SEARCH) {
+                                            searchHeaderScrollPx = if (index > 0) sharedHeaderHeightPx.roundToInt() else offset
+                                        }
+                                    }
                                 )
                             }
                             XvoxDestination.SETTINGS -> {
@@ -770,6 +747,23 @@ fun XvoxMainShell(
                         }
                     }
                 }
+            }
+        }
+
+        // This single composable is deliberately outside AnimatedContent. It remains visible
+        // during the full outgoing swipe into Settings rather than being disposed before the
+        // incoming body arrives, and Settings never builds a duplicate Header. Now Playing is a
+        // full-screen overlay, so it alone suppresses this shell layer exactly as page-local
+        // Headers were previously covered by the player.
+        if (!player.nowPlayingVisible) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .graphicsLayer { translationY = sharedHeaderTranslationY }
+                    .zIndex(8f)
+            ) {
+                sharedShellHeader()
             }
         }
 

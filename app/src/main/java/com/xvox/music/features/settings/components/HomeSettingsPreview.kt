@@ -39,6 +39,7 @@ fun HomeSettingsPreview(state: SettingsState) {
     val config = HomePresentation(
         style = state.homeLayoutStyle,
         direction = state.homeScrollDirection,
+        columns = state.homeColumns,
         rows = state.homeHorizontalRows,
         hideRecents = state.hideRecentlyPlayed,
         recentsPlacement = state.recentsPlacement,
@@ -52,13 +53,14 @@ fun HomeSettingsPreview(state: SettingsState) {
     )
     val sections = HomeSections.visible(config)
 
-    val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows) {
+    val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows, state.homeColumns) {
         val rows = state.homeHorizontalRows.coerceIn(3, 8)
+        val columns = state.homeColumns.coerceIn(3, 8)
         val seeded = Random(4801)
         when (state.homeLayoutStyle) {
-            "uniform" -> regularSpecs(4, rows * 4)
-            "mosaic2" -> generateMosaicSpecs(4, rows, (rows * 2.4f).toInt().coerceIn(rows, rows * 4 - 1), seeded)
-            else -> generateClassicMosaicSpecs(4, rows, (rows * 3.1f).toInt().coerceIn(rows, rows * 4 - 1), seeded)
+            "uniform" -> regularSpecs(columns, rows * columns)
+            "mosaic2" -> generateMosaicSpecs(columns, rows, (rows * 2.4f).toInt().coerceIn(rows, rows * columns - 1), seeded)
+            else -> generateClassicMosaicSpecs(columns, rows, (rows * 3.1f).toInt().coerceIn(rows, rows * columns - 1), seeded)
         }
     }
 
@@ -91,7 +93,12 @@ fun HomeSettingsPreview(state: SettingsState) {
                 sections.forEach { section ->
                     PreviewSectionTitle(HomeSections.label(section))
                     when (section) {
-                        HomeSections.ALL -> PreviewMosaic(tiles, state.homeHorizontalRows, state.homeScrollDirection == "horizontal")
+                        HomeSections.ALL -> PreviewMosaic(
+                            tiles,
+                            state.homeHorizontalRows,
+                            state.homeColumns,
+                            state.homeScrollDirection == "horizontal"
+                        )
                         HomeSections.RECENT -> PreviewRecentRow()
                         HomeSections.PLAYLISTS -> PreviewPlaylists(state)
                         else -> PreviewSongRows(3)
@@ -112,11 +119,12 @@ private fun PreviewSectionTitle(label: String) {
 }
 
 @Composable
-private fun PreviewMosaic(tiles: List<Spec>, rows: Int, horizontal: Boolean) {
+private fun PreviewMosaic(tiles: List<Spec>, rows: Int, columns: Int, horizontal: Boolean) {
     val colors = XvoxTheme.colors
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val gap = 4.dp
-        val unitWidth = (maxWidth - gap * 3) / 4
+        val safeColumns = columns.coerceIn(3, 8)
+        val unitWidth = (maxWidth - gap * (safeColumns - 1)) / safeColumns
         val unitHeight = unitWidth + 16.dp
         val used = if (horizontal) rows.toFloat().coerceAtMost(4f) else (tiles.maxOfOrNull { it.y + it.height } ?: 0f).coerceAtMost(5f)
         Canvas(Modifier.fillMaxWidth().height(unitHeight * used + gap * (used - 1).coerceAtLeast(0f))) {

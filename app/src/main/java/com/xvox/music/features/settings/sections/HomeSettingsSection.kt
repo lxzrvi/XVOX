@@ -69,11 +69,22 @@ fun HomeSettingsSection(
                 viewModel::setHomeScrollDirection
             )
 
+            Spacer(Modifier.height(8.dp))
+            Label("Column")
+            SettingsChoiceRow(
+                (3..8).map { it.toString() to "$it columns" },
+                state.homeColumns.toString()
+            ) {
+                viewModel.setHomeColumns(it.toInt())
+            }
+
+            // Grid affects horizontal page depth only; Column above always changes the real tile
+            // count for both vertical and horizontal All Songs layouts.
             if (state.homeScrollDirection == "horizontal") {
                 Spacer(Modifier.height(8.dp))
-                Label("Rows")
+                Label("Grid")
                 SettingsChoiceRow(
-                    (3..8).map { it.toString() to "4 × $it" },
+                    (3..8).map { it.toString() to "$it rows" },
                     state.homeHorizontalRows.toString()
                 ) {
                     viewModel.setHomeHorizontalRows(it.toInt())

@@ -138,7 +138,8 @@ fun EqualizerSettingsSection(
             valueText = "${(state.distortionControl * 100).roundToInt()}%",
             value = state.distortionControl,
             onValueChange = viewModel::setDistortionControl,
-            defaultValue = 0f
+            defaultValue = 0f,
+            helperText = "0% off · 100% maximum real peak and noise control"
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -162,8 +163,8 @@ fun EqualizerSettingsSection(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
-                title = "Noise reduction",
-                subtitle = "Reduce hiss and quiet background noise",
+                title = "Noise cancellation",
+                subtitle = "Real high-frequency hiss and quiet-floor reduction",
                 checked = state.noiseReductionEnabled,
                 onCheckedChange = viewModel::setNoiseReductionEnabled
             )
@@ -352,7 +353,8 @@ private fun EqualizerSliderRow(
     valueText: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float
+    defaultValue: Float,
+    helperText: String? = null
 ) {
     val colors = XvoxTheme.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -372,6 +374,14 @@ private fun EqualizerSliderRow(
                 color = colors.primaryAccent,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
+            )
+        }
+        helperText?.let { text ->
+            Text(
+                text = text,
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                lineHeight = 12.sp
             )
         }
         EqualizerThinSlider(

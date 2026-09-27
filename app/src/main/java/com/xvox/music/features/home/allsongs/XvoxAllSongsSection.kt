@@ -100,7 +100,7 @@ fun HorizontalSongPages(
     val state = rememberLazyListState()
     val prefetch by rememberUpdatedState(onPrefetch)
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val columns = if (isLandscape) 8 else 4
+    val columns = config.columns.coerceIn(3, 8)
 
     LaunchedEffect(plans) {
         snapshotFlow { state.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
@@ -153,7 +153,7 @@ fun XvoxSongGridPage(
     modifier: Modifier = Modifier
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val columns = if (isLandscape) 8 else 4
+    val columns = config.columns.coerceIn(3, 8)
     val uniform = config.style == "uniform"
     val classic = config.style == "mosaic1"
 

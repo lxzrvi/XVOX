@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
@@ -55,6 +56,7 @@ import com.xvox.music.features.home.allsongs.allSongsItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
 import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
 @Composable
@@ -69,8 +71,7 @@ fun HomeScreen(
     onPlay: (Song) -> Unit,
     playerViewModel: MainPlayerViewModel = viewModel(),
     viewModel: HomeViewModel = viewModel(),
-    /** The shell Header is a real first LazyColumn item, never a separately translated overlay. */
-    header: (@Composable () -> Unit)? = null,
+    /** Reports the active list position to the one Header owned by XvoxMainShell. */
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
@@ -187,9 +188,14 @@ fun HomeScreen(
         pendingDeleteSongs = emptyList()
     }
 
-    val plans = remember(state.songs, config.style, config.rows, isLandscape) {
-        val cols = if (isLandscape) 8 else 4
-        buildMosaicPagePlans(state.songs, config.rows, config.style == "uniform", config.style == "mosaic1", cols = cols)
+    val plans = remember(state.songs, config.style, config.rows, config.columns) {
+        buildMosaicPagePlans(
+            state.songs,
+            config.rows,
+            config.style == "uniform",
+            config.style == "mosaic1",
+            cols = config.columns.coerceIn(3, 8)
+        )
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }
     val songsById = remember(state.songs) { state.songs.associateBy { it.id } }
@@ -484,6 +490,8 @@ fun HomeScreen(
     }
 
     val bottomInset = LocalXvoxBottomInset.current
+    // The shell reserves this for its single shared Header; Home itself never emits a duplicate.
+    val topInset = LocalXvoxTopInset.current
     val targetKey = when {
         selectedArtist != null -> "artist_${selectedArtist!!.name}"
         effectiveSelectedPlaylistId != null -> effectiveSelectedPlaylistId
@@ -579,25 +587,12 @@ fun HomeScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    // Header owns the status-bar reach itself and scrolls with this list.
-                    top = 0.dp,
+                    // Space is provided by the persistent shell Header. It scrolls in visual sync
+                    // from [onScrollProgress], rather than being rebuilt as this list's first item.
+                    top = topInset,
                     bottom = bottomInset
                 )
             ) {
-                header?.let { pageHeader ->
-                    item(key = "page_header") {
-                        // Normal Header chrome leaves upward when selection begins and returns
-                        // from below on clear. The fixed selection rail itself lives outside this
-                        // LazyColumn, so it never follows Home's scroll position.
-                        AnimatedVisibility(
-                            visible = !isSelectionMode,
-                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(210)) + fadeIn(tween(150)),
-                            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(180)) + fadeOut(tween(120))
-                        ) {
-                            pageHeader()
-                        }
-                    }
-                }
                 if (targetArtist != null) {
                     librarySongItems(
                         keyPrefix = "artist_detail",
@@ -622,6 +617,15 @@ fun HomeScreen(
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, targetPlaylist.name) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) }
                     )
+                } else if (state.sourceMode == XvoxSourceMode.ONLINE) {
+                    item(key = "online_provider_required") {
+                        androidx.compose.material3.Text(
+                            "Online mode is ready for an approved music provider. Configure its official discovery and playback API to search and play its catalogue. Device songs stay hidden in Online mode.",
+                            color = com.xvox.music.core.design.theme.XvoxTheme.colors.secondaryText,
+                            lineHeight = 19.sp,
+                            modifier = Modifier.padding(20.dp)
+                        )
+                    }
                 } else when (targetKey as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) {
                     XvoxHomeLibraryMode.LIKED -> likedSection()
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection(standalone = true)
