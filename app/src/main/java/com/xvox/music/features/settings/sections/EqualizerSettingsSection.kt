@@ -85,7 +85,6 @@ fun EqualizerSettingsSection(
         EqualizerCard {
             EqualizerToggleRow(
                 title = "Enable equalizer",
-                subtitle = "Boost or cut each band without weakening the full mix",
                 checked = state.equalizerEnabled,
                 onCheckedChange = viewModel::setEqualizerEnabled
             )
@@ -138,8 +137,7 @@ fun EqualizerSettingsSection(
             valueText = "${(state.distortionControl * 100).roundToInt()}%",
             value = state.distortionControl,
             onValueChange = viewModel::setDistortionControl,
-            defaultValue = 0f,
-            helperText = "0% no control · 100% strongest real peak protection"
+            defaultValue = 0f
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -148,7 +146,8 @@ fun EqualizerSettingsSection(
                 options = ReverbPresets.names,
                 selected = state.reverbPreset,
                 onSelect = viewModel::setReverbPreset,
-                circularOption = ReverbPresets.OFF
+                circularOption = ReverbPresets.OFF,
+                edgeToEdge = true
             )
             if (state.reverbPreset != ReverbPresets.OFF) {
                 EqualizerSliderRow(
@@ -164,7 +163,6 @@ fun EqualizerSettingsSection(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Noise reduction",
-                subtitle = "Strong real high-frequency hiss and quiet-floor reduction",
                 checked = state.noiseReductionEnabled,
                 onCheckedChange = viewModel::setNoiseReductionEnabled
             )
@@ -182,7 +180,6 @@ fun EqualizerSettingsSection(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Grain control",
-                subtitle = "Strongly smooth harsh highs and digital grain",
                 checked = state.grainControlEnabled,
                 onCheckedChange = viewModel::setGrainControlEnabled
             )
@@ -265,7 +262,6 @@ private fun EqualizerSectionLabel(text: String) {
 @Composable
 private fun EqualizerToggleRow(
     title: String,
-    subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -274,21 +270,13 @@ private fun EqualizerToggleRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-                text = title,
-                color = colors.primaryText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = subtitle,
-                color = colors.mutedText,
-                fontSize = 11.sp,
-                lineHeight = 14.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
+        Text(
+            text = title,
+            color = colors.primaryText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f).padding(end = 12.dp)
+        )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -308,17 +296,17 @@ private fun EqualizerChipRow(
     selected: String,
     onSelect: (String) -> Unit,
     /** Off in the reverb row is intentionally a compact circular preset control. */
-    circularOption: String? = null
+    circularOption: String? = null,
+    /** Lets the reverb rail reach the sheet viewport edges like the Profile avatar rail. */
+    edgeToEdge: Boolean = false
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(7.dp)
-    ) {
+    val colors = XvoxTheme.colors
+    val scrollState = rememberScrollState()
+
+    @Composable
+    fun Chips() {
         options.distinct().forEach { option ->
             val selectedChip = option == selected
-            val colors = XvoxTheme.colors
             val circular = option == circularOption
             val shape = if (circular) CircleShape else RoundedCornerShape(18.dp)
             Box(
@@ -345,6 +333,26 @@ private fun EqualizerChipRow(
             }
         }
     }
+
+    if (edgeToEdge) {
+        // Equalizer sheets normally reserve a 16dp body inset. Reverb is intentionally allowed
+        // to traverse that inset, so its first and final preset can touch the real sheet edge.
+        BoxWithConstraints(Modifier.fillMaxWidth().offset(x = (-16).dp)) {
+            Row(
+                modifier = Modifier
+                    .width(maxWidth + 32.dp)
+                    .horizontalScroll(scrollState),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) { Chips() }
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) { Chips() }
+    }
 }
 
 @Composable
@@ -353,8 +361,7 @@ private fun EqualizerSliderRow(
     valueText: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float,
-    helperText: String? = null
+    defaultValue: Float
 ) {
     val colors = XvoxTheme.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -374,14 +381,6 @@ private fun EqualizerSliderRow(
                 color = colors.primaryAccent,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
-            )
-        }
-        helperText?.let { text ->
-            Text(
-                text = text,
-                color = colors.secondaryText,
-                fontSize = 10.sp,
-                lineHeight = 12.sp
             )
         }
         EqualizerThinSlider(

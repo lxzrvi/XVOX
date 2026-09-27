@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
-import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
@@ -82,7 +81,6 @@ fun BoxScope.XvoxShellMiniPlayerHost(
             val imeIsActuallyOccluding = imeBottomPx > navBottomPx && imeAboveNavigationPx > 1
             val effectiveImeDp = with(density) { imeAboveNavigationPx.toDp() }
 
-            val chrome = LocalXvoxChromeStyle.current
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)
             // Keep the card above the *actual* keyboard edge with the shared visible 5dp air.
             // The physical navigation inset is applied exactly once by navigationBarsPadding.
@@ -119,10 +117,10 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 onOpenMiniPlayerSettings = onOpenMiniPlayerSettings,
                 quickActionsVisible = quickActionsVisible,
                 onQuickActionsVisibleChange = { quickActionsVisible = it },
-                // Positive values move the card down; negative values raise it. The adjustment is
-                // intentionally absent at rest so a keyboard-specific calibration cannot disturb
-                // the normal portrait placement.
-                keyboardOffsetY = if (imeIsActuallyOccluding) chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f).dp else 0.dp,
+                // The product placement is a fixed −12dp lift while the IME actually occludes
+                // content. Once it closes this is immediately zero, so the resting card cannot
+                // retain or get stuck at a keyboard-only position.
+                keyboardOffsetY = if (imeIsActuallyOccluding) (-12).dp else 0.dp,
                 modifier = miniModifier
             )
         }

@@ -74,6 +74,8 @@ private class ArtworkOccurrenceKeyLedger {
 @Composable
 fun XvoxNowPlayingArtworkPager(
     queue: List<Song>,
+    /** Controller queue-occurrence tokens, preferred over object/FIFO reconstruction. */
+    occurrenceIds: List<String> = emptyList(),
     currentIndex: Int,
     @Suppress("UNUSED_PARAMETER") navigationRequest: Int,
     /** Page currently being previewed by the previous/next controls. */
@@ -106,7 +108,12 @@ fun XvoxNowPlayingArtworkPager(
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
     val occurrenceKeyLedger = remember { ArtworkOccurrenceKeyLedger() }
-    val occurrenceKeys = remember(queue) { occurrenceKeyLedger.resolve(queue) }
+    val hasOccurrenceIds = occurrenceIds.size == queue.size && occurrenceIds.toSet().size == queue.size
+    // Media3 occurrence IDs survive a drag of identical/same-reference songs. The legacy ledger
+    // remains only for callers without the active controller's token list.
+    val occurrenceKeys = remember(queue, occurrenceIds) {
+        if (hasOccurrenceIds) occurrenceIds else occurrenceKeyLedger.resolve(queue)
+    }
     // Page indices intentionally identify queue occurrences. Do not key/recreate the whole pager
     // on a reorder: restarting it briefly paints a neighbouring/repeated cover even though audio
     // never changed. The effect below moves the retained pager directly to the active occurrence.
@@ -124,7 +131,7 @@ fun XvoxNowPlayingArtworkPager(
     // reorder changes the occurrence layout beneath an existing preview.
     var swipeEpoch by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(queue) {
+    LaunchedEffect(queue, occurrenceIds) {
         swipeEpoch++
         userSwiped = false
     }
@@ -140,7 +147,7 @@ fun XvoxNowPlayingArtworkPager(
     // here because a repeated Song.id cannot tell the second copy from the first.
     val targetPreviewPage = if (forceCurrentIndex) initialIdx
     else previewIndex.takeIf { it in queue.indices } ?: initialIdx
-    LaunchedEffect(targetPreviewPage, queue, forceCurrentIndex, currentIndex) {
+    LaunchedEffect(targetPreviewPage, queue, occurrenceIds, forceCurrentIndex, currentIndex) {
         userSwiped = false
         val targetPage = targetPreviewPage
         if (targetPage in queue.indices && targetPage != pager.currentPage) {
@@ -164,7 +171,7 @@ fun XvoxNowPlayingArtworkPager(
     }
 
     // Real-time backdrop color crossfading matching finger/pager position with zero latency.
-    LaunchedEffect(pager, queue) {
+    LaunchedEffect(pager, queue, occurrenceIds) {
         snapshotFlow {
             Pair(pager.currentPage, pager.currentPageOffsetFraction)
         }.collect { (page, offset) ->
@@ -181,7 +188,7 @@ fun XvoxNowPlayingArtworkPager(
 
     // Playback changes only after a manual swipe has genuinely settled for 300 ms. Capture the
     // queue occurrence before waiting so two equal Song IDs never collapse to the first copy.
-    LaunchedEffect(pager, queue) {
+    LaunchedEffect(pager, queue, occurrenceIds) {
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
         }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->

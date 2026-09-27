@@ -214,7 +214,7 @@ fun LyricsSettingsDraftSection(
             )
         }
 
-        // Fullscreen transition style is permanently optimized style 20. The old Experimental
+        // The original former-Experimental style-20 fullscreen motion is now permanent. Its
         // selector intentionally has no UI or persisted choice any more.
 
         // These sit at the natural end of the long editor, immediately above the sheet footer,

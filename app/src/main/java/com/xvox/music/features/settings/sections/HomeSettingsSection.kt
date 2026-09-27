@@ -168,25 +168,6 @@ fun HomeSettingsSection(
 
             Spacer(Modifier.height(10.dp))
 
-            val keyboardOffset = chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f)
-            Label("Experimental keyboard open offset · ${keyboardOffset.roundToInt()} dp")
-            Text(
-                "Applied live only while the keyboard is open. − raises, + lowers.",
-                color = colors.secondaryText,
-                fontSize = 10.sp
-            )
-            XvoxContinuousSlider(
-                value = keyboardOffset,
-                onValueChange = { value ->
-                    viewModel.setChromeStyle { it.copy(miniPlayerImeOffsetY = value.coerceIn(-180f, 180f)) }
-                },
-                valueRange = -180f..180f,
-                defaultValue = 0f,
-                contentDescription = "Experimental Mini Player keyboard offset"
-            )
-
-            Spacer(Modifier.height(10.dp))
-
             val navHeight = chrome.navigationBarHeight.coerceIn(52f, 88f)
             Label("Navigation bar height · ${navHeight.roundToInt()} dp")
             XvoxContinuousSlider(

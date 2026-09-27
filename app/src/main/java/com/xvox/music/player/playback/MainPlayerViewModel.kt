@@ -54,6 +54,10 @@ class MainPlayerViewModel(
                 _state.update {
                     it.copy(
                         queue = if (playback.queue.isNotEmpty()) playback.queue else it.queue,
+                        queueOccurrenceIds = if (
+                            playback.queue.isNotEmpty() &&
+                            playback.queueOccurrenceIds.size == playback.queue.size
+                        ) playback.queueOccurrenceIds else it.queueOccurrenceIds,
                         playingSource = if (playback.externalQueue) "Queue" else it.playingSource,
                         miniPlayerVisible = if (playback.currentSongId == null) false else
                             if (playback.isPlaying && !it.nowPlayingVisible) true else it.miniPlayerVisible,
@@ -85,7 +89,9 @@ class MainPlayerViewModel(
             if (retained != current.queue) {
                 if (current.currentSongId != null && current.currentSongId !in available) stopPlayback()
                 controller.setQueue(retained)
-                _state.update { it.copy(queue = retained) }
+                _state.update {
+                    it.copy(queue = retained, queueOccurrenceIds = controller.currentQueueOccurrenceIds())
+                }
             }
             return
         }
@@ -93,7 +99,9 @@ class MainPlayerViewModel(
 
         if (current.currentSongId == null || current.queue.isEmpty()) {
             controller.setQueue(songs)
-            _state.update { it.copy(queue = songs) }
+            _state.update {
+                it.copy(queue = songs, queueOccurrenceIds = controller.currentQueueOccurrenceIds())
+            }
             restoreFromQueueIfPossible()
             return
         }
@@ -117,7 +125,9 @@ class MainPlayerViewModel(
         }
 
         controller.setQueue(merged)
-        _state.update { it.copy(queue = merged) }
+        _state.update {
+            it.copy(queue = merged, queueOccurrenceIds = controller.currentQueueOccurrenceIds())
+        }
         restoreFromQueueIfPossible()
     }
 
@@ -125,7 +135,9 @@ class MainPlayerViewModel(
         controller.setQueue(songs)
         libraryQueueSize = songs.size
         libraryQueueSignature = queueSignature(songs)
-        _state.update { it.copy(queue = songs) }
+        _state.update {
+            it.copy(queue = songs, queueOccurrenceIds = controller.currentQueueOccurrenceIds())
+        }
         restoreFromQueueIfPossible()
     }
 
@@ -143,6 +155,7 @@ class MainPlayerViewModel(
         _state.update {
             it.copy(
                 queue = previous,
+                queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
                 currentIndex = if (controllerIndex in previous.indices) controllerIndex else it.currentIndex
             )
         }
@@ -167,7 +180,13 @@ class MainPlayerViewModel(
             controller.setQueue(validQueue)
             libraryQueueSize = validQueue.size
             libraryQueueSignature = queueSignature(validQueue)
-            _state.update { it.copy(queue = validQueue, currentIndex = newIdx) }
+            _state.update {
+                it.copy(
+                    queue = validQueue,
+                    queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                    currentIndex = newIdx
+                )
+            }
         }
     }
 
@@ -191,6 +210,7 @@ class MainPlayerViewModel(
         _state.update { current ->
             current.copy(
                 queue = controller.currentQueue(),
+                queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
                 currentIndex = targetIndex,
                 currentSongId = sourcedQueue[targetIndex].id,
                 miniPlayerVisible = true,
@@ -706,10 +726,16 @@ class MainPlayerViewModel(
                 val preservedIndex = shuffled.indexOfFirst { it === activeOccurrence }
                     .takeIf { it >= 0 }
                     ?: _state.value.currentIndex.coerceIn(0, shuffled.lastIndex)
-                // Publish the occurrence-stable order before the Media3 reinstall emits its
-                // transient callbacks, so the cover pager never paints a neighbour in between.
-                _state.update { it.copy(queue = shuffled, currentIndex = preservedIndex) }
+                // Install first so the state can carry the controller's matching occurrence
+                // tokens in the same frame; a shuffled duplicate must never borrow its twin's ID.
                 controller.setQueue(shuffled)
+                _state.update {
+                    it.copy(
+                        queue = shuffled,
+                        queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                        currentIndex = preservedIndex
+                    )
+                }
             }
         } else {
             val unshuffleResult = PlayerQueueReorderHelper.unshuffleQueue(_state.value.queue, originalQueueBeforeShuffle)
@@ -721,8 +747,14 @@ class MainPlayerViewModel(
                 val newIndex = orig.indexOfFirst { it === activeOccurrence }
                     .takeIf { it >= 0 }
                     ?: orig.indexOfFirst { it.id == _state.value.currentSongId }.coerceAtLeast(0)
-                _state.update { it.copy(queue = orig, currentIndex = newIndex) }
                 controller.setQueue(orig)
+                _state.update {
+                    it.copy(
+                        queue = orig,
+                        queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                        currentIndex = newIndex
+                    )
+                }
             }
             originalQueueBeforeShuffle = null
         }
@@ -749,7 +781,45 @@ class MainPlayerViewModel(
         }
         libraryQueueSize = queue.size
         libraryQueueSignature = queueSignature(queue)
-        _state.update { it.copy(queue = queue, currentIndex = adjustedIndex) }
+        _state.update {
+            it.copy(
+                queue = queue,
+                queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                currentIndex = adjustedIndex
+            )
+        }
+    }
+
+    /**
+     * Commits a drag using the controller's occurrence tokens. Unlike a List<Song> reorder,
+     * this cannot confuse two equal or even same-reference queued copies near the current row.
+     */
+    fun setQueueOrderByOccurrenceIds(orderedOccurrenceIds: List<String>) {
+        val current = _state.value
+        val currentIds = current.queueOccurrenceIds
+        if (currentIds.size != current.queue.size || orderedOccurrenceIds.size != current.queue.size) return
+        if (orderedOccurrenceIds.toSet().size != orderedOccurrenceIds.size ||
+            orderedOccurrenceIds.toSet() != currentIds.toSet() || orderedOccurrenceIds == currentIds
+        ) return
+
+        queueUndoStack.addLast(current.queue.toList())
+        if (queueUndoStack.size > 20) queueUndoStack.removeFirst()
+
+        val activeOccurrence = currentIds.getOrNull(current.currentIndex)
+        val reordered = controller.reorderQueueByOccurrenceIds(orderedOccurrenceIds) ?: return
+        val preservedIndex = activeOccurrence?.let(orderedOccurrenceIds::indexOf)
+            ?.takeIf { it >= 0 }
+            ?: current.currentIndex.coerceIn(0, reordered.lastIndex.coerceAtLeast(0))
+
+        libraryQueueSize = reordered.size
+        libraryQueueSignature = queueSignature(reordered)
+        _state.update {
+            it.copy(
+                queue = reordered,
+                queueOccurrenceIds = orderedOccurrenceIds,
+                currentIndex = preservedIndex
+            )
+        }
     }
 
     fun setQueueOrder(newQueue: List<Song>) {
@@ -771,10 +841,16 @@ class MainPlayerViewModel(
 
         libraryQueueSize = newQueue.size
         libraryQueueSignature = queueSignature(newQueue)
-        // Publish the occurrence-stable state synchronously, then let the controller retain its
-        // matching entry token in the background. The audible cover does not change for a drag.
-        _state.update { it.copy(queue = newQueue, currentIndex = preservedIndex) }
+        // This fallback is used only before occurrence IDs have reached the UI. Publish the
+        // matching controller token snapshot immediately once the queue is accepted.
         controller.setQueue(newQueue)
+        _state.update {
+            it.copy(
+                queue = newQueue,
+                queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                currentIndex = preservedIndex
+            )
+        }
     }
 
     fun setSleepTimer(minutes: Int?) {

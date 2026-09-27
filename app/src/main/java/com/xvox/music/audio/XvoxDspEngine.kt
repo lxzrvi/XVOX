@@ -377,9 +377,13 @@ class XvoxDspEngine {
         // below, so high EQ boosts and 200% volume have a materially cleaner overload path.
         val boostedL = l * currentMix * currentVolume
         val boostedR = r * currentMix * currentVolume
-        val repairedL = repairDistortion(boostedL, currentDistortionControl)
-        val repairedR = repairDistortion(boostedR, currentDistortionControl)
-        peakGuard.process(repairedL, repairedR, currentDistortionControl)
+        // Preserve exact bypass at zero and the full 100% endpoint, while shaping the middle of
+        // the user control so 50% is useful but no longer behaves like a near-maximum limiter.
+        // This makes the strongest genuine repair/protection land at 100%, not prematurely at 50.
+        val distortionStrength = currentDistortionControl * currentDistortionControl
+        val repairedL = repairDistortion(boostedL, distortionStrength)
+        val repairedR = repairDistortion(boostedR, distortionStrength)
+        peakGuard.process(repairedL, repairedR, distortionStrength)
         left = peakGuard.left.toFloat()
         right = peakGuard.right.toFloat()
     }

@@ -35,7 +35,9 @@ fun XvoxAllSongMosaicCard(
     song: Song, widthUnits: Float, heightUnits: Float,
     onClick: () -> Unit, onLongClick: () -> Unit,
     modifier: Modifier = Modifier, current: Boolean = false, playing: Boolean = false,
-    selected: Boolean = false, styleIndex: Int = 0, classic: Boolean = false
+    selected: Boolean = false, styleIndex: Int = 0, classic: Boolean = false,
+    /** Dense portrait five/six-column mode tightens cover and metadata seams. */
+    dense: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val background = rememberSongCardColor(song, current, selected)
@@ -48,7 +50,11 @@ fun XvoxAllSongMosaicCard(
         else -> CardCorners(22.dp, 22.dp, 8.dp, 8.dp)
     }
     val shape = corners.inset(0.dp)
-    val inset = if (classic) 6.dp else 5.dp
+    val inset = when {
+        dense -> 3.dp
+        classic -> 6.dp
+        else -> 5.dp
+    }
     val artShape = corners.inset(inset)
     val presentation = if (classic) 0 else styleIndex % 4
 
@@ -61,13 +67,14 @@ fun XvoxAllSongMosaicCard(
                     onArt -> Color.White
                     else -> colors.primaryText
                 },
-                fontSize = if (widthUnits >= 2) 12.sp else 10.sp,
-                lineHeight = if (widthUnits >= 2) 14.sp else 12.sp,
+                fontSize = if (widthUnits >= 2) 12.sp else if (dense) 8.5.sp else 10.sp,
+                lineHeight = if (widthUnits >= 2) 14.sp else if (dense) 9.5.sp else 12.sp,
                 fontWeight = FontWeight.Bold, maxLines = if (heightUnits >= 2) 2 else 1,
                 overflow = TextOverflow.Ellipsis)
             Text(if (current && playing) "${song.artist} · Playing" else song.artist,
                 color = if (onArt) Color.White.copy(alpha = .85f) else colors.secondaryText,
-                fontSize = if (widthUnits >= 2) 9.sp else 8.sp, lineHeight = 11.sp,
+                fontSize = if (widthUnits >= 2) 9.sp else if (dense) 7.sp else 8.sp,
+                lineHeight = if (dense && widthUnits < 2) 8.sp else 11.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -90,15 +97,15 @@ fun XvoxAllSongMosaicCard(
             }
             presentation == 3 && widthUnits >= heightUnits * 1.5f -> {
                 Row(Modifier.fillMaxSize().padding(inset), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(if (dense) 4.dp else 8.dp)) {
                     Cover(Modifier.fillMaxHeight().aspectRatio(1f))
                     Labels(modifier = Modifier.weight(1f).padding(end = 3.dp))
                 }
             }
             else -> Column(Modifier.fillMaxSize().padding(inset)) {
-                if (presentation == 2 && heightUnits >= 2) Labels(modifier = Modifier.padding(bottom = 6.dp))
+                if (presentation == 2 && heightUnits >= 2) Labels(modifier = Modifier.padding(bottom = if (dense) 3.dp else 6.dp))
                 Cover(Modifier.weight(1f).fillMaxWidth())
-                if (!(presentation == 2 && heightUnits >= 2)) Labels(modifier = Modifier.padding(top = 5.dp))
+                if (!(presentation == 2 && heightUnits >= 2)) Labels(modifier = Modifier.padding(top = if (dense) 3.dp else 5.dp))
             }
         }
     }

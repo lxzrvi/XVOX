@@ -57,8 +57,8 @@ data class XvoxChromeStyle(
     /** Per-surface manual placement offsets in dp; positive X = right and positive Y = down. */
     val miniPlayerOffsetX: Float = 0f,
     val miniPlayerOffsetY: Float = 0f,
-    /** Experimental fine adjustment applied only while the IME is actually occluding content. */
-    val miniPlayerImeOffsetY: Float = 0f,
+    /** Legacy encoded slot. Keyboard-open placement is now the fixed product offset of −12 dp. */
+    val miniPlayerImeOffsetY: Float = -12f,
     val navigationBarOffsetX: Float = 0f,
     val navigationBarOffsetY: Float = 0f
 ) {
@@ -128,9 +128,9 @@ data class XvoxChromeStyle(
                 navigationImageUri = str(23),
                 miniPlayerOffsetX = number(24, 0f).coerceIn(-220f, 220f),
                 miniPlayerOffsetY = number(25, 0f).coerceIn(-260f, 260f),
-                // Appended in revision 8. Older records leave this at zero without shifting an
-                // already tuned resting Mini Player position.
-                miniPlayerImeOffsetY = number(28, 0f).coerceIn(-180f, 180f),
+                // Kept only to read revision-8 records. The keyboard-open offset is permanently
+                // fixed at −12 dp and no longer follows a saved experimental slider value.
+                miniPlayerImeOffsetY = -12f,
                 navigationBarOffsetX = number(26, 0f).coerceIn(-220f, 220f),
                 navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f)
             )

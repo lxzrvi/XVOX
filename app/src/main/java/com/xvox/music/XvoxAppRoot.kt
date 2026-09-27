@@ -91,7 +91,6 @@ fun XvoxAppRoot(
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
-    val displaySize by prefs.displaySize.collectAsState(initial = "medium")
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
     val chromePreview = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
     LaunchedEffect(chrome, chromePreview) {
@@ -128,18 +127,10 @@ fun XvoxAppRoot(
     }
 
     val currentDensity = LocalDensity.current
-    // Display size scales density itself, so spacing, touch targets, card geometry and icons grow
-    // together. Text style remains an independent font-only preference below it in Appearance.
-    val displayScale = when (displaySize.lowercase()) {
-        "small" -> .88f
-        "large" -> 1.12f
-        else -> 1f
-    }
-    val customDensity = remember(currentDensity.density, fontScale, displayScale) {
-        Density(
-            density = currentDensity.density * displayScale,
-            fontScale = fontScale
-        )
+    // Keep the existing app scale unchanged. Text style remains the one visible typography
+    // control; the retired Display size preference is retained only for compatibility records.
+    val customDensity = remember(currentDensity.density, fontScale) {
+        Density(density = currentDensity.density, fontScale = fontScale)
     }
 
     XvoxTheme(

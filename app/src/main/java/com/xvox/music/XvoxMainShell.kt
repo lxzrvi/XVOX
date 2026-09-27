@@ -156,6 +156,16 @@ fun XvoxMainShell(
     // scroll progress; they never recreate a page-local Header while route content changes.
     var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
     var searchHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
+    // Closing Now Playing must never reveal a stale, already-hidden Header from the underlying
+    // page. Reset only after a real player round-trip; ordinary initial composition stays intact.
+    var hadVisibleNowPlaying by remember { mutableStateOf(false) }
+    LaunchedEffect(player.nowPlayingVisible) {
+        if (hadVisibleNowPlaying && !player.nowPlayingVisible) {
+            homeHeaderScrollPx = 0
+            searchHeaderScrollPx = 0
+        }
+        hadVisibleNowPlaying = player.nowPlayingVisible
+    }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
     // A saved Profile draft keeps its Header preview alive through the async preference round-trip
@@ -313,8 +323,7 @@ fun XvoxMainShell(
                             val reset = miniPlayerNavLive.copy(
                                 miniCoverStyle = "default",
                                 miniBgAlpha = .94f,
-                                navBgAlpha = .94f,
-                                miniPlayerImeOffsetY = 0f
+                                navBgAlpha = .94f
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }
@@ -407,6 +416,7 @@ fun XvoxMainShell(
                 currentSongId = liveState.currentSongId,
                 currentIndex = if (isViewingActiveQueue) liveState.currentIndex else -1,
                 isPlaying = liveState.isPlaying,
+                queueOccurrenceIds = if (isViewingActiveQueue) liveState.queueOccurrenceIds else emptyList(),
                 savedQueues = liveState.savedQueues,
                 activeQueueName = viewingName,
                 isPlaybackActiveInThisQueue = isViewingActiveQueue,
@@ -433,11 +443,20 @@ fun XvoxMainShell(
                     }
                 },
                 onReorderQueue = { reordered ->
+                    // This is a startup/fallback path before controller occurrence IDs arrive.
+                    // Once they are present, the token callback below is always preferred.
                     if (isViewingActiveQueue) {
                         playerViewModel.setQueueOrder(reordered)
                     } else if (viewingSaved != null) {
                         playerViewModel.updateSavedQueue(viewingQueueId, reordered)
                     }
+                },
+                onReorderOccurrences = if (isViewingActiveQueue) {
+                    { orderedOccurrences: List<String> ->
+                        playerViewModel.setQueueOrderByOccurrenceIds(orderedOccurrences)
+                    }
+                } else {
+                    null
                 },
                 onRemoveIndex = { index ->
                     if (isViewingActiveQueue) {
@@ -673,13 +692,21 @@ fun XvoxMainShell(
             XvoxDestination.SEARCH -> searchHeaderScrollPx
             XvoxDestination.SETTINGS -> 0
         }.coerceAtLeast(0)
-        // Home/Search content and this one shell Header consume the same reported scroll distance,
-        // so they travel as one composition instead of two independently staged surfaces. Settings
-        // is the one forward route that deliberately sends the outgoing shared Header fully upward.
-        val targetHeaderTranslationY = if (destination == XvoxDestination.SETTINGS) {
-            -sharedHeaderHeightPx
-        } else {
-            -min(activeHeaderScrollPx.toFloat(), sharedHeaderHeightPx)
+        // Home keeps the visible 66dp Header body on screen: scrolling may consume only the
+        // behind-status-bar portion, so a small scroll cannot make the whole Header disappear.
+        // Search deliberately retains its full exit so its sticky field can take the matching
+        // status-bar-safe position. Settings remains the one route with a complete upward exit.
+        val headerBodyPx = with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
+        val homeHeaderTravelPx = (sharedHeaderHeightPx - headerBodyPx).coerceAtLeast(0f)
+        val targetHeaderTranslationY = when (destination) {
+            XvoxDestination.SETTINGS -> -sharedHeaderHeightPx
+            XvoxDestination.HOME -> -min(activeHeaderScrollPx.toFloat(), homeHeaderTravelPx)
+            // A landscape Search owns a fixed left input pane, so preserve the Header body
+            // there too instead of sliding it over that stationary pane.
+            XvoxDestination.SEARCH -> -min(
+                activeHeaderScrollPx.toFloat(),
+                if (isLandscape) homeHeaderTravelPx else sharedHeaderHeightPx
+            )
         }
         // Scroll itself is frame-synchronous with the page list. Only a route change receives a
         // short motion, which prevents the Header from visually lagging behind content as a user
@@ -803,12 +830,10 @@ fun XvoxMainShell(
 
         if (isLandscape) {
             // In landscape the compact shell owns the Mini Player directly rather than through the
-            // portrait host. Preserve the same keyboard-only experimental adjustment here.
+            // portrait host. Preserve the same fixed keyboard-only −12dp lift here.
             val landscapeImeVisible = WindowInsets.ime.getBottom(density) >
                 WindowInsets.navigationBars.getBottom(density)
-            val landscapeKeyboardOffset = if (landscapeImeVisible) {
-                chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f).dp
-            } else 0.dp
+            val landscapeKeyboardOffset = if (landscapeImeVisible) (-12).dp else 0.dp
             if (landscapeQuickActionsVisible) {
                 Box(
                     modifier = Modifier
@@ -861,7 +886,10 @@ fun XvoxMainShell(
                         )
                     }
                 } else {
-                    Spacer(Modifier.weight(1f))
+                    // Reserve the Mini Player lane even while its exit handoff is in progress.
+                    // Without this 122dp placeholder the same navbar is remeasured in a shorter
+                    // Row and visibly jumps downward as landscape Now Playing closes.
+                    Spacer(Modifier.weight(1f).height(122.dp))
                 }
 
                 Box(
@@ -929,6 +957,7 @@ fun XvoxMainShell(
                 XvoxNowPlaying(
                     song = playingSong,
                     queue = player.queue,
+                    queueOccurrenceIds = player.queueOccurrenceIds,
                     currentIndex = player.currentIndex,
                     isPlaying = player.isPlaying,
                     position = player.position,

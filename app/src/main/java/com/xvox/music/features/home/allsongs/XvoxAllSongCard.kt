@@ -35,7 +35,9 @@ fun XvoxAllSongCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selected: Boolean = false
+    selected: Boolean = false,
+    /** Five/six-column portrait cards need tighter inner artwork and smaller metadata. */
+    dense: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
@@ -48,7 +50,7 @@ fun XvoxAllSongCard(
             .clip(cardShape)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
-            .padding(5.dp)
+            .padding(if (dense) 3.dp else 5.dp)
     ) {
         Box(
             modifier = Modifier
@@ -73,8 +75,8 @@ fun XvoxAllSongCard(
             Text(
                 text = song.title,
                 color = if (current) colors.primaryAccent else colors.primaryText,
-                fontSize = 10.sp,
-                lineHeight = 11.sp,
+                fontSize = if (dense) 8.5.sp else 10.sp,
+                lineHeight = if (dense) 9.5.sp else 11.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -83,8 +85,8 @@ fun XvoxAllSongCard(
             Text(
                 text = song.artist,
                 color = colors.secondaryText,
-                fontSize = 8.sp,
-                lineHeight = 9.sp,
+                fontSize = if (dense) 7.sp else 8.sp,
+                lineHeight = if (dense) 8.sp else 9.sp,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -16,6 +16,8 @@ data class XvoxSavedQueue(
 data class MainPlayerUiState(
     val connected: Boolean = false,
     val queue: List<Song> = emptyList(),
+    /** Mirrors PlaybackController occurrence tokens for duplicate-safe queue UI reorders. */
+    val queueOccurrenceIds: List<String> = emptyList(),
     val currentSongId: Long? = null,
     val currentIndex: Int = -1,
     val isPlaying: Boolean = false,

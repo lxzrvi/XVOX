@@ -277,17 +277,6 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            // Display size is intentionally placed directly below Text style. Unlike the latter,
-            // it changes the root density and therefore scales the full app interface.
-            SettingsField("Display size") {
-                XvoxSegmentedPill(
-                    options = listOf("small" to "Small", "medium" to "Medium", "large" to "Large"),
-                    selectedKey = state.displaySize.lowercase(),
-                    onSelect = viewModel::setDisplaySize,
-                    compact = true
-                )
-            }
-
             SettingsField("Orientation") {
                 XvoxSegmentedPill(
                     options = listOf("portrait" to "Portrait", "landscape" to "Landscape"),
@@ -554,6 +543,7 @@ private fun SettingsCardFrame(
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(22.dp)
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     Column(
         modifier = modifier
@@ -569,8 +559,21 @@ private fun SettingsCardFrame(
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
         )
-        Spacer(Modifier.height(14.dp))
-        content()
+        if (isLandscape) {
+            // Paired cards intentionally share a physical bottom. Center each card's own content
+            // in the remaining lane instead of leaving an arbitrary blank tail below short cards.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = true),
+                contentAlignment = Alignment.Center
+            ) {
+                content()
+            }
+        } else {
+            Spacer(Modifier.height(14.dp))
+            content()
+        }
     }
 }
 

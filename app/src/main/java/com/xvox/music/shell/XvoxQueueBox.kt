@@ -161,6 +161,8 @@ fun XvoxQueueBoxContent(
     /** An occurrence index distinguishes repeated copies of the same library song. */
     currentIndex: Int = -1,
     isPlaying: Boolean,
+    /** Controller-issued per-occurrence IDs; unlike Song.id these survive repeated rows. */
+    queueOccurrenceIds: List<String> = emptyList(),
     savedQueues: List<XvoxSavedQueue> = emptyList(),
     activeQueueName: String = "Queue 1",
     isPlaybackActiveInThisQueue: Boolean = true,
@@ -168,7 +170,9 @@ fun XvoxQueueBoxContent(
     onPlayIndex: (Int) -> Unit,
     onMoveItem: (Int, Int) -> Unit,
     onRemoveIndex: (Int) -> Unit,
-    onReorderQueue: ((List<Song>) -> Unit)? = null
+    onReorderQueue: ((List<Song>) -> Unit)? = null,
+    /** Preferred reorder path for the active player queue: preserves duplicate occurrence IDs. */
+    onReorderOccurrences: ((List<String>) -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
@@ -180,7 +184,17 @@ fun XvoxQueueBoxContent(
     val play by rememberUpdatedState(onPlayIndex)
 
     val entryKeyLedger = remember { QueueEntryKeyLedger() }
-    val sourceEntries = remember(queue) { entryKeyLedger.resolve(queue) }
+    val hasControllerOccurrenceIds = queueOccurrenceIds.size == queue.size &&
+        queueOccurrenceIds.toSet().size == queue.size
+    // Prefer the controller's actual Media3 occurrence token. The fallback ledger exists only for
+    // saved/non-playing queues, whose Song list has no controller token source.
+    val sourceEntries = remember(queue, queueOccurrenceIds) {
+        if (hasControllerOccurrenceIds) {
+            queue.mapIndexed { index, song -> QueueEntry(queueOccurrenceIds[index], song) }
+        } else {
+            entryKeyLedger.resolve(queue)
+        }
+    }
     // Keep the active occurrence by its stable row identity rather than by a live display index.
     // A drag rearranges display slots before playback is committed, so `idx == currentIndex`
     // would temporarily light/hold a neighbouring duplicate instead of the finger-held row.
@@ -194,37 +208,52 @@ fun XvoxQueueBoxContent(
     val displayEntries = dragList ?: sourceEntries
 
     val rowHeightPx = with(density) { RowHeight.toPx() }
-    val rowSpacingPx = with(density) { RowSpacing.toPx() }
-    val itemSlotSpanPx = rowHeightPx + rowSpacingPx
-
     var listViewportHeight by remember { mutableFloatStateOf(0f) }
 
-    fun checkAndSwapSlots() {
-        if (draggingEntry == null) return
+    /**
+     * Computes an insertion slot from row midpoints, not merely whichever item bounds happens to
+     * contain the floating card. That distinction removes the top-edge bounce and keeps a row
+     * adjacent to the audible occurrence from accidentally moving that occurrence instead.
+     */
+    fun placeDraggedEntryAtPointer() {
+        val dragged = draggingEntry ?: return
         val currentLocalList = dragList ?: return
-        val fromSlot = currentDragIndex
-        if (fromSlot !in currentLocalList.indices) return
+        var fromSlot = currentDragIndex
+        if (currentLocalList.getOrNull(fromSlot)?.stableKey != dragged.stableKey) {
+            fromSlot = currentLocalList.indexOfFirst { it.stableKey == dragged.stableKey }
+            if (fromSlot < 0) return
+            currentDragIndex = fromSlot
+        }
 
-        val visibleItems = listState.layoutInfo.visibleItemsInfo
-        for (itemInfo in visibleItems) {
-            val toSlot = itemInfo.index
-            if (toSlot == fromSlot || toSlot !in currentLocalList.indices) continue
+        val candidates = listState.layoutInfo.visibleItemsInfo
+            .filter { it.index in currentLocalList.indices && it.index != fromSlot }
+            .sortedBy { it.index }
+        if (candidates.isEmpty()) return
 
-            val slotTop = itemInfo.offset.toFloat()
-            val slotBottom = slotTop + itemInfo.size.toFloat()
-
-            val dragMiddleY = dragCardOffsetY + (rowHeightPx / 2f)
-
-            if (dragMiddleY in slotTop..slotBottom) {
-                val mutable = currentLocalList.toMutableList()
-                val removed = mutable.removeAt(fromSlot)
-                mutable.add(toSlot, removed)
-                dragList = mutable
-                currentDragIndex = toSlot
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                return
+        val dragMiddleY = dragCardOffsetY + (rowHeightPx / 2f)
+        // Insertion is before the first row whose midpoint has not been crossed; after all
+        // crossed rows otherwise. Convert that old-list insertion point after removing the card.
+        var insertionInOldList = currentLocalList.size
+        for (itemInfo in candidates) {
+            val midpoint = itemInfo.offset.toFloat() + itemInfo.size.toFloat() / 2f
+            if (dragMiddleY < midpoint) {
+                insertionInOldList = itemInfo.index
+                break
             }
         }
+        val destination = (if (insertionInOldList > fromSlot) {
+            insertionInOldList - 1
+        } else {
+            insertionInOldList
+        }).coerceIn(0, currentLocalList.lastIndex)
+        if (destination == fromSlot) return
+
+        val mutable = currentLocalList.toMutableList()
+        val moved = mutable.removeAt(fromSlot)
+        mutable.add(destination, moved)
+        dragList = mutable
+        currentDragIndex = destination
+        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
 
     // Auto-scroll when holding and dragging near top or bottom of list viewport
@@ -235,12 +264,12 @@ fun XvoxQueueBoxContent(
                 if (dragCardOffsetY < scrollEdgeThreshold && listState.canScrollBackward) {
                     val speed = ((scrollEdgeThreshold - dragCardOffsetY) / scrollEdgeThreshold).coerceIn(0.2f, 1f) * with(density) { 14.dp.toPx() }
                     listState.scrollBy(-speed)
-                    checkAndSwapSlots()
+                    placeDraggedEntryAtPointer()
                 } else if (dragCardOffsetY > (listViewportHeight - scrollEdgeThreshold - rowHeightPx) && listState.canScrollForward) {
                     val over = dragCardOffsetY - (listViewportHeight - scrollEdgeThreshold - rowHeightPx)
                     val speed = (over / scrollEdgeThreshold).coerceIn(0.2f, 1f) * with(density) { 14.dp.toPx() }
                     listState.scrollBy(speed)
-                    checkAndSwapSlots()
+                    placeDraggedEntryAtPointer()
                 }
                 delay(24)
             }
@@ -279,7 +308,9 @@ fun XvoxQueueBoxContent(
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
                     }
-                    .pointerInput(Unit) {
+                    // A real queue replacement cancels/restarts this detector with the new
+                    // occurrence snapshot; local dragList changes intentionally do not.
+                    .pointerInput(sourceEntries) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val downY = down.position.y
@@ -288,7 +319,7 @@ fun XvoxQueueBoxContent(
                                 downY >= item.offset && downY <= (item.offset + item.size)
                             }
 
-                            if (hitItem != null && hitItem.index in sourceEntries.indices) {
+                            if (hitItem != null && hitItem.index in displayEntries.indices) {
                                 val hitIndex = hitItem.index
                                 val initialItemTop = hitItem.offset.toFloat()
                                 val touchOffsetYInCard = downY - initialItemTop
@@ -307,9 +338,9 @@ fun XvoxQueueBoxContent(
 
                                 if (longPressTriggered) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val entry = sourceEntries[hitIndex]
+                                    val entry = displayEntries[hitIndex]
                                     draggingEntry = entry
-                                    dragList = sourceEntries.toList()
+                                    dragList = displayEntries.toList()
                                     initialDragIndex = hitIndex
                                     currentDragIndex = hitIndex
                                     dragCardOffsetY = (downY - touchOffsetYInCard).coerceAtLeast(0f)
@@ -326,7 +357,7 @@ fun XvoxQueueBoxContent(
                                             (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
                                         )
 
-                                        checkAndSwapSlots()
+                                        placeDraggedEntryAtPointer()
                                     }
 
                                     val finalList = dragList
@@ -337,10 +368,17 @@ fun XvoxQueueBoxContent(
                                     initialDragIndex = -1
                                     currentDragIndex = -1
                                     if (finalList != null) {
-                                        if (onReorderQueue != null) {
-                                            onReorderQueue(finalList.map(QueueEntry::song))
-                                        } else if (from in queue.indices && to in queue.indices && from != to) {
-                                            move(from, to)
+                                        val orderedOccurrences = finalList.map(QueueEntry::stableKey)
+                                        when {
+                                            hasControllerOccurrenceIds && onReorderOccurrences != null -> {
+                                                onReorderOccurrences(orderedOccurrences)
+                                            }
+                                            onReorderQueue != null -> {
+                                                onReorderQueue(finalList.map(QueueEntry::song))
+                                            }
+                                            from in queue.indices && to in queue.indices && from != to -> {
+                                                move(from, to)
+                                            }
                                         }
                                     }
                                 }

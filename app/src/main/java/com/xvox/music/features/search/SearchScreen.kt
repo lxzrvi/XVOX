@@ -103,7 +103,6 @@ fun SearchScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val landscapeContentHeight = LocalConfiguration.current.screenHeightDp.coerceAtLeast(360).dp
     val bottomInset = LocalXvoxBottomInset.current
     val topInset = LocalXvoxTopInset.current
 
@@ -123,11 +122,14 @@ fun SearchScreen(
                 ?: Int.MAX_VALUE
         }
     }
+    // One shared 2dp visual air gap: initially below the shell Header, and once that Header has
+    // travelled away, below the real status bar. This removes the former oversized Search gap.
+    val searchHeaderGap = 2.dp
     val stickySearchTop = with(density) {
-        val compactTopPx = 2.dp.roundToPx()
-        val safeFieldTopPx = WindowInsets.statusBars.getTop(this) + 6.dp.roundToPx()
+        val gapPx = searchHeaderGap.roundToPx()
+        val safeFieldTopPx = WindowInsets.statusBars.getTop(this) + gapPx
         (safeFieldTopPx - stickyContainerOffsetPx)
-            .coerceAtLeast(compactTopPx)
+            .coerceAtLeast(gapPx)
             .toDp()
     }
 
@@ -149,10 +151,36 @@ fun SearchScreen(
 
     val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
     LaunchedEffect(listState) {
+        // Report a continuous distance instead of snapping to a whole Header height when the
+        // sticky-field item changes index. That former index jump made a very small Search scroll
+        // abruptly remove the Header. The parent still accepts its legacy (index, offset) shape;
+        // `0` simply marks this second value as an already-resolved pixel distance.
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousOffset = listState.firstVisibleItemScrollOffset
+        var previousItemSize = 0
+        var travelledPx = previousOffset
         androidx.compose.runtime.snapshotFlow {
-            Pair(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
-        }.collect { (index, offset) ->
-            currentOnScrollProgress(index, offset)
+            val index = listState.firstVisibleItemIndex
+            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+            Triple(index, listState.firstVisibleItemScrollOffset, item?.size ?: previousItemSize)
+        }.collect { (index, offset, itemSize) ->
+            val delta = when {
+                index == previousIndex -> offset - previousOffset
+                index > previousIndex -> {
+                    // Consume the tail of the departing item plus the new item's offset.
+                    (previousItemSize - previousOffset).coerceAtLeast(0) + offset
+                }
+                else -> {
+                    // Returning to an earlier item reverses its visible remainder smoothly.
+                    -(previousOffset + (itemSize - offset).coerceAtLeast(0))
+                }
+            }
+            travelledPx = (travelledPx + delta).coerceAtLeast(0)
+            if (index == 0 && offset == 0) travelledPx = 0
+            currentOnScrollProgress(0, travelledPx)
+            previousIndex = index
+            previousOffset = offset
+            previousItemSize = itemSize
         }
     }
 
@@ -259,24 +287,17 @@ fun SearchScreen(
     }
 
     if (isLandscape) {
-        // The shared shell Header stays mounted above this page; this parent list reports its
-        // own scroll instead of inserting a second Header item.
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = topInset, bottom = bottomInset)
+        // The input/recent pane is a fixed landscape surface. Only the right results LazyColumn
+        // owns [listState], so a results swipe cannot scroll the left Search controls away.
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = topInset, bottom = bottomInset)
+                // Keep the results rail flush with its own landscape-pane edge. The left search
+                // controls carry their own start inset below, so the final carousel item is safe.
+                .padding(top = 2.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item(key = "landscape_search_content") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(landscapeContentHeight)
-                        // Keep the results rail flush with its own landscape-pane edge. The left
-                        // search controls carry their own start inset below, so outer padding can
-                        // no longer crop the final artist/playlist carousel item.
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
             // Left pane: Search bar + Recent Searches + Library summary (Pinned at top)
             Column(
                 modifier = Modifier
@@ -318,8 +339,9 @@ fun SearchScreen(
                     .fillMaxSize()
             ) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = bottomInset + 16.dp),
+                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (drillDownPlaylist != null) {
@@ -472,8 +494,6 @@ fun SearchScreen(
                 }
             }
         }
-        }
-        }
     } else {
         // Results use the shell's one Header inset. Scroll progress moves that Header itself,
         // so Search never emits or crossfades a second copy.
@@ -489,7 +509,7 @@ fun SearchScreen(
                         .fillMaxWidth()
                         .background(colors.background)
                         // On entry this stays directly under the scrolling Header. Once
-                        // pinned, stickySearchTop becomes status bars + an intentional 6dp gap.
+                        // pinned, stickySearchTop becomes status bars + the same 2dp gap.
                         .padding(
                             start = 14.dp,
                             top = stickySearchTop,
@@ -756,15 +776,66 @@ private fun RecentSearchesSection(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val rowHeight = 38.dp
+    val visibleRows = searches.size.coerceIn(1, 6)
+    val boxShape = RoundedCornerShape(12.dp)
 
     if (searches.isEmpty()) return
 
+    @Composable
+    fun SearchEntry(item: String, showDivider: Boolean) {
+        Box(Modifier.fillMaxWidth().height(rowHeight)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable {
+                        haptics.tap()
+                        onSelect(item)
+                    }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = item,
+                    color = colors.primaryText,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_close),
+                    contentDescription = "Remove search",
+                    tint = colors.secondaryText,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            haptics.tap()
+                            onRemove(item)
+                        }
+                        .padding(2.dp)
+                )
+            }
+            if (showDivider) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(0.8.dp)
+                        .background(colors.cardBorder.copy(alpha = .74f))
+                )
+            }
+        }
+    }
+
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        // The label intentionally belongs to the section, never to the bordered entry box.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -790,45 +861,29 @@ private fun RecentSearchesSection(
             )
         }
 
-        searches.take(4).forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardElevated)
-                    .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
-                    .clickable {
-                        haptics.tap()
-                        onSelect(item)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                // No vertical inner padding: a one-row history is exactly one row tall and the
+                // box grows naturally through six rows, then becomes a six-row scroll viewport.
+                .height(rowHeight * visibleRows)
+                .clip(boxShape)
+                .background(colors.cardElevated)
+                .border(0.8.dp, colors.cardBorder, boxShape)
+        ) {
+            if (searches.size <= 6) {
+                Column(Modifier.fillMaxSize()) {
+                    searches.forEachIndexed { index, item ->
+                        SearchEntry(item, showDivider = index < searches.lastIndex)
                     }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = item,
-                    color = colors.primaryText,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_close),
-                    contentDescription = "Remove search",
-                    tint = colors.secondaryText,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            haptics.tap()
-                            onRemove(item)
-                        }
-                        .padding(2.dp)
-                )
+                }
+            } else {
+                LazyColumn(Modifier.fillMaxSize()) {
+                    items(searches, key = { it }) { item ->
+                        val index = searches.indexOf(item)
+                        SearchEntry(item, showDivider = index < searches.lastIndex)
+                    }
+                }
             }
         }
     }

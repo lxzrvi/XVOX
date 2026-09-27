@@ -70,6 +70,8 @@ import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.sin
 
 private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
@@ -89,6 +91,8 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
 fun XvoxNowPlaying(
     song: Song,
     queue: List<Song>,
+    /** Media3 occurrence IDs make repeated queue rows distinguishable during a preview. */
+    queueOccurrenceIds: List<String> = emptyList(),
     currentIndex: Int,
     isPlaying: Boolean,
     position: Long,
@@ -198,13 +202,36 @@ fun XvoxNowPlaying(
     // audible item stays untouched until the navigation button is released. Queue indices are
     // occurrence identities here: two copies of one Song.id must remain independently swipeable.
     var previewIndex by rememberSaveable { mutableIntStateOf(currentIndex.coerceIn(0, queue.lastIndex.coerceAtLeast(0))) }
+    // An index is only a visual position. Keep the real occurrence token/reference beside it so a
+    // drag or playback reorder cannot turn a selected duplicate into its neighbouring copy.
+    var previewOccurrenceId by rememberSaveable {
+        mutableStateOf(queueOccurrenceIds.getOrNull(currentIndex))
+    }
+    var previewSongReference by remember { mutableStateOf(queue.getOrNull(currentIndex)) }
     var previewGestureActive by remember { mutableStateOf(false) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     var holdPagerPaletteDuringShuffle by remember { mutableStateOf(false) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
     val latestQueue by rememberUpdatedState(queue)
+    val latestQueueOccurrenceIds by rememberUpdatedState(queueOccurrenceIds)
     val latestCurrentIndex by rememberUpdatedState(currentIndex)
+
+    fun occurrenceIndexInLatestQueue(token: String?, songReference: Song?): Int {
+        return token?.let { latestQueueOccurrenceIds.indexOf(it) }?.takeIf { it >= 0 }
+            ?: songReference?.let { reference -> latestQueue.indexOfFirst { it === reference } }
+                ?.takeIf { it >= 0 }
+            ?: -1
+    }
+
+    /** Reject stale pager emissions from the cover that playback just left. */
+    fun applyPagerPalette(base: Song, adjacent: Song?, fraction: Float) {
+        val baseIsAudible = base.xvoxArtworkPaletteKey() == song.xvoxArtworkPaletteKey()
+        val isActivePagerTravel = fraction > .0001f
+        if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
+            paletteState.blend(base, adjacent, fraction)
+        }
+    }
 
     var headerHeightDp by remember { mutableStateOf(56.dp) }
     var bottomHeightDp by remember { mutableStateOf(if (isCompact) 175.dp else 245.dp) }
@@ -264,20 +291,32 @@ fun XvoxNowPlaying(
         previewCommitJob = null
     }
 
-    fun setPreviewTarget(index: Int, sourceQueue: List<Song> = queue): Boolean {
-        if (index !in sourceQueue.indices) return false
+    fun setPreviewTarget(index: Int): Boolean {
+        if (index !in queue.indices) return false
         previewIndex = index
+        previewOccurrenceId = queueOccurrenceIds.getOrNull(index)
+        previewSongReference = queue[index]
         return true
     }
 
-    LaunchedEffect(currentIndex, queue) {
-        // External playback changes win over an old release request. A held preview retains its
-        // actual occurrence index; outside a gesture the audible occurrence is authoritative.
+    LaunchedEffect(currentIndex, queue, queueOccurrenceIds) {
+        // External playback changes win over an old release request. A held preview follows its
+        // exact occurrence through a reorder; it never silently becomes a neighbouring duplicate.
         if (!previewGestureActive) cancelPendingPreviewCommit()
-        when {
-            previewGestureActive && previewIndex in queue.indices -> Unit
-            currentIndex in queue.indices -> previewIndex = currentIndex
-            queue.isNotEmpty() -> previewIndex = 0
+        if (previewGestureActive) {
+            val remappedIndex = occurrenceIndexInLatestQueue(previewOccurrenceId, previewSongReference)
+            if (remappedIndex >= 0) {
+                previewIndex = remappedIndex
+            } else {
+                previewGestureActive = false
+                cancelPendingPreviewCommit()
+                if (currentIndex in queue.indices) setPreviewTarget(currentIndex)
+                else if (queue.isNotEmpty()) setPreviewTarget(0)
+            }
+        } else if (currentIndex in queue.indices) {
+            setPreviewTarget(currentIndex)
+        } else if (queue.isNotEmpty()) {
+            setPreviewTarget(0)
         }
     }
 
@@ -312,22 +351,26 @@ fun XvoxNowPlaying(
 
     fun commitPreview() {
         val targetOccurrence = previewIndex
+        val targetToken = previewOccurrenceId
+        val targetSongReference = previewSongReference ?: latestQueue.getOrNull(targetOccurrence)
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        if (targetOccurrence !in latestQueue.indices || targetOccurrence == latestCurrentIndex) return
+        if (targetSongReference == null) return
 
         val requestVersion = previewCommitVersion
         previewCommitJob = scope.launch {
             // Keep audio on the current song until the released cover has rested in place.
             delay(300)
+            val remappedTarget = occurrenceIndexInLatestQueue(targetToken, targetSongReference)
             if (
                 requestVersion == previewCommitVersion &&
                 !previewGestureActive &&
-                previewIndex == targetOccurrence &&
-                targetOccurrence in latestQueue.indices &&
-                targetOccurrence != latestCurrentIndex
+                remappedTarget in latestQueue.indices &&
+                remappedTarget != latestCurrentIndex
             ) {
-                onPlayQueueIndex(targetOccurrence)
+                // Retain the exact occurrence if a queue drag happened in this 300ms window.
+                previewIndex = remappedTarget
+                onPlayQueueIndex(remappedTarget)
             }
             if (requestVersion == previewCommitVersion) previewCommitJob = null
         }
@@ -337,17 +380,24 @@ fun XvoxNowPlaying(
     fun commitSettledPreview(index: Int, settledSong: Song) {
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        if (index !in latestQueue.indices) return
-        // The song check protects against a queue replacement that happened during the release.
-        if (latestQueue[index].id != settledSong.id) return
-        previewIndex = index
-        if (index != latestCurrentIndex) onPlayQueueIndex(index)
+        // onPreviewIndexChange saved this exact token before the pager's stability delay. Resolve
+        // it again now so a duplicate moved near the top cannot be mistaken for another copy.
+        val resolvedIndex = occurrenceIndexInLatestQueue(previewOccurrenceId, settledSong)
+        if (resolvedIndex !in latestQueue.indices) return
+        previewIndex = resolvedIndex
+        previewSongReference = latestQueue[resolvedIndex]
+        previewOccurrenceId = latestQueueOccurrenceIds.getOrNull(resolvedIndex)
+        if (resolvedIndex != latestCurrentIndex) onPlayQueueIndex(resolvedIndex)
     }
 
     fun cancelPreview() {
         cancelPendingPreviewCommit()
         previewGestureActive = false
-        if (latestCurrentIndex in latestQueue.indices) previewIndex = latestCurrentIndex
+        if (latestCurrentIndex in latestQueue.indices) {
+            previewIndex = latestCurrentIndex
+            previewSongReference = latestQueue[latestCurrentIndex]
+            previewOccurrenceId = latestQueueOccurrenceIds.getOrNull(latestCurrentIndex)
+        }
     }
 
     LaunchedEffect(song.id) {
@@ -402,7 +452,9 @@ fun XvoxNowPlaying(
         animationSpec = tween(fullscreenMotion.durationMillis, easing = fullscreenMotion.easing),
         label = "fullscreenProgress_style_20"
     )
-    val fullscreenMotionPulse = 0f
+    // Preserve the permanent former-style-20 in-flight travel. It is zero at both endpoints,
+    // so the finished compact and fullscreen surfaces retain their exact edge geometry.
+    val fullscreenMotionPulse = sin(fullscreenProgress * PI).toFloat()
 
     // All four portrait edges participate in the lyric expansion on one shared clock. The
     // compact 6dp side frame restores the earlier, tighter artwork geometry.
@@ -536,16 +588,18 @@ fun XvoxNowPlaying(
                         } else {
                             XvoxNowPlayingArtworkPager(
                                 queue = queue,
+                                occurrenceIds = queueOccurrenceIds,
                                 currentIndex = currentIndex,
                                 navigationRequest = navigationRequest,
                                 previewIndex = previewIndex,
                                 forceCurrentIndex = holdPagerPaletteDuringShuffle,
-                                onPreviewIndexChange = { setPreviewTarget(it) },
+                                onPreviewIndexChange = { index ->
+                                    previewGestureActive = true
+                                    setPreviewTarget(index)
+                                },
                                 onArtworkTap = { setMode(1) },
                                 onSwipePalette = { base, adjacent, fraction ->
-                                    if (!holdPagerPaletteDuringShuffle) {
-                                        paletteState.blend(base, adjacent, fraction)
-                                    }
+                                    applyPagerPalette(base, adjacent, fraction)
                                 },
                                 onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                                 modifier = Modifier.fillMaxSize(),
@@ -584,7 +638,9 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(colors.background.copy(alpha = 0.35f))
+                            // The landscape controls are an XVOX theme surface, never a
+                            // translucent window onto the cover-derived adaptive backdrop.
+                            .background(colors.card)
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -767,16 +823,18 @@ fun XvoxNowPlaying(
                     } else {
                         XvoxNowPlayingArtworkPager(
                             queue = queue,
+                            occurrenceIds = queueOccurrenceIds,
                             currentIndex = currentIndex,
                             navigationRequest = navigationRequest,
                             previewIndex = previewIndex,
                             forceCurrentIndex = holdPagerPaletteDuringShuffle,
-                            onPreviewIndexChange = { setPreviewTarget(it) },
+                            onPreviewIndexChange = { index ->
+                                    previewGestureActive = true
+                                    setPreviewTarget(index)
+                                },
                             onArtworkTap = { setMode(1) },
                             onSwipePalette = { base, adjacent, fraction ->
-                                if (!holdPagerPaletteDuringShuffle) {
-                                    paletteState.blend(base, adjacent, fraction)
-                                }
+                                applyPagerPalette(base, adjacent, fraction)
                             },
                             onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                             modifier = Modifier.fillMaxSize(),

@@ -114,12 +114,19 @@ fun HorizontalSongPages(
         }
         val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp
-        val gap = 6.dp
+        // Dense five/six-column portrait layouts use a tighter tile gutter so artwork remains
+        // visually clean inside its own card rather than leaving oversized seams.
+        val denseColumns = !isLandscape && columns >= 5
+        val gap = if (denseColumns) 4.dp else 6.dp
         val unitWidth = (pageWidth - gap * (columns - 1)) / columns
-        // Three portrait columns make each tile physically broad. Give that compact grid a
-        // shorter metadata band so it stays card-like rather than becoming a tall rectangle.
-        val unitHeight = if (isLandscape) unitWidth + 30.dp
-        else unitWidth + if (columns < 4) 20.dp else 38.dp
+        // Keep broad three-column cards compact and reduce the metadata band again at dense
+        // five/six-column counts so six columns never turn into unusually tall tiles.
+        val unitHeight = if (isLandscape) unitWidth + 30.dp else unitWidth + when {
+            columns >= 6 -> 24.dp
+            columns >= 5 -> 30.dp
+            columns < 4 -> 20.dp
+            else -> 38.dp
+        }
         val pageHeight = unitHeight * rows + gap * (rows - 1).coerceAtLeast(0)
 
         LazyRow(
@@ -128,7 +135,7 @@ fun HorizontalSongPages(
                 .fillMaxWidth()
                 .height(pageHeight),
             contentPadding = PaddingValues(horizontal = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(gap)
         ) {
             items(plans, key = { it.startIndex }, contentType = { "mosaic_page" }) { plan ->
                 XvoxSongGridPage(
@@ -172,12 +179,17 @@ fun XvoxSongGridPage(
     val longClick by rememberUpdatedState(onSongLongClick)
 
     BoxWithConstraints(modifier) {
-        val gap = 6.dp
+        val denseColumns = !isLandscape && columns >= 5
+        val gap = if (denseColumns) 4.dp else 6.dp
         val unitWidth = (maxWidth - gap * (columns - 1)) / columns
-        // Three portrait columns make each tile physically broad. Give that compact grid a
-        // shorter metadata band so it stays card-like rather than becoming a tall rectangle.
-        val unitHeight = if (isLandscape) unitWidth + 30.dp
-        else unitWidth + if (columns < 4) 20.dp else 38.dp
+        // Keep broad three-column cards compact and reduce the metadata band again at dense
+        // five/six-column counts so six columns never turn into unusually tall tiles.
+        val unitHeight = if (isLandscape) unitWidth + 30.dp else unitWidth + when {
+            columns >= 6 -> 24.dp
+            columns >= 5 -> 30.dp
+            columns < 4 -> 20.dp
+            else -> 38.dp
+        }
         val height = unitHeight * usedRows + gap * (usedRows - 1).coerceAtLeast(0f)
         val density = androidx.compose.ui.platform.LocalDensity.current
         val stepX = with(density) { (unitWidth + gap).toPx() }
@@ -202,7 +214,8 @@ fun XvoxSongGridPage(
                             onClick = { click(song) },
                             onLongClick = { longClick(song) },
                             modifier = tileModifier,
-                            selected = song.id in selectedSongIds
+                            selected = song.id in selectedSongIds,
+                            dense = denseColumns
                         )
                     } else {
                         XvoxAllSongMosaicCard(
@@ -216,7 +229,8 @@ fun XvoxSongGridPage(
                             playing = isCurrent && isPlaying,
                             selected = song.id in selectedSongIds,
                             styleIndex = tile.style,
-                            classic = classic
+                            classic = classic,
+                            dense = denseColumns
                         )
                     }
                 }

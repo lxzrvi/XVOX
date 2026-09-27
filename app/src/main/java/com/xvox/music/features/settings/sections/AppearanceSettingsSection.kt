@@ -232,18 +232,6 @@ fun AppearanceSettingsSection(
         }
 
         SettingsAccordionItem(
-            title = "Display size",
-            expanded = expandedGroup == "Display size",
-            onToggle = { toggle("Display size") }
-        ) {
-            SettingsChoiceRow(
-                options = listOf("small" to "Small", "medium" to "Medium", "large" to "Large"),
-                selected = state.displaySize.lowercase(),
-                onSelect = viewModel::setDisplaySize
-            )
-        }
-
-        SettingsAccordionItem(
             title = "Orientation",
             expanded = expandedGroup == "Orientation",
             onToggle = { toggle("Orientation") }

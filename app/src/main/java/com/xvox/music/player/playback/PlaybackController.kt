@@ -33,6 +33,8 @@ data class PlaybackState(
     val position: Long = 0L,
     val duration: Long = 0L,
     val queue: List<Song> = emptyList(),
+    /** Private Media3 occurrence tokens; equal Song IDs remain independently addressable. */
+    val queueOccurrenceIds: List<String> = emptyList(),
     val externalQueue: Boolean = false
 )
 
@@ -295,6 +297,8 @@ class PlaybackController(
 
     fun cacheLibrary(songs: List<Song>) { songs.forEach { knownSongs[it.id] = it } }
     fun currentQueue(): List<Song> = queue
+    /** Snapshot of occurrence identities in exactly the same order as [currentQueue]. */
+    fun currentQueueOccurrenceIds(): List<String> = queueEntryIds.toList()
 
     fun playNext(song: Song): List<Song> {
         val active = _state.value.currentIndex.takeIf { it in queue.indices }
@@ -313,6 +317,47 @@ class PlaybackController(
 
     fun removeFromQueue(songId: Long): List<Song> {
         setQueue(queue.filterNot { it.id == songId })
+        return queue
+    }
+
+    /**
+     * Reorders by Media3 occurrence token rather than Song.id or object equality. This is the
+     * lossless path for dragging duplicate rows, including the rare case where the same Song
+     * object was queued twice. The audible entry token remains the anchor while the native
+     * timeline is rebuilt around it.
+     */
+    fun reorderQueueByOccurrenceIds(orderedOccurrenceIds: List<String>): List<Song>? {
+        if (orderedOccurrenceIds.size != queue.size || queueEntryIds.size != queue.size) return null
+        if (orderedOccurrenceIds.toSet().size != orderedOccurrenceIds.size) return null
+        if (orderedOccurrenceIds.toSet() != queueEntryIds.toSet()) return null
+        if (orderedOccurrenceIds == queueEntryIds) return queue
+
+        val songByOccurrence = queueEntryIds.indices.associate { index ->
+            queueEntryIds[index] to queue[index]
+        }
+        val reordered = orderedOccurrenceIds.mapNotNull { songByOccurrence[it] }
+        if (reordered.size != queue.size) return null
+
+        lastQueueInput = null
+        val activeOccurrence = controller?.currentMediaItem?.mediaId
+        queue = reordered
+        queueEntryIds = orderedOccurrenceIds.toList()
+        indexEntries()
+        externalQueue = false
+        installedQueue = null
+        installingQueue = null
+        installingEntryIds = null
+        queueJob?.cancel()
+
+        val p = controller
+        if (p != null && activeOccurrence != null && indexOfEntry(activeOccurrence) >= 0) {
+            queueJob = scope.launch {
+                // Keep the exact playing token mounted while surrounding rows are reconstructed.
+                yield()
+                installAround(p, activeOccurrence, preserveCurrent = true)
+            }
+        }
+        publishState()
         return queue
     }
 
@@ -422,7 +467,19 @@ class PlaybackController(
         }
         if (p.playbackState == Player.STATE_IDLE || p.playbackState == Player.STATE_ENDED) p.prepare()
         if (shouldPlay) p.play() else p.pause()
-        _state.value = PlaybackState(true, song.id, index, shouldPlay, 0L, song.duration)
+        // Publish the full occurrence-preserving queue immediately. A transient empty queue
+        // here used to make Now Playing briefly reconcile its pager against stale/adjacent rows.
+        _state.value = PlaybackState(
+            connected = true,
+            currentSongId = song.id,
+            currentIndex = index,
+            isPlaying = shouldPlay,
+            position = 0L,
+            duration = song.duration,
+            queue = queue,
+            queueOccurrenceIds = queueEntryIds,
+            externalQueue = externalQueue
+        )
     }
 
     fun playPrevious() {
@@ -512,6 +569,7 @@ class PlaybackController(
                         currentIndex = index,
                         duration = song.duration,
                         queue = queue,
+                        queueOccurrenceIds = queueEntryIds,
                         externalQueue = externalQueue
                     )
                     return
@@ -540,6 +598,7 @@ class PlaybackController(
             position = currentPos,
             duration = currentDur,
             queue = queue,
+            queueOccurrenceIds = queueEntryIds,
             externalQueue = externalQueue
         )
 

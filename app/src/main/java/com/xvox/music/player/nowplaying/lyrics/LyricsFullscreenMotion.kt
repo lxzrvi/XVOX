@@ -6,9 +6,9 @@ import androidx.compose.animation.core.Easing
 /**
  * The single product card-to-fullscreen lyrics motion.
  *
- * Style 20 is intentionally no longer user-selectable.  Its restrained easing has no overshoot,
- * pulse, scale dip, or rotation, so the same card geometry stays smooth on portrait and landscape
- * displays and never exposes a transient edge strip while the surface expands.
+ * Style 20 is intentionally no longer user-selectable. Its original deliberate upward travel
+ * and shallow scale settle are now the one permanent product motion in both orientations.
+ * There is no selector and no alternate fallback profile.
  */
 data class LyricsFullscreenMotion(
     val durationMillis: Int,
@@ -21,9 +21,12 @@ data class LyricsFullscreenMotion(
 
 const val LockedLyricsFullscreenStyle = 20
 
+/** The former experimental style 20, now locked as the permanent fullscreen motion. */
 fun lyricsFullscreenMotion(): LyricsFullscreenMotion = LyricsFullscreenMotion(
-    durationMillis = 440,
-    easing = CubicBezierEasing(.22f, 0f, .12f, 1f)
+    durationMillis = 610,
+    easing = CubicBezierEasing(.55f, 0f, .28f, 1f),
+    verticalPulseDp = 20f,
+    scaleDip = .070f
 )
 
 /** Compatibility overload for code or persisted records written before style selection was removed. */

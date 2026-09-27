@@ -8,12 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,9 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -75,6 +67,8 @@ fun HomeScreen(
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
+    // Used only to keep the window-level selection popup off the full Now Playing surface.
+    val playerUiState by playerViewModel.state.collectAsState()
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -698,15 +692,9 @@ fun HomeScreen(
                 }
             }
 
-        AnimatedVisibility(
-            visible = isSelectionMode,
-            enter = slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160)) + fadeIn(tween(100)),
-            exit = slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(180)) + fadeOut(tween(120)),
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                // Intentionally no start padding: this rail is flush to the screen edge.
-                .zIndex(9999f)
-        ) {
+        if (isSelectionMode && !playerUiState.nowPlayingVisible) {
+            // HomeMultiSelectBar uses a Popup, which is deliberately above shell Header/navbar/
+            // Mini Player rather than confined beneath this page's AnimatedContent layer.
             HomeMultiSelectBar(
                 selectedSongs = selectedSongsList,
                 selectedPlaylist = selectedPlaylist,
