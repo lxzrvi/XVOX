@@ -395,33 +395,14 @@ fun XvoxNowPlaying(
         label = "fullscreenProgress"
     )
 
-    val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
+    // All four portrait edges participate in the lyric expansion on one shared clock.
+    val currentPadH = lerp(10.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
-    val currentPadTop = lerp(headerHeightDp + 2.dp, 0.dp, fullscreenProgress)
-    // The artwork keeps a small relationship gap above the controls. The control card itself is
-    // edge-flush; during fullscreen this final bottom reservation collapses on the same clock.
-    val currentPadBottom = lerp(bottomHeightDp + 6.dp, 0.dp, fullscreenProgress)
+    val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
+    val currentPadBottom = lerp(bottomHeightDp + 8.dp, 0.dp, fullscreenProgress)
 
-    val view = androidx.compose.ui.platform.LocalView.current
-    // Portrait status chrome follows the fullscreen lyrics morph rather than disappearing for
-    // ordinary lyrics-sheet mode. Landscape remains edge-to-edge while this player is mounted.
-    DisposableEffect(isLandscape, isFullscreen) {
-        val window = (view.context as? android.app.Activity)?.window
-        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        val hideStatus = isLandscape || isFullscreen
-        if (hideStatus) {
-            insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-        } else {
-            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-            insetsController?.isAppearanceLightStatusBars = false
-        }
-        onDispose {
-            // Returning from fullscreen or leaving Now Playing restores portrait status chrome in
-            // the same lifecycle turn as the geometry's reverse animation.
-            if (hideStatus) insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-        }
-    }
+    // Do not hide or show status bars for a lyric-mode change. Switching system chrome while
+    // Compose is also relaying out causes a transient flash; stable bars keep the morph calm.
 
     Box(
         modifier = modifier
@@ -450,11 +431,14 @@ fun XvoxNowPlaying(
                 val compactGutter = 10.dp
                 val compactArtworkWidth = ((maxWidth - compactInset * 2 - compactGutter) * .60f)
                     .coerceAtLeast(0.dp)
-                // The control card is deliberately edge-flush. Reserve only the cover's leading
-                // inset plus one explicit gutter so its left edge never collides with the pager.
-                val compactControlsWidth = (maxWidth - compactInset - compactGutter - compactArtworkWidth)
+                // Compact landscape is a complete 10dp frame: artwork, gutter, and the right
+                // controls all have equal outer breathing room.
+                val compactControlsWidth = (maxWidth - compactInset * 2 - compactGutter - compactArtworkWidth)
                     .coerceAtLeast(0.dp)
                 val frameInset = lerp(compactInset, 0.dp, fullscreenProgress)
+                // Covers remain vertically edge-to-edge. Lyrics own a separate vertical inset so
+                // their compact card still grows from every side during fullscreen expansion.
+                val lyricsVerticalInset = lerp(compactInset, 0.dp, fullscreenProgress)
                 val artworkWidth = lerp(compactArtworkWidth, maxWidth, fullscreenProgress)
                 val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
                 // Travel past the right edge rather than merely fading in place during lyric
@@ -468,7 +452,7 @@ fun XvoxNowPlaying(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = frameInset, top = frameInset, bottom = frameInset)
+                        .padding(start = frameInset)
                         .width(artworkWidth)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(artworkRadius))
@@ -503,7 +487,10 @@ fun XvoxNowPlaying(
                                 },
                                 backgroundColor = paletteState.color,
                                 textColor = lyricsTextColor,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = lyricsVerticalInset)
+                                    .clip(RoundedCornerShape(artworkRadius))
                             )
                         } else {
                             XvoxNowPlayingArtworkPager(
@@ -523,7 +510,7 @@ fun XvoxNowPlaying(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(0.dp),
                                 pageSpacing = 0.dp,
-                                artworkCornerRadius = 0.dp,
+                                artworkCornerRadius = artworkRadius,
                                 verticalPaging = true,
                                 repeatMode = repeatMode
                             )
@@ -536,19 +523,21 @@ fun XvoxNowPlaying(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        .padding(top = frameInset, end = frameInset, bottom = frameInset)
                         .width(compactControlsWidth)
                         .fillMaxHeight()
                         .graphicsLayer {
+                            // Keep rendering until translation has physically taken the card
+                            // outside the viewport; opacity changes expose a premature blank.
                             translationX = fullscreenProgress * controlsSlidePx
-                            alpha = 1f - fullscreenProgress
                         }
                 ) {
-                    // Right: Option/Control Card (40% width), intentionally borderless.
+                    // Right: framed, rounded Option/Control Card.
                     val landscapeScroll = rememberScrollState()
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp, topEnd = 0.dp, bottomEnd = 0.dp))
+                            .clip(RoundedCornerShape(18.dp))
                             .background(colors.background.copy(alpha = 0.35f))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -748,10 +737,9 @@ fun XvoxNowPlaying(
                     .align(Alignment.TopCenter)
                     .onGloballyPositioned { headerHeightDp = with(density) { it.size.height.toDp() } }
                     .graphicsLayer {
-                        // Travel fully beyond the top edge rather than stopping part-way under
-                        // the fullscreen lyric surface.
+                        // Travel fully beyond the top edge rather than fading before it has
+                        // actually left the visible player.
                         translationY = -fullscreenProgress * (headerHeightDp + 28.dp).toPx()
-                        alpha = 1f - fullscreenProgress
                     }
             ) {
                 XvoxNowPlayingHeader(
@@ -795,9 +783,9 @@ fun XvoxNowPlaying(
                     .onGloballyPositioned { bottomHeightDp = with(density) { it.size.height.toDp() } }
                     .graphicsLayer {
                         // Push the entire bottom card below the screen during fullscreen, not
-                        // merely past its normal controls' center line.
+                        // merely past its normal controls' center line. It remains opaque until
+                        // it is genuinely outside the viewport.
                         translationY = fullscreenProgress * (bottomHeightDp + 34.dp).toPx()
-                        alpha = 1f - fullscreenProgress
                     }
                     .clip(bottomBoxShape)
                     .background(colors.background.copy(alpha = 0.35f))

@@ -233,7 +233,10 @@ private fun XvoxNowPlayingArtworkPage(
     val amount = abs(pageOffset)
     Box(
         Modifier
+            // Clip the whole moving page, not only its nested image. This keeps every rounded
+            // cover edge intact while previous/next pages are scaled during a swipe.
             .fillMaxSize()
+            .clip(RoundedCornerShape(artworkCornerRadius))
             .graphicsLayer {
                 // Now Playing artwork has one intentional treatment: Depth. It remains
                 // responsive to native pager drag while the background owns its own variety.

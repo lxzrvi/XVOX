@@ -40,8 +40,9 @@ private enum class StartupVisualPhase {
 }
 
 private val StartupRailWidth = 180.dp
-// Six dp keeps the travelling dots visibly substantial before they become the progress rail.
-private val StartupRailHeight = 6.dp
+// The travelling dots stay clearly substantial, then settle into a deliberately thin rail.
+private val StartupDotHeight = 7.dp
+private val StartupRailHeight = 4.dp
 private val StartupDotIdleGap = 10.dp
 private const val StartupDotCount = 5
 
@@ -124,9 +125,14 @@ fun XvoxStartupLoadingScreen(
     val morphingToRail = phase != StartupVisualPhase.DOTS_SEQUENCE
 
     val dotWidth by animateDpAsState(
-        targetValue = if (morphingToRail) StartupRailWidth / StartupDotCount.toFloat() else StartupRailHeight,
+        targetValue = if (morphingToRail) StartupRailWidth / StartupDotCount.toFloat() else StartupDotHeight,
         animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
         label = "startupMutedDotsToRailWidth"
+    )
+    val dotHeight by animateDpAsState(
+        targetValue = if (morphingToRail) StartupRailHeight else StartupDotHeight,
+        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
+        label = "startupDotsToThinRailHeight"
     )
     val dotSpacing by animateDpAsState(
         targetValue = if (morphingToRail) 0.dp else StartupDotIdleGap,
@@ -178,7 +184,7 @@ fun XvoxStartupLoadingScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(StartupRailHeight)
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(50))
                         .background(colors.secondaryText.copy(alpha = .30f))
                 )
                 if (shownRail > 0f) {
@@ -186,7 +192,7 @@ fun XvoxStartupLoadingScreen(
                         modifier = Modifier
                             .fillMaxWidth(shownRail.coerceIn(0f, 1f))
                             .height(StartupRailHeight)
-                            .clip(RoundedCornerShape(2.dp))
+                            .clip(RoundedCornerShape(50))
                             .background(colors.primaryAccent)
                     )
                 }
@@ -197,17 +203,25 @@ fun XvoxStartupLoadingScreen(
             Row(
                 modifier = Modifier
                     .graphicsLayer { alpha = dotsAlpha }
-                    .clip(RoundedCornerShape(2.dp)),
+                    // One outer capsule clips the converging strokes together, so their meeting
+                    // point is a true continuous rail rather than five visible pieces.
+                    .clip(RoundedCornerShape(50)),
                 horizontalArrangement = Arrangement.spacedBy(dotSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(StartupDotCount) { index ->
                     val accentIsHere = phase == StartupVisualPhase.DOTS_SEQUENCE && index == activeDot
-                    val dotColor = if (accentIsHere) colors.primaryAccent else colors.secondaryText.copy(alpha = .42f)
+                    // Once widths meet, every former dot uses the exact same guide-rail tone.
+                    // That removes colour segmentation as well as physical gaps at the join.
+                    val dotColor = when {
+                        morphingToRail -> colors.secondaryText.copy(alpha = .30f)
+                        accentIsHere -> colors.primaryAccent
+                        else -> colors.secondaryText.copy(alpha = .42f)
+                    }
                     Box(
                         modifier = Modifier
                             .width(dotWidth)
-                            .height(StartupRailHeight)
+                            .height(dotHeight)
                             .then(
                                 if (morphingToRail) Modifier
                                 else Modifier.clip(RoundedCornerShape(50))

@@ -138,20 +138,63 @@ fun XvoxMainShell(
     var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
+    // A saved Profile draft keeps its Header preview alive through the async preference round-trip
+    // so saving never flashes back to the old image or dimness for a frame.
+    var profileHeaderPreviewAwaitingPersistence by remember { mutableStateOf(false) }
+    val liveHeaderPreview = com.xvox.music.core.ui.chrome.XvoxHeaderPreview.value
+    LaunchedEffect(
+        liveHeaderPreview,
+        homeState.profile.headerImageUri,
+        chrome.headerDimEnabled,
+        chrome.headerDimAmount
+    ) {
+        if (liveHeaderPreview != null) {
+            com.xvox.music.core.ui.chrome.XvoxHeaderPreview.clearWhenPersisted(
+                imageUri = homeState.profile.headerImageUri,
+                dimEnabled = chrome.headerDimEnabled,
+                dimAmount = chrome.headerDimAmount
+            )
+            if (
+                liveHeaderPreview.imageUri == homeState.profile.headerImageUri &&
+                liveHeaderPreview.dimEnabled == chrome.headerDimEnabled &&
+                kotlin.math.abs(liveHeaderPreview.dimAmount - chrome.headerDimAmount) < .001f
+            ) {
+                profileHeaderPreviewAwaitingPersistence = false
+            }
+        }
+    }
     // Live mirror for the compact chrome sheet. It makes slider drags coherent even before the
     // asynchronous persistence flow emits its matching composition-local value.
     var miniPlayerNavLive by remember { mutableStateOf(chrome) }
     // The Header is a real first item in Home/Search rather than a shell-translated overlay.
 
+    fun publishProfileHeaderPreview(draft: ProfileEditorDraft) {
+        com.xvox.music.core.ui.chrome.XvoxHeaderPreview.publish(
+            com.xvox.music.core.ui.chrome.XvoxHeaderPresentationPreview(
+                imageUri = draft.headerImageUri,
+                dimEnabled = draft.headerDimEnabled,
+                dimAmount = draft.headerDimAmount.coerceIn(0f, 1f)
+            )
+        )
+    }
+
     fun showProfileEditor() {
         val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
+        profileHeaderPreviewAwaitingPersistence = false
+        // A previous completed save may still be propagating; the new transaction begins from
+        // persisted state and never inherits a stale overlay presentation.
+        com.xvox.music.core.ui.chrome.XvoxHeaderPreview.clear()
         profileDraft = baseline
         overlays.showBox(
             title = "Profile",
-            // Any close route discards the local profile draft. The underlying Header has stayed
-            // on its persisted presentation throughout this editor transaction.
+            presentation = com.xvox.music.core.ui.overlay.XvoxBoxPresentation.PROFILE,
+            // Cancel/scrim/back roll the transient preview away; a completed Save leaves it until
+            // the real profile/chrome flows have caught up.
             onDismiss = {
                 profileDraft = baseline
+                if (!profileHeaderPreviewAwaitingPersistence) {
+                    com.xvox.music.core.ui.chrome.XvoxHeaderPreview.clear()
+                }
             },
             bottomAction = {
                 val canSave = profileDraft.username.isNotBlank() &&
@@ -164,22 +207,30 @@ fun XvoxMainShell(
                     ProfileSheetFooterButton(
                         text = "Cancel",
                         primary = false,
+                        rectangular = true,
                         modifier = Modifier.weight(1f),
                         onClick = overlays::hideBox
                     )
                     ProfileSheetFooterButton(
                         text = "Reset",
                         primary = false,
+                        rectangular = true,
                         modifier = Modifier.weight(1f),
-                        onClick = { profileDraft = baseline }
+                        onClick = {
+                            profileDraft = baseline
+                            publishProfileHeaderPreview(baseline)
+                        }
                     )
                     ProfileSheetFooterButton(
-                        text = "Save",
+                        text = "Okay",
                         primary = true,
+                        rectangular = true,
                         enabled = canSave,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             val saved = profileDraft
+                            profileHeaderPreviewAwaitingPersistence = true
+                            publishProfileHeaderPreview(saved)
                             // The whole profile/header edit is committed only from this fixed
                             // footer.  Cancel and Reset never need to roll a persisted value back.
                             scope.launch {
@@ -204,7 +255,10 @@ fun XvoxMainShell(
             ProfileEditorBox(
                 profile = homeState.profile,
                 draft = profileDraft,
-                onDraftChange = { profileDraft = it }
+                onDraftChange = { updated ->
+                    profileDraft = updated
+                    publishProfileHeaderPreview(updated)
+                }
             )
         }
     }
@@ -486,12 +540,16 @@ fun XvoxMainShell(
     }
 
     fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
+        val isAlreadyOpen = destination == XvoxDestination.HOME && homeState.libraryMode == mode
         hoistedSelectedPlaylistId = null
         if (destination != XvoxDestination.HOME) {
             destination = XvoxDestination.HOME
         }
-        homeViewModel.setLibraryMode(mode)
-        // Every header-pill selection deliberately opens its page at the beginning.
+        // Header library pills are toggles: a second tap on the active library page closes it
+        // back to All Songs, while every other choice still opens its own page at the top.
+        homeViewModel.setLibraryMode(
+            if (isAlreadyOpen) com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS else mode
+        )
         homeScrollResetKey++
     }
 
@@ -512,8 +570,9 @@ fun XvoxMainShell(
     val homePageHeader: @Composable () -> Unit = {
         AnimatedVisibility(
             visible = destination != XvoxDestination.SETTINGS,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(240)) + fadeIn(tween(150)),
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(210)) + fadeOut(tween(120))
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(320)) + fadeIn(tween(200)),
+            // Settings deliberately lets the real Header glide upward instead of vanishing.
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(420)) + fadeOut(tween(330))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
@@ -533,8 +592,9 @@ fun XvoxMainShell(
     val searchPageHeader: @Composable () -> Unit = {
         AnimatedVisibility(
             visible = destination != XvoxDestination.SETTINGS,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(240)) + fadeIn(tween(150)),
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(210)) + fadeOut(tween(120))
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(320)) + fadeIn(tween(200)),
+            // Settings deliberately lets the real Header glide upward instead of vanishing.
+            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(420)) + fadeOut(tween(330))
         ) {
             XvoxShellTopHeader(
                 profile = homeState.profile,
@@ -611,17 +671,24 @@ fun XvoxMainShell(
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    // Home → Search and either page → Settings enter from the right. Leaving
-                    // Settings is therefore the true reverse: its destination enters from left
-                    // while Settings travels away to the right.
-                    val forward = (targetState == XvoxDestination.SETTINGS && initialState != XvoxDestination.SETTINGS) ||
-                        (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH)
-                    val direction = if (forward) 1 else -1
-                    ((slideInHorizontally(tween(300)) { it * direction } + fadeIn(tween(160)))
-                        togetherWith (slideOutHorizontally(tween(300)) { -it * direction } + fadeOut(tween(160))))
-                        .using(null)
+                    val isHomeSearchSwap = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
+                        (initialState == XvoxDestination.SEARCH && targetState == XvoxDestination.HOME)
+                    if (isHomeSearchSwap) {
+                        // The Header is structurally the same real list item in Home and Search.
+                        // Fade only the page content so it never travels sideways or rebuilds in
+                        // view; Home's own right action cluster still exits upward independently.
+                        (fadeIn(tween(220)) togetherWith fadeOut(tween(220))).using(null)
+                    } else {
+                        // Settings keeps a clearly slower directional route so its Header's
+                        // upward exit remains visible for the entire transition.
+                        val forward = targetState == XvoxDestination.SETTINGS
+                        val direction = if (forward) 1 else -1
+                        ((slideInHorizontally(tween(420)) { it * direction } + fadeIn(tween(220)))
+                            togetherWith (slideOutHorizontally(tween(420)) { -it * direction } + fadeOut(tween(220))))
+                            .using(null)
+                    }
                 },
-                label = "directionalTabs",
+                label = "stableHomeSearchTabs",
                 modifier = Modifier.fillMaxSize()
             ) { targetDestination ->
                 tabState.SaveableStateProvider(targetDestination.name) {
@@ -862,15 +929,17 @@ fun XvoxMainShell(
 private fun ProfileSheetFooterButton(
     text: String,
     primary: Boolean,
+    /** Profile uses the Equalizer's compact rectangular footer language. */
+    rectangular: Boolean = false,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(19.dp)
+    val shape = RoundedCornerShape(if (rectangular) 10.dp else 19.dp)
     Box(
         modifier = modifier
-            .height(38.dp)
+            .height(if (rectangular) 40.dp else 38.dp)
             .clip(shape)
             .background(
                 when {

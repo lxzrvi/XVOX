@@ -22,6 +22,19 @@ import kotlinx.coroutines.withContext
 
 internal val Context.xvoxDataStore by preferencesDataStore(name = "xvox_preferences")
 
+/** Persisted Recent-history capacity. Zero deliberately means truly Unlimited. */
+object XvoxRecentHistoryCapacity {
+    const val UNLIMITED = 0
+    val finiteOptions: List<Int> = listOf(20, 30, 40, 50)
+
+    fun normalize(value: Int): Int = if (value == UNLIMITED || value in finiteOptions) value else 20
+
+    fun <T> apply(items: List<T>, capacity: Int): List<T> =
+        if (normalize(capacity) == UNLIMITED) items else items.take(normalize(capacity))
+
+    fun label(capacity: Int): String = normalize(capacity).let { if (it == UNLIMITED) "Unlimited" else it.toString() }
+}
+
 class UserPreferencesRepository(
     private val context: Context
 ) {
@@ -36,6 +49,7 @@ class UserPreferencesRepository(
         val hiddenArtists = stringPreferencesKey("hidden_artists")
         val recentSongIds = stringPreferencesKey("recent_song_ids")
         val recentSongSources = stringPreferencesKey("recent_song_sources")
+        val recentHistoryCapacity = intPreferencesKey("recent_history_capacity")
         val lyricsUris = stringPreferencesKey("lyrics_uris")
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val fullscreenLyricsGradient = booleanPreferencesKey("fullscreen_lyrics_gradient")
@@ -89,6 +103,8 @@ class UserPreferencesRepository(
         val surroundPanSpeed = intPreferencesKey("surround_pan_speed")
 
         val appVolume = floatPreferencesKey("app_volume")
+        /** Peak-only anti-distortion/de-clip amount for the PCM DSP pipeline. */
+        val distortionControl = floatPreferencesKey("distortion_control")
         val volumeLimit = floatPreferencesKey("volume_limit")
 
         val surroundWidth = floatPreferencesKey("surround_width")
@@ -226,7 +242,15 @@ class UserPreferencesRepository(
     }.distinctUntilChanged()
 
     val recentSongIds: Flow<List<Long>> = context.xvoxDataStore.data.map { prefs ->
-        decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
+        XvoxRecentHistoryCapacity.apply(
+            decodeRecentIds(prefs[Keys.recentSongIds].orEmpty()),
+            prefs[Keys.recentHistoryCapacity] ?: 20
+        )
+    }.distinctUntilChanged()
+
+    /** 20 is the legacy/default capacity; zero represents an explicitly selected Unlimited list. */
+    val recentHistoryCapacity: Flow<Int> = context.xvoxDataStore.data.map { prefs ->
+        XvoxRecentHistoryCapacity.normalize(prefs[Keys.recentHistoryCapacity] ?: 20)
     }.distinctUntilChanged()
 
     /** Where each recent song was started from: Liked, a playlist name, All Songs, XvoxSplit… */
@@ -358,6 +382,7 @@ class UserPreferencesRepository(
     val centerPreservation: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.centerPreservation] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
 
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.appVolume] ?: 1.0f).coerceIn(0f, 2f) }.distinctUntilChanged()
+    val distortionControl: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.distortionControl] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
     val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
@@ -413,6 +438,7 @@ class UserPreferencesRepository(
             surroundDepth = (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f),
             orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(0f, 20f),
             masterVolume = ((it[Keys.appVolume] ?: 1f).coerceIn(0f, 2f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 2f),
+            distortionControl = (it[Keys.distortionControl] ?: 0f).coerceIn(0f, 1f),
             surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
             surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
             roomAmount = (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f),
@@ -648,6 +674,7 @@ class UserPreferencesRepository(
             it[Keys.hrtf] = state.hrtf.coerceIn(0f, 1f)
             it[Keys.centerPreservation] = state.centerPreservation.coerceIn(0f, 1f)
             it[Keys.appVolume] = state.appVolume.coerceIn(0f, 2f)
+            it[Keys.distortionControl] = state.distortionControl.coerceIn(0f, 1f)
             it[Keys.volumeLimit] = state.volumeLimit.coerceIn(0f, 1f)
         }
     }
@@ -840,16 +867,38 @@ class UserPreferencesRepository(
     suspend fun recordRecentSong(songId: Long, source: String? = null) {
         context.xvoxDataStore.edit { prefs ->
             val current = decodeRecentIds(prefs[Keys.recentSongIds].orEmpty())
-            val updated = buildList {
-                add(songId)
-                addAll(current.filterNot { it == songId })
-            }.take(20)
+            val capacity = XvoxRecentHistoryCapacity.normalize(prefs[Keys.recentHistoryCapacity] ?: 20)
+            val updated = XvoxRecentHistoryCapacity.apply(
+                buildList {
+                    add(songId)
+                    addAll(current.filterNot { it == songId })
+                },
+                capacity
+            )
             prefs[Keys.recentSongIds] = updated.joinToString(",")
             // Remember the origin alongside the id, and drop entries that fell off the list.
             val sources = decodeRecentSources(prefs[Keys.recentSongSources].orEmpty()).toMutableMap()
             if (!source.isNullOrBlank()) sources[songId] = source.take(48)
             sources.keys.retainAll(updated.toSet())
             prefs[Keys.recentSongSources] = encodeRecentSources(sources)
+        }
+    }
+
+    /** Changes capacity atomically and immediately trims existing ids and their source metadata. */
+    suspend fun setRecentHistoryCapacity(value: Int) {
+        context.xvoxDataStore.edit { prefs ->
+            val capacity = XvoxRecentHistoryCapacity.normalize(value)
+            prefs[Keys.recentHistoryCapacity] = capacity
+            val retained = XvoxRecentHistoryCapacity.apply(
+                decodeRecentIds(prefs[Keys.recentSongIds].orEmpty()),
+                capacity
+            )
+            if (retained.isEmpty()) prefs.remove(Keys.recentSongIds)
+            else prefs[Keys.recentSongIds] = retained.joinToString(",")
+            val sources = decodeRecentSources(prefs[Keys.recentSongSources].orEmpty()).toMutableMap()
+            sources.keys.retainAll(retained.toSet())
+            if (sources.isEmpty()) prefs.remove(Keys.recentSongSources)
+            else prefs[Keys.recentSongSources] = encodeRecentSources(sources)
         }
     }
 
@@ -861,6 +910,10 @@ class UserPreferencesRepository(
             } else {
                 prefs[Keys.recentSongIds] = updated.joinToString(",")
             }
+            val sources = decodeRecentSources(prefs[Keys.recentSongSources].orEmpty()).toMutableMap()
+            sources.remove(songId)
+            if (sources.isEmpty()) prefs.remove(Keys.recentSongSources)
+            else prefs[Keys.recentSongSources] = encodeRecentSources(sources)
         }
     }
 
@@ -896,7 +949,7 @@ class UserPreferencesRepository(
         sources.entries.joinToString("\n") { "${it.key}\t${it.value}" }
 
     private fun decodeRecentIds(raw: String): List<Long> =
-        raw.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct().take(50)
+        raw.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct()
 
     private suspend fun persistProfileImage(value: String?): String? {
         if (value.isNullOrBlank()) return null

@@ -133,6 +133,13 @@ fun EqualizerSettingsSection(
             onValueChange = { viewModel.setAppVolume(it * 2f) },
             defaultValue = .50f
         )
+        EqualizerSliderRow(
+            label = "Distortion Control",
+            valueText = "${(state.distortionControl * 100).roundToInt()}%",
+            value = state.distortionControl,
+            onValueChange = viewModel::setDistortionControl,
+            defaultValue = 0f
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EqualizerSectionLabel("Reverb preset")

@@ -17,6 +17,8 @@ data class LiveEqState(
     val orbitSeconds: Int,
     val appVolume: Float,
     val volumeLimit: Float,
+    /** Live adaptive clipped-peak repair amount. */
+    val distortionControl: Float = 0f,
     val bandCount: Int = 5,
     val noiseReduction: Float = 0f,
     val softenHighs: Float = 0f,
@@ -46,6 +48,7 @@ data class LiveEqState(
         surroundDepth = surroundDepth,
         orbitSeconds = orbitSeconds.toFloat(),
         masterVolume = (appVolume * volumeLimit).coerceIn(0f, 2f),
+        distortionControl = distortionControl.coerceIn(0f, 1f),
         surroundWidth = surroundWidth,
         surroundPosition = surroundPosition,
         roomAmount = roomAmount,

@@ -8,7 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,18 +38,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
-import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.UserPreferences
@@ -199,8 +205,7 @@ fun ProfileEditorBox(
             .fillMaxWidth()
             .verticalScroll(scrollState)
             .xvoxBoxScroll(scrollState)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(vertical = 6.dp)
     ) {
         XvoxAvatarPicker(
             username = draft.username,
@@ -222,9 +227,17 @@ fun ProfileEditorBox(
             onDeleteCustom = { uri ->
                 haptics.tap()
                 scope.launch { prefs.removeCustomPfp(uri) }
-            }
+            },
+            edgeToEdge = true
         )
 
+        Spacer(Modifier.height(14.dp))
+        // The sheet viewport itself is edge-to-edge for avatar choices. All form controls retain
+        // their own readable 16dp inset rather than relying on a negative child padding hack.
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Username", color = colors.secondaryText, fontSize = 11.sp)
             BasicTextField(
@@ -277,23 +290,16 @@ fun ProfileEditorBox(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Header", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    "Image / GIF",
-                    color = colors.secondaryText,
-                    fontSize = 11.sp
-                )
-                Text(
-                    text = "NEW",
-                    color = colors.background,
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(colors.primaryAccent)
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                )
-            }
+            Text(
+                text = "Image / GIF",
+                color = colors.primaryAccent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .border(.8.dp, colors.primaryAccent.copy(alpha = .70f), RoundedCornerShape(50))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -308,7 +314,7 @@ fun ProfileEditorBox(
                     modifier = Modifier.weight(1f)
                 )
                 HeaderImageChoice(
-                    title = if (draft.headerImageUri.isNullOrBlank()) "Image / GIF" else "Image / GIF ✓",
+                    title = "Custom",
                     active = !draft.headerImageUri.isNullOrBlank(),
                     imageUri = draft.headerImageUri ?: draft.rememberedHeaderImageUri,
                     onClick = {
@@ -359,21 +365,27 @@ fun ProfileEditorBox(
         }
 
         Spacer(Modifier.height(4.dp))
+        }
     }
 }
 
 private const val HeaderIdeasPinterestUrl = "https://in.pinterest.com/ideas/loop-banner-gif/939795684803/"
 
-/** A deliberately plain link: profile editing has no live Header preview or animated banner. */
+/** A quiet helper link: only the actionable words are accented. */
 @Composable
 private fun HeaderIdeasLoopBanner() {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
+    val line = buildAnnotatedString {
+        append("Need more cool Header ideas? ")
+        withStyle(SpanStyle(color = colors.primaryAccent, fontWeight = FontWeight.SemiBold)) {
+            append("Tap here")
+        }
+    }
     Text(
-        text = "Need more cool Header ideas? Tap here",
-        color = colors.primaryAccent,
+        text = line,
+        color = colors.secondaryText,
         fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(7.dp))
             .clickable {
@@ -395,13 +407,26 @@ private fun HeaderImageChoice(
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(21.dp)
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // The image begins slightly overscanned at rest and eases inward on press. The fixed clipped
+    // container never scales, so no card-colour flash or cropped blank ring can appear.
+    val imageScale by animateFloatAsState(
+        targetValue = if (pressed) 1f else 1.055f,
+        animationSpec = tween(120),
+        label = "headerChoiceImagePress"
+    )
     Box(
         modifier = modifier
             .height(42.dp)
             .clip(shape)
             .background(if (active) colors.primaryAccent else colors.cardElevated)
             .border(.8.dp, if (active) Color.Transparent else colors.cardBorder.copy(alpha = .65f), shape)
-            .xvoxPressScale(onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (!imageUri.isNullOrBlank()) {
@@ -409,7 +434,9 @@ private fun HeaderImageChoice(
                 model = imageUri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer { scaleX = imageScale; scaleY = imageScale }
             )
             Box(Modifier.matchParentSize().background(colors.background.copy(alpha = if (active) .40f else .62f)))
         }

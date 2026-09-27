@@ -11,6 +11,8 @@ data class AudioDspSettings(
     val surroundDepth: Float = .65f,
     val orbitSeconds: Float = 6f,
     val masterVolume: Float = 1f,
+    /** Adaptive clipped-peak repair amount; zero is completely transparent. */
+    val distortionControl: Float = 0f,
     val bandCount: Int = 5,
     val noiseReduction: Float = 0f,
     val softenHighs: Float = 0f,
@@ -116,6 +118,8 @@ class XvoxDspEngine {
     private var noiseToneL = 0.0; private var noiseToneR = 0.0
     private var currentSoftHighs = 1.0; private var targetSoftHighs = 1.0
     private var currentNoise = 0.0; private var targetNoise = 0.0; private var noiseEnvelope = 0.0; private var noiseGain = 1.0
+    // This is a smooth, peak-only de-clip control, never a disguised master-volume reduction.
+    private var currentDistortionControl = 0.0; private var targetDistortionControl = 0.0
     private var currentBassGain = 1.0
 
     fun configure(sampleRate: Int) {
@@ -150,6 +154,7 @@ class XvoxDspEngine {
         noiseEnvelope = 0.0; noiseGain = 1.0; currentNoise = 0.0; currentSoftHighs = 1.0
         currentBassGain = transitionBassGain.toDouble().coerceIn(0.0, 1.0)
         currentVolume = settings.masterVolume.toDouble().coerceIn(0.0, 2.0)
+        currentDistortionControl = settings.distortionControl.toDouble().coerceIn(0.0, 1.0)
         currentMix = mixGain.toDouble().coerceIn(0.0, 1.0)
         currentBalance = settings.balance.toDouble().coerceIn(-1.0, 1.0)
         currentDepth = 0.0
@@ -207,6 +212,7 @@ class XvoxDspEngine {
         targetReverbDamping = reverbProfile.damping
         targetReverbStereoWidth = reverbProfile.stereoWidth
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 2.0)
+        targetDistortionControl = s.distortionControl.toDouble().coerceIn(0.0, 1.0)
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = if (s.orbitSeconds > 0f) s.orbitSeconds.toDouble().coerceIn(1.0, 20.0) else 100000.0
     }
@@ -229,6 +235,7 @@ class XvoxDspEngine {
         block = (block + 1) and 31
         currentPreamp += (targetPreamp - currentPreamp) * reductionAlpha
         currentVolume += (targetVolume * duckGain - currentVolume) * controlAlpha
+        currentDistortionControl += (targetDistortionControl - currentDistortionControl) * controlAlpha
         currentSoftHighs += (targetSoftHighs - currentSoftHighs) * controlAlpha
         currentNoise += (targetNoise - currentNoise) * controlAlpha
         currentBassGain += (transitionBassGain.coerceIn(0f, 1f) - currentBassGain) * fastAlpha
@@ -360,9 +367,30 @@ class XvoxDspEngine {
         val mixedR = r * currentMix
         val boostedL = if (currentVolume <= 1.0001) mixedL * currentVolume else tanh(mixedL * currentVolume)
         val boostedR = if (currentVolume <= 1.0001) mixedR * currentVolume else tanh(mixedR * currentVolume)
-        peakGuard.process(boostedL, boostedR)
+        // Repair overload only where it exists before the transparent look-ahead guard. Normal
+        // programme material below the moving knee is mathematically untouched; this attenuates
+        // clipped peaks/harsh saturation, rather than lowering the song's overall volume.
+        val repairedL = repairDistortion(boostedL, currentDistortionControl)
+        val repairedR = repairDistortion(boostedR, currentDistortionControl)
+        peakGuard.process(repairedL, repairedR)
         left = peakGuard.left.toFloat()
         right = peakGuard.right.toFloat()
+    }
+
+    private fun repairDistortion(sample: Double, amount: Double): Double {
+        val strength = amount.coerceIn(0.0, 1.0)
+        if (strength <= .0001) return sample
+        // The knee lowers only as the user asks for more repair. At full strength, quiet and
+        // normal musical body remain exact while overloaded crests receive a smooth re-curve.
+        val knee = .96 - .32 * strength
+        val magnitude = abs(sample)
+        if (magnitude <= knee) return sample
+        val headroom = (1.0 - knee).coerceAtLeast(.001)
+        val normalizedExcess = (magnitude - knee) / headroom
+        val curve = 1.0 + strength * 2.4
+        val repairedMagnitude = knee + headroom * tanh(normalizedExcess * curve) / tanh(curve)
+        val blended = magnitude + (repairedMagnitude - magnitude) * strength
+        return if (sample < 0.0) -blended else blended
     }
 
     private fun delayed(buffer: DoubleArray, samples: Double): Double {

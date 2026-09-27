@@ -61,6 +61,7 @@ class HomeViewModel(
     private var publishJob: Job? = null
     private var allRawSongs: List<Song> = emptyList()
     private var recentIds: List<Long> = emptyList()
+    private var recentHistoryCapacity = 20
     private var prefetchJob: Job? = null
     private var lastPrefetchStart = -1
     private var transitionId = 0L
@@ -95,6 +96,22 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository.recentSongSources.collect { sources ->
                 _state.update { it.copy(recentSources = sources) }
+            }
+        }
+        viewModelScope.launch {
+            preferencesRepository.recentHistoryCapacity.collect { capacity ->
+                recentHistoryCapacity = capacity
+                _state.update { current ->
+                    val kept = com.xvox.music.data.preferences.XvoxRecentHistoryCapacity.apply(
+                        current.recentlyPlayed,
+                        capacity
+                    )
+                    current.copy(
+                        recentHistoryCapacity = capacity,
+                        recentlyPlayed = kept,
+                        recentSources = current.recentSources.filterKeys { id -> kept.any { it.id == id } }
+                    )
+                }
             }
         }
     }
@@ -228,6 +245,20 @@ class HomeViewModel(
             preferencesRepository.saveProfile(username, selectedPfp, customPfpUri)
             onDone()
         }
+    }
+
+    fun setRecentHistoryCapacity(value: Int) {
+        val capacity = com.xvox.music.data.preferences.XvoxRecentHistoryCapacity.normalize(value)
+        recentHistoryCapacity = capacity
+        _state.update { current ->
+            val kept = com.xvox.music.data.preferences.XvoxRecentHistoryCapacity.apply(current.recentlyPlayed, capacity)
+            current.copy(
+                recentHistoryCapacity = capacity,
+                recentlyPlayed = kept,
+                recentSources = current.recentSources.filterKeys { id -> kept.any { it.id == id } }
+            )
+        }
+        viewModelScope.launch { preferencesRepository.setRecentHistoryCapacity(capacity) }
     }
 
     fun removeFromRecent(song: Song) {
@@ -397,12 +428,17 @@ class HomeViewModel(
 
     private fun promote(song: Song, transition: RecentTransitionRequest, source: String?) {
         _state.update { current ->
-            current.copy(
-                recentlyPlayed = buildList {
+            val kept = com.xvox.music.data.preferences.XvoxRecentHistoryCapacity.apply(
+                buildList {
                     add(song)
                     addAll(current.recentlyPlayed.filterNot { it.id == song.id })
-                }.take(20),
-                recentSources = if (source.isNullOrBlank()) current.recentSources else current.recentSources + (song.id to source),
+                },
+                recentHistoryCapacity
+            )
+            val sources = if (source.isNullOrBlank()) current.recentSources else current.recentSources + (song.id to source)
+            current.copy(
+                recentlyPlayed = kept,
+                recentSources = sources.filterKeys { id -> kept.any { it.id == id } },
                 recentTransition = transition
             )
         }

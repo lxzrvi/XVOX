@@ -37,10 +37,12 @@ fun XvoxContinuousSlider(
     modifier: Modifier = Modifier,
     defaultValue: Float? = null,
     enabled: Boolean = true,
-    contentDescription: String = "Value"
+    contentDescription: String = "Value",
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val latestChange by rememberUpdatedState(onValueChange)
+    val latestFinish by rememberUpdatedState(onValueChangeFinished)
     val start = valueRange.start
     val end = valueRange.endInclusive
     val span = (end - start).coerceAtLeast(.0001f)
@@ -73,11 +75,15 @@ fun XvoxContinuousSlider(
                 if (!enabled) return@pointerInput
                 detectTapGestures { offset ->
                     setFraction(offset.x / size.width.toFloat().coerceAtLeast(1f))
+                    latestFinish?.invoke()
                 }
             }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
-                detectHorizontalDragGestures { change, _ ->
+                detectHorizontalDragGestures(
+                    onDragEnd = { latestFinish?.invoke() },
+                    onDragCancel = { latestFinish?.invoke() }
+                ) { change, _ ->
                     change.consume()
                     setFraction(change.position.x / size.width.toFloat().coerceAtLeast(1f))
                 }

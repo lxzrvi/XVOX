@@ -103,13 +103,16 @@ fun XvoxShellTopHeader(
     )
     // Home library changes keep this Header stable. Search retains the profile/header surface but
     // sends only Home's refresh/pill actions upward; Settings owns the complete-header exit.
-    // Use only persisted chrome state: profile editing deliberately has no live preview.
-    val dimEnabled = chrome.headerDimEnabled
-    val dimAmount = chrome.headerDimAmount
+    // Profile editing publishes a transient presentation here, so the real Header previews image
+    // and dimness in the same frame without committing either preference until Okay.
+    val preview = com.xvox.music.core.ui.chrome.XvoxHeaderPreview.value
+    val visibleHeaderImage = preview?.imageUri ?: profile.headerImageUri
+    val dimEnabled = preview?.dimEnabled ?: chrome.headerDimEnabled
+    val dimAmount = preview?.dimAmount ?: chrome.headerDimAmount
     val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
-    val hasCustomHeader = !profile.headerImageUri.isNullOrBlank()
+    val hasCustomHeader = !visibleHeaderImage.isNullOrBlank()
 
     Box(
         modifier = Modifier
@@ -130,15 +133,14 @@ fun XvoxShellTopHeader(
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(
-                model = profile.headerImageUri,
+                model = visibleHeaderImage,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier
                     .matchParentSize()
             )
         }
-        // Apply the persisted Header dim style to both custom artwork and the default palette.
-        // Profile editing intentionally does not inject a live Header preview into this surface.
+        // Apply the persisted-or-live-preview Header dim style to artwork and the default palette.
         if (headerDimAlpha > .001f) {
             Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
         }

@@ -293,28 +293,9 @@ fun XvoxSheet(
                         dismissDistancePx = with(density) { 52.dp.toPx() }
                     )
                 }
-                // A manually expanded sheet can still be resized through its drag pill. Normal
-                // content scrolling never creates a blank intermediate viewport: it stays at its
-                // intrinsic measurement until the content itself overflows the available height.
-                val universalBodySheetConnection = remember(contentScrollBridge) {
-                    object : NestedScrollConnection {
-                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                            if (available.y >= 0f || requestedHeightPx <= 0f) return Offset.Zero
-                            val consumedY = contentScrollBridge.consume(available.y, atTop = true)
-                            return Offset(0f, consumedY)
-                        }
-
-                        override fun onPostScroll(
-                            consumed: Offset,
-                            available: Offset,
-                            source: NestedScrollSource
-                        ): Offset {
-                            if (available.y <= 0f || requestedHeightPx <= 0f) return Offset.Zero
-                            val consumedY = contentScrollBridge.consume(available.y, atTop = true)
-                            return Offset(0f, consumedY)
-                        }
-                    }
-                }
+                // Body scrolling is intentionally delegated to xvoxBoxScroll. It knows whether
+                // a ScrollState/Lazy list really has overflow and is at its top; a universal
+                // parent interceptor cannot know that and used to steal ordinary body scrolls.
 
                 val requestedHeight: Dp? = requestedHeightPx
                     .takeIf { it > 0f }
@@ -372,8 +353,16 @@ fun XvoxSheet(
                                             change.consume()
                                             dragDeltaPx += amount
                                             if (dragDeltaPx < 0f) {
-                                                requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
-                                                    .coerceIn(1f, maxSheetHeightPx)
+                                                // A short/intrinsic sheet has already measured all
+                                                // of its content. Do not turn a pill pull into
+                                                // empty extra viewport; only an overflowing (or
+                                                // previously contracted) sheet may grow.
+                                                val canGrow = requestedHeightPx > 0f ||
+                                                    measuredHeightPx >= maxSheetHeightPx - 2f
+                                                if (canGrow) {
+                                                    requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
+                                                        .coerceIn(1f, maxSheetHeightPx)
+                                                }
                                             } else if (dragStartHeightPx > contentContractFloorPx) {
                                                 // A pill drag can compact continuously; it only
                                                 // closes after the sheet has crossed 40% height.
@@ -425,6 +414,9 @@ fun XvoxSheet(
                         // All sheets are deliberately line-free beneath the Header. The clipped
                         // body begins directly after Header's own touch-safe lower inset.
                         val bodyHorizontal = when {
+                            // Profile supplies 16dp inner padding to ordinary form fields itself;
+                            // the shared viewport stays edge-to-edge for the avatar carousel.
+                            presentation == XvoxBoxPresentation.PROFILE -> 0.dp
                             songOptionsPresentation -> 12.dp
                             presentation == XvoxBoxPresentation.EQUALIZER -> 16.dp
                             else -> 16.dp
@@ -437,7 +429,6 @@ fun XvoxSheet(
                                 .fillMaxWidth()
                                 .then(bodyViewport)
                                 .heightIn(min = 0.dp)
-                                .nestedScroll(universalBodySheetConnection)
                                 // The viewport stays clipped beneath Header/footer. Keep a small
                                 // content-safe inset, but deliberately draw no separator line.
                                 .clipToBounds()

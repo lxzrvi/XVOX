@@ -53,7 +53,9 @@ fun XvoxAvatarPicker(
     onAddCustom: () -> Unit,
     onDeleteCustom: (String) -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 54.dp
+    size: Dp = 54.dp,
+    /** Lets Profile use the whole sheet width while keeping the first/last circles uncropped. */
+    edgeToEdge: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val builtIns = PfpType.entries.filter { it != PfpType.CUSTOM }
@@ -78,7 +80,12 @@ fun XvoxAvatarPicker(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = if (edgeToEdge) 12.dp else 0.dp,
+            end = if (edgeToEdge) 12.dp else 0.dp,
+            top = 6.dp,
+            bottom = 6.dp
+        )
     ) {
         items(builtIns, key = { it.name }) { type ->
             val isSelected = selectedType == type && selectedCustomUri == null

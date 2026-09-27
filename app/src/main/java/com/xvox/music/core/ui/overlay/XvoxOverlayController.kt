@@ -22,6 +22,8 @@ enum class XvoxBoxPresentation {
     SONG_OPTIONS,
     /** Bottom-sheet audio editor with the supplied Equalizer styling. */
     EQUALIZER,
+    /** Profile sheet permits its avatar carousel to reach the sheet's horizontal edges. */
+    PROFILE,
     /** Secondary/deeper choice presented as a centred dialog over its parent sheet. */
     CENTERED
 }

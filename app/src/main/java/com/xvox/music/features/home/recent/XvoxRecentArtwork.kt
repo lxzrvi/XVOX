@@ -1,11 +1,13 @@
 package com.xvox.music.features.home.recent
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -113,30 +116,33 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // Play/Pause indicator in top-right
+        // Play/Pause indicator in top-right. A fixed-width target animation avoids the old
+        // spring relayout lag while the icon itself crossfades/scales in one short motion.
+        val playbackActive = current && playing
+        val badgeWidth by animateDpAsState(
+            targetValue = if (playbackActive) 72.dp else 30.dp,
+            animationSpec = tween(140),
+            label = "recentPlayingBadgeWidth"
+        )
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(9.dp)
+                .width(badgeWidth)
                 .height(30.dp)
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = if (current && playing) 0.68f else 0.52f))
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = 0.88f,
-                        stiffness = 700f
-                    )
-                )
+                .background(Color.Black.copy(alpha = if (playbackActive) 0.68f else 0.52f))
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.Start
         ) {
             AnimatedContent(
-                targetState = current && playing,
+                targetState = playbackActive,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
+                    (fadeIn(tween(90)) + scaleIn(initialScale = .82f, animationSpec = tween(110)))
+                        .togetherWith(fadeOut(tween(70)) + scaleOut(targetScale = .82f, animationSpec = tween(90)))
                 },
-                label = "recentPlayState"
+                label = "recentPlayPauseMorph"
             ) { active ->
                 PlaybackIcon(
                     type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
@@ -144,13 +150,17 @@ fun XvoxRecentArtwork(
                     modifier = Modifier.size(14.dp)
                 )
             }
-
-            if (current && playing) {
+            AnimatedVisibility(
+                visible = playbackActive,
+                enter = fadeIn(tween(80)),
+                exit = fadeOut(tween(60))
+            ) {
                 Text(
                     text = "Playing",
                     color = Color.White,
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Normal
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.padding(start = 5.dp)
                 )
             }
         }

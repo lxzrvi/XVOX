@@ -257,9 +257,22 @@ fun HomeScreen(
         val sourcedSong = song.copy(source = actualSource)
 
         val settingsAction: (() -> Unit)? = when {
-            // Recently Played is a standalone upper-header destination, not a Home section.
-            // Its song menu has no Home-layout gear.
-            recent -> null
+            // Recent song options intentionally expose a gear for the persisted history capacity,
+            // not the unrelated Home-layout controls used by All Songs.
+            recent -> {
+                {
+                    overlays.showBox(title = "Recent capacity") {
+                        RecentCapacityBoxContent(
+                            currentCapacity = state.recentHistoryCapacity,
+                            onSelect = { capacity ->
+                                viewModel.setRecentHistoryCapacity(capacity)
+                                overlays.hideBox()
+                                overlays.showP("Recent history: ${com.xvox.music.data.preferences.XvoxRecentHistoryCapacity.label(capacity)}")
+                            }
+                        )
+                    }
+                }
+            }
             selectionSource == XvoxHomeLibraryMode.LIKED -> null
             playlist != null -> {
                 {

@@ -109,6 +109,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.centerPreservation.collect { v -> _state.update { it.copy(centerPreservation = v) } } }
 
             launch { prefs.appVolume.collect { v -> _state.update { it.copy(appVolume = AudioEffectsManager.liveEq.value?.appVolume ?: v) } } }
+            launch { prefs.distortionControl.collect { v -> _state.update { it.copy(distortionControl = AudioEffectsManager.liveEq.value?.distortionControl ?: v) } } }
             launch { prefs.volumeLimit.collect { v -> _state.update { it.copy(volumeLimit = AudioEffectsManager.liveEq.value?.volumeLimit ?: v) } } }
 
             launch { prefs.widgetTransparency.collect { v -> _state.update { it.copy(widgetTransparency = v) } } }
@@ -247,6 +248,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             eqBands = List(5) { 0 },
             customEqBands = List(5) { 0 },
             appVolume = 1f,
+            distortionControl = 0f,
             reverbPreset = com.xvox.music.audio.ReverbPresets.OFF,
             reverbAmount = .50f,
             noiseReduction = .50f,
@@ -272,6 +274,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 orbitSeconds = value.surroundPanSpeed,
                 appVolume = value.appVolume,
                 volumeLimit = value.volumeLimit,
+                distortionControl = value.distortionControl,
                 bandCount = value.eqBandCount,
                 noiseReduction = value.noiseReduction,
                 softenHighs = value.softenHighs,
@@ -342,6 +345,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSurroundPanSpeed(speed: Int) = changeAudio { it.copy(surroundPanSpeed = speed.coerceIn(0, 20)) }
 
     fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 2f)) }
+    fun setDistortionControl(amount: Float) = changeAudio { it.copy(distortionControl = amount.coerceIn(0f, 1f)) }
     fun setVolumeLimit(limit: Float) = changeAudio { it.copy(volumeLimit = limit.coerceIn(0f, 1f)) }
 
     fun setWidgetTransparency(t: Float) = viewModelScope.launch { prefs.setWidgetTransparency(t) }

@@ -151,6 +151,41 @@ object XvoxChromePreview {
     }
 }
 
+/** A non-persistent Profile-editor presentation reflected by the real app Header immediately. */
+data class XvoxHeaderPresentationPreview(
+    val imageUri: String?,
+    val dimEnabled: Boolean,
+    val dimAmount: Float
+)
+
+object XvoxHeaderPreview {
+    private val state = mutableStateOf<XvoxHeaderPresentationPreview?>(null)
+    val value: XvoxHeaderPresentationPreview? get() = state.value
+
+    fun publish(preview: XvoxHeaderPresentationPreview) {
+        state.value = preview
+    }
+
+    fun clear() {
+        state.value = null
+    }
+
+    fun clearWhenPersisted(
+        imageUri: String?,
+        dimEnabled: Boolean,
+        dimAmount: Float
+    ) {
+        val current = state.value ?: return
+        if (
+            current.imageUri == imageUri &&
+            current.dimEnabled == dimEnabled &&
+            kotlin.math.abs(current.dimAmount - dimAmount) < .001f
+        ) {
+            state.value = null
+        }
+    }
+}
+
 /** Parses "#RRGGBB" (or short "#RGB") into a colour; null when blank/invalid. */
 fun parseHexColor(hex: String): Color? {
     var value = hex.trim().removePrefix("#")

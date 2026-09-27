@@ -4,6 +4,8 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -12,6 +14,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +40,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -104,8 +110,19 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    // Search is a real page list: Header first, then the field directly beneath it. The field's
-    // sticky surface owns only its own compact rhythm rather than reserving a phantom top gap.
+    // Search is a real page list: Header first, then the field directly beneath it. Once that
+    // field becomes sticky, it deliberately reserves the status-bar height plus a small gap so
+    // it remains visibly below system chrome instead of being pinned behind it.
+    val isSearchFieldPinned by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 }
+    }
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val stickySearchTop by animateDpAsState(
+        targetValue = if (isSearchFieldPinned) statusBarHeight + 6.dp else 2.dp,
+        animationSpec = tween(160),
+        label = "searchStatusSafeStickyInset"
+    )
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -457,12 +474,11 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colors.background)
-                        // Keep the field immediately beneath the real Header on entry. The
-                        // Header itself owns status-bar reach; no phantom status-bar gap belongs
-                        // between the two page items.
+                        // On entry this stays directly under the scrolling Header. Once
+                        // pinned, stickySearchTop becomes status bars + an intentional 6dp gap.
                         .padding(
                             start = 14.dp,
-                            top = 2.dp,
+                            top = stickySearchTop,
                             end = 14.dp,
                             bottom = 4.dp
                         )

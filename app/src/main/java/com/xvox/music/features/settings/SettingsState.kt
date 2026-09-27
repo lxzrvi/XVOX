@@ -83,6 +83,8 @@ data class SettingsState(
     val hrtf: Float = 0.6f,
     val centerPreservation: Float = 0f,
     val appVolume: Float = 1.0f,
+    /** Peak-only de-clip/anti-harshness DSP; it leaves normal programme level intact. */
+    val distortionControl: Float = 0f,
     val volumeLimit: Float = 1.0f,
     val playbackSpeed: Float = 1.0f,
     val playbackPitch: Float = 1.0f,
