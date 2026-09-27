@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.features.settings.sections
 
 import android.app.WallpaperManager
@@ -17,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -82,7 +80,7 @@ fun WidgetStudioScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.background)
-            .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Row(
             modifier = Modifier

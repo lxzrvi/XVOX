@@ -262,10 +262,6 @@ class HomeViewModel(
             prefetchJob?.cancel()
             lastPrefetchStart = -1
             publishFilteredSongs()
-            // Pull-to-refresh reports its completion only after the newly filtered list (and the
-            // resolved Recently Played order) is committed, so the visible page can animate the
-            // corrected content instead of showing a success pill against stale cards.
-            publishJob?.join()
 
             _state.update { it.copy(refreshing = false, loading = false) }
             prefetchFrom(0)

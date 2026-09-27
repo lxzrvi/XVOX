@@ -82,7 +82,7 @@ fun XvoxStartupLoadingScreen(
                 activeDot = index
                 delay(132)
             }
-            delay(92)
+            // Immediately begin the next pass: the accent never visibly parks on the last dot.
         }
         activeDot = -1
 
@@ -186,7 +186,9 @@ fun XvoxStartupLoadingScreen(
                         .fillMaxWidth()
                         .height(StartupRailHeight)
                         .clip(RoundedCornerShape(50))
-                        .background(colors.secondaryText.copy(alpha = .30f))
+                        // The rail guide stays in the same accent hue as the travelling dots,
+                        // so their dot-to-bar handoff blends instead of changing colour mid-morph.
+                        .background(colors.primaryAccent.copy(alpha = .30f))
                 )
                 if (shownRail > 0f) {
                     Box(
@@ -215,7 +217,10 @@ fun XvoxStartupLoadingScreen(
                     // Once widths meet, every former dot uses the exact same guide-rail tone.
                     // That removes colour segmentation as well as physical gaps at the join.
                     val dotColor = when {
-                        morphingToRail -> colors.secondaryText.copy(alpha = .30f)
+                        // Use the same accent-hued guide as the rail behind it. This is what
+                        // makes five dots visually become one progress rail rather than flash
+                        // through a separate grey state.
+                        morphingToRail -> colors.primaryAccent.copy(alpha = .30f)
                         accentIsHere -> colors.primaryAccent
                         else -> colors.secondaryText.copy(alpha = .42f)
                     }

@@ -366,9 +366,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 2f)) }
     fun setDistortionControl(amount: Float) = changeAudio { it.copy(distortionControl = amount.coerceIn(0f, 1f)) }
     fun setDistortionControlEnabled(enabled: Boolean) = changeAudio {
-        // Toggling bypass never rewrites the amount: 0 stays an exact no-control setting, while
-        // any retained nonzero amount resumes only when the explicit enable is on.
-        it.copy(distortionControlEnabled = enabled)
+        // The UI deliberately exposes this as a single switch. On restores the original standard
+        // repair/protection amount; Off is an exact zero-control DSP bypass.
+        it.copy(
+            distortionControlEnabled = enabled,
+            distortionControl = if (enabled) .50f else 0f
+        )
     }
     fun setVolumeLimit(limit: Float) = changeAudio { it.copy(volumeLimit = limit.coerceIn(0f, 1f)) }
 

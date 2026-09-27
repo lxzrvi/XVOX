@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
@@ -101,7 +99,7 @@ fun XvoxShellTopHeader(
     val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder) ?: colors.cardBorder
     val density = LocalDensity.current
     val statusBarHeight = with(density) {
-        if (useSystemInsets) WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() else 0.dp
+        if (useSystemInsets) WindowInsets.statusBars.getTop(this).toDp() else 0.dp
     }
     val headerHeight = statusBarHeight + XvoxShellTopHeaderBodyHeight
     val libraryActions = listOf(
@@ -158,7 +156,7 @@ fun XvoxShellTopHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility) else Modifier)
+                .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
                 .padding(horizontal = 14.dp, vertical = 6.dp)
                 .height(54.dp),
             verticalAlignment = Alignment.CenterVertically

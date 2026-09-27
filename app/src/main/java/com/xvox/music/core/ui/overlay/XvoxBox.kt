@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
@@ -29,7 +27,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -263,7 +261,7 @@ fun XvoxSheet(
                     .imePadding(),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                val statusTopPx = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
+                val statusTopPx = WindowInsets.statusBars.getTop(density)
                 val maxSheetHeight = with(density) {
                     (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
                 }

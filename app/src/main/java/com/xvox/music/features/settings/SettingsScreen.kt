@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.features.settings
 
 import android.content.ClipData
@@ -109,7 +107,7 @@ fun SettingsScreen(
     }
 
     val density = LocalDensity.current
-    val statusTop = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() }
+    val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
 
     Box(
         modifier = modifier
@@ -278,13 +276,6 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            // This sits immediately below orientation because both are window policy. Insets
-            // remain reserved by the shell even while the system bar itself is hidden.
-            SettingsToggle(
-                title = "Hide status bar",
-                checked = state.hideStatusBar,
-                onChange = viewModel::setHideStatusBar
-            )
         }
     }
 }

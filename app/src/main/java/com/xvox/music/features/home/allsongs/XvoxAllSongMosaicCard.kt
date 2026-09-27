@@ -50,13 +50,9 @@ fun XvoxAllSongMosaicCard(
         else -> CardCorners(22.dp, 22.dp, 8.dp, 8.dp)
     }
     val shape = corners.inset(0.dp)
-    val inset = when {
-        dense -> 3.dp
-        // The regular/landscape mosaic uses the same calm 6dp artwork frame as playlist,
-        // liked, Search, and Queue cards.
-        classic -> 6.dp
-        else -> 6.dp
-    }
+    // Portrait's compact All Songs frame is the shared artwork-to-card reference everywhere.
+    // Keep mosaic/landscape tiles equally tight instead of inflating their cover gutter.
+    val inset = 3.dp
     val artShape = corners.inset(inset)
     val presentation = if (classic) 0 else styleIndex % 4
 

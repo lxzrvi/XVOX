@@ -30,7 +30,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -551,6 +551,9 @@ fun XvoxMainShell(
     }
 
     fun returnToHome(resetScroll: Boolean = true) {
+        // The Header shares Home's first spacer item; reset both in the same route action so a
+        // returning page can never briefly inherit a stale off-screen Header position.
+        homeHeaderScrollPx = 0
         if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
         if (resetScroll) homeScrollResetKey++
     }
@@ -560,6 +563,7 @@ fun XvoxMainShell(
             if (destination == XvoxDestination.HOME) {
                 // A second Home tap is the familiar home action: return to All Songs at its top.
                 hoistedSelectedPlaylistId = null
+                homeHeaderScrollPx = 0
                 homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
                 homeResetKey++
                 homeScrollResetKey++
@@ -688,7 +692,7 @@ fun XvoxMainShell(
         // One shell-owned Header spans every tab. Its background begins behind the status bar,
         // while page content receives the same measured inset instead of composing its own copy.
         val sharedHeaderHeight = with(density) {
-            WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp()
+            WindowInsets.statusBars.getTop(this).toDp()
         } + XvoxShellTopHeaderBodyHeight
         val sharedHeaderHeightPx = with(density) { sharedHeaderHeight.toPx() }
         // A player close must render the shell Header at rest in its very first returning frame,
@@ -724,7 +728,14 @@ fun XvoxMainShell(
                 sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
             }
         }
-        val sharedHeaderTranslationY = if (returningFromNowPlaying) 0f else sharedHeaderTranslation.value
+        val sharedHeaderTranslationY = when {
+            returningFromNowPlaying -> 0f
+            // While a page is settled, use its scroll-derived translation in the very same
+            // composition frame. The Header therefore travels with Home/Search content rather
+            // than visibly easing a beat behind it.
+            destination != XvoxDestination.SETTINGS && settledHeaderRoute == destination -> targetHeaderTranslationY
+            else -> sharedHeaderTranslation.value
+        }
         val tabState = rememberSaveableStateHolder()
         // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
         // remain locked together during a route motion. Settings itself intentionally consumes
@@ -762,9 +773,16 @@ fun XvoxMainShell(
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    onScrollProgress = { _, travelledPx ->
+                                    onScrollProgress = { index, offset ->
                                         if (destination == XvoxDestination.HOME) {
-                                            homeHeaderScrollPx = travelledPx
+                                            // Home's first LazyColumn item is the exact Header-height
+                                            // spacer, so this is the page's own scroll position—not a
+                                            // separately interpolated header animation.
+                                            homeHeaderScrollPx = if (index > 0) {
+                                                sharedHeaderHeightPx.roundToInt()
+                                            } else {
+                                                offset
+                                            }
                                         }
                                     }
                                 )
@@ -831,8 +849,13 @@ fun XvoxMainShell(
         if (isLandscape) {
             // In landscape the compact shell owns the Mini Player directly rather than through the
             // portrait host. Preserve the same fixed keyboard-only −12dp lift here.
+            val landscapeImeAboveNav = (
+                WindowInsets.ime.getBottom(density) - WindowInsets.navigationBars.getBottom(density)
+            ).coerceAtLeast(0)
+            // Ignore the tiny residual IME inset during keyboard close, so landscape returns
+            // directly to its normal lane rather than lingering a few pixels too high.
             val landscapeImeVisible = WindowInsets.isImeVisible &&
-                WindowInsets.ime.getBottom(density) > WindowInsets.navigationBars.getBottom(density)
+                landscapeImeAboveNav > with(density) { 48.dp.roundToPx() }
             val landscapeKeyboardOffset = if (landscapeImeVisible) (-12).dp else 0.dp
             if (landscapeQuickActionsVisible) {
                 Box(

@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.player.nowplaying
 
 import androidx.activity.compose.BackHandler
@@ -18,7 +16,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -152,12 +149,6 @@ fun XvoxNowPlaying(
     }
 
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // Landscape Now Playing deliberately hides the status bar as part of its compact player
-    // treatment. Keep the stable former-bar/cutout lane out of interactive artwork and controls
-    // even while it is visually hidden (and especially when the global preference is enabled).
-    val statusSafeTop = with(density) {
-        WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp()
-    }
     val isCompact = (settingsState.nowPlayingStyle == "compact" || settingsState.nowPlayingStyle == "immersive") && !isLandscape
 
     var screenY by rememberSaveable { mutableFloatStateOf(screenHeight) }
@@ -469,9 +460,7 @@ fun XvoxNowPlaying(
     // compact 6dp side frame restores the earlier, tighter artwork geometry.
     val currentPadH = lerp(6.dp, 0.dp, fullscreenProgress)
     val currentCardRadius = lerp(20.dp, 0.dp, fullscreenProgress)
-    // Fullscreen hides system chrome, but its content still stops below the stable former
-    // status/cutout line. This mirrors the global hide-status-bar safety contract.
-    val currentPadTop = lerp(headerHeightDp + 4.dp, statusSafeTop, fullscreenProgress)
+    val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 8.dp, 0.dp, fullscreenProgress)
 
     // System chrome is owned by the player, rather than by an individual lyrics surface. This
@@ -482,18 +471,17 @@ fun XvoxNowPlaying(
     val playerInsetsController = remember(playerWindow, playerView) {
         playerWindow?.let { WindowCompat.getInsetsController(it, playerView) }
     }
-    DisposableEffect(playerInsetsController, settingsState.hideStatusBar) {
+    DisposableEffect(playerInsetsController) {
         playerInsetsController?.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         onDispose {
-            // Never undo the user's app-wide hidden-status-bar preference while the player exits.
-            if (!settingsState.hideStatusBar) {
-                playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
-            }
+            // The app root normally presents status bars. Restore that baseline only after the
+            // whole player leaves composition, never during a fullscreen reverse morph.
+            playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
         }
     }
-    LaunchedEffect(isLandscape, isFullscreen, settingsState.hideStatusBar, playerInsetsController) {
-        if (settingsState.hideStatusBar || isLandscape || isFullscreen) {
+    LaunchedEffect(isLandscape, isFullscreen, playerInsetsController) {
+        if (isLandscape || isFullscreen) {
             playerInsetsController?.hide(WindowInsetsCompat.Type.statusBars())
         } else {
             playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
@@ -520,15 +508,8 @@ fun XvoxNowPlaying(
 
         if (isLandscape) {
             // The ordinary landscape cover keeps its framed, rounded top/bottom containment.
-            // Fullscreen lyrics may still fill the player canvas, but the retained status/cutout
-            // lane below is never used for interactive content while system chrome is hidden.
-            BoxWithConstraints(
-                Modifier
-                    .fillMaxSize()
-                    // The artwork/control content begins below the retained status/cutout-safe
-                    // lane while the backdrop still paints behind it edge to edge.
-                    .padding(top = statusSafeTop)
-            ) {
+            // Fully expanded lyrics deliberately override that frame and reach the player edge.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
                 val compactInset = 10.dp
                 val compactGutter = 10.dp
                 // The compact artwork frame includes an equal inset on *all four* edges. Its
@@ -656,9 +637,9 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            // The landscape controls are an XVOX theme surface, never a
-                            // translucent window onto the cover-derived adaptive backdrop.
-                            .background(colors.card)
+                            // Match portrait's translucent bottom-control treatment so this
+                            // landscape right card feels like the same player surface.
+                            .background(colors.background.copy(alpha = 0.35f))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween

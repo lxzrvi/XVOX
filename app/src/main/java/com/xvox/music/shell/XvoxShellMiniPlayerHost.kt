@@ -94,11 +94,12 @@ fun BoxScope.XvoxShellMiniPlayerHost(
             val imeBottomPx = WindowInsets.ime.getBottom(density)
             val navBottomPx = WindowInsets.navigationBars.getBottom(density)
             val imeAboveNavigationPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
-            // isImeVisible flips at the close request rather than after the inset's closing
-            // animation has trickled through. That lets the card snap directly to its resting
-            // lane instead of lingering a little high and then dropping a second time.
+            // As the keyboard closes, stop treating a small residual inset as an active keyboard.
+            // This snaps the Mini Player straight back to its resting lane instead of leaving it
+            // briefly parked above the navbar during the final IME animation frames.
+            val imeCloseSnapThresholdPx = with(density) { 48.dp.roundToPx() }
             val imeIsActuallyOccluding = WindowInsets.isImeVisible &&
-                imeBottomPx > navBottomPx && imeAboveNavigationPx > 1
+                imeBottomPx > navBottomPx && imeAboveNavigationPx > imeCloseSnapThresholdPx
             val effectiveImeDp = with(density) { imeAboveNavigationPx.toDp() }
 
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)

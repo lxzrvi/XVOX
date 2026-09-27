@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
@@ -13,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +48,7 @@ fun XvoxNowPlayingHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility) else Modifier)
+            .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(horizontal = if (useSystemInsets) 14.dp else 4.dp, vertical = if (useSystemInsets) 4.dp else 2.dp)
             .height(46.dp),
         contentAlignment = Alignment.Center

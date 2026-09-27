@@ -36,7 +36,6 @@ import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
-import com.xvox.music.features.settings.components.SettingsToggle
 
 @Composable
 fun AppearanceSettingsSection(
@@ -241,13 +240,6 @@ fun AppearanceSettingsSection(
                 options = listOf("auto" to "Auto", "portrait" to "Portrait", "landscape" to "Landscape"),
                 selected = state.appOrientation.lowercase(),
                 onSelect = viewModel::setAppOrientation
-            )
-            Spacer(Modifier.height(8.dp))
-            SettingsToggle(
-                title = "Hide status bar",
-                subtitle = "Reserve the same safe top area while the status bar is hidden",
-                checked = state.hideStatusBar,
-                onChange = viewModel::setHideStatusBar
             )
         }
     })

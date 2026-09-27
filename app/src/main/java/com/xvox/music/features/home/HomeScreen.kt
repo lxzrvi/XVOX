@@ -27,9 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -203,10 +201,7 @@ fun HomeScreen(
     // read remains visually stable. Capture its order when entering Recent and reveal updates only
     // after navigating away, so an advancing/paused player never makes cards jump under a finger.
     var frozenRecentPageSongs by remember { mutableStateOf<List<Song>?>(null) }
-    // Normal playback keeps the page stable under a finger. A deliberate pull refresh increments
-    // this revision, releases the frozen order, and lets the corrected history animate in place.
-    var recentRefreshRevision by rememberSaveable { mutableStateOf(0L) }
-    LaunchedEffect(state.libraryMode, recentRefreshRevision) {
+    LaunchedEffect(state.libraryMode) {
         frozenRecentPageSongs = if (state.libraryMode == XvoxHomeLibraryMode.RECENT) {
             state.recentlyPlayed.toList()
         } else {
@@ -529,32 +524,6 @@ fun HomeScreen(
         else -> state.libraryMode
     }
 
-    fun performPullRefresh() {
-        if (state.refreshing) return
-        // Bind feedback and Recent's order release to the page actually pulled, not whichever
-        // pill/page happens to be visible a moment later when the media scan finishes.
-        val requestedMode = state.libraryMode
-        val requestedDetail = selectedArtist != null || selectedPlaylist != null
-        viewModel.refresh { refreshed ->
-            val changedCount = refreshed.addedSongs + refreshed.removedSongs
-            val message = when {
-                requestedMode == XvoxHomeLibraryMode.ALL_SONGS && refreshed.addedSongs > 0 ->
-                    "${refreshed.addedSongs} ${if (refreshed.addedSongs == 1) "song" else "songs"} added"
-                requestedMode == XvoxHomeLibraryMode.ALL_SONGS && refreshed.removedSongs > 0 ->
-                    "${refreshed.removedSongs} ${if (refreshed.removedSongs == 1) "song" else "songs"} removed"
-                requestedMode == XvoxHomeLibraryMode.RECENT -> {
-                    recentRefreshRevision++
-                    "Recently played refreshed"
-                }
-                requestedMode == XvoxHomeLibraryMode.ARTISTS ||
-                    requestedMode == XvoxHomeLibraryMode.PLAYLISTS ||
-                    requestedDetail -> if (changedCount > 0) "Library updated" else "Nothing changed"
-                else -> if (changedCount > 0) "Library updated" else "Nothing changed"
-            }
-            overlays.showP(message)
-        }
-    }
-
     fun requestDeleteSelected() {
         if (selectedSongsList.isEmpty()) return
         overlays.showBox("Delete ${selectedSongsList.size} songs?") {
@@ -633,51 +602,24 @@ fun HomeScreen(
 
             val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
             LaunchedEffect(listState) {
-                // Keep the one shell Header physically locked to the Home list across item
-                // boundaries. Reporting only an item index used to make it jump fully away as
-                // soon as the short title item crossed the top.
-                var previousIndex = listState.firstVisibleItemIndex
-                var previousOffset = listState.firstVisibleItemScrollOffset
-                var previousItemSize = 0
-                var travelledPx = previousOffset
                 androidx.compose.runtime.snapshotFlow {
-                    val index = listState.firstVisibleItemIndex
-                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-                    Triple(index, listState.firstVisibleItemScrollOffset, item?.size ?: previousItemSize)
-                }.collect { (index, offset, itemSize) ->
-                    val delta = when {
-                        index == previousIndex -> offset - previousOffset
-                        index > previousIndex -> (previousItemSize - previousOffset).coerceAtLeast(0) + offset
-                        else -> -(previousOffset + (itemSize - offset).coerceAtLeast(0))
-                    }
-                    travelledPx = (travelledPx + delta).coerceAtLeast(0)
-                    if (index == 0 && offset == 0) travelledPx = 0
-                    currentOnScrollProgress(0, travelledPx)
-                    previousIndex = index
-                    previousOffset = offset
-                    previousItemSize = itemSize
+                    Pair(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+                }.collect { (index, offset) ->
+                    currentOnScrollProgress(index, offset)
                 }
             }
 
-            val pullRefresh = rememberXvoxHomePullRefreshState(
-                listState = listState,
-                refreshing = state.refreshing,
-                onRefresh = ::performPullRefresh
-            )
-
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(pullRefresh.pullModifier)
-                    .graphicsLayer { translationY = pullRefresh.contentTranslationPx },
-                contentPadding = PaddingValues(
-                    // Space is provided by the persistent shell Header. It scrolls in visual sync
-                    // from [onScrollProgress], rather than being rebuilt as this list's first item.
-                    top = topInset,
-                    bottom = bottomInset
-                )
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = bottomInset)
             ) {
+                // A real first list item gives the shell Header the exact same scroll distance as
+                // the page beneath it. This avoids a separately animated Header drifting away
+                // from Home content or leaving a blank band during a drag.
+                item(key = "shell_header_scroll_spacer") {
+                    Spacer(Modifier.height(topInset))
+                }
                 if (targetArtist != null) {
                     librarySongItems(
                         keyPrefix = "artist_detail",
@@ -749,12 +691,6 @@ fun HomeScreen(
                     }
                 }
             }
-
-        XvoxHomePullRefreshIndicator(
-            state = pullRefresh,
-            topInset = topInset,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
 
         if (isSelectionMode && !playerUiState.nowPlayingVisible) {
             // HomeMultiSelectBar uses a Popup, which is deliberately above shell Header/navbar/

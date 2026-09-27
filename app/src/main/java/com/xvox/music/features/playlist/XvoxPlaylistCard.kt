@@ -48,7 +48,7 @@ fun XvoxPlaylistCard(
                 color = colors.cardBorder,
                 shape = shape
             )
-            .padding(6.dp)
+            .padding(3.dp)
     ) {
         XvoxPlaylistCover(
             songs = songs,

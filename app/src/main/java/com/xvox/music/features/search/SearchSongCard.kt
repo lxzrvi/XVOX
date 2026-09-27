@@ -56,7 +56,7 @@ fun SearchSongCard(
             .clip(shape)
             .background(cardColor)
             .xvoxSongPress(onClick = onClick, onLongClick = onOptions)
-            .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
+            .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         XvoxSongArtwork(

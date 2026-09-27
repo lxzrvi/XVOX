@@ -138,18 +138,6 @@ fun EqualizerSettingsSection(
                 checked = state.distortionControlEnabled,
                 onCheckedChange = viewModel::setDistortionControlEnabled
             )
-            if (state.distortionControlEnabled) {
-                EqualizerSliderRow(
-                    // Reverb is the one rail that keeps the visible “Amount” helper. Its peer
-                    // control title already identifies this slider, so avoid repeating it here.
-                    label = null,
-                    valueText = null,
-                    value = state.distortionControl,
-                    onValueChange = viewModel::setDistortionControl,
-                    defaultValue = .50f,
-                    contentDescription = "Distortion Control amount"
-                )
-            }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

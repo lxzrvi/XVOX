@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
@@ -13,7 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -57,7 +55,7 @@ fun XvoxP(
     AnimatedVisibility(
         visible = visible,
         modifier = modifier
-            .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(top = 10.dp),
         enter = fadeIn(tween(220, easing = XvoxPEasing)) +
             slideInVertically(

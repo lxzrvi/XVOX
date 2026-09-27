@@ -507,7 +507,7 @@ private fun QueueItemRow(
                 onClick = onPlay
             )
             .then(rowSemantics)
-            .padding(6.dp),
+            .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

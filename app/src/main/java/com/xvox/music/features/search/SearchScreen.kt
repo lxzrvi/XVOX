@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.xvox.music.features.search
 
 import android.app.Activity
@@ -15,7 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -119,7 +117,7 @@ fun SearchScreen(
     // left, this status-safe clamp is the only fixed position—there is no spacer left behind.
     val searchHeaderGap = 2.dp
     val statusSafeSearchTop = with(density) {
-        WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() + searchHeaderGap
+        WindowInsets.statusBars.getTop(this).toDp() + searchHeaderGap
     }
     val headerSearchTop = topInset + searchHeaderGap
     val travelledSearchDp = with(density) { searchScrollDistancePx.toDp() }
@@ -1025,8 +1023,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick(song) }
                     )
-                    // Match the common card-to-cover frame used by liked, playlist and queue rows.
-                    .padding(6.dp),
+                    // Use the same tight portrait All Songs artwork frame everywhere.
+                    .padding(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -1139,7 +1137,7 @@ private fun SearchPlaylistCompactItem(
             .background(colors.card)
             .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
-            .padding(6.dp),
+            .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1216,8 +1214,8 @@ private fun SearchSongRow(
                 onClick = { onSongClick(song) },
                 onLongClick = { onSongLongClick(song) }
             )
-            // Use the same calm 6dp artwork frame as the rest of the song-card system.
-            .padding(6.dp),
+            // Use the same tight portrait All Songs artwork frame as every song card.
+            .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
