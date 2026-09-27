@@ -271,7 +271,10 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(landscapeContentHeight)
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                        // Keep the results rail flush with its own landscape-pane edge. The left
+                        // search controls carry their own start inset below, so outer padding can
+                        // no longer crop the final artist/playlist carousel item.
+                        .padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
             // Left pane: Search bar + Recent Searches + Library summary (Pinned at top)
@@ -279,6 +282,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .weight(0.40f)
                     .fillMaxSize()
+                    .padding(start = 16.dp)
             ) {
                 SearchBarComponent(
                     query = query,

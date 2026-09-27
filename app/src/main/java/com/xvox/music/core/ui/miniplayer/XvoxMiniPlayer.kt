@@ -69,6 +69,8 @@ fun XvoxMiniPlayer(
     onOpenMiniPlayerSettings: () -> Unit = {},
     quickActionsVisible: Boolean = false,
     onQuickActionsVisibleChange: (Boolean) -> Unit = {},
+    /** Applied only by the IME-aware host while a software keyboard genuinely occludes content. */
+    keyboardOffsetY: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -77,7 +79,7 @@ fun XvoxMiniPlayer(
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
-    val totalPlacementY = defaultPlacementY + userPlacementY
+    val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
     // The card itself is 68dp tall. One extra dp clears the landscape -0.5dp baseline too. Custom
     // placement remains additive even for the handoff: a user-raised card travels far enough to
     // be fully below the viewport before Now Playing can start.

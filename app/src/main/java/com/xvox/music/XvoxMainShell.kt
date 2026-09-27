@@ -4,8 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBars
@@ -312,7 +313,8 @@ fun XvoxMainShell(
                             val reset = miniPlayerNavLive.copy(
                                 miniCoverStyle = "default",
                                 miniBgAlpha = .94f,
-                                navBgAlpha = .94f
+                                navBgAlpha = .94f,
+                                miniPlayerImeOffsetY = 0f
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }
@@ -671,16 +673,37 @@ fun XvoxMainShell(
             XvoxDestination.SEARCH -> searchHeaderScrollPx
             XvoxDestination.SETTINGS -> 0
         }.coerceAtLeast(0)
-        // Changing routes animates from the outgoing page's exact Header position. Thus a partly
-        // scrolled Home header carries its visible y into Search; a fully gone one starts above
-        // Search and slides in. Reversing destination uses the stored source offset in reverse.
-        val targetHeaderTranslationY = -min(activeHeaderScrollPx.toFloat(), sharedHeaderHeightPx)
-        val sharedHeaderTranslationY by animateFloatAsState(
-            targetValue = targetHeaderTranslationY,
-            animationSpec = tween(260),
-            label = "sharedHeaderScrollAndRoute"
-        )
+        // Home/Search content and this one shell Header consume the same reported scroll distance,
+        // so they travel as one composition instead of two independently staged surfaces. Settings
+        // is the one forward route that deliberately sends the outgoing shared Header fully upward.
+        val targetHeaderTranslationY = if (destination == XvoxDestination.SETTINGS) {
+            -sharedHeaderHeightPx
+        } else {
+            -min(activeHeaderScrollPx.toFloat(), sharedHeaderHeightPx)
+        }
+        // Scroll itself is frame-synchronous with the page list. Only a route change receives a
+        // short motion, which prevents the Header from visually lagging behind content as a user
+        // drags while still giving Settings its requested upward exit and Back its reverse.
+        val sharedHeaderTranslation = remember { Animatable(0f) }
+        var settledHeaderRoute by remember { mutableStateOf<XvoxDestination?>(null) }
+        LaunchedEffect(destination) {
+            if (settledHeaderRoute == null) {
+                sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
+            } else {
+                sharedHeaderTranslation.animateTo(targetHeaderTranslationY, tween(260))
+            }
+            settledHeaderRoute = destination
+        }
+        LaunchedEffect(activeHeaderScrollPx, sharedHeaderHeightPx, destination, settledHeaderRoute) {
+            if (destination != XvoxDestination.SETTINGS && settledHeaderRoute == destination) {
+                sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
+            }
+        }
+        val sharedHeaderTranslationY = sharedHeaderTranslation.value
         val tabState = rememberSaveableStateHolder()
+        // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
+        // remain locked together during a route motion. Settings itself intentionally consumes
+        // only the status-bar inset and therefore never reserves a duplicate Header.
         CompositionLocalProvider(
             LocalXvoxTopInset provides sharedHeaderHeight,
             LocalXvoxBottomInset provides bottomInset
@@ -750,9 +773,9 @@ fun XvoxMainShell(
             }
         }
 
-        // This single composable is deliberately outside AnimatedContent. It remains visible
-        // during the full outgoing swipe into Settings rather than being disposed before the
-        // incoming body arrives, and Settings never builds a duplicate Header. Now Playing is a
+        // This single composable is deliberately outside AnimatedContent. It remains mounted
+        // while its shared Header slides up and hides during the forward Settings route, then
+        // reverses that motion on Back; Settings never builds a duplicate Header. Now Playing is a
         // full-screen overlay, so it alone suppresses this shell layer exactly as page-local
         // Headers were previously covered by the player.
         if (!player.nowPlayingVisible) {
@@ -779,6 +802,13 @@ fun XvoxMainShell(
         }
 
         if (isLandscape) {
+            // In landscape the compact shell owns the Mini Player directly rather than through the
+            // portrait host. Preserve the same keyboard-only experimental adjustment here.
+            val landscapeImeVisible = WindowInsets.ime.getBottom(density) >
+                WindowInsets.navigationBars.getBottom(density)
+            val landscapeKeyboardOffset = if (landscapeImeVisible) {
+                chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f).dp
+            } else 0.dp
             if (landscapeQuickActionsVisible) {
                 Box(
                     modifier = Modifier
@@ -826,6 +856,7 @@ fun XvoxMainShell(
                             onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
                             quickActionsVisible = landscapeQuickActionsVisible,
                             onQuickActionsVisibleChange = { landscapeQuickActionsVisible = it },
+                            keyboardOffsetY = landscapeKeyboardOffset,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

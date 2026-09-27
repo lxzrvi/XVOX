@@ -24,7 +24,7 @@ object XvoxMosaicSession {
  */
 fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false, cols: Int = 4): List<XvoxMosaicPagePlan> {
     val random = Random(songs.fold(XvoxMosaicSession.seed) { seed, song -> seed * 31 + song.id })
-    val safeRows = rows.coerceIn(3, 8)
+    val safeRows = rows.coerceIn(3, 10)
     val capacity = cols * safeRows
     if (songs.isEmpty()) return emptyList()
 
@@ -60,7 +60,7 @@ fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = 
  */
 fun mosaicPageRows(count: Int, requested: Int, cols: Int = 4): Int {
     if (count <= 0) return 0
-    val max = requested.coerceIn(1, 8)
+    val max = requested.coerceIn(1, 10)
     val minimumRows = ceil(count / cols.toDouble()).toInt()          // one cell per tile at least
     val comfortable = ceil(count / (cols * 0.62)).toInt()            // ~1.6 cells per tile
     return comfortable.coerceIn(minimumRows.coerceAtLeast(1), max)
@@ -72,7 +72,7 @@ fun mosaicPageRows(count: Int, requested: Int, cols: Int = 4): Int {
  * simply claims fewer rows instead of padding itself out.
  */
 fun mosaicRowsForPage(count: Int, requested: Int, fill: Boolean, cols: Int = 4): Int =
-    if (fill && count >= requested.coerceIn(1, 8)) requested.coerceIn(1, 8) else mosaicPageRows(count, requested, cols)
+    if (fill && count >= requested.coerceIn(1, 10)) requested.coerceIn(1, 10) else mosaicPageRows(count, requested, cols)
 
 fun buildMosaicPage(
     songs: List<Song>, plan: XvoxMosaicPagePlan, rows: Int = 4,

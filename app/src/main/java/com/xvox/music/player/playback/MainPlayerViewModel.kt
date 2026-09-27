@@ -700,8 +700,16 @@ class MainPlayerViewModel(
                 currentIndexHint = _state.value.currentIndex
             )
             if (shuffled != null) {
+                // Keep the exact audible occurrence—not merely its ID—at the preserved index.
+                // This prevents a shuffle from falsely presenting the active cover as queue item 0.
+                val activeOccurrence = currentQueue.getOrNull(_state.value.currentIndex)
+                val preservedIndex = shuffled.indexOfFirst { it === activeOccurrence }
+                    .takeIf { it >= 0 }
+                    ?: _state.value.currentIndex.coerceIn(0, shuffled.lastIndex)
+                // Publish the occurrence-stable order before the Media3 reinstall emits its
+                // transient callbacks, so the cover pager never paints a neighbour in between.
+                _state.update { it.copy(queue = shuffled, currentIndex = preservedIndex) }
                 controller.setQueue(shuffled)
-                _state.update { it.copy(queue = shuffled, currentIndex = 0) }
             }
         } else {
             val unshuffleResult = PlayerQueueReorderHelper.unshuffleQueue(_state.value.queue, originalQueueBeforeShuffle)
@@ -713,8 +721,8 @@ class MainPlayerViewModel(
                 val newIndex = orig.indexOfFirst { it === activeOccurrence }
                     .takeIf { it >= 0 }
                     ?: orig.indexOfFirst { it.id == _state.value.currentSongId }.coerceAtLeast(0)
-                controller.setQueue(orig)
                 _state.update { it.copy(queue = orig, currentIndex = newIndex) }
+                controller.setQueue(orig)
             }
             originalQueueBeforeShuffle = null
         }
@@ -745,13 +753,28 @@ class MainPlayerViewModel(
     }
 
     fun setQueueOrder(newQueue: List<Song>) {
-        controller.setQueue(newQueue)
-        // The controller tracks the currently audible occurrence by its private token. Prefer
-        // that index over a Song.id lookup, which would collapse two repeated rows into one.
-        val controllerIndex = controller.state.value.currentIndex
+        val current = _state.value
+        if (newQueue.size != current.queue.size) return
+        if (newQueue.indices.all { index -> newQueue[index] === current.queue[index] }) return
+
+        // Resolve the audible occurrence before asking Media3 to rebuild/reinstall anything.
+        // Reading controller.state during that transient install could briefly report -1 or a
+        // neighbouring duplicate and needlessly make Now Playing repaint its cover.
+        val activeOccurrence = current.queue.getOrNull(current.currentIndex)
+        val occurrence = if (activeOccurrence == null) 0 else {
+            current.queue.take(current.currentIndex + 1).count { it.id == activeOccurrence.id } - 1
+        }
+        val preservedIndex = newQueue.indexOfFirst { it === activeOccurrence }
+            .takeIf { it >= 0 }
+            ?: newQueue.indices.filter { newQueue[it].id == current.currentSongId }.getOrNull(occurrence)
+            ?: current.currentIndex.coerceIn(0, newQueue.lastIndex)
+
         libraryQueueSize = newQueue.size
         libraryQueueSignature = queueSignature(newQueue)
-        _state.update { it.copy(queue = newQueue, currentIndex = if (controllerIndex in newQueue.indices) controllerIndex else it.currentIndex) }
+        // Publish the occurrence-stable state synchronously, then let the controller retain its
+        // matching entry token in the background. The audible cover does not change for a drag.
+        _state.update { it.copy(queue = newQueue, currentIndex = preservedIndex) }
+        controller.setQueue(newQueue)
     }
 
     fun setSleepTimer(minutes: Int?) {

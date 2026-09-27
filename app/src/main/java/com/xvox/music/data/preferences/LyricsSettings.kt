@@ -32,8 +32,8 @@ data class LyricsSettings(
     val fontWeight: Int = 600,
     /** Whether top, active and bottom lyric lines retain their own independent size choices. */
     val individualLineSizes: Boolean = false,
-    /** 0 is Default; 1..30 are temporary card-to-fullscreen lyrics motion studies. */
-    val fullscreenAnimationStyle: Int = 0
+    /** Retained only to read old records; fullscreen lyrics is permanently optimized style 20. */
+    val fullscreenAnimationStyle: Int = 20
 ) {
     fun normalized(): LyricsSettings {
         // A legacy matchColor=false record had opted out of cover matching. White is the stable
@@ -59,7 +59,8 @@ data class LyricsSettings(
             matchCoverColor = resolvedTextColorMode == "cover",
             timeSync = timeSync,
             fontWeight = fontWeight.coerceIn(300, 900),
-            fullscreenAnimationStyle = fullscreenAnimationStyle.coerceIn(0, 30)
+            // Older selectable presets intentionally migrate to the locked product motion.
+            fullscreenAnimationStyle = 20
         )
     }
 
@@ -88,7 +89,7 @@ data class LyricsSettings(
         .put("timeSync", timeSync)
         .put("fontWeight", fontWeight)
         .put("individualSizes", individualLineSizes)
-        .put("fullscreenStyle", fullscreenAnimationStyle)
+        .put("fullscreenStyle", 20)
         .toString()
 
     companion object {
@@ -135,7 +136,7 @@ data class LyricsSettings(
                 fontWeight = j.optInt("fontWeight", 600),
                 // Older installations had no explicit flag; keep their previous master-size behavior.
                 individualLineSizes = j.optBoolean("individualSizes", false),
-                fullscreenAnimationStyle = j.optInt("fullscreenStyle", 0)
+                fullscreenAnimationStyle = 20
             ).normalized()
         }.getOrElse { LyricsSettings() }
     }

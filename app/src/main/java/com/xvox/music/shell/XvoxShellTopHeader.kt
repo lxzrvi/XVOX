@@ -134,8 +134,9 @@ fun XvoxShellTopHeader(
             // grey elevated header. Custom artwork remains completely unwashed at its endpoint.
             .background(
                 if (hasCustomHeader) Color.Transparent
-                else (if (colors.isLight) colors.card else colors.cardElevated)
-                    .copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
+                // Default Header is the application background itself: near-white in light mode
+                // and black/dark in dark modes, rather than an unrelated elevated strip.
+                else colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
             )
     ) {
         if (hasCustomHeader) {

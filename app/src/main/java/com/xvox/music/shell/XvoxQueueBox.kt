@@ -82,6 +82,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import java.util.ArrayDeque
+import java.util.IdentityHashMap
 
 @Composable
 fun QueueHeaderDropdown(
@@ -128,6 +130,30 @@ private val RowSpacing = 4.dp
 /** Stable visual identity survives drag reorders, including repeated copies of the same Song. */
 private data class QueueEntry(val stableKey: String, val song: Song)
 
+/**
+ * Compose keys must identify queue occurrences, not their momentary row indices. Keeping this
+ * identity ledger outside the drag list lets the currently audible row retain its own artwork and
+ * state while an adjacent item passes it or moves to the top.
+ */
+private class QueueEntryKeyLedger {
+    private var serial = 0L
+    private var previous: List<QueueEntry> = emptyList()
+
+    fun resolve(queue: List<Song>): List<QueueEntry> {
+        val reusable = IdentityHashMap<Song, ArrayDeque<QueueEntry>>()
+        previous.forEach { entry ->
+            val bucket = reusable[entry.song] ?: ArrayDeque<QueueEntry>().also { reusable[entry.song] = it }
+            bucket.addLast(entry)
+        }
+        val resolved = queue.map { song ->
+            val retained = reusable[song]?.pollFirst()
+            retained?.copy(song = song) ?: QueueEntry("queue_occurrence_${serial++}", song)
+        }
+        previous = resolved
+        return resolved
+    }
+}
+
 @Composable
 fun XvoxQueueBoxContent(
     queue: List<Song>,
@@ -153,9 +179,8 @@ fun XvoxQueueBoxContent(
     val remove by rememberUpdatedState(onRemoveIndex)
     val play by rememberUpdatedState(onPlayIndex)
 
-    val sourceEntries = remember(queue) {
-        queue.mapIndexed { index, song -> QueueEntry(stableKey = "${song.id}:$index", song = song) }
-    }
+    val entryKeyLedger = remember { QueueEntryKeyLedger() }
+    val sourceEntries = remember(queue) { entryKeyLedger.resolve(queue) }
     // Keep the active occurrence by its stable row identity rather than by a live display index.
     // A drag rearranges display slots before playback is committed, so `idx == currentIndex`
     // would temporarily light/hold a neighbouring duplicate instead of the finger-held row.

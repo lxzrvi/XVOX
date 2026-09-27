@@ -139,7 +139,7 @@ fun EqualizerSettingsSection(
             value = state.distortionControl,
             onValueChange = viewModel::setDistortionControl,
             defaultValue = 0f,
-            helperText = "0% off · 100% maximum real peak and noise control"
+            helperText = "0% no control · 100% strongest real peak protection"
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -163,8 +163,8 @@ fun EqualizerSettingsSection(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
-                title = "Noise cancellation",
-                subtitle = "Real high-frequency hiss and quiet-floor reduction",
+                title = "Noise reduction",
+                subtitle = "Strong real high-frequency hiss and quiet-floor reduction",
                 checked = state.noiseReductionEnabled,
                 onCheckedChange = viewModel::setNoiseReductionEnabled
             )
@@ -182,7 +182,7 @@ fun EqualizerSettingsSection(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Grain control",
-                subtitle = "Smooth harsh highs and digital grain",
+                subtitle = "Strongly smooth harsh highs and digital grain",
                 checked = state.grainControlEnabled,
                 onCheckedChange = viewModel::setGrainControlEnabled
             )

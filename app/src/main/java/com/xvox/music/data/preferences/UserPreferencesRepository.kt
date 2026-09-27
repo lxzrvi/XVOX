@@ -126,13 +126,21 @@ class UserPreferencesRepository(
         val cardTransparency = floatPreferencesKey("card_transparency")
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
+        /** Whole-interface density choice: small, medium, or large. */
+        val displaySize = stringPreferencesKey("display_size")
+        /** Forced app orientation, deliberately independent from the device rotation setting. */
+        val appOrientation = stringPreferencesKey("app_orientation")
         val fourRowsGrid = booleanPreferencesKey("four_rows_grid")
 
         val homeLayoutStyle = stringPreferencesKey("home_layout_style")
         val homeScrollDirection = stringPreferencesKey("home_scroll_direction")
-        /** All Songs columns apply in both vertical and horizontal presentation modes. */
+        /** Legacy shared column count retained solely to migrate older installations. */
         val homeColumns = intPreferencesKey("home_columns")
-        /** Horizontal page grid depth (retains the legacy storage key for migration). */
+        /** Portrait columns are intentionally independent from landscape columns. */
+        val homePortraitColumns = intPreferencesKey("home_portrait_columns")
+        /** Landscape starts at eight and may grow to ten without altering portrait. */
+        val homeLandscapeColumns = intPreferencesKey("home_landscape_columns")
+        /** Horizontal page depth (Rows); the old key remains a safe migration source. */
         val homeHorizontalRows = intPreferencesKey("home_horizontal_rows")
         val recentsPlacement = stringPreferencesKey("recents_placement")
         val eqHeadroomDb = floatPreferencesKey("eq_headroom_db")
@@ -182,6 +190,15 @@ class UserPreferencesRepository(
         value < .95f -> .90f
         else -> 1.00f
     }
+
+    private fun normalizeDisplaySize(value: String?): String = when (value?.lowercase()) {
+        "small" -> "small"
+        "large" -> "large"
+        else -> "medium"
+    }
+
+    private fun normalizeAppOrientation(value: String?): String =
+        if (value.equals("landscape", ignoreCase = true)) "landscape" else "portrait"
 
     private fun normalizeNowPlayingBackgroundStyle(value: String?): String =
         com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(value)
@@ -315,8 +332,11 @@ class UserPreferencesRepository(
         }
         HomePresentation(
             style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "horizontal",
-            columns = (it[Keys.homeColumns] ?: 4).coerceIn(3, 8),
-            rows = (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8), hideRecents = it[Keys.hideRecentlyPlayed] ?: false,
+            // Existing shared-column records migrate only into portrait. Landscape is intentionally
+            // independent and always begins at its requested eight-column default.
+            portraitColumns = (it[Keys.homePortraitColumns] ?: it[Keys.homeColumns] ?: 4).coerceIn(3, 6),
+            landscapeColumns = (it[Keys.homeLandscapeColumns] ?: 8).coerceIn(8, 10),
+            rows = (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 10), hideRecents = it[Keys.hideRecentlyPlayed] ?: false,
             recentsPlacement = placement, merge = mergedSet.isNotEmpty(),
             mergedSections = mergedSet,
             order = it[Keys.homeSectionOrder]?.let { raw -> HomeSections.normalize(raw.split(",")) }
@@ -414,12 +434,25 @@ class UserPreferencesRepository(
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data
         .map { normalizeTextScale(it[Keys.fontSizeScale] ?: 1.0f) }
         .distinctUntilChanged()
+    val displaySize: Flow<String> = context.xvoxDataStore.data
+        .map { normalizeDisplaySize(it[Keys.displaySize]) }
+        .distinctUntilChanged()
+    val appOrientation: Flow<String> = context.xvoxDataStore.data
+        .map { normalizeAppOrientation(it[Keys.appOrientation]) }
+        .distinctUntilChanged()
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
     val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
-    val homeColumns: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeColumns] ?: 4).coerceIn(3, 8) }.distinctUntilChanged()
-    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 8) }.distinctUntilChanged()
+    /** Legacy compatibility alias: portrait is the only former shared presentation. */
+    val homeColumns: Flow<Int> = context.xvoxDataStore.data.map {
+        (it[Keys.homePortraitColumns] ?: it[Keys.homeColumns] ?: 4).coerceIn(3, 6)
+    }.distinctUntilChanged()
+    val homePortraitColumns: Flow<Int> = homeColumns
+    val homeLandscapeColumns: Flow<Int> = context.xvoxDataStore.data.map {
+        (it[Keys.homeLandscapeColumns] ?: 8).coerceIn(8, 10)
+    }.distinctUntilChanged()
+    val homeHorizontalRows: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.homeHorizontalRows] ?: 4).coerceIn(3, 10) }.distinctUntilChanged()
     val recentsPlacement: Flow<String> = context.xvoxDataStore.data.map { if (it[Keys.recentsPlacement] == "top") "top" else "bottom" }.distinctUntilChanged()
     val eqHeadroomDb: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.eqHeadroomDb] ?: 0f).coerceIn(0f, 18f) }.distinctUntilChanged()
     val surroundDepth: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.surroundDepth] ?: 0.65f).coerceIn(0f, 1f) }.distinctUntilChanged()
@@ -651,14 +684,27 @@ class UserPreferencesRepository(
     suspend fun setFontSizeScale(v: Float) {
         context.xvoxDataStore.edit { it[Keys.fontSizeScale] = normalizeTextScale(v) }
     }
+    suspend fun setDisplaySize(value: String) {
+        context.xvoxDataStore.edit { it[Keys.displaySize] = normalizeDisplaySize(value) }
+    }
+    suspend fun setAppOrientation(value: String) {
+        context.xvoxDataStore.edit { it[Keys.appOrientation] = normalizeAppOrientation(value) }
+    }
     suspend fun setFourRowsGrid(v: Boolean) { context.xvoxDataStore.edit { it[Keys.fourRowsGrid] = v } }
 
     suspend fun setHomeLayoutStyle(style: String) { context.xvoxDataStore.edit { it[Keys.homeLayoutStyle] = normalizeHomeStyle(style) } }
     suspend fun setHomeScrollDirection(direction: String) {
         context.xvoxDataStore.edit { it[Keys.homeScrollDirection] = if (direction == "vertical") "vertical" else "horizontal" }
     }
-    suspend fun setHomeColumns(columns: Int) { context.xvoxDataStore.edit { it[Keys.homeColumns] = columns.coerceIn(3, 8) } }
-    suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 8) } }
+    /** Legacy callers now update portrait only; landscape deliberately remains independent. */
+    suspend fun setHomeColumns(columns: Int) = setHomePortraitColumns(columns)
+    suspend fun setHomePortraitColumns(columns: Int) {
+        context.xvoxDataStore.edit { it[Keys.homePortraitColumns] = columns.coerceIn(3, 6) }
+    }
+    suspend fun setHomeLandscapeColumns(columns: Int) {
+        context.xvoxDataStore.edit { it[Keys.homeLandscapeColumns] = columns.coerceIn(8, 10) }
+    }
+    suspend fun setHomeHorizontalRows(rows: Int) { context.xvoxDataStore.edit { it[Keys.homeHorizontalRows] = rows.coerceIn(3, 10) } }
     suspend fun setRecentsPlacement(value: String) {
         context.xvoxDataStore.edit {
             val placement = if (value == "top") "top" else "bottom"

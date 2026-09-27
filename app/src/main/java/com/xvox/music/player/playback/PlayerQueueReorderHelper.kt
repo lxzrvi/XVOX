@@ -37,9 +37,21 @@ object PlayerQueueReorderHelper {
         val currentIndex = currentIndexHint.takeIf { it in currentQueue.indices && currentQueue[it].id == currentSongId }
             ?: currentQueue.indexOfFirst { it.id == currentSongId }
         if (currentIndex >= 0 && currentQueue.size > 2) {
+            // Preserve the audible occurrence at its actual queue position. Moving it to zero
+            // makes the cover deck remap unnecessarily and breaks the user's sense of "around
+            // this song" shuffle. Every other occurrence is independently reordered around it.
             val currentSong = currentQueue[currentIndex]
-            val others = currentQueue.filterIndexed { index, _ -> index != currentIndex }.shuffled()
-            return listOf(currentSong) + others
+            val originalOthers = currentQueue.filterIndexed { index, _ -> index != currentIndex }
+            var shuffledOthers = originalOthers.shuffled()
+            // A random shuffle can occasionally return the identical ordering. Guarantee that a
+            // fresh shuffle visibly changes the queue whenever there is a meaningful alternative.
+            if (shuffledOthers.size > 1 && shuffledOthers.indices.all { shuffledOthers[it] === originalOthers[it] }) {
+                shuffledOthers = shuffledOthers.drop(1) + shuffledOthers.first()
+            }
+            var cursor = 0
+            return currentQueue.indices.map { index ->
+                if (index == currentIndex) currentSong else shuffledOthers[cursor++]
+            }
         }
         return null
     }

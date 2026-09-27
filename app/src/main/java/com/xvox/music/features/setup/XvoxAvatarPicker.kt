@@ -81,8 +81,10 @@ fun XvoxAvatarPicker(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = if (edgeToEdge) 12.dp else 0.dp,
-            end = if (edgeToEdge) 12.dp else 0.dp,
+            // Profile's sheet viewport is already edge-to-edge. Do not reintroduce an outer
+            // gutter here: both endpoint PFP choices must scroll all the way to their own edge.
+            start = 0.dp,
+            end = 0.dp,
             top = 6.dp,
             bottom = 6.dp
         )
@@ -111,7 +113,12 @@ fun XvoxAvatarPicker(
         // Kept pictures, each with its own delete badge.
         itemsIndexed(customUris, key = { _, uri -> uri }) { _, uri ->
             val isSelected = selectedType == PfpType.CUSTOM && selectedCustomUri == uri
-            Box(contentAlignment = Alignment.TopEnd) {
+            // The delete badge extends 3dp past the circle, so reserve that room in the item—not
+            // in the strip's outer padding—so the final custom choice remains fully reachable.
+            Box(
+                modifier = Modifier.padding(end = 3.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
                 AvatarSlot(size, isSelected, onClick = { onSelectCustom(uri) }) {
                     AsyncImage(
                         model = Uri.parse(uri),

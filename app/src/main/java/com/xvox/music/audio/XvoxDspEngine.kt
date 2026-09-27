@@ -190,13 +190,19 @@ class XvoxDspEngine {
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = if (s.grainControlEnabled) {
-            // Grain control is a gentle high-residual blend, not a 18 dB blanket low-pass that
-            // turns an otherwise loud track dull. Even 100% leaves audible programme presence.
-            1.0 - s.softenHighs.coerceIn(0f, 1f) * .48
+            // This remains a real residual-band processor, but its 100% endpoint now gives a
+            // clearly audible reduction of brittle digital grain instead of a cosmetic .48 mix.
+            // Programme below the 5.5 kHz split stays present through the parallel low band.
+            1.0 - s.softenHighs.coerceIn(0f, 1f) * .78
         } else {
             1.0
         }
-        targetNoise = if (s.noiseReductionEnabled) s.noiseReduction.toDouble().coerceIn(0.0, 1.0) else 0.0
+        targetNoise = if (s.noiseReductionEnabled) {
+            val amount = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
+            // Give the upper half of the control more decisive hiss/floor suppression while
+            // retaining exact bypass whenever the feature is disabled.
+            amount * (.38 + .62 * amount)
+        } else 0.0
         val spatialActive = s.surroundEnabled && !splitStems
         // Keep the processor spacious without fully replacing the dry stereo signal at its end.
         targetDepth = if (spatialActive) s.surroundDepth.toDouble().coerceIn(0.0, 1.0) * .72 else 0.0
@@ -228,7 +234,9 @@ class XvoxDspEngine {
             targetPreamp = targetHeadroom
             // Work only near the true noise floor. The former broad threshold could audibly gate
             // quiet musical tails; this remains effective on hiss without making music pump.
-            noiseThreshold = .004 + currentNoise * .026
+            // The threshold deliberately rises with requested reduction, so 100% reaches a
+            // genuinely useful quiet-floor gate rather than merely tinting the residual band.
+            noiseThreshold = .004 + currentNoise * .052
             pan = sin(phase + currentPosition) * currentWidth
             rear = (1 - cos(phase)) * .5
             shadowAlpha = 1 - exp(-2 * PI * (12000 - rear * 7000) / rate)
@@ -296,13 +304,13 @@ class XvoxDspEngine {
         // at zero keeps the unprocessed waveform intact.
         noiseToneL += (l - noiseToneL) * noiseToneAlpha
         noiseToneR += (r - noiseToneR) * noiseToneAlpha
-        val residualMix = (1.0 - currentNoise * .62).coerceIn(.38, 1.0)
+        val residualMix = (1.0 - currentNoise * .86).coerceIn(.14, 1.0)
         l = noiseToneL + (l - noiseToneL) * residualMix
         r = noiseToneR + (r - noiseToneR) * residualMix
         val envelopeInput = max(abs(l), abs(r))
         noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
         val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
-        val desiredNoiseGain = 1 - currentNoise * .58 * (1 - ratio * ratio)
+        val desiredNoiseGain = 1 - currentNoise * .86 * (1 - ratio * ratio)
         noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
         l *= noiseGain; r *= noiseGain
         bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha
@@ -382,9 +390,9 @@ class XvoxDspEngine {
         if (strength <= .0001) return sample
         // A strength-dependent soft knee performs actual crest repair. Programme below the knee
         // stays exact; above it, tanh has unit slope at the knee and asymptotically approaches
-        // full scale. At 100% the knee is deliberately low enough to control a +12 dB EQ/200%
-        // App Volume overload before the linked true-peak guard has to clamp it.
-        val knee = .985 - .43 * strength
+        // full scale. The lower 100% knee meaningfully controls a +12 dB EQ/200% App Volume
+        // overload before the linked true-peak guard has to clamp it.
+        val knee = .985 - .58 * strength
         val magnitude = abs(sample)
         if (magnitude <= knee) return sample
         val headroom = (1.0 - knee).coerceAtLeast(.001)

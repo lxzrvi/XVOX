@@ -39,7 +39,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
-import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
@@ -66,8 +65,8 @@ fun SettingsScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val bottomInset = LocalXvoxBottomInset.current
-    // Settings is routed under the one shell Header, never a page-local duplicate.
-    val sharedHeaderInset = LocalXvoxTopInset.current
+    // The shell Header slides away before Settings settles. Settings therefore owns only a
+    // status-bar-safe starting line and never reserves/recreates a duplicate Header.
     val bottomPadding = bottomInset + if (isLandscape) 16.dp else 30.dp
     val scrollState = rememberLazyGridState()
 
@@ -128,7 +127,7 @@ fun SettingsScreen(
                 .fillMaxHeight(),
             contentPadding = PaddingValues(
                 start = if (isLandscape) 10.dp else 6.dp,
-                top = maxOf(statusTop + 6.dp, sharedHeaderInset + 6.dp),
+                top = statusTop + 6.dp,
                 end = if (isLandscape) 10.dp else 6.dp,
                 bottom = bottomPadding
             ),
@@ -267,13 +266,33 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            SettingsField("Text Scale") {
+            SettingsField("Text style") {
                 XvoxSegmentedPill(
                     options = scaleOptions.map { it.first to it.second },
                     selectedKey = selectedScale,
                     onSelect = { key ->
                         scaleOptions.firstOrNull { it.first == key }?.let { viewModel.setFontSizeScale(it.third) }
                     },
+                    compact = true
+                )
+            }
+
+            // Display size is intentionally placed directly below Text style. Unlike the latter,
+            // it changes the root density and therefore scales the full app interface.
+            SettingsField("Display size") {
+                XvoxSegmentedPill(
+                    options = listOf("small" to "Small", "medium" to "Medium", "large" to "Large"),
+                    selectedKey = state.displaySize.lowercase(),
+                    onSelect = viewModel::setDisplaySize,
+                    compact = true
+                )
+            }
+
+            SettingsField("Orientation") {
+                XvoxSegmentedPill(
+                    options = listOf("portrait" to "Portrait", "landscape" to "Landscape"),
+                    selectedKey = state.appOrientation.lowercase(),
+                    onSelect = viewModel::setAppOrientation,
                     compact = true
                 )
             }

@@ -559,7 +559,10 @@ class HomeViewModel(
     fun setPlaylistLongHeight(height: Int) = viewModelScope.launch { preferencesRepository.setPlaylistLongHeight(height) }
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { preferencesRepository.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { preferencesRepository.setHomeScrollDirection(direction) }
-    fun setHomeColumns(columns: Int) = viewModelScope.launch { preferencesRepository.setHomeColumns(columns) }
+    /** Legacy callers affect portrait only; landscape has its own persisted range. */
+    fun setHomeColumns(columns: Int) = setHomePortraitColumns(columns)
+    fun setHomePortraitColumns(columns: Int) = viewModelScope.launch { preferencesRepository.setHomePortraitColumns(columns) }
+    fun setHomeLandscapeColumns(columns: Int) = viewModelScope.launch { preferencesRepository.setHomeLandscapeColumns(columns) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { preferencesRepository.setHomeHorizontalRows(rows) }
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 

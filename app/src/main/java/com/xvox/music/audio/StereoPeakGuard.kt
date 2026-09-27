@@ -56,14 +56,21 @@ class StereoPeakGuard {
         val maxPeak = if (head != tail) peaks[head] else 0.0
 
         val amount = protection.coerceIn(0.0, 1.0)
-        // At zero this is just the final PCM safety rail. At 100%, .86 leaves useful true-peak
-        // headroom after the DSP repair curve and meaningfully contains boosted EQ/app-volume
-        // transients instead of allowing a harsh near-full-scale limiter hit.
-        val ceiling = .999 - .139 * amount
+        // Zero means exactly no requested control: do not run a gain envelope at all. The final
+        // PCM clamp is representation safety only and cannot alter in-range programme material.
+        if (amount <= .0001) {
+            gain = 1.0
+            left = oldL.coerceIn(-.999, .999)
+            right = oldR.coerceIn(-.999, .999)
+            frame++
+            return
+        }
+        // At 100% the .76 ceiling leaves substantial true-peak headroom after the repair curve,
+        // making the endpoint a real stronger protector rather than an inverse/weak limiter.
+        val ceiling = .999 - .239 * amount
         val desired = if (maxPeak > ceiling) ceiling / maxPeak else 1.0
-        // More requested control captures a crest faster.  The zero path remains a safety guard,
-        // not an added compression effect.
-        val attack = (fastAttack * (.35 + .65 * amount)).coerceIn(.01, 1.0)
+        // More requested control captures a crest faster; the response is monotonic from 0→100.
+        val attack = (fastAttack * (.10 + .90 * amount)).coerceIn(.01, 1.0)
         gain += (desired - gain) * if (desired < gain) attack else release
         left = (oldL * gain).coerceIn(-.999, .999)
         right = (oldR * gain).coerceIn(-.999, .999)

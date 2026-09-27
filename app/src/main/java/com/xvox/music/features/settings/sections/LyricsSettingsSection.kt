@@ -214,26 +214,8 @@ fun LyricsSettingsDraftSection(
             )
         }
 
-        // Keep this exploratory control at the natural end of Lyrics, separate from stable lyric
-        // typography/timing controls. Every numbered option maps to a distinct real motion preset.
-        SettingsAccordionItem(title = "Experimental") {
-            SliderLabel("Lyrics box to full screen animation")
-            SettingsChoiceRow(
-                options = listOf("0" to "Default") +
-                    (1..30).map { style -> style.toString() to style.toString() },
-                selected = settings.fullscreenAnimationStyle.toString(),
-                onSelect = { style ->
-                    update { it.copy(fullscreenAnimationStyle = style.toIntOrNull()?.coerceIn(0, 30) ?: 0) }
-                }
-            )
-            Text(
-                text = "Temporary motion studies — choose one to preview before a permanent style is selected.",
-                color = XvoxTheme.colors.secondaryText,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                modifier = Modifier.padding(top = 7.dp)
-            )
-        }
+        // Fullscreen transition style is permanently optimized style 20. The old Experimental
+        // selector intentionally has no UI or persisted choice any more.
 
         // These sit at the natural end of the long editor, immediately above the sheet footer,
         // mirroring the reset location in the Equalizer sheet.

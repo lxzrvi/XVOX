@@ -71,20 +71,30 @@ fun AllSongsLayoutBoxContent(
             )
         }
 
-        // Columns are meaningful in either list direction and directly change the real All Songs
-        // tile geometry. Grid is deliberately only a horizontal-page control.
+        // Portrait and landscape are intentionally separate persisted choices: a narrow screen
+        // never inherits the dense landscape grid, and a newly installed landscape layout starts
+        // at eight columns regardless of an older portrait preference.
         AllSongsLayoutNumberPicker(
-            label = "Column",
-            value = config.columns,
-            valueLabel = "${config.columns} columns",
-            onSelected = viewModel::setHomeColumns
+            label = "Portrait columns",
+            value = config.portraitColumns,
+            valueLabel = "${config.portraitColumns} columns",
+            options = 3..6,
+            onSelected = viewModel::setHomePortraitColumns
+        )
+        AllSongsLayoutNumberPicker(
+            label = "Landscape columns",
+            value = config.landscapeColumns,
+            valueLabel = "${config.landscapeColumns} columns",
+            options = 8..10,
+            onSelected = viewModel::setHomeLandscapeColumns
         )
 
         if (config.direction == "horizontal") {
             AllSongsLayoutNumberPicker(
-                label = "Grid",
+                label = "Rows",
                 value = config.rows,
                 valueLabel = "${config.rows} rows per page",
+                options = 3..10,
                 onSelected = viewModel::setHomeHorizontalRows
             )
         }
@@ -97,6 +107,7 @@ private fun AllSongsLayoutNumberPicker(
     label: String,
     value: Int,
     valueLabel: String,
+    options: IntRange,
     onSelected: (Int) -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -113,7 +124,7 @@ private fun AllSongsLayoutNumberPicker(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            (3..8).forEach { option ->
+            options.forEach { option ->
                 val isSelected = value == option
                 Box(
                     modifier = Modifier

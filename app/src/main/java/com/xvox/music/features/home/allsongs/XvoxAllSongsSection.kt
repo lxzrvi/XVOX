@@ -100,7 +100,7 @@ fun HorizontalSongPages(
     val state = rememberLazyListState()
     val prefetch by rememberUpdatedState(onPrefetch)
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val columns = config.columns.coerceIn(3, 8)
+    val columns = config.columnsFor(isLandscape)
 
     LaunchedEffect(plans) {
         snapshotFlow { state.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
@@ -110,13 +110,16 @@ fun HorizontalSongPages(
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val rows = remember(songs.size, config.rows, config.style) {
-            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows) else config.rows.coerceIn(3, 8)
+            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows.coerceIn(3, 10)) else config.rows.coerceIn(3, 10)
         }
         val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp
         val gap = 6.dp
         val unitWidth = (pageWidth - gap * (columns - 1)) / columns
-        val unitHeight = if (isLandscape) unitWidth + 30.dp else unitWidth + 38.dp
+        // Three portrait columns make each tile physically broad. Give that compact grid a
+        // shorter metadata band so it stays card-like rather than becoming a tall rectangle.
+        val unitHeight = if (isLandscape) unitWidth + 30.dp
+        else unitWidth + if (columns < 4) 20.dp else 38.dp
         val pageHeight = unitHeight * rows + gap * (rows - 1).coerceAtLeast(0)
 
         LazyRow(
@@ -153,7 +156,7 @@ fun XvoxSongGridPage(
     modifier: Modifier = Modifier
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val columns = config.columns.coerceIn(3, 8)
+    val columns = config.columnsFor(isLandscape)
     val uniform = config.style == "uniform"
     val classic = config.style == "mosaic1"
 
@@ -171,7 +174,10 @@ fun XvoxSongGridPage(
     BoxWithConstraints(modifier) {
         val gap = 6.dp
         val unitWidth = (maxWidth - gap * (columns - 1)) / columns
-        val unitHeight = if (isLandscape) unitWidth + 30.dp else unitWidth + 38.dp
+        // Three portrait columns make each tile physically broad. Give that compact grid a
+        // shorter metadata band so it stays card-like rather than becoming a tall rectangle.
+        val unitHeight = if (isLandscape) unitWidth + 30.dp
+        else unitWidth + if (columns < 4) 20.dp else 38.dp
         val height = unitHeight * usedRows + gap * (usedRows - 1).coerceAtLeast(0f)
         val density = androidx.compose.ui.platform.LocalDensity.current
         val stepX = with(density) { (unitWidth + gap).toPx() }

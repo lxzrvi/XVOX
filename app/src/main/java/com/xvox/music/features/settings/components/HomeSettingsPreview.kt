@@ -35,11 +35,14 @@ fun HomeSettingsPreview(state: SettingsState) {
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val activeColumns = if (isLandscape) state.homeLandscapeColumns else state.homePortraitColumns
 
     val config = HomePresentation(
         style = state.homeLayoutStyle,
         direction = state.homeScrollDirection,
-        columns = state.homeColumns,
+        portraitColumns = state.homePortraitColumns,
+        landscapeColumns = state.homeLandscapeColumns,
         rows = state.homeHorizontalRows,
         hideRecents = state.hideRecentlyPlayed,
         recentsPlacement = state.recentsPlacement,
@@ -53,9 +56,9 @@ fun HomeSettingsPreview(state: SettingsState) {
     )
     val sections = HomeSections.visible(config)
 
-    val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows, state.homeColumns) {
-        val rows = state.homeHorizontalRows.coerceIn(3, 8)
-        val columns = state.homeColumns.coerceIn(3, 8)
+    val tiles = remember(state.homeLayoutStyle, state.homeHorizontalRows, activeColumns) {
+        val rows = state.homeHorizontalRows.coerceIn(3, 10)
+        val columns = activeColumns
         val seeded = Random(4801)
         when (state.homeLayoutStyle) {
             "uniform" -> regularSpecs(columns, rows * columns)
@@ -96,7 +99,7 @@ fun HomeSettingsPreview(state: SettingsState) {
                         HomeSections.ALL -> PreviewMosaic(
                             tiles,
                             state.homeHorizontalRows,
-                            state.homeColumns,
+                            activeColumns,
                             state.homeScrollDirection == "horizontal"
                         )
                         HomeSections.RECENT -> PreviewRecentRow()
@@ -123,10 +126,10 @@ private fun PreviewMosaic(tiles: List<Spec>, rows: Int, columns: Int, horizontal
     val colors = XvoxTheme.colors
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val gap = 4.dp
-        val safeColumns = columns.coerceIn(3, 8)
+        val safeColumns = columns.coerceIn(3, 10)
         val unitWidth = (maxWidth - gap * (safeColumns - 1)) / safeColumns
         val unitHeight = unitWidth + 16.dp
-        val used = if (horizontal) rows.toFloat().coerceAtMost(4f) else (tiles.maxOfOrNull { it.y + it.height } ?: 0f).coerceAtMost(5f)
+        val used = if (horizontal) rows.toFloat().coerceAtMost(10f) else (tiles.maxOfOrNull { it.y + it.height } ?: 0f).coerceAtMost(5f)
         Canvas(Modifier.fillMaxWidth().height(unitHeight * used + gap * (used - 1).coerceAtLeast(0f))) {
             val gx = gap.toPx(); val w = unitWidth.toPx(); val h = unitHeight.toPx()
             tiles.forEach { tile ->

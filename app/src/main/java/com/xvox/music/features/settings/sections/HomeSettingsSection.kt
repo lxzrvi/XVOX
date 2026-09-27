@@ -70,21 +70,30 @@ fun HomeSettingsSection(
             )
 
             Spacer(Modifier.height(8.dp))
-            Label("Column")
+            Label("Portrait columns")
             SettingsChoiceRow(
-                (3..8).map { it.toString() to "$it columns" },
-                state.homeColumns.toString()
+                (3..6).map { it.toString() to "$it columns" },
+                state.homePortraitColumns.toString()
             ) {
-                viewModel.setHomeColumns(it.toInt())
+                viewModel.setHomePortraitColumns(it.toInt())
             }
 
-            // Grid affects horizontal page depth only; Column above always changes the real tile
-            // count for both vertical and horizontal All Songs layouts.
+            Spacer(Modifier.height(8.dp))
+            Label("Landscape columns")
+            SettingsChoiceRow(
+                (8..10).map { it.toString() to "$it columns" },
+                state.homeLandscapeColumns.toString()
+            ) {
+                viewModel.setHomeLandscapeColumns(it.toInt())
+            }
+
+            // Rows affects horizontal page depth only. It intentionally has no embedded count in
+            // its setting label; the selected option itself communicates the value.
             if (state.homeScrollDirection == "horizontal") {
                 Spacer(Modifier.height(8.dp))
-                Label("Grid")
+                Label("Rows")
                 SettingsChoiceRow(
-                    (3..8).map { it.toString() to "$it rows" },
+                    (3..10).map { it.toString() to it.toString() },
                     state.homeHorizontalRows.toString()
                 ) {
                     viewModel.setHomeHorizontalRows(it.toInt())
@@ -155,6 +164,25 @@ fun HomeSettingsSection(
                 valueRange = 6f..32f,
                 defaultValue = 15f,
                 contentDescription = "Mini player corner radius"
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            val keyboardOffset = chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f)
+            Label("Experimental keyboard open offset · ${keyboardOffset.roundToInt()} dp")
+            Text(
+                "Applied live only while the keyboard is open. − raises, + lowers.",
+                color = colors.secondaryText,
+                fontSize = 10.sp
+            )
+            XvoxContinuousSlider(
+                value = keyboardOffset,
+                onValueChange = { value ->
+                    viewModel.setChromeStyle { it.copy(miniPlayerImeOffsetY = value.coerceIn(-180f, 180f)) }
+                },
+                valueRange = -180f..180f,
+                defaultValue = 0f,
+                contentDescription = "Experimental Mini Player keyboard offset"
             )
 
             Spacer(Modifier.height(10.dp))

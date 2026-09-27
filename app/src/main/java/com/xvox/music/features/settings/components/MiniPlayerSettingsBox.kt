@@ -61,6 +61,38 @@ fun MiniPlayerSettingsBoxContent(
             }
         )
 
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Experimental", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Keyboard open offset", color = colors.secondaryText, fontSize = 11.sp)
+                val offset = chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f)
+                Text(
+                    text = "${offset.roundToInt()} dp",
+                    color = colors.primaryAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Text(
+                "Moves only while the keyboard is visible. − raises, + lowers.",
+                color = colors.secondaryText,
+                fontSize = 10.sp
+            )
+            XvoxContinuousSlider(
+                value = chrome.miniPlayerImeOffsetY.coerceIn(-180f, 180f),
+                onValueChange = { value ->
+                    onChromeChange(chrome.copy(miniPlayerImeOffsetY = value.coerceIn(-180f, 180f)))
+                },
+                valueRange = -180f..180f,
+                defaultValue = 0f,
+                contentDescription = "Mini Player keyboard open offset"
+            )
+        }
+
         Text("Navigation Bar", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
 
         ChromeTransparencySlider(

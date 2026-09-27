@@ -57,6 +57,8 @@ data class XvoxChromeStyle(
     /** Per-surface manual placement offsets in dp; positive X = right and positive Y = down. */
     val miniPlayerOffsetX: Float = 0f,
     val miniPlayerOffsetY: Float = 0f,
+    /** Experimental fine adjustment applied only while the IME is actually occluding content. */
+    val miniPlayerImeOffsetY: Float = 0f,
     val navigationBarOffsetX: Float = 0f,
     val navigationBarOffsetY: Float = 0f
 ) {
@@ -73,7 +75,9 @@ data class XvoxChromeStyle(
         headerDimEnabled, headerDimAmount,
         navigationBarWidth, navigationImageUri,
         miniPlayerOffsetX, miniPlayerOffsetY,
-        navigationBarOffsetX, navigationBarOffsetY
+        navigationBarOffsetX, navigationBarOffsetY,
+        // New values are always appended so all existing chrome_style_v1 placements remain exact.
+        miniPlayerImeOffsetY
     ).joinToString("|")
 
     companion object {
@@ -124,6 +128,9 @@ data class XvoxChromeStyle(
                 navigationImageUri = str(23),
                 miniPlayerOffsetX = number(24, 0f).coerceIn(-220f, 220f),
                 miniPlayerOffsetY = number(25, 0f).coerceIn(-260f, 260f),
+                // Appended in revision 8. Older records leave this at zero without shifting an
+                // already tuned resting Mini Player position.
+                miniPlayerImeOffsetY = number(28, 0f).coerceIn(-180f, 180f),
                 navigationBarOffsetX = number(26, 0f).coerceIn(-220f, 220f),
                 navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f)
             )

@@ -290,16 +290,34 @@ fun ProfileEditorBox(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Header", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(
-                text = "Image / GIF",
-                color = colors.primaryAccent,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .border(.8.dp, colors.primaryAccent.copy(alpha = .70f), RoundedCornerShape(50))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // This is deliberately plain actionable text, not another option pill. It opens
+                // the same image/GIF chooser as Custom while keeping the selected-choice controls
+                // below visually unambiguous.
+                Text(
+                    text = "Image / GIF",
+                    color = colors.primaryAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable {
+                            haptics.tap()
+                            headerPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        .padding(vertical = 3.dp)
+                )
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    text = "New",
+                    color = colors.primaryAccent,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .border(.7.dp, colors.primaryAccent.copy(alpha = .68f), RoundedCornerShape(50))
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -332,35 +350,42 @@ fun ProfileEditorBox(
             HeaderIdeasLoopBanner()
         }
 
-        val visibleDimness = if (draft.headerDimEnabled) draft.headerDimAmount.coerceIn(0f, 1f) else 0f
+        // Chrome still stores a dim overlay for backward compatibility, but the editor exposes
+        // the direct user-facing inverse: 100% is the un-darkened Header and 0% is black.
+        val visibleBrightness = if (draft.headerDimEnabled) {
+            1f - draft.headerDimAmount.coerceIn(0f, 1f)
+        } else {
+            1f
+        }
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Header Dimness", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Header Brightness", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "${(visibleDimness * 100).toInt()}%",
+                    "${(visibleBrightness * 100).toInt()}%",
                     color = colors.primaryAccent,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-            Text("Drag for a continuous dim overlay.", color = colors.secondaryText, fontSize = 11.sp)
+            Text("Drag for continuous Header brightness.", color = colors.secondaryText, fontSize = 11.sp)
             XvoxContinuousSlider(
-                value = visibleDimness,
-                onValueChange = { amount ->
+                value = visibleBrightness,
+                onValueChange = { brightness ->
+                    val normalized = brightness.coerceIn(0f, 1f)
                     onDraftChange(
                         draft.copy(
-                            headerDimEnabled = amount > .005f,
-                            headerDimAmount = amount.coerceIn(0f, 1f)
+                            headerDimEnabled = normalized < .995f,
+                            headerDimAmount = (1f - normalized).coerceIn(0f, 1f)
                         )
                     )
                 },
                 valueRange = 0f..1f,
-                defaultValue = .50f,
-                contentDescription = "Header dimness"
+                defaultValue = 1f,
+                contentDescription = "Header brightness"
             )
         }
 
@@ -420,8 +445,10 @@ private fun HeaderImageChoice(
         modifier = modifier
             .height(42.dp)
             .clip(shape)
-            .background(if (active) colors.primaryAccent else colors.cardElevated)
-            .border(.8.dp, if (active) Color.Transparent else colors.cardBorder.copy(alpha = .65f), shape)
+            .background(colors.cardElevated)
+            // Selected Default and Custom choices use the same thin accent outline rather than a
+            // filled accent pill, so the header preview remains visible and calm.
+            .border(.9.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .65f), shape)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -442,7 +469,7 @@ private fun HeaderImageChoice(
         }
         Text(
             title,
-            color = if (!imageUri.isNullOrBlank()) Color.White else if (active) colors.background else colors.primaryText,
+            color = if (!imageUri.isNullOrBlank()) Color.White else colors.primaryText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )

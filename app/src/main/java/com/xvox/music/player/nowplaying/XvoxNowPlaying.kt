@@ -70,8 +70,6 @@ import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.sin
 
 private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
@@ -395,20 +393,16 @@ fun XvoxNowPlaying(
         label = "animBottomPadBottom"
     )
 
-    // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen). The persisted
-    // experimental selector changes a real timing/geometry profile, not merely a preference label.
-    val fullscreenMotion = remember(settingsState.lyrics.fullscreenAnimationStyle) {
-        lyricsFullscreenMotion(settingsState.lyrics.fullscreenAnimationStyle)
-    }
+    // Synchronized Fullscreen Morphing Progress (0f = card, 1f = fullscreen). Fullscreen lyrics
+    // deliberately uses only the locked, cross-orientation-safe style 20; there is no selector or
+    // in-flight pulse capable of revealing cropped edge strips.
+    val fullscreenMotion = remember { lyricsFullscreenMotion() }
     val fullscreenProgress by animateFloatAsState(
         targetValue = if (isFullscreen) 1f else 0f,
         animationSpec = tween(fullscreenMotion.durationMillis, easing = fullscreenMotion.easing),
-        label = "fullscreenProgress_style_${settingsState.lyrics.fullscreenAnimationStyle}"
+        label = "fullscreenProgress_style_20"
     )
-    // The pulse is exactly zero at card and fullscreen endpoints. Therefore every temporary
-    // preset preserves a genuinely edge-to-edge final lyrics surface while still changing the
-    // travel between those endpoints.
-    val fullscreenMotionPulse = sin(fullscreenProgress * PI).toFloat()
+    val fullscreenMotionPulse = 0f
 
     // All four portrait edges participate in the lyric expansion on one shared clock. The
     // compact 6dp side frame restores the earlier, tighter artwork geometry.
@@ -467,12 +461,16 @@ fun XvoxNowPlaying(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val compactInset = 10.dp
                 val compactGutter = 10.dp
+                // The compact artwork frame includes an equal inset on *all four* edges. Its
+                // content width plus 20dp, the 10dp centre gutter, and the control frame exactly
+                // cover the screen width—so no side gets a hidden extra strip.
                 val compactArtworkWidth = ((maxWidth - compactInset * 2 - compactGutter) * .60f)
                     .coerceAtLeast(0.dp)
-                val compactControlsWidth = (maxWidth - compactInset * 2 - compactGutter - compactArtworkWidth)
+                val compactArtworkFrameWidth = compactArtworkWidth + compactInset * 2
+                val compactControlsWidth = (maxWidth - compactArtworkFrameWidth - compactGutter)
                     .coerceAtLeast(0.dp)
-                val expandedArtworkWidth = maxWidth.coerceAtLeast(0.dp)
-                val artworkWidth = lerp(compactArtworkWidth, expandedArtworkWidth, fullscreenProgress)
+                val expandedArtworkFrameWidth = maxWidth.coerceAtLeast(0.dp)
+                val artworkFrameWidth = lerp(compactArtworkFrameWidth, expandedArtworkFrameWidth, fullscreenProgress)
                 val artworkInset = lerp(compactInset, 0.dp, fullscreenProgress)
                 val artworkRadius = lerp(20.dp, 0.dp, fullscreenProgress)
                 // The right card travels exactly far enough to leave the stable 10dp gutter
@@ -484,12 +482,7 @@ fun XvoxNowPlaying(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(
-                            start = artworkInset,
-                            top = artworkInset,
-                            bottom = artworkInset
-                        )
-                        .width(artworkWidth)
+                        .width(artworkFrameWidth)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(artworkRadius))
                         // Once the expanding surface begins covering the second pane it receives
@@ -525,6 +518,7 @@ fun XvoxNowPlaying(
                                 textColor = lyricsTextColor,
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .padding(artworkInset)
                                     .graphicsLayer {
                                         translationX = with(density) {
                                             (fullscreenMotion.horizontalPulseDp * fullscreenMotionPulse).dp.toPx()
@@ -555,14 +549,14 @@ fun XvoxNowPlaying(
                                 },
                                 onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(0.dp),
+                                // Content padding is the one shared frame for left/right/top/bottom.
+                                // A zero page gap keeps incoming vertical covers inside that same
+                                // geometry instead of showing a cropped strip at a screen edge.
+                                contentPadding = PaddingValues(artworkInset),
                                 artworkCornerRadius = artworkRadius,
-                                // In landscape, previous art enters from the top and next art from
-                                // the bottom. A real vertical pager gives portrait-like inset/out
-                                // travel instead of adjacent left/right strips.
                                 verticalPaging = true,
-                                pageSpacing = 10.dp,
-                                artworkHorizontalInset = 8.dp,
+                                pageSpacing = 0.dp,
+                                artworkHorizontalInset = 0.dp,
                                 applyDepth = true,
                                 repeatMode = repeatMode
                             )

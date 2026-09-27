@@ -23,8 +23,14 @@ data class SettingsState(
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",
     val homeScrollDirection: String = "horizontal",
-    val homeColumns: Int = 4,
+    /** Independent All Songs grid choices, resolved at the rendering orientation. */
+    val homePortraitColumns: Int = 4,
+    val homeLandscapeColumns: Int = 8,
     val homeHorizontalRows: Int = 4,
+    /** Whole app density choice rather than a Settings-only text size. */
+    val displaySize: String = "medium",
+    /** Forced regardless of device rotation until the user chooses the other orientation. */
+    val appOrientation: String = "portrait",
     val hideRecentlyPlayed: Boolean = false,
     val recentsPlacement: String = "bottom",
     val eqHeadroomDb: Float = 0f,

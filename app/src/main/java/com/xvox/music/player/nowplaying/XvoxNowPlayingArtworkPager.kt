@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +36,33 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import java.util.ArrayDeque
+import java.util.IdentityHashMap
 import kotlin.math.abs
+
+/**
+ * Stable composition keys for queue occurrences. Index-based pager keys make a reordered list
+ * dispose and recreate the active cover exactly when it must remain visibly unchanged. Object
+ * identity is preserved by PlaybackController across a local drag; a per-object FIFO also keeps
+ * multiple queued appearances of the same Song distinct.
+ */
+private class ArtworkOccurrenceKeyLedger {
+    private var serial = 0L
+    private var previous: List<Pair<String, Song>> = emptyList()
+
+    fun resolve(queue: List<Song>): List<String> {
+        val reusable = IdentityHashMap<Song, ArrayDeque<String>>()
+        previous.forEach { (key, song) ->
+            val bucket = reusable[song] ?: ArrayDeque<String>().also { reusable[song] = it }
+            bucket.addLast(key)
+        }
+        val resolved = queue.map { song ->
+            reusable[song]?.pollFirst() ?: "artwork_occurrence_${serial++}"
+        }
+        previous = queue.indices.map { index -> resolved[index] to queue[index] }
+        return resolved
+    }
+}
 
 /**
  * Full-queue artwork pager for Now Playing.
@@ -80,16 +105,12 @@ fun XvoxNowPlayingArtworkPager(
 ) {
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
-    val queueIdentity = remember(queue) { queue.map { it.xvoxArtworkPaletteKey() } }
-    // Page indices intentionally identify queue occurrences. Repeated library IDs must retain
-    // distinct pages, even if their cover art happens to be identical.
-    // A queue reorder must start its fresh pager at the audible occurrence, never a stale page
-    // number that belonged to a different cover a frame earlier. This is especially important
-    // while Shuffle moves the active row to index zero.
-    val stableInitialPage = initialIdx
-    val pager = key(queueIdentity) {
-        rememberPagerState(initialPage = stableInitialPage, pageCount = { queue.size })
-    }
+    val occurrenceKeyLedger = remember { ArtworkOccurrenceKeyLedger() }
+    val occurrenceKeys = remember(queue) { occurrenceKeyLedger.resolve(queue) }
+    // Page indices intentionally identify queue occurrences. Do not key/recreate the whole pager
+    // on a reorder: restarting it briefly paints a neighbouring/repeated cover even though audio
+    // never changed. The effect below moves the retained pager directly to the active occurrence.
+    val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
 
     val settled by rememberUpdatedState(onSettledPage)
     val previewChanged by rememberUpdatedState(onPreviewIndexChange)
@@ -98,9 +119,15 @@ fun XvoxNowPlayingArtworkPager(
     val tap by rememberUpdatedState(onArtworkTap)
 
     val isUserDragging by pager.interactionSource.collectIsDraggedAsState()
-    var userSwiped by remember(queueIdentity) { mutableStateOf(false) }
-    // Prevent a stale 300 ms release commit when the user begins a fresh fast swipe.
-    var swipeEpoch by remember(queueIdentity) { mutableIntStateOf(0) }
+    var userSwiped by remember { mutableStateOf(false) }
+    // Prevent a stale 300 ms release commit when the user begins a fresh fast swipe or a queue
+    // reorder changes the occurrence layout beneath an existing preview.
+    var swipeEpoch by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(queue) {
+        swipeEpoch++
+        userSwiped = false
+    }
 
     LaunchedEffect(isUserDragging) {
         if (isUserDragging) {
@@ -113,19 +140,26 @@ fun XvoxNowPlayingArtworkPager(
     // here because a repeated Song.id cannot tell the second copy from the first.
     val targetPreviewPage = if (forceCurrentIndex) initialIdx
     else previewIndex.takeIf { it in queue.indices } ?: initialIdx
-    LaunchedEffect(targetPreviewPage, queue, forceCurrentIndex) {
+    LaunchedEffect(targetPreviewPage, queue, forceCurrentIndex, currentIndex) {
         userSwiped = false
         val targetPage = targetPreviewPage
         if (targetPage in queue.indices && targetPage != pager.currentPage) {
-            // Never scrollToPage here: a held or rapidly tapped control can move more than one
-            // index, but the visible cover and the live palette must still travel continuously.
-            pager.animateScrollToPage(
-                page = targetPage,
-                animationSpec = tween(
-                    durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
-                    easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
+            val isOccurrenceRemap = targetPage == currentIndex && !isUserDragging
+            if (forceCurrentIndex || isOccurrenceRemap) {
+                // A queue drag/shuffle remaps indices while keeping the same audible occurrence.
+                // Snap the retained pager to that occurrence; animating through neighbours would
+                // falsely update/flicker the Now Playing cover.
+                pager.scrollToPage(targetPage)
+            } else {
+                // Manual previous/next and manual swipe previews retain their deliberate motion.
+                pager.animateScrollToPage(
+                    page = targetPage,
+                    animationSpec = tween(
+                        durationMillis = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
+                        easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -187,7 +221,7 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> "${queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: "missing"}:$page" }
+            key = { page -> occurrenceKeys.getOrElse(page) { "artwork_missing_$page" } }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,
@@ -208,7 +242,7 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> "${queue.getOrNull(page)?.xvoxArtworkPaletteKey() ?: "missing"}:$page" }
+            key = { page -> occurrenceKeys.getOrElse(page) { "artwork_missing_$page" } }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,

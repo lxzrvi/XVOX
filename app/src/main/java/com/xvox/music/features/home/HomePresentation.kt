@@ -4,9 +4,11 @@ package com.xvox.music.features.home
 data class HomePresentation(
     val style: String = "uniform",
     val direction: String = "vertical",
-    /** All Songs tile columns, exposed in both vertical and horizontal layouts. */
-    val columns: Int = 4,
-    /** Page grid depth, intentionally exposed only for horizontal All Songs pages. */
+    /** Portrait All Songs columns. Portrait deliberately stays compact: 3 through 6. */
+    val portraitColumns: Int = 4,
+    /** Landscape All Songs columns are independent and start at the requested eight. */
+    val landscapeColumns: Int = 8,
+    /** Horizontal page depth (Rows), intentionally exposed only for horizontal All Songs pages. */
     val rows: Int = 4,
     val hideRecents: Boolean = false,
     val recentsPlacement: String = "bottom",
@@ -26,7 +28,11 @@ data class HomePresentation(
     val artistRows: Int = 4,
     val artistHideText: Boolean = false,
     val artistDirection: String = "vertical"
-)
+) {
+    /** Resolves the persisted orientation-specific count at the actual rendering boundary. */
+    fun columnsFor(isLandscape: Boolean): Int =
+        if (isLandscape) landscapeColumns.coerceIn(8, 10) else portraitColumns.coerceIn(3, 6)
+}
 
 object HomeSections {
     const val ALL = "all"

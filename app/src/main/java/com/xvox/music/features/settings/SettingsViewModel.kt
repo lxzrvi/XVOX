@@ -67,11 +67,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.hideStatusBar.collect { v -> _state.update { it.copy(hideStatusBar = v) } } }
             launch { prefs.cardTransparency.collect { v -> _state.update { it.copy(cardTransparency = v) } } }
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
+            launch { prefs.displaySize.collect { v -> _state.update { it.copy(displaySize = v) } } }
+            launch { prefs.appOrientation.collect { v -> _state.update { it.copy(appOrientation = v) } } }
             launch { prefs.fourRowsGrid.collect { v -> _state.update { it.copy(fourRowsGrid = v) } } }
 
             launch { prefs.homeLayoutStyle.collect { v -> _state.update { it.copy(homeLayoutStyle = v) } } }
             launch { prefs.homeScrollDirection.collect { v -> _state.update { it.copy(homeScrollDirection = v) } } }
-            launch { prefs.homeColumns.collect { v -> _state.update { it.copy(homeColumns = v) } } }
+            launch { prefs.homePortraitColumns.collect { v -> _state.update { it.copy(homePortraitColumns = v) } } }
+            launch { prefs.homeLandscapeColumns.collect { v -> _state.update { it.copy(homeLandscapeColumns = v) } } }
             launch { prefs.homeHorizontalRows.collect { v -> _state.update { it.copy(homeHorizontalRows = v) } } }
             launch { prefs.hideRecentlyPlayed.collect { v -> _state.update { it.copy(hideRecentlyPlayed = v) } } }
             launch { prefs.recentsPlacement.collect { v -> _state.update { it.copy(recentsPlacement = v) } } }
@@ -204,11 +207,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHideStatusBar(hide: Boolean) = viewModelScope.launch { prefs.setHideStatusBar(hide) }
     fun setCardTransparency(value: Float) = viewModelScope.launch { prefs.setCardTransparency(value) }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
+    fun setDisplaySize(value: String) = viewModelScope.launch { prefs.setDisplaySize(value) }
+    fun setAppOrientation(value: String) = viewModelScope.launch { prefs.setAppOrientation(value) }
     fun setFourRowsGrid(enabled: Boolean) = viewModelScope.launch { prefs.setFourRowsGrid(enabled) }
 
     fun setHomeLayoutStyle(style: String) = viewModelScope.launch { prefs.setHomeLayoutStyle(style) }
     fun setHomeScrollDirection(direction: String) = viewModelScope.launch { prefs.setHomeScrollDirection(direction) }
-    fun setHomeColumns(columns: Int) = viewModelScope.launch { prefs.setHomeColumns(columns) }
+    /** Legacy entry point updates portrait only. */
+    fun setHomeColumns(columns: Int) = setHomePortraitColumns(columns)
+    fun setHomePortraitColumns(columns: Int) = viewModelScope.launch { prefs.setHomePortraitColumns(columns) }
+    fun setHomeLandscapeColumns(columns: Int) = viewModelScope.launch { prefs.setHomeLandscapeColumns(columns) }
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { prefs.setHomeHorizontalRows(rows) }
     fun setHideRecentlyPlayed(hide: Boolean) = viewModelScope.launch { prefs.setHideRecentlyPlayed(hide) }
     fun setRecentsPlacement(value: String) = viewModelScope.launch { prefs.setRecentsPlacement(value) }

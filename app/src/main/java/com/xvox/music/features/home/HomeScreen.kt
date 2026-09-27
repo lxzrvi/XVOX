@@ -12,8 +12,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -189,13 +188,14 @@ fun HomeScreen(
         pendingDeleteSongs = emptyList()
     }
 
-    val plans = remember(state.songs, config.style, config.rows, config.columns) {
+    val activeAllSongsColumns = config.columnsFor(isLandscape)
+    val plans = remember(state.songs, config.style, config.rows, activeAllSongsColumns) {
         buildMosaicPagePlans(
             state.songs,
-            config.rows,
+            config.rows.coerceIn(3, 10),
             config.style == "uniform",
             config.style == "mosaic1",
-            cols = config.columns.coerceIn(3, 8)
+            cols = activeAllSongsColumns
         )
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }
@@ -369,6 +369,38 @@ fun HomeScreen(
 
     val selectedSongsList = remember(selectedSongIds, state.songs) {
         state.songs.filter { it.id in selectedSongIds }
+    }
+    // The Select all rail action is deliberately source-scoped. Resolve the exact category that
+    // started selection rather than falling back to the global library when a name is unfamiliar.
+    val selectionScopeSongs = remember(
+        selectionCategoryName,
+        selectionLibraryMode,
+        selectedPlaylist?.id,
+        state.playlists,
+        playlistContents,
+        visibleRecentPageSongs,
+        likedSongs,
+        artists,
+        state.songs
+    ) {
+        val category = selectionCategoryName.orEmpty()
+        when {
+            category.equals("All Songs", ignoreCase = true) -> state.songs
+            category.equals("Recently Played", ignoreCase = true) -> visibleRecentPageSongs
+            category.equals("Liked", ignoreCase = true) || category.equals("Liked Songs", ignoreCase = true) -> likedSongs
+            selectedPlaylist != null && category.equals(selectedPlaylist.name, ignoreCase = true) ->
+                playlistContents[selectedPlaylist.id].orEmpty()
+            else -> {
+                val playlist = state.playlists.firstOrNull { it.name.equals(category, ignoreCase = true) }
+                when {
+                    playlist != null -> playlistContents[playlist.id].orEmpty()
+                    else -> {
+                        val artistName = category.removePrefix("Playing by ")
+                        artists.firstOrNull { it.name.equals(artistName, ignoreCase = true) }?.songs.orEmpty()
+                    }
+                }
+            }
+        }.distinctBy { it.id }
     }
 
     fun resolveOriginatingSongsForRecent(song: Song): Pair<List<Song>, String> {
@@ -668,12 +700,11 @@ fun HomeScreen(
 
         AnimatedVisibility(
             visible = isSelectionMode,
-            enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(130)) + fadeIn(tween(100)),
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(180)) + fadeOut(tween(120)),
+            enter = slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160)) + fadeIn(tween(100)),
+            exit = slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(180)) + fadeOut(tween(120)),
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(start = 8.dp, top = 6.dp, end = 8.dp)
+                .align(Alignment.CenterStart)
+                // Intentionally no start padding: this rail is flush to the screen edge.
                 .zIndex(9999f)
         ) {
             HomeMultiSelectBar(
@@ -685,6 +716,13 @@ fun HomeScreen(
                 overlays = overlays,
                 context = context,
                 categoryName = selectionCategoryName,
+                onSelectAll = {
+                    if (selectionScopeSongs.isEmpty()) {
+                        overlays.showP("No songs in this category")
+                    } else {
+                        selectedSongIds = selectionScopeSongs.mapTo(linkedSetOf()) { it.id }
+                    }
+                },
                 onClearSelection = {
                     selectedSongIds = emptySet()
                     selectionCategoryName = null
