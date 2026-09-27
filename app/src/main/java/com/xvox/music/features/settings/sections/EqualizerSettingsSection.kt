@@ -132,13 +132,25 @@ fun EqualizerSettingsSection(
             onValueChange = { viewModel.setAppVolume(it * 2f) },
             defaultValue = .50f
         )
-        EqualizerSliderRow(
-            label = "Distortion Control",
-            valueText = "${(state.distortionControl * 100).roundToInt()}%",
-            value = state.distortionControl,
-            onValueChange = viewModel::setDistortionControl,
-            defaultValue = 0f
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            EqualizerToggleRow(
+                title = "Distortion Control",
+                checked = state.distortionControlEnabled,
+                onCheckedChange = viewModel::setDistortionControlEnabled
+            )
+            if (state.distortionControlEnabled) {
+                EqualizerSliderRow(
+                    // Reverb is the one rail that keeps the visible “Amount” helper. Its peer
+                    // control title already identifies this slider, so avoid repeating it here.
+                    label = null,
+                    valueText = null,
+                    value = state.distortionControl,
+                    onValueChange = viewModel::setDistortionControl,
+                    defaultValue = .50f,
+                    contentDescription = "Distortion Control amount"
+                )
+            }
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EqualizerSectionLabel("Reverb preset")
@@ -168,11 +180,12 @@ fun EqualizerSettingsSection(
             )
             if (state.noiseReductionEnabled) {
                 EqualizerSliderRow(
-                    label = "Amount",
-                    valueText = "${(state.noiseReduction * 100).roundToInt()}%",
+                    label = null,
+                    valueText = null,
                     value = state.noiseReduction,
                     onValueChange = viewModel::setNoiseReduction,
-                    defaultValue = .50f
+                    defaultValue = .50f,
+                    contentDescription = "Noise reduction amount"
                 )
             }
         }
@@ -185,11 +198,12 @@ fun EqualizerSettingsSection(
             )
             if (state.grainControlEnabled) {
                 EqualizerSliderRow(
-                    label = "Amount",
-                    valueText = "${(state.softenHighs * 100).roundToInt()}%",
+                    label = null,
+                    valueText = null,
                     value = state.softenHighs,
                     onValueChange = viewModel::setSoftenHighs,
-                    defaultValue = .50f
+                    defaultValue = .50f,
+                    contentDescription = "Grain control amount"
                 )
             }
         }
@@ -335,15 +349,18 @@ private fun EqualizerChipRow(
     }
 
     if (edgeToEdge) {
-        // Equalizer sheets normally reserve a 16dp body inset. Reverb is intentionally allowed
-        // to traverse that inset, so its first and final preset can touch the real sheet edge.
+        // Begin with a small breathing gap, but let a real horizontal swipe carry the final chip
+        // all the way to the sheet edge—there is no persistent oversized right-end padding.
         BoxWithConstraints(Modifier.fillMaxWidth().offset(x = (-16).dp)) {
             Row(
                 modifier = Modifier
                     .width(maxWidth + 32.dp)
                     .horizontalScroll(scrollState),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) { Chips() }
+            ) {
+                Spacer(Modifier.width(6.dp))
+                Chips()
+            }
         }
     } else {
         Row(
@@ -357,37 +374,46 @@ private fun EqualizerChipRow(
 
 @Composable
 private fun EqualizerSliderRow(
-    label: String,
-    valueText: String,
+    label: String?,
+    valueText: String?,
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float
+    defaultValue: Float,
+    contentDescription: String = label?.let { "$it amount" } ?: "Amount"
 ) {
     val colors = XvoxTheme.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                color = colors.primaryText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                text = valueText,
-                color = colors.primaryAccent,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+        // Reverb deliberately names its Amount rail; Noise reduction and Grain are already
+        // named by their toggle rows, so their rails stay clean without repeated helper text.
+        if (label != null || valueText != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                label?.let {
+                    Text(
+                        text = it,
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+                valueText?.let {
+                    Text(
+                        text = it,
+                        color = colors.primaryAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
         EqualizerThinSlider(
             value = value,
             onValueChange = onValueChange,
             defaultValue = defaultValue,
-            contentDescription = "$label amount"
+            contentDescription = contentDescription
         )
     }
 }

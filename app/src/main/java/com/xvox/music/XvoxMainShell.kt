@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,9 +25,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -684,29 +686,23 @@ fun XvoxMainShell(
         // One shell-owned Header spans every tab. Its background begins behind the status bar,
         // while page content receives the same measured inset instead of composing its own copy.
         val sharedHeaderHeight = with(density) {
-            WindowInsets.statusBars.getTop(this).toDp()
+            WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp()
         } + XvoxShellTopHeaderBodyHeight
         val sharedHeaderHeightPx = with(density) { sharedHeaderHeight.toPx() }
-        val activeHeaderScrollPx = when (destination) {
+        // A player close must render the shell Header at rest in its very first returning frame,
+        // rather than briefly remounting a stale off-screen translation and correcting later.
+        val returningFromNowPlaying = hadVisibleNowPlaying && !player.nowPlayingVisible
+        val activeHeaderScrollPx = (if (returningFromNowPlaying) 0 else when (destination) {
             XvoxDestination.HOME -> homeHeaderScrollPx
             XvoxDestination.SEARCH -> searchHeaderScrollPx
             XvoxDestination.SETTINGS -> 0
-        }.coerceAtLeast(0)
-        // Home keeps the visible 66dp Header body on screen: scrolling may consume only the
-        // behind-status-bar portion, so a small scroll cannot make the whole Header disappear.
-        // Search deliberately retains its full exit so its sticky field can take the matching
-        // status-bar-safe position. Settings remains the one route with a complete upward exit.
-        val headerBodyPx = with(density) { XvoxShellTopHeaderBodyHeight.toPx() }
-        val homeHeaderTravelPx = (sharedHeaderHeightPx - headerBodyPx).coerceAtLeast(0f)
+        }).coerceAtLeast(0)
+        // Header and page content travel together for the full Header height on both Home and
+        // Search. The field/pane owns its own status-safe clamp once this shared chrome leaves.
         val targetHeaderTranslationY = when (destination) {
             XvoxDestination.SETTINGS -> -sharedHeaderHeightPx
-            XvoxDestination.HOME -> -min(activeHeaderScrollPx.toFloat(), homeHeaderTravelPx)
-            // A landscape Search owns a fixed left input pane, so preserve the Header body
-            // there too instead of sliding it over that stationary pane.
-            XvoxDestination.SEARCH -> -min(
-                activeHeaderScrollPx.toFloat(),
-                if (isLandscape) homeHeaderTravelPx else sharedHeaderHeightPx
-            )
+            XvoxDestination.HOME,
+            XvoxDestination.SEARCH -> -min(activeHeaderScrollPx.toFloat(), sharedHeaderHeightPx)
         }
         // Scroll itself is frame-synchronous with the page list. Only a route change receives a
         // short motion, which prevents the Header from visually lagging behind content as a user
@@ -726,7 +722,7 @@ fun XvoxMainShell(
                 sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
             }
         }
-        val sharedHeaderTranslationY = sharedHeaderTranslation.value
+        val sharedHeaderTranslationY = if (returningFromNowPlaying) 0f else sharedHeaderTranslation.value
         val tabState = rememberSaveableStateHolder()
         // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
         // remain locked together during a route motion. Settings itself intentionally consumes
@@ -764,9 +760,9 @@ fun XvoxMainShell(
                                     onQueueReady = playerViewModel::setQueue,
                                     onPlay = playerViewModel::play,
                                     playerViewModel = playerViewModel,
-                                    onScrollProgress = { index, offset ->
+                                    onScrollProgress = { _, travelledPx ->
                                         if (destination == XvoxDestination.HOME) {
-                                            homeHeaderScrollPx = if (index > 0) sharedHeaderHeightPx.roundToInt() else offset
+                                            homeHeaderScrollPx = travelledPx
                                         }
                                     }
                                 )
@@ -780,9 +776,9 @@ fun XvoxMainShell(
                                         hoistedSelectedPlaylistId = playlistId
                                         returnToHome(resetScroll = true)
                                     },
-                                    onScrollProgress = { index, offset ->
+                                    onScrollProgress = { _, travelledPx ->
                                         if (destination == XvoxDestination.SEARCH) {
-                                            searchHeaderScrollPx = if (index > 0) sharedHeaderHeightPx.roundToInt() else offset
+                                            searchHeaderScrollPx = travelledPx
                                         }
                                     }
                                 )
@@ -822,7 +818,9 @@ fun XvoxMainShell(
         // Player surfaces hand off sequentially: each existing 320ms motion clears before the
         // next surface enters.
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
-        val miniVisible = if (isLandscape) (player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()) else (miniVisibleBase && destination != XvoxDestination.SETTINGS)
+        // Settings lets the Mini Player visibly hand off downward in either orientation instead
+        // of leaving it on the page or cutting it away mid-card.
+        val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
         var landscapeQuickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
         LaunchedEffect(miniVisible) {
             if (!miniVisible) landscapeQuickActionsVisible = false
@@ -831,8 +829,8 @@ fun XvoxMainShell(
         if (isLandscape) {
             // In landscape the compact shell owns the Mini Player directly rather than through the
             // portrait host. Preserve the same fixed keyboard-only −12dp lift here.
-            val landscapeImeVisible = WindowInsets.ime.getBottom(density) >
-                WindowInsets.navigationBars.getBottom(density)
+            val landscapeImeVisible = WindowInsets.isImeVisible &&
+                WindowInsets.ime.getBottom(density) > WindowInsets.navigationBars.getBottom(density)
             val landscapeKeyboardOffset = if (landscapeImeVisible) (-12).dp else 0.dp
             if (landscapeQuickActionsVisible) {
                 Box(
@@ -850,15 +848,23 @@ fun XvoxMainShell(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (miniVisible && currentSongId != null) {
+                if (miniVisibleBase && currentSongId != null) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(122.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        XvoxMiniPlayer(
-                            queue = player.queue,
+                        AnimatedVisibility(
+                            visible = miniVisible,
+                            enter = androidx.compose.animation.EnterTransition.None,
+                            exit = slideOutVertically(
+                                targetOffsetY = { it + with(density) { 18.dp.roundToPx() } },
+                                animationSpec = tween(260)
+                            ) + fadeOut(tween(150))
+                        ) {
+                            XvoxMiniPlayer(
+                                queue = player.queue,
                             currentSongId = currentSongId,
                             currentIndex = player.currentIndex,
                             isPlaying = player.isPlaying,
@@ -881,9 +887,10 @@ fun XvoxMainShell(
                             onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
                             quickActionsVisible = landscapeQuickActionsVisible,
                             onQuickActionsVisibleChange = { landscapeQuickActionsVisible = it },
-                            keyboardOffsetY = landscapeKeyboardOffset,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                                keyboardOffsetY = landscapeKeyboardOffset,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 } else {
                     // Reserve the Mini Player lane even while its exit handoff is in progress.
@@ -907,6 +914,9 @@ fun XvoxMainShell(
             // Portrait Mode: Stacked layout
             XvoxShellMiniPlayerHost(
                 visible = miniVisible,
+                // Entering Settings keeps the outgoing card composed just long enough for a
+                // visible downward handoff instead of an abrupt disappearance.
+                settingsExit = destination == XvoxDestination.SETTINGS,
                 currentSongId = if (miniVisibleBase) currentSongId else null,
                 queue = player.queue,
                 currentIndex = player.currentIndex,

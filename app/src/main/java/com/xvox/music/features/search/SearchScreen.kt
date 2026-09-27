@@ -13,7 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +43,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -109,29 +111,18 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    // Search remains one real page list: Header first, then its sticky field.  Rather than
-    // waiting for the field to pin at y=0 and jumping it down afterwards, continuously grow the
-    // field's own top inset as its sticky container approaches the status-bar-safe line. Thus the
-    // editable surface never travels behind the system bar, including on a fresh first scroll.
     val density = LocalDensity.current
-    val stickyContainerOffsetPx by remember {
-        derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.key == "sticky_search_bar" }
-                ?.offset
-                ?: Int.MAX_VALUE
-        }
-    }
-    // One shared 2dp visual air gap: initially below the shell Header, and once that Header has
-    // travelled away, below the real status bar. This removes the former oversized Search gap.
+    var searchScrollDistancePx by remember { mutableIntStateOf(0) }
+    // The field begins just beneath the Header and tracks its full upward travel. Once Header has
+    // left, this status-safe clamp is the only fixed position—there is no spacer left behind.
     val searchHeaderGap = 2.dp
-    val stickySearchTop = with(density) {
-        val gapPx = searchHeaderGap.roundToPx()
-        val safeFieldTopPx = WindowInsets.statusBars.getTop(this) + gapPx
-        (safeFieldTopPx - stickyContainerOffsetPx)
-            .coerceAtLeast(gapPx)
-            .toDp()
+    val statusSafeSearchTop = with(density) {
+        WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() + searchHeaderGap
     }
+    val headerSearchTop = topInset + searchHeaderGap
+    val travelledSearchDp = with(density) { searchScrollDistancePx.toDp() }
+    val movingSearchTop = headerSearchTop - travelledSearchDp
+    val searchFieldTop = if (movingSearchTop < statusSafeSearchTop) statusSafeSearchTop else movingSearchTop
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -177,6 +168,7 @@ fun SearchScreen(
             }
             travelledPx = (travelledPx + delta).coerceAtLeast(0)
             if (index == 0 && offset == 0) travelledPx = 0
+            searchScrollDistancePx = travelledPx
             currentOnScrollProgress(0, travelledPx)
             previousIndex = index
             previousOffset = offset
@@ -287,49 +279,52 @@ fun SearchScreen(
     }
 
     if (isLandscape) {
-        // The input/recent pane is a fixed landscape surface. Only the right results LazyColumn
-        // owns [listState], so a results swipe cannot scroll the left Search controls away.
+        // The right result list drives the shared travel. The left Search surface mirrors that
+        // upward motion until the status-safe line, so neither pane is left stranded below a
+        // disappearing Header and neither can enter the former status-bar area.
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInset, bottom = bottomInset)
-                // Keep the results rail flush with its own landscape-pane edge. The left search
-                // controls carry their own start inset below, so the final carousel item is safe.
-                .padding(top = 2.dp, bottom = 6.dp),
+                .padding(bottom = bottomInset + 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Left pane: Search bar + Recent Searches + Library summary (Pinned at top)
-            Column(
+            // Left pane: it does not independently scroll, but it tracks the right list/Header
+            // travel and then rests at the same safe top line as the portrait Search field.
+            Box(
                 modifier = Modifier
                     .weight(0.40f)
                     .fillMaxSize()
-                    .padding(start = 16.dp)
             ) {
-                SearchBarComponent(
-                    query = query,
-                    onQueryChange = { query = it },
-                    onClear = { query = "" },
-                    focusRequester = focusRequester,
-                    onSearch = {
-                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
-                        focusManager.clearFocus()
-                    }
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = searchFieldTop)
+                        .padding(start = 16.dp, end = 4.dp)
+                ) {
+                    SearchBarComponent(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onClear = { query = "" },
+                        focusRequester = focusRequester,
+                        onSearch = {
+                            if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                            focusManager.clearFocus()
+                        }
+                    )
 
-                Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(10.dp))
 
-                RecentSearchesSection(
-                    searches = recentSearches,
-                    onSelect = { q ->
-                        query = q
-                        focusManager.clearFocus()
-                    },
-                    onRemove = { q -> homeViewModel.removeRecentSearch(q) },
-                    onClearAll = { homeViewModel.clearRecentSearches() },
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
-                )
-
-                Spacer(Modifier.weight(1f))
+                    RecentSearchesSection(
+                        searches = recentSearches,
+                        onSelect = { q ->
+                            query = q
+                            focusManager.clearFocus()
+                        },
+                        onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                        onClearAll = { homeViewModel.clearRecentSearches() },
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             // Right pane: Search results
@@ -341,7 +336,7 @@ fun SearchScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = topInset + 2.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (drillDownPlaylist != null) {
@@ -495,41 +490,19 @@ fun SearchScreen(
             }
         }
     } else {
-        // Results use the shell's one Header inset. Scroll progress moves that Header itself,
-        // so Search never emits or crossfades a second copy.
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = topInset, bottom = bottomInset + 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            stickyHeader(key = "sticky_search_bar") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(colors.background)
-                        // On entry this stays directly under the scrolling Header. Once
-                        // pinned, stickySearchTop becomes status bars + the same 2dp gap.
-                        .padding(
-                            start = 14.dp,
-                            top = stickySearchTop,
-                            end = 14.dp,
-                            bottom = 4.dp
-                        )
-                ) {
-                    SearchBarComponent(
-                            query = query,
-                            onQueryChange = { query = it },
-                            onClear = { query = "" },
-                            focusRequester = focusRequester,
-                            onSearch = {
-                                if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
-                                focusManager.clearFocus()
-                            }
-                        )
-                    }
-                }
-
+        // The field is a shell-synchronised overlay rather than a sticky list item. It therefore
+        // follows Header/content upward continuously, then clamps at the status-safe line with no
+        // oversized blank region left in the list.
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = topInset + 56.dp,
+                    bottom = bottomInset + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 if (drillDownPlaylist == null && drillDownArtist == null) {
                     if (recentSearches.isNotEmpty() && query.isEmpty()) {
                         item(key = "recent_searches") {
@@ -686,6 +659,25 @@ fun SearchScreen(
                 }
             }
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = searchFieldTop)
+                    .background(colors.background)
+                    .padding(start = 14.dp, end = 14.dp, bottom = 4.dp)
+            ) {
+                SearchBarComponent(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onClear = { query = "" },
+                    focusRequester = focusRequester,
+                    onSearch = {
+                        if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                        focusManager.clearFocus()
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -1031,7 +1023,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick(song) }
                     )
-                    .padding(8.dp),
+                    // Match the common card-to-cover frame used by liked, playlist and queue rows.
+                    .padding(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -1221,7 +1214,8 @@ private fun SearchSongRow(
                 onClick = { onSongClick(song) },
                 onLongClick = { onSongLongClick(song) }
             )
-            .padding(8.dp),
+            // Use the same calm 6dp artwork frame as the rest of the song-card system.
+            .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

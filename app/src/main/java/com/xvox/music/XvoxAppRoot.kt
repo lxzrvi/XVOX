@@ -102,13 +102,21 @@ fun XvoxAppRoot(
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
+    val hideStatusBar by prefs.hideStatusBar.collectAsState(initial = false)
 
     val view = androidx.compose.ui.platform.LocalView.current
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        val window = (view.context as? android.app.Activity)?.window
-        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-        onDispose { }
+    val rootWindow = (view.context as? android.app.Activity)?.window
+    val rootInsetsController = remember(rootWindow, view) {
+        rootWindow?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+    }
+    // This is the app-wide chrome policy. Screens may request transient player fullscreen while
+    // visible, but a user-enabled hidden status bar always wins when those screens return.
+    LaunchedEffect(rootInsetsController, hideStatusBar) {
+        if (hideStatusBar) {
+            rootInsetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            rootInsetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
     }
 
     LaunchedEffect(accentStr, accentPreview) {

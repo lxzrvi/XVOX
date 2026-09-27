@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -119,29 +120,30 @@ fun HomeMultiSelectBar(
         ) {
             Column(
                 modifier = modifier
-                    // Tight for its row labels but not so narrow that actions wrap into a tall rail.
-                    .widthIn(min = 112.dp, max = 138.dp)
+                    // Tight to the actual icon/text content, leaving only a small breathing gap
+                    // before the attached outer scrollbar.
+                    .widthIn(min = 104.dp, max = 122.dp)
                     .clip(railShape)
                     .background(colors.cardElevated.copy(alpha = .99f))
-                    .padding(start = 9.dp, top = 8.dp, end = 7.dp, bottom = 8.dp),
+                    .padding(start = 8.dp, top = 8.dp, end = 0.dp, bottom = 7.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 // Fixed metadata header: scrolling actions never move or obscure the selection count.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(colors.primaryAccent.copy(alpha = .20f)),
+                            .clip(CircleShape)
+                            .background(colors.primaryAccent),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "${selectedSongs.size}",
-                            color = colors.primaryAccent,
+                            color = colors.background,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -168,7 +170,7 @@ fun HomeMultiSelectBar(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(end = 5.dp)
+                            .padding(end = 4.dp)
                             .verticalScroll(actionsScroll)
                     ) {
                         MultiActionItem(R.drawable.ic_xvox_check, "Select all", onSelectAll)
@@ -229,25 +231,31 @@ fun HomeMultiSelectBar(
                             XvoxSongActions.shareMultiple(context, selectedSongs)
                             onClearSelection()
                         }
-                        MultiActionItem(R.drawable.ic_xvox_close, "Cancel", onClearSelection)
                     }
 
-                    // Permanently attached track plus a proportional thumb, on the true right edge.
+                    // Permanently attached track plus a proportional thumb on the physical outer
+                    // edge—there is no card-padding strip between this rail and the screen edge.
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .fillMaxHeight()
-                            .width(2.dp)
+                            .width(1.dp)
                             .background(colors.cardBorder.copy(alpha = .62f))
                     )
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .offset(y = thumbOffset)
-                            .width(2.dp)
+                            .width(1.dp)
                             .height(thumbHeight)
                             .background(colors.primaryAccent)
                     )
+                }
+
+                // Count stays fixed above the internal action scroll; Cancel has the same fixed
+                // behavior at the bottom, so it never gets buried after a long action list.
+                Box(Modifier.fillMaxWidth().padding(end = 6.dp)) {
+                    MultiActionItem(R.drawable.ic_xvox_close, "Cancel", onClearSelection)
                 }
             }
         }
@@ -267,9 +275,9 @@ private fun MultiActionItem(
             .height(MultiActionRowHeight)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Icon(
             painter = painterResource(iconRes),

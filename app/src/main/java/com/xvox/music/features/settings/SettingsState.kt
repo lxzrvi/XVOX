@@ -95,6 +95,8 @@ data class SettingsState(
     val appVolume: Float = 1.0f,
     /** Peak-only de-clip/anti-harshness DSP; it leaves normal programme level intact. */
     val distortionControl: Float = 0f,
+    /** Retains a preferred level while giving the processor a true explicit bypass. */
+    val distortionControlEnabled: Boolean = false,
     val volumeLimit: Float = 1.0f,
     val playbackSpeed: Float = 1.0f,
     val playbackPitch: Float = 1.0f,

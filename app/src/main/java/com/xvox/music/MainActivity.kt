@@ -34,15 +34,14 @@ class MainActivity : ComponentActivity() {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val orientationPrefs = UserPreferencesRepository(applicationContext)
         setContent {
-            // This collection intentionally owns Activity orientation rather than reading the
-            // device's current rotation. A persisted Portrait/Landscape choice therefore remains
-            // in force after reopening the app and while system auto-rotate is disabled.
+            // Portrait and Landscape remain explicit locks. Auto deliberately returns ownership
+            // to Android so the current system auto-rotate policy and sensor decide the layout.
             LaunchedEffect(orientationPrefs) {
                 orientationPrefs.appOrientation.collect { choice ->
-                    val requested = if (choice == "landscape") {
-                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                    } else {
-                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    val requested = when (choice.lowercase()) {
+                        "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                     }
                     if (requestedOrientation != requested) requestedOrientation = requested
                 }

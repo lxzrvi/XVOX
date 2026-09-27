@@ -1,5 +1,12 @@
 package com.xvox.music.features.home.recent
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,12 +58,23 @@ fun XvoxRecentCarousel(
     } else {
         val isLandscape = LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        // A pull refresh releases the frozen Recent order in HomeScreen. Animate that order
+        // replacement as one calm in-place list transition rather than jumping cards beneath the
+        // user after the refresh spinner completes.
+        AnimatedContent(
+            targetState = songs.map { it.id },
+            transitionSpec = {
+                (fadeIn(tween(210)) + slideInVertically(tween(210)) { it / 10 })
+                    .togetherWith(fadeOut(tween(140)) + slideOutVertically(tween(140)) { -it / 12 })
+            },
+            label = "recentOrderRefresh"
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             if (isLandscape) {
                 // Landscape Recent is a compact two-column list rather than an over-wide single
                 // card. The final single card retains the same measured column width.
@@ -98,6 +116,7 @@ fun XvoxRecentCarousel(
                     )
                 }
             }
+        }
         }
     }
 }

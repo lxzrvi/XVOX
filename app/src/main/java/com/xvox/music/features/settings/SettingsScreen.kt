@@ -42,7 +42,6 @@ import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
-import com.xvox.music.features.sourcemode.XvoxSourceModeSettingsSection
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
@@ -108,7 +107,7 @@ fun SettingsScreen(
     }
 
     val density = LocalDensity.current
-    val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val statusTop = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() }
 
     Box(
         modifier = modifier
@@ -185,13 +184,7 @@ fun SettingsScreen(
                         AboutSectionCard(Modifier.weight(1f).fillMaxHeight())
                     }
                 }
-                // Experimental source selection deliberately remains the last Settings surface.
-                item(key = "section_experimental_source_mode", span = { GridItemSpan(maxLineSpan) }) {
-                    XvoxSourceModeSettingsSection(
-                        mode = state.sourceMode,
-                        onModeSelected = settingsViewModel::setSourceMode
-                    )
-                }
+                // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker)
@@ -203,13 +196,6 @@ fun SettingsScreen(
                 item(key = "section_backup") { BackupSectionCard(homeViewModel) }
                 item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
                 item(key = "section_about") { AboutSectionCard() }
-                // Keep Experimental at the very bottom, after ordinary product settings.
-                item(key = "section_experimental_source_mode") {
-                    XvoxSourceModeSettingsSection(
-                        mode = state.sourceMode,
-                        onModeSelected = settingsViewModel::setSourceMode
-                    )
-                }
             }
         }
     }
@@ -279,12 +265,24 @@ private fun AppearanceSectionCard(
 
             SettingsField("Orientation") {
                 XvoxSegmentedPill(
-                    options = listOf("portrait" to "Portrait", "landscape" to "Landscape"),
+                    options = listOf(
+                        "auto" to "Auto",
+                        "portrait" to "Portrait",
+                        "landscape" to "Landscape"
+                    ),
                     selectedKey = state.appOrientation.lowercase(),
                     onSelect = viewModel::setAppOrientation,
                     compact = true
                 )
             }
+
+            // This sits immediately below orientation because both are window policy. Insets
+            // remain reserved by the shell even while the system bar itself is hidden.
+            SettingsToggle(
+                title = "Hide status bar",
+                checked = state.hideStatusBar,
+                onChange = viewModel::setHideStatusBar
+            )
         }
     }
 }
@@ -388,31 +386,48 @@ private fun WidgetSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "Widgets", modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .xvoxPressScale(onClick = onOpenStudio)
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Landscape cards share a bottom with Appearance. Fill that shared lane deliberately
+        // rather than leaving a single centred row floating in an oversized empty card.
+        Column(
+            modifier = if (isLandscape) Modifier.fillMaxHeight() else Modifier.fillMaxWidth(),
+            verticalArrangement = if (isLandscape) Arrangement.SpaceBetween else Arrangement.Top
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("Widget Studio", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "Edit the widget already placed on your home screen",
-                    color = colors.mutedText,
-                    fontSize = 11.5.sp,
-                    lineHeight = 15.sp
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .xvoxPressScale(onClick = onOpenStudio)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Widget Studio", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Edit the widget already placed on your home screen",
+                        color = colors.mutedText,
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_caret_right),
+                    contentDescription = "Open Widget Studio",
+                    tint = colors.mutedText,
+                    modifier = Modifier.size(16.dp)
                 )
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_caret_right),
-                contentDescription = "Open Widget Studio",
-                tint = colors.mutedText,
-                modifier = Modifier.size(16.dp)
-            )
+            if (isLandscape) {
+                Text(
+                    text = "Open Studio to place and style your live widget.",
+                    color = colors.mutedText,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
         }
     }
 }
@@ -530,8 +545,11 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
 
 @Composable
 private fun AboutSectionCard(modifier: Modifier = Modifier) {
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "About XVOX", modifier = modifier) {
-        AboutSettingsSection()
+        // When this card shares System's landscape height, distribute its complete About content
+        // through that lane rather than leaving an oversized empty lower half.
+        AboutSettingsSection(expanded = isLandscape)
     }
 }
 

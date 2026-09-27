@@ -58,7 +58,7 @@ fun XvoxLikedSongRow(
             .clip(shape)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = shape)
-            .padding(start = 6.dp, top = 6.dp, end = 8.dp, bottom = 6.dp),
+            .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         XvoxSongArtwork(

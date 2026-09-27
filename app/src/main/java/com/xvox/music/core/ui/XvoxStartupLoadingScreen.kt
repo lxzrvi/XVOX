@@ -40,10 +40,11 @@ private enum class StartupVisualPhase {
 }
 
 private val StartupRailWidth = 180.dp
-// The travelling dots stay clearly substantial, then settle into a deliberately thin rail.
-private val StartupDotHeight = 7.dp
-private val StartupRailHeight = 4.dp
-private val StartupDotIdleGap = 10.dp
+// Keep both stages deliberately hairline-light: the three travelling accent passes become the
+// equally thin progress rail, with the exact same accent colour in both states.
+private val StartupDotHeight = 4.dp
+private val StartupRailHeight = 2.dp
+private val StartupDotIdleGap = 8.dp
 private const val StartupDotCount = 5
 
 /**

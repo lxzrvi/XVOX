@@ -107,6 +107,8 @@ class UserPreferencesRepository(
         val appVolume = floatPreferencesKey("app_volume")
         /** Peak-only anti-distortion/de-clip amount for the PCM DSP pipeline. */
         val distortionControl = floatPreferencesKey("distortion_control")
+        /** Explicit bypass, so a retained amount cannot process while its toggle is off. */
+        val distortionControlEnabled = booleanPreferencesKey("distortion_control_enabled")
         val volumeLimit = floatPreferencesKey("volume_limit")
 
         val surroundWidth = floatPreferencesKey("surround_width")
@@ -197,8 +199,11 @@ class UserPreferencesRepository(
         else -> "medium"
     }
 
-    private fun normalizeAppOrientation(value: String?): String =
-        if (value.equals("landscape", ignoreCase = true)) "landscape" else "portrait"
+    private fun normalizeAppOrientation(value: String?): String = when {
+        value.equals("landscape", ignoreCase = true) -> "landscape"
+        value.equals("auto", ignoreCase = true) -> "auto"
+        else -> "portrait"
+    }
 
     private fun normalizeNowPlayingBackgroundStyle(value: String?): String =
         com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(value)
@@ -414,6 +419,9 @@ class UserPreferencesRepository(
 
     val appVolume: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.appVolume] ?: 1.0f).coerceIn(0f, 2f) }.distinctUntilChanged()
     val distortionControl: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.distortionControl] ?: 0f).coerceIn(0f, 1f) }.distinctUntilChanged()
+    val distortionControlEnabled: Flow<Boolean> = context.xvoxDataStore.data.map {
+        it[Keys.distortionControlEnabled] ?: ((it[Keys.distortionControl] ?: 0f) > .001f)
+    }.distinctUntilChanged()
     val volumeLimit: Flow<Float> = context.xvoxDataStore.data.map { it[Keys.volumeLimit] ?: 1.0f }.distinctUntilChanged()
 
     val hapticFeedbackEnabled: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hapticFeedbackEnabled] ?: true }.distinctUntilChanged()
@@ -484,6 +492,7 @@ class UserPreferencesRepository(
             orbitSeconds = (it[Keys.surroundPanSpeed] ?: 6).toFloat().coerceIn(0f, 20f),
             masterVolume = ((it[Keys.appVolume] ?: 1f).coerceIn(0f, 2f) * (it[Keys.volumeLimit] ?: 1f)).coerceIn(0f, 2f),
             distortionControl = (it[Keys.distortionControl] ?: 0f).coerceIn(0f, 1f),
+            distortionControlEnabled = it[Keys.distortionControlEnabled] ?: ((it[Keys.distortionControl] ?: 0f) > .001f),
             surroundWidth = (it[Keys.surroundWidth] ?: .78f).coerceIn(.05f, 1f),
             surroundPosition = (it[Keys.surroundPosition] ?: 0f).coerceIn(-1.5f, 1.5f),
             roomAmount = (it[Keys.roomAmount] ?: .5f).coerceIn(0f, 1f),
@@ -741,6 +750,7 @@ class UserPreferencesRepository(
             it[Keys.centerPreservation] = state.centerPreservation.coerceIn(0f, 1f)
             it[Keys.appVolume] = state.appVolume.coerceIn(0f, 2f)
             it[Keys.distortionControl] = state.distortionControl.coerceIn(0f, 1f)
+            it[Keys.distortionControlEnabled] = state.distortionControlEnabled
             it[Keys.volumeLimit] = state.volumeLimit.coerceIn(0f, 1f)
         }
     }

@@ -13,6 +13,8 @@ data class AudioDspSettings(
     val masterVolume: Float = 1f,
     /** Adaptive clipped-peak repair amount; zero is completely transparent. */
     val distortionControl: Float = 0f,
+    /** A retained amount is inert until this explicit control is enabled. */
+    val distortionControlEnabled: Boolean = distortionControl > .001f,
     val bandCount: Int = 5,
     val noiseReduction: Float = 0f,
     val softenHighs: Float = 0f,
@@ -154,7 +156,11 @@ class XvoxDspEngine {
         noiseEnvelope = 0.0; noiseGain = 1.0; currentNoise = 0.0; currentSoftHighs = 1.0
         currentBassGain = transitionBassGain.toDouble().coerceIn(0.0, 1.0)
         currentVolume = settings.masterVolume.toDouble().coerceIn(0.0, 2.0)
-        currentDistortionControl = settings.distortionControl.toDouble().coerceIn(0.0, 1.0)
+        currentDistortionControl = if (settings.distortionControlEnabled) {
+            settings.distortionControl.toDouble().coerceIn(0.0, 1.0)
+        } else {
+            0.0
+        }
         currentMix = mixGain.toDouble().coerceIn(0.0, 1.0)
         currentBalance = settings.balance.toDouble().coerceIn(-1.0, 1.0)
         currentDepth = 0.0
@@ -221,7 +227,11 @@ class XvoxDspEngine {
         targetReverbDamping = reverbProfile.damping
         targetReverbStereoWidth = reverbProfile.stereoWidth
         targetVolume = s.masterVolume.toDouble().coerceIn(0.0, 2.0)
-        targetDistortionControl = s.distortionControl.toDouble().coerceIn(0.0, 1.0)
+        targetDistortionControl = if (s.distortionControlEnabled) {
+            s.distortionControl.toDouble().coerceIn(0.0, 1.0)
+        } else {
+            0.0
+        }
         targetBalance = s.balance.toDouble().coerceIn(-1.0, 1.0)
         targetPeriod = if (s.orbitSeconds > 0f) s.orbitSeconds.toDouble().coerceIn(1.0, 20.0) else 100000.0
     }

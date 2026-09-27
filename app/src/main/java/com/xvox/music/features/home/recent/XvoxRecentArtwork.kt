@@ -117,12 +117,12 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // Play/Pause indicator in top-right. A fixed-width target animation avoids the old
-        // spring relayout lag while the icon itself crossfades/scales in one short motion.
+        // Play/Pause indicator morphs from its 30dp icon capsule into only the width required
+        // for “Playing”. A single measured outer width avoids the old competing layout pulses.
         val playbackActive = current && playing
         val badgeWidth by animateDpAsState(
-            targetValue = if (playbackActive) 72.dp else 30.dp,
-            animationSpec = tween(140),
+            targetValue = if (playbackActive) 64.dp else 30.dp,
+            animationSpec = tween(220),
             label = "recentPlayingBadgeWidth"
         )
         Row(
@@ -135,13 +135,13 @@ fun XvoxRecentArtwork(
                 .background(Color.Black.copy(alpha = if (playbackActive) 0.68f else 0.52f))
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
+            horizontalArrangement = Arrangement.Center
         ) {
             AnimatedContent(
                 targetState = playbackActive,
                 transitionSpec = {
-                    (fadeIn(tween(90)) + scaleIn(initialScale = .82f, animationSpec = tween(110)))
-                        .togetherWith(fadeOut(tween(70)) + scaleOut(targetScale = .82f, animationSpec = tween(90)))
+                    (fadeIn(tween(130)) + scaleIn(initialScale = .88f, animationSpec = tween(150)))
+                        .togetherWith(fadeOut(tween(110)) + scaleOut(targetScale = .88f, animationSpec = tween(120)))
                 },
                 label = "recentPlayPauseMorph"
             ) { active ->
@@ -153,15 +153,15 @@ fun XvoxRecentArtwork(
             }
             AnimatedVisibility(
                 visible = playbackActive,
-                enter = fadeIn(tween(80)),
-                exit = fadeOut(tween(60))
+                enter = fadeIn(tween(150)),
+                exit = fadeOut(tween(100))
             ) {
                 Text(
                     text = "Playing",
                     color = Color.White,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Normal,
-                    modifier = Modifier.padding(start = 5.dp)
+                    modifier = Modifier.padding(start = 4.dp)
                 )
             }
         }

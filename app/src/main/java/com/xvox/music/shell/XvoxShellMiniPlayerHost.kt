@@ -3,11 +3,15 @@ package com.xvox.music.shell
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -31,6 +35,8 @@ import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
     visible: Boolean,
+    /** Only the Settings route gets the visible downward shell handoff. */
+    settingsExit: Boolean = false,
     currentSongId: Long?,
     queue: List<Song>,
     currentIndex: Int,
@@ -48,6 +54,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onOpenMiniPlayerSettings: () -> Unit = {},
     navigationBarHeight: Dp = 62.dp
 ) {
+    val settingsExitExtraPx = with(LocalDensity.current) { 18.dp.roundToPx() }
     var quickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
     LaunchedEffect(visible) {
         if (!visible) quickActionsVisible = false
@@ -63,10 +70,17 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     }
     AnimatedVisibility(
         visible = visible,
-        // XvoxMiniPlayer owns the complete rise/exit motion. Keeping this host structural avoids
-        // a second, competing slide that made Navbar/Mini Player handoffs look delayed.
+        // Playback/Now Playing continues to use the Mini Player's own sequential handoff. Only
+        // Settings receives a shell-level downward exit so users can actually see it leave.
         enter = EnterTransition.None,
-        exit = ExitTransition.None,
+        exit = if (settingsExit) {
+            slideOutVertically(
+                targetOffsetY = { fullHeight -> fullHeight + settingsExitExtraPx },
+                animationSpec = tween(260)
+            ) + fadeOut(tween(150))
+        } else {
+            ExitTransition.None
+        },
         modifier = Modifier.align(Alignment.BottomCenter)
     ) {
         if (currentSongId != null) {
@@ -78,7 +92,11 @@ fun BoxScope.XvoxShellMiniPlayerHost(
             val imeBottomPx = WindowInsets.ime.getBottom(density)
             val navBottomPx = WindowInsets.navigationBars.getBottom(density)
             val imeAboveNavigationPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
-            val imeIsActuallyOccluding = imeBottomPx > navBottomPx && imeAboveNavigationPx > 1
+            // isImeVisible flips at the close request rather than after the inset's closing
+            // animation has trickled through. That lets the card snap directly to its resting
+            // lane instead of lingering a little high and then dropping a second time.
+            val imeIsActuallyOccluding = WindowInsets.isImeVisible &&
+                imeBottomPx > navBottomPx && imeAboveNavigationPx > 1
             val effectiveImeDp = with(density) { imeAboveNavigationPx.toDp() }
 
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)

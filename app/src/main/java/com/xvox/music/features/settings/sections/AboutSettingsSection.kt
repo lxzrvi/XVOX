@@ -23,15 +23,15 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
 @Composable
-fun AboutSettingsSection() {
+fun AboutSettingsSection(expanded: Boolean = false) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val haptics = LocalXvoxHaptics.current
     val pillShape = RoundedCornerShape(50)
 
     Column(
-        Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = if (expanded) Modifier.fillMaxWidth().fillMaxHeight() else Modifier.fillMaxWidth(),
+        verticalArrangement = if (expanded) Arrangement.SpaceBetween else Arrangement.spacedBy(12.dp)
     ) {
         Row(
             modifier = Modifier

@@ -17,8 +17,10 @@ data class LiveEqState(
     val orbitSeconds: Int,
     val appVolume: Float,
     val volumeLimit: Float,
-    /** Live adaptive clipped-peak repair amount. */
+    /** Live adaptive clipped-peak repair amount retained independently from bypass state. */
     val distortionControl: Float = 0f,
+    /** Off is a real DSP bypass even when the user keeps a preferred amount selected. */
+    val distortionControlEnabled: Boolean = distortionControl > .001f,
     val bandCount: Int = 5,
     val noiseReduction: Float = 0f,
     val softenHighs: Float = 0f,
@@ -49,6 +51,7 @@ data class LiveEqState(
         orbitSeconds = orbitSeconds.toFloat(),
         masterVolume = (appVolume * volumeLimit).coerceIn(0f, 2f),
         distortionControl = distortionControl.coerceIn(0f, 1f),
+        distortionControlEnabled = distortionControlEnabled,
         surroundWidth = surroundWidth,
         surroundPosition = surroundPosition,
         roomAmount = roomAmount,

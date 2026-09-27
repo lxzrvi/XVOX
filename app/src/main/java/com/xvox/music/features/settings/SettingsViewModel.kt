@@ -116,6 +116,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
             launch { prefs.appVolume.collect { v -> _state.update { it.copy(appVolume = AudioEffectsManager.liveEq.value?.appVolume ?: v) } } }
             launch { prefs.distortionControl.collect { v -> _state.update { it.copy(distortionControl = AudioEffectsManager.liveEq.value?.distortionControl ?: v) } } }
+            launch { prefs.distortionControlEnabled.collect { v -> _state.update { it.copy(distortionControlEnabled = AudioEffectsManager.liveEq.value?.distortionControlEnabled ?: v) } } }
             launch { prefs.volumeLimit.collect { v -> _state.update { it.copy(volumeLimit = AudioEffectsManager.liveEq.value?.volumeLimit ?: v) } } }
 
             launch { prefs.widgetTransparency.collect { v -> _state.update { it.copy(widgetTransparency = v) } } }
@@ -265,6 +266,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             customEqBands = List(5) { 0 },
             appVolume = 1f,
             distortionControl = 0f,
+            distortionControlEnabled = false,
             reverbPreset = com.xvox.music.audio.ReverbPresets.OFF,
             reverbAmount = .50f,
             noiseReduction = .50f,
@@ -291,6 +293,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 appVolume = value.appVolume,
                 volumeLimit = value.volumeLimit,
                 distortionControl = value.distortionControl,
+                distortionControlEnabled = value.distortionControlEnabled,
                 bandCount = value.eqBandCount,
                 noiseReduction = value.noiseReduction,
                 softenHighs = value.softenHighs,
@@ -362,6 +365,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setAppVolume(volume: Float) = changeAudio { it.copy(appVolume = volume.coerceIn(0f, 2f)) }
     fun setDistortionControl(amount: Float) = changeAudio { it.copy(distortionControl = amount.coerceIn(0f, 1f)) }
+    fun setDistortionControlEnabled(enabled: Boolean) = changeAudio {
+        // Toggling bypass never rewrites the amount: 0 stays an exact no-control setting, while
+        // any retained nonzero amount resumes only when the explicit enable is on.
+        it.copy(distortionControlEnabled = enabled)
+    }
     fun setVolumeLimit(limit: Float) = changeAudio { it.copy(volumeLimit = limit.coerceIn(0f, 1f)) }
 
     fun setWidgetTransparency(t: Float) = viewModelScope.launch { prefs.setWidgetTransparency(t) }

@@ -237,9 +237,16 @@ fun AppearanceSettingsSection(
             onToggle = { toggle("Orientation") }
         ) {
             SettingsChoiceRow(
-                options = listOf("portrait" to "Portrait", "landscape" to "Landscape"),
+                options = listOf("auto" to "Auto", "portrait" to "Portrait", "landscape" to "Landscape"),
                 selected = state.appOrientation.lowercase(),
                 onSelect = viewModel::setAppOrientation
+            )
+            Spacer(Modifier.height(8.dp))
+            SettingsToggle(
+                title = "Hide status bar",
+                subtitle = "Reserve the same safe top area while the status bar is hidden",
+                checked = state.hideStatusBar,
+                onChange = viewModel::setHideStatusBar
             )
         }
     })

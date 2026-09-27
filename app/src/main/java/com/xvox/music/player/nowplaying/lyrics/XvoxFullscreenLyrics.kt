@@ -100,6 +100,7 @@ fun XvoxFullscreenLyrics(
 
     val headerPhotoUri by prefs.headerImageUri.collectAsState(initial = null)
     val lyricsSettings by prefs.lyricsSettings.collectAsState(initial = LyricsSettings())
+    val hideStatusBar by prefs.hideStatusBar.collectAsState(initial = false)
     val gradientAnim = lyricsSettings.gradientAnimation
 
     val view = LocalView.current
@@ -107,7 +108,7 @@ fun XvoxFullscreenLyrics(
         val window = (view.context as? android.app.Activity)?.window
         if (window == null) 0
         else WindowInsetsCompat.toWindowInsetsCompat(view.rootWindowInsets, view)
-            .getInsets(WindowInsetsCompat.Type.statusBars()).top
+            .getInsetsIgnoringVisibility(WindowInsetsCompat.Type.statusBars()).top
     }
     var chromeVisible by remember { mutableStateOf(true) }
     var barsVisible by remember { mutableStateOf(true) }
@@ -119,12 +120,14 @@ fun XvoxFullscreenLyrics(
     }
 
     val animatedBarsPad by animateDpAsState(
-        targetValue = if (barsVisible) with(LocalDensity.current) { statusBarPx.toDp() } else 0.dp,
+        // Global hidden-status mode retains the former status/cutout lane even after fullscreen
+        // lyric chrome fades, while ordinary fullscreen keeps its original edge treatment.
+        targetValue = if (barsVisible || hideStatusBar) with(LocalDensity.current) { statusBarPx.toDp() } else 0.dp,
         animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "fullscreenBarsPad"
     )
 
-    DisposableEffect(Unit) {
+    DisposableEffect(hideStatusBar) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
         insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -136,7 +139,10 @@ fun XvoxFullscreenLyrics(
         onDispose {
             view.removeCallbacks(hideRunnable)
             barsVisible = true
-            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+            // A fullscreen lyric dismissal must not resurrect a status bar the user hid for the
+            // entire application. The app root/player own restoration when that preference is off.
+            if (hideStatusBar) insetsController?.hide(WindowInsetsCompat.Type.statusBars())
+            else insetsController?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 

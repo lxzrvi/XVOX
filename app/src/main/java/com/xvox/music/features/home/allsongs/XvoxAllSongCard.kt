@@ -50,7 +50,7 @@ fun XvoxAllSongCard(
             .clip(cardShape)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
-            .padding(if (dense) 3.dp else 5.dp)
+            .padding(if (dense) 3.dp else 6.dp)
     ) {
         Box(
             modifier = Modifier
