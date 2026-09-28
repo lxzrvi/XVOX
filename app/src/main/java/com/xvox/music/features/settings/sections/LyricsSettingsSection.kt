@@ -196,12 +196,16 @@ fun LyricsSettingsDraftSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                LyricsDraftAction("Reset All", Modifier.weight(1f)) {
-                    onSettingsChange(LyricsSettings())
-                }
-                LyricsDraftAction("Reset Timing", Modifier.weight(1f)) {
-                    update { it.copy(offsetMs = 0) }
-                }
+                LyricsDraftAction(
+                    label = "Reset All",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSettingsChange(LyricsSettings()) }
+                )
+                LyricsDraftAction(
+                    label = "Reset Timing",
+                    modifier = Modifier.weight(1f),
+                    onClick = { update { it.copy(offsetMs = 0) } }
+                )
             }
         }
     })
