@@ -1,239 +1,377 @@
 package com.xvox.music.core.ui
 
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import android.provider.Settings
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
-import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
-private enum class StartupVisualPhase {
-    DOTS_SEQUENCE,
-    DOTS_TO_RAIL,
-    RAIL_ZERO,
-    RAIL_STAGING,
-    RAIL_READY
+// All geometry is expressed in density-independent canvas units and converted at draw time.
+private const val StartupStrokeWidth = 3f
+private const val StartupDotDiameter = 6f
+private const val StartupRingRadius = 22f
+private const val StartupBarLength = 210f
+private val StartupPi = PI.toFloat()
+private val StartupRingStart = -StartupPi / 5f
+private val StartupRingOrder = intArrayOf(2, 3, 4, 1, 0)
+
+// Row, gather, stretch, spin, unroll, load, hold, then return to row.
+private val StartupPhaseDurations = floatArrayOf(
+    3120f, 800f, 1000f, 2400f, 1400f, 2600f, 700f, 1000f
+)
+private val StartupPhaseBounds = FloatArray(9).also { bounds ->
+    for (index in StartupPhaseDurations.indices) {
+        bounds[index + 1] = bounds[index] + StartupPhaseDurations[index]
+    }
+}
+private val StartupTotalDuration = StartupPhaseBounds.last()
+private const val StartupReducedMotionDuration = 3200f
+
+private data class StartupPalette(
+    val dot: Color,
+    val accent: Color,
+    val background: Color
+)
+
+private fun startupClamp01(value: Float) = value.coerceIn(0f, 1f)
+
+private fun startupEase(value: Float): Float = if (value < .5f) {
+    4f * value * value * value
+} else {
+    1f - (-2f * value + 2f).pow(3) / 2f
 }
 
-private val StartupRailWidth = 180.dp
-// Keep both stages deliberately hairline-light: the three travelling accent passes become the
-// equally thin progress rail, with the exact same accent colour in both states.
-private val StartupDotHeight = 4.dp
-private val StartupRailHeight = 2.dp
-private val StartupDotIdleGap = 8.dp
-private const val StartupDotCount = 5
+private fun startupSmooth(value: Float) = value * value * (3f - 2f * value)
+
+private fun startupMix(first: Float, second: Float, amount: Float) = first + (second - first) * amount
+
+private fun startupMixColor(first: Color, second: Color, amount: Float) = Color(
+    red = startupMix(first.red, second.red, amount),
+    green = startupMix(first.green, second.green, amount),
+    blue = startupMix(first.blue, second.blue, amount),
+    alpha = startupMix(first.alpha, second.alpha, amount)
+)
+
+private fun startupRingPoint(segment: Float): Offset {
+    val angle = StartupRingStart + 2f * StartupPi * segment
+    return Offset(StartupRingRadius * cos(angle), StartupRingRadius * sin(angle))
+}
+
+private fun startupRowX(index: Int) = (index - 2) * 16f
+
+private fun startupStagger(time: Float, duration: Float, index: Int): Float =
+    startupEase(startupClamp01((time - 50f * index) / (duration - 200f)))
+
+private fun startupPoints(count: Int, point: (Float) -> Offset): List<Offset> =
+    List(count + 1) { index -> point(index / count.toFloat()) }
+
+private fun startupSegmentCenter(index: Int) = startupRingPoint((index + .5f) * .2f)
+
+private fun DrawScope.startupLine(
+    points: List<Offset>,
+    color: Color,
+    width: Float = StartupStrokeWidth
+) {
+    val scale = density
+    val path = Path()
+    points.forEachIndexed { index, point ->
+        if (index == 0) path.moveTo(point.x * scale, point.y * scale)
+        else path.lineTo(point.x * scale, point.y * scale)
+    }
+    drawPath(
+        path = path,
+        color = color,
+        style = Stroke(width = width * scale, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    )
+}
+
+private fun DrawScope.startupDot(
+    x: Float,
+    y: Float,
+    color: Color,
+    radius: Float = StartupStrokeWidth / 2f
+) {
+    val scale = density
+    drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
+}
+
+/** Five dots, with the app accent travelling across them twice. */
+private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
+    val accentPosition = -1f + 6f * ((time / 1560f) % 1f)
+    repeat(5) { index ->
+        val intensity = startupSmooth(startupClamp01(1f - abs(accentPosition - index)))
+        startupDot(
+            x = startupRowX(index),
+            y = 0f,
+            color = startupMixColor(palette.dot, palette.accent, intensity),
+            radius = StartupDotDiameter / 2f * (1f + .4f * intensity)
+        )
+    }
+}
+
+/** Dots gather into their own positions around the ring. */
+private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
+    repeat(5) { index ->
+        val progress = startupStagger(time, StartupPhaseDurations[1], index)
+        val target = startupSegmentCenter(StartupRingOrder[index])
+        startupDot(
+            x = startupMix(startupRowX(index), target.x, progress),
+            y = startupMix(0f, target.y, progress),
+            color = palette.dot,
+            radius = StartupDotDiameter / 2f
+        )
+    }
+}
+
+/** Each dot stretches into a ring segment; the final segment becomes the app accent. */
+private fun DrawScope.drawStartupStretch(progress: Float, palette: StartupPalette) {
+    val easedProgress = startupEase(progress)
+    repeat(5) { index ->
+        val segment = StartupRingOrder[index]
+        val color = if (index == 4) startupMixColor(palette.dot, palette.accent, easedProgress) else palette.dot
+        val width = startupMix(StartupDotDiameter, StartupStrokeWidth, easedProgress)
+        if (easedProgress < .004f) {
+            val center = startupSegmentCenter(segment)
+            startupDot(center.x, center.y, color, width / 2f)
+        } else {
+            startupLine(
+                points = startupPoints(14) { step ->
+                    startupRingPoint((segment + .5f + (step - .5f) * easedProgress) * .2f)
+                },
+                color = color,
+                width = width
+            )
+        }
+    }
+}
+
+/** The accent arc makes two full clockwise circuits around the ring. */
+private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) {
+    val scale = density
+    val rotation = 4f * StartupPi * startupEase(progress)
+    val stroke = Stroke(StartupStrokeWidth * scale, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    drawCircle(
+        color = palette.dot,
+        radius = StartupRingRadius * scale,
+        center = Offset.Zero,
+        style = stroke
+    )
+    drawArc(
+        color = palette.accent,
+        startAngle = Math.toDegrees((StartupRingStart + rotation).toDouble()).toFloat(),
+        sweepAngle = 72f,
+        useCenter = false,
+        topLeft = Offset(-StartupRingRadius * scale, -StartupRingRadius * scale),
+        size = Size(2f * StartupRingRadius * scale, 2f * StartupRingRadius * scale),
+        style = stroke
+    )
+}
+
+/** The ring opens sequentially into the thin loading rail. */
+private fun DrawScope.drawStartupUnroll(progress: Float, palette: StartupPalette) {
+    fun point(segment: Float): Offset {
+        val unroll = startupEase(startupClamp01((progress - .45f * segment) / .55f))
+        val ringPoint = startupRingPoint(segment)
+        return Offset(
+            startupMix(ringPoint.x, -StartupBarLength / 2f + StartupBarLength * segment, unroll),
+            startupMix(ringPoint.y, 0f, unroll)
+        )
+    }
+
+    startupLine(startupPoints(100) { point(it) }, palette.dot)
+    val accentLength = .2f * (1f - startupEase(progress))
+    if (accentLength < .004f) {
+        val start = point(0f)
+        startupDot(start.x, start.y, palette.accent)
+    } else {
+        startupLine(startupPoints(24) { step -> point(step * accentLength) }, palette.accent)
+    }
+}
+
+/** The rail fills with the active XVOX accent. */
+private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, palette: StartupPalette) {
+    startupLine(
+        points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(StartupBarLength / 2f, 0f)),
+        color = palette.dot
+    )
+    val fill = if (complete) 1f else startupEase(startupClamp01(progress))
+    val endX = -StartupBarLength / 2f + fill * StartupBarLength
+    if (endX + StartupBarLength / 2f < .5f) {
+        startupDot(-StartupBarLength / 2f, 0f, palette.accent)
+    } else {
+        startupLine(
+            points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(endX, 0f)),
+            color = palette.accent
+        )
+    }
+}
+
+/** The full rail breaks into the five original dots before entering the app. */
+private fun DrawScope.drawStartupReturnToRow(time: Float, palette: StartupPalette) {
+    repeat(5) { index ->
+        val progress = startupStagger(time, StartupPhaseDurations[7], index)
+        val color = startupMixColor(palette.accent, palette.dot, progress)
+        if (progress > .999f) {
+            startupDot(startupRowX(index), 0f, color, StartupDotDiameter / 2f)
+        } else {
+            startupLine(
+                points = startupPoints(10) { step ->
+                    Offset(
+                        startupMix(
+                            -StartupBarLength / 2f + StartupBarLength * (index + step) * .2f,
+                            startupRowX(index),
+                            progress
+                        ),
+                        0f
+                    )
+                },
+                color = color,
+                width = startupMix(StartupStrokeWidth, StartupDotDiameter, progress)
+            )
+        }
+    }
+}
 
 /**
- * A deliberately paced startup handoff:
+ * Theme-aware XVOX startup animation.
  *
- * 1. Three calm left-to-right accent passes cross five muted strokes. A dot never flashes on and
- *    off in place; the accent simply travels to the next stroke.
- * 2. The five strokes widen until they form one uninterrupted muted rail.
- * 3. Accent progress begins at true zero, rests at three repeatable intermediate landmarks, and
- *    only reaches full after the actual bootstrap work reports ready.
+ * The supplied sequence remains intact—dots, ring, spinning accent, rail, fill, and return—but
+ * its gray/background/accent colors always come from the active XVOX theme. The completed rail
+ * waits for actual app readiness before the final return-to-row handoff releases Home.
  */
 @Composable
 fun XvoxStartupLoadingScreen(
     readyToEnter: Boolean,
     onSequenceComplete: () -> Unit,
-    /** Work remains the gate for the final fill; visual stops intentionally stay deterministic. */
     progress: Float = 0f
 ) {
     val colors = XvoxTheme.colors
-    var phase by remember { mutableStateOf(StartupVisualPhase.DOTS_SEQUENCE) }
-    var activeDot by remember { mutableIntStateOf(-1) }
-    var stagedProgress by remember { mutableFloatStateOf(0f) }
-    val latestReady by rememberUpdatedState(readyToEnter)
-    val latestComplete by rememberUpdatedState(onSequenceComplete)
+    val palette = StartupPalette(
+        dot = colors.secondaryText.copy(alpha = .78f),
+        accent = colors.primaryAccent,
+        background = colors.background
+    )
+    val context = LocalContext.current
+    val reducedMotion = remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        ) == 0f
+    }
+    val latestReadyToEnter by rememberUpdatedState(readyToEnter)
+    val latestSequenceComplete by rememberUpdatedState(onSequenceComplete)
+    var time by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(Unit) {
-        phase = StartupVisualPhase.DOTS_SEQUENCE
-        activeDot = 0
-        stagedProgress = 0f
+    LaunchedEffect(reducedMotion) {
+        val startNanos = withFrameNanos { it }
+        var returnToRowStartNanos: Long? = null
+        var finished = false
 
-        // Three intentional passes. There is no intervening unlit beat, which removes the former
-        // blink while leaving a clearly readable travelling accent.
-        repeat(3) {
-            repeat(StartupDotCount) { index ->
-                activeDot = index
-                delay(132)
+        while (!finished) {
+            withFrameNanos { nowNanos ->
+                val elapsedMs = (nowNanos - startNanos) / 1_000_000f
+                if (reducedMotion) {
+                    // Reduced motion retains a quiet linear rail and never runs ring/spin motion.
+                    time = elapsedMs.coerceAtMost(StartupReducedMotionDuration)
+                    if (latestReadyToEnter && elapsedMs >= StartupReducedMotionDuration) {
+                        finished = true
+                    }
+                } else if (elapsedMs < StartupPhaseBounds[7]) {
+                    time = elapsedMs
+                } else if (returnToRowStartNanos != null || latestReadyToEnter) {
+                    val tailStart = returnToRowStartNanos ?: nowNanos.also { returnToRowStartNanos = it }
+                    val tailElapsedMs = ((nowNanos - tailStart) / 1_000_000f)
+                        .coerceAtMost(StartupPhaseDurations[7])
+                    time = StartupPhaseBounds[7] + tailElapsedMs
+                    if (tailElapsedMs >= StartupPhaseDurations[7]) {
+                        time = StartupTotalDuration
+                        finished = true
+                    }
+                } else {
+                    // Do not loop or falsely finish: a full accent rail calmly waits for real app work.
+                    time = StartupPhaseBounds[7]
+                }
             }
-            // Immediately begin the next pass: the accent never visibly parks on the last dot.
         }
-        activeDot = -1
-
-        // Every stroke grows while its spacing closes, yielding one contiguous muted bar.
-        phase = StartupVisualPhase.DOTS_TO_RAIL
-        delay(440)
-
-        // Keep the empty rail visible for a real beat before any accent enters it.
-        phase = StartupVisualPhase.RAIL_ZERO
-        stagedProgress = 0f
-        delay(180)
-
-        phase = StartupVisualPhase.RAIL_STAGING
-        // These are visual landmarks rather than a jittery reflection of incidental startup work.
-        // Their pauses make the sequence feel deliberate, while readyToEnter still gates the end.
-        val stops = listOf(.24f to 470L, .51f to 440L, .76f to 400L)
-        stops.forEach { (stop, travelMs) ->
-            stagedProgress = stop
-            delay(travelMs)
-            delay(160)
-        }
-
-        while (!latestReady) delay(80)
-        phase = StartupVisualPhase.RAIL_READY
-        stagedProgress = 1f
-        // A short completed-state pause prevents a cut straight from a moving rail into Home.
-        delay(440)
-        latestComplete()
+        latestSequenceComplete()
     }
 
-    // Referencing work progress keeps the parameter semantically live without allowing fast I/O
-    // to erase any of the staged rests above. It can only be used once the sequence is ready.
-    val reportedProgress = progress.coerceIn(0f, 1f)
-    val railTarget = when (phase) {
-        StartupVisualPhase.DOTS_SEQUENCE,
-        StartupVisualPhase.DOTS_TO_RAIL,
-        StartupVisualPhase.RAIL_ZERO -> 0f
-        StartupVisualPhase.RAIL_STAGING -> stagedProgress
-        StartupVisualPhase.RAIL_READY -> maxOf(stagedProgress, reportedProgress, 1f)
-    }
-    val morphingToRail = phase != StartupVisualPhase.DOTS_SEQUENCE
-
-    val dotWidth by animateDpAsState(
-        targetValue = if (morphingToRail) StartupRailWidth / StartupDotCount.toFloat() else StartupDotHeight,
-        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
-        label = "startupMutedDotsToRailWidth"
-    )
-    val dotHeight by animateDpAsState(
-        targetValue = if (morphingToRail) StartupRailHeight else StartupDotHeight,
-        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
-        label = "startupDotsToThinRailHeight"
-    )
-    val dotSpacing by animateDpAsState(
-        targetValue = if (morphingToRail) 0.dp else StartupDotIdleGap,
-        animationSpec = tween(440, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
-        label = "startupMutedDotsToRailGap"
-    )
-    val dotsAlpha by animateFloatAsState(
-        targetValue = when (phase) {
-            StartupVisualPhase.DOTS_SEQUENCE, StartupVisualPhase.DOTS_TO_RAIL -> 1f
-            else -> 0f
-        },
-        animationSpec = tween(180, easing = FastOutSlowInEasing),
-        label = "startupDotsFade"
-    )
-    val shownRail by animateFloatAsState(
-        targetValue = railTarget,
-        animationSpec = tween(
-            durationMillis = if (phase == StartupVisualPhase.RAIL_READY) 360 else 300,
-            easing = CubicBezierEasing(.16f, 1f, .3f, 1f)
-        ),
-        label = "startupAccentRailProgress"
-    )
-    val railAlpha by animateFloatAsState(
-        targetValue = if (morphingToRail) 1f else 0f,
-        animationSpec = tween(160, easing = FastOutSlowInEasing),
-        label = "startupGuideRailAlpha"
-    )
+    val progressPercent = (progress.coerceIn(0f, 1f) * 100f).roundToInt()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background),
+            .background(palette.background),
         contentAlignment = Alignment.Center
     ) {
-        Box(
+        Canvas(
             modifier = Modifier
-                .width(StartupRailWidth)
-                .height(28.dp),
-            contentAlignment = Alignment.Center
+                .size(300.dp, 120.dp)
+                .semantics { contentDescription = "Loading $progressPercent percent" }
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(StartupRailHeight)
-                    .graphicsLayer { alpha = railAlpha },
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(StartupRailHeight)
-                        .clip(RoundedCornerShape(50))
-                        // The rail guide stays in the same accent hue as the travelling dots,
-                        // so their dot-to-bar handoff blends instead of changing colour mid-morph.
-                        .background(colors.primaryAccent.copy(alpha = .30f))
-                )
-                if (shownRail > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(shownRail.coerceIn(0f, 1f))
-                            .height(StartupRailHeight)
-                            .clip(RoundedCornerShape(50))
-                            .background(colors.primaryAccent)
+            translate(left = size.width / 2f, top = size.height / 2f) {
+                if (reducedMotion) {
+                    drawStartupLoadBar(
+                        progress = time / 2600f,
+                        complete = time >= 2600f,
+                        palette = palette
                     )
-                }
-            }
-
-            // The enclosing rail clip removes anti-aliased seams while the five dots become one
-            // bar. Individual dots retain their rounded ends only during the initial pass.
-            Row(
-                modifier = Modifier
-                    .graphicsLayer { alpha = dotsAlpha }
-                    // One outer capsule clips the converging strokes together, so their meeting
-                    // point is a true continuous rail rather than five visible pieces.
-                    .clip(RoundedCornerShape(50)),
-                horizontalArrangement = Arrangement.spacedBy(dotSpacing),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(StartupDotCount) { index ->
-                    val accentIsHere = phase == StartupVisualPhase.DOTS_SEQUENCE && index == activeDot
-                    // Once widths meet, every former dot uses the exact same guide-rail tone.
-                    // That removes colour segmentation as well as physical gaps at the join.
-                    val dotColor = when {
-                        // Use the same accent-hued guide as the rail behind it. This is what
-                        // makes five dots visually become one progress rail rather than flash
-                        // through a separate grey state.
-                        morphingToRail -> colors.primaryAccent.copy(alpha = .30f)
-                        accentIsHere -> colors.primaryAccent
-                        else -> colors.secondaryText.copy(alpha = .42f)
+                } else {
+                    when {
+                        time < StartupPhaseBounds[1] -> drawStartupRow(time, palette)
+                        time < StartupPhaseBounds[2] -> drawStartupGather(time - StartupPhaseBounds[1], palette)
+                        time < StartupPhaseBounds[3] -> drawStartupStretch(
+                            (time - StartupPhaseBounds[2]) / StartupPhaseDurations[2],
+                            palette
+                        )
+                        time < StartupPhaseBounds[4] -> drawStartupSpin(
+                            (time - StartupPhaseBounds[3]) / StartupPhaseDurations[3],
+                            palette
+                        )
+                        time < StartupPhaseBounds[5] -> drawStartupUnroll(
+                            (time - StartupPhaseBounds[4]) / StartupPhaseDurations[4],
+                            palette
+                        )
+                        time < StartupPhaseBounds[6] -> drawStartupLoadBar(
+                            (time - StartupPhaseBounds[5]) / StartupPhaseDurations[5],
+                            complete = false,
+                            palette = palette
+                        )
+                        time < StartupPhaseBounds[7] -> drawStartupLoadBar(1f, complete = true, palette = palette)
+                        else -> drawStartupReturnToRow(time - StartupPhaseBounds[7], palette)
                     }
-                    Box(
-                        modifier = Modifier
-                            .width(dotWidth)
-                            .height(dotHeight)
-                            .then(
-                                if (morphingToRail) Modifier
-                                else Modifier.clip(RoundedCornerShape(50))
-                            )
-                            .background(dotColor)
-                    )
                 }
             }
         }
