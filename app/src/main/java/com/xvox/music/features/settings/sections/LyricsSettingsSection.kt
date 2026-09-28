@@ -48,7 +48,9 @@ fun LyricsSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
 @Composable
 fun LyricsSettingsDraftSection(
     settings: LyricsSettings,
-    onSettingsChange: (LyricsSettings) -> Unit
+    onSettingsChange: (LyricsSettings) -> Unit,
+    /** Standalone settings pages retain inline resets; XvoxBox moves them into its fixed footer. */
+    showInlineActions: Boolean = true
 ) {
     fun update(change: (LyricsSettings) -> LyricsSettings) {
         onSettingsChange(change(settings).sanitized())
@@ -76,22 +78,30 @@ fun LyricsSettingsDraftSection(
         }
 
         SettingsAccordionItem(title = "Line Transition · ${settings.animation.xvoxTransitionLabel()}") {
-            val transitions = listOf("rise", "glide", "pop", "off")
-            val selected = transitions.indexOf(settings.animation).takeIf { it >= 0 } ?: 0
-            XvoxSlider(
-                value = selected.toFloat(),
-                onValueChange = { raw ->
-                    val index = raw.roundToInt().coerceIn(transitions.indices)
-                    update { it.copy(animation = transitions[index]) }
-                },
-                valueRange = 0f..(transitions.lastIndex.toFloat()),
-                defaultValue = 0f,
-                steps = transitions.lastIndex,
-                valueLabel = { raw -> transitions[raw.roundToInt().coerceIn(transitions.indices)].xvoxTransitionLabel() }
+            // Three direct choices are clearer and more reliable than a stepped slider: every
+            // label maps to a real live lyric motion profile.
+            SettingsChoiceRow(
+                options = listOf("rise" to "Rise", "glide" to "Glide", "pop" to "Pop"),
+                selected = settings.animation.takeIf { it in setOf("rise", "glide", "pop") } ?: "rise",
+                onSelect = { animation -> update { it.copy(animation = animation) } }
             )
         }
 
-        SettingsAccordionItem(title = "Text Size & Font Weight") {
+        // Font weight sits immediately beneath transition, where its active-line emphasis is
+        // easiest to judge before editing the individual text-size controls below.
+        SettingsAccordionItem(title = "Font Weight · ${settings.fontWeight.coerceIn(400, 800).xvoxWeightLabel()}") {
+            val weight = settings.fontWeight.coerceIn(400, 800)
+            XvoxSlider(
+                value = weight.toFloat(),
+                onValueChange = { value -> update { it.copy(fontWeight = value.roundToInt()) } },
+                valueRange = 400f..800f,
+                defaultValue = 600f,
+                steps = 4,
+                valueLabel = { value -> value.roundToInt().xvoxWeightLabel() }
+            )
+        }
+
+        SettingsAccordionItem(title = "Text Size") {
             SettingsToggle(
                 title = "Individual Line Sizes",
                 subtitle = "Use separate top, active, and bottom line sizes",
@@ -121,18 +131,6 @@ fun LyricsSettingsDraftSection(
                     }
                 }
             }
-
-            Spacer(Modifier.height(10.dp))
-            val weight = settings.fontWeight.coerceIn(400, 800)
-            SliderLabel("Font Weight · ${weight.xvoxWeightLabel()}")
-            XvoxSlider(
-                value = weight.toFloat(),
-                onValueChange = { value -> update { it.copy(fontWeight = value.roundToInt()) } },
-                valueRange = 400f..800f,
-                defaultValue = 600f,
-                steps = 4,
-                valueLabel = { value -> value.roundToInt().xvoxWeightLabel() }
-            )
         }
 
         SettingsAccordionItem(title = "Line Spacing · ${settings.lineGap} dp") {
@@ -147,57 +145,31 @@ fun LyricsSettingsDraftSection(
         }
 
         SettingsAccordionItem(title = "Fading & Focus") {
-            val fadeToggleValue = if (settings.fadeEqual) 1f else 0f
-            SliderLabel("Equal Fade")
-            XvoxSlider(
-                value = fadeToggleValue,
-                onValueChange = { value -> update { it.copy(fadeEqual = value >= .5f) } },
-                valueRange = 0f..1f,
-                defaultValue = 0f,
-                steps = 1,
-                valueLabel = { value -> if (value >= .5f) "On" else "Off" }
+            // These are intentional binary presentation modes, not misleading 0/1 sliders.
+            SettingsToggle(
+                title = "Fading",
+                subtitle = "Dim non-active lines with the standard readable fade",
+                checked = settings.fadeEnabled,
+                onChange = { enabled ->
+                    update {
+                        it.copy(
+                            fadeEnabled = enabled,
+                            // Keep the old wire field meaningful for downgraded builds.
+                            fadeEqual = enabled,
+                            fadeIntensity = .82f,
+                            fadeTop = .29f,
+                            fadeBottom = .29f
+                        )
+                    }
+                }
             )
-
             Spacer(Modifier.height(8.dp))
-            if (settings.fadeEqual) {
-                SliderLabel("Fade Strength · ${(settings.fadeIntensity * 100).roundToInt()}%")
-                XvoxSlider(
-                    value = settings.fadeIntensity,
-                    onValueChange = { value ->
-                        update {
-                            it.copy(
-                                fadeIntensity = value,
-                                fadeTop = value * .35f,
-                                fadeBottom = value * .35f
-                            )
-                        }
-                    },
-                    valueRange = 0f..1f,
-                    defaultValue = 1f,
-                    steps = 20,
-                    valueLabel = { value -> "${(value * 100).roundToInt()}%" }
-                )
-            } else {
-                SliderLabel("Top Lines Fade · ${(settings.fadeTop * 100).roundToInt()}%")
-                XvoxSlider(
-                    value = settings.fadeTop,
-                    onValueChange = { value -> update { it.copy(fadeTop = value) } },
-                    valueRange = 0f..0.45f,
-                    defaultValue = .22f,
-                    steps = 18,
-                    valueLabel = { value -> "${(value * 100).roundToInt()}%" }
-                )
-                Spacer(Modifier.height(8.dp))
-                SliderLabel("Bottom Lines Fade · ${(settings.fadeBottom * 100).roundToInt()}%")
-                XvoxSlider(
-                    value = settings.fadeBottom,
-                    onValueChange = { value -> update { it.copy(fadeBottom = value) } },
-                    valueRange = 0f..0.45f,
-                    defaultValue = .22f,
-                    steps = 18,
-                    valueLabel = { value -> "${(value * 100).roundToInt()}%" }
-                )
-            }
+            SettingsToggle(
+                title = "Focus active line",
+                subtitle = "Emphasise the current line with weight, scale, and context contrast",
+                checked = settings.focusActiveLine,
+                onChange = { enabled -> update { it.copy(focusActiveLine = enabled) } }
+            )
         }
 
         SettingsAccordionItem(
@@ -216,22 +188,43 @@ fun LyricsSettingsDraftSection(
 
         // The original former-Experimental style-20 fullscreen motion is now permanent. Its
         // selector intentionally has no UI or persisted choice any more.
-
-        // These sit at the natural end of the long editor, immediately above the sheet footer,
-        // mirroring the reset location in the Equalizer sheet.
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            LyricsDraftAction("Reset All", Modifier.weight(1f)) {
-                onSettingsChange(LyricsSettings())
-            }
-            LyricsDraftAction("Reset Timing", Modifier.weight(1f)) {
-                update { it.copy(offsetMs = 0) }
+        if (showInlineActions) {
+            // Direct settings-page use has no XvoxBox footer. The Now Playing sheet passes false
+            // and provides these same actions in its fixed bottom bar instead.
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LyricsDraftAction("Reset All", Modifier.weight(1f)) {
+                    onSettingsChange(LyricsSettings())
+                }
+                LyricsDraftAction("Reset Timing", Modifier.weight(1f)) {
+                    update { it.copy(offsetMs = 0) }
+                }
             }
         }
     })
+}
+
+/** Fixed bottom bar used by the Now Playing lyrics sheet. */
+@Composable
+fun LyricsFooterActions(
+    onCancel: () -> Unit,
+    onResetAll: () -> Unit,
+    onResetTiming: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        LyricsDraftAction("Cancel", Modifier.weight(1f), onCancel)
+        LyricsDraftAction("Reset\nAll", Modifier.weight(1f), onResetAll)
+        LyricsDraftAction("Reset\nTiming", Modifier.weight(1f), onResetTiming)
+        LyricsDraftAction("Okay", Modifier.weight(1f), onDone, prominent = true)
+    }
 }
 
 @Composable
@@ -265,19 +258,31 @@ private fun SliderLabel(text: String) {
 }
 
 @Composable
-private fun LyricsDraftAction(label: String, modifier: Modifier, onClick: () -> Unit) {
+private fun LyricsDraftAction(
+    label: String,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    prominent: Boolean = false
+) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(11.dp)
     Box(
         modifier = modifier
             .height(40.dp)
             .clip(shape)
-            .background(colors.cardElevated)
-            .border(.8.dp, colors.cardBorder.copy(alpha = .65f), shape)
+            .background(if (prominent) colors.primaryAccent else colors.cardElevated)
+            .border(.8.dp, if (prominent) Color.Transparent else colors.cardBorder.copy(alpha = .65f), shape)
             .xvoxPressScale(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = label,
+            color = if (prominent) colors.background else colors.primaryText,
+            fontSize = if (label.contains('\n')) 9.5.sp else 11.sp,
+            lineHeight = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 
@@ -285,7 +290,7 @@ private fun String.xvoxTransitionLabel(): String = when (this) {
     "rise" -> "Rise"
     "glide" -> "Glide"
     "pop" -> "Pop"
-    else -> "Classic"
+    else -> "Rise"
 }
 
 private fun Int.xvoxWeightLabel(): String = when {

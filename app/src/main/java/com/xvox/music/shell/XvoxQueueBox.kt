@@ -256,30 +256,41 @@ fun XvoxQueueBoxContent(
         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
 
-    // Auto-scroll when holding and dragging near top or bottom of list viewport
-    LaunchedEffect(draggingEntry, dragCardOffsetY, listViewportHeight) {
+    // Keep one stable auto-scroll coroutine for the whole drag. Keying it to every pointer pixel
+    // used to restart the loop repeatedly, which is why holding the first row and moving down
+    // could make a long Queue suddenly race or jitter through the list.
+    val latestDragCardOffsetY by rememberUpdatedState(dragCardOffsetY)
+    LaunchedEffect(draggingEntry?.stableKey, listViewportHeight) {
         if (draggingEntry != null && listViewportHeight > 0f) {
-            val scrollEdgeThreshold = with(density) { 56.dp.toPx() }
+            val scrollEdgeThreshold = with(density) { 64.dp.toPx() }
+            val minimumScrollPerTick = with(density) { 1.dp.toPx() }
+            val maximumScrollPerTick = with(density) { 5.dp.toPx() }
             while (isActive && draggingEntry != null) {
-                if (dragCardOffsetY < scrollEdgeThreshold && listState.canScrollBackward) {
-                    val speed = ((scrollEdgeThreshold - dragCardOffsetY) / scrollEdgeThreshold).coerceIn(0.2f, 1f) * with(density) { 14.dp.toPx() }
-                    listState.scrollBy(-speed)
-                    placeDraggedEntryAtPointer()
-                } else if (dragCardOffsetY > (listViewportHeight - scrollEdgeThreshold - rowHeightPx) && listState.canScrollForward) {
-                    val over = dragCardOffsetY - (listViewportHeight - scrollEdgeThreshold - rowHeightPx)
-                    val speed = (over / scrollEdgeThreshold).coerceIn(0.2f, 1f) * with(density) { 14.dp.toPx() }
-                    listState.scrollBy(speed)
+                val cardTop = latestDragCardOffsetY
+                val scrollAmount = when {
+                    cardTop < scrollEdgeThreshold && listState.canScrollBackward -> {
+                        val proximity = ((scrollEdgeThreshold - cardTop) / scrollEdgeThreshold).coerceIn(0f, 1f)
+                        -(minimumScrollPerTick + (maximumScrollPerTick - minimumScrollPerTick) * proximity)
+                    }
+                    cardTop > (listViewportHeight - scrollEdgeThreshold - rowHeightPx) && listState.canScrollForward -> {
+                        val over = cardTop - (listViewportHeight - scrollEdgeThreshold - rowHeightPx)
+                        val proximity = (over / scrollEdgeThreshold).coerceIn(0f, 1f)
+                        minimumScrollPerTick + (maximumScrollPerTick - minimumScrollPerTick) * proximity
+                    }
+                    else -> 0f
+                }
+                if (scrollAmount != 0f && listState.scrollBy(scrollAmount) != 0f) {
                     placeDraggedEntryAtPointer()
                 }
-                delay(24)
+                delay(32)
             }
         }
     }
 
-    // The viewport begins at the actual rows' combined height. Its parent constrains that request
-    // on smaller displays, at which point LazyColumn alone becomes scrollable. This removes the
-    // former fixed long-queue gap and keeps the final row fully reachable.
-    val desiredQueueHeight = (queue.size * 64 + 16).dp
+    // A long queue owns a bounded LazyColumn viewport instead of asking the sheet to measure
+    // thousands of dp of rows. That keeps drag coordinates stable and makes the final row
+    // reachable through normal list scrolling rather than a runaway full-sheet scroll.
+    val desiredQueueHeight = (queue.size * 64 + 16).coerceAtMost(480).dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -511,14 +522,16 @@ private fun QueueItemRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
+            // RowHeight is 60dp with the shared 3dp card frame: a 54dp cover reaches that
+            // frame equally on all four sides instead of leaving extra vertical air.
             modifier = Modifier
-                .size(46.dp)
+                .size(54.dp)
                 .clip(RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
-                requestSize = 120,
+                requestSize = 160,
                 modifier = Modifier.fillMaxSize()
             )
 

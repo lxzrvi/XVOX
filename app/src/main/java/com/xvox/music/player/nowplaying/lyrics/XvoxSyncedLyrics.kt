@@ -80,7 +80,10 @@ fun XvoxSyncedLyrics(lyrics: XvoxLyrics, position: Long, onSeek: (Long) -> Unit,
             }
         }
         LazyColumn(state = list, userScrollEnabled = !preview,
-            modifier = Modifier.fillMaxSize().lyricsEdgeFade(settings.fadeTop, settings.fadeBottom)) {
+            modifier = Modifier.fillMaxSize().lyricsEdgeFade(
+                if (settings.fadeEnabled) settings.fadeTop else 0f,
+                if (settings.fadeEnabled) settings.fadeBottom else 0f
+            )) {
             item(key = "lyrics-top") { Spacer(Modifier.height(maxHeight / 2)) }
             itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
                 LyricPresentationLine(line.text, index == active, index - active, settings, color = colors.primaryText,

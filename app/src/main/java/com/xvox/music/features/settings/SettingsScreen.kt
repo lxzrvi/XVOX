@@ -1,9 +1,13 @@
 package com.xvox.music.features.settings
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -42,6 +46,7 @@ import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
@@ -61,6 +66,82 @@ fun SettingsScreen(
     val state by settingsViewModel.state.collectAsState()
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
+    val context = LocalContext.current
+    var pendingDeviceDeletion by remember { mutableStateOf<com.xvox.music.core.model.Song?>(null) }
+    val deviceDeleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val song = pendingDeviceDeletion
+        pendingDeviceDeletion = null
+        if (song != null && result.resultCode == Activity.RESULT_OK) {
+            // Android's scoped-storage confirmation succeeded; now discard only the soft-delete
+            // metadata and rescan, never restore an unavailable media entry into the library.
+            homeViewModel.discardHiddenSong(song.id)
+            overlays.showP("Deleted from device")
+        } else if (song != null) {
+            overlays.showP("Device deletion cancelled")
+        }
+    }
+
+    fun permanentlyDeleteFromDevice(song: com.xvox.music.core.model.Song) {
+        val pendingIntent = XvoxSongActions.deletePendingIntent(context, song)
+        if (pendingIntent != null) {
+            pendingDeviceDeletion = song
+            deviceDeleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+        } else if (XvoxSongActions.deleteLegacy(context, song)) {
+            homeViewModel.discardHiddenSong(song.id)
+            overlays.showP("Deleted from device")
+        } else {
+            overlays.showP("Could not delete this file")
+        }
+    }
+
+    fun confirmPermanentDeviceDelete(song: com.xvox.music.core.model.Song) {
+        overlays.showBox("Delete from device") {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Permanently delete \"${song.title}\" from this device? This cannot be undone.",
+                    color = colors.primaryText,
+                    fontSize = 14.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SettingsDialogAction("Cancel", Modifier.weight(1f)) { overlays.hideBox() }
+                    SettingsDialogAction("Delete", Modifier.weight(1f), destructive = true) {
+                        overlays.hideBox()
+                        permanentlyDeleteFromDevice(song)
+                    }
+                }
+            }
+        }
+    }
+
+    fun openDeletedItems() {
+        overlays.showBox("Recycle Bin") {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Songs deleted from XVOX stay here until you restore them or permanently remove the file from this device.",
+                    color = colors.secondaryText,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+                HiddenSongsSettingsSection(
+                    viewModel = homeViewModel,
+                    onDeleteFromDevice = ::confirmPermanentDeviceDelete,
+                    onDiscardMissing = homeViewModel::discardHiddenSong
+                )
+            }
+        }
+    }
+
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val bottomInset = LocalXvoxBottomInset.current
@@ -184,6 +265,9 @@ fun SettingsScreen(
                         AboutSectionCard(Modifier.weight(1f).fillMaxHeight())
                     }
                 }
+                item(key = "settings_deleted_items", span = { GridItemSpan(maxLineSpan) }) {
+                    DeletedItemsSectionCard(onOpen = ::openDeletedItems)
+                }
                 // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
@@ -195,6 +279,9 @@ fun SettingsScreen(
                 item(key = "section_support_dev") { SupportDeveloperCard() }
                 item(key = "section_backup") { BackupSectionCard(homeViewModel) }
                 item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
+                // Adjacent to About because this is account/library housekeeping rather than a
+                // playback control; it opens the soft-deleted XVOX recycle bin.
+                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
                 item(key = "section_about") { AboutSectionCard() }
             }
         }
@@ -307,7 +394,14 @@ private fun XvoxSegmentedPill(
     compact: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(50)
+    val configuration = LocalConfiguration.current
+    val responsiveCompact = compact || configuration.screenHeightDp <= 500
+    val pillHeight = when {
+        configuration.screenHeightDp <= 430 -> 34.dp
+        responsiveCompact -> 37.dp
+        else -> 42.dp
+    }
+    val shape = RoundedCornerShape(pillHeight / 2f)
     val selectedTextColor = xvoxOnAccent(colors.primaryAccent)
     val selectedIndex = options.indexOfFirst { (key, _) -> key == selectedKey }
     val hasSelection = selectedIndex >= 0
@@ -315,7 +409,7 @@ private fun XvoxSegmentedPill(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (compact) 40.dp else 42.dp)
+            .height(pillHeight)
             .clip(shape)
             .background(colors.cardElevated)
             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), shape)
@@ -363,7 +457,7 @@ private fun XvoxSegmentedPill(
                     Text(
                         text = label,
                         color = if (isSelected) selectedTextColor else colors.mutedText,
-                        fontSize = if (compact) 11.5.sp else 12.sp,
+                        fontSize = if (configuration.screenHeightDp <= 430) 10.5.sp else if (responsiveCompact) 11.5.sp else 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1
                     )
@@ -533,6 +627,64 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+/** About-adjacent entry point for songs soft-deleted from the visible XVOX library. */
+@Composable
+private fun DeletedItemsSectionCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+    SettingsCardFrame(title = "Recycle Bin", modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Restore songs removed from XVOX, or permanently delete their files from this device.",
+                color = colors.secondaryText,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(colors.cardElevated)
+                    .border(.8.dp, colors.cardBorder.copy(alpha = .72f), shape)
+                    .xvoxPressScale(onClick = onOpen)
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Open recycle bin", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Open", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsDialogAction(
+    label: String,
+    modifier: Modifier = Modifier,
+    destructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .clip(shape)
+            .background(if (destructive) Color(0xFFE85B5B) else colors.cardElevated)
+            .border(.8.dp, if (destructive) Color.Transparent else colors.cardBorder, shape)
+            .xvoxPressScale(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (destructive) Color.White else colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

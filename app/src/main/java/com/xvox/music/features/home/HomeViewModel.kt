@@ -382,6 +382,12 @@ class HomeViewModel(
     }
     fun hideSong(song: Song) = viewModelScope.launch { libraryPreferences.hideSong(song.id) }
 
+    /** Removes a Deleted-items/bin record after Android has permanently removed its media file. */
+    fun discardHiddenSong(id: Long) = viewModelScope.launch {
+        libraryPreferences.discardHiddenSong(id)
+        refresh()
+    }
+
     fun setArtistPhoto(artist: String, uri: Uri?) = viewModelScope.launch {
         val persistedUri = if (uri != null) {
             preferencesRepository.persistArtistImage(uri.toString())

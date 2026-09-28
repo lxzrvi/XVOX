@@ -39,24 +39,28 @@ import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
 private const val StartupStrokeWidth = 3f
-private const val StartupDotDiameter = 6f
+// Keep the opening dots delicately smaller than the finished ring/rail. The active dot receives
+// only a subtle lift, so it reads as movement rather than a large pulsing blob.
+private const val StartupDotDiameter = 5f
+private const val StartupActiveDotScale = 1.22f
 private const val StartupRingRadius = 22f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
 private val StartupRingStart = -StartupPi / 5f
 private val StartupRingOrder = intArrayOf(2, 3, 4, 1, 0)
 
-// Row, gather, stretch, spin, unroll, load, hold, then return to row.
+// Row, gather, stretch, spin, unroll, then fill. A completed fill exits into the app; it never
+// loops back to the initial dots or makes the finished ring replay.
 private val StartupPhaseDurations = floatArrayOf(
-    3120f, 800f, 1000f, 2400f, 1400f, 2600f, 700f, 1000f
+    3120f, 800f, 1000f, 2400f, 1400f, 2600f
 )
-private val StartupPhaseBounds = FloatArray(9).also { bounds ->
+private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
         bounds[index + 1] = bounds[index] + StartupPhaseDurations[index]
     }
 }
 private val StartupTotalDuration = StartupPhaseBounds.last()
-private const val StartupReducedMotionDuration = 3200f
+private const val StartupReducedMotionDuration = 2600f
 
 private data class StartupPalette(
     val dot: Color,
@@ -135,7 +139,7 @@ private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
             x = startupRowX(index),
             y = 0f,
             color = startupMixColor(palette.dot, palette.accent, intensity),
-            radius = StartupDotDiameter / 2f * (1f + .4f * intensity)
+            radius = StartupDotDiameter / 2f * (1f + (StartupActiveDotScale - 1f) * intensity)
         )
     }
 }
@@ -237,38 +241,12 @@ private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, pal
     }
 }
 
-/** The full rail breaks into the five original dots before entering the app. */
-private fun DrawScope.drawStartupReturnToRow(time: Float, palette: StartupPalette) {
-    repeat(5) { index ->
-        val progress = startupStagger(time, StartupPhaseDurations[7], index)
-        val color = startupMixColor(palette.accent, palette.dot, progress)
-        if (progress > .999f) {
-            startupDot(startupRowX(index), 0f, color, StartupDotDiameter / 2f)
-        } else {
-            startupLine(
-                points = startupPoints(10) { step ->
-                    Offset(
-                        startupMix(
-                            -StartupBarLength / 2f + StartupBarLength * (index + step) * .2f,
-                            startupRowX(index),
-                            progress
-                        ),
-                        0f
-                    )
-                },
-                color = color,
-                width = startupMix(StartupStrokeWidth, StartupDotDiameter, progress)
-            )
-        }
-    }
-}
-
 /**
  * Theme-aware XVOX startup animation.
  *
- * The supplied sequence remains intact—dots, ring, spinning accent, rail, fill, and return—but
- * its gray/background/accent colors always come from the active XVOX theme. The completed rail
- * waits for actual app readiness before the final return-to-row handoff releases Home.
+ * The sequence moves once from dots to ring to rail. Its gray/background/accent colors always
+ * come from the active XVOX theme, and the completed accent rail releases Home as soon as the
+ * real startup work is ready—there is no return-to-dot or replay phase.
  */
 @Composable
 fun XvoxStartupLoadingScreen(
@@ -296,7 +274,6 @@ fun XvoxStartupLoadingScreen(
 
     LaunchedEffect(reducedMotion) {
         val startNanos = withFrameNanos { it }
-        var returnToRowStartNanos: Long? = null
         var finished = false
 
         while (!finished) {
@@ -305,23 +282,12 @@ fun XvoxStartupLoadingScreen(
                 if (reducedMotion) {
                     // Reduced motion retains a quiet linear rail and never runs ring/spin motion.
                     time = elapsedMs.coerceAtMost(StartupReducedMotionDuration)
-                    if (latestReadyToEnter && elapsedMs >= StartupReducedMotionDuration) {
-                        finished = true
-                    }
-                } else if (elapsedMs < StartupPhaseBounds[7]) {
-                    time = elapsedMs
-                } else if (returnToRowStartNanos != null || latestReadyToEnter) {
-                    val tailStart = returnToRowStartNanos ?: nowNanos.also { returnToRowStartNanos = it }
-                    val tailElapsedMs = ((nowNanos - tailStart) / 1_000_000f)
-                        .coerceAtMost(StartupPhaseDurations[7])
-                    time = StartupPhaseBounds[7] + tailElapsedMs
-                    if (tailElapsedMs >= StartupPhaseDurations[7]) {
-                        time = StartupTotalDuration
-                        finished = true
-                    }
+                    if (latestReadyToEnter && elapsedMs >= StartupReducedMotionDuration) finished = true
                 } else {
-                    // Do not loop or falsely finish: a full accent rail calmly waits for real app work.
-                    time = StartupPhaseBounds[7]
+                    // A completed rail stays full only while real bootstrap work is still pending.
+                    // It never rewinds to dots, so startup has one clean forward handoff.
+                    time = elapsedMs.coerceAtMost(StartupTotalDuration)
+                    if (latestReadyToEnter && elapsedMs >= StartupTotalDuration) finished = true
                 }
             }
         }
@@ -369,8 +335,7 @@ fun XvoxStartupLoadingScreen(
                             complete = false,
                             palette = palette
                         )
-                        time < StartupPhaseBounds[7] -> drawStartupLoadBar(1f, complete = true, palette = palette)
-                        else -> drawStartupReturnToRow(time - StartupPhaseBounds[7], palette)
+                        else -> drawStartupLoadBar(1f, complete = true, palette = palette)
                     }
                 }
             }

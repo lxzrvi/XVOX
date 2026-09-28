@@ -241,7 +241,9 @@ fun LyricsStagePreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     val lyrics = state.lyrics
     val sample = listOf("Hold the night a little longer", "Every echo finds its way", "This is where we stay")
-    val otherAlpha = if (lyrics.fadeEqual) 0.18f else (1f - lyrics.fadeIntensity).coerceIn(0.18f, 1f)
+    val focusAlpha = if (lyrics.focusActiveLine) .58f else 1f
+    val fadeAlpha = if (lyrics.fadeEnabled) (1f - lyrics.fadeIntensity * .82f).coerceIn(.18f, 1f) else 1f
+    val otherAlpha = minOf(focusAlpha, fadeAlpha)
     val alignment: Alignment.Horizontal = when (lyrics.alignment) {
         "left" -> Alignment.Start
         "right" -> Alignment.End
@@ -274,7 +276,9 @@ fun LyricsStagePreview(state: SettingsState) {
         ) {
             sample.forEachIndexed { index, line ->
                 val current = index == active
-                val edgeFade = when (index) {
+                val edgeFade = if (!lyrics.fadeEnabled) {
+                    1f
+                } else when (index) {
                     0 -> 1f - lyrics.fadeTop.coerceIn(0f, .45f)
                     sample.lastIndex -> 1f - lyrics.fadeBottom.coerceIn(0f, .45f)
                     else -> 1f

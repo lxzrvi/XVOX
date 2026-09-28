@@ -92,7 +92,9 @@ fun LyricPresentationLine(
     }
 
     val animatedScale by animateFloatAsState(
-        targetValue = when (animStyle) {
+        targetValue = if (!settings.focusActiveLine) {
+            wantedScale
+        } else when (animStyle) {
             "pop" -> if (active) wantedScale * 1.04f else wantedScale * 0.92f
             "rise" -> if (active) wantedScale else wantedScale * 0.96f
             else -> wantedScale
@@ -101,12 +103,20 @@ fun LyricPresentationLine(
         label = "lineScale"
     )
 
-    // Keep neighbouring lines readable enough to provide lyric context, especially when Cover
-    // matching is selected and its hue is close to the adaptive player background.
-    val baseAlpha = when (abs(distance)) { 0 -> 1f; 1 -> .78f; 2 -> .52f; else -> .34f }
-    val dimTarget = if (settings.fadeEqual) {
-        if (distance == 0) 1f else (1f - settings.fadeIntensity * .82f).coerceIn(.28f, 1f)
-    } else baseAlpha
+    // Fading and focus are deliberately independent, discrete controls. Focus provides the
+    // surrounding-context hierarchy; Fading adds the stronger equal non-active dim without a
+    // hidden strength slider. With both switches off every line remains equally legible.
+    val focusAlpha = if (settings.focusActiveLine) {
+        when (abs(distance)) { 0 -> 1f; 1 -> .78f; 2 -> .52f; else -> .34f }
+    } else {
+        1f
+    }
+    val fadeAlpha = (1f - settings.fadeIntensity * .82f).coerceIn(.28f, 1f)
+    val dimTarget = if (settings.fadeEnabled && distance != 0) {
+        minOf(focusAlpha, fadeAlpha)
+    } else {
+        focusAlpha
+    }
 
     val alpha by animateFloatAsState(
         if (!synchronized) .85f else dimTarget,
@@ -134,7 +144,7 @@ fun LyricPresentationLine(
     )
 
     // The caller supplies the lyric-only Cover / Black / White color; player chrome remains themed elsewhere.
-    val resolvedColor = if (active) themedColor else themedColor.copy(alpha = .88f)
+    val resolvedColor = if (active || !settings.focusActiveLine) themedColor else themedColor.copy(alpha = .88f)
     // Colour separation is resolved before this composable; lyrics intentionally have no glow
     // or shadow layer, so cover matching remains clean and typographic.
     val linePaddingVertical = (settings.lineGap / 2f).coerceAtLeast(4f).dp
@@ -146,7 +156,11 @@ fun LyricPresentationLine(
             fontFamily = XvoxUiFont,
             fontSize = maximumSize.sp,
             lineHeight = (maximumSize * 1.30f).sp,
-            fontWeight = if (active) FontWeight(settings.fontWeight) else FontWeight((settings.fontWeight - 150).coerceAtLeast(300)),
+            fontWeight = if (active || !settings.focusActiveLine) {
+                FontWeight(settings.fontWeight)
+            } else {
+                FontWeight((settings.fontWeight - 150).coerceAtLeast(300))
+            },
             textAlign = textAlign,
             platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(
                 includeFontPadding = false

@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -22,12 +22,11 @@ import kotlin.math.roundToInt
 
 @Composable
 fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(1.dp)
     ) {
         Text(
             if (selectedCount > 0) "$selectedCount selected" else "All Songs",
@@ -35,6 +34,8 @@ fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
+        // Keep section metadata beneath its label, matching the Home section rhythm instead of
+        // making the count float on the far side of the screen.
         Text("$total songs", color = XvoxTheme.colors.mutedText, fontSize = 10.sp)
     }
 }
@@ -72,7 +73,17 @@ fun LazyListScope.allSongsItems(
             )
         }
     } else {
-        items(plans, key = { "all_page_${it.startIndex}" }, contentType = { "mosaic_page" }) { plan ->
+        // Vertical pages are composed just ahead of the viewport. Use that visibility signal to
+        // warm only the following page at the exact 256px grid quality, avoiding decode stalls
+        // without lowering artwork resolution or preloading an unbounded library.
+        itemsIndexed(
+            plans,
+            key = { _, plan -> "all_page_${plan.startIndex}" },
+            contentType = { _, _ -> "mosaic_page" }
+        ) { pageIndex, plan ->
+            LaunchedEffect(plan.startIndex) {
+                plans.getOrNull(pageIndex + 1)?.let { nextPlan -> onPrefetch(nextPlan.startIndex) }
+            }
             XvoxSongGridPage(
                 songs, plan, config, currentSongId, isPlaying, selectedSongIds,
                 onSongClick, onSongLongClick, compact = true,

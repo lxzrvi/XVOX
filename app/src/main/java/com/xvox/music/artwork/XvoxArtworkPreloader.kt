@@ -7,6 +7,7 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxGridArtworkSize
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -23,11 +24,15 @@ class XvoxArtworkPreloader(context: Context) {
         val uris = songs.subList(start, end).mapNotNull { it.artworkUri }.distinct()
         for (uri in uris) {
             coroutineContext.ensureActive()
-            val key = "${XvoxArtworkCache.keyFor(uri)}_160"
+            // All Songs cards render through the size-qualified 256px cache key. Warming 160px
+            // made this work invisible to the grid and caused decode stalls without improving
+            // quality. Prefetch exactly the display quality that the cards consume.
+            val key = "${XvoxArtworkCache.keyFor(uri)}_$XvoxGridArtworkSize"
             if (XvoxArtworkCache.get(key) != null) continue
             try {
-                val result = loader.execute(ImageRequest.Builder(app).data(uri).size(160, 160)
-                    .precision(Precision.INEXACT).memoryCachePolicy(CachePolicy.ENABLED)
+                val result = loader.execute(ImageRequest.Builder(app).data(uri)
+                    .size(XvoxGridArtworkSize, XvoxGridArtworkSize)
+                    .precision(Precision.EXACT).memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED).networkCachePolicy(CachePolicy.DISABLED).build())
                 (result.image as? BitmapImage)?.bitmap?.let { XvoxArtworkCache.put(key, it) }
             } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A missing cover must not delay the next visible card. */ }

@@ -155,7 +155,7 @@ fun EqualizerSettingsSection(
                     valueText = "${(state.reverbAmount * 100).roundToInt()}%",
                     value = state.reverbAmount,
                     onValueChange = viewModel::setReverbAmount,
-                    defaultValue = .50f
+                    defaultValue = .62f
                 )
             }
         }
@@ -172,7 +172,7 @@ fun EqualizerSettingsSection(
                     valueText = null,
                     value = state.noiseReduction,
                     onValueChange = viewModel::setNoiseReduction,
-                    defaultValue = .50f,
+                    defaultValue = .70f,
                     contentDescription = "Noise reduction amount"
                 )
             }
@@ -190,7 +190,7 @@ fun EqualizerSettingsSection(
                     valueText = null,
                     value = state.softenHighs,
                     onValueChange = viewModel::setSoftenHighs,
-                    defaultValue = .50f,
+                    defaultValue = .70f,
                     contentDescription = "Grain control amount"
                 )
             }

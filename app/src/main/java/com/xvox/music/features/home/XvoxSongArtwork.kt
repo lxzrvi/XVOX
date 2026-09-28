@@ -4,15 +4,21 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
+import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
@@ -25,12 +31,20 @@ const val XvoxGridArtworkSize = 256
 const val XvoxRecentArtworkSize = 512
 const val XvoxNowPlayingArtworkSize = 0
 
+/**
+ * Shared artwork renderer.
+ *
+ * Normal library cards still use the requested resolution unchanged. Full-player callers can ask
+ * to retain their last decoded bitmap while Coil resolves the next cover, avoiding a card-colour
+ * flash when playback advances or an adjacent queue row changes.
+ */
 @Composable
 fun XvoxSongArtwork(
     artwork: Any?,
     modifier: Modifier = Modifier,
     requestSize: Int = XvoxGridArtworkSize,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    keepPreviousOnLoading: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
@@ -53,20 +67,20 @@ fun XvoxSongArtwork(
     val baseKey = remember(artwork) { XvoxArtworkCache.keyFor(artwork) }
     val cacheKey = remember(baseKey, requestSize) { "${baseKey}_$requestSize" }
 
-    // Find best available cached bitmap matching requested resolution
-    val cachedBitmap = remember(cacheKey, baseKey, requestSize) {
-        if (requestSize == 0) {
-            XvoxArtworkCache.get("${baseKey}_0")
-        } else if (requestSize >= 1024) {
+    fun cachedBitmap(): Bitmap? = when {
+        requestSize == 0 -> XvoxArtworkCache.get("${baseKey}_0")
+        requestSize >= 1024 -> {
             XvoxArtworkCache.get(cacheKey)
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
                 ?: XvoxArtworkCache.get("${baseKey}_0")
-        } else if (requestSize >= 512) {
+        }
+        requestSize >= 512 -> {
             XvoxArtworkCache.get(cacheKey)
                 ?: XvoxArtworkCache.get("${baseKey}_512")
                 ?: XvoxArtworkCache.get("${baseKey}_1024")
                 ?: XvoxArtworkCache.get("${baseKey}_0")
-        } else {
+        }
+        else -> {
             XvoxArtworkCache.get(cacheKey)
                 ?: XvoxArtworkCache.get("${baseKey}_256")
                 ?: XvoxArtworkCache.get(baseKey)
@@ -75,16 +89,16 @@ fun XvoxSongArtwork(
         }
     }
 
-    if (cachedBitmap != null) {
-        Image(
-            bitmap = cachedBitmap.asImageBitmap(),
-            contentDescription = null,
-            contentScale = contentScale,
-            modifier = modifier
-        )
-        return
+    // Keep a Compose-observable result in addition to the LRU cache. LruCache writes themselves
+    // do not invalidate composition, so this state lets a freshly decoded cover replace its
+    // placeholder immediately without reducing its requested quality.
+    var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
+    var previousBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(decodedBitmap) {
+        decodedBitmap?.let { previousBitmap = it }
     }
 
+    val visibleBitmap = decodedBitmap ?: previousBitmap.takeIf { keepPreviousOnLoading }
     val request = remember(artwork, requestSize) {
         val builder = ImageRequest.Builder(context)
             .data(artwork)
@@ -100,21 +114,37 @@ fun XvoxSongArtwork(
         builder.build()
     }
 
-    AsyncImage(
-        model = request,
-        contentDescription = null,
-        contentScale = contentScale,
-        onSuccess = { successResult ->
-            val drawable = successResult.result.image
-            if (drawable is coil3.BitmapImage) {
-                XvoxArtworkCache.put(cacheKey, drawable.bitmap)
-                if (requestSize == 0) {
-                    XvoxArtworkCache.put("${baseKey}_0", drawable.bitmap)
-                }
-            }
-        },
-        modifier = modifier.background(colors.cardElevated)
-    )
+    Box(
+        modifier = modifier.background(colors.cardElevated),
+        contentAlignment = Alignment.Center
+    ) {
+        visibleBitmap?.let { bitmap ->
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Do not draw a solid loading layer above a retained full-player cover. Coil paints the
+        // newly decoded original-resolution image transparently over it when it is ready.
+        if (decodedBitmap == null) {
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                contentScale = contentScale,
+                onSuccess = { success ->
+                    (success.result.image as? BitmapImage)?.bitmap?.let { bitmap ->
+                        XvoxArtworkCache.put(cacheKey, bitmap)
+                        if (requestSize == 0) XvoxArtworkCache.put("${baseKey}_0", bitmap)
+                        decodedBitmap = bitmap
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
 }
 
 @Composable
@@ -122,12 +152,14 @@ fun XvoxSongArtwork(
     song: com.xvox.music.core.model.Song?,
     modifier: Modifier = Modifier,
     requestSize: Int = XvoxGridArtworkSize,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    keepPreviousOnLoading: Boolean = false
 ) {
     XvoxSongArtwork(
         artwork = song?.artworkUri,
         modifier = modifier,
         requestSize = requestSize,
-        contentScale = contentScale
+        contentScale = contentScale,
+        keepPreviousOnLoading = keepPreviousOnLoading
     )
 }

@@ -816,21 +816,18 @@ fun XvoxMainShell(
             }
         }
 
-        // This single composable is deliberately outside AnimatedContent. It remains mounted
-        // while its shared Header slides up and hides during the forward Settings route, then
-        // reverses that motion on Back; Settings never builds a duplicate Header. Now Playing is a
-        // full-screen overlay, so it alone suppresses this shell layer exactly as page-local
-        // Headers were previously covered by the player.
-        if (!player.nowPlayingVisible) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .graphicsLayer { translationY = sharedHeaderTranslationY }
-                    .zIndex(8f)
-            ) {
-                sharedShellHeader()
-            }
+        // Keep this one shell Header mounted through a Now Playing round-trip. The full player is
+        // drawn later and covers it while open, but retaining the composed Header means closing
+        // the player reveals the same live surface immediately instead of remounting a blank or
+        // stale off-screen header for a frame.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .graphicsLayer { translationY = sharedHeaderTranslationY }
+                .zIndex(8f)
+        ) {
+            sharedShellHeader()
         }
 
 

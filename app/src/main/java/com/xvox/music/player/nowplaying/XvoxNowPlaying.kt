@@ -58,6 +58,7 @@ import com.xvox.music.features.settings.sections.EqualizerFooterActions
 import com.xvox.music.features.settings.sections.EqualizerSettingsSection
 import com.xvox.music.features.settings.components.XvoxTransactionalFooterActions
 import com.xvox.music.features.settings.sections.HeadsetSettingsDraftSection
+import com.xvox.music.features.settings.sections.LyricsFooterActions
 import com.xvox.music.features.settings.sections.LyricsSettingsDraftSection
 import com.xvox.music.features.settings.sections.PlaybackSettingsDraftSection
 import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
@@ -1097,9 +1098,21 @@ fun XvoxNowPlaying(
                         }
                         "Lyrics" -> {
                             {
-                                XvoxTransactionalFooterActions(
+                                LyricsFooterActions(
                                     onCancel = { activeSettingsBox = null },
-                                    onOkay = { activeSettingsBox = null }
+                                    onResetAll = {
+                                        optionDraft = optionDraft.copy(
+                                            lyrics = com.xvox.music.data.preferences.LyricsSettings()
+                                        )
+                                        applyLyricsDraft(optionDraft)
+                                    },
+                                    onResetTiming = {
+                                        optionDraft = optionDraft.copy(
+                                            lyrics = optionDraft.lyrics.copy(offsetMs = 0)
+                                        )
+                                        applyLyricsDraft(optionDraft)
+                                    },
+                                    onDone = { activeSettingsBox = null }
                                 )
                             }
                         }
@@ -1149,7 +1162,10 @@ fun XvoxNowPlaying(
                                 onSettingsChange = { lyrics ->
                                     optionDraft = optionDraft.copy(lyrics = lyrics)
                                     applyLyricsDraft(optionDraft)
-                                }
+                                },
+                                // Reset actions live in XvoxBox's fixed footer, never below the
+                                // long scrollable editor where they could disappear off-screen.
+                                showInlineActions = false
                             )
                         }
                     }

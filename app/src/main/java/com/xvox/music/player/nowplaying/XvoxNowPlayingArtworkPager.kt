@@ -308,6 +308,9 @@ private fun XvoxNowPlayingArtworkPage(
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 requestSize = XvoxNowPlayingArtworkSize,
+                // Never replace the outgoing decoded cover with a flat placeholder while the
+                // next original-quality image is resolving; this removes playback/queue flicker.
+                keepPreviousOnLoading = true,
                 modifier = Modifier.fillMaxSize()
             )
         }

@@ -55,6 +55,18 @@ class XvoxLibraryPreferences(
     suspend fun restoreSong(songId: Long) {
         context.xvoxDataStore.edit { prefs -> prefs[Keys.hidden] = (decodeIds(prefs[Keys.hidden].orEmpty()) - songId).joinToString(",") }
     }
+
+    /**
+     * Forget a soft-delete/bin record after its backing MediaStore item has been permanently
+     * removed. This intentionally does not describe the action as a restore: there is no file to
+     * make visible again.
+     */
+    suspend fun discardHiddenSong(songId: Long) {
+        context.xvoxDataStore.edit { prefs ->
+            prefs[Keys.hidden] = (decodeIds(prefs[Keys.hidden].orEmpty()) - songId).joinToString(",")
+        }
+    }
+
     suspend fun restoreAllSongs() { context.xvoxDataStore.edit { it.remove(Keys.hidden) } }
     suspend fun hideSong(songId: Long) {
         context.xvoxDataStore.edit { prefs ->

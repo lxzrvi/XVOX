@@ -321,7 +321,10 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
+                        .lyricsEdgeFade(
+                            if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
+                            if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
+                        ),
                     contentPadding = PaddingValues(
                         top = verticalCenterPadding,
                         bottom = verticalCenterPadding,
@@ -364,7 +367,10 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
+                        .lyricsEdgeFade(
+                            if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
+                            if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
+                        ),
                     contentPadding = PaddingValues(
                         top = verticalCenterPadding,
                         bottom = verticalCenterPadding,

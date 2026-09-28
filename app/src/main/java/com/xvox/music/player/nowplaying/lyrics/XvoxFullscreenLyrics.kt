@@ -335,7 +335,10 @@ fun XvoxFullscreenLyrics(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
+                            .lyricsEdgeFade(
+                                if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
+                                if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
+                            ),
                         contentPadding = PaddingValues(
                             top = animatedBarsPad + 96.dp,
                             bottom = 120.dp,
@@ -381,7 +384,10 @@ fun XvoxFullscreenLyrics(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .lyricsEdgeFade(lyricsSettings.fadeTop, lyricsSettings.fadeBottom),
+                            .lyricsEdgeFade(
+                                if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
+                                if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
+                            ),
                         contentPadding = PaddingValues(
                             top = animatedBarsPad + 96.dp,
                             bottom = 120.dp,

@@ -61,11 +61,14 @@ fun XvoxLikedSongRow(
             .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // The 64dp card has a 3dp frame on every side. Fill its remaining 58dp exactly so
+        // Liked, playlist-detail, and artist song rows have the same thin top/bottom inset as
+        // their left/right artwork edge.
         XvoxSongArtwork(
             artwork = song.artworkUri,
-            requestSize = 112,
+            requestSize = 128,
             modifier = Modifier
-                .size(52.dp)
+                .size(58.dp)
                 .clip(RoundedCornerShape(9.dp))
         )
 

@@ -26,7 +26,11 @@ import com.xvox.music.features.home.XvoxSongArtwork
 
 /** "Deleted songs": what "Delete from XVOX" moves aside. Restoring puts a song or artist straight back. */
 @Composable
-fun HiddenSongsSettingsSection(viewModel: HomeViewModel) {
+fun HiddenSongsSettingsSection(
+    viewModel: HomeViewModel,
+    onDeleteFromDevice: (com.xvox.music.core.model.Song) -> Unit = {},
+    onDiscardMissing: (Long) -> Unit = viewModel::discardHiddenSong
+) {
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
     val byId = remember(state.hiddenSongs) { state.hiddenSongs.associateBy { it.id } }
@@ -145,8 +149,22 @@ fun HiddenSongsSettingsSection(viewModel: HomeViewModel) {
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            TextButton(onClick = { viewModel.restoreSong(id) }) {
-                                Text("Restore", fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { viewModel.restoreSong(id) }) {
+                                    Text("Restore", fontSize = 11.sp)
+                                }
+                                song?.let { existingSong ->
+                                    TextButton(onClick = { onDeleteFromDevice(existingSong) }) {
+                                        Text("Delete", color = androidx.compose.ui.graphics.Color(0xFFE85B5B), fontSize = 11.sp)
+                                    }
+                                } ?: run {
+                                    // The provider no longer exposes this file, so only its stale
+                                    // bin record remains. Remove that record without pretending a
+                                    // restore is possible.
+                                    TextButton(onClick = { onDiscardMissing(id) }) {
+                                        Text("Remove", color = colors.secondaryText, fontSize = 11.sp)
+                                    }
+                                }
                             }
                         }
                     }

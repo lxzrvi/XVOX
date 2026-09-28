@@ -11,8 +11,14 @@ data class LyricsSettings(
     val fadeTop: Float = .22f,
     val fadeBottom: Float = .22f,
     val animation: String = "rise",
+    /** Retained for older equal-fade records; the new UI exposes [fadeEnabled] directly. */
     val fadeEqual: Boolean = false,
+    /** A fixed, readable fade strength retained for compatibility rather than exposed as a rail. */
     val fadeIntensity: Float = 1f,
+    /** Toggle for dimming non-active lyric lines. */
+    val fadeEnabled: Boolean = false,
+    /** Toggle for active-line emphasis (weight/scale/context contrast). */
+    val focusActiveLine: Boolean = true,
     /** "left" | "center" | "right" — where lyric lines sit. */
     val alignment: String = "center",
     /** Vertical space between lines (dp). */
@@ -51,6 +57,8 @@ data class LyricsSettings(
             fadeBottom = (fadeBottom.takeIf { it.isFinite() } ?: .22f).coerceIn(0f, .45f),
             animation = animation.takeIf { it in ANIMATIONS } ?: "rise",
             fadeIntensity = (fadeIntensity.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f),
+            fadeEnabled = fadeEnabled,
+            focusActiveLine = focusActiveLine,
             alignment = alignment.takeIf { it in ALIGNMENTS } ?: "center",
             lineGap = lineGap.coerceIn(4, 40),
             gradientAnimation = gradientAnimation.takeIf { it in GRADIENT_ANIMATIONS } ?: "orb",
@@ -80,6 +88,8 @@ data class LyricsSettings(
         .put("animation", animation)
         .put("equal", fadeEqual)
         .put("intensity", fadeIntensity.toDouble())
+        .put("fadeEnabled", fadeEnabled)
+        .put("focusActive", focusActiveLine)
         .put("align", alignment)
         .put("gap", lineGap)
         .put("gradient", gradientAnimation)
@@ -93,7 +103,9 @@ data class LyricsSettings(
         .toString()
 
     companion object {
-        val ANIMATIONS = listOf("rise", "glide", "pop", "off", "wave", "drift", "aurora", "classic")
+        // The product now exposes exactly these three Line Transition buttons. Older labels are
+        // migrated during decode rather than remaining as invisible fourth/fifth modes.
+        val ANIMATIONS = listOf("rise", "glide", "pop")
         val GRADIENT_ANIMATIONS = listOf("orb", "aurora", "off", "wave")
         val ALIGNMENTS = listOf("left", "center", "right")
         val TEXT_COLOR_MODES = listOf("cover", "black", "white")
@@ -103,10 +115,9 @@ data class LyricsSettings(
             val other = j.optInt("other", 14)
             val animRaw = j.optString("animation", "rise")
             val mappedAnim = when (animRaw) {
-                "wave" -> "rise"
+                "wave", "off", "classic" -> "rise"
                 "drift" -> "glide"
                 "aurora" -> "pop"
-                "classic" -> "off"
                 else -> animRaw
             }
             val gradRaw = j.optString("gradient", "orb")
@@ -127,6 +138,10 @@ data class LyricsSettings(
                 animation = mappedAnim,
                 fadeEqual = j.optBoolean("equal", false),
                 fadeIntensity = j.optDouble("intensity", 1.0).toFloat().takeIf { it.isFinite() } ?: 1f,
+                // Existing records did not have explicit controls; preserve their familiar
+                // readable treatment until the user changes either new toggle.
+                fadeEnabled = j.optBoolean("fadeEnabled", j.optBoolean("equal", false)),
+                focusActiveLine = j.optBoolean("focusActive", true),
                 alignment = j.optString("align", "center"),
                 lineGap = j.optInt("gap", 14),
                 gradientAnimation = mappedGrad,

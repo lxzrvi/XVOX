@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
@@ -78,7 +79,9 @@ fun XvoxAllSongMosaicCard(
     }
     @Composable
     fun Cover(modifier: Modifier = Modifier) {
-        XvoxSongArtwork(song.artworkUri, requestSize = if (widthUnits == 1f && heightUnits == 1f) 160 else XvoxRecentArtworkSize,
+        // Single-unit tiles share the same 256px request/cache key as the standard All Songs
+        // card, so vertical next-page warming removes decode work without compromising quality.
+        XvoxSongArtwork(song.artworkUri, requestSize = if (widthUnits == 1f && heightUnits == 1f) XvoxGridArtworkSize else XvoxRecentArtworkSize,
             modifier = modifier.clip(artShape))
     }
 

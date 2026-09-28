@@ -230,8 +230,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val selected = com.xvox.music.audio.ReverbPresets.normalize(preset)
         current.copy(
             reverbPreset = selected,
-            // A room selection should be audible immediately, but its amount never chooses another room.
-            reverbAmount = if (selected != com.xvox.music.audio.ReverbPresets.OFF && current.reverbAmount <= .001f) .50f else current.reverbAmount
+            // A selected room must immediately use its real DSP profile. OFF is a genuine dry
+            // bypass; changing between rooms restores an audible standard wet amount so a new
+            // preset never appears to be a cosmetic label change.
+            reverbAmount = when {
+                selected == com.xvox.music.audio.ReverbPresets.OFF -> 0f
+                selected != current.reverbPreset -> .62f
+                current.reverbAmount <= .001f -> .62f
+                else -> current.reverbAmount
+            }
         )
     }
     fun setReverbAmount(value: Float) = changeAudio { it.copy(reverbAmount = value.coerceIn(0f, 1f)) }
@@ -268,10 +275,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             distortionControl = 0f,
             distortionControlEnabled = false,
             reverbPreset = com.xvox.music.audio.ReverbPresets.OFF,
-            reverbAmount = .50f,
-            noiseReduction = .50f,
+            reverbAmount = 0f,
+            noiseReduction = .70f,
             noiseReductionEnabled = false,
-            softenHighs = .50f,
+            softenHighs = .70f,
             grainControlEnabled = false
         )
     }
@@ -330,16 +337,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             "Custom" -> EqBands.convert(_state.value.customEqBands, _state.value.eqBandCount)
             else -> AudioEffectsManager.PRESETS[normalized] ?: _state.value.eqBands
         }
-        applyEq(_state.value.equalizerEnabled, normalized, bands)
+        // Choosing a tonal profile is an intentional request to hear it. Auto-enable the real
+        // PCM EQ so a powerful preset cannot silently remain a cosmetic selection behind a stale
+        // off switch; Flat still produces the exact neutral curve.
+        applyEq(true, normalized, bands)
     }
-    fun setEqBands(bands: List<Int>) = applyEq(_state.value.equalizerEnabled, "Custom", bands)
+    fun setEqBands(bands: List<Int>) = applyEq(true, "Custom", bands)
     fun setEqBand(index: Int, value: Int) {
         if (index !in 0 until _state.value.eqBandCount) return
         // Start from what is visibly being edited, then retain that new hand-authored curve as Custom.
         val bands = _state.value.eqBands.toMutableList()
         while (bands.size < _state.value.eqBandCount) bands.add(0)
         bands[index] = value.coerceIn(-12, 12)
-        applyEq(_state.value.equalizerEnabled, "Custom", bands)
+        applyEq(true, "Custom", bands)
     }
     fun setEqBandCount(count: Int) = changeAudio { current ->
         val safeCount = EqBands.count(count)
@@ -349,14 +359,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setNoiseReductionEnabled(enabled: Boolean) = changeAudio { current ->
         current.copy(
             noiseReductionEnabled = enabled,
-            noiseReduction = if (enabled && current.noiseReduction <= .001f) .50f else current.noiseReduction
+            // A newly enabled control starts at a deliberately audible, usable cleanup level.
+            noiseReduction = if (enabled && current.noiseReduction <= .001f) .70f else current.noiseReduction
         )
     }
     fun setSoftenHighs(value: Float) = changeAudio { it.copy(softenHighs = value.coerceIn(0f, 1f)) }
     fun setGrainControlEnabled(enabled: Boolean) = changeAudio { current ->
         current.copy(
             grainControlEnabled = enabled,
-            softenHighs = if (enabled && current.softenHighs <= .001f) .50f else current.softenHighs
+            // Start at a meaningful smoothing level rather than a barely perceptible half mix.
+            softenHighs = if (enabled && current.softenHighs <= .001f) .70f else current.softenHighs
         )
     }
     fun setBalance(balance: Float) = changeAudio { it.copy(balance = balance.coerceIn(-1f, 1f)) }

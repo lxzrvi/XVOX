@@ -196,18 +196,18 @@ class XvoxDspEngine {
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
         targetSoftHighs = if (s.grainControlEnabled) {
-            // This remains a real residual-band processor, but its 100% endpoint now gives a
-            // clearly audible reduction of brittle digital grain instead of a cosmetic .48 mix.
-            // Programme below the 5.5 kHz split stays present through the parallel low band.
-            1.0 - s.softenHighs.coerceIn(0f, 1f) * .78
+            // Preserve the programme below the 5.5 kHz split, but make Grain Control genuinely
+            // decisive on brittle high-frequency residuals. 100% remains bounded and smooth,
+            // never a destructive full-band low-pass.
+            1.0 - s.softenHighs.coerceIn(0f, 1f) * .88
         } else {
             1.0
         }
         targetNoise = if (s.noiseReductionEnabled) {
             val amount = s.noiseReduction.toDouble().coerceIn(0.0, 1.0)
-            // Give the upper half of the control more decisive hiss/floor suppression while
-            // retaining exact bypass whenever the feature is disabled.
-            amount * (.38 + .62 * amount)
+            // Weight practical settings more strongly: the toggle's standard 70% level now
+            // materially suppresses hiss/floor noise, while disabled remains an exact bypass.
+            amount * (.52 + .48 * amount)
         } else 0.0
         val spatialActive = s.surroundEnabled && !splitStems
         // Keep the processor spacious without fully replacing the dry stereo signal at its end.
@@ -314,13 +314,13 @@ class XvoxDspEngine {
         // at zero keeps the unprocessed waveform intact.
         noiseToneL += (l - noiseToneL) * noiseToneAlpha
         noiseToneR += (r - noiseToneR) * noiseToneAlpha
-        val residualMix = (1.0 - currentNoise * .86).coerceIn(.14, 1.0)
+        val residualMix = (1.0 - currentNoise * .90).coerceIn(.10, 1.0)
         l = noiseToneL + (l - noiseToneL) * residualMix
         r = noiseToneR + (r - noiseToneR) * residualMix
         val envelopeInput = max(abs(l), abs(r))
         noiseEnvelope += (envelopeInput - noiseEnvelope) * if (envelopeInput > noiseEnvelope) fastAlpha else controlAlpha
         val ratio = (noiseEnvelope / noiseThreshold.coerceAtLeast(1e-8)).coerceIn(0.0, 1.0)
-        val desiredNoiseGain = 1 - currentNoise * .86 * (1 - ratio * ratio)
+        val desiredNoiseGain = 1 - currentNoise * .90 * (1 - ratio * ratio)
         noiseGain += (desiredNoiseGain - noiseGain) * controlAlpha
         l *= noiseGain; r *= noiseGain
         bassL += (l - bassL) * bassAlpha; bassR += (r - bassR) * bassAlpha

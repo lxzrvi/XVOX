@@ -65,6 +65,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
@@ -116,9 +117,8 @@ fun SearchScreen(
     // The field begins just beneath the Header and tracks its full upward travel. Once Header has
     // left, this status-safe clamp is the only fixed position—there is no spacer left behind.
     val searchHeaderGap = 2.dp
-    val statusSafeSearchTop = with(density) {
-        WindowInsets.statusBars.getTop(this).toDp() + searchHeaderGap
-    }
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val statusSafeSearchTop = statusBarHeight + searchHeaderGap
     val headerSearchTop = topInset + searchHeaderGap
     val travelledSearchDp = with(density) { searchScrollDistancePx.toDp() }
     val movingSearchTop = headerSearchTop - travelledSearchDp
@@ -278,6 +278,7 @@ fun SearchScreen(
         drillDownPlaylist = null
     }
 
+    Box(Modifier.fillMaxSize()) {
     if (isLandscape) {
         // The right result list drives the shared travel. The left Search surface mirrors that
         // upward motion until the status-safe line, so neither pane is left stranded below a
@@ -677,6 +678,21 @@ fun SearchScreen(
                     }
                 )
             }
+        }
+    }
+
+        // Once Search begins travelling, reserve an opaque system-status lane above it. This
+        // prevents result cards/text from becoming visible behind the status icons while keeping
+        // the accepted Search-field clamp and movement unchanged.
+        if (searchScrollDistancePx > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(statusBarHeight)
+                    .background(colors.background)
+                    .zIndex(10f)
+            )
         }
     }
 }
