@@ -627,6 +627,10 @@ fun XvoxMainShell(
             onRecentClick = ::openRecentFromHeader,
             showHomeControls = destination == XvoxDestination.HOME &&
                 homeState.sourceMode == com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
+            // The Header itself remains mounted for an instant, non-black Now Playing return.
+            // Search alone hides its physical divider once it begins travelling, eliminating the
+            // hairline that could remain at the status boundary after the Header leaves.
+            showBottomDivider = !(destination == XvoxDestination.SEARCH && searchHeaderScrollPx > 0),
             useSystemInsets = true
         )
     }
@@ -981,7 +985,9 @@ fun XvoxMainShell(
             visible = player.nowPlayingVisible && currentSong != null,
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None,
-            modifier = Modifier.fillMaxSize()
+            // Keep the Header composed underneath for a clean return, but the full player must
+            // always remain visually above it exactly as before.
+            modifier = Modifier.fillMaxSize().zIndex(20f)
         ) {
             val playingSong = currentSong ?: return@AnimatedVisibility
 

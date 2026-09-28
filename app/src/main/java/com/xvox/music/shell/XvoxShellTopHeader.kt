@@ -92,6 +92,8 @@ fun XvoxShellTopHeader(
     onRecentClick: () -> Unit = {},
     /** Search keeps the visual/profile Header but deliberately has no Home action cluster. */
     showHomeControls: Boolean = destination == XvoxDestination.HOME,
+    /** Hide the physical lower divider once a travelling Search Header has left the viewport. */
+    showBottomDivider: Boolean = true,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
@@ -262,12 +264,16 @@ fun XvoxShellTopHeader(
 
         }
 
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .height(1.dp)
-                .background(headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f)))
-        )
+        // Once Search starts its accepted upward travel, this divider would otherwise be the
+        // one-pixel seam left at the status/content boundary after the Header has moved away.
+        if (showBottomDivider) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(1.dp)
+                    .background(headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f)))
+            )
+        }
     }
 }

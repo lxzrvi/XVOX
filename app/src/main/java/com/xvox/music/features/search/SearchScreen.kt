@@ -689,7 +689,9 @@ fun SearchScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(statusBarHeight)
+                    // Cover the full status-safe lane, including Search's small clamp gap, so
+                    // fractional-pixel edges cannot leave a visible horizontal hairline.
+                    .height(statusSafeSearchTop)
                     .background(colors.background)
                     .zIndex(10f)
             )
