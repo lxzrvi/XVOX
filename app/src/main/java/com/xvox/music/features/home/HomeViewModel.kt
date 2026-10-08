@@ -611,7 +611,7 @@ class HomeViewModel(
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 
     override fun onCleared() {
-        pendingPrefetchStart = -1
+        pendingPrefetch = null
         prefetchJob?.cancel()
         super.onCleared()
     }
