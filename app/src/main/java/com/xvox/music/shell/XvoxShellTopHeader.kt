@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.data.preferences.UserPreferences
@@ -140,6 +141,7 @@ fun XvoxShellTopHeader(
                 // and black/dark in dark modes, rather than an unrelated elevated strip.
                 else colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
             )
+            .xvoxGlassReflection()
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(

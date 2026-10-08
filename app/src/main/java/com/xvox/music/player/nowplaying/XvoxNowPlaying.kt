@@ -46,6 +46,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.overlay.XvoxBox
@@ -130,6 +131,9 @@ fun XvoxNowPlaying(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val transitionDuration = XvoxPlayerTransitionMotion.durationFor(chrome.miniPlayerTransitionDuration)
+    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
@@ -245,7 +249,7 @@ fun XvoxNowPlaying(
             animation.animateTo(
                 target,
                 tween(
-                    durationMillis = XvoxPlayerTransitionMotion.Duration,
+                    durationMillis = transitionDuration,
                     easing = XvoxPlayerTransitionMotion.easing
                 )
             ) {
@@ -274,9 +278,9 @@ fun XvoxNowPlaying(
         onDismissStart()
         animateScreen(target = screenHeight) {
             // Match the opening handoff in reverse: the full player is entirely below the
-            // viewport, then the Mini Player receives a clean 50ms visible-free beat to rise.
+            // viewport, then the Mini Player receives only a very short visible-free beat to rise.
             scope.launch {
-                delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                delay(XvoxPlayerTransitionMotion.handoffDelayFor(transitionDuration))
                 onClose()
             }
         }
@@ -419,6 +423,7 @@ fun XvoxNowPlaying(
 
     val isSlidingDown = screenY > 1f
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val transitionLayer = XvoxPlayerTransitionMotion.layer(transitionStyle, slideFraction)
     val cornerRadiusDp = if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
@@ -492,7 +497,18 @@ fun XvoxNowPlaying(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .graphicsLayer { translationY = screenY }
+            .graphicsLayer {
+                // The screen slide owns physical entry/exit. The selected Mini Player experiment
+                // contributes only a bounded layer effect so the player never exposes a blank
+                // frame or leaks over the persistent shell Header beneath it.
+                translationX = size.width * transitionLayer.xFraction
+                translationY = screenY + size.height * transitionLayer.yFraction
+                alpha = transitionLayer.alpha
+                scaleX = transitionLayer.scaleX
+                scaleY = transitionLayer.scaleY
+                rotationZ = transitionLayer.rotationZ
+                rotationY = transitionLayer.rotationY
+            }
             .clip(sheetCorner)
             .background(colors.background)
             .pointerInput(Unit) {
@@ -641,6 +657,7 @@ fun XvoxNowPlaying(
                             // Match portrait's translucent bottom-control treatment so this
                             // landscape right card feels like the same player surface.
                             .background(colors.background.copy(alpha = 0.35f))
+                            .xvoxGlassReflection()
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -690,7 +707,9 @@ fun XvoxNowPlaying(
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
                             onOpenOptions = { optionName -> openSettingsBox(optionName) },
                             actionPageIndex = actionPageIndex,
-                            onActionPageChange = onActionPageChange
+                            onActionPageChange = onActionPageChange,
+                            timerQueueInfoSide = chrome.nowPlayingPillSide,
+                            changingActionsSide = chrome.nowPlayingChangingActionsSide
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -724,7 +743,8 @@ fun XvoxNowPlaying(
                             position = position,
                             duration = duration,
                             onSeek = onSeek,
-                            showTime = true
+                            showTime = true,
+                            style = chrome.nowPlayingSeekStyle
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -747,6 +767,8 @@ fun XvoxNowPlaying(
                             onRepeat = { onToggleRepeat?.invoke() },
                             previewIndex = previewIndex,
                             queueSize = queue.size,
+                            shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
+                            playSide = chrome.nowPlayingPlaySide,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -907,6 +929,7 @@ fun XvoxNowPlaying(
                     }
                     .clip(bottomBoxShape)
                     .background(colors.background.copy(alpha = 0.35f))
+                    .xvoxGlassReflection()
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(
                         start = 14.dp,
@@ -940,7 +963,9 @@ fun XvoxNowPlaying(
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
                             onOpenOptions = { optionName -> openSettingsBox(optionName) },
                             actionPageIndex = actionPageIndex,
-                            onActionPageChange = onActionPageChange
+                            onActionPageChange = onActionPageChange,
+                            timerQueueInfoSide = chrome.nowPlayingPillSide,
+                            changingActionsSide = chrome.nowPlayingChangingActionsSide
                         )
 
                         Spacer(Modifier.height(14.dp))
@@ -974,7 +999,8 @@ fun XvoxNowPlaying(
                     position = position,
                     duration = duration,
                     onSeek = onSeek,
-                    showTime = !isCompact
+                    showTime = !isCompact,
+                    style = chrome.nowPlayingSeekStyle
                 )
 
                 Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
@@ -997,6 +1023,8 @@ fun XvoxNowPlaying(
                     onRepeat = { onToggleRepeat?.invoke() },
                     previewIndex = previewIndex,
                     queueSize = queue.size,
+                    shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
+                    playSide = chrome.nowPlayingPlaySide,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -1018,7 +1046,33 @@ fun XvoxNowPlaying(
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
             if (activeSettingsBox == "Style") {
-                NowPlayingOptionsBox(onDismiss = { activeSettingsBox = null })
+                NowPlayingOptionsBox(
+                    seekStyle = chrome.nowPlayingSeekStyle,
+                    timerQueueInfoSide = chrome.nowPlayingPillSide,
+                    changingActionsSide = chrome.nowPlayingChangingActionsSide,
+                    shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
+                    playSide = chrome.nowPlayingPlaySide,
+                    optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
+                    onSeekStyleChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingSeekStyle = value) }
+                    },
+                    onTimerQueueInfoSideChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingPillSide = value) }
+                    },
+                    onChangingActionsSideChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingChangingActionsSide = value) }
+                    },
+                    onShuffleRepeatSideChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingShuffleRepeatSide = value) }
+                    },
+                    onPlaySideChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingPlaySide = value) }
+                    },
+                    onOptionsGroupSideChange = { value ->
+                        settingsViewModel.setChromeStyle { it.copy(nowPlayingOptionsGroupSide = value) }
+                    },
+                    onDismiss = { activeSettingsBox = null }
+                )
             } else {
                 val boxTitle = when (activeSettingsBox) {
                     "Equalizer" -> "Equalizer"

@@ -40,11 +40,11 @@ object XvoxMiniPlayerMotion {
         return (free + (distance - free) * 0.075f) * sign(value)
     }
 
-    val riseSpec: AnimationSpec<Float>
-        get() = XvoxPlayerTransitionMotion.spec
+    fun riseSpec(durationMillis: Int = XvoxPlayerTransitionMotion.Duration): AnimationSpec<Float> =
+        XvoxPlayerTransitionMotion.spec(durationMillis)
 
-    val exitSpec: AnimationSpec<Float>
-        get() = XvoxPlayerTransitionMotion.spec
+    fun exitSpec(durationMillis: Int = XvoxPlayerTransitionMotion.Duration): AnimationSpec<Float> =
+        XvoxPlayerTransitionMotion.spec(durationMillis)
 
     val horizontalReturnSpec: AnimationSpec<Float>
         get() = spring(

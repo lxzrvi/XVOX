@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
@@ -59,6 +61,7 @@ fun XvoxNowPlayingHeader(
                 .size(40.dp)
                 .clip(CircleShape)
                 .background(colors.card.copy(alpha = 0.35f))
+                .xvoxGlassReflection()
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -91,7 +94,8 @@ fun XvoxNowPlayingHeader(
 
         Column(
             modifier = Modifier
-                .padding(horizontal = 52.dp)
+                // The combined Share / overflow pill is 75dp wide; keep title text clear of it.
+                .padding(start = 52.dp, end = 88.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -115,34 +119,62 @@ fun XvoxNowPlayingHeader(
             )
         }
 
-        // Keep the source-compatible onMore callback for callers that still provide it, but
-        // the visible header intentionally contains only Share. The 20dp glyph exactly matches
-        // the collapse/down control on the opposite side.
-        if (onShare != null) {
+        // Share and overflow live in one compact pill so the header retains a single clear
+        // right-side target while still exposing the complete Now Playing control editor.
+        if (onShare != null || onMore != null) {
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .height(40.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(colors.card.copy(alpha = 0.35f))
+                    .xvoxGlassReflection()
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .xvoxPressScale(pressedScale = 0.90f) {
-                            haptics.tap()
-                            onShare()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_share),
-                        contentDescription = "Share",
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(20.dp)
+                if (onShare != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) {
+                                haptics.tap()
+                                onShare()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_share),
+                            contentDescription = "Share",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                if (onShare != null && onMore != null) {
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(colors.primaryText.copy(alpha = .18f))
                     )
+                }
+                if (onMore != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .xvoxPressScale(pressedScale = 0.90f) {
+                                haptics.tap()
+                                onMore()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_xvox_more),
+                            contentDescription = "Now Playing options",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

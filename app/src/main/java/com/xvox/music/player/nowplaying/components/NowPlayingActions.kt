@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,7 +82,10 @@ fun NowPlayingActions(
     onOpenOptions: ((String) -> Unit)? = null,
     /** Hoisted by Now Playing so a reopened surface restores the user's action page. */
     actionPageIndex: Int = 0,
-    onActionPageChange: (Int) -> Unit = {}
+    onActionPageChange: (Int) -> Unit = {},
+    /** The overflow editor exposes these as simple left/right placement choices. */
+    timerQueueInfoSide: String = "left",
+    changingActionsSide: String = "right"
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -116,10 +120,10 @@ fun NowPlayingActions(
         label = "dotsAlpha"
     )
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    val pillOnLeft = timerQueueInfoSide != "right"
+    val actionsOnLeft = changingActionsSide == "left"
+
+    val utilityPill: @Composable () -> Unit = {
         // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
@@ -146,8 +150,9 @@ fun NowPlayingActions(
             )
         }
 
-        Spacer(Modifier.weight(1f))
+    }
 
+    val changingActionCluster: @Composable () -> Unit = {
         // Right cluster: 2 action buttons with continuous bidirectional infinite swiping
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
@@ -341,6 +346,20 @@ fun NowPlayingActions(
                 }
             }
         }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        if (pillOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
+
+        Spacer(Modifier.weight(1f))
+
+        if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
+        if (!pillOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -53,68 +54,101 @@ fun XvoxNowPlayingControls(
     isShuffleEnabled: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
     previewIndex: Int = -1,
-    queueSize: Int = 0
+    queueSize: Int = 0,
+    /** The overflow editor exposes only simple left/right choices. */
+    shuffleRepeatSide: String = "left",
+    playSide: String = "right"
 ) {
     val colors = XvoxTheme.colors
     val isRepeatOne = repeatMode == RepeatMode.ONE
     val prevEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || previewIndex > 0)
     val nextEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || (queueSize > 0 && previewIndex < queueSize - 1))
 
+    val shuffleRepeatOnLeft = shuffleRepeatSide != "right"
+    val playOnLeft = playSide == "left"
+
+    @Composable
+    fun shuffleControl() {
+        SimpleControl(
+            resource = R.drawable.ic_xvox_shuffle,
+            iconSize = 20,
+            onClick = onShuffle,
+            tint = if (isShuffleEnabled) colors.primaryAccent else colors.primaryText,
+            showDot = isShuffleEnabled
+        )
+    }
+
+    @Composable
+    fun repeatControl() {
+        SimpleControl(
+            resource = when (repeatMode) {
+                RepeatMode.ONE -> R.drawable.ic_xvox_repeat_one
+                else -> R.drawable.ic_xvox_repeat
+            },
+            iconSize = 20,
+            onClick = onRepeat,
+            tint = if (repeatMode != RepeatMode.OFF) colors.primaryAccent else colors.primaryText
+        )
+    }
+
+    @Composable
+    fun previousControl() {
+        PreviewNavigationControl(
+            resource = R.drawable.ic_xvox_skip_previous,
+            iconSize = 25,
+            enabled = prevEnabled,
+            tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
+            contentDescription = "Previous track preview",
+            onStep = onPreviewPrevious,
+            onCommit = onCommitPreview,
+            onCancel = onCancelPreview
+        )
+    }
+
+    @Composable
+    fun nextControl() {
+        PreviewNavigationControl(
+            resource = R.drawable.ic_xvox_skip_next,
+            iconSize = 25,
+            enabled = nextEnabled,
+            tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
+            contentDescription = "Next track preview",
+            onStep = onPreviewNext,
+            onCommit = onCommitPreview,
+            onCancel = onCancelPreview
+        )
+    }
+
+    @Composable
+    fun playControl() {
+        PlayControl(isPlaying = isPlaying, onClick = onTogglePlay)
+    }
+
     Layout(
         modifier = modifier
             .fillMaxWidth()
             .height(62.dp),
         content = {
-            SimpleControl(
-                resource = R.drawable.ic_xvox_shuffle,
-                iconSize = 20,
-                onClick = onShuffle,
-                tint = if (isShuffleEnabled) colors.primaryAccent else colors.primaryText,
-                showDot = isShuffleEnabled
-            )
-
-            PreviewNavigationControl(
-                resource = R.drawable.ic_xvox_skip_previous,
-                iconSize = 25,
-                enabled = prevEnabled,
-                tint = if (prevEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                contentDescription = "Previous track preview",
-                onStep = onPreviewPrevious,
-                onCommit = onCommitPreview,
-                onCancel = onCancelPreview
-            )
-
-            PlayControl(
-                isPlaying = isPlaying,
-                onClick = onTogglePlay
-            )
-
-            PreviewNavigationControl(
-                resource = R.drawable.ic_xvox_skip_next,
-                iconSize = 25,
-                enabled = nextEnabled,
-                tint = if (nextEnabled) colors.primaryText else colors.primaryText.copy(alpha = 0.28f),
-                contentDescription = "Next track preview",
-                onStep = onPreviewNext,
-                onCommit = onCommitPreview,
-                onCancel = onCancelPreview
-            )
-
-            SimpleControl(
-                resource = when (repeatMode) {
-                    RepeatMode.ONE -> R.drawable.ic_xvox_repeat_one
-                    else -> R.drawable.ic_xvox_repeat
-                },
-                iconSize = 20,
-                onClick = onRepeat,
-                tint = if (repeatMode != RepeatMode.OFF) colors.primaryAccent else colors.primaryText
-            )
+            // Order turns the two simple side choices into a real physical placement while the
+            // previous/next preview pair remains contiguous and predictable in the middle.
+            if (shuffleRepeatOnLeft) {
+                key("nowPlayingShuffle") { shuffleControl() }
+                key("nowPlayingRepeat") { repeatControl() }
+            }
+            if (playOnLeft) key("nowPlayingPlay") { playControl() }
+            key("nowPlayingPrevious") { previousControl() }
+            key("nowPlayingNext") { nextControl() }
+            if (!playOnLeft) key("nowPlayingPlay") { playControl() }
+            if (!shuffleRepeatOnLeft) {
+                key("nowPlayingShuffle") { shuffleControl() }
+                key("nowPlayingRepeat") { repeatControl() }
+            }
         }
     ) { measurables, constraints ->
         val placeables = measurables.map {
             it.measure(constraints.copy(minWidth = 0, minHeight = 0))
         }
-        val centers = floatArrayOf(0.15f, 0.35f, 0.50f, 0.65f, 0.85f)
+        val centers = floatArrayOf(0.10f, 0.30f, 0.50f, 0.70f, 0.90f)
 
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeables.forEachIndexed { index, placeable ->

@@ -43,7 +43,9 @@ private const val StartupStrokeWidth = 3f
 // only a subtle lift, so it reads as movement rather than a large pulsing blob.
 private const val StartupDotDiameter = 5f
 private const val StartupActiveDotScale = 1.22f
-private const val StartupRingRadius = 22f
+// Slightly tighter than the prior ring, matching the compact loader reference without making the
+// subsequent rail feel disconnected.
+private const val StartupRingRadius = 20f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
 private val StartupRingStart = -StartupPi / 5f
@@ -130,16 +132,29 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/** Five dots, with the app accent travelling across them twice. */
+/** Five dots, with a continuously travelling accent carrier rather than a held active dot. */
 private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
-    val accentPosition = -1f + 6f * ((time / 1560f) % 1f)
+    // The carrier moves across each gap at a constant cadence. A compact Gaussian tint lets two
+    // neighbours hand off before either reaches a full static hold, eliminating the old "stuck"
+    // dot impression while retaining the supplied five-dot phase of the sequence.
+    val travel = -0.6f + 5.2f * ((time / 910f) % 1f)
     repeat(5) { index ->
-        val intensity = startupSmooth(startupClamp01(1f - abs(accentPosition - index)))
+        val distance = abs(travel - index)
+        val intensity = (1f - (distance * .72f)).coerceIn(0f, 1f).let(::startupSmooth)
         startupDot(
             x = startupRowX(index),
             y = 0f,
             color = startupMixColor(palette.dot, palette.accent, intensity),
             radius = StartupDotDiameter / 2f * (1f + (StartupActiveDotScale - 1f) * intensity)
+        )
+    }
+    // A small in-between carrier makes movement explicit even as it passes between fixed dots.
+    if (travel in -0.15f..4.15f) {
+        startupDot(
+            x = startupRowX(0) + travel * 16f,
+            y = 0f,
+            color = palette.accent.copy(alpha = .84f),
+            radius = StartupStrokeWidth * .52f
         )
     }
 }

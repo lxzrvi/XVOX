@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
+import com.xvox.music.core.design.theme.forExperimentalAppearance
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
@@ -90,6 +91,8 @@ fun XvoxAppRoot(
     val accentPreview = com.xvox.music.core.design.theme.XvoxAccentPreview.value
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
+    val experimentalAppearanceRaw by prefs.experimentalAppearance.collectAsState(initial = "default")
+    val experimentalAppearance = com.xvox.music.core.design.theme.XvoxExperimentalAppearance.fromStorage(experimentalAppearanceRaw)
     val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
     val chromePreview = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
@@ -98,7 +101,10 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.XvoxChromePreview.clearWhenPersisted(chrome)
         }
     }
-    val effectiveChrome = chromePreview ?: chrome
+    // Keep a raw local for editors/persistence and derive the visual chrome only at the root.
+    // Switching Glass or DP Minimal can therefore never overwrite a person's Default-mode knobs.
+    val baseChrome = chromePreview ?: chrome
+    val effectiveChrome = baseChrome.forExperimentalAppearance(experimentalAppearance)
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
@@ -141,16 +147,21 @@ fun XvoxAppRoot(
         background = backgroundStr,
         cardTransparency = cardTransparency,
         cardBorder = effectiveChrome.cardBorder,
-        cardBorderAlpha = effectiveChrome.cardBorderAlpha
+        cardBorderAlpha = effectiveChrome.cardBorderAlpha,
+        experimentalAppearance = experimentalAppearance
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
+            com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics
         ) {
             Box(modifier = Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
+                if (experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.GLASS) {
+                    com.xvox.music.core.design.theme.XvoxGlassAtmosphere(Modifier.fillMaxSize())
+                }
                 if (state == AppUiState.Setup) {
                     SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                 } else {

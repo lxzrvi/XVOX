@@ -38,14 +38,20 @@ object XvoxTheme {
 @Composable
 fun ProvideXvoxNowPlayingChrome(content: @Composable () -> Unit) {
     val palette = LocalXvoxPalette.current
-    CompositionLocalProvider(
-        LocalXvoxPalette provides palette.copy(
-            card = palette.card.copy(alpha = 1f),
-            cardElevated = palette.cardElevated.copy(alpha = 1f),
-            surface = palette.surface.copy(alpha = 1f)
-        ),
-        content = content
-    )
+    // Glass is intentionally allowed to remain translucent over Now Playing artwork. Default and
+    // DP Minimal retain the established opaque player-chrome contract.
+    if (LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.GLASS) {
+        content()
+    } else {
+        CompositionLocalProvider(
+            LocalXvoxPalette provides palette.copy(
+                card = palette.card.copy(alpha = 1f),
+                cardElevated = palette.cardElevated.copy(alpha = 1f),
+                surface = palette.surface.copy(alpha = 1f)
+            ),
+            content = content
+        )
+    }
 }
 
 @Composable
@@ -56,39 +62,48 @@ fun XvoxTheme(
     cardTransparency: Float = 0f,
     cardBorder: String = "",
     cardBorderAlpha: Float = 1f,
+    experimentalAppearance: XvoxExperimentalAppearance = XvoxExperimentalAppearance.DEFAULT,
     content: @Composable () -> Unit
 ) {
-    val dark = when (mode) {
+    val ordinaryDark = when (mode) {
         XvoxThemeMode.LIGHT -> false
         XvoxThemeMode.DARK, XvoxThemeMode.AMOLED -> true
         XvoxThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
+    // DP Minimal is deliberately dark regardless of the ordinary Theme selector. It is a full
+    // app-wide appearance experiment, not just a darkened card treatment.
+    val dark = ordinaryDark || experimentalAppearance == XvoxExperimentalAppearance.DP_MINIMAL
 
-    val basePalette = when (mode) {
+    val ordinaryBasePalette = when (mode) {
         XvoxThemeMode.LIGHT -> XvoxWhitePalette
         XvoxThemeMode.DARK -> XvoxDarkPalette
         XvoxThemeMode.AMOLED -> XvoxAmoledPalette
 
         XvoxThemeMode.SYSTEM -> {
-            if (dark) {
+            if (ordinaryDark) {
                 XvoxDarkPalette
             } else {
                 XvoxWhitePalette
             }
         }
     }
+    val basePalette = if (experimentalAppearance == XvoxExperimentalAppearance.DP_MINIMAL) {
+        XvoxDarkPalette
+    } else {
+        ordinaryBasePalette
+    }
 
     val palette = basePalette
         .withAccent(accent, light = !dark)
         .withBackdrop(background, light = !dark, transparency = cardTransparency)
+        .withExperimentalAppearance(experimentalAppearance)
         .let { p ->
             val chosen = com.xvox.music.core.ui.chrome.parseHexColor(cardBorder) ?: p.cardBorder
             val alpha = cardBorderAlpha.coerceIn(0f, 1f)
             p.copy(cardBorder = chosen.copy(alpha = chosen.alpha * alpha))
         }
 
-    val isLight = mode == XvoxThemeMode.LIGHT ||
-        (mode == XvoxThemeMode.SYSTEM && !dark)
+    val isLight = palette.isLight
 
     val materialColors = if (isLight) {
         lightColorScheme(
@@ -113,7 +128,8 @@ fun XvoxTheme(
         }
 
     CompositionLocalProvider(
-        LocalXvoxPalette provides palette
+        LocalXvoxPalette provides palette,
+        LocalXvoxExperimentalAppearance provides experimentalAppearance
     ) {
         MaterialTheme(
             colorScheme = materialColors,

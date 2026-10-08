@@ -107,7 +107,10 @@ fun XvoxMainShell(
     backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
+    // Rendering sees the appearance-derived chrome; editors always operate on the durable base
+    // so a temporary Glass treatment never gets saved over Default-mode values.
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val baseChrome = com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle.current
     val navigationBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
@@ -171,7 +174,7 @@ fun XvoxMainShell(
         hadVisibleNowPlaying = player.nowPlayingVisible
     }
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
-    var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, chrome)) }
+    var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, baseChrome)) }
     // A saved Profile draft keeps its Header preview alive through the async preference round-trip
     // so saving never flashes back to the old image or dimness for a frame.
     var profileHeaderPreviewAwaitingPersistence by remember { mutableStateOf(false) }
@@ -179,19 +182,19 @@ fun XvoxMainShell(
     LaunchedEffect(
         liveHeaderPreview,
         homeState.profile.headerImageUri,
-        chrome.headerDimEnabled,
-        chrome.headerDimAmount
+        baseChrome.headerDimEnabled,
+        baseChrome.headerDimAmount
     ) {
         if (liveHeaderPreview != null) {
             com.xvox.music.core.ui.chrome.XvoxHeaderPreview.clearWhenPersisted(
                 imageUri = homeState.profile.headerImageUri,
-                dimEnabled = chrome.headerDimEnabled,
-                dimAmount = chrome.headerDimAmount
+                dimEnabled = baseChrome.headerDimEnabled,
+                dimAmount = baseChrome.headerDimAmount
             )
             if (
                 liveHeaderPreview.imageUri == homeState.profile.headerImageUri &&
-                liveHeaderPreview.dimEnabled == chrome.headerDimEnabled &&
-                kotlin.math.abs(liveHeaderPreview.dimAmount - chrome.headerDimAmount) < .001f
+                liveHeaderPreview.dimEnabled == baseChrome.headerDimEnabled &&
+                kotlin.math.abs(liveHeaderPreview.dimAmount - baseChrome.headerDimAmount) < .001f
             ) {
                 profileHeaderPreviewAwaitingPersistence = false
             }
@@ -199,7 +202,7 @@ fun XvoxMainShell(
     }
     // Live mirror for the compact chrome sheet. It makes slider drags coherent even before the
     // asynchronous persistence flow emits its matching composition-local value.
-    var miniPlayerNavLive by remember { mutableStateOf(chrome) }
+    var miniPlayerNavLive by remember { mutableStateOf(baseChrome) }
     // The Header below is one shell overlay that receives scroll state from its active route.
 
     fun publishProfileHeaderPreview(draft: ProfileEditorDraft) {
@@ -213,7 +216,7 @@ fun XvoxMainShell(
     }
 
     fun showProfileEditor() {
-        val baseline = ProfileEditorDraft.from(homeState.profile, chrome)
+        val baseline = ProfileEditorDraft.from(homeState.profile, baseChrome)
         profileHeaderPreviewAwaitingPersistence = false
         // A previous completed save may still be propagating; the new transaction begins from
         // persisted state and never inherits a stale overlay presentation.
@@ -302,7 +305,7 @@ fun XvoxMainShell(
     }
 
     fun showMiniPlayerSettings() {
-        miniPlayerNavLive = chrome
+        miniPlayerNavLive = baseChrome
         overlays.showBox(
             title = "Mini Player / Navbar Settings",
             bottomAction = {
@@ -327,7 +330,9 @@ fun XvoxMainShell(
                             val reset = miniPlayerNavLive.copy(
                                 miniCoverStyle = "default",
                                 miniBgAlpha = .94f,
-                                navBgAlpha = .94f
+                                navBgAlpha = .94f,
+                                miniPlayerTransitionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
+                                miniPlayerTransitionStyle = "glide_1"
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }

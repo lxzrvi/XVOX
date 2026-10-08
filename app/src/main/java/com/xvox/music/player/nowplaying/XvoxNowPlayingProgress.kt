@@ -46,7 +46,9 @@ fun XvoxNowPlayingProgress(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     currentSongId: Long? = null,
-    showTime: Boolean = true
+    showTime: Boolean = true,
+    /** classic, pill, or android_wave (the Android-style waveform rail). */
+    style: String = "classic"
 ) {
     val colors = XvoxTheme.colors
 
@@ -188,48 +190,85 @@ fun XvoxNowPlayingProgress(
                     .height(if (showTime) 18.dp else 12.dp)
             ) {
                 val y = size.height / 2f
-                val stroke = 2.5.dp.toPx()
-
-                // Base progress track
-                drawLine(
-                    color = activeColor.copy(alpha = 0.28f),
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
-
-                // Crossfade intro zone
-                if (introFraction > 0f) {
-                    drawLine(
-                        color = XvoxBlendInColor.copy(alpha = 0.9f),
-                        start = Offset(0f, y),
-                        end = Offset(size.width * introFraction, y),
-                        strokeWidth = stroke,
-                        cap = StrokeCap.Round
-                    )
+                val normalizedStyle = when (style) {
+                    "pill", "android_wave" -> style
+                    else -> "classic"
                 }
 
-                // Crossfade tail zone
-                if (tailFraction > 0f) {
+                if (normalizedStyle == "android_wave") {
+                    // Android/Wave: a touch-friendly segmented waveform. Its amplitude subtly
+                    // follows the current progress so it feels alive without an extra animation
+                    // loop or a per-frame allocation while the user scrolls the player.
+                    val segments = 46
+                    val segmentWidth = (size.width / segments).coerceAtLeast(1f)
+                    val phase = visibleFraction * 8f
+                    repeat(segments) { index ->
+                        val centerX = (index + .5f) * segmentWidth
+                        val ripple = kotlin.math.sin(index * .78f + phase).toFloat()
+                        val amplitude = (2.dp.toPx() + (ripple + 1f) * 1.55.dp.toPx())
+                        val segmentColor = when {
+                            centerX <= size.width * visibleFraction -> activeColor
+                            introFraction > 0f && centerX <= size.width * introFraction -> XvoxBlendInColor.copy(alpha = .86f)
+                            tailFraction > 0f && centerX >= size.width * (1f - tailFraction) -> XvoxBlendOutColor.copy(alpha = .86f)
+                            else -> activeColor.copy(alpha = .28f)
+                        }
+                        drawLine(
+                            color = segmentColor,
+                            start = Offset(centerX, y - amplitude),
+                            end = Offset(centerX, y + amplitude),
+                            strokeWidth = 1.7.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+                    drawCircle(
+                        color = activeColor,
+                        radius = 3.25.dp.toPx(),
+                        center = Offset(size.width * visibleFraction, y)
+                    )
+                } else {
+                    val stroke = if (normalizedStyle == "pill") 5.dp.toPx() else 2.5.dp.toPx()
+
                     drawLine(
-                        color = XvoxBlendOutColor.copy(alpha = 0.9f),
-                        start = Offset(size.width * (1f - tailFraction), y),
+                        color = activeColor.copy(alpha = if (normalizedStyle == "pill") .22f else .28f),
+                        start = Offset(0f, y),
                         end = Offset(size.width, y),
                         strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
-                }
-
-                // Played fraction
-                if (visibleFraction > 0f) {
-                    drawLine(
-                        color = activeColor,
-                        start = Offset(0f, y),
-                        end = Offset(size.width * visibleFraction, y),
-                        strokeWidth = stroke,
-                        cap = StrokeCap.Round
-                    )
+                    if (introFraction > 0f) {
+                        drawLine(
+                            color = XvoxBlendInColor.copy(alpha = 0.9f),
+                            start = Offset(0f, y),
+                            end = Offset(size.width * introFraction, y),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
+                    if (tailFraction > 0f) {
+                        drawLine(
+                            color = XvoxBlendOutColor.copy(alpha = 0.9f),
+                            start = Offset(size.width * (1f - tailFraction), y),
+                            end = Offset(size.width, y),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
+                    if (visibleFraction > 0f) {
+                        drawLine(
+                            color = activeColor,
+                            start = Offset(0f, y),
+                            end = Offset(size.width * visibleFraction, y),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
+                    if (normalizedStyle == "pill") {
+                        drawCircle(
+                            color = activeColor,
+                            radius = 4.dp.toPx(),
+                            center = Offset(size.width * visibleFraction, y)
+                        )
+                    }
                 }
             }
         }

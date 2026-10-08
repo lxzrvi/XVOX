@@ -68,6 +68,8 @@ class HomeViewModel(
     private var recentHistoryCapacity = 20
     private var prefetchJob: Job? = null
     private var lastPrefetchStart = -1
+    /** Latest page requested while the current quality-preserving artwork warm is in flight. */
+    private var pendingPrefetchStart = -1
     private var transitionId = 0L
 
     private var filterConfig = LibraryFilterConfig("A-Z", 0, 0, emptySet())
@@ -260,6 +262,7 @@ class HomeViewModel(
             allRawSongs = refreshed
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
             prefetchJob?.cancel()
+            pendingPrefetchStart = -1
             lastPrefetchStart = -1
             publishFilteredSongs()
 
@@ -485,11 +488,22 @@ class HomeViewModel(
         val songs = _state.value.songs
         if (songs.isEmpty()) return
         val start = sourceIndex.coerceIn(0, songs.lastIndex)
-        if (start == lastPrefetchStart) return
-        lastPrefetchStart = start
-        prefetchJob?.cancel()
-        prefetchJob = viewModelScope.launch(Dispatchers.IO) {
-            artworkPreloader.warm(songs = songs, fromIndex = start, count = 24)
+        if (start == lastPrefetchStart || start == pendingPrefetchStart) return
+
+        // Do not cancel/decode-restart for every page boundary during a fling. Keep the active
+        // original-quality 256px warm intact, then immediately coalesce to the latest viewport.
+        // This leaves scrolling work on the UI thread light while never lowering card artwork.
+        pendingPrefetchStart = start
+        if (prefetchJob?.isActive == true) return
+        prefetchJob = viewModelScope.launch {
+            while (pendingPrefetchStart >= 0) {
+                val target = pendingPrefetchStart
+                pendingPrefetchStart = -1
+                lastPrefetchStart = target
+                withContext(Dispatchers.IO) {
+                    artworkPreloader.warm(songs = songs, fromIndex = target, count = 12)
+                }
+            }
         }
     }
 
@@ -573,6 +587,7 @@ class HomeViewModel(
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 
     override fun onCleared() {
+        pendingPrefetchStart = -1
         prefetchJob?.cancel()
         super.onCleared()
     }

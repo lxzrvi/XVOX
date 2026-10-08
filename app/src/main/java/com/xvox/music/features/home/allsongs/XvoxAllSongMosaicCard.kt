@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxGridArtworkSize
@@ -86,7 +87,8 @@ fun XvoxAllSongMosaicCard(
     }
 
     Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape).background(background)
-        .border(0.7.dp, colors.cardBorder, shape)) {
+        .border(0.7.dp, colors.cardBorder, shape)
+        .xvoxGlassReflection()) {
         when {
             presentation == 1 -> {
                 Box(Modifier.fillMaxSize().padding(inset).clip(artShape)) {

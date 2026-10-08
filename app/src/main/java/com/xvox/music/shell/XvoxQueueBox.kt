@@ -1,12 +1,5 @@
 package com.xvox.music.shell
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -53,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,7 +67,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
@@ -126,6 +119,8 @@ fun QueueHeaderDropdown(
 
 private val RowHeight = 60.dp
 private val RowSpacing = 4.dp
+private val QueueBottomPadding = 4.dp
+private val QueueViewportMaxHeight = 460.dp
 
 /** Stable visual identity survives drag reorders, including repeated copies of the same Song. */
 private data class QueueEntry(val stableKey: String, val song: Song)
@@ -288,14 +283,13 @@ fun XvoxQueueBoxContent(
     }
 
     // A long queue owns a bounded LazyColumn viewport instead of asking the sheet to measure
-    // thousands of dp of rows. That keeps drag coordinates stable and makes the final row
-    // reachable through normal list scrolling rather than a runaway full-sheet scroll.
-    val desiredQueueHeight = (queue.size * 64 + 16).coerceAtMost(480).dp
+    // thousands of dp of rows. The height matches actual row + gap geometry and retains only a
+    // 4dp end inset, so reaching the final song never reveals the former large blank tail.
+    val desiredQueueHeight = (queue.size * 64 + 4).dp.coerceAtMost(QueueViewportMaxHeight)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .animateContentSize(animationSpec = tween(180, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
     ) {
         if (queue.isEmpty()) {
             Box(
@@ -316,6 +310,7 @@ fun XvoxQueueBoxContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(desiredQueueHeight)
+                    .clipToBounds()
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
                     }
@@ -354,18 +349,22 @@ fun XvoxQueueBoxContent(
                                     dragList = displayEntries.toList()
                                     initialDragIndex = hitIndex
                                     currentDragIndex = hitIndex
-                                    dragCardOffsetY = (downY - touchOffsetYInCard).coerceAtLeast(0f)
+                                    // Preserve the exact visible row top. Clamping a partially
+                                    // scrolled first row to zero was the source of its initial
+                                    // jump and the hold-and-drag glitch near the viewport edge.
+                                    dragCardOffsetY = downY - touchOffsetYInCard
+                                    down.consume()
 
                                     while (true) {
-                                        val event = awaitPointerEvent()
+                                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                                         val change = event.changes.firstOrNull { it.id == down.id }
                                         if (change == null || !change.pressed) break
                                         change.consume()
 
                                         val currentPointerY = change.position.y
                                         dragCardOffsetY = (currentPointerY - touchOffsetYInCard).coerceIn(
-                                            0f,
-                                            (listViewportHeight - rowHeightPx).coerceAtLeast(0f)
+                                            -rowHeightPx * .45f,
+                                            (listViewportHeight - rowHeightPx * .55f).coerceAtLeast(0f)
                                         )
 
                                         placeDraggedEntryAtPointer()
@@ -400,11 +399,10 @@ fun XvoxQueueBoxContent(
                 LazyColumn(
                     state = listState,
                     userScrollEnabled = draggingEntry == null,
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = QueueBottomPadding),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
                     modifier = Modifier
                         .fillMaxSize()
-                        .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
                         items = displayEntries,

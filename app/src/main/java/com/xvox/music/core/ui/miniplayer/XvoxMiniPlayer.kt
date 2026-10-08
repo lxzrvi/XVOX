@@ -75,6 +75,8 @@ fun XvoxMiniPlayer(
 ) {
     val density = LocalDensity.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val transitionDuration = XvoxPlayerTransitionMotion.durationFor(chrome.miniPlayerTransitionDuration)
+    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
@@ -105,8 +107,8 @@ fun XvoxMiniPlayer(
     }
     var transitionDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(riseKey) {
-        y.animateTo(0f, XvoxMiniPlayerMotion.riseSpec)
+    LaunchedEffect(riseKey, transitionDuration) {
+        y.animateTo(0f, XvoxMiniPlayerMotion.riseSpec(transitionDuration))
     }
 
     LaunchedEffect(currentSongId, currentIndex) {
@@ -147,11 +149,11 @@ fun XvoxMiniPlayer(
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
             var handoffRequested = false
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec) {
+            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec(transitionDuration)) {
                 if (!stop && !handoffRequested && value >= fullyHiddenDistance) {
                     handoffRequested = true
                     scope.launch {
-                        delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                        delay(XvoxPlayerTransitionMotion.handoffDelayFor(transitionDuration))
                         if (exiting) openPlayer()
                     }
                 }
@@ -162,13 +164,15 @@ fun XvoxMiniPlayer(
             } else if (!handoffRequested) {
                 // Covers an interrupted / already-offscreen card without ever overlapping the
                 // full player.
-                delay(XvoxPlayerTransitionMotion.HandoffDelay)
+                delay(XvoxPlayerTransitionMotion.handoffDelayFor(transitionDuration))
                 openPlayer()
             }
         }
     }
 
     val visualSong = queue.getOrNull(previewIndex) ?: return
+    val transitionFraction = (y.value / exitDistance.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val transitionLayer = XvoxPlayerTransitionMotion.layer(transitionStyle, transitionFraction)
 
     Box(
         modifier = modifier
@@ -325,8 +329,16 @@ fun XvoxMiniPlayer(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .graphicsLayer {
-                        translationX = dragX
-                        translationY = y.value + dragY
+                        // The real vertical handoff remains the primary motion. Each experimental
+                        // preset only adds a bounded visual layer, so the card always clears the
+                        // viewport before Now Playing is allowed to take focus.
+                        translationX = dragX + size.width * transitionLayer.xFraction
+                        translationY = y.value + dragY + size.height * transitionLayer.yFraction
+                        alpha = transitionLayer.alpha
+                        scaleX = transitionLayer.scaleX
+                        scaleY = transitionLayer.scaleY
+                        rotationZ = transitionLayer.rotationZ
+                        rotationY = transitionLayer.rotationY
                     }
             )
         }

@@ -329,6 +329,19 @@ private fun AppearanceSectionCard(
                 )
             }
 
+            SettingsField("Experimental app appearance") {
+                XvoxSegmentedPill(
+                    options = listOf(
+                        "default" to "Default",
+                        "glass" to "Glass",
+                        "dp_minimal" to "DP Minimal"
+                    ),
+                    selectedKey = state.experimentalAppearance,
+                    onSelect = viewModel::setExperimentalAppearance,
+                    compact = true
+                )
+            }
+
             SettingsField("Accent Color") {
                 XvoxSegmentedPill(
                     options = accentOptions,

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -99,6 +100,7 @@ fun XvoxMiniPlayerCard(
             .background(colors.background.copy(alpha = miniAlpha))
             // Surface chrome follows the same 0%=solid / 100%=transparent contract as the fill.
             .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha), cardShape)
+            .xvoxGlassReflection()
             .drawWithContent {
                 drawContent()
                 val radius = miniRadius.toPx()

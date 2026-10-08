@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -50,6 +51,7 @@ fun XvoxAllSongCard(
             .clip(cardShape)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
+            .xvoxGlassReflection()
             .padding(3.dp)
     ) {
         Box(

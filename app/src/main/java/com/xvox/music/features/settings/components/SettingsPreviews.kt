@@ -51,12 +51,14 @@ import kotlin.math.sin
 fun SettingsChoiceRow(
     options: List<Pair<String, String>>,
     selected: String,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    /** Lets compact editors place a full choice group at the left or right without a drag layout. */
+    alignEnd: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = if (alignEnd) Arrangement.spacedBy(6.dp, Alignment.End) else Arrangement.spacedBy(6.dp)
     ) {
         options.forEach { (key, label) ->
             val active = selected == key

@@ -60,6 +60,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.hapticFeedbackEnabled.collect { v -> _state.update { it.copy(hapticFeedbackEnabled = v) } } }
             launch { prefs.hapticIntensity.collect { v -> _state.update { it.copy(hapticIntensity = v) } } }
             launch { prefs.theme.collect { v -> _state.update { it.copy(theme = v) } } }
+            launch { prefs.experimentalAppearance.collect { v -> _state.update { it.copy(experimentalAppearance = v) } } }
             launch { prefs.accentColor.collect { v -> _state.update { it.copy(accentColor = v) } } }
             launch { prefs.themeBackground.collect { v -> _state.update { it.copy(backgroundName = v) } } }
             launch { prefs.headerImageUri.collect { v -> _state.update { it.copy(headerImageUri = v) } } }
@@ -196,6 +197,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHapticFeedbackEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setHapticFeedbackEnabled(enabled) }
     fun setHapticIntensity(v: String) = viewModelScope.launch { prefs.setHapticIntensity(v) }
     fun setTheme(theme: String) = viewModelScope.launch { prefs.setTheme(theme) }
+    fun setExperimentalAppearance(value: String) {
+        val normalized = com.xvox.music.core.design.theme.XvoxExperimentalAppearance.fromStorage(value).storageValue
+        _state.update { it.copy(experimentalAppearance = normalized) }
+        viewModelScope.launch { prefs.setExperimentalAppearance(normalized) }
+    }
     fun setAccentColor(color: String) {
         // Do not emit the whole SettingsState for each pointer sample.  The snapshot preview is
         // read directly by XvoxAppRoot in this same frame; the queued DataStore write is still

@@ -60,7 +60,19 @@ data class XvoxChromeStyle(
     /** Legacy encoded slot. Keyboard-open placement is now the fixed product offset of −12 dp. */
     val miniPlayerImeOffsetY: Float = -12f,
     val navigationBarOffsetX: Float = 0f,
-    val navigationBarOffsetY: Float = 0f
+    val navigationBarOffsetY: Float = 0f,
+    /** Mini Player → Now Playing test timing, in milliseconds. */
+    val miniPlayerTransitionDuration: Int = 220,
+    /** One of the 30 curated Mini Player → Now Playing experimental variants. */
+    val miniPlayerTransitionStyle: String = "glide_1",
+    /** Now Playing seek rail: classic, pill, or android_wave. */
+    val nowPlayingSeekStyle: String = "classic",
+    /** Simple left/right placement controls exposed by Now Playing's overflow menu. */
+    val nowPlayingPillSide: String = "left",
+    val nowPlayingChangingActionsSide: String = "right",
+    val nowPlayingShuffleRepeatSide: String = "left",
+    val nowPlayingPlaySide: String = "right",
+    val nowPlayingOptionsGroupSide: String = "right"
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -77,7 +89,11 @@ data class XvoxChromeStyle(
         miniPlayerOffsetX, miniPlayerOffsetY,
         navigationBarOffsetX, navigationBarOffsetY,
         // New values are always appended so all existing chrome_style_v1 placements remain exact.
-        miniPlayerImeOffsetY
+        miniPlayerImeOffsetY,
+        miniPlayerTransitionDuration, miniPlayerTransitionStyle,
+        nowPlayingSeekStyle,
+        nowPlayingPillSide, nowPlayingChangingActionsSide,
+        nowPlayingShuffleRepeatSide, nowPlayingPlaySide, nowPlayingOptionsGroupSide
     ).joinToString("|")
 
     companion object {
@@ -88,6 +104,12 @@ data class XvoxChromeStyle(
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
             fun number(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull() ?: fallback
+            fun side(i: Int, fallback: String): String =
+                if (str(i) == "left" || str(i) == "right") str(i) else fallback
+            fun seekStyle(i: Int): String = when (str(i)) {
+                "pill", "android_wave" -> str(i)
+                else -> "classic"
+            }
             if (parts.size == 16) {
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
@@ -132,13 +154,25 @@ data class XvoxChromeStyle(
                 // fixed at −12 dp and no longer follows a saved experimental slider value.
                 miniPlayerImeOffsetY = -12f,
                 navigationBarOffsetX = number(26, 0f).coerceIn(-220f, 220f),
-                navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f)
+                navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f),
+                miniPlayerTransitionDuration = number(29, 220f).toInt().coerceIn(120, 420),
+                miniPlayerTransitionStyle = str(30).ifBlank { "glide_1" },
+                nowPlayingSeekStyle = seekStyle(31),
+                nowPlayingPillSide = side(32, "left"),
+                nowPlayingChangingActionsSide = side(33, "right"),
+                nowPlayingShuffleRepeatSide = side(34, "left"),
+                nowPlayingPlaySide = side(35, "right"),
+                nowPlayingOptionsGroupSide = side(36, "right")
             )
         }
     }
 }
 
+/** Effective rendering chrome after an optional app-wide appearance experiment is applied. */
 val LocalXvoxChromeStyle = staticCompositionLocalOf { XvoxChromeStyle() }
+
+/** Durable chrome before Glass / DP Minimal derives its visual-only surface values. */
+val LocalXvoxBaseChromeStyle = staticCompositionLocalOf { XvoxChromeStyle() }
 
 /**
  * Frame-immediate chrome preview, analogous to the custom-accent preview. Slider/toggle changes

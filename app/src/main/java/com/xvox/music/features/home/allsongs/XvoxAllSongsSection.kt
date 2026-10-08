@@ -114,9 +114,14 @@ fun HorizontalSongPages(
     val columns = config.columnsFor(isLandscape)
 
     LaunchedEffect(plans) {
-        snapshotFlow { state.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
-            plans.getOrNull(index + 1)?.let { prefetch(it.startIndex) }
-        }
+        // Warm the page immediately after the trailing visible page, rather than waiting until it
+        // becomes the first page. That keeps a fast horizontal fling decode-free at the exact
+        // 256px card quality the grid renders.
+        snapshotFlow { state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collect { lastVisible ->
+                plans.getOrNull(lastVisible + 1)?.let { prefetch(it.startIndex) }
+            }
     }
 
     BoxWithConstraints(modifier.fillMaxWidth()) {

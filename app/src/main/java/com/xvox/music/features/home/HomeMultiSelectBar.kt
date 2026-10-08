@@ -48,14 +48,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
-private val MultiActionRowHeight = 42.dp
-private val MultiActionViewportHeight = MultiActionRowHeight * 4
+private val MultiActionRowHeight = 40.dp
+// Three full actions and a deliberately visible slice of the next one signal that the compact
+// right rail scrolls, without making the selection overlay visually heavy.
+private val MultiActionViewportHeight = MultiActionRowHeight * 3 + 12.dp
 
 /**
  * A compact right-entering selection overlay. Popup deliberately gives it a window-level layer so
@@ -120,12 +123,13 @@ fun HomeMultiSelectBar(
         ) {
             Column(
                 modifier = modifier
-                    // Tight to the actual icon/text content, leaving only a small breathing gap
-                    // before the attached outer scrollbar.
-                    .widthIn(min = 104.dp, max = 122.dp)
+                    // A deliberately narrow right action rail. The attached scrollbar remains
+                    // flush with the outer edge, so the rail reads as an affordance—not a panel.
+                    .widthIn(min = 88.dp, max = 102.dp)
                     .clip(railShape)
-                    .background(colors.cardElevated.copy(alpha = .99f))
-                    .padding(start = 8.dp, top = 8.dp, end = 0.dp, bottom = 7.dp),
+                    .background(colors.cardElevated)
+                    .xvoxGlassReflection()
+                    .padding(start = 7.dp, top = 7.dp, end = 0.dp, bottom = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 // Fixed metadata header: scrolling actions never move or obscure the selection count.
@@ -163,8 +167,8 @@ fun HomeMultiSelectBar(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // Exactly four action rows are visible; subsequent actions use this
-                        // internal viewport rather than expanding across the page.
+                        // Three complete rows plus a 12dp peek of the next action make overflow
+                        // discoverable while keeping the rail much thinner than the old panel.
                         .height(MultiActionViewportHeight)
                 ) {
                     Column(

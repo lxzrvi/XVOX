@@ -101,6 +101,33 @@ fun AppearanceSettingsSection(
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Experimental app appearance",
+                color = colors.secondaryText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            SettingsChoiceRow(
+                options = listOf(
+                    "default" to "Default",
+                    "glass" to "Glass",
+                    "dp_minimal" to "DP Minimal"
+                ),
+                selected = state.experimentalAppearance,
+                onSelect = viewModel::setExperimentalAppearance
+            )
+            Text(
+                text = when (state.experimentalAppearance) {
+                    "glass" -> "Translucent reflected surfaces with a blurred colour atmosphere across the app."
+                    "dp_minimal" -> "Dark, clean, text-led surfaces throughout the app."
+                    else -> "Current XVOX interface. Your existing theme and surface settings stay unchanged."
+                },
+                color = colors.mutedText,
+                fontSize = 10.sp,
+                lineHeight = 13.sp
+            )
         }
 
         SettingsAccordionItem(

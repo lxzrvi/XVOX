@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 
 @Composable
 fun XvoxBottomBar(
@@ -112,6 +113,7 @@ fun XvoxBottomBar(
                     color = navEdge,
                     shape = parentShape
                 )
+                .xvoxGlassReflection()
         ) {
             if (chrome.navigationImageUri.isNotBlank()) {
                 AsyncImage(
