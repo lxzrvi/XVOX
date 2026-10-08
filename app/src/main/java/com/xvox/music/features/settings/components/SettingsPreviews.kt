@@ -46,14 +46,20 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Reusable choice row used throughout Settings sections */
+/** Reusable choice row used throughout Settings sections. */
 @Composable
 fun SettingsChoiceRow(
     options: List<Pair<String, String>>,
     selected: String,
-    /** Lets compact editors place a full choice group at the left or right without a drag layout. */
-    alignEnd: Boolean = false,
-    // Keep the callback last so the app's established trailing-lambda calls stay source-compatible.
+    onSelect: (String) -> Unit
+) = SettingsChoiceRow(options, selected, alignEnd = false, onSelect = onSelect)
+
+/** A placement-aware overload for compact editors that need a left/right choice group. */
+@Composable
+fun SettingsChoiceRow(
+    options: List<Pair<String, String>>,
+    selected: String,
+    alignEnd: Boolean,
     onSelect: (String) -> Unit
 ) {
     val colors = XvoxTheme.colors
