@@ -27,7 +27,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.HomeGeometry
+import com.xvox.music.features.home.HomeCollectionHeader
 
 @Composable
 fun XvoxPlaylistsSection(
@@ -43,44 +43,11 @@ fun XvoxPlaylistsSection(
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    bottom = HomeGeometry.sectionGap,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Playlists",
-                color = colors.primaryAccent,
-                fontSize = 16.sp,
-                lineHeight = 19.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(colors.card, CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCreate,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_plus),
-                    contentDescription = "Create playlist",
-                    tint = colors.primaryText,
-                    modifier = Modifier.size(17.dp),
-                )
-            }
-        }
+        HomeCollectionHeader(
+            title = "Playlists",
+            count = playlists.size,
+            onAdd = onCreate
+        )
 
         if (playlists.isEmpty()) {
             Text(

@@ -182,13 +182,18 @@ fun HomeScreen(
     }
 
     val activeAllSongsColumns = config.columnsFor(isLandscape)
-    val plans = remember(state.songs, config.style, config.rows, activeAllSongsColumns) {
+    // Flowing Home pages deliberately stay viewport-sized. This prevents one tall grid item from
+    // composing dozens of cover loaders during a fling; the artwork decode size remains unchanged.
+    val flowingPageLimit = if (config.direction == "horizontal") null
+    else (activeAllSongsColumns * 3).coerceIn(9, 12)
+    val plans = remember(state.songs, config.style, config.rows, config.direction, activeAllSongsColumns, flowingPageLimit) {
         buildMosaicPagePlans(
             state.songs,
             config.rows.coerceIn(3, 10),
             config.style == "uniform",
             config.style == "mosaic1",
-            cols = activeAllSongsColumns
+            cols = activeAllSongsColumns,
+            maxSongsPerPage = flowingPageLimit
         )
     }
     val likedSongs = remember(state.songs, state.likedSongIds) { state.songs.filter { it.id in state.likedSongIds } }

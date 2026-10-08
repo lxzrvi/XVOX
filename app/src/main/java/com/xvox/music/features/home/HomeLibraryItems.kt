@@ -24,6 +24,37 @@ import com.xvox.music.features.playlist.XvoxLikedSongRow
 import com.xvox.music.features.playlist.XvoxPlaylistCard
 
 @Composable
+fun XvoxHomeSectionHeading(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp)
+    ) {
+        XvoxHomeSectionHeadingText(title, subtitle)
+    }
+}
+
+@Composable
+internal fun XvoxHomeSectionHeadingText(title: String, subtitle: String) {
+    val colors = XvoxTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            title,
+            color = colors.primaryAccent,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            lineHeight = 19.sp
+        )
+        Text(subtitle, color = colors.mutedText, fontSize = 10.sp, lineHeight = 12.sp)
+    }
+}
+
+@Composable
 fun HomeCollectionHeader(
     title: String,
     count: Int,
@@ -58,10 +89,10 @@ fun HomeCollectionHeader(
                 }
                 Spacer(Modifier.width(10.dp))
             }
-            Column {
-                Text(title, color = colors.primaryAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("$count ${if (title == "Playlists") "playlists" else if (title == "Artists") "artists" else "songs"}", color = colors.mutedText, fontSize = 10.sp)
-            }
+            XvoxHomeSectionHeadingText(
+                title = title,
+                subtitle = "$count ${if (title == "Playlists") "playlists" else if (title == "Artists") "artists" else "songs"}"
+            )
         }
         onAdd?.let {
             Icon(

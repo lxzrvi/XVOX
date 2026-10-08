@@ -66,10 +66,16 @@ class HomeViewModel(
     private var allRawSongs: List<Song> = emptyList()
     private var recentIds: List<Long> = emptyList()
     private var recentHistoryCapacity = 20
+    private data class ArtworkPrefetch(
+        val startIndex: Int,
+        val count: Int,
+        val requestSize: Int
+    )
+
     private var prefetchJob: Job? = null
-    private var lastPrefetchStart = -1
+    private var lastPrefetch: ArtworkPrefetch? = null
     /** Latest page requested while the current quality-preserving artwork warm is in flight. */
-    private var pendingPrefetchStart = -1
+    private var pendingPrefetch: ArtworkPrefetch? = null
     private var transitionId = 0L
 
     private var filterConfig = LibraryFilterConfig("A-Z", 0, 0, emptySet())
@@ -262,8 +268,8 @@ class HomeViewModel(
             allRawSongs = refreshed
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
             prefetchJob?.cancel()
-            pendingPrefetchStart = -1
-            lastPrefetchStart = -1
+            pendingPrefetch = null
+            lastPrefetch = null
             publishFilteredSongs()
 
             _state.update { it.copy(refreshing = false, loading = false) }
@@ -484,24 +490,42 @@ class HomeViewModel(
         viewModelScope.launch { preferencesRepository.recordRecentSong(song.id, source) }
     }
 
-    fun prefetchFrom(sourceIndex: Int) {
+    fun prefetchFrom(
+        sourceIndex: Int,
+        count: Int = 12,
+        requestSize: Int = com.xvox.music.features.home.XvoxGridArtworkSize
+    ) {
         val songs = _state.value.songs
         if (songs.isEmpty()) return
-        val start = sourceIndex.coerceIn(0, songs.lastIndex)
-        if (start == lastPrefetchStart || start == pendingPrefetchStart) return
+        val target = ArtworkPrefetch(
+            startIndex = sourceIndex.coerceIn(0, songs.lastIndex),
+            // Grid pages can safely warm a full standard page (up to 32 256px covers). Larger
+            // mosaic covers keep a shorter window to avoid memory pressure, never a lower decode
+            // resolution. This prevents a horizontal page from composing uncached covers mid-fling.
+            count = count.coerceIn(
+                1,
+                if (requestSize >= XvoxRecentArtworkSize) 16 else 32
+            ),
+            requestSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
+        )
+        if (target == lastPrefetch || target == pendingPrefetch) return
 
         // Do not cancel/decode-restart for every page boundary during a fling. Keep the active
-        // original-quality 256px warm intact, then immediately coalesce to the latest viewport.
-        // This leaves scrolling work on the UI thread light while never lowering card artwork.
-        pendingPrefetchStart = start
+        // full-quality warm intact, then coalesce to the newest viewport and its real card size.
+        pendingPrefetch = target
         if (prefetchJob?.isActive == true) return
         prefetchJob = viewModelScope.launch {
-            while (pendingPrefetchStart >= 0) {
-                val target = pendingPrefetchStart
-                pendingPrefetchStart = -1
-                lastPrefetchStart = target
+            while (pendingPrefetch != null) {
+                val next = pendingPrefetch ?: break
+                pendingPrefetch = null
+                lastPrefetch = next
                 withContext(Dispatchers.IO) {
-                    artworkPreloader.warm(songs = songs, fromIndex = target, count = 12)
+                    artworkPreloader.warm(
+                        songs = songs,
+                        fromIndex = next.startIndex,
+                        count = next.count,
+                        requestSize = next.requestSize
+                    )
                 }
             }
         }

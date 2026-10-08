@@ -10,33 +10,48 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.HomePresentation
+import com.xvox.music.features.home.XvoxGridArtworkSize
+import com.xvox.music.features.home.XvoxHomeSectionHeading
+import com.xvox.music.features.home.XvoxRecentArtworkSize
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
 
 @Composable
 fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)
-    ) {
-        Text(
-            if (selectedCount > 0) "$selectedCount selected" else "All Songs",
-            color = XvoxTheme.colors.primaryAccent,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
-        // Keep section metadata beneath its label, matching the Home section rhythm instead of
-        // making the count float on the far side of the screen.
-        Text("$total songs", color = XvoxTheme.colors.mutedText, fontSize = 10.sp)
+    XvoxHomeSectionHeading(
+        title = if (selectedCount > 0) "$selectedCount selected" else "All Songs",
+        subtitle = "$total songs"
+    )
+}
+
+/** Match the exact card request used by a page; prefetching never substitutes a smaller bitmap. */
+private fun allSongsPageArtworkRequestSize(
+    songs: List<Song>,
+    plan: XvoxMosaicPagePlan,
+    config: HomePresentation,
+    compact: Boolean,
+    columns: Int
+): Int {
+    if (config.style == "uniform") return XvoxGridArtworkSize
+    val page = buildMosaicPage(
+        songs = songs,
+        plan = plan,
+        rows = config.rows,
+        isUniform = false,
+        mosaicOne = config.style == "mosaic1",
+        fillRows = !compact,
+        cols = columns
+    )
+    return if (page.tiles.any { it.width != 1f || it.height != 1f }) {
+        XvoxRecentArtworkSize
+    } else {
+        XvoxGridArtworkSize
     }
 }
 
@@ -50,9 +65,28 @@ fun LazyListScope.allSongsItems(
     selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
-    onPrefetch: (Int) -> Unit
+    onPrefetch: (startIndex: Int, count: Int, requestSize: Int) -> Unit
 ) {
     item(key = "all_header", contentType = "all_header") {
+        val firstPlan = plans.firstOrNull()
+        val firstLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val firstColumns = config.columnsFor(firstLandscape)
+        val initialRequestSize = remember(firstPlan, songs, config, firstColumns) {
+            firstPlan?.let { plan ->
+                allSongsPageArtworkRequestSize(
+                    songs = songs,
+                    plan = plan,
+                    config = config,
+                    compact = config.direction != "horizontal",
+                    columns = firstColumns
+                )
+            } ?: XvoxGridArtworkSize
+        }
+        LaunchedEffect(firstPlan?.startIndex, firstPlan?.songCount, initialRequestSize) {
+            firstPlan?.let { plan ->
+                onPrefetch(plan.startIndex, plan.songCount, initialRequestSize)
+            }
+        }
         AllSongsHeader(songs.size, selectedSongIds.size)
     }
 
@@ -81,8 +115,24 @@ fun LazyListScope.allSongsItems(
             key = { _, plan -> "all_page_${plan.startIndex}" },
             contentType = { _, _ -> "mosaic_page" }
         ) { pageIndex, plan ->
-            LaunchedEffect(plan.startIndex) {
-                plans.getOrNull(pageIndex + 1)?.let { nextPlan -> onPrefetch(nextPlan.startIndex) }
+            val nextPlan = plans.getOrNull(pageIndex + 1)
+            val nextLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val nextColumns = config.columnsFor(nextLandscape)
+            val nextRequestSize = remember(nextPlan, songs, config, nextColumns) {
+                nextPlan?.let { candidate ->
+                    allSongsPageArtworkRequestSize(
+                        songs = songs,
+                        plan = candidate,
+                        config = config,
+                        compact = true,
+                        columns = nextColumns
+                    )
+                } ?: XvoxGridArtworkSize
+            }
+            LaunchedEffect(nextPlan?.startIndex, nextPlan?.songCount, nextRequestSize) {
+                nextPlan?.let { candidate ->
+                    onPrefetch(candidate.startIndex, candidate.songCount, nextRequestSize)
+                }
             }
             XvoxSongGridPage(
                 songs, plan, config, currentSongId, isPlaying, selectedSongIds,
@@ -105,22 +155,27 @@ fun HorizontalSongPages(
     selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
-    onPrefetch: (Int) -> Unit = {},
+    onPrefetch: (startIndex: Int, count: Int, requestSize: Int) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val state = rememberLazyListState()
     val prefetch by rememberUpdatedState(onPrefetch)
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val columns = config.columnsFor(isLandscape)
+    // A horizontal page can be taller than the viewport. Use the page's actual decode class so
+    // its first visible covers come from cache at full requested resolution.
+    val horizontalPrefetchSize = if (config.style == "uniform") XvoxGridArtworkSize else XvoxRecentArtworkSize
 
-    LaunchedEffect(plans) {
+    LaunchedEffect(plans, horizontalPrefetchSize) {
         // Warm the page immediately after the trailing visible page, rather than waiting until it
         // becomes the first page. That keeps a fast horizontal fling decode-free at the exact
         // 256px card quality the grid renders.
         snapshotFlow { state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .distinctUntilChanged()
             .collect { lastVisible ->
-                plans.getOrNull(lastVisible + 1)?.let { prefetch(it.startIndex) }
+                plans.getOrNull(lastVisible + 1)?.let { next ->
+                    prefetch(next.startIndex, next.songCount, horizontalPrefetchSize)
+                }
             }
     }
 

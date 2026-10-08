@@ -88,13 +88,6 @@ private fun MiniPlayerTransitionExperimentEditor(
 ) {
     val colors = XvoxTheme.colors
     val selectedStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
-    val selectedPreset = XvoxPlayerTransitionMotion.presets.first { it.id == selectedStyle }
-    val selectedFamily = selectedPreset.family
-    val familyOptions = XvoxPlayerTransitionMotion.families.map { family ->
-        family.lowercase() to family
-    }
-    val familyKey = selectedFamily.lowercase()
-    val familyPresets = XvoxPlayerTransitionMotion.presetsInFamily(selectedFamily)
 
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
@@ -104,64 +97,34 @@ private fun MiniPlayerTransitionExperimentEditor(
             fontWeight = FontWeight.Bold
         )
         Text(
-            "Experimental handoff testing · 30 curated variants across six families",
+            "Fixed 300 ms handoff. Now Playing stays solid; only the Mini Player can use the compact Scale motion.",
             color = colors.secondaryText,
             fontSize = 10.5.sp,
             lineHeight = 13.sp
         )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Transition timing", color = colors.secondaryText, fontSize = 11.sp)
-            Text(
-                "${chrome.miniPlayerTransitionDuration.coerceIn(XvoxPlayerTransitionMotion.MinDuration, XvoxPlayerTransitionMotion.MaxDuration)} ms",
-                color = colors.primaryAccent,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        XvoxContinuousSlider(
-            value = chrome.miniPlayerTransitionDuration.toFloat()
-                .coerceIn(XvoxPlayerTransitionMotion.MinDuration.toFloat(), XvoxPlayerTransitionMotion.MaxDuration.toFloat()),
-            onValueChange = { value ->
+        Text("Animation", color = colors.secondaryText, fontSize = 11.sp)
+        SettingsChoiceRow(
+            options = listOf(
+                XvoxPlayerTransitionMotion.DefaultStyle to "Default",
+                XvoxPlayerTransitionMotion.ScaleStyle to "Scale"
+            ),
+            selected = selectedStyle,
+            onSelect = { style ->
+                // Scale is intentionally locked to its one non-expanding, opaque motion.
                 onChromeChange(
                     chrome.copy(
-                        miniPlayerTransitionDuration = value.roundToInt().coerceIn(
-                            XvoxPlayerTransitionMotion.MinDuration,
-                            XvoxPlayerTransitionMotion.MaxDuration
-                        )
+                        miniPlayerTransitionDuration = XvoxPlayerTransitionMotion.Duration,
+                        miniPlayerTransitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(style)
                     )
                 )
-            },
-            valueRange = XvoxPlayerTransitionMotion.MinDuration.toFloat()..XvoxPlayerTransitionMotion.MaxDuration.toFloat(),
-            defaultValue = XvoxPlayerTransitionMotion.Duration.toFloat(),
-            contentDescription = "Mini Player to Now Playing timing"
-        )
-
-        Text("Animation family", color = colors.secondaryText, fontSize = 11.sp)
-        SettingsChoiceRow(
-            options = familyOptions,
-            selected = familyKey,
-            onSelect = { nextFamilyKey ->
-                val nextFamily = XvoxPlayerTransitionMotion.families.firstOrNull {
-                    it.equals(nextFamilyKey, ignoreCase = true)
-                } ?: selectedFamily
-                val firstVariant = XvoxPlayerTransitionMotion.presetsInFamily(nextFamily).first()
-                onChromeChange(chrome.copy(miniPlayerTransitionStyle = firstVariant.id))
             }
         )
-
-        Text("$selectedFamily variants", color = colors.secondaryText, fontSize = 11.sp)
-        SettingsChoiceRow(
-            options = familyPresets.map { preset -> preset.id to preset.name },
-            selected = selectedStyle,
-            onSelect = { style -> onChromeChange(chrome.copy(miniPlayerTransitionStyle = style)) }
-        )
         Text(
-            selectedPreset.description,
+            text = if (selectedStyle == XvoxPlayerTransitionMotion.ScaleStyle) {
+                "Scale is locked: compact shrink only, with no expansion or fade."
+            } else {
+                "Default uses the direct, solid vertical handoff."
+            },
             color = colors.mutedText,
             fontSize = 10.sp,
             lineHeight = 12.sp

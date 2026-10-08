@@ -126,7 +126,7 @@ class UserPreferencesRepository(
         val themeBackground = stringPreferencesKey("theme_background")
         val themeBackgroundImage = stringPreferencesKey("theme_background_image")
         val cardTransparency = floatPreferencesKey("card_transparency")
-        /** Default, Glass, or DP Minimal app-wide appearance experiment. */
+        /** Default or live Blur app-wide UI experiment. */
         val experimentalAppearance = stringPreferencesKey("experimental_appearance")
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val fontSizeScale = floatPreferencesKey("font_size_scale")

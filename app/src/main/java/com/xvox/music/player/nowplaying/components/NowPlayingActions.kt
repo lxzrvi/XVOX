@@ -82,10 +82,7 @@ fun NowPlayingActions(
     onOpenOptions: ((String) -> Unit)? = null,
     /** Hoisted by Now Playing so a reopened surface restores the user's action page. */
     actionPageIndex: Int = 0,
-    onActionPageChange: (Int) -> Unit = {},
-    /** The overflow editor exposes these as simple left/right placement choices. */
-    timerQueueInfoSide: String = "left",
-    changingActionsSide: String = "right"
+    onActionPageChange: (Int) -> Unit = {}
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -119,9 +116,6 @@ fun NowPlayingActions(
         animationSpec = tween(350),
         label = "dotsAlpha"
     )
-
-    val pillOnLeft = timerQueueInfoSide != "right"
-    val actionsOnLeft = changingActionsSide == "left"
 
     val utilityPill: @Composable () -> Unit = {
         // Left cluster: Timer / Queue / Info in continuous pill
@@ -353,13 +347,11 @@ fun NowPlayingActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        if (pillOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
-        if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
-
+        // Keep these groups pinned. The three-dot menu changes only seek-bar rendering, never
+        // the physical placement of player controls.
+        key("nowPlayingUtilityPill") { utilityPill() }
         Spacer(Modifier.weight(1f))
-
-        if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
-        if (!pillOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        key("nowPlayingChangingActions") { changingActionCluster() }
     }
 }
 

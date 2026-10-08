@@ -82,10 +82,10 @@ fun XvoxMiniPlayer(
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
-    // The card itself is 68dp tall. One extra dp clears the landscape -0.5dp baseline too. Custom
-    // placement remains additive even for the handoff: a user-raised card travels far enough to
-    // be fully below the viewport before Now Playing can start.
-    val fullyHiddenDistanceDp = (69.dp - totalPlacementY).coerceAtLeast(0.dp)
+    // The painted Mini Player is 68dp tall. Use a fixed clearance larger than that height rather
+    // than subtracting its placement: subtracting the portrait baseline could start Now Playing
+    // while the card's top 10–12dp was still visible at the bottom edge.
+    val fullyHiddenDistanceDp = 74.dp
     val exitDistance = with(density) { maxOf(230.dp, fullyHiddenDistanceDp + 24.dp).toPx() }
     val fullyHiddenDistance = with(density) { fullyHiddenDistanceDp.toPx() }
     val y = remember(riseKey) { Animatable(exitDistance) }
@@ -142,9 +142,9 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            // This is intentionally sequential: the card first clears below the viewport. Once
-            // its top is no longer visible, wait exactly one short beat before mounting Now
-            // Playing. The rest of the downward motion may finish offscreen without overlap.
+            // The card clears the bottom edge completely before the solid Now Playing surface is
+            // mounted. There is deliberately no handoff delay: the exact frame that clears the
+            // Mini Player may begin the full player's upward slide.
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
@@ -152,19 +152,14 @@ fun XvoxMiniPlayer(
             y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec(transitionDuration)) {
                 if (!stop && !handoffRequested && value >= fullyHiddenDistance) {
                     handoffRequested = true
-                    scope.launch {
-                        delay(XvoxPlayerTransitionMotion.handoffDelayFor(transitionDuration))
-                        if (exiting) openPlayer()
-                    }
+                    if (exiting) openPlayer()
                 }
             }
 
             if (stop) {
                 stopAndDismiss()
             } else if (!handoffRequested) {
-                // Covers an interrupted / already-offscreen card without ever overlapping the
-                // full player.
-                delay(XvoxPlayerTransitionMotion.handoffDelayFor(transitionDuration))
+                // Covers an interrupted / already-offscreen card without visible overlap.
                 openPlayer()
             }
         }

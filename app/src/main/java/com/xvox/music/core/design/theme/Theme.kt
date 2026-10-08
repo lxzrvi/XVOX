@@ -38,20 +38,16 @@ object XvoxTheme {
 @Composable
 fun ProvideXvoxNowPlayingChrome(content: @Composable () -> Unit) {
     val palette = LocalXvoxPalette.current
-    // Glass is intentionally allowed to remain translucent over Now Playing artwork. Default and
-    // DP Minimal retain the established opaque player-chrome contract.
-    if (LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.GLASS) {
-        content()
-    } else {
-        CompositionLocalProvider(
-            LocalXvoxPalette provides palette.copy(
-                card = palette.card.copy(alpha = 1f),
-                cardElevated = palette.cardElevated.copy(alpha = 1f),
-                surface = palette.surface.copy(alpha = 1f)
-            ),
-            content = content
-        )
-    }
+    // Now Playing is always an opaque player surface. Blur belongs to the app chrome behind it,
+    // never to the player handoff or its artwork/control surface.
+    CompositionLocalProvider(
+        LocalXvoxPalette provides palette.copy(
+            card = palette.card.copy(alpha = 1f),
+            cardElevated = palette.cardElevated.copy(alpha = 1f),
+            surface = palette.surface.copy(alpha = 1f)
+        ),
+        content = content
+    )
 }
 
 @Composable
@@ -70,9 +66,8 @@ fun XvoxTheme(
         XvoxThemeMode.DARK, XvoxThemeMode.AMOLED -> true
         XvoxThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    // DP Minimal is deliberately dark regardless of the ordinary Theme selector. It is a full
-    // app-wide appearance experiment, not just a darkened card treatment.
-    val dark = ordinaryDark || experimentalAppearance == XvoxExperimentalAppearance.DP_MINIMAL
+    // Blur preserves the chosen Theme mode; it changes material treatment, not light/dark mode.
+    val dark = ordinaryDark
 
     val ordinaryBasePalette = when (mode) {
         XvoxThemeMode.LIGHT -> XvoxWhitePalette
@@ -87,11 +82,7 @@ fun XvoxTheme(
             }
         }
     }
-    val basePalette = if (experimentalAppearance == XvoxExperimentalAppearance.DP_MINIMAL) {
-        XvoxDarkPalette
-    } else {
-        ordinaryBasePalette
-    }
+    val basePalette = ordinaryBasePalette
 
     val palette = basePalette
         .withAccent(accent, light = !dark)

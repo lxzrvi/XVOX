@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.features.home.HomeGeometry
+import com.xvox.music.features.home.XvoxHomeSectionHeading
 
 @Composable
 fun XvoxLikedSongsSection(
@@ -34,26 +34,10 @@ fun XvoxLikedSongsSection(
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isSelectionMode) "${selectedSongIds.size} Selected" else "Liked Songs",
-                color = colors.primaryAccent,
-                fontSize = 16.sp,
-                lineHeight = 19.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                text = "Total ${songs.size} songs",
-                color = colors.mutedText,
-                fontSize = 9.sp,
-            )
-        }
+        XvoxHomeSectionHeading(
+            title = if (isSelectionMode) "${selectedSongIds.size} Selected" else "Liked Songs",
+            subtitle = "Total ${songs.size} songs"
+        )
 
         if (songs.isEmpty()) {
             Text(

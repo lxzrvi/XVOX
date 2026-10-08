@@ -16,27 +16,36 @@ import kotlin.coroutines.coroutineContext
 
 class XvoxArtworkPreloader(context: Context) {
     private val app = context.applicationContext
-    suspend fun warm(songs: List<Song>, fromIndex: Int, count: Int) = withContext(Dispatchers.IO) {
+    suspend fun warm(
+        songs: List<Song>,
+        fromIndex: Int,
+        count: Int,
+        requestSize: Int = XvoxGridArtworkSize
+    ) = withContext(Dispatchers.IO) {
         val start = fromIndex.coerceIn(0, songs.size)
-        val end = (start + count.coerceIn(0, 12)).coerceAtMost(songs.size)
+        val exactSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
+        // Standard 256px pages can warm a complete landscape page; 512px mosaic tiles retain a
+        // tighter queue to protect heap headroom without ever asking Coil for a smaller decode.
+        val maxCount = if (exactSize >= 512) 16 else 32
+        val end = (start + count.coerceIn(0, maxCount)).coerceAtMost(songs.size)
         if (start >= end) return@withContext
         val loader = SingletonImageLoader.get(app)
         val uris = songs.subList(start, end).mapNotNull { it.artworkUri }.distinct()
         for (uri in uris) {
             coroutineContext.ensureActive()
-            // All Songs cards render through the size-qualified 256px cache key. Warming 160px
-            // made this work invisible to the grid and caused decode stalls without improving
-            // quality. Prefetch exactly the display quality that the cards consume.
-            val key = "${XvoxArtworkCache.keyFor(uri)}_$XvoxGridArtworkSize"
+            // Warm the exact size that the forthcoming card asks Coil to decode. In particular,
+            // non-unit mosaic tiles retain their 512px request instead of silently falling back
+            // to a smaller preview during a fast scroll.
+            val key = "${XvoxArtworkCache.keyFor(uri)}_$exactSize"
             if (XvoxArtworkCache.get(key) != null) continue
             try {
                 val result = loader.execute(ImageRequest.Builder(app).data(uri)
-                    .size(XvoxGridArtworkSize, XvoxGridArtworkSize)
+                    .size(exactSize, exactSize)
                     .precision(Precision.EXACT).memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED).networkCachePolicy(CachePolicy.DISABLED).build())
                 (result.image as? BitmapImage)?.bitmap?.let { XvoxArtworkCache.put(key, it) }
             } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A missing cover must not delay the next visible card. */ }
         }
     }
-    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 8) }
+    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 16, XvoxGridArtworkSize) }
 }

@@ -1,5 +1,9 @@
 package com.xvox.music.core.ui.overlay
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -37,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +65,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -70,6 +76,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.xvoxGlassReflection
@@ -78,6 +86,35 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+private fun Context.xvoxActivityOrNull(): Activity? {
+    var current: Context = this
+    repeat(12) {
+        when (current) {
+            is Activity -> return current
+            is ContextWrapper -> current = current.baseContext
+            else -> return null
+        }
+    }
+    return null
+}
+
+/** Keeps Dialog-owned sheets immersive when they were opened above landscape Now Playing. */
+@Composable
+private fun XvoxSheetImmersiveStatusBar(enabled: Boolean) {
+    val view = LocalView.current
+    val activity = remember(view) { view.context.xvoxActivityOrNull() }
+    DisposableEffect(enabled, activity, view) {
+        if (enabled) {
+            activity?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view)
+                    .hide(WindowInsetsCompat.Type.statusBars())
+            }
+        }
+        // The enclosing Now Playing owns restoration. A sheet closing must not flash the bar.
+        onDispose { }
+    }
+}
 
 
 /**
@@ -225,11 +262,12 @@ fun XvoxSheet(
 
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val overlayController = LocalXvoxOverlayController.current
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
     val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
-    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.GLASS || chrome.optionBoxBorder.isNotBlank()
+    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current !=
+        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR && chrome.optionBoxBorder.isNotBlank()
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -255,6 +293,7 @@ fun XvoxSheet(
         onDismissRequest = ::close,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
+        XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
         Box(modifier = modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -461,6 +500,15 @@ fun XvoxSheet(
                     }
                 }
             }
+            // Render the action-name pill in this Dialog after the sheet, so it remains above
+            // every option surface rather than dimming behind it.
+            overlayController.popup?.let { message ->
+                XvoxP(
+                    message = message,
+                    onFinished = { overlayController.clearPopup(message.id) },
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
         }
     }
 }
@@ -485,11 +533,12 @@ private fun XvoxCenteredBox(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val overlayController = LocalXvoxOverlayController.current
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
     val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
-    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.GLASS || chrome.optionBoxBorder.isNotBlank()
+    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current !=
+        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR && chrome.optionBoxBorder.isNotBlank()
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
@@ -513,6 +562,7 @@ private fun XvoxCenteredBox(
         onDismissRequest = ::close,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
+        XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
         BoxWithConstraints(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -572,6 +622,13 @@ private fun XvoxCenteredBox(
                         ) { footer() }
                     }
                 }
+            }
+            overlayController.popup?.let { message ->
+                XvoxP(
+                    message = message,
+                    onFinished = { overlayController.clearPopup(message.id) },
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
             }
         }
     }

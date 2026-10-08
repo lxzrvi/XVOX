@@ -107,8 +107,8 @@ fun XvoxMainShell(
     backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
-    // Rendering sees the appearance-derived chrome; editors always operate on the durable base
-    // so a temporary Glass treatment never gets saved over Default-mode values.
+    // Rendering sees appearance-derived chrome; editors always operate on the durable base so
+    // temporary Blur UI material never gets saved over Default-mode values.
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val baseChrome = com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle.current
     val navigationBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
@@ -332,7 +332,7 @@ fun XvoxMainShell(
                                 miniBgAlpha = .94f,
                                 navBgAlpha = .94f,
                                 miniPlayerTransitionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
-                                miniPlayerTransitionStyle = "glide_1"
+                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }
@@ -1110,8 +1110,14 @@ private fun TabSurface(
     backgroundBrightness: Float,
     content: @Composable () -> Unit
 ) {
+    val liveBlur = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
+        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
+
     Box(Modifier.fillMaxSize()) {
-        if (backgroundImage.isNotBlank()) {
+        // Blur mode's true GPU-blurred image is owned once by XvoxAppRoot so it remains visible
+        // through every layered surface, including shell chrome and Dialog-backed sheets. Keep
+        // the normal image treatment route-local only for Default mode.
+        if (backgroundImage.isNotBlank() && !liveBlur) {
             AsyncImage(
                 model = Uri.parse(backgroundImage),
                 contentDescription = null,

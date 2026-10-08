@@ -256,14 +256,8 @@ fun SettingsScreen(
                         BackupSectionCard(homeViewModel, Modifier.weight(1f).fillMaxHeight())
                     }
                 }
-                item(key = "settings_pair_system_about", span = { GridItemSpan(maxLineSpan) }) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SystemSectionCard(state, settingsViewModel, Modifier.weight(1f).fillMaxHeight())
-                        AboutSectionCard(Modifier.weight(1f).fillMaxHeight())
-                    }
+                item(key = "settings_about", span = { GridItemSpan(maxLineSpan) }) {
+                    AboutSectionCard(Modifier.fillMaxWidth())
                 }
                 item(key = "settings_deleted_items", span = { GridItemSpan(maxLineSpan) }) {
                     DeletedItemsSectionCard(onOpen = ::openDeletedItems)
@@ -278,7 +272,8 @@ fun SettingsScreen(
                 }
                 item(key = "section_support_dev") { SupportDeveloperCard() }
                 item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-                item(key = "section_system") { SystemSectionCard(state, settingsViewModel) }
+                // Battery and background-playback controls are intentionally kept in their
+                // dedicated surfaces rather than duplicating them in a System/Background card.
                 // Adjacent to About because this is account/library housekeeping rather than a
                 // playback control; it opens the soft-deleted XVOX recycle bin.
                 item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
@@ -329,12 +324,11 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            SettingsField("Experimental app appearance") {
+            SettingsField("UI") {
                 XvoxSegmentedPill(
                     options = listOf(
                         "default" to "Default",
-                        "glass" to "Glass",
-                        "dp_minimal" to "DP Minimal"
+                        "blur" to "Blur"
                     ),
                     selectedKey = state.experimentalAppearance,
                     onSelect = viewModel::setExperimentalAppearance,
@@ -536,16 +530,6 @@ private fun WidgetSectionCard(
 private fun BackupSectionCard(homeViewModel: HomeViewModel, modifier: Modifier = Modifier) {
     SettingsCardFrame(title = "Backup & Restore", modifier = modifier) {
         BackupSettingsSection(viewModel = homeViewModel)
-    }
-}
-
-@Composable
-private fun SystemSectionCard(state: SettingsState, viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
-    SettingsCardFrame(title = "System & Background", modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            BatteryOptimizationSection()
-            NotifySettingsSection(state, viewModel)
-        }
     }
 }
 

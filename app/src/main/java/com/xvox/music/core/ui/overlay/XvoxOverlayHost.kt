@@ -31,7 +31,9 @@ fun XvoxOverlayHost(
             }
         }
 
-        controller.popup?.let { message ->
+        // A visible option sheet renders the pill inside its own Dialog above the sheet. Keeping
+        // the host copy out in that case avoids a faded/behind-dialog duplicate.
+        controller.popup?.takeIf { !controller.isBoxVisible }?.let { message ->
             XvoxP(
                 message = message,
                 onFinished = { controller.clearPopup(message.id) },

@@ -8,7 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,8 +41,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -50,14 +48,15 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
-private val MultiActionRowHeight = 40.dp
-// Three full actions and a deliberately visible slice of the next one signal that the compact
-// right rail scrolls, without making the selection overlay visually heavy.
+private val MultiActionRowHeight = 46.dp
+// Three full icon actions and a deliberately visible slice of the next one signal that the
+// compact right rail scrolls without reintroducing label width.
 private val MultiActionViewportHeight = MultiActionRowHeight * 3 + 12.dp
 
 /**
@@ -87,15 +86,6 @@ fun HomeMultiSelectBar(
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
 
-    val headerLabel = when {
-        !categoryName.isNullOrBlank() -> categoryName
-        selectedPlaylist != null -> selectedPlaylist.name
-        libraryMode == XvoxHomeLibraryMode.LIKED -> "Liked"
-        libraryMode == XvoxHomeLibraryMode.ARTISTS -> "Artists"
-        libraryMode == XvoxHomeLibraryMode.PLAYLISTS -> "Playlists"
-        else -> "All Songs"
-    }
-
     // The scrollbar's geometry follows the actual ScrollState (px), while its drawing remains in
     // dp so it stays a clean, attached 2dp right rail on every density.
     val viewportPx = with(density) { MultiActionViewportHeight.toPx() }
@@ -123,44 +113,28 @@ fun HomeMultiSelectBar(
         ) {
             Column(
                 modifier = modifier
-                    // A deliberately narrow right action rail. The attached scrollbar remains
-                    // flush with the outer edge, so the rail reads as an affordance—not a panel.
-                    .widthIn(min = 88.dp, max = 102.dp)
+                    // The count is stacked above icon-only actions, keeping the right-side rail
+                    // compact while still making selection quantity immediately visible.
+                    .width(66.dp)
                     .clip(railShape)
                     .background(colors.cardElevated)
                     .xvoxGlassReflection()
-                    .padding(start = 7.dp, top = 7.dp, end = 0.dp, bottom = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                    .padding(start = 6.dp, top = 8.dp, end = 0.dp, bottom = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Fixed metadata header: scrolling actions never move or obscure the selection count.
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(end = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(colors.primaryAccent),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(colors.primaryAccent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${selectedSongs.size}",
-                            color = colors.background,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
                     Text(
-                        text = headerLabel,
-                        color = colors.primaryText,
-                        fontSize = 10.sp,
-                        lineHeight = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        text = "${selectedSongs.size}",
+                        color = colors.background,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
 
@@ -177,7 +151,7 @@ fun HomeMultiSelectBar(
                             .padding(end = 4.dp)
                             .verticalScroll(actionsScroll)
                     ) {
-                        MultiActionItem(R.drawable.ic_xvox_check, "Select all", onSelectAll)
+                        MultiActionItem(R.drawable.ic_xvox_done_all, "Select all", onSelectAll)
                         MultiActionItem(
                             R.drawable.ic_xvox_play,
                             "Next"
@@ -266,6 +240,7 @@ fun HomeMultiSelectBar(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MultiActionItem(
     iconRes: Int,
@@ -273,32 +248,23 @@ private fun MultiActionItem(
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    Row(
+    val overlays = LocalXvoxOverlayController.current
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(MultiActionRowHeight)
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { overlays.showP(label) }
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label,
             tint = colors.primaryAccent,
-            modifier = Modifier.size(17.dp)
-        )
-        Text(
-            text = label,
-            color = colors.primaryText,
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.size(20.dp)
         )
     }
 }

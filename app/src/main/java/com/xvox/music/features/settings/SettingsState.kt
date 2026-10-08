@@ -9,7 +9,7 @@ data class SettingsState(
     val nowPlayingBackgroundStyle: String = "default",
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
-    /** Default, Glass, or DP Minimal app-wide experimental appearance. */
+    /** Default or live Blur app-wide experimental UI. */
     val experimentalAppearance: String = "default",
     val accentColor: String = "White",
     val backgroundName: String = "Default",

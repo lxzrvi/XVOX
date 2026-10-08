@@ -1,5 +1,6 @@
 package com.xvox.music
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -17,9 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
@@ -32,6 +37,7 @@ import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.SetupScreen
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable
@@ -90,6 +96,7 @@ fun XvoxAppRoot(
     // while the HSV wheel or brightness rail is being dragged.
     val accentPreview = com.xvox.music.core.design.theme.XvoxAccentPreview.value
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
+    val backgroundImage by prefs.themeBackgroundImage.collectAsState(initial = "")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val experimentalAppearanceRaw by prefs.experimentalAppearance.collectAsState(initial = "default")
     val experimentalAppearance = com.xvox.music.core.design.theme.XvoxExperimentalAppearance.fromStorage(experimentalAppearanceRaw)
@@ -101,8 +108,8 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.XvoxChromePreview.clearWhenPersisted(chrome)
         }
     }
-    // Keep a raw local for editors/persistence and derive the visual chrome only at the root.
-    // Switching Glass or DP Minimal can therefore never overwrite a person's Default-mode knobs.
+    // Keep a raw local for editors/persistence and derive the temporary Blur UI chrome only at
+    // the root, so changing visual treatment never overwrites Default-mode knobs.
     val baseChrome = chromePreview ?: chrome
     val effectiveChrome = baseChrome.forExperimentalAppearance(experimentalAppearance)
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
@@ -159,8 +166,27 @@ fun XvoxAppRoot(
             LocalXvoxHaptics provides haptics
         ) {
             Box(modifier = Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
-                if (experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.GLASS) {
-                    com.xvox.music.core.design.theme.XvoxGlassAtmosphere(Modifier.fillMaxSize())
+                // Put the actual selected background once at the root in Blur mode. Every
+                // translucent layer—route, Header, Mini Player, navbar, and Dialog-backed
+                // option surface—therefore reveals the same live GPU-blurred content instead of
+                // receiving a painted tint or an individual fake-blur treatment.
+                if (
+                    experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR &&
+                    backgroundImage.isNotBlank()
+                ) {
+                    AsyncImage(
+                        model = Uri.parse(backgroundImage),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                // Overscan prevents a blur kernel from exposing a transparent edge.
+                                scaleX = 1.08f
+                                scaleY = 1.08f
+                            }
+                            .blur(28.dp)
+                    )
                 }
                 if (state == AppUiState.Setup) {
                     SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })

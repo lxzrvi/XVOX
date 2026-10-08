@@ -1,5 +1,7 @@
 package com.xvox.music.shell
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -119,7 +121,7 @@ fun QueueHeaderDropdown(
 
 private val RowHeight = 60.dp
 private val RowSpacing = 4.dp
-private val QueueBottomPadding = 4.dp
+private val QueueBottomPadding = 0.dp
 private val QueueViewportMaxHeight = 460.dp
 
 /** Stable visual identity survives drag reorders, including repeated copies of the same Song. */
@@ -283,13 +285,16 @@ fun XvoxQueueBoxContent(
     }
 
     // A long queue owns a bounded LazyColumn viewport instead of asking the sheet to measure
-    // thousands of dp of rows. The height matches actual row + gap geometry and retains only a
-    // 4dp end inset, so reaching the final song never reveals the former large blank tail.
-    val desiredQueueHeight = (queue.size * 64 + 4).dp.coerceAtMost(QueueViewportMaxHeight)
+    // thousands of dp of rows. The height matches actual row + gap geometry with no trailing
+    // inset, so reaching the final song never reveals a blank tail. The outer column
+    // animates only its measured content height, making the sheet grow with its slide-in rather
+    // than reserving an empty speculative viewport.
+    val desiredQueueHeight = (queue.size * 64).dp.coerceAtMost(QueueViewportMaxHeight)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
+            .animateContentSize(animationSpec = tween(220))
     ) {
         if (queue.isEmpty()) {
             Box(

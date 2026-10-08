@@ -21,8 +21,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +34,9 @@ import com.xvox.music.player.playback.XvoxBlendMonitor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.sin
 
 private data class XvoxProgressBlend(
     val enabled: Boolean,
@@ -191,83 +197,147 @@ fun XvoxNowPlayingProgress(
             ) {
                 val y = size.height / 2f
                 val normalizedStyle = when (style) {
-                    "pill", "android_wave" -> style
+                    "pill", "android_wave", "pulse", "aurora" -> style
                     else -> "classic"
                 }
+                val progressX = (size.width * visibleFraction).coerceIn(0f, size.width)
+                val phase = visiblePosition / 210f
 
-                if (normalizedStyle == "android_wave") {
-                    // Android/Wave: a touch-friendly segmented waveform. Its amplitude subtly
-                    // follows the current progress so it feels alive without an extra animation
-                    // loop or a per-frame allocation while the user scrolls the player.
-                    val segments = 46
-                    val segmentWidth = (size.width / segments).coerceAtLeast(1f)
-                    val phase = visibleFraction * 8f
-                    repeat(segments) { index ->
-                        val centerX = (index + .5f) * segmentWidth
-                        val ripple = kotlin.math.sin(index * .78f + phase).toFloat()
-                        val amplitude = (2.dp.toPx() + (ripple + 1f) * 1.55.dp.toPx())
-                        val segmentColor = when {
-                            centerX <= size.width * visibleFraction -> activeColor
-                            introFraction > 0f && centerX <= size.width * introFraction -> XvoxBlendInColor.copy(alpha = .86f)
-                            tailFraction > 0f && centerX >= size.width * (1f - tailFraction) -> XvoxBlendOutColor.copy(alpha = .86f)
-                            else -> activeColor.copy(alpha = .28f)
+                fun signalWave(amplitude: Float, offsetPhase: Float = 0f, compression: Float = 1f): Path {
+                    val path = Path()
+                    val step = max(3.dp.toPx(), size.width / 96f)
+                    var x = 0f
+                    while (x <= size.width + step) {
+                        val normalizedX = if (size.width <= 0f) 0f else x / size.width
+                        // A gently changing envelope produces Android-style signal movement
+                        // without a permanent animation coroutine or per-pixel work.
+                        val envelope = .48f + .52f * sin((normalizedX * PI * 3.1f) + phase * .16f + offsetPhase).toFloat().let { kotlin.math.abs(it) }
+                        val signal = sin(normalizedX * PI * 15.5f * compression + phase + offsetPhase).toFloat()
+                        val yy = y + signal * amplitude * envelope
+                        if (x == 0f) path.moveTo(x, yy) else path.lineTo(x, yy)
+                        x += step
+                    }
+                    return path
+                }
+
+                fun drawAndroidWave(color: androidx.compose.ui.graphics.Color, alpha: Float, phaseOffset: Float = 0f) {
+                    drawPath(
+                        path = signalWave(3.4.dp.toPx(), phaseOffset),
+                        color = color.copy(alpha = alpha),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = 2.25.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    )
+                }
+
+                when (normalizedStyle) {
+                    "android_wave" -> {
+                        // A continuous, traveling Android-style signal wave rather than the old
+                        // static bar pattern. The active portion is clipped cleanly to progress.
+                        drawAndroidWave(activeColor, .27f)
+                        clipRect(right = progressX) { drawAndroidWave(activeColor, 1f) }
+                        drawCircle(activeColor, radius = 3.dp.toPx(), center = Offset(progressX, y))
+                    }
+
+                    "pulse" -> {
+                        val bars = 42
+                        val segment = (size.width / bars).coerceAtLeast(1f)
+                        repeat(bars) { index ->
+                            val x = (index + .5f) * segment
+                            val energy = .42f + .58f * kotlin.math.abs(
+                                sin(index * .86f + phase * 1.18f).toFloat()
+                            )
+                            val height = 1.8.dp.toPx() + energy * 4.4.dp.toPx()
+                            val color = if (x <= progressX) activeColor else activeColor.copy(alpha = .25f)
+                            drawLine(
+                                color = color,
+                                start = Offset(x, y - height),
+                                end = Offset(x, y + height),
+                                strokeWidth = 1.8.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
                         }
-                        drawLine(
-                            color = segmentColor,
-                            start = Offset(centerX, y - amplitude),
-                            end = Offset(centerX, y + amplitude),
-                            strokeWidth = 1.7.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
+                        drawCircle(activeColor, radius = 2.8.dp.toPx(), center = Offset(progressX, y))
                     }
-                    drawCircle(
-                        color = activeColor,
-                        radius = 3.25.dp.toPx(),
-                        center = Offset(size.width * visibleFraction, y)
-                    )
-                } else {
-                    val stroke = if (normalizedStyle == "pill") 5.dp.toPx() else 2.5.dp.toPx()
 
-                    drawLine(
-                        color = activeColor.copy(alpha = if (normalizedStyle == "pill") .22f else .28f),
-                        start = Offset(0f, y),
-                        end = Offset(size.width, y),
-                        strokeWidth = stroke,
-                        cap = StrokeCap.Round
-                    )
-                    if (introFraction > 0f) {
-                        drawLine(
-                            color = XvoxBlendInColor.copy(alpha = 0.9f),
-                            start = Offset(0f, y),
-                            end = Offset(size.width * introFraction, y),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round
+                    "aurora" -> {
+                        // Two lightweight signal waves create a cool, readable alternative while
+                        // preserving a normal single-accent progress meaning.
+                        drawAndroidWave(colors.secondaryText, .18f, phaseOffset = .75f)
+                        drawAndroidWave(activeColor, .30f)
+                        clipRect(right = progressX) {
+                            drawAndroidWave(activeColor, .92f, phaseOffset = .75f)
+                            drawAndroidWave(activeColor, 1f)
+                        }
+                        drawCircle(activeColor, radius = 3.dp.toPx(), center = Offset(progressX, y))
+                    }
+
+                    "pill" -> {
+                        // Redesigned Capsule: a calm filled rail with a compact vertical capsule
+                        // handle instead of the former thin line plus circular knob.
+                        val railHeight = 8.dp.toPx()
+                        val top = y - railHeight / 2f
+                        drawRoundRect(
+                            color = activeColor.copy(alpha = .22f),
+                            topLeft = Offset(0f, top),
+                            size = androidx.compose.ui.geometry.Size(size.width, railHeight),
+                            cornerRadius = CornerRadius(railHeight / 2f, railHeight / 2f)
+                        )
+                        if (progressX > 0f) {
+                            drawRoundRect(
+                                color = activeColor,
+                                topLeft = Offset(0f, top),
+                                size = androidx.compose.ui.geometry.Size(progressX, railHeight),
+                                cornerRadius = CornerRadius(railHeight / 2f, railHeight / 2f)
+                            )
+                        }
+                        val handleHeight = 14.dp.toPx()
+                        val handleWidth = 5.dp.toPx()
+                        drawRoundRect(
+                            color = activeColor,
+                            topLeft = Offset(progressX - handleWidth / 2f, y - handleHeight / 2f),
+                            size = androidx.compose.ui.geometry.Size(handleWidth, handleHeight),
+                            cornerRadius = CornerRadius(handleWidth / 2f, handleWidth / 2f)
                         )
                     }
-                    if (tailFraction > 0f) {
+
+                    else -> {
+                        val stroke = 2.5.dp.toPx()
                         drawLine(
-                            color = XvoxBlendOutColor.copy(alpha = 0.9f),
-                            start = Offset(size.width * (1f - tailFraction), y),
+                            color = activeColor.copy(alpha = .28f),
+                            start = Offset(0f, y),
                             end = Offset(size.width, y),
                             strokeWidth = stroke,
                             cap = StrokeCap.Round
                         )
-                    }
-                    if (visibleFraction > 0f) {
-                        drawLine(
-                            color = activeColor,
-                            start = Offset(0f, y),
-                            end = Offset(size.width * visibleFraction, y),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round
-                        )
-                    }
-                    if (normalizedStyle == "pill") {
-                        drawCircle(
-                            color = activeColor,
-                            radius = 4.dp.toPx(),
-                            center = Offset(size.width * visibleFraction, y)
-                        )
+                        if (introFraction > 0f) {
+                            drawLine(
+                                color = XvoxBlendInColor.copy(alpha = .9f),
+                                start = Offset(0f, y),
+                                end = Offset(size.width * introFraction, y),
+                                strokeWidth = stroke,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                        if (tailFraction > 0f) {
+                            drawLine(
+                                color = XvoxBlendOutColor.copy(alpha = .9f),
+                                start = Offset(size.width * (1f - tailFraction), y),
+                                end = Offset(size.width, y),
+                                strokeWidth = stroke,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                        if (progressX > 0f) {
+                            drawLine(
+                                color = activeColor,
+                                start = Offset(0f, y),
+                                end = Offset(progressX, y),
+                                strokeWidth = stroke,
+                                cap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
             }

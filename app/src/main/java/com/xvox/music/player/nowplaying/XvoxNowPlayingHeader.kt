@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
@@ -60,8 +58,7 @@ fun XvoxNowPlayingHeader(
                 .align(Alignment.CenterStart)
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(colors.card.copy(alpha = 0.35f))
-                .xvoxGlassReflection()
+                .background(colors.card)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -127,8 +124,7 @@ fun XvoxNowPlayingHeader(
                     .align(Alignment.CenterEnd)
                     .height(40.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(colors.card.copy(alpha = 0.35f))
-                    .xvoxGlassReflection()
+                    .background(colors.card)
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -149,14 +145,6 @@ fun XvoxNowPlayingHeader(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                }
-                if (onShare != null && onMore != null) {
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(18.dp)
-                            .background(colors.primaryText.copy(alpha = .18f))
-                    )
                 }
                 if (onMore != null) {
                     Box(

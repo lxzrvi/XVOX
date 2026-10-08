@@ -22,11 +22,33 @@ object XvoxMosaicSession {
  * leftover strip. Song counts are therefore balanced across pages so the final page always has
  * enough tiles to cover its grid at sane proportions.
  */
-fun buildMosaicPagePlans(songs: List<Song>, rows: Int = 4, isUniform: Boolean = false, mosaicOne: Boolean = false, cols: Int = 4): List<XvoxMosaicPagePlan> {
+fun buildMosaicPagePlans(
+    songs: List<Song>,
+    rows: Int = 4,
+    isUniform: Boolean = false,
+    mosaicOne: Boolean = false,
+    cols: Int = 4,
+    maxSongsPerPage: Int? = null
+): List<XvoxMosaicPagePlan> {
     val random = Random(songs.fold(XvoxMosaicSession.seed) { seed, song -> seed * 31 + song.id })
     val safeRows = rows.coerceIn(3, 10)
     val capacity = cols * safeRows
     if (songs.isEmpty()) return emptyList()
+
+    // A flowing LazyColumn page owns real card composables rather than lightweight placeholders.
+    // Capping that page keeps a fling from composing/decode-requesting an entire tall 8–10-row
+    // grid at once. The renderer still requests the exact same artwork dimensions per card.
+    maxSongsPerPage?.let { requestedLimit ->
+        val limit = requestedLimit.coerceIn(1, capacity.coerceAtLeast(1))
+        return buildList {
+            var index = 0
+            while (index < songs.size) {
+                val take = minOf(limit, songs.size - index)
+                add(XvoxMosaicPagePlan(index, take, random.nextLong()))
+                index += take
+            }
+        }
+    }
 
     if (isUniform) {
         return buildList {

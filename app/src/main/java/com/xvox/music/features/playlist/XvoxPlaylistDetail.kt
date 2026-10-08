@@ -36,7 +36,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.home.HomeGeometry
+import com.xvox.music.features.home.XvoxHomeSectionHeadingText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,30 +65,19 @@ fun XvoxPlaylistDetail(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, top = 2.dp, end = 12.dp, bottom = HomeGeometry.sectionGap),
+                .padding(start = 12.dp, top = 6.dp, end = 12.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isSelectionMode) "${selectedSongIds.size} Selected" else playlist.name,
-                    color = colors.primaryText,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Text(
-                    text = "${songs.size} songs",
-                    color = colors.secondaryText,
-                    fontSize = 11.sp,
+            Box(modifier = Modifier.weight(1f)) {
+                XvoxHomeSectionHeadingText(
+                    title = if (isSelectionMode) "${selectedSongIds.size} Selected" else playlist.name,
+                    subtitle = "${songs.size} songs"
                 )
             }
 
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .background(colors.card, CircleShape)
+                    .size(32.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -99,7 +88,7 @@ fun XvoxPlaylistDetail(
                 Icon(
                     painter = painterResource(R.drawable.ic_xvox_plus),
                     contentDescription = "Add songs",
-                    tint = colors.primaryText,
+                    tint = colors.primaryAccent,
                     modifier = Modifier.size(18.dp),
                 )
             }

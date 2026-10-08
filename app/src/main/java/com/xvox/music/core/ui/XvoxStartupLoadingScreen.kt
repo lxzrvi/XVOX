@@ -31,7 +31,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -39,10 +38,9 @@ import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
 private const val StartupStrokeWidth = 3f
-// Keep the opening dots delicately smaller than the finished ring/rail. The active dot receives
-// only a subtle lift, so it reads as movement rather than a large pulsing blob.
+// Keep the opening dots delicately smaller than the finished ring/rail. Accent changes colour
+// one fixed dot at a time; no carrier dot travels between positions.
 private const val StartupDotDiameter = 5f
-private const val StartupActiveDotScale = 1.22f
 // Slightly tighter than the prior ring, matching the compact loader reference without making the
 // subsequent rail feel disconnected.
 private const val StartupRingRadius = 20f
@@ -54,7 +52,7 @@ private val StartupRingOrder = intArrayOf(2, 3, 4, 1, 0)
 // Row, gather, stretch, spin, unroll, then fill. A completed fill exits into the app; it never
 // loops back to the initial dots or makes the finished ring replay.
 private val StartupPhaseDurations = floatArrayOf(
-    3120f, 800f, 1000f, 2400f, 1400f, 2600f
+    2700f, 420f, 620f, 2200f, 1200f, 2400f
 )
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
@@ -78,8 +76,6 @@ private fun startupEase(value: Float): Float = if (value < .5f) {
     1f - (-2f * value + 2f).pow(3) / 2f
 }
 
-private fun startupSmooth(value: Float) = value * value * (3f - 2f * value)
-
 private fun startupMix(first: Float, second: Float, amount: Float) = first + (second - first) * amount
 
 private fun startupMixColor(first: Color, second: Color, amount: Float) = Color(
@@ -95,9 +91,6 @@ private fun startupRingPoint(segment: Float): Offset {
 }
 
 private fun startupRowX(index: Int) = (index - 2) * 16f
-
-private fun startupStagger(time: Float, duration: Float, index: Int): Float =
-    startupEase(startupClamp01((time - 50f * index) / (duration - 200f)))
 
 private fun startupPoints(count: Int, point: (Float) -> Offset): List<Offset> =
     List(count + 1) { index -> point(index / count.toFloat()) }
@@ -132,37 +125,39 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/** Five dots, with a continuously travelling accent carrier rather than a held active dot. */
+/** Five fixed dots accent one by one in a continuous handoff—there is no travelling carrier. */
 private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
-    // The carrier moves across each gap at a constant cadence. A compact Gaussian tint lets two
-    // neighbours hand off before either reaches a full static hold, eliminating the old "stuck"
-    // dot impression while retaining the supplied five-dot phase of the sequence.
-    val travel = -0.6f + 5.2f * ((time / 910f) % 1f)
+    // The outgoing dot and incoming dot crossfade over a short fixed cadence. The accent never
+    // waits on a dot and never appears between dots, which removes both the "stuck" and moving
+    // carrier impressions while keeping the sequence continuously alive.
+    val cadence = 150f
+    val progress = time / cadence
+    val current = progress.toInt().floorMod(5)
+    val next = (current + 1) % 5
+    // Linear transfer keeps the sequence moving through every handoff instead of easing into a
+    // perceptible hold at either fixed dot.
+    val handoff = progress - progress.toInt()
     repeat(5) { index ->
-        val distance = abs(travel - index)
-        val intensity = (1f - (distance * .72f)).coerceIn(0f, 1f).let(::startupSmooth)
+        val accentAmount = when (index) {
+            current -> 1f - handoff
+            next -> handoff
+            else -> 0f
+        }
         startupDot(
             x = startupRowX(index),
             y = 0f,
-            color = startupMixColor(palette.dot, palette.accent, intensity),
-            radius = StartupDotDiameter / 2f * (1f + (StartupActiveDotScale - 1f) * intensity)
-        )
-    }
-    // A small in-between carrier makes movement explicit even as it passes between fixed dots.
-    if (travel in -0.15f..4.15f) {
-        startupDot(
-            x = startupRowX(0) + travel * 16f,
-            y = 0f,
-            color = palette.accent.copy(alpha = .84f),
-            radius = StartupStrokeWidth * .52f
+            color = startupMixColor(palette.dot, palette.accent, accentAmount),
+            radius = StartupDotDiameter / 2f
         )
     }
 }
 
-/** Dots gather into their own positions around the ring. */
+private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
+
+/** Dots gather into their own ring positions together, with no staggered pause. */
 private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
+    val progress = startupEase(startupClamp01(time / StartupPhaseDurations[1]))
     repeat(5) { index ->
-        val progress = startupStagger(time, StartupPhaseDurations[1], index)
         val target = startupSegmentCenter(StartupRingOrder[index])
         startupDot(
             x = startupMix(startupRowX(index), target.x, progress),

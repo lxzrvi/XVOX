@@ -104,25 +104,21 @@ fun AppearanceSettingsSection(
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "Experimental app appearance",
+                "UI",
                 color = colors.secondaryText,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
             SettingsChoiceRow(
-                options = listOf(
-                    "default" to "Default",
-                    "glass" to "Glass",
-                    "dp_minimal" to "DP Minimal"
-                ),
+                options = listOf("default" to "Default", "blur" to "Blur"),
                 selected = state.experimentalAppearance,
                 onSelect = viewModel::setExperimentalAppearance
             )
             Text(
-                text = when (state.experimentalAppearance) {
-                    "glass" -> "Translucent reflected surfaces with a blurred colour atmosphere across the app."
-                    "dp_minimal" -> "Dark, clean, text-led surfaces throughout the app."
-                    else -> "Current XVOX interface. Your existing theme and surface settings stay unchanged."
+                text = if (state.experimentalAppearance == "blur") {
+                    "Live GPU blur of your current page background with clean border-free materials."
+                } else {
+                    "Current XVOX interface. Your existing theme and surface settings stay unchanged."
                 },
                 color = colors.mutedText,
                 fontSize = 10.sp,

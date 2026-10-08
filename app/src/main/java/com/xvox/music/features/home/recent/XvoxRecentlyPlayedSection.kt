@@ -1,17 +1,13 @@
 package com.xvox.music.features.home.recent
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxHomeSectionHeading
 
 @Composable
 fun XvoxRecentlyPlayedSection(
@@ -25,32 +21,15 @@ fun XvoxRecentlyPlayedSection(
     sources: Map<Long, String> = emptyMap(),
     onSourceClick: (Song) -> Unit = {},
 ) {
-    val colors = XvoxTheme.colors
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            Text(
-                text = "Recently Played",
-                color = colors.primaryAccent,
-                fontSize = 16.sp,
-                lineHeight = 19.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Total ${songs.size} played",
-                color = colors.mutedText,
-                fontSize = 10.sp
-            )
-        }
+        XvoxHomeSectionHeading(
+            title = "Recently Played",
+            subtitle = "Total ${songs.size} played"
+        )
 
         XvoxRecentCarousel(
             songs = songs,

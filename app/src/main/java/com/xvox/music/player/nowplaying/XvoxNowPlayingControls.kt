@@ -54,18 +54,12 @@ fun XvoxNowPlayingControls(
     isShuffleEnabled: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
     previewIndex: Int = -1,
-    queueSize: Int = 0,
-    /** The overflow editor exposes only simple left/right choices. */
-    shuffleRepeatSide: String = "left",
-    playSide: String = "right"
+    queueSize: Int = 0
 ) {
     val colors = XvoxTheme.colors
     val isRepeatOne = repeatMode == RepeatMode.ONE
     val prevEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || previewIndex > 0)
     val nextEnabled = !isRepeatOne && (repeatMode == RepeatMode.ALL || (queueSize > 0 && previewIndex < queueSize - 1))
-
-    val shuffleRepeatOnLeft = shuffleRepeatSide != "right"
-    val playOnLeft = playSide == "left"
 
     @Composable
     fun shuffleControl() {
@@ -129,20 +123,13 @@ fun XvoxNowPlayingControls(
             .fillMaxWidth()
             .height(62.dp),
         content = {
-            // Order turns the two simple side choices into a real physical placement while the
-            // previous/next preview pair remains contiguous and predictable in the middle.
-            if (shuffleRepeatOnLeft) {
-                key("nowPlayingShuffle") { shuffleControl() }
-                key("nowPlayingRepeat") { repeatControl() }
-            }
-            if (playOnLeft) key("nowPlayingPlay") { playControl() }
+            // Fixed order: the Play circle is always exactly centered and the outer controls do
+            // not move when the overflow seek style changes.
+            key("nowPlayingShuffle") { shuffleControl() }
             key("nowPlayingPrevious") { previousControl() }
+            key("nowPlayingPlay") { playControl() }
             key("nowPlayingNext") { nextControl() }
-            if (!playOnLeft) key("nowPlayingPlay") { playControl() }
-            if (!shuffleRepeatOnLeft) {
-                key("nowPlayingShuffle") { shuffleControl() }
-                key("nowPlayingRepeat") { repeatControl() }
-            }
+            key("nowPlayingRepeat") { repeatControl() }
         }
     ) { measurables, constraints ->
         val placeables = measurables.map {
