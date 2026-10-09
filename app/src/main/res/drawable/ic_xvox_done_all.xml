@@ -2,9 +2,10 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="256"
-    android:viewportHeight="256">
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Clear Material-style double tick: a short leading check plus the complete trailing check. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M88.5,191.5a12,12 0,0 1,-17,0L31.5,151.5a12,12 0,0 1,17,-17L80,166l39.5,-39.5a12,12 0,0 1,17,17ZM224.5,79.5a12,12 0,0 0,-17,0L128,159l-15.5,-15.5a12,12 0,0 0,-17,17l24,24a12,12 0,0 0,17,0l88.5,-88.5A12,12 0,0 0,224.5,79.5ZM151.5,104.5a12,12 0,0 0,-17,0L80,159l-15.5,-15.5a12,12 0,0 0,-17,17l24,24a12,12 0,0 0,17,0l63,-63A12,12 0,0 0,151.5,104.5Z" />
+        android:pathData="M0.41,13.41L6,19L7.41,17.59L1.83,12L0.41,13.41M22.24,5.59L11.66,16.17L7.48,12L6.07,13.41L11.66,19L23.66,7L22.24,5.59M18,7L16.59,5.59L10.25,11.93L11.66,13.34L18,7Z" />
 </vector>

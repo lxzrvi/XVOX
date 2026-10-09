@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xvox.music.R
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.components.XvoxImageCropDialog
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -133,10 +134,18 @@ fun HomeScreen(
         selectedArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
     }
 
+    // Song selection is intentionally independent from outer Artist / Playlist collection
+    // selection. A selected artist/playlist receives its own accent outline and actions; opening
+    // its detail then begins a fresh song-only selection context.
     var selectedSongIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var selectedArtistNames by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedPlaylistIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var selectionLibraryMode by remember { mutableStateOf(state.libraryMode) }
     var selectionCategoryName by remember { mutableStateOf<String?>(null) }
-    val isSelectionMode = selectedSongIds.isNotEmpty()
+    val isSongSelectionMode = selectedSongIds.isNotEmpty()
+    val isArtistSelectionMode = selectedArtistNames.isNotEmpty()
+    val isPlaylistSelectionMode = selectedPlaylistIds.isNotEmpty()
+    val isSelectionMode = isSongSelectionMode || isArtistSelectionMode || isPlaylistSelectionMode
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
 
     if (showArtistInfo != null) {
@@ -156,9 +165,12 @@ fun HomeScreen(
                 showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
             },
             onSelectArtist = {
-                selectedSongIds = currentArtist.songs.map { it.id }.toSet()
-                selectionCategoryName = currentArtist.name
+                selectedSongIds = emptySet()
+                selectedPlaylistIds = emptySet()
+                selectedArtistNames = setOf(currentArtist.name)
+                selectionCategoryName = "Artists"
                 selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                showArtistInfo = null
             },
             onHideArtist = {
                 viewModel.hideArtist(currentArtist.name)
@@ -185,7 +197,9 @@ fun HomeScreen(
     // Flowing Home pages deliberately stay viewport-sized. This prevents one tall grid item from
     // composing dozens of cover loaders during a fling; the artwork decode size remains unchanged.
     val flowingPageLimit = if (config.direction == "horizontal") null
-    else (activeAllSongsColumns * 3).coerceIn(9, 12)
+    // Keep vertical pages deliberately shallow: only the cards around the viewport are composed
+    // during a fling, while the exact same 256px/512px artwork request classes are prefetched.
+    else (activeAllSongsColumns * 2).coerceIn(6, 10)
     val plans = remember(state.songs, config.style, config.rows, config.direction, activeAllSongsColumns, flowingPageLimit) {
         buildMosaicPagePlans(
             state.songs,
@@ -219,22 +233,35 @@ fun HomeScreen(
         state.recentlyPlayed
     }
 
-    LaunchedEffect(state.songs) {
+    LaunchedEffect(state.songs, artists, state.playlists) {
         selectedSongIds = selectedSongIds.intersect(state.songs.mapTo(HashSet()) { it.id })
+        selectedArtistNames = selectedArtistNames.intersect(artists.mapTo(HashSet()) { it.name })
+        selectedPlaylistIds = selectedPlaylistIds.intersect(state.playlists.mapTo(HashSet()) { it.id })
         if (!state.loading) onQueueReady(state.songs)
     }
 
     LaunchedEffect(homeResetKey) {
         if (homeResetKey > 0L) {
             selectedSongIds = emptySet()
+            selectedArtistNames = emptySet()
+            selectedPlaylistIds = emptySet()
+            selectionCategoryName = null
             selectedArtistName = null
             setSelectedPlaylistId(null)
             viewModel.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
         }
     }
 
-    LaunchedEffect(effectiveSelectedPlaylistId, state.libraryMode) {
+    LaunchedEffect(effectiveSelectedPlaylistId, state.libraryMode, selectedArtistName) {
         selectedSongIds = emptySet()
+        // Navigating into a detail/page always ends the outer collection action surface. Songs
+        // selected inside that detail begin a separate context with their own available actions.
+        if (effectiveSelectedPlaylistId != null || selectedArtistName != null ||
+            state.libraryMode != XvoxHomeLibraryMode.ARTISTS && state.libraryMode != XvoxHomeLibraryMode.PLAYLISTS
+        ) {
+            selectedArtistNames = emptySet()
+            selectedPlaylistIds = emptySet()
+        }
         if (state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
             selectedArtistName = null
         }
@@ -242,6 +269,8 @@ fun HomeScreen(
 
     BackHandler(enabled = isSelectionMode) {
         selectedSongIds = emptySet()
+        selectedArtistNames = emptySet()
+        selectedPlaylistIds = emptySet()
         selectionCategoryName = null
     }
     BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtistName = null }
@@ -322,6 +351,8 @@ fun HomeScreen(
             deleteLauncher = deleteLauncher,
             onPendingDelete = { songToDelete: Song -> pendingDeleteSongs = listOf(songToDelete) },
             onSelect = {
+                selectedArtistNames = emptySet()
+                selectedPlaylistIds = emptySet()
                 selectionLibraryMode = selectionSource
                 selectionCategoryName = actualSource
                 selectedSongIds = selectedSongIds + song.id
@@ -357,6 +388,8 @@ fun HomeScreen(
             return
         }
         if (!isSelectionMode) {
+            selectedArtistNames = emptySet()
+            selectedPlaylistIds = emptySet()
             selectionCategoryName = sourceName
             selectedSongIds = setOf(song.id)
         } else {
@@ -367,6 +400,12 @@ fun HomeScreen(
 
     val selectedSongsList = remember(selectedSongIds, state.songs) {
         state.songs.filter { it.id in selectedSongIds }
+    }
+    val selectedArtists = remember(selectedArtistNames, artists) {
+        artists.filter { it.name in selectedArtistNames }
+    }
+    val selectedOuterPlaylists = remember(selectedPlaylistIds, state.playlists) {
+        state.playlists.filter { it.id in selectedPlaylistIds }
     }
     // The Select all rail action is deliberately source-scoped. Resolve the exact category that
     // started selection rather than falling back to the global library when a name is unfamiliar.
@@ -469,8 +508,31 @@ fun HomeScreen(
                 direction = "vertical",
                 gap = 12,
                 hideText = config.artistHideText,
-                onArtistClick = { selectedArtistName = it.name },
-                onArtistLongClick = { showArtistInfo = it },
+                onArtistClick = { artist ->
+                    if (isArtistSelectionMode) {
+                        selectedArtistNames = if (artist.name in selectedArtistNames) {
+                            selectedArtistNames - artist.name
+                        } else {
+                            selectedArtistNames + artist.name
+                        }
+                        if (selectedArtistNames.isEmpty()) selectionCategoryName = null
+                    } else {
+                        selectedArtistName = artist.name
+                    }
+                },
+                onArtistLongClick = { artist ->
+                    selectedSongIds = emptySet()
+                    selectedPlaylistIds = emptySet()
+                    selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                    selectionCategoryName = "Artists"
+                    selectedArtistNames = if (artist.name in selectedArtistNames) {
+                        selectedArtistNames - artist.name
+                    } else {
+                        selectedArtistNames + artist.name
+                    }
+                    if (selectedArtistNames.isEmpty()) selectionCategoryName = null
+                },
+                selectedArtistNames = selectedArtistNames,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
         }
@@ -499,6 +561,19 @@ fun HomeScreen(
             orientation = if (standalone) "vertical" else config.playlistCardOrientation,
             rows = config.playlistRows,
             columns = if (isLandscape) 2 else 1,
+            selectedPlaylistIds = selectedPlaylistIds,
+            onTogglePlaylistSelection = { playlist ->
+                selectedSongIds = emptySet()
+                selectedArtistNames = emptySet()
+                selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
+                selectionCategoryName = "Playlists"
+                selectedPlaylistIds = if (playlist.id in selectedPlaylistIds) {
+                    selectedPlaylistIds - playlist.id
+                } else {
+                    selectedPlaylistIds + playlist.id
+                }
+                if (selectedPlaylistIds.isEmpty()) selectionCategoryName = null
+            },
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist ->
@@ -507,9 +582,10 @@ fun HomeScreen(
                     viewModel = viewModel,
                     playlist = playlist,
                     onSelect = {
-                        val plSongs = viewModel.playlistSongs(playlist)
-                        selectedSongIds = plSongs.map { it.id }.toSet()
-                        selectionCategoryName = playlist.name
+                        selectedSongIds = emptySet()
+                        selectedArtistNames = emptySet()
+                        selectedPlaylistIds = setOf(playlist.id)
+                        selectionCategoryName = "Playlists"
                         selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
                     },
                     onDeleted = {
@@ -697,31 +773,166 @@ fun HomeScreen(
                 }
             }
 
-        if (isSelectionMode && !playerUiState.nowPlayingVisible) {
-            // HomeMultiSelectBar uses a Popup, which is deliberately above shell Header/navbar/
-            // Mini Player rather than confined beneath this page's AnimatedContent layer.
-            HomeMultiSelectBar(
-                selectedSongs = selectedSongsList,
-                selectedPlaylist = selectedPlaylist,
-                libraryMode = selectionLibraryMode,
-                viewModel = viewModel,
-                playerViewModel = playerViewModel,
-                overlays = overlays,
-                context = context,
-                categoryName = selectionCategoryName,
-                onSelectAll = {
-                    if (selectionScopeSongs.isEmpty()) {
-                        overlays.showP("No songs in this category")
-                    } else {
-                        selectedSongIds = selectionScopeSongs.mapTo(linkedSetOf()) { it.id }
-                    }
-                },
-                onClearSelection = {
-                    selectedSongIds = emptySet()
-                    selectionCategoryName = null
-                },
-                onDeleteSelected = { requestDeleteSelected() }
-            )
+        if (!playerUiState.nowPlayingVisible) {
+            when {
+                isArtistSelectionMode -> {
+                    val artistSongs = selectedArtists.flatMap { it.songs }.distinctBy { it.id }
+                    HomeCollectionMultiSelectBar(
+                        title = "Artists",
+                        selectedCount = selectedArtists.size,
+                        allSelected = artists.isNotEmpty() && artists.all { it.name in selectedArtistNames },
+                        onToggleAll = {
+                            selectedArtistNames = if (artists.isNotEmpty() && artists.all { it.name in selectedArtistNames }) {
+                                emptySet()
+                            } else {
+                                artists.mapTo(linkedSetOf()) { it.name }
+                            }
+                            if (selectedArtistNames.isEmpty()) selectionCategoryName = null
+                            else selectionCategoryName = "Artists"
+                        },
+                        onClear = {
+                            selectedArtistNames = emptySet()
+                            selectionCategoryName = null
+                        },
+                        actions = buildList {
+                            if (selectedArtists.size == 1) {
+                                add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_info, "Artist options") {
+                                    showArtistInfo = selectedArtists.first()
+                                })
+                            }
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_play, "Play selected artists") {
+                                val first = artistSongs.firstOrNull()
+                                if (first != null) {
+                                    playerViewModel.playFromSource(first, artistSongs, "Artists")
+                                    selectedArtistNames = emptySet()
+                                    selectionCategoryName = null
+                                }
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_queue, "Add selected artists to queue") {
+                                overlays.showP(playerViewModel.addToQueue(artistSongs))
+                                selectedArtistNames = emptySet()
+                                selectionCategoryName = null
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_playlist, "Add selected artists to playlist") {
+                                showMultiAddToPlaylistOverlay(
+                                    overlays = overlays,
+                                    viewModel = viewModel,
+                                    songs = artistSongs,
+                                    onDone = {
+                                        selectedArtistNames = emptySet()
+                                        selectionCategoryName = null
+                                    }
+                                )
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_delete, "Hide selected artists") {
+                                selectedArtists.forEach { viewModel.hideArtist(it.name) }
+                                overlays.showP("${selectedArtists.size} artists hidden")
+                                selectedArtistNames = emptySet()
+                                selectionCategoryName = null
+                            })
+                        }
+                    )
+                }
+                isPlaylistSelectionMode -> {
+                    val collectionSongs = selectedOuterPlaylists
+                        .flatMap { playlistContents[it.id].orEmpty() }
+                        .distinctBy { it.id }
+                    HomeCollectionMultiSelectBar(
+                        title = "Playlists",
+                        selectedCount = selectedOuterPlaylists.size,
+                        allSelected = state.playlists.isNotEmpty() && state.playlists.all { it.id in selectedPlaylistIds },
+                        onToggleAll = {
+                            selectedPlaylistIds = if (state.playlists.isNotEmpty() && state.playlists.all { it.id in selectedPlaylistIds }) {
+                                emptySet()
+                            } else {
+                                state.playlists.mapTo(linkedSetOf()) { it.id }
+                            }
+                            if (selectedPlaylistIds.isEmpty()) selectionCategoryName = null
+                            else selectionCategoryName = "Playlists"
+                        },
+                        onClear = {
+                            selectedPlaylistIds = emptySet()
+                            selectionCategoryName = null
+                        },
+                        actions = buildList {
+                            if (selectedOuterPlaylists.size == 1) {
+                                val playlist = selectedOuterPlaylists.first()
+                                add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_info, "Playlist options") {
+                                    showPlaylistActions(
+                                        overlays = overlays,
+                                        viewModel = viewModel,
+                                        playlist = playlist,
+                                        onSelect = { },
+                                        onDeleted = {
+                                            selectedPlaylistIds = selectedPlaylistIds - playlist.id
+                                            if (selectedPlaylistIds.isEmpty()) selectionCategoryName = null
+                                        }
+                                    )
+                                })
+                            }
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_play, "Play selected playlists") {
+                                val first = collectionSongs.firstOrNull()
+                                if (first != null) {
+                                    val source = selectedOuterPlaylists.singleOrNull()?.name ?: "Playlists"
+                                    playerViewModel.playFromSource(first, collectionSongs, source)
+                                    selectedPlaylistIds = emptySet()
+                                    selectionCategoryName = null
+                                }
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_queue, "Add selected playlists to queue") {
+                                overlays.showP(playerViewModel.addToQueue(collectionSongs))
+                                selectedPlaylistIds = emptySet()
+                                selectionCategoryName = null
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_share, "Share selected playlist songs") {
+                                XvoxSongActions.shareMultiple(context, collectionSongs)
+                                selectedPlaylistIds = emptySet()
+                                selectionCategoryName = null
+                            })
+                            add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_delete, "Delete selected playlists") {
+                                val count = selectedOuterPlaylists.size
+                                selectedOuterPlaylists.forEach { playlist ->
+                                    viewModel.deletePlaylist(playlist.id) { }
+                                }
+                                selectedPlaylistIds = emptySet()
+                                selectionCategoryName = null
+                                overlays.showP("$count playlists deleted")
+                            })
+                        }
+                    )
+                }
+                isSongSelectionMode -> {
+                    // Song selection uses the same window-level right rail across All Songs,
+                    // Recent, Liked, Artist details, and Playlist details.
+                    HomeMultiSelectBar(
+                        selectedSongs = selectedSongsList,
+                        selectedPlaylist = selectedPlaylist,
+                        libraryMode = selectionLibraryMode,
+                        viewModel = viewModel,
+                        playerViewModel = playerViewModel,
+                        overlays = overlays,
+                        context = context,
+                        categoryName = selectionCategoryName,
+                        allInScopeSelected = selectionScopeSongs.isNotEmpty() &&
+                            selectionScopeSongs.all { it.id in selectedSongIds },
+                        onToggleSelectAll = {
+                            if (selectionScopeSongs.isEmpty()) {
+                                overlays.showP("No songs in this category")
+                            } else if (selectionScopeSongs.all { it.id in selectedSongIds }) {
+                                selectedSongIds = selectedSongIds - selectionScopeSongs.map { it.id }.toSet()
+                                if (selectedSongIds.isEmpty()) selectionCategoryName = null
+                            } else {
+                                selectedSongIds = selectionScopeSongs.mapTo(linkedSetOf()) { it.id }
+                            }
+                        },
+                        onClearSelection = {
+                            selectedSongIds = emptySet()
+                            selectionCategoryName = null
+                        },
+                        onDeleteSelected = { requestDeleteSelected() }
+                    )
+                }
+            }
         }
     }
 }

@@ -164,7 +164,10 @@ fun LazyListScope.playlistCollectionItems(
     onCreate: () -> Unit, onOpen: (XvoxPlaylist) -> Unit, onOptions: (XvoxPlaylist) -> Unit,
     layoutStyle: String = "long", longCardHeight: Int = 0,
     orientation: String = "vertical", rows: Int = 2,
-    columns: Int = 1
+    columns: Int = 1,
+    /** Playlist cards have their own outer selection surface; track selection stays in details. */
+    selectedPlaylistIds: Set<String> = emptySet(),
+    onTogglePlaylistSelection: ((XvoxPlaylist) -> Unit)? = null
 ) {
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
@@ -192,8 +195,18 @@ fun LazyListScope.playlistCollectionItems(
                                 XvoxPlaylistCard(
                                     playlist = playlist,
                                     songs = songsFor(playlist),
-                                    onClick = { onOpen(playlist) },
-                                    onLongClick = { onOptions(playlist) },
+                                    onClick = {
+                                        if (selectedPlaylistIds.isNotEmpty() && onTogglePlaylistSelection != null) {
+                                            onTogglePlaylistSelection(playlist)
+                                        } else {
+                                            onOpen(playlist)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
+                                        else onOptions(playlist)
+                                    },
+                                    selected = playlist.id in selectedPlaylistIds,
                                     modifier = Modifier.fillMaxWidth().height(cardH),
                                     longCard = true
                                 )
@@ -218,8 +231,18 @@ fun LazyListScope.playlistCollectionItems(
                         XvoxPlaylistCard(
                             playlist = playlist,
                             songs = songsFor(playlist),
-                            onClick = { onOpen(playlist) },
-                            onLongClick = { onOptions(playlist) },
+                            onClick = {
+                                if (selectedPlaylistIds.isNotEmpty() && onTogglePlaylistSelection != null) {
+                                    onTogglePlaylistSelection(playlist)
+                                } else {
+                                    onOpen(playlist)
+                                }
+                            },
+                            onLongClick = {
+                                if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
+                                else onOptions(playlist)
+                            },
+                            selected = playlist.id in selectedPlaylistIds,
                             modifier = Modifier.fillMaxWidth().height(cardH),
                             longCard = true
                         )
@@ -239,8 +262,18 @@ fun LazyListScope.playlistCollectionItems(
                 XvoxPlaylistCard(
                     playlist = playlist,
                     songs = songsFor(playlist),
-                    onClick = { onOpen(playlist) },
-                    onLongClick = { onOptions(playlist) },
+                    onClick = {
+                        if (selectedPlaylistIds.isNotEmpty() && onTogglePlaylistSelection != null) {
+                            onTogglePlaylistSelection(playlist)
+                        } else {
+                            onOpen(playlist)
+                        }
+                    },
+                    onLongClick = {
+                        if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
+                        else onOptions(playlist)
+                    },
+                    selected = playlist.id in selectedPlaylistIds,
                     modifier = Modifier.fillMaxWidth().height(oldCardHeight),
                     longCard = true
                 )

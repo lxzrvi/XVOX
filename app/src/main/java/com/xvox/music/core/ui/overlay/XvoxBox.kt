@@ -174,6 +174,8 @@ private class XvoxSheetScrollBridge(
 }
 
 private val LocalXvoxSheetScrollBridge = staticCompositionLocalOf<XvoxSheetScrollBridge?> { null }
+/** True only after an overflowing body has asked the sheet to grow from its measured content. */
+val LocalXvoxSheetGrowthActive = staticCompositionLocalOf { false }
 
 /**
  * Backwards-compatible name for the application-wide option sheet.  Every overlay deliberately
@@ -372,9 +374,9 @@ fun XvoxSheet(
                             .fillMaxWidth()
                             .then(sheetSizing)
                             .clip(sheetShape)
+                            .xvoxGlassReflection(shape = sheetShape, radius = 22)
                             .background(optionSurface)
                             .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, sheetShape) else Modifier)
-                            .xvoxGlassReflection()
                             .clickable(swallowInteraction, indication = null) { }
                             .onGloballyPositioned { measuredHeightPx = it.size.height }
                             .semantics { paneTitle = title }
@@ -483,7 +485,10 @@ fun XvoxSheet(
                                 .clipToBounds()
                                 .padding(start = bodyHorizontal, top = 6.dp, end = bodyHorizontal, bottom = 10.dp)
                         ) {
-                            CompositionLocalProvider(LocalXvoxSheetScrollBridge provides contentScrollBridge) {
+                            CompositionLocalProvider(
+                                LocalXvoxSheetScrollBridge provides contentScrollBridge,
+                                LocalXvoxSheetGrowthActive provides (requestedHeight != null)
+                            ) {
                                 content()
                             }
                         }
@@ -567,6 +572,40 @@ private fun XvoxCenteredBox(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            // Centered secondary sheets share the same content-led height contract as bottom
+            // sheets. They remain compact for short choices and can grow to the status-bar limit
+            // when an attached body scroll reports real overflow.
+            val density = LocalDensity.current
+            val statusTopPx = WindowInsets.statusBars.getTop(density)
+            val maxCenteredHeight = with(density) {
+                (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
+            }
+            val maxCenteredHeightPx = with(density) { maxCenteredHeight.toPx() }
+            var requestedHeightPx by remember { mutableFloatStateOf(0f) }
+            var measuredHeightPx by remember { mutableIntStateOf(0) }
+            LaunchedEffect(maxCenteredHeightPx) {
+                if (requestedHeightPx > maxCenteredHeightPx) requestedHeightPx = maxCenteredHeightPx
+            }
+            val contentScrollBridge = remember(maxCenteredHeightPx, density) {
+                XvoxSheetScrollBridge(
+                    sheetHeight = { requestedHeightPx },
+                    measuredHeight = { measuredHeightPx.toFloat() },
+                    maxHeight = { maxCenteredHeightPx },
+                    setSheetHeight = { next -> requestedHeightPx = next.coerceIn(1f, maxCenteredHeightPx) },
+                    dismiss = ::close,
+                    dismissDistancePx = with(density) { 52.dp.toPx() }
+                )
+            }
+            val requestedHeight: Dp? = requestedHeightPx
+                .takeIf { it > 0f }
+                ?.let { with(density) { it.coerceIn(1f, maxCenteredHeightPx).toDp() } }
+            val centeredShape = RoundedCornerShape(24.dp)
+            val centeredSizing = if (requestedHeight != null) {
+                Modifier.height(requestedHeight)
+            } else {
+                Modifier.heightIn(max = maxCenteredHeight)
+            }
+
             Box(
                 Modifier
                     .matchParentSize()
@@ -583,12 +622,13 @@ private fun XvoxCenteredBox(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth(.90f)
-                        .heightIn(max = maxHeight * .78f)
-                        .clip(RoundedCornerShape(24.dp))
+                        .then(centeredSizing)
+                        .clip(centeredShape)
+                        .xvoxGlassReflection(shape = centeredShape, radius = 22)
                         .background(optionSurface)
-                        .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, RoundedCornerShape(24.dp)) else Modifier)
-                        .xvoxGlassReflection()
+                        .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
                         .clickable(swallowInteraction, indication = null) { }
+                        .onGloballyPositioned { measuredHeightPx = it.size.height }
                         .semantics { paneTitle = title }
                 ) {
                     XvoxSheetHeader(
@@ -604,15 +644,21 @@ private fun XvoxCenteredBox(
                         headerTitleContent = headerTitleContent,
                         onClose = ::close
                     )
+                    val bodyViewport = if (requestedHeight != null) Modifier.weight(1f) else Modifier.weight(1f, fill = false)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
+                            .then(bodyViewport)
                             .heightIn(min = 0.dp)
                             .clipToBounds()
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
-                        content()
+                        CompositionLocalProvider(
+                            LocalXvoxSheetScrollBridge provides contentScrollBridge,
+                            LocalXvoxSheetGrowthActive provides (requestedHeight != null)
+                        ) {
+                            content()
+                        }
                     }
                     bottomAction?.let { footer ->
                         Box(

@@ -31,23 +31,13 @@ object XvoxTheme {
 }
 
 /**
- * Removes the global card-transparency alpha for one subtree. Used around Now Playing so its
- * chrome (controls, options and queue sheets over the artwork surface) stays as designed while
- * Home, Liked, playlists, Search and Settings keep the transparent cards and tinted backdrop.
+ * Keeps the caller shape stable while preserving the user's selected transparent card treatment
+ * inside Now Playing. The player backdrop remains a separate adaptive-cover layer, while its
+ * header, action pills, controls and sheets can again reveal the live surface beneath them.
  */
 @Composable
 fun ProvideXvoxNowPlayingChrome(content: @Composable () -> Unit) {
-    val palette = LocalXvoxPalette.current
-    // Now Playing is always an opaque player surface. Blur belongs to the app chrome behind it,
-    // never to the player handoff or its artwork/control surface.
-    CompositionLocalProvider(
-        LocalXvoxPalette provides palette.copy(
-            card = palette.card.copy(alpha = 1f),
-            cardElevated = palette.cardElevated.copy(alpha = 1f),
-            surface = palette.surface.copy(alpha = 1f)
-        ),
-        content = content
-    )
+    content()
 }
 
 @Composable

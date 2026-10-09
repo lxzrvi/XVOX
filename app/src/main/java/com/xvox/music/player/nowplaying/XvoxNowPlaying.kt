@@ -48,6 +48,7 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
+import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
@@ -133,6 +134,11 @@ fun XvoxNowPlaying(
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val overlays = LocalXvoxOverlayController.current
+    val blurAppearance = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
+        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
+    // Default keeps the familiar lightly transparent player panels; Blur mode lets Cloudy sample
+    // the live artwork/backdrop through the same panels rather than forcing an opaque player.
+    val playerPanelAlpha = if (blurAppearance) .44f else .82f
     val transitionDuration = XvoxPlayerTransitionMotion.durationFor(chrome.miniPlayerTransitionDuration)
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
@@ -653,9 +659,8 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            // Keep the landscape control card solid like portrait so full-player
-                            // transitions never reveal a translucent layer.
-                            .background(colors.background)
+                            .xvoxLiveBackdropBlur(RoundedCornerShape(18.dp), radius = 20)
+                            .background(colors.cardElevated.copy(alpha = playerPanelAlpha))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -667,6 +672,7 @@ fun XvoxNowPlaying(
                             onMore = { openSettingsBox("Style") },
                             playingSource = playingSource,
                             useSystemInsets = false,
+                            optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
                             modifier = Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
                                     onVerticalDrag = { _, dragAmount ->
@@ -705,7 +711,9 @@ fun XvoxNowPlaying(
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
                             onOpenOptions = { optionName -> openSettingsBox(optionName) },
                             actionPageIndex = actionPageIndex,
-                            onActionPageChange = onActionPageChange
+                            onActionPageChange = onActionPageChange,
+                            utilityPillSide = chrome.nowPlayingPillSide,
+                            actionClusterSide = chrome.nowPlayingChangingActionsSide
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -763,6 +771,7 @@ fun XvoxNowPlaying(
                             onRepeat = { onToggleRepeat?.invoke() },
                             previewIndex = previewIndex,
                             queueSize = queue.size,
+                            shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -881,6 +890,7 @@ fun XvoxNowPlaying(
                     onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
                     onMore = { openSettingsBox("Style") },
                     playingSource = playingSource,
+                    optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
                     modifier = Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
@@ -922,7 +932,8 @@ fun XvoxNowPlaying(
                         translationY = fullscreenProgress * (bottomHeightDp + 8.dp).toPx()
                     }
                     .clip(bottomBoxShape)
-                    .background(colors.background)
+                    .xvoxLiveBackdropBlur(bottomBoxShape, radius = 22)
+                    .background(colors.cardElevated.copy(alpha = playerPanelAlpha))
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(
                         start = 14.dp,
@@ -956,7 +967,9 @@ fun XvoxNowPlaying(
                             onToggleLyrics = { setMode(if (isLyricsShowing) 0 else 1) },
                             onOpenOptions = { optionName -> openSettingsBox(optionName) },
                             actionPageIndex = actionPageIndex,
-                            onActionPageChange = onActionPageChange
+                            onActionPageChange = onActionPageChange,
+                            utilityPillSide = chrome.nowPlayingPillSide,
+                            actionClusterSide = chrome.nowPlayingChangingActionsSide
                         )
 
                         Spacer(Modifier.height(14.dp))
@@ -1014,6 +1027,7 @@ fun XvoxNowPlaying(
                     onRepeat = { onToggleRepeat?.invoke() },
                     previewIndex = previewIndex,
                     queueSize = queue.size,
+                    shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -1036,9 +1050,9 @@ fun XvoxNowPlaying(
         if (activeSettingsBox != null) {
             if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
-                    seekStyle = chrome.nowPlayingSeekStyle,
-                    onSeekStyleChange = { value ->
-                        settingsViewModel.setChromeStyle { it.copy(nowPlayingSeekStyle = value) }
+                    chrome = chrome,
+                    onChromeChange = { updated ->
+                        settingsViewModel.setChromeStyle { updated }
                     },
                     onDismiss = { activeSettingsBox = null }
                 )

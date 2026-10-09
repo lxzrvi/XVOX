@@ -108,12 +108,12 @@ fun XvoxBottomBar(
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
                 .clip(parentShape)
+                .xvoxGlassReflection(shape = parentShape, radius = 18)
                 .border(
                     width = XvoxNavigationGeometry.barBorderWidth,
                     color = navEdge,
                     shape = parentShape
                 )
-                .xvoxGlassReflection()
         ) {
             if (chrome.navigationImageUri.isNotBlank()) {
                 AsyncImage(

@@ -18,13 +18,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.graphicsLayer
+import com.skydoves.cloudy.rememberSky
+import com.skydoves.cloudy.sky
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
@@ -158,59 +157,70 @@ fun XvoxAppRoot(
         experimentalAppearance = experimentalAppearance
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
+        // Cloudy has one root source for the whole app. Every blur-enabled surface reads this
+        // exact live backdrop, so stacked cards/sheets blur real moving content rather than each
+        // creating an expensive isolated bitmap.
+        val blurSky = rememberSky()
+        val blurEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
+            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (blurEnabled) blurSky else null,
             LocalXvoxHaptics provides haptics
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
-                // Put the actual selected background once at the root in Blur mode. Every
-                // translucent layer—route, Header, Mini Player, navbar, and Dialog-backed
-                // option surface—therefore reveals the same live GPU-blurred content instead of
-                // receiving a painted tint or an individual fake-blur treatment.
-                if (
-                    experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR &&
-                    backgroundImage.isNotBlank()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(XvoxTheme.colors.background)
+            ) {
+                // Keep the Cloudy source and the overlay host as siblings. A sheet, popup, or
+                // selection rail is therefore never captured into its own blurred backdrop.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (blurEnabled) Modifier.sky(blurSky) else Modifier)
                 ) {
-                    AsyncImage(
-                        model = Uri.parse(backgroundImage),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                // Overscan prevents a blur kernel from exposing a transparent edge.
-                                scaleX = 1.08f
-                                scaleY = 1.08f
-                            }
-                            .blur(28.dp)
-                    )
-                }
-                if (state == AppUiState.Setup) {
-                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                } else {
-                    if (shellMounted && homeVm != null && playerVm != null) {
-                        XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
-                    }
-
-                    AnimatedVisibility(
-                        visible = state != AppUiState.Home,
-                        enter = fadeIn(tween(120)),
-                        exit = fadeOut(tween(260))
-                    ) {
-                        XvoxStartupLoadingScreen(
-                            readyToEnter = shellMounted && dataReady,
-                            progress = startupProgress,
-                            onSequenceComplete = {
-                                if (!startupSequenceReleased && shellMounted) {
-                                    startupSequenceReleased = true
-                                    viewModel.report(1f, "Ready")
-                                    viewModel.onHomeReady()
-                                }
-                            }
+                    // Blur mode keeps the chosen image sharp in the single Cloudy source.
+                    // Individual translucent surfaces sample this actual moving hierarchy rather
+                    // than a pre-painted full-screen blur.
+                    if (blurEnabled && backgroundImage.isNotBlank()) {
+                        AsyncImage(
+                            model = Uri.parse(backgroundImage),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            onSuccess = { blurSky.invalidate() },
+                            modifier = Modifier.fillMaxSize()
                         )
+                    }
+                    LaunchedEffect(blurEnabled, backgroundImage) {
+                        if (blurEnabled) blurSky.invalidate(220L)
+                    }
+                    if (state == AppUiState.Setup) {
+                        SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                    } else {
+                        if (shellMounted && homeVm != null && playerVm != null) {
+                            XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                        }
+
+                        AnimatedVisibility(
+                            visible = state != AppUiState.Home,
+                            enter = fadeIn(tween(120)),
+                            exit = fadeOut(tween(260))
+                        ) {
+                            XvoxStartupLoadingScreen(
+                                readyToEnter = shellMounted && dataReady,
+                                progress = startupProgress,
+                                onSequenceComplete = {
+                                    if (!startupSequenceReleased && shellMounted) {
+                                        startupSequenceReleased = true
+                                        viewModel.report(1f, "Ready")
+                                        viewModel.onHomeReady()
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
 

@@ -49,9 +49,9 @@ fun XvoxAllSongCard(
         modifier = modifier
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f, hapticOnTap = false)
             .clip(cardShape)
+            .xvoxGlassReflection(shape = cardShape, radius = 18)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
-            .xvoxGlassReflection()
             .padding(3.dp)
     ) {
         Box(

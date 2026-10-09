@@ -52,7 +52,7 @@ private val StartupRingOrder = intArrayOf(2, 3, 4, 1, 0)
 // Row, gather, stretch, spin, unroll, then fill. A completed fill exits into the app; it never
 // loops back to the initial dots or makes the finished ring replay.
 private val StartupPhaseDurations = floatArrayOf(
-    2700f, 420f, 620f, 2200f, 1200f, 2400f
+    2300f, 560f, 680f, 2200f, 1200f, 2400f
 )
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
@@ -125,28 +125,30 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/** Five fixed dots accent one by one in a continuous handoff—there is no travelling carrier. */
-private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
-    // The outgoing dot and incoming dot crossfade over a short fixed cadence. The accent never
-    // waits on a dot and never appears between dots, which removes both the "stuck" and moving
-    // carrier impressions while keeping the sequence continuously alive.
-    val cadence = 150f
-    val progress = time / cadence
+/**
+ * Accent transfers strictly between fixed dots. It has no rest interval, no travelling carrier,
+ * and is shared by the gather/stretch phases so the handoff never flashes back to gray.
+ */
+private fun startupAccentAmount(index: Int, absoluteTime: Float): Float {
+    val cadence = 118f
+    val progress = (absoluteTime / cadence).coerceAtLeast(0f)
     val current = progress.toInt().floorMod(5)
     val next = (current + 1) % 5
-    // Linear transfer keeps the sequence moving through every handoff instead of easing into a
-    // perceptible hold at either fixed dot.
-    val handoff = progress - progress.toInt()
+    val handoff = (progress - progress.toInt()).coerceIn(0f, 1f)
+    return when (index) {
+        current -> 1f - handoff
+        next -> handoff
+        else -> 0f
+    }
+}
+
+/** Five fixed dots accent one by one in one continuous, no-pause handoff. */
+private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
     repeat(5) { index ->
-        val accentAmount = when (index) {
-            current -> 1f - handoff
-            next -> handoff
-            else -> 0f
-        }
         startupDot(
             x = startupRowX(index),
             y = 0f,
-            color = startupMixColor(palette.dot, palette.accent, accentAmount),
+            color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, time)),
             radius = StartupDotDiameter / 2f
         )
     }
@@ -154,33 +156,36 @@ private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
 
 private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 
-/** Dots gather into their own ring positions together, with no staggered pause. */
+/** Dots gather into their own ring positions together, retaining the in-flight accent handoff. */
 private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
     val progress = startupEase(startupClamp01(time / StartupPhaseDurations[1]))
+    val absoluteTime = StartupPhaseDurations[0] + time
     repeat(5) { index ->
         val target = startupSegmentCenter(StartupRingOrder[index])
         startupDot(
             x = startupMix(startupRowX(index), target.x, progress),
             y = startupMix(0f, target.y, progress),
-            color = palette.dot,
+            color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, absoluteTime)),
             radius = StartupDotDiameter / 2f
         )
     }
 }
 
-/** Each dot stretches into a ring segment; the final segment becomes the app accent. */
+/** Each gathering dot fluidly stretches into its own ring segment without a visual pause. */
 private fun DrawScope.drawStartupStretch(progress: Float, palette: StartupPalette) {
     val easedProgress = startupEase(progress)
+    val absoluteTime = StartupPhaseDurations[0] + StartupPhaseDurations[1] +
+        progress.coerceIn(0f, 1f) * StartupPhaseDurations[2]
     repeat(5) { index ->
         val segment = StartupRingOrder[index]
-        val color = if (index == 4) startupMixColor(palette.dot, palette.accent, easedProgress) else palette.dot
+        val color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, absoluteTime))
         val width = startupMix(StartupDotDiameter, StartupStrokeWidth, easedProgress)
         if (easedProgress < .004f) {
             val center = startupSegmentCenter(segment)
             startupDot(center.x, center.y, color, width / 2f)
         } else {
             startupLine(
-                points = startupPoints(14) { step ->
+                points = startupPoints(16) { step ->
                     startupRingPoint((segment + .5f + (step - .5f) * easedProgress) * .2f)
                 },
                 color = color,

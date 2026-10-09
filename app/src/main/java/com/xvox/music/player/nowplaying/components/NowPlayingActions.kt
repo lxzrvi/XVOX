@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
+import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlinx.coroutines.delay
 
@@ -82,7 +83,10 @@ fun NowPlayingActions(
     onOpenOptions: ((String) -> Unit)? = null,
     /** Hoisted by Now Playing so a reopened surface restores the user's action page. */
     actionPageIndex: Int = 0,
-    onActionPageChange: (Int) -> Unit = {}
+    onActionPageChange: (Int) -> Unit = {},
+    /** User-selectable lanes; the transport play circle remains physically centered below. */
+    utilityPillSide: String = "left",
+    actionClusterSide: String = "right"
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -124,6 +128,7 @@ fun NowPlayingActions(
                 .offset(y = (-6).dp)
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
+                .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16)
                 .background(colors.card.copy(alpha = 0.22f))
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -342,16 +347,20 @@ fun NowPlayingActions(
         }
     }
 
+    val utilityOnLeft = utilityPillSide != "right"
+    val actionsOnLeft = actionClusterSide == "left"
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        // Keep these groups pinned. The three-dot menu changes only seek-bar rendering, never
-        // the physical placement of player controls.
-        key("nowPlayingUtilityPill") { utilityPill() }
+        // These lanes are independently configurable from the three-dot editor. Only their own
+        // horizontal lane changes; the transport row below remains physically centered.
+        if (utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
         Spacer(Modifier.weight(1f))
-        key("nowPlayingChangingActions") { changingActionCluster() }
+        if (!utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
     }
 }
 
@@ -430,6 +439,8 @@ fun NowPlayingCircleAction(
     Box(
         modifier = Modifier
             .size(42.dp)
+            .clip(CircleShape)
+            .xvoxLiveBackdropBlur(CircleShape, radius = 14)
             .background(bgColor, CircleShape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },

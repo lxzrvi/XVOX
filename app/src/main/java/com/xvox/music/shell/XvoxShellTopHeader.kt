@@ -133,6 +133,7 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
+            .xvoxGlassReflection(radius = 18)
             // In Light mode match the All Songs card's near-white surface instead of the former
             // grey elevated header. Custom artwork remains completely unwashed at its endpoint.
             .background(
@@ -141,7 +142,6 @@ fun XvoxShellTopHeader(
                 // and black/dark in dark modes, rather than an unrelated elevated strip.
                 else colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
             )
-            .xvoxGlassReflection()
     ) {
         if (hasCustomHeader) {
             coil3.compose.AsyncImage(

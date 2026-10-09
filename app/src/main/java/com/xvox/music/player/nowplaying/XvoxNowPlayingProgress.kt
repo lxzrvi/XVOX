@@ -203,17 +203,29 @@ fun XvoxNowPlayingProgress(
                 val progressX = (size.width * visibleFraction).coerceIn(0f, size.width)
                 val phase = visiblePosition / 210f
 
+                fun signalWaveY(
+                    normalizedX: Float,
+                    amplitude: Float,
+                    offsetPhase: Float = 0f,
+                    compression: Float = 1f
+                ): Float {
+                    // A varying envelope gives Android Wave its recognisable audio-like motion.
+                    // It is derived from normal playback position, so it costs no idle animation
+                    // coroutine when music is paused.
+                    val envelope = .44f + .56f * kotlin.math.abs(
+                        sin((normalizedX * PI * 3.1f) + phase * .16f + offsetPhase).toFloat()
+                    )
+                    val signal = sin(normalizedX * PI * 15.5f * compression + phase + offsetPhase).toFloat()
+                    return y + signal * amplitude * envelope
+                }
+
                 fun signalWave(amplitude: Float, offsetPhase: Float = 0f, compression: Float = 1f): Path {
                     val path = Path()
-                    val step = max(3.dp.toPx(), size.width / 96f)
+                    val step = max(3.dp.toPx(), size.width / 108f)
                     var x = 0f
                     while (x <= size.width + step) {
-                        val normalizedX = if (size.width <= 0f) 0f else x / size.width
-                        // A gently changing envelope produces Android-style signal movement
-                        // without a permanent animation coroutine or per-pixel work.
-                        val envelope = .48f + .52f * sin((normalizedX * PI * 3.1f) + phase * .16f + offsetPhase).toFloat().let { kotlin.math.abs(it) }
-                        val signal = sin(normalizedX * PI * 15.5f * compression + phase + offsetPhase).toFloat()
-                        val yy = y + signal * amplitude * envelope
+                        val normalizedX = if (size.width <= 0f) 0f else (x / size.width).coerceIn(0f, 1f)
+                        val yy = signalWaveY(normalizedX, amplitude, offsetPhase, compression)
                         if (x == 0f) path.moveTo(x, yy) else path.lineTo(x, yy)
                         x += step
                     }
@@ -222,10 +234,10 @@ fun XvoxNowPlayingProgress(
 
                 fun drawAndroidWave(color: androidx.compose.ui.graphics.Color, alpha: Float, phaseOffset: Float = 0f) {
                     drawPath(
-                        path = signalWave(3.4.dp.toPx(), phaseOffset),
+                        path = signalWave(3.8.dp.toPx(), phaseOffset),
                         color = color.copy(alpha = alpha),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 2.25.dp.toPx(),
+                            width = 2.2.dp.toPx(),
                             cap = StrokeCap.Round
                         )
                     )
@@ -233,11 +245,22 @@ fun XvoxNowPlayingProgress(
 
                 when (normalizedStyle) {
                     "android_wave" -> {
-                        // A continuous, traveling Android-style signal wave rather than the old
-                        // static bar pattern. The active portion is clipped cleanly to progress.
-                        drawAndroidWave(activeColor, .27f)
+                        // Android-16-like Wave: one continuous signal beam with a clipped active
+                        // trail. A slim beam follows the wave itself; the former floating pill /
+                        // circular knob is gone, so it cannot feel detached from the waveform.
+                        drawAndroidWave(activeColor, .24f)
                         clipRect(right = progressX) { drawAndroidWave(activeColor, 1f) }
-                        drawCircle(activeColor, radius = 3.dp.toPx(), center = Offset(progressX, y))
+                        val beamY = signalWaveY(
+                            normalizedX = if (size.width <= 0f) 0f else progressX / size.width,
+                            amplitude = 3.8.dp.toPx()
+                        )
+                        drawLine(
+                            color = activeColor,
+                            start = Offset(progressX, beamY - 5.5.dp.toPx()),
+                            end = Offset(progressX, beamY + 5.5.dp.toPx()),
+                            strokeWidth = 2.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
                     }
 
                     "pulse" -> {

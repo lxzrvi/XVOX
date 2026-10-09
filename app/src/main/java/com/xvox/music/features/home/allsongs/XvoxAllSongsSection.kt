@@ -129,9 +129,19 @@ fun LazyListScope.allSongsItems(
                     )
                 } ?: XvoxGridArtworkSize
             }
-            LaunchedEffect(nextPlan?.startIndex, nextPlan?.songCount, nextRequestSize) {
+            // Uniform cards all request the same 256px source, so warm up to three upcoming
+            // shallow pages in one bounded job. Mosaic keeps its exact per-page class to avoid
+            // trading a larger visible cover for a lower decode just to prefetch farther ahead.
+            val nextWindowCount = remember(pageIndex, plans, config.style, nextPlan) {
+                if (config.style == "uniform") {
+                    plans.drop(pageIndex + 1).take(3).sumOf { it.songCount }
+                } else {
+                    nextPlan?.songCount ?: 0
+                }
+            }
+            LaunchedEffect(nextPlan?.startIndex, nextWindowCount, nextRequestSize) {
                 nextPlan?.let { candidate ->
-                    onPrefetch(candidate.startIndex, candidate.songCount, nextRequestSize)
+                    onPrefetch(candidate.startIndex, nextWindowCount.coerceAtLeast(candidate.songCount), nextRequestSize)
                 }
             }
             XvoxSongGridPage(
@@ -174,7 +184,12 @@ fun HorizontalSongPages(
             .distinctUntilChanged()
             .collect { lastVisible ->
                 plans.getOrNull(lastVisible + 1)?.let { next ->
-                    prefetch(next.startIndex, next.songCount, horizontalPrefetchSize)
+                    val count = if (config.style == "uniform") {
+                        plans.drop(lastVisible + 1).take(3).sumOf { it.songCount }
+                    } else {
+                        next.songCount
+                    }
+                    prefetch(next.startIndex, count.coerceAtLeast(next.songCount), horizontalPrefetchSize)
                 }
             }
     }

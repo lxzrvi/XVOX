@@ -86,9 +86,10 @@ fun XvoxAllSongMosaicCard(
             modifier = modifier.clip(artShape))
     }
 
-    Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape).background(background)
-        .border(0.7.dp, colors.cardBorder, shape)
-        .xvoxGlassReflection()) {
+    Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape)
+        .xvoxGlassReflection(shape = shape, radius = 18)
+        .background(background)
+        .border(0.7.dp, colors.cardBorder, shape)) {
         when {
             presentation == 1 -> {
                 Box(Modifier.fillMaxSize().padding(inset).clip(artShape)) {

@@ -1,9 +1,13 @@
 package com.xvox.music.core.design.theme
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import com.xvox.music.core.ui.chrome.XvoxChromeStyle
+import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 
 /**
  * App-wide UI experiments. Blur is intentionally the only experimental treatment: it uses the
@@ -27,17 +31,19 @@ val LocalXvoxExperimentalAppearance = staticCompositionLocalOf { XvoxExperimenta
 
 /**
  * Blur surfaces are translucent materials with no synthetic border or reflection. The content
- * behind them is the same live background image that [TabSurface] renders through a native GPU
- * blur, so cards, navigation, Mini Player and sheets reveal a genuine moving backdrop.
+ * behind them is sampled by the shared Cloudy source, so cards, navigation, Mini Player and
+ * sheets reveal a genuine moving backdrop rather than a painted approximation.
  */
 fun XvoxPalette.withExperimentalAppearance(mode: XvoxExperimentalAppearance): XvoxPalette = when (mode) {
     XvoxExperimentalAppearance.DEFAULT -> this
     XvoxExperimentalAppearance.BLUR -> {
+        // The alpha is only a readable material laid *over* the Cloudy backdrop capture. The
+        // blur itself is never a tint, gradient, reflection, or painted approximation.
         val material = if (isLight) Color.White else Color(0xFF141414)
         copy(
-            surface = material.copy(alpha = .72f),
-            card = material.copy(alpha = .70f),
-            cardElevated = material.copy(alpha = .80f),
+            surface = material.copy(alpha = .48f),
+            card = material.copy(alpha = .44f),
+            cardElevated = material.copy(alpha = .56f),
             cardBorder = Color.Transparent,
             accentSoft = primaryAccent.copy(alpha = .16f),
             progressTrack = primaryText.copy(alpha = .22f)
@@ -65,7 +71,12 @@ fun XvoxChromeStyle.forExperimentalAppearance(mode: XvoxExperimentalAppearance):
 }
 
 /**
- * Compatibility hook retained at existing surface call sites. Blur UI deliberately draws no
- * fake reflection, gradient, or outline; the real blurred backdrop is provided behind it.
+ * Compatibility hook retained at the existing shared-surface call sites. Despite its historic
+ * name it no longer paints a reflection: in Blur mode it applies Cloudy's real backdrop capture;
+ * in Default mode it is a no-op.
  */
-fun Modifier.xvoxGlassReflection(): Modifier = this
+@Composable
+fun Modifier.xvoxGlassReflection(
+    shape: Shape = RectangleShape,
+    radius: Int = 18
+): Modifier = xvoxLiveBackdropBlur(shape = shape, radius = radius)

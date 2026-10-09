@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
 @Composable
@@ -40,7 +41,9 @@ fun XvoxNowPlayingHeader(
     onShare: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
     playingSource: String = "All Songs",
-    useSystemInsets: Boolean = true
+    useSystemInsets: Boolean = true,
+    /** Optional side for the compact share/options group; collapse remains at its stable edge. */
+    optionsGroupSide: String = "right"
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -58,7 +61,8 @@ fun XvoxNowPlayingHeader(
                 .align(Alignment.CenterStart)
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(colors.card)
+                .xvoxLiveBackdropBlur(CircleShape, radius = 16)
+                .background(colors.card.copy(alpha = colors.card.alpha * .72f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -91,8 +95,12 @@ fun XvoxNowPlayingHeader(
 
         Column(
             modifier = Modifier
-                // The combined Share / overflow pill is 75dp wide; keep title text clear of it.
-                .padding(start = 52.dp, end = 88.dp)
+                // The combined Share / overflow pill is 75dp wide. Reserve it on the side the
+                // user selected while retaining the stable collapse target on the opposite left.
+                .padding(
+                    start = if (optionsGroupSide == "left") 132.dp else 52.dp,
+                    end = if (optionsGroupSide == "left") 16.dp else 88.dp
+                )
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -121,10 +129,13 @@ fun XvoxNowPlayingHeader(
         if (onShare != null || onMore != null) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
+                    .align(if (optionsGroupSide == "left") Alignment.CenterStart else Alignment.CenterEnd)
+                    // Left-side placement starts after the always-present collapse button.
+                    .then(if (optionsGroupSide == "left") Modifier.padding(start = 46.dp) else Modifier)
                     .height(40.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(colors.card)
+                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16)
+                    .background(colors.card.copy(alpha = colors.card.alpha * .72f))
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

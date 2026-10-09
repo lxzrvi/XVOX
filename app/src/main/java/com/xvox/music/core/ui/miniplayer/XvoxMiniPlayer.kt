@@ -82,12 +82,13 @@ fun XvoxMiniPlayer(
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
-    // The painted Mini Player is 68dp tall. Use a fixed clearance larger than that height rather
-    // than subtracting its placement: subtracting the portrait baseline could start Now Playing
-    // while the card's top 10–12dp was still visible at the bottom edge.
-    val fullyHiddenDistanceDp = 74.dp
-    val exitDistance = with(density) { maxOf(230.dp, fullyHiddenDistanceDp + 24.dp).toPx() }
-    val fullyHiddenDistance = with(density) { fullyHiddenDistanceDp.toPx() }
+    // The painted card sits inside a 122dp host and can be moved upward by the persisted placement
+    // control. Include that upward displacement in the exit path: a card placed high up still has
+    // to travel completely below the physical bottom edge before Now Playing may mount.
+    val exitDistance = with(density) {
+        val upwardPlacement = (-totalPlacementY.value).coerceAtLeast(0f).dp
+        (246.dp + upwardPlacement + 12.dp).toPx()
+    }
     val y = remember(riseKey) { Animatable(exitDistance) }
 
     var dragX by remember { mutableFloatStateOf(0f) }
@@ -142,24 +143,18 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            // The card clears the bottom edge completely before the solid Now Playing surface is
-            // mounted. There is deliberately no handoff delay: the exact frame that clears the
-            // Mini Player may begin the full player's upward slide.
+            // The Mini Player must physically finish below the bottom edge first. Opening at an
+            // intermediate card translation was what left a thin top sliver visible on tap/swipe.
+            // There is no extra delay after the final frame: Now Playing starts its own bottom
+            // entrance in the same handoff frame.
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
-            var handoffRequested = false
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec(transitionDuration)) {
-                if (!stop && !handoffRequested && value >= fullyHiddenDistance) {
-                    handoffRequested = true
-                    if (exiting) openPlayer()
-                }
-            }
+            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec(transitionDuration))
 
             if (stop) {
                 stopAndDismiss()
-            } else if (!handoffRequested) {
-                // Covers an interrupted / already-offscreen card without visible overlap.
+            } else if (exiting) {
                 openPlayer()
             }
         }

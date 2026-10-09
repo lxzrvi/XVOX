@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
@@ -68,6 +70,7 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val blurAppearance = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
@@ -97,10 +100,16 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
+            .xvoxGlassReflection(shape = cardShape, radius = 18)
             .background(colors.background.copy(alpha = miniAlpha))
-            // Surface chrome follows the same 0%=solid / 100%=transparent contract as the fill.
-            .border(.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha), cardShape)
-            .xvoxGlassReflection()
+            // Blur deliberately has no synthetic edge; default chrome retains its saved border.
+            .then(
+                if (blurAppearance) Modifier else Modifier.border(
+                    .7.dp,
+                    miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha),
+                    cardShape
+                )
+            )
             .drawWithContent {
                 drawContent()
                 val radius = miniRadius.toPx()
@@ -133,7 +142,7 @@ fun XvoxMiniPlayerCard(
             // must remain the actual surface, not a theme-colour wash.  Any slight readability
             // tint lives only between the two transparency endpoints and disappears again at 100%.
             val surfaceTintAlpha = .36f * alphaFraction * (1f - alphaFraction)
-            if (surfaceTintAlpha > .001f) {
+            if (!blurAppearance && surfaceTintAlpha > .001f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

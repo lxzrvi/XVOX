@@ -70,6 +70,8 @@ import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthActive
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.player.playback.XvoxSavedQueue
@@ -175,6 +177,9 @@ fun XvoxQueueBoxContent(
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
     val listState = rememberLazyListState()
+    // Once the shared sheet begins growing, let Queue consume that newly-real viewport rather
+    // than retaining a short fixed box with blank space underneath its rows.
+    val sheetGrowthActive = LocalXvoxSheetGrowthActive.current
 
     val move by rememberUpdatedState(onMoveItem)
     val remove by rememberUpdatedState(onRemoveIndex)
@@ -314,7 +319,10 @@ fun XvoxQueueBoxContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(desiredQueueHeight)
+                    .then(
+                        if (sheetGrowthActive) Modifier.fillMaxHeight()
+                        else Modifier.height(desiredQueueHeight)
+                    )
                     .clipToBounds()
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
@@ -408,6 +416,7 @@ fun XvoxQueueBoxContent(
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
                     modifier = Modifier
                         .fillMaxSize()
+                        .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
                         items = displayEntries,

@@ -6,8 +6,8 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 
 /**
- * A small visual layer for the Mini Player only. Now Playing itself always uses an opaque,
- * straight physical slide so opening and closing never reveal a translucent/blank frame.
+ * A small visual layer for the Mini Player only. The full player keeps its own stable bottom
+ * travel; this layer never lets the Mini Player overshoot, rotate, or leak above the handoff.
  */
 data class XvoxPlayerTransitionLayer(
     val alpha: Float = 1f,
@@ -48,15 +48,15 @@ object XvoxPlayerTransitionMotion {
     )
 
     /**
-     * Default is a pure physical slide. Scale is deliberately locked to a compact shrink only—no
-     * expansion, alpha fade, diagonal drift or rotation can reveal the layer underneath.
+     * Default is a pure physical slide. Scale is a visibly distinct but locked compact shrink:
+     * it never expands, fades, drifts diagonally, or overshoots the stable bottom handoff.
      */
     fun layer(style: String, fraction: Float): XvoxPlayerTransitionLayer {
         val progress = fraction.coerceIn(0f, 1f)
         return if (normalizedStyle(style) == ScaleStyle) {
             XvoxPlayerTransitionLayer(
-                scaleX = 1f - .06f * progress,
-                scaleY = 1f - .06f * progress
+                scaleX = 1f - .10f * progress,
+                scaleY = 1f - .10f * progress
             )
         } else {
             XvoxPlayerTransitionLayer()

@@ -13,19 +13,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 
 /**
- * The three-dot Now Playing editor stays in its fixed position. It edits visual seek rails only:
- * transport controls, utility pill, action cluster and the Play circle remain in their stable,
- * predictable positions.
+ * The header three-dot control opens this compact editor without moving itself. The user can tune
+ * the action lanes and outside transport buttons, while the central Play circle always remains at
+ * the true visual center of Now Playing.
  */
 @Composable
 fun NowPlayingOptionsBox(
-    seekStyle: String,
-    onSeekStyleChange: (String) -> Unit,
+    chrome: XvoxChromeStyle,
+    onChromeChange: (XvoxChromeStyle) -> Unit,
     onDismiss: () -> Unit
 ) {
     XvoxBox(
@@ -40,19 +41,13 @@ fun NowPlayingOptionsBox(
                 .verticalScroll(scrollState)
                 .xvoxBoxScroll(scrollState)
                 .padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
                 "Seek bar style",
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Choose the progress rail. Every control stays in its fixed place.",
-                color = colors.secondaryText,
-                fontSize = 10.5.sp,
-                lineHeight = 13.sp
             )
             SettingsChoiceRow(
                 options = listOf(
@@ -62,18 +57,62 @@ fun NowPlayingOptionsBox(
                     "pulse" to "Pulse Bars",
                     "aurora" to "Aurora"
                 ),
-                selected = when (seekStyle) {
-                    "pill", "android_wave", "pulse", "aurora" -> seekStyle
+                selected = when (chrome.nowPlayingSeekStyle) {
+                    "pill", "android_wave", "pulse", "aurora" -> chrome.nowPlayingSeekStyle
                     else -> "classic"
                 },
-                onSelect = onSeekStyleChange
+                onSelect = { style -> onChromeChange(chrome.copy(nowPlayingSeekStyle = style)) }
+            )
+
+            Text(
+                "Control placement",
+                color = colors.primaryAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            PlacementChoice(
+                label = "Utility pill",
+                selected = chrome.nowPlayingPillSide,
+                onSelect = { side -> onChromeChange(chrome.copy(nowPlayingPillSide = side)) }
+            )
+            PlacementChoice(
+                label = "Action controls",
+                selected = chrome.nowPlayingChangingActionsSide,
+                onSelect = { side -> onChromeChange(chrome.copy(nowPlayingChangingActionsSide = side)) }
+            )
+            PlacementChoice(
+                label = "Shuffle / repeat",
+                selected = chrome.nowPlayingShuffleRepeatSide,
+                onSelect = { side -> onChromeChange(chrome.copy(nowPlayingShuffleRepeatSide = side)) }
+            )
+            PlacementChoice(
+                label = "Header options",
+                selected = chrome.nowPlayingOptionsGroupSide,
+                onSelect = { side -> onChromeChange(chrome.copy(nowPlayingOptionsGroupSide = side)) }
             )
             Text(
-                "Android Wave uses a continuous Android-style signal wave; Capsule has a redesigned filled track. Pulse Bars and Aurora add two lightweight visual alternatives.",
+                "Play stays centered. Android Wave uses a moving signal beam; Capsule, Pulse Bars, and Aurora remain lightweight live alternatives.",
                 color = colors.mutedText,
                 fontSize = 10.sp,
                 lineHeight = 13.sp
             )
         }
+    }
+}
+
+@Composable
+private fun PlacementChoice(
+    label: String,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = colors.secondaryText, fontSize = 11.sp)
+        SettingsChoiceRow(
+            options = listOf("left" to "Left", "right" to "Right"),
+            selected = if (selected == "right") "right" else "left",
+            onSelect = onSelect
+        )
     }
 }

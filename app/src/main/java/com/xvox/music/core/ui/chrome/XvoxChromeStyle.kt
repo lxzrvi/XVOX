@@ -67,10 +67,11 @@ data class XvoxChromeStyle(
     val miniPlayerTransitionStyle: String = "default",
     /** Now Playing seek rail: classic, pill, android_wave, pulse, or aurora. */
     val nowPlayingSeekStyle: String = "classic",
-    /** Legacy encoded placement fields retained only to read old preferences; layouts ignore them. */
+    /** User-selectable Now Playing lanes. Play itself remains physically centered by design. */
     val nowPlayingPillSide: String = "left",
     val nowPlayingChangingActionsSide: String = "right",
     val nowPlayingShuffleRepeatSide: String = "left",
+    /** Retained for old records; the Play control deliberately ignores side placement. */
     val nowPlayingPlaySide: String = "right",
     val nowPlayingOptionsGroupSide: String = "right"
 ) {

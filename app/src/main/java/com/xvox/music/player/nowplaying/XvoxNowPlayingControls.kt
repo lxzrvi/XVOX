@@ -54,7 +54,9 @@ fun XvoxNowPlayingControls(
     isShuffleEnabled: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
     previewIndex: Int = -1,
-    queueSize: Int = 0
+    queueSize: Int = 0,
+    /** Which outside transport edge owns Shuffle; Play stays fixed at the true center. */
+    shuffleRepeatSide: String = "left"
 ) {
     val colors = XvoxTheme.colors
     val isRepeatOne = repeatMode == RepeatMode.ONE
@@ -123,13 +125,21 @@ fun XvoxNowPlayingControls(
             .fillMaxWidth()
             .height(62.dp),
         content = {
-            // Fixed order: the Play circle is always exactly centered and the outer controls do
-            // not move when the overflow seek style changes.
-            key("nowPlayingShuffle") { shuffleControl() }
-            key("nowPlayingPrevious") { previousControl() }
-            key("nowPlayingPlay") { playControl() }
-            key("nowPlayingNext") { nextControl() }
-            key("nowPlayingRepeat") { repeatControl() }
+            // The user may swap only the two outer utility controls. Previous/next stay paired
+            // around the Play circle, and Play itself is always measured at the true midpoint.
+            if (shuffleRepeatSide == "right") {
+                key("nowPlayingRepeat") { repeatControl() }
+                key("nowPlayingPrevious") { previousControl() }
+                key("nowPlayingPlay") { playControl() }
+                key("nowPlayingNext") { nextControl() }
+                key("nowPlayingShuffle") { shuffleControl() }
+            } else {
+                key("nowPlayingShuffle") { shuffleControl() }
+                key("nowPlayingPrevious") { previousControl() }
+                key("nowPlayingPlay") { playControl() }
+                key("nowPlayingNext") { nextControl() }
+                key("nowPlayingRepeat") { repeatControl() }
+            }
         }
     ) { measurables, constraints ->
         val placeables = measurables.map {

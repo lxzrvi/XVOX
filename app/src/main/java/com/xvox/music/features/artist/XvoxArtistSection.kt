@@ -1,6 +1,7 @@
 package com.xvox.music.features.artist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -46,6 +48,8 @@ fun XvoxArtistGrid(
     hideText: Boolean = false,
     onArtistClick: (XvoxArtist) -> Unit,
     onArtistLongClick: (XvoxArtist) -> Unit,
+    /** Outer artist-selection state is distinct from song selection inside an artist page. */
+    selectedArtistNames: Set<String> = emptySet(),
     onMergeClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -74,6 +78,7 @@ fun XvoxArtistGrid(
                             hideText = hideText,
                             onClick = { onArtistClick(artist) },
                             onLongClick = { onArtistLongClick(artist) },
+                            selected = artist.name in selectedArtistNames,
                             modifier = Modifier.width(68.dp)
                         )
                     }
@@ -99,6 +104,7 @@ fun XvoxArtistGrid(
                             hideText = hideText,
                             onClick = { onArtistClick(artist) },
                             onLongClick = { onArtistLongClick(artist) },
+                            selected = artist.name in selectedArtistNames,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -119,6 +125,7 @@ fun ArtistCircleItem(
     hideText: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    selected: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -136,7 +143,12 @@ fun ArtistCircleItem(
             modifier = Modifier
                 .size(76.dp)
                 .clip(CircleShape)
-                .background(colors.card),
+                .xvoxGlassReflection(shape = CircleShape, radius = 16)
+                .background(colors.card)
+                .then(
+                    if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)
+                    else Modifier
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (artist.customImageUri != null) {

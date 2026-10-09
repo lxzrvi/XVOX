@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 
 @Composable
 fun SettingsSectionCard(
@@ -35,7 +36,8 @@ fun SettingsSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(colors.cardElevated.copy(alpha = 0.82f))
+            .xvoxGlassReflection(shape = shape, radius = 18)
+            .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .82f))
             .padding(12.dp)
     ) {
         Row(
