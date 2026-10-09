@@ -5,8 +5,7 @@ plugins {
 
 android {
     namespace = "com.xvox.music"
-    // Cloudy 1.0 backdrop rendering declares minCompileSdk 37.
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.xvox.music"
@@ -47,7 +46,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
-    // Shared GPU backdrop capture and live blur treatment for the Blur UI appearance.
-    implementation("com.github.skydoves:cloudy:1.0.0-alpha01")
+    // Cloudy's shared Sky backdrop API provides the live Blur appearance on the supported SDK.
+    implementation("com.github.skydoves:cloudy:0.6.1")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }

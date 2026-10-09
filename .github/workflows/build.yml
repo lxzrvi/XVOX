@@ -18,15 +18,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Android SDK 37
-        uses: android-actions/setup-android@v3
-        with:
-          # The legacy SDK `tools` package no longer exists on current runners.
-          packages: platform-tools
-
-      - name: Install Android 37 platform
-        run: sdkmanager "platforms;android-37"
-
       - name: Gradle Cache
         uses: gradle/actions/setup-gradle@v4
         with:
