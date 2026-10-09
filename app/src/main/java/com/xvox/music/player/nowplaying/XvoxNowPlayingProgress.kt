@@ -401,7 +401,6 @@ fun XvoxNowPlayingProgress(
                     }
                 }
             }
-        }
 
         if (showTime) {
             Row(
