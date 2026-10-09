@@ -268,13 +268,13 @@ fun ArtistInfoDialog(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Select songs",
+                                text = "Select",
                                 color = colors.primaryText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Select all ${artist.songs.size} songs for batch actions",
+                                text = "Select this artist for collection actions",
                                 color = colors.secondaryText,
                                 fontSize = 11.sp
                             )

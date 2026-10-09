@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,22 +67,37 @@ fun XvoxPlaylistCard(
                 .clip(RoundedCornerShape(11.dp))
         )
 
-        Text(
-            text = playlist.name,
-            color = colors.primaryText,
-            fontSize = 13.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 7.dp)
-        )
+        // Reserve the exact row-like metadata band instead of letting a smaller font scale
+        // donate height back to the weighted cover. That keeps title/count placement and left
+        // alignment identical across XS, S, M, and L while preserving the normal 13sp/10sp pair.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(35.dp)
+                .padding(top = 7.dp)
+        ) {
+            Text(
+                text = playlist.name,
+                color = colors.primaryText,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Start,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Text(
-            text = "${songs.size} songs",
-            color = colors.secondaryText,
-            fontSize = 10.sp,
-            lineHeight = 12.sp
-        )
+            Text(
+                text = "${songs.size} songs",
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                textAlign = TextAlign.Start,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

@@ -86,7 +86,13 @@ fun NowPlayingActions(
     onActionPageChange: (Int) -> Unit = {},
     /** User-selectable lanes; the transport play circle remains physically centered below. */
     utilityPillSide: String = "left",
-    actionClusterSide: String = "right"
+    actionClusterSide: String = "right",
+    /** Full-screen customizer values for the utility/action groups. */
+    controlsAlpha: Float = 1f,
+    utilityOffsetX: Float = 0f,
+    utilityOffsetY: Float = 0f,
+    actionsOffsetX: Float = 0f,
+    actionsOffsetY: Float = 0f
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -125,10 +131,11 @@ fun NowPlayingActions(
         // Left cluster: Timer / Queue / Info in continuous pill
         Row(
             modifier = Modifier
-                .offset(y = (-6).dp)
+                .offset(x = utilityOffsetX.dp, y = ((-6f) + utilityOffsetY).dp)
+                .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
-                .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16)
+                .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16, applyInDefault = true)
                 .background(colors.card.copy(alpha = 0.22f))
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -154,6 +161,9 @@ fun NowPlayingActions(
     val changingActionCluster: @Composable () -> Unit = {
         // Right cluster: 2 action buttons with continuous bidirectional infinite swiping
         Column(
+            modifier = Modifier
+                .offset(x = actionsOffsetX.dp, y = actionsOffsetY.dp)
+                .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
@@ -440,7 +450,7 @@ fun NowPlayingCircleAction(
         modifier = Modifier
             .size(42.dp)
             .clip(CircleShape)
-            .xvoxLiveBackdropBlur(CircleShape, radius = 14)
+            .xvoxLiveBackdropBlur(CircleShape, radius = 14, applyInDefault = true)
             .background(bgColor, CircleShape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },

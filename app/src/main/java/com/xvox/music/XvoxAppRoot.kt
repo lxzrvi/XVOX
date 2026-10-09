@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -90,7 +91,7 @@ fun XvoxAppRoot(
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
     val themeStr by prefs.theme.collectAsState(initial = "System")
-    val accentStr by prefs.accentColor.collectAsState(initial = "White")
+    val accentStr by prefs.accentColor.collectAsState(initial = "Red")
     // Snapshot-backed preview updates in the pointer frame; it avoids Flow collection latency
     // while the HSV wheel or brightness rail is being dragged.
     val accentPreview = com.xvox.music.core.design.theme.XvoxAccentPreview.value
@@ -157,17 +158,23 @@ fun XvoxAppRoot(
         experimentalAppearance = experimentalAppearance
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
-        // Cloudy has one root source for the whole app. Every blur-enabled surface reads this
-        // exact live backdrop, so stacked cards/sheets blur real moving content rather than each
-        // creating an expensive isolated bitmap.
-        val blurSky = rememberSky()
-        val blurEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
+        // Default UI only starts a Cloudy recorder when a real backdrop can show through a
+        // translucent surface. Blur UI always owns one. This keeps opaque Default screens fast
+        // while still using the real live source wherever default chrome genuinely needs blur.
+        val defaultBackdropCanShowThrough = backgroundImage.isNotBlank() || cardTransparency > .005f
+        val cloudySourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
+            defaultBackdropCanShowThrough
+        // Recreate the one Sky source at a source/mode boundary. A fresh recorder prevents a
+        // detached Blur source from being reused after the user switches UI mode and then opens
+        // Home; all surfaces below still share this single real live backdrop.
+        key(experimentalAppearance, cloudySourceEnabled) {
+            val blurSky = rememberSky()
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
-            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (blurEnabled) blurSky else null,
+            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (cloudySourceEnabled) blurSky else null,
             LocalXvoxHaptics provides haptics
         ) {
             Box(
@@ -180,12 +187,12 @@ fun XvoxAppRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (blurEnabled) Modifier.sky(blurSky) else Modifier)
+                        .then(if (cloudySourceEnabled) Modifier.sky(blurSky) else Modifier)
                 ) {
-                    // Blur mode keeps the chosen image sharp in the single Cloudy source.
+                    // The source keeps the chosen image sharp in a single Cloudy recorder.
                     // Individual translucent surfaces sample this actual moving hierarchy rather
                     // than a pre-painted full-screen blur.
-                    if (blurEnabled && backgroundImage.isNotBlank()) {
+                    if (backgroundImage.isNotBlank()) {
                         AsyncImage(
                             model = Uri.parse(backgroundImage),
                             contentDescription = null,
@@ -194,8 +201,10 @@ fun XvoxAppRoot(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    LaunchedEffect(blurEnabled, backgroundImage) {
-                        if (blurEnabled) blurSky.invalidate(220L)
+                    LaunchedEffect(cloudySourceEnabled, backgroundImage) {
+                        // The source is mounted before this effect; invalidating it after a new
+                        // photo resolves is Cloudy's recommended live-backdrop refresh path.
+                        if (cloudySourceEnabled) blurSky.invalidate(220L)
                     }
                     if (state == AppUiState.Setup) {
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
@@ -226,6 +235,7 @@ fun XvoxAppRoot(
 
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }
+        }
         }
     }
 }

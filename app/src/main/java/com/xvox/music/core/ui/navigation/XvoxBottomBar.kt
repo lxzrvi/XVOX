@@ -108,7 +108,7 @@ fun XvoxBottomBar(
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
                 .clip(parentShape)
-                .xvoxGlassReflection(shape = parentShape, radius = 18)
+                .xvoxGlassReflection(shape = parentShape, radius = 18, applyInDefault = true)
                 .border(
                     width = XvoxNavigationGeometry.barBorderWidth,
                     color = navEdge,

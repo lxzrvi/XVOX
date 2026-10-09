@@ -133,7 +133,7 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            .xvoxGlassReflection(radius = 18)
+            .xvoxGlassReflection(radius = 18, applyInDefault = true)
             // In Light mode match the All Songs card's near-white surface instead of the former
             // grey elevated header. Custom artwork remains completely unwashed at its endpoint.
             .background(

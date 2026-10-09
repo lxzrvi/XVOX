@@ -100,7 +100,7 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
-            .xvoxGlassReflection(shape = cardShape, radius = 18)
+            .xvoxGlassReflection(shape = cardShape, radius = 18, applyInDefault = true)
             .background(colors.background.copy(alpha = miniAlpha))
             // Blur deliberately has no synthetic edge; default chrome retains its saved border.
             .then(

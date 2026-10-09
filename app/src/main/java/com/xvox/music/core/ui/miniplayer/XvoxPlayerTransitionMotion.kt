@@ -28,6 +28,11 @@ object XvoxPlayerTransitionMotion {
     const val DefaultStyle = "default"
     const val ScaleStyle = "scale"
 
+    /** The compact card clears the viewport quickly; there is never an idle handoff gap. */
+    const val HandoffDuration = 170
+    /** Full Now Playing has enough travel to read smoothly while beginning in the same handoff. */
+    const val NowPlayingDuration = 240
+
     val easing: Easing = CubicBezierEasing(0.22f, 0f, 0f, 1f)
 
     /** Old Scale variants migrate to Scale; every other retired experimental variant becomes Default. */
@@ -47,19 +52,33 @@ object XvoxPlayerTransitionMotion {
         easing = easing
     )
 
+    fun handoffSpec(): AnimationSpec<Float> = tween(
+        durationMillis = HandoffDuration,
+        easing = easing
+    )
+
+    fun nowPlayingSpec(): AnimationSpec<Float> = tween(
+        durationMillis = NowPlayingDuration,
+        easing = easing
+    )
+
     /**
-     * Default is a pure physical slide. Scale is a visibly distinct but locked compact shrink:
-     * it never expands, fades, drifts diagonally, or overshoots the stable bottom handoff.
+     * Default is a pure physical slide. Scale shrinks toward the physical Mini Player handoff:
+     * no expansion, diagonal drift, fade, or overshoot is permitted at either endpoint.
      */
     fun layer(style: String, fraction: Float): XvoxPlayerTransitionLayer {
         val progress = fraction.coerceIn(0f, 1f)
         return if (normalizedStyle(style) == ScaleStyle) {
             XvoxPlayerTransitionLayer(
-                scaleX = 1f - .10f * progress,
-                scaleY = 1f - .10f * progress
+                scaleX = 1f - .16f * progress,
+                scaleY = 1f - .16f * progress
             )
         } else {
             XvoxPlayerTransitionLayer()
         }
     }
+
+    /** Full player stays exactly 1f at rest and contracts only while travelling down to Mini. */
+    fun nowPlayingScale(style: String, fraction: Float): Float =
+        if (normalizedStyle(style) == ScaleStyle) 1f - .16f * fraction.coerceIn(0f, 1f) else 1f
 }

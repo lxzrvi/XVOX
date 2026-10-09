@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -66,6 +67,7 @@ import com.xvox.music.features.settings.sections.PlaybackSettingsDraftSection
 import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
+import com.xvox.music.player.nowplaying.components.NowPlayingLayoutCustomizer
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
 import com.xvox.music.player.nowplaying.lyrics.lyricsFullscreenMotion
@@ -139,7 +141,9 @@ fun XvoxNowPlaying(
     // Default keeps the familiar lightly transparent player panels; Blur mode lets Cloudy sample
     // the live artwork/backdrop through the same panels rather than forcing an opaque player.
     val playerPanelAlpha = if (blurAppearance) .44f else .82f
-    val transitionDuration = XvoxPlayerTransitionMotion.durationFor(chrome.miniPlayerTransitionDuration)
+    // Bottom-box transparency is independently customizable without changing any other panel.
+    val bottomPanelAlpha = playerPanelAlpha * chrome.nowPlayingBottomBoxAlpha.coerceIn(0f, 1f)
+    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
@@ -254,10 +258,7 @@ fun XvoxNowPlaying(
             val animation = Animatable(start)
             animation.animateTo(
                 target,
-                tween(
-                    durationMillis = transitionDuration,
-                    easing = XvoxPlayerTransitionMotion.easing
-                )
+                XvoxPlayerTransitionMotion.nowPlayingSpec()
             ) {
                 screenY = value
             }
@@ -426,6 +427,9 @@ fun XvoxNowPlaying(
 
     val isSlidingDown = screenY > 1f
     val slideFraction = (screenY / screenHeight.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    // Scale is endpoint-safe: Now Playing is an exact full-size surface when settled, then it
+    // contracts toward the bottom Mini Player while its sheet physically travels downward.
+    val handoffScale = XvoxPlayerTransitionMotion.nowPlayingScale(transitionStyle, slideFraction)
     val cornerRadiusDp = if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
@@ -510,9 +514,12 @@ fun XvoxNowPlaying(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                // Now Playing is always a solid, straight sheet. Animation choices belong only
-                // to the Mini Player; they never scale, rotate, fade, or expose this full screen.
                 translationY = screenY
+                // Bottom anchoring makes the Scale close read as a true contraction into the
+                // Mini Player rather than a centered zoom. At rest this is exactly 1f.
+                transformOrigin = TransformOrigin(.5f, 1f)
+                scaleX = handoffScale
+                scaleY = handoffScale
             }
             .clip(sheetCorner)
             .background(colors.background)
@@ -659,8 +666,8 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            .xvoxLiveBackdropBlur(RoundedCornerShape(18.dp), radius = 20)
-                            .background(colors.cardElevated.copy(alpha = playerPanelAlpha))
+                            .xvoxLiveBackdropBlur(RoundedCornerShape(18.dp), radius = 20, applyInDefault = true)
+                            .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -673,6 +680,7 @@ fun XvoxNowPlaying(
                             playingSource = playingSource,
                             useSystemInsets = false,
                             optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
+                            controlsAlpha = chrome.nowPlayingControlsAlpha,
                             modifier = Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
                                     onVerticalDrag = { _, dragAmount ->
@@ -713,12 +721,22 @@ fun XvoxNowPlaying(
                             actionPageIndex = actionPageIndex,
                             onActionPageChange = onActionPageChange,
                             utilityPillSide = chrome.nowPlayingPillSide,
-                            actionClusterSide = chrome.nowPlayingChangingActionsSide
+                            actionClusterSide = chrome.nowPlayingChangingActionsSide,
+                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
+                            utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
+                            actionsOffsetX = chrome.nowPlayingActionsOffsetX,
+                            actionsOffsetY = chrome.nowPlayingActionsOffsetY
                         )
 
                         Spacer(Modifier.height(2.dp))
 
-                        Column {
+                        Column(
+                            modifier = Modifier.offset(
+                                x = chrome.nowPlayingMetadataOffsetX.dp,
+                                y = chrome.nowPlayingMetadataOffsetY.dp
+                            )
+                        ) {
                             Text(
                                 text = song.title,
                                 color = colors.primaryText,
@@ -748,7 +766,11 @@ fun XvoxNowPlaying(
                             duration = duration,
                             onSeek = onSeek,
                             showTime = true,
-                            style = chrome.nowPlayingSeekStyle
+                            style = chrome.nowPlayingSeekStyle,
+                            modifier = Modifier.offset(
+                                x = chrome.nowPlayingProgressOffsetX.dp,
+                                y = chrome.nowPlayingProgressOffsetY.dp
+                            )
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -772,6 +794,16 @@ fun XvoxNowPlaying(
                             previewIndex = previewIndex,
                             queueSize = queue.size,
                             shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
+                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            playAlpha = chrome.nowPlayingPlayAlpha,
+                            shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
+                            shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
+                            previousOffsetX = chrome.nowPlayingPreviousOffsetX,
+                            previousOffsetY = chrome.nowPlayingPreviousOffsetY,
+                            playOffsetX = chrome.nowPlayingPlayOffsetX,
+                            playOffsetY = chrome.nowPlayingPlayOffsetY,
+                            nextOffsetX = chrome.nowPlayingNextOffsetX,
+                            nextOffsetY = chrome.nowPlayingNextOffsetY,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -783,7 +815,10 @@ fun XvoxNowPlaying(
                             fontFamily = XvoxLogoFont,
                             fontSize = 11.5.sp,
                             letterSpacing = 2.sp,
-                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 2.dp)
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .offset(x = chrome.nowPlayingBrandOffsetX.dp, y = chrome.nowPlayingBrandOffsetY.dp)
+                                .padding(top = 4.dp, bottom = 2.dp)
                         )
                     }
                 }
@@ -891,6 +926,7 @@ fun XvoxNowPlaying(
                     onMore = { openSettingsBox("Style") },
                     playingSource = playingSource,
                     optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
+                    controlsAlpha = chrome.nowPlayingControlsAlpha,
                     modifier = Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
@@ -932,8 +968,8 @@ fun XvoxNowPlaying(
                         translationY = fullscreenProgress * (bottomHeightDp + 8.dp).toPx()
                     }
                     .clip(bottomBoxShape)
-                    .xvoxLiveBackdropBlur(bottomBoxShape, radius = 22)
-                    .background(colors.cardElevated.copy(alpha = playerPanelAlpha))
+                    .xvoxLiveBackdropBlur(bottomBoxShape, radius = 22, applyInDefault = true)
+                    .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(
                         start = 14.dp,
@@ -969,32 +1005,44 @@ fun XvoxNowPlaying(
                             actionPageIndex = actionPageIndex,
                             onActionPageChange = onActionPageChange,
                             utilityPillSide = chrome.nowPlayingPillSide,
-                            actionClusterSide = chrome.nowPlayingChangingActionsSide
+                            actionClusterSide = chrome.nowPlayingChangingActionsSide,
+                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
+                            utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
+                            actionsOffsetX = chrome.nowPlayingActionsOffsetX,
+                            actionsOffsetY = chrome.nowPlayingActionsOffsetY
                         )
 
                         Spacer(Modifier.height(14.dp))
                     }
                 }
 
-                Text(
-                    text = song.title,
-                    color = colors.primaryText,
-                    fontSize = if (isCompact) 17.sp else 20.sp,
-                    lineHeight = if (isCompact) 21.sp else 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(
+                    modifier = Modifier.offset(
+                        x = chrome.nowPlayingMetadataOffsetX.dp,
+                        y = chrome.nowPlayingMetadataOffsetY.dp
+                    )
+                ) {
+                    Text(
+                        text = song.title,
+                        color = colors.primaryText,
+                        fontSize = if (isCompact) 17.sp else 20.sp,
+                        lineHeight = if (isCompact) 21.sp else 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                Text(
-                    text = song.artist,
-                    color = colors.secondaryText,
-                    fontSize = if (isCompact) 11.sp else 13.sp,
-                    lineHeight = if (isCompact) 15.sp else 17.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    Text(
+                        text = song.artist,
+                        color = colors.secondaryText,
+                        fontSize = if (isCompact) 11.sp else 13.sp,
+                        lineHeight = if (isCompact) 15.sp else 17.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(Modifier.height(if (isCompact) 8.dp else 12.dp))
 
@@ -1004,7 +1052,11 @@ fun XvoxNowPlaying(
                     duration = duration,
                     onSeek = onSeek,
                     showTime = !isCompact,
-                    style = chrome.nowPlayingSeekStyle
+                    style = chrome.nowPlayingSeekStyle,
+                    modifier = Modifier.offset(
+                        x = chrome.nowPlayingProgressOffsetX.dp,
+                        y = chrome.nowPlayingProgressOffsetY.dp
+                    )
                 )
 
                 Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
@@ -1028,6 +1080,16 @@ fun XvoxNowPlaying(
                     previewIndex = previewIndex,
                     queueSize = queue.size,
                     shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
+                    controlsAlpha = chrome.nowPlayingControlsAlpha,
+                    playAlpha = chrome.nowPlayingPlayAlpha,
+                    shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
+                    shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
+                    previousOffsetX = chrome.nowPlayingPreviousOffsetX,
+                    previousOffsetY = chrome.nowPlayingPreviousOffsetY,
+                    playOffsetX = chrome.nowPlayingPlayOffsetX,
+                    playOffsetY = chrome.nowPlayingPlayOffsetY,
+                    nextOffsetX = chrome.nowPlayingNextOffsetX,
+                    nextOffsetY = chrome.nowPlayingNextOffsetY,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -1039,7 +1101,9 @@ fun XvoxNowPlaying(
                     fontFamily = XvoxLogoFont,
                     fontSize = 11.sp,
                     letterSpacing = 2.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset(x = chrome.nowPlayingBrandOffsetX.dp, y = chrome.nowPlayingBrandOffsetY.dp)
                 )
 
                 Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
@@ -1048,12 +1112,19 @@ fun XvoxNowPlaying(
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
-            if (activeSettingsBox == "Style") {
+            if (activeSettingsBox == "Customize") {
+                NowPlayingLayoutCustomizer(
+                    chrome = chrome,
+                    onChromeChange = { updated -> settingsViewModel.setChromeStyle { updated } },
+                    onClose = { activeSettingsBox = null }
+                )
+            } else if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
                     chrome = chrome,
                     onChromeChange = { updated ->
                         settingsViewModel.setChromeStyle { updated }
                     },
+                    onCustomize = { activeSettingsBox = "Customize" },
                     onDismiss = { activeSettingsBox = null }
                 )
             } else {

@@ -72,11 +72,16 @@ fun XvoxChromeStyle.forExperimentalAppearance(mode: XvoxExperimentalAppearance):
 
 /**
  * Compatibility hook retained at the existing shared-surface call sites. Despite its historic
- * name it no longer paints a reflection: in Blur mode it applies Cloudy's real backdrop capture;
- * in Default mode it is a no-op.
+ * name it no longer paints a reflection: Blur UI always applies Cloudy's real backdrop capture;
+ * Default applies it only to an explicitly natural/translucent surface, without changing borders.
  */
 @Composable
 fun Modifier.xvoxGlassReflection(
     shape: Shape = RectangleShape,
-    radius: Int = 18
-): Modifier = xvoxLiveBackdropBlur(shape = shape, radius = radius)
+    radius: Int = 18,
+    applyInDefault: Boolean = false
+): Modifier = xvoxLiveBackdropBlur(
+    shape = shape,
+    radius = radius,
+    applyInDefault = applyInDefault
+)

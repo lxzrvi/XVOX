@@ -47,7 +47,13 @@ private const val StartupRingRadius = 20f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
 private val StartupRingStart = -StartupPi / 5f
-private val StartupRingOrder = intArrayOf(2, 3, 4, 1, 0)
+// The last revealed row dot owns segment zero. It remains the accent through gather/stretch, and
+// the spinning arc starts on that very same completed segment with no carrier or extra dot.
+private const val StartupTerminalDotIndex = 4
+private const val StartupTerminalRingSegment = 0
+private val StartupRingOrder = intArrayOf(2, 3, 4, 1, StartupTerminalRingSegment)
+private const val StartupDotRevealCadence = 260f
+private const val StartupDotRevealDuration = 170f
 
 // Row, gather, stretch, spin, unroll, then fill. A completed fill exits into the app; it never
 // loops back to the initial dots or makes the finished ring replay.
@@ -125,62 +131,65 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/**
- * Accent transfers strictly between fixed dots. It has no rest interval, no travelling carrier,
- * and is shared by the gather/stretch phases so the handoff never flashes back to gray.
- */
-private fun startupAccentAmount(index: Int, absoluteTime: Float): Float {
-    val cadence = 118f
-    val progress = (absoluteTime / cadence).coerceAtLeast(0f)
-    val current = progress.toInt().floorMod(5)
-    val next = (current + 1) % 5
-    val handoff = (progress - progress.toInt()).coerceIn(0f, 1f)
-    return when (index) {
-        current -> 1f - handoff
-        next -> handoff
-        else -> 0f
-    }
+/** A dot is born once, in left-to-right order; it never has a travelling carrier twin. */
+private fun startupDotReveal(index: Int, time: Float): Float = startupEase(
+    startupClamp01((time - index * StartupDotRevealCadence) / StartupDotRevealDuration)
+)
+
+/** The final dot resolves to the accent before it begins travelling toward its own ring segment. */
+private fun startupTerminalAccent(time: Float): Float {
+    val finalRevealEnd = StartupTerminalDotIndex * StartupDotRevealCadence + StartupDotRevealDuration
+    return startupEase(startupClamp01((time - finalRevealEnd) / 280f))
 }
 
-/** Five fixed dots accent one by one in one continuous, no-pause handoff. */
+private fun startupRingColorForDot(index: Int, terminalAccent: Float, palette: StartupPalette): Color =
+    if (index == StartupTerminalDotIndex) {
+        startupMixColor(palette.dot, palette.accent, terminalAccent)
+    } else {
+        palette.dot
+    }
+
+/** Five dots appear one-by-one, then the last/terminal dot becomes the single accent seed. */
 private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
+    val terminalAccent = startupTerminalAccent(time)
     repeat(5) { index ->
-        startupDot(
-            x = startupRowX(index),
-            y = 0f,
-            color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, time)),
-            radius = StartupDotDiameter / 2f
-        )
+        val reveal = startupDotReveal(index, time)
+        if (reveal > .001f) {
+            startupDot(
+                x = startupRowX(index),
+                y = 0f,
+                color = startupRingColorForDot(index, terminalAccent, palette).copy(alpha = reveal),
+                radius = StartupDotDiameter / 2f * reveal.coerceAtLeast(.42f)
+            )
+        }
     }
 }
 
-private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
-
-/** Dots gather into their own ring positions together, retaining the in-flight accent handoff. */
+/** Each fully revealed dot moves to its own ring-segment centre; no sixth/pre-ring dot exists. */
 private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
     val progress = startupEase(startupClamp01(time / StartupPhaseDurations[1]))
-    val absoluteTime = StartupPhaseDurations[0] + time
+    // The final row frame already completed the accent resolve. Carry that exact color forward.
+    val terminalAccent = 1f
     repeat(5) { index ->
         val target = startupSegmentCenter(StartupRingOrder[index])
         startupDot(
             x = startupMix(startupRowX(index), target.x, progress),
             y = startupMix(0f, target.y, progress),
-            color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, absoluteTime)),
+            color = startupRingColorForDot(index, terminalAccent, palette),
             radius = StartupDotDiameter / 2f
         )
     }
 }
 
-/** Each gathering dot fluidly stretches into its own ring segment without a visual pause. */
+/** Every dot stretches from its own centre into its corresponding ring segment in the same frame. */
 private fun DrawScope.drawStartupStretch(progress: Float, palette: StartupPalette) {
     val easedProgress = startupEase(progress)
-    val absoluteTime = StartupPhaseDurations[0] + StartupPhaseDurations[1] +
-        progress.coerceIn(0f, 1f) * StartupPhaseDurations[2]
     repeat(5) { index ->
         val segment = StartupRingOrder[index]
-        val color = startupMixColor(palette.dot, palette.accent, startupAccentAmount(index, absoluteTime))
+        val color = startupRingColorForDot(index, 1f, palette)
         val width = startupMix(StartupDotDiameter, StartupStrokeWidth, easedProgress)
         if (easedProgress < .004f) {
+            // Exactly one terminal seed exists here: it is the same dot that reached this centre.
             val center = startupSegmentCenter(segment)
             startupDot(center.x, center.y, color, width / 2f)
         } else {
@@ -208,7 +217,11 @@ private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) 
     )
     drawArc(
         color = palette.accent,
-        startAngle = Math.toDegrees((StartupRingStart + rotation).toDouble()).toFloat(),
+        // At rotation zero this is the terminal dot's completed segment (zero), exactly
+        // matching drawStartupStretch's final [Start, Start + 72°] accent span.
+        startAngle = Math.toDegrees(
+            (StartupRingStart + StartupTerminalRingSegment * (2f * StartupPi / 5f) + rotation).toDouble()
+        ).toFloat(),
         sweepAngle = 72f,
         useCenter = false,
         topLeft = Offset(-StartupRingRadius * scale, -StartupRingRadius * scale),

@@ -47,6 +47,6 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Cloudy's shared Sky backdrop API provides the live Blur appearance on the supported SDK.
-    implementation("com.github.skydoves:cloudy:0.6.1")
+    implementation("com.github.skydoves:cloudy:0.7.1")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }

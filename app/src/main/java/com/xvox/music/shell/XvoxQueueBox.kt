@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,8 +69,6 @@ import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthActive
-import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.player.playback.XvoxSavedQueue
@@ -123,7 +120,7 @@ fun QueueHeaderDropdown(
 
 private val RowHeight = 60.dp
 private val RowSpacing = 4.dp
-private val QueueBottomPadding = 0.dp
+private val QueueBottomPadding = 8.dp
 private val QueueViewportMaxHeight = 460.dp
 
 /** Stable visual identity survives drag reorders, including repeated copies of the same Song. */
@@ -177,10 +174,6 @@ fun XvoxQueueBoxContent(
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
     val listState = rememberLazyListState()
-    // Once the shared sheet begins growing, let Queue consume that newly-real viewport rather
-    // than retaining a short fixed box with blank space underneath its rows.
-    val sheetGrowthActive = LocalXvoxSheetGrowthActive.current
-
     val move by rememberUpdatedState(onMoveItem)
     val remove by rememberUpdatedState(onRemoveIndex)
     val play by rememberUpdatedState(onPlayIndex)
@@ -289,12 +282,10 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // A long queue owns a bounded LazyColumn viewport instead of asking the sheet to measure
-    // thousands of dp of rows. The height matches actual row + gap geometry with no trailing
-    // inset, so reaching the final song never reveals a blank tail. The outer column
-    // animates only its measured content height, making the sheet grow with its slide-in rather
-    // than reserving an empty speculative viewport.
-    val desiredQueueHeight = (queue.size * 64).dp.coerceAtMost(QueueViewportMaxHeight)
+    // Queue scrolling belongs exclusively to this bounded LazyColumn. It never asks the outer
+    // sheet for more height, so a fling cannot grow an obstruction below later rows. Include the
+    // fixed top/bottom insets in the measured viewport so the final item is fully visible.
+    val desiredQueueHeight = (queue.size * 64 + 12).dp.coerceAtMost(QueueViewportMaxHeight)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -319,10 +310,7 @@ fun XvoxQueueBoxContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (sheetGrowthActive) Modifier.fillMaxHeight()
-                        else Modifier.height(desiredQueueHeight)
-                    )
+                    .height(desiredQueueHeight)
                     .clipToBounds()
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
@@ -414,9 +402,7 @@ fun XvoxQueueBoxContent(
                     userScrollEnabled = draggingEntry == null,
                     contentPadding = PaddingValues(top = 4.dp, bottom = QueueBottomPadding),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .xvoxBoxScroll(listState)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     itemsIndexed(
                         items = displayEntries,

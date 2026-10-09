@@ -73,7 +73,30 @@ data class XvoxChromeStyle(
     val nowPlayingShuffleRepeatSide: String = "left",
     /** Retained for old records; the Play control deliberately ignores side placement. */
     val nowPlayingPlaySide: String = "right",
-    val nowPlayingOptionsGroupSide: String = "right"
+    val nowPlayingOptionsGroupSide: String = "right",
+    /** Independent transparencies exposed by Now Playing → Customize. */
+    val nowPlayingBottomBoxAlpha: Float = 1f,
+    val nowPlayingControlsAlpha: Float = 1f,
+    val nowPlayingPlayAlpha: Float = 1f,
+    /** Persisted freeform layout offsets in dp for the bottom Now Playing canvas. */
+    val nowPlayingMetadataOffsetX: Float = 0f,
+    val nowPlayingMetadataOffsetY: Float = 0f,
+    val nowPlayingProgressOffsetX: Float = 0f,
+    val nowPlayingProgressOffsetY: Float = 0f,
+    val nowPlayingUtilityOffsetX: Float = 0f,
+    val nowPlayingUtilityOffsetY: Float = 0f,
+    val nowPlayingActionsOffsetX: Float = 0f,
+    val nowPlayingActionsOffsetY: Float = 0f,
+    val nowPlayingShuffleRepeatOffsetX: Float = 0f,
+    val nowPlayingShuffleRepeatOffsetY: Float = 0f,
+    val nowPlayingPreviousOffsetX: Float = 0f,
+    val nowPlayingPreviousOffsetY: Float = 0f,
+    val nowPlayingPlayOffsetX: Float = 0f,
+    val nowPlayingPlayOffsetY: Float = 0f,
+    val nowPlayingNextOffsetX: Float = 0f,
+    val nowPlayingNextOffsetY: Float = 0f,
+    val nowPlayingBrandOffsetX: Float = 0f,
+    val nowPlayingBrandOffsetY: Float = 0f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -94,8 +117,40 @@ data class XvoxChromeStyle(
         miniPlayerTransitionDuration, miniPlayerTransitionStyle,
         nowPlayingSeekStyle,
         nowPlayingPillSide, nowPlayingChangingActionsSide,
-        nowPlayingShuffleRepeatSide, nowPlayingPlaySide, nowPlayingOptionsGroupSide
+        nowPlayingShuffleRepeatSide, nowPlayingPlaySide, nowPlayingOptionsGroupSide,
+        // Appended freeform Now Playing editor fields retain every existing record unchanged.
+        nowPlayingBottomBoxAlpha, nowPlayingControlsAlpha, nowPlayingPlayAlpha,
+        nowPlayingMetadataOffsetX, nowPlayingMetadataOffsetY,
+        nowPlayingProgressOffsetX, nowPlayingProgressOffsetY,
+        nowPlayingUtilityOffsetX, nowPlayingUtilityOffsetY,
+        nowPlayingActionsOffsetX, nowPlayingActionsOffsetY,
+        nowPlayingShuffleRepeatOffsetX, nowPlayingShuffleRepeatOffsetY,
+        nowPlayingPreviousOffsetX, nowPlayingPreviousOffsetY,
+        nowPlayingPlayOffsetX, nowPlayingPlayOffsetY,
+        nowPlayingNextOffsetX, nowPlayingNextOffsetY,
+        nowPlayingBrandOffsetX, nowPlayingBrandOffsetY
     ).joinToString("|")
+
+    fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
+        nowPlayingMetadataOffsetX = 0f,
+        nowPlayingMetadataOffsetY = 0f,
+        nowPlayingProgressOffsetX = 0f,
+        nowPlayingProgressOffsetY = 0f,
+        nowPlayingUtilityOffsetX = 0f,
+        nowPlayingUtilityOffsetY = 0f,
+        nowPlayingActionsOffsetX = 0f,
+        nowPlayingActionsOffsetY = 0f,
+        nowPlayingShuffleRepeatOffsetX = 0f,
+        nowPlayingShuffleRepeatOffsetY = 0f,
+        nowPlayingPreviousOffsetX = 0f,
+        nowPlayingPreviousOffsetY = 0f,
+        nowPlayingPlayOffsetX = 0f,
+        nowPlayingPlayOffsetY = 0f,
+        nowPlayingNextOffsetX = 0f,
+        nowPlayingNextOffsetY = 0f,
+        nowPlayingBrandOffsetX = 0f,
+        nowPlayingBrandOffsetY = 0f
+    )
 
     companion object {
         fun decode(raw: String): XvoxChromeStyle {
@@ -105,6 +160,8 @@ data class XvoxChromeStyle(
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
             fun number(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull() ?: fallback
+            fun offsetX(i: Int): Float = number(i, 0f).coerceIn(-220f, 220f)
+            fun offsetY(i: Int): Float = number(i, 0f).coerceIn(-260f, 260f)
             fun side(i: Int, fallback: String): String =
                 if (str(i) == "left" || str(i) == "right") str(i) else fallback
             fun seekStyle(i: Int): String = when (str(i)) {
@@ -163,7 +220,28 @@ data class XvoxChromeStyle(
                 nowPlayingChangingActionsSide = side(33, "right"),
                 nowPlayingShuffleRepeatSide = side(34, "left"),
                 nowPlayingPlaySide = side(35, "right"),
-                nowPlayingOptionsGroupSide = side(36, "right")
+                nowPlayingOptionsGroupSide = side(36, "right"),
+                nowPlayingBottomBoxAlpha = flt(37, 1f),
+                nowPlayingControlsAlpha = flt(38, 1f),
+                nowPlayingPlayAlpha = flt(39, 1f),
+                nowPlayingMetadataOffsetX = offsetX(40),
+                nowPlayingMetadataOffsetY = offsetY(41),
+                nowPlayingProgressOffsetX = offsetX(42),
+                nowPlayingProgressOffsetY = offsetY(43),
+                nowPlayingUtilityOffsetX = offsetX(44),
+                nowPlayingUtilityOffsetY = offsetY(45),
+                nowPlayingActionsOffsetX = offsetX(46),
+                nowPlayingActionsOffsetY = offsetY(47),
+                nowPlayingShuffleRepeatOffsetX = offsetX(48),
+                nowPlayingShuffleRepeatOffsetY = offsetY(49),
+                nowPlayingPreviousOffsetX = offsetX(50),
+                nowPlayingPreviousOffsetY = offsetY(51),
+                nowPlayingPlayOffsetX = offsetX(52),
+                nowPlayingPlayOffsetY = offsetY(53),
+                nowPlayingNextOffsetX = offsetX(54),
+                nowPlayingNextOffsetY = offsetY(55),
+                nowPlayingBrandOffsetX = offsetX(56),
+                nowPlayingBrandOffsetY = offsetY(57)
             )
         }
     }

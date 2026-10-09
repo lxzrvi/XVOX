@@ -374,7 +374,7 @@ fun XvoxSheet(
                             .fillMaxWidth()
                             .then(sheetSizing)
                             .clip(sheetShape)
-                            .xvoxGlassReflection(shape = sheetShape, radius = 22)
+                            .xvoxGlassReflection(shape = sheetShape, radius = 22, applyInDefault = true)
                             .background(optionSurface)
                             .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, sheetShape) else Modifier)
                             .clickable(swallowInteraction, indication = null) { }
@@ -624,7 +624,7 @@ private fun XvoxCenteredBox(
                         .fillMaxWidth(.90f)
                         .then(centeredSizing)
                         .clip(centeredShape)
-                        .xvoxGlassReflection(shape = centeredShape, radius = 22)
+                        .xvoxGlassReflection(shape = centeredShape, radius = 22, applyInDefault = true)
                         .background(optionSurface)
                         .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
                         .clickable(swallowInteraction, indication = null) { }

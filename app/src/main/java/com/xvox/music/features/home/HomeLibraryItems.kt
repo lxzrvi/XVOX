@@ -202,10 +202,7 @@ fun LazyListScope.playlistCollectionItems(
                                             onOpen(playlist)
                                         }
                                     },
-                                    onLongClick = {
-                                        if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
-                                        else onOptions(playlist)
-                                    },
+                                    onLongClick = { onOptions(playlist) },
                                     selected = playlist.id in selectedPlaylistIds,
                                     modifier = Modifier.fillMaxWidth().height(cardH),
                                     longCard = true
@@ -238,10 +235,7 @@ fun LazyListScope.playlistCollectionItems(
                                     onOpen(playlist)
                                 }
                             },
-                            onLongClick = {
-                                if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
-                                else onOptions(playlist)
-                            },
+                            onLongClick = { onOptions(playlist) },
                             selected = playlist.id in selectedPlaylistIds,
                             modifier = Modifier.fillMaxWidth().height(cardH),
                             longCard = true
@@ -269,10 +263,7 @@ fun LazyListScope.playlistCollectionItems(
                             onOpen(playlist)
                         }
                     },
-                    onLongClick = {
-                        if (onTogglePlaylistSelection != null) onTogglePlaylistSelection(playlist)
-                        else onOptions(playlist)
-                    },
+                    onLongClick = { onOptions(playlist) },
                     selected = playlist.id in selectedPlaylistIds,
                     modifier = Modifier.fillMaxWidth().height(oldCardHeight),
                     longCard = true

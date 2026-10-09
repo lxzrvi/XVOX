@@ -674,7 +674,7 @@ class MainPlayerViewModel(
         _state.update { it.copy(nowPlayingVisible = true, miniPlayerVisible = false) }
     }
 
-    /** Starts the Now Playing exit. The Mini Player stays absent until that 320ms motion ends. */
+    /** Starts the Now Playing exit. The Mini Player stays absent until the sheet physically clears. */
     fun beginNowPlayingDismissal() {
         controller.setFastProgress(false)
     }

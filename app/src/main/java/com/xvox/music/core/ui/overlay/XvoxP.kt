@@ -72,7 +72,7 @@ fun XvoxP(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(24.dp))
-                .xvoxGlassReflection(shape = RoundedCornerShape(24.dp), radius = 18)
+                .xvoxGlassReflection(shape = RoundedCornerShape(24.dp), radius = 18, applyInDefault = true)
                 .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .88f))
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {

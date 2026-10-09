@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Shape
 import com.skydoves.cloudy.Sky
 import com.skydoves.cloudy.cloudy
 import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 
 /**
@@ -19,17 +20,24 @@ import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 val LocalXvoxBlurSky = staticCompositionLocalOf<Sky?> { null }
 
 /**
- * Genuine live backdrop blur for the Blur appearance. API 31+ uses Cloudy's GPU path; older
- * devices deliberately use Cloudy's cheap scrim fallback rather than a per-card CPU blur that
- * would make library flings jank. The material alpha remains a readable overlay, not the blur.
+ * Genuine live backdrop blur for Blur UI and explicitly translucent Default chrome. API 31+ uses
+ * Cloudy's GPU path; older devices deliberately use Cloudy's cheap scrim fallback rather than a
+ * per-card CPU blur that would make library flings jank. The material alpha remains readable.
  */
 @Composable
 fun Modifier.xvoxLiveBackdropBlur(
     shape: Shape = RectangleShape,
-    radius: Int = 18
+    radius: Int = 18,
+    /** Default UI requests Cloudy only for natural translucent chrome, never as a style rewrite. */
+    applyInDefault: Boolean = false
 ): Modifier {
     val sky = LocalXvoxBlurSky.current
-    val enabled = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR && sky != null
+    val appearance = LocalXvoxExperimentalAppearance.current
+    val transparentDefaultSurface = applyInDefault || XvoxTheme.colors.card.alpha < .995f
+    val enabled = sky != null && (
+        appearance == XvoxExperimentalAppearance.BLUR ||
+            (appearance == XvoxExperimentalAppearance.DEFAULT && transparentDefaultSurface)
+    )
     return if (enabled) {
         cloudy(
             sky = sky!!,

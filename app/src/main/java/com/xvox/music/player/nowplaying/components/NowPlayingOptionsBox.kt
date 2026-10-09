@@ -1,14 +1,20 @@
 package com.xvox.music.player.nowplaying.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,6 +22,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.components.SettingsChoiceRow
 
 /**
@@ -27,6 +34,7 @@ import com.xvox.music.features.settings.components.SettingsChoiceRow
 fun NowPlayingOptionsBox(
     chrome: XvoxChromeStyle,
     onChromeChange: (XvoxChromeStyle) -> Unit,
+    onCustomize: () -> Unit,
     onDismiss: () -> Unit
 ) {
     XvoxBox(
@@ -65,6 +73,29 @@ fun NowPlayingOptionsBox(
             )
 
             Text(
+                "Customize",
+                color = colors.primaryAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(colors.cardElevated)
+                    .xvoxPressScale { onCustomize() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Customize Now Playing layout",
+                    color = colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
                 "Control placement",
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
@@ -91,7 +122,7 @@ fun NowPlayingOptionsBox(
                 onSelect = { side -> onChromeChange(chrome.copy(nowPlayingOptionsGroupSide = side)) }
             )
             Text(
-                "Play stays centered. Android Wave uses a moving signal beam; Capsule, Pulse Bars, and Aurora remain lightweight live alternatives.",
+                "Customize opens a full-screen layout canvas. Android Wave keeps a stable wave while its progress beam travels through it.",
                 color = colors.mutedText,
                 fontSize = 10.sp,
                 lineHeight = 13.sp

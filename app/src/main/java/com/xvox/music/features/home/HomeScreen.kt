@@ -521,16 +521,21 @@ fun HomeScreen(
                     }
                 },
                 onArtistLongClick = { artist ->
-                    selectedSongIds = emptySet()
-                    selectedPlaylistIds = emptySet()
-                    selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
-                    selectionCategoryName = "Artists"
-                    selectedArtistNames = if (artist.name in selectedArtistNames) {
-                        selectedArtistNames - artist.name
+                    if (isArtistSelectionMode) {
+                        // Once the outer rail is active, long press remains a normal selection
+                        // toggle; it never mixes this collection state with song selection.
+                        selectedArtistNames = if (artist.name in selectedArtistNames) {
+                            selectedArtistNames - artist.name
+                        } else {
+                            selectedArtistNames + artist.name
+                        }
+                        if (selectedArtistNames.isEmpty()) selectionCategoryName = null
                     } else {
-                        selectedArtistNames + artist.name
+                        // Preserve the original artist option sheet. Its Select action enters the
+                        // distinct outer artist-selection rail, instead of long press jumping
+                        // straight into selection and hiding the prior actions.
+                        showArtistInfo = artist
                     }
-                    if (selectedArtistNames.isEmpty()) selectionCategoryName = null
                 },
                 selectedArtistNames = selectedArtistNames,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -590,7 +595,8 @@ fun HomeScreen(
                     },
                     onDeleted = {
                         if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
-                    }
+                    },
+                    selectTitle = "Select playlist"
                 )
             }
         )

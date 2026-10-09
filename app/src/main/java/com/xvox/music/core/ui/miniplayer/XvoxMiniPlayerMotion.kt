@@ -46,6 +46,9 @@ object XvoxMiniPlayerMotion {
     fun exitSpec(durationMillis: Int = XvoxPlayerTransitionMotion.Duration): AnimationSpec<Float> =
         XvoxPlayerTransitionMotion.spec(durationMillis)
 
+    /** Dedicated bottom handoff, faster than ordinary card movement and with no dwell. */
+    fun handoffSpec(): AnimationSpec<Float> = XvoxPlayerTransitionMotion.handoffSpec()
+
     val horizontalReturnSpec: AnimationSpec<Float>
         get() = spring(
             dampingRatio = 0.80f,

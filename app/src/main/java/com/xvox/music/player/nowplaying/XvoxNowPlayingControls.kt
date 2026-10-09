@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -56,7 +57,18 @@ fun XvoxNowPlayingControls(
     previewIndex: Int = -1,
     queueSize: Int = 0,
     /** Which outside transport edge owns Shuffle; Play stays fixed at the true center. */
-    shuffleRepeatSide: String = "left"
+    shuffleRepeatSide: String = "left",
+    /** Bottom-box customizer transparency and per-control freeform offsets in dp. */
+    controlsAlpha: Float = 1f,
+    playAlpha: Float = 1f,
+    shuffleRepeatOffsetX: Float = 0f,
+    shuffleRepeatOffsetY: Float = 0f,
+    previousOffsetX: Float = 0f,
+    previousOffsetY: Float = 0f,
+    playOffsetX: Float = 0f,
+    playOffsetY: Float = 0f,
+    nextOffsetX: Float = 0f,
+    nextOffsetY: Float = 0f
 ) {
     val colors = XvoxTheme.colors
     val isRepeatOne = repeatMode == RepeatMode.ONE
@@ -120,6 +132,21 @@ fun XvoxNowPlayingControls(
         PlayControl(isPlaying = isPlaying, onClick = onTogglePlay)
     }
 
+    @Composable
+    fun controlSurface(alpha: Float, content: @Composable () -> Unit) {
+        Box(Modifier.graphicsLayer(alpha = alpha.coerceIn(0f, 1f))) { content() }
+    }
+
+    val outerOffset = shuffleRepeatOffsetX to shuffleRepeatOffsetY
+    val previousOffset = previousOffsetX to previousOffsetY
+    val playOffset = playOffsetX to playOffsetY
+    val nextOffset = nextOffsetX to nextOffsetY
+    val orderedOffsets = if (shuffleRepeatSide == "right") {
+        listOf(outerOffset, previousOffset, playOffset, nextOffset, outerOffset)
+    } else {
+        listOf(outerOffset, previousOffset, playOffset, nextOffset, outerOffset)
+    }
+
     Layout(
         modifier = modifier
             .fillMaxWidth()
@@ -128,17 +155,17 @@ fun XvoxNowPlayingControls(
             // The user may swap only the two outer utility controls. Previous/next stay paired
             // around the Play circle, and Play itself is always measured at the true midpoint.
             if (shuffleRepeatSide == "right") {
-                key("nowPlayingRepeat") { repeatControl() }
-                key("nowPlayingPrevious") { previousControl() }
-                key("nowPlayingPlay") { playControl() }
-                key("nowPlayingNext") { nextControl() }
-                key("nowPlayingShuffle") { shuffleControl() }
+                key("nowPlayingRepeat") { controlSurface(controlsAlpha) { repeatControl() } }
+                key("nowPlayingPrevious") { controlSurface(controlsAlpha) { previousControl() } }
+                key("nowPlayingPlay") { controlSurface(playAlpha) { playControl() } }
+                key("nowPlayingNext") { controlSurface(controlsAlpha) { nextControl() } }
+                key("nowPlayingShuffle") { controlSurface(controlsAlpha) { shuffleControl() } }
             } else {
-                key("nowPlayingShuffle") { shuffleControl() }
-                key("nowPlayingPrevious") { previousControl() }
-                key("nowPlayingPlay") { playControl() }
-                key("nowPlayingNext") { nextControl() }
-                key("nowPlayingRepeat") { repeatControl() }
+                key("nowPlayingShuffle") { controlSurface(controlsAlpha) { shuffleControl() } }
+                key("nowPlayingPrevious") { controlSurface(controlsAlpha) { previousControl() } }
+                key("nowPlayingPlay") { controlSurface(playAlpha) { playControl() } }
+                key("nowPlayingNext") { controlSurface(controlsAlpha) { nextControl() } }
+                key("nowPlayingRepeat") { controlSurface(controlsAlpha) { repeatControl() } }
             }
         }
     ) { measurables, constraints ->
@@ -151,7 +178,11 @@ fun XvoxNowPlayingControls(
             placeables.forEachIndexed { index, placeable ->
                 val x = (constraints.maxWidth * centers[index] - placeable.width / 2f).toInt()
                 val y = (constraints.maxHeight - placeable.height) / 2
-                placeable.placeRelative(x, y)
+                val (offsetX, offsetY) = orderedOffsets[index]
+                placeable.placeRelative(
+                    x + offsetX.dp.roundToPx(),
+                    y + offsetY.dp.roundToPx()
+                )
             }
         }
     }

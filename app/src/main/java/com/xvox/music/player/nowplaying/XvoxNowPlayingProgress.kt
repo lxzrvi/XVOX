@@ -1,5 +1,8 @@
 package com.xvox.music.player.nowplaying
 
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -82,16 +85,20 @@ fun XvoxNowPlayingProgress(
         }
 
     val latestRealFraction by rememberUpdatedState(realFraction)
+    // Playback callbacks arrive in discrete samples. Interpolate the visual rail between samples
+    // so every style travels continuously, while a finger drag always remains exact/direct.
+    val animatedFraction by animateFloatAsState(
+        targetValue = realFraction,
+        animationSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
+        label = "nowPlayingPremiumProgress"
+    )
+    val visibleFraction = if (dragging) dragFraction else animatedFraction
 
-    val visibleFraction =
-        if (dragging) dragFraction else realFraction
-
-    val visiblePosition =
-        if (dragging && duration > 0L) {
-            (duration * visibleFraction).toLong()
-        } else {
-            position
-        }
+    val visiblePosition = if (duration > 0L) {
+        (duration * visibleFraction).toLong()
+    } else {
+        position
+    }
 
     val activeColor = colors.primaryAccent
 
@@ -209,13 +216,12 @@ fun XvoxNowPlayingProgress(
                     offsetPhase: Float = 0f,
                     compression: Float = 1f
                 ): Float {
-                    // A varying envelope gives Android Wave its recognisable audio-like motion.
-                    // It is derived from normal playback position, so it costs no idle animation
-                    // coroutine when music is paused.
+                    // Android Wave is a stable waveform: playback moves only the progress beam
+                    // through it. No phase is tied to time, so it never appears to oscillate.
                     val envelope = .44f + .56f * kotlin.math.abs(
-                        sin((normalizedX * PI * 3.1f) + phase * .16f + offsetPhase).toFloat()
+                        sin((normalizedX * PI * 3.1f) + offsetPhase).toFloat()
                     )
-                    val signal = sin(normalizedX * PI * 15.5f * compression + phase + offsetPhase).toFloat()
+                    val signal = sin(normalizedX * PI * 15.5f * compression + offsetPhase).toFloat()
                     return y + signal * amplitude * envelope
                 }
 
@@ -243,19 +249,37 @@ fun XvoxNowPlayingProgress(
                     )
                 }
 
+                val introEndX = size.width * introFraction
+                val tailStartX = size.width * (1f - tailFraction)
+                fun crossfadeColorAt(x: Float): androidx.compose.ui.graphics.Color = when {
+                    introFraction > 0f && x <= introEndX -> XvoxBlendInColor
+                    tailFraction > 0f && x >= tailStartX -> XvoxBlendOutColor
+                    else -> activeColor
+                }
+
+                /** Paint zones last so blend colours remain visible in every style, even over progress. */
+                fun drawWaveCrossfadeZones(alpha: Float = .94f, phaseOffset: Float = 0f) {
+                    if (introFraction > 0f) {
+                        clipRect(right = introEndX) { drawAndroidWave(XvoxBlendInColor, alpha, phaseOffset) }
+                    }
+                    if (tailFraction > 0f) {
+                        clipRect(left = tailStartX) { drawAndroidWave(XvoxBlendOutColor, alpha, phaseOffset) }
+                    }
+                }
+
                 when (normalizedStyle) {
                     "android_wave" -> {
-                        // Android-16-like Wave: one continuous signal beam with a clipped active
-                        // trail. A slim beam follows the wave itself; the former floating pill /
-                        // circular knob is gone, so it cannot feel detached from the waveform.
+                        // A fixed Android-style waveform is the rail. The single beam is the only
+                        // moving element, so the track stays visually calm while progress travels.
                         drawAndroidWave(activeColor, .24f)
-                        clipRect(right = progressX) { drawAndroidWave(activeColor, 1f) }
+                        drawWaveCrossfadeZones()
                         val beamY = signalWaveY(
                             normalizedX = if (size.width <= 0f) 0f else progressX / size.width,
                             amplitude = 3.8.dp.toPx()
                         )
+                        val beamColor = crossfadeColorAt(progressX)
                         drawLine(
-                            color = activeColor,
+                            color = beamColor,
                             start = Offset(progressX, beamY - 5.5.dp.toPx()),
                             end = Offset(progressX, beamY + 5.5.dp.toPx()),
                             strokeWidth = 2.dp.toPx(),
@@ -272,7 +296,8 @@ fun XvoxNowPlayingProgress(
                                 sin(index * .86f + phase * 1.18f).toFloat()
                             )
                             val height = 1.8.dp.toPx() + energy * 4.4.dp.toPx()
-                            val color = if (x <= progressX) activeColor else activeColor.copy(alpha = .25f)
+                            val zoneColor = crossfadeColorAt(x)
+                            val color = if (x <= progressX) zoneColor else zoneColor.copy(alpha = .25f)
                             drawLine(
                                 color = color,
                                 start = Offset(x, y - height),
@@ -281,24 +306,26 @@ fun XvoxNowPlayingProgress(
                                 cap = StrokeCap.Round
                             )
                         }
-                        drawCircle(activeColor, radius = 2.8.dp.toPx(), center = Offset(progressX, y))
+                        drawCircle(crossfadeColorAt(progressX), radius = 2.8.dp.toPx(), center = Offset(progressX, y))
                     }
 
                     "aurora" -> {
-                        // Two lightweight signal waves create a cool, readable alternative while
-                        // preserving a normal single-accent progress meaning.
+                        // The two layered rails retain an elegant moving energy in colour/active
+                        // state while the crossfade zones stay explicit and consistent.
                         drawAndroidWave(colors.secondaryText, .18f, phaseOffset = .75f)
                         drawAndroidWave(activeColor, .30f)
                         clipRect(right = progressX) {
                             drawAndroidWave(activeColor, .92f, phaseOffset = .75f)
                             drawAndroidWave(activeColor, 1f)
                         }
-                        drawCircle(activeColor, radius = 3.dp.toPx(), center = Offset(progressX, y))
+                        drawWaveCrossfadeZones(phaseOffset = .75f)
+                        drawWaveCrossfadeZones()
+                        drawCircle(crossfadeColorAt(progressX), radius = 3.dp.toPx(), center = Offset(progressX, y))
                     }
 
                     "pill" -> {
-                        // Redesigned Capsule: a calm filled rail with a compact vertical capsule
-                        // handle instead of the former thin line plus circular knob.
+                        // Capsule retains its tactile vertical handle while blend zones visibly
+                        // colour the relevant portions of both inactive and active rail.
                         val railHeight = 8.dp.toPx()
                         val top = y - railHeight / 2f
                         drawRoundRect(
@@ -315,10 +342,16 @@ fun XvoxNowPlayingProgress(
                                 cornerRadius = CornerRadius(railHeight / 2f, railHeight / 2f)
                             )
                         }
+                        if (introFraction > 0f) {
+                            drawRect(XvoxBlendInColor.copy(alpha = .92f), Offset(0f, top), androidx.compose.ui.geometry.Size(introEndX, railHeight))
+                        }
+                        if (tailFraction > 0f) {
+                            drawRect(XvoxBlendOutColor.copy(alpha = .92f), Offset(tailStartX, top), androidx.compose.ui.geometry.Size(size.width - tailStartX, railHeight))
+                        }
                         val handleHeight = 14.dp.toPx()
                         val handleWidth = 5.dp.toPx()
                         drawRoundRect(
-                            color = activeColor,
+                            color = crossfadeColorAt(progressX),
                             topLeft = Offset(progressX - handleWidth / 2f, y - handleHeight / 2f),
                             size = androidx.compose.ui.geometry.Size(handleWidth, handleHeight),
                             cornerRadius = CornerRadius(handleWidth / 2f, handleWidth / 2f)
@@ -334,24 +367,6 @@ fun XvoxNowPlayingProgress(
                             strokeWidth = stroke,
                             cap = StrokeCap.Round
                         )
-                        if (introFraction > 0f) {
-                            drawLine(
-                                color = XvoxBlendInColor.copy(alpha = .9f),
-                                start = Offset(0f, y),
-                                end = Offset(size.width * introFraction, y),
-                                strokeWidth = stroke,
-                                cap = StrokeCap.Round
-                            )
-                        }
-                        if (tailFraction > 0f) {
-                            drawLine(
-                                color = XvoxBlendOutColor.copy(alpha = .9f),
-                                start = Offset(size.width * (1f - tailFraction), y),
-                                end = Offset(size.width, y),
-                                strokeWidth = stroke,
-                                cap = StrokeCap.Round
-                            )
-                        }
                         if (progressX > 0f) {
                             drawLine(
                                 color = activeColor,
@@ -361,6 +376,28 @@ fun XvoxNowPlayingProgress(
                                 cap = StrokeCap.Round
                             )
                         }
+                        // Zone colours render last, as on every alternate treatment. They remain
+                        // readable through the active rail rather than disappearing after seek.
+                        if (introFraction > 0f) {
+                            drawLine(
+                                color = XvoxBlendInColor.copy(alpha = .92f),
+                                start = Offset(0f, y),
+                                end = Offset(introEndX, y),
+                                strokeWidth = stroke,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                        if (tailFraction > 0f) {
+                            drawLine(
+                                color = XvoxBlendOutColor.copy(alpha = .92f),
+                                start = Offset(tailStartX, y),
+                                end = Offset(size.width, y),
+                                strokeWidth = stroke,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                        drawCircle(crossfadeColorAt(progressX), radius = 2.3.dp.toPx(), center = Offset(progressX, y))
+                    }
                     }
                 }
             }

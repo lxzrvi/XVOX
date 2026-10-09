@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,7 +44,9 @@ fun XvoxNowPlayingHeader(
     playingSource: String = "All Songs",
     useSystemInsets: Boolean = true,
     /** Optional side for the compact share/options group; collapse remains at its stable edge. */
-    optionsGroupSide: String = "right"
+    optionsGroupSide: String = "right",
+    /** Shared transparency for collapse, options, and the utility-control family. */
+    controlsAlpha: Float = 1f
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -60,8 +63,9 @@ fun XvoxNowPlayingHeader(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .size(40.dp)
+                .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                 .clip(CircleShape)
-                .xvoxLiveBackdropBlur(CircleShape, radius = 16)
+                .xvoxLiveBackdropBlur(CircleShape, radius = 16, applyInDefault = true)
                 .background(colors.card.copy(alpha = colors.card.alpha * .72f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -133,8 +137,9 @@ fun XvoxNowPlayingHeader(
                     // Left-side placement starts after the always-present collapse button.
                     .then(if (optionsGroupSide == "left") Modifier.padding(start = 46.dp) else Modifier)
                     .height(40.dp)
+                    .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(20.dp))
-                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16)
+                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16, applyInDefault = true)
                     .background(colors.card.copy(alpha = colors.card.alpha * .72f))
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically

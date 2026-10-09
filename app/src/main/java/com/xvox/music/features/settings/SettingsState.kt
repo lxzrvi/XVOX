@@ -11,7 +11,7 @@ data class SettingsState(
     val theme: String = "System",
     /** Default or live Blur app-wide experimental UI. */
     val experimentalAppearance: String = "default",
-    val accentColor: String = "White",
+    val accentColor: String = "Red",
     val backgroundName: String = "Default",
     /** Custom photo behind the Home header; null keeps the theme surface. */
     val headerImageUri: String? = null,

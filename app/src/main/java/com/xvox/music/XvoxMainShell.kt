@@ -163,16 +163,8 @@ fun XvoxMainShell(
     // scroll progress; they never recreate a page-local Header while route content changes.
     var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
     var searchHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
-    // Closing Now Playing must never reveal a stale, already-hidden Header from the underlying
-    // page. Reset only after a real player round-trip; ordinary initial composition stays intact.
-    var hadVisibleNowPlaying by remember { mutableStateOf(false) }
-    LaunchedEffect(player.nowPlayingVisible) {
-        if (hadVisibleNowPlaying && !player.nowPlayingVisible) {
-            homeHeaderScrollPx = 0
-            searchHeaderScrollPx = 0
-        }
-        hadVisibleNowPlaying = player.nowPlayingVisible
-    }
+    // Now Playing is an overlay, not a route: never reset an underlying page's exact scroll or
+    // Header translation when the player is closed. The shell remains composed below it.
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDraft by remember { mutableStateOf(ProfileEditorDraft.from(homeState.profile, baseChrome)) }
     // A saved Profile draft keeps its Header preview alive through the async preference round-trip
@@ -704,14 +696,13 @@ fun XvoxMainShell(
             WindowInsets.statusBars.getTop(this).toDp()
         } + XvoxShellTopHeaderBodyHeight
         val sharedHeaderHeightPx = with(density) { sharedHeaderHeight.toPx() }
-        // A player close must render the shell Header at rest in its very first returning frame,
-        // rather than briefly remounting a stale off-screen translation and correcting later.
-        val returningFromNowPlaying = hadVisibleNowPlaying && !player.nowPlayingVisible
-        val activeHeaderScrollPx = (if (returningFromNowPlaying) 0 else when (destination) {
+        // Now Playing never owns route/header state. Its close frame uses the active page's
+        // existing scroll-derived translation without a reset or compensating motion.
+        val activeHeaderScrollPx = when (destination) {
             XvoxDestination.HOME -> homeHeaderScrollPx
             XvoxDestination.SEARCH -> searchHeaderScrollPx
             XvoxDestination.SETTINGS -> 0
-        }).coerceAtLeast(0)
+        }.coerceAtLeast(0)
         // Header and page content travel together for the full Header height on both Home and
         // Search. The field/pane owns its own status-safe clamp once this shared chrome leaves.
         val targetHeaderTranslationY = when (destination) {
@@ -738,7 +729,6 @@ fun XvoxMainShell(
             }
         }
         val sharedHeaderTranslationY = when {
-            returningFromNowPlaying -> 0f
             // While a page is settled, use its scroll-derived translation in the very same
             // composition frame. The Header therefore travels with Home/Search content rather
             // than visibly easing a beat behind it.

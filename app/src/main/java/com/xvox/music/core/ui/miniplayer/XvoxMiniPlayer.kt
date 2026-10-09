@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -75,19 +76,19 @@ fun XvoxMiniPlayer(
 ) {
     val density = LocalDensity.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val transitionDuration = XvoxPlayerTransitionMotion.durationFor(chrome.miniPlayerTransitionDuration)
     val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
-    // The painted card sits inside a 122dp host and can be moved upward by the persisted placement
-    // control. Include that upward displacement in the exit path: a card placed high up still has
-    // to travel completely below the physical bottom edge before Now Playing may mount.
+    // The painted card sits at the host's lower edge. Its 56dp height plus a small clearance is
+    // enough to cross the physical bottom; include any upward custom placement so a lifted card
+    // still clears before Now Playing mounts. The former 246dp travel left a perceptible empty
+    // wait at both ends of the handoff.
     val exitDistance = with(density) {
         val upwardPlacement = (-totalPlacementY.value).coerceAtLeast(0f).dp
-        (246.dp + upwardPlacement + 12.dp).toPx()
+        (76.dp + upwardPlacement).toPx()
     }
     val y = remember(riseKey) { Animatable(exitDistance) }
 
@@ -108,8 +109,9 @@ fun XvoxMiniPlayer(
     }
     var transitionDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(riseKey, transitionDuration) {
-        y.animateTo(0f, XvoxMiniPlayerMotion.riseSpec(transitionDuration))
+    LaunchedEffect(riseKey) {
+        // Return from Now Playing begins visibly in the first frame after the full sheet clears.
+        y.animateTo(0f, XvoxMiniPlayerMotion.handoffSpec())
     }
 
     LaunchedEffect(currentSongId, currentIndex) {
@@ -150,7 +152,7 @@ fun XvoxMiniPlayer(
             dragX = 0f
             y.snapTo(currentY.coerceAtLeast(0f))
             dragY = 0f
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.exitSpec(transitionDuration))
+            y.animateTo(exitDistance, XvoxMiniPlayerMotion.handoffSpec())
 
             if (stop) {
                 stopAndDismiss()
@@ -325,6 +327,9 @@ fun XvoxMiniPlayer(
                         translationX = dragX + size.width * transitionLayer.xFraction
                         translationY = y.value + dragY + size.height * transitionLayer.yFraction
                         alpha = transitionLayer.alpha
+                        // Scale contracts down into the physical bottom handoff, matching the
+                        // full player's bottom-anchored close rather than a centered zoom.
+                        transformOrigin = TransformOrigin(.5f, 1f)
                         scaleX = transitionLayer.scaleX
                         scaleY = transitionLayer.scaleY
                         rotationZ = transitionLayer.rotationZ

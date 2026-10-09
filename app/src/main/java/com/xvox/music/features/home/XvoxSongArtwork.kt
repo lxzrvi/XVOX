@@ -99,6 +99,10 @@ fun XvoxSongArtwork(
     }
 
     val visibleBitmap = decodedBitmap ?: previousBitmap.takeIf { keepPreviousOnLoading }
+    // asImageBitmap() allocations on every parent playback-state recomposition were enough to
+    // make a dense library fling feel behind the finger. Keep the exact decoded bitmap/quality;
+    // only its lightweight Compose wrapper is memoized.
+    val visibleImageBitmap = remember(visibleBitmap) { visibleBitmap?.asImageBitmap() }
     val request = remember(artwork, requestSize) {
         val builder = ImageRequest.Builder(context)
             .data(artwork)
@@ -118,9 +122,9 @@ fun XvoxSongArtwork(
         modifier = modifier.background(colors.cardElevated),
         contentAlignment = Alignment.Center
     ) {
-        visibleBitmap?.let { bitmap ->
+        visibleImageBitmap?.let { imageBitmap ->
             Image(
-                bitmap = bitmap.asImageBitmap(),
+                bitmap = imageBitmap,
                 contentDescription = null,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize()

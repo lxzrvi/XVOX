@@ -89,7 +89,7 @@ fun HomeCollectionMultiSelectBar(
                 modifier = modifier
                     .width(70.dp)
                     .clip(railShape)
-                    .xvoxGlassReflection(shape = railShape, radius = 20)
+                    .xvoxGlassReflection(shape = railShape, radius = 20, applyInDefault = true)
                     .background(colors.cardElevated)
                     .padding(start = 7.dp, top = 8.dp, end = 2.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
