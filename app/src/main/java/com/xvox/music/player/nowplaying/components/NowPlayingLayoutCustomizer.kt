@@ -364,7 +364,7 @@ private fun XvoxLayoutDraggableToken(
             .offset { IntOffset(with(density) { latestX.dp.toPx() }.roundToInt(), with(density) { latestY.dp.toPx() }.roundToInt()) }
             .pointerInput(label) {
                 detectDragGesturesAfterLongPress(
-                    onDrag = { change, amount: Offset ->
+                    onDrag = { change, amount ->
                         change.consume()
                         val nextX = (latestX + with(density) { amount.x.toDp().value }).coerceIn(-220f, 220f)
                         val nextY = (latestY + with(density) { amount.y.toDp().value }).coerceIn(-260f, 260f)
