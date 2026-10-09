@@ -523,9 +523,10 @@ fun XvoxNowPlaying(
             }
             .clip(sheetCorner)
             .background(colors.background)
-            .pointerInput(Unit) {
-                // Consume clicks on backdrop to prevent click-through to home screen below
-                detectTapGestures { }
+            .pointerInput(activeSettingsBox) {
+                // The full-screen customizer owns its long-press/drag gestures. Outside it, the
+                // player still consumes backdrop taps so no event can click through to Home.
+                if (activeSettingsBox != "Customize") detectTapGestures { }
             }
     ) {
         XvoxNowPlayingBackdrop(

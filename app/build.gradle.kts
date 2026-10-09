@@ -46,7 +46,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
-    // Cloudy's shared Sky backdrop API provides the live Blur appearance on the supported SDK.
-    implementation("com.github.skydoves:cloudy:0.7.1")
+    // 0.6.1 is the newest Cloudy release line compatible with this app's Android-36 toolchain.
+    // It retains the real shared-Sky live blur API without pulling Android-37-only artifacts.
+    implementation("com.github.skydoves:cloudy:0.6.1")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }
