@@ -173,16 +173,16 @@ fun XvoxNowPlayingControls(
             it.measure(constraints.copy(minWidth = 0, minHeight = 0))
         }
         val centers = floatArrayOf(0.10f, 0.30f, 0.50f, 0.70f, 0.90f)
+        // Resolve dp offsets in the MeasureScope before entering PlacementScope; this keeps free
+        // layout offsets density-correct on every screen while controls retain their base slots.
+        val pixelOffsets = orderedOffsets.map { (x, y) -> x.dp.roundToPx() to y.dp.roundToPx() }
 
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeables.forEachIndexed { index, placeable ->
                 val x = (constraints.maxWidth * centers[index] - placeable.width / 2f).toInt()
                 val y = (constraints.maxHeight - placeable.height) / 2
-                val (offsetX, offsetY) = orderedOffsets[index]
-                placeable.placeRelative(
-                    x + offsetX.dp.roundToPx(),
-                    y + offsetY.dp.roundToPx()
-                )
+                val (offsetX, offsetY) = pixelOffsets[index]
+                placeable.placeRelative(x + offsetX, y + offsetY)
             }
         }
     }
