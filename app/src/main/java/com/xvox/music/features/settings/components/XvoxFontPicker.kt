@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,7 +58,7 @@ fun XvoxFontPickerContent(
             color = colors.secondaryText,
             fontSize = 12.sp,
             lineHeight = 16.sp,
-            modifier = Modifier.padding(horizontal = 4.dp, bottom = 2.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 2.dp)
         )
         XvoxFontOptions.forEach { option ->
             XvoxFontSettingsRow(
@@ -73,7 +72,7 @@ fun XvoxFontPickerContent(
             color = colors.mutedText,
             fontSize = 10.sp,
             lineHeight = 13.sp,
-            modifier = Modifier.padding(horizontal = 4.dp, top = 3.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 3.dp)
         )
     }
 }
