@@ -2,6 +2,11 @@ package com.xvox.music.features.setup
 
 import android.net.Uri
 
+enum class PermissionRequest {
+    AUDIO,
+    NOTIFICATIONS
+}
+
 enum class PfpType(
     val label: String,
 ) {
@@ -22,6 +27,9 @@ data class SetupUiState(
     val customPfpUris: List<String> = emptyList(),
     val audioGranted: Boolean = false,
     val notificationGranted: Boolean = false,
+    /** A request is visibly pending, but never changes the permission's checked state. */
+    val audioRequestPending: Boolean = false,
+    val notificationRequestPending: Boolean = false,
 ) {
     val setupComplete: Boolean
         get() =

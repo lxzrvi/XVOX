@@ -190,12 +190,12 @@ fun WidgetSettingsSection(
             }
 
             Spacer(Modifier.height(8.dp))
-            Group("Placement & Free Movement")
+            Group("Placement & full-widget movement")
             SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "right" to "Right", "top" to "Top", "bottom" to "Bottom", "hidden" to "Hidden"), c.coverPlacement) { value -> editWidget { it.copy(coverPlacement = value) } }
             Spacer(Modifier.height(8.dp))
             // Twelve discrete legacy buttons made this row wrap/scroll unpredictably. The shared
             // stepped slider retains every exact size while staying responsive at all widths.
-            val coverSizes = listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300)
+            val coverSizes = listOf(0, 32, 48, 64, 80, 96, 120, 144, 180, 220, 260, 300, 320, 360)
             val selectedCoverIndex = coverSizes.indexOf(c.coverSize).takeIf { it >= 0 } ?: 0
             XvoxSlider(
                 value = selectedCoverIndex.toFloat(),
@@ -213,10 +213,10 @@ fun WidgetSettingsSection(
             )
 
             Spacer(Modifier.height(8.dp))
-            Group("Surface Offsets")
-            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+            Group("Free-canvas offsets")
+            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -360f..360f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -120f..120f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -360f..360f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Shape")
@@ -242,12 +242,12 @@ fun WidgetSettingsSection(
             WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
-            Group("Placement & Surface Offset")
+            Group("Placement & free-canvas offset")
             SettingsChoiceRow(listOf("left" to "Left", "center" to "Center", "right" to "Right"), l.alignment) { v -> label { it.copy(alignment = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset X", l.offsetX.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", l.offsetX.toFloat(), -360f..360f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", l.offsetY.toFloat(), -120f..120f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", l.offsetY.toFloat(), -360f..360f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsAccordionItem(
@@ -266,9 +266,9 @@ fun WidgetSettingsSection(
 
             Spacer(Modifier.height(8.dp))
             Group("Surface Offset")
-            WidgetSlider("Offset X", b.offsetX.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", b.offsetX.toFloat(), -360f..360f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", b.offsetY.toFloat(), -120f..120f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", b.offsetY.toFloat(), -360f..360f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsChoiceRow(listOf("reset_all" to "Reset live widget", "reset_base" to "Reset defaults"), "") { key ->

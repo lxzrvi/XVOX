@@ -1,6 +1,7 @@
 package com.xvox.music.features.settings.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,31 +9,41 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxFontOption
 import com.xvox.music.core.design.theme.XvoxFontOptions
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
-/** A compact, offline picker. Every choice previews itself in its real bundled OFL typeface. */
+/**
+ * A Settings-native offline font picker. System remains first and uses FontFamily.Default; each
+ * bundled option previews the actual persistent family rather than a lookalike sample typeface.
+ */
 @Composable
 fun XvoxFontPickerContent(
     selectedKey: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
     Column(
         modifier = modifier
@@ -44,38 +55,30 @@ fun XvoxFontPickerContent(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Choose a font",
-            color = XvoxTheme.colors.secondaryText,
+            text = "Choose the typeface used throughout XVOX.",
+            color = colors.secondaryText,
             fontSize = 12.sp,
-            lineHeight = 16.sp
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(horizontal = 4.dp, bottom = 2.dp)
         )
-        XvoxFontOptions.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                row.forEach { option ->
-                    XvoxFontChoiceButton(
-                        option = option,
-                        selected = option.key == selectedKey,
-                        onClick = { onSelect(option.key) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                if (row.size == 1) Box(Modifier.weight(1f))
-            }
+        XvoxFontOptions.forEach { option ->
+            XvoxFontSettingsRow(
+                option = option,
+                selected = option.key == selectedKey,
+                onClick = { onSelect(option.key) }
+            )
         }
         Text(
-            text = "System follows your phone font. All remaining families are bundled offline under SIL Open Font License 1.1.",
-            color = XvoxTheme.colors.mutedText,
+            text = "System follows your Android device font. Other families are bundled offline under SIL Open Font License 1.1.",
+            color = colors.mutedText,
             fontSize = 10.sp,
             lineHeight = 13.sp,
-            modifier = Modifier.padding(top = 2.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, top = 3.dp)
         )
     }
 }
 
-/** Small Appearance-card trigger that previews the currently active typeface before opening it. */
+/** Appearance-card trigger in the same full-width option-row language as Settings. */
 @Composable
 fun XvoxFontPickerButton(
     selectedKey: String,
@@ -84,70 +87,96 @@ fun XvoxFontPickerButton(
 ) {
     val option = XvoxFontOptions.firstOrNull { it.key == selectedKey }
         ?: XvoxFontOptions.first { it.key == "inter" }
-    XvoxFontChoiceButton(option = option, selected = false, onClick = onClick, modifier = modifier, openLabel = true)
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(colors.cardElevated)
+            .border(.8.dp, colors.cardBorder, shape)
+            .xvoxPressScale(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = option.label,
+                color = colors.primaryText,
+                fontFamily = option.fontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (option.key == "system") "Android default typeface" else "Aa The quick brown fox",
+                color = colors.secondaryText,
+                fontFamily = option.fontFamily,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text("Change", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
-private fun XvoxFontChoiceButton(
+private fun XvoxFontSettingsRow(
     option: XvoxFontOption,
     selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    openLabel: Boolean = false
+    onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(12.dp)
-    Box(
-        modifier = modifier
-            .heightIn(min = if (openLabel) 48.dp else 70.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
             .clip(shape)
-            .background(if (selected) colors.primaryAccent else colors.cardElevated)
+            .background(if (selected) colors.accentSoft else colors.cardElevated)
+            .border(
+                width = if (selected) 1.dp else .8.dp,
+                color = if (selected) colors.primaryAccent.copy(alpha = .72f) else colors.cardBorder,
+                shape = shape
+            )
             .xvoxPressScale(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = if (openLabel) 8.dp else 10.dp),
-        contentAlignment = Alignment.CenterStart
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (openLabel) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = option.label,
+                color = colors.primaryText,
+                fontFamily = option.fontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (option.key == "system") "Android system font" else "Aa The quick brown fox jumps",
+                color = colors.secondaryText,
+                fontFamily = option.fontFamily,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(colors.primaryAccent),
+                contentAlignment = Alignment.Center
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = option.label,
-                        color = colors.primaryText,
-                        fontFamily = option.fontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "Tap to change",
-                        color = colors.secondaryText,
-                        fontSize = 10.sp
-                    )
-                }
-                Text("›", color = colors.primaryAccent, fontSize = 22.sp)
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = option.label,
-                    color = if (selected) colors.background else colors.primaryText,
-                    fontFamily = option.fontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Aa The quick brown fox",
-                    color = if (selected) colors.background.copy(alpha = .78f) else colors.secondaryText,
-                    fontFamily = option.fontFamily,
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_check),
+                    contentDescription = "Selected",
+                    tint = colors.background,
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }

@@ -1,7 +1,6 @@
 package com.xvox.music
 
 import android.net.Uri
-import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -14,14 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import com.skydoves.cloudy.rememberSky
-import com.skydoves.cloudy.sky
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -39,6 +35,8 @@ import com.xvox.music.core.ui.overlay.XvoxOverlayHost
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.SetupScreen
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 
 @Composable
@@ -164,41 +162,21 @@ fun XvoxAppRoot(
         uiFontFamily = selectedUiFont
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
-        // Default UI only starts a Cloudy recorder when a real backdrop can show through a
-        // translucent surface. Blur UI always owns one. This keeps opaque Default screens fast
-        // while still using the real live source wherever default chrome genuinely needs blur.
+        // One Haze source sits behind the app chrome. It is only mounted when a true backdrop can
+        // be seen (Blur UI, a selected background image, or transparent cards), so normal opaque
+        // screens do not pay for a capture layer. Haze has no source-ready recorder race when
+        // Home mounts.
         val defaultBackdropCanShowThrough = backgroundImage.isNotBlank() || cardTransparency > .005f
-        val cloudySourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
+        val hazeSourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
             defaultBackdropCanShowThrough
-        // Recreate the one Sky source at a source/mode boundary. A fresh recorder prevents a
-        // detached Blur source from being reused after the user switches UI mode and then opens
-        // Home; all surfaces below still share this single real live backdrop.
-        key(experimentalAppearance, cloudySourceEnabled) {
-            val blurSky = rememberSky()
-            // Cloudy targets must not attach until the Sky source has been composed and drawn at
-            // least once. Attaching target recorders in the same frame as a newly replaced source
-            // was the race that could close the app when Blur was enabled and Home mounted.
-            var cloudySourceReady by remember(experimentalAppearance, cloudySourceEnabled) {
-                mutableStateOf(false)
-            }
-            val canUseGpuLiveBlur = cloudySourceEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            LaunchedEffect(canUseGpuLiveBlur, blurSky) {
-                cloudySourceReady = false
-                if (canUseGpuLiveBlur) {
-                    withFrameNanos { }
-                    withFrameNanos { }
-                    cloudySourceReady = true
-                    blurSky.invalidate(220L)
-                }
-            }
+        val hazeState = rememberHazeState(blurEnabled = hazeSourceEnabled)
+
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
-            // A non-null sky means the real GPU source is attached and ready; callers never
-            // substitute a synthetic/static blur on unsupported or not-yet-ready frames.
-            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (canUseGpuLiveBlur && cloudySourceReady) blurSky else null,
+            com.xvox.music.core.ui.effects.LocalXvoxHazeState provides if (hazeSourceEnabled) hazeState else null,
             LocalXvoxHaptics provides haptics
         ) {
             Box(
@@ -206,65 +184,52 @@ fun XvoxAppRoot(
                     .fillMaxSize()
                     .background(XvoxTheme.colors.background)
             ) {
-                // Keep the Cloudy source and the overlay host as siblings. A sheet, popup, or
-                // selection rail is therefore never captured into its own blurred backdrop.
+                // Haze follows its documented source/effect sibling arrangement. The source only
+                // contains what can sit behind glass; sheets and controls are siblings above it,
+                // so an effect can never capture or blur itself.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (canUseGpuLiveBlur) Modifier.sky(blurSky) else Modifier)
+                        .then(if (hazeSourceEnabled) Modifier.hazeSource(hazeState) else Modifier)
                 ) {
-                    // The source keeps the chosen image sharp in a single Cloudy recorder.
-                    // Individual translucent surfaces sample this actual moving hierarchy rather
-                    // than a pre-painted full-screen blur.
                     if (backgroundImage.isNotBlank()) {
                         AsyncImage(
                             model = Uri.parse(backgroundImage),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            onSuccess = {
-                                // An image result can arrive after a Blur mode/source switch;
-                                // only refresh the current, mounted Sky recorder.
-                                if (cloudySourceReady) blurSky.invalidate()
-                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    LaunchedEffect(canUseGpuLiveBlur, cloudySourceReady, backgroundImage) {
-                        // The readiness effect above performs the first safe invalidation. Later
-                        // backdrop image changes refresh the same mounted live source only after
-                        // it is known to be attached.
-                        if (canUseGpuLiveBlur && cloudySourceReady) blurSky.invalidate(220L)
-                    }
-                    if (state == AppUiState.Setup) {
-                        SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                    } else {
-                        if (shellMounted && homeVm != null && playerVm != null) {
-                            XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
-                        }
+                }
 
-                        AnimatedVisibility(
-                            visible = state != AppUiState.Home,
-                            enter = fadeIn(tween(120)),
-                            exit = fadeOut(tween(260))
-                        ) {
-                            XvoxStartupLoadingScreen(
-                                readyToEnter = shellMounted && dataReady,
-                                progress = startupProgress,
-                                onSequenceComplete = {
-                                    if (!startupSequenceReleased && shellMounted) {
-                                        startupSequenceReleased = true
-                                        viewModel.report(1f, "Ready")
-                                        viewModel.onHomeReady()
-                                    }
+                if (state == AppUiState.Setup) {
+                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                } else {
+                    if (shellMounted && homeVm != null && playerVm != null) {
+                        XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                    }
+
+                    AnimatedVisibility(
+                        visible = state != AppUiState.Home,
+                        enter = fadeIn(tween(120)),
+                        exit = fadeOut(tween(260))
+                    ) {
+                        XvoxStartupLoadingScreen(
+                            readyToEnter = shellMounted && dataReady,
+                            progress = startupProgress,
+                            onSequenceComplete = {
+                                if (!startupSequenceReleased && shellMounted) {
+                                    startupSequenceReleased = true
+                                    viewModel.report(1f, "Ready")
+                                    viewModel.onHomeReady()
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
 
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }
-        }
         }
     }
 }

@@ -68,7 +68,10 @@ import com.xvox.music.features.settings.sections.PlaybackSettingsDraftSection
 import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
-import com.xvox.music.player.nowplaying.components.NowPlayingLayoutCustomizer
+import com.xvox.music.player.nowplaying.components.NowPlayingEditItem
+import com.xvox.music.player.nowplaying.components.NowPlayingEditSession
+import com.xvox.music.player.nowplaying.components.NowPlayingEditableCover
+import com.xvox.music.player.nowplaying.components.NowPlayingEditableTarget
 import com.xvox.music.player.nowplaying.lyrics.XvoxArtworkLyrics
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyricsViewModel
 import com.xvox.music.player.nowplaying.lyrics.lyricsFullscreenMotion
@@ -135,8 +138,18 @@ fun XvoxNowPlaying(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    val persistedChrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
         .normalizedNowPlayingGrid()
+    // Customize is a true local transaction over this live player—not a second replica screen.
+    // The draft is discarded by X/back and reaches DataStore only from Okay.
+    var customizeDraft by remember { mutableStateOf<com.xvox.music.core.ui.chrome.XvoxChromeStyle?>(null) }
+    val chrome = (customizeDraft ?: persistedChrome).normalizedNowPlayingGrid()
+    val customizeSession = customizeDraft?.let {
+        NowPlayingEditSession(draft = chrome) { updated ->
+            customizeDraft = updated.normalizedNowPlayingGrid()
+        }
+    }
+    val isCustomizing = customizeSession != null
     val overlays = LocalXvoxOverlayController.current
     // The player chrome adopts the lyrics-box material once the display mode is known below.
     // The three Customize knobs remain independent multipliers above that shared baseline.
@@ -184,6 +197,9 @@ fun XvoxNowPlaying(
     var optionDraft by remember { mutableStateOf(settingsState) }
     fun openSettingsBox(name: String) {
         optionDraft = settingsState
+        if (name == "Customize") {
+            customizeDraft = persistedChrome.normalizedNowPlayingGrid()
+        }
         activeSettingsBox = name
     }
     fun applyCrossfadeDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
@@ -417,7 +433,9 @@ fun XvoxNowPlaying(
     BackHandler {
         when {
             activeSettingsBox != null -> {
-                // Ordinary sheet controls are already applied live; Back simply closes.
+                // Customize is transactional: X/back drops the in-place draft without touching
+                // live chrome. Ordinary option sheets remain live and simply close.
+                if (activeSettingsBox == "Customize") customizeDraft = null
                 activeSettingsBox = null
             }
             currentMode == 2 -> setMode(1)
@@ -536,6 +554,17 @@ fun XvoxNowPlaying(
             isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
             modifier = Modifier.fillMaxSize()
         )
+
+        if (isCustomizing) {
+            // Modal shield behind the real editable controls. The individual dotted targets and
+            // header actions are drawn afterwards, while empty player/cover space cannot fall
+            // through to Home or trigger an underlying player gesture.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput("nowPlayingCustomizeModal") { detectTapGestures { } }
+            )
+        }
 
         if (isLandscape) {
             // The ordinary landscape cover keeps its framed, rounded top/bottom containment.
@@ -682,9 +711,17 @@ fun XvoxNowPlaying(
                             playingSource = playingSource,
                             useSystemInsets = false,
                             optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
-                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                             surfaceAlpha = controlsSurfaceAlpha,
-                            modifier = Modifier.pointerInput(Unit) {
+                            customizeMode = isCustomizing,
+                            onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
+                            onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
+                            onCustomizeOkay = {
+                                settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
+                                customizeDraft = null
+                                activeSettingsBox = null
+                            },
+                            modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
                                     onVerticalDrag = { _, dragAmount ->
                                         screenY = (screenY + dragAmount).coerceAtLeast(0f)
@@ -698,7 +735,7 @@ fun XvoxNowPlaying(
                                     },
                                     onDragCancel = { returnToRest() }
                                 )
-                            }
+                            } else Modifier
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -725,22 +762,26 @@ fun XvoxNowPlaying(
                             onActionPageChange = onActionPageChange,
                             utilityPillSide = chrome.nowPlayingPillSide,
                             actionClusterSide = chrome.nowPlayingChangingActionsSide,
-                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                             surfaceAlpha = controlsSurfaceAlpha,
                             utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
                             utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
                             actionsOffsetX = chrome.nowPlayingActionsOffsetX,
-                            actionsOffsetY = chrome.nowPlayingActionsOffsetY
+                            actionsOffsetY = chrome.nowPlayingActionsOffsetY,
+                            editSession = customizeSession
                         )
 
                         Spacer(Modifier.height(2.dp))
 
-                        Column(
+                        NowPlayingEditableTarget(
+                            session = customizeSession,
+                            itemId = NowPlayingEditItem.Metadata,
                             modifier = Modifier.offset(
                                 x = chrome.nowPlayingMetadataOffsetX.dp,
                                 y = chrome.nowPlayingMetadataOffsetY.dp
                             )
                         ) {
+                            Column {
                             Text(
                                 text = song.title,
                                 color = colors.primaryText,
@@ -760,22 +801,28 @@ fun XvoxNowPlaying(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            }
                         }
 
                         Spacer(Modifier.height(2.dp))
 
+                        NowPlayingEditableTarget(
+                            session = customizeSession,
+                            itemId = NowPlayingEditItem.Progress,
+                            modifier = Modifier.offset(
+                                x = chrome.nowPlayingProgressOffsetX.dp,
+                                y = chrome.nowPlayingProgressOffsetY.dp
+                            )
+                        ) {
                         XvoxNowPlayingProgress(
                             currentSongId = song.id,
                             position = position,
                             duration = duration,
                             onSeek = onSeek,
                             showTime = true,
-                            style = chrome.nowPlayingSeekStyle,
-                            modifier = Modifier.offset(
-                                x = chrome.nowPlayingProgressOffsetX.dp,
-                                y = chrome.nowPlayingProgressOffsetY.dp
-                            )
+                            style = chrome.nowPlayingSeekStyle
                         )
+                        }
 
                         Spacer(Modifier.height(2.dp))
 
@@ -798,33 +845,43 @@ fun XvoxNowPlaying(
                             previewIndex = previewIndex,
                             queueSize = queue.size,
                             shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
-                            controlsAlpha = chrome.nowPlayingControlsAlpha,
-                            playAlpha = chrome.nowPlayingPlayAlpha,
+                            controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
+                            playAlpha = if (isCustomizing) 1f else chrome.nowPlayingPlayAlpha,
                             surfaceAlpha = controlsSurfaceAlpha,
                             shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
                             shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
+                            shuffleOffsetX = chrome.nowPlayingShuffleOffsetX,
+                            shuffleOffsetY = chrome.nowPlayingShuffleOffsetY,
+                            repeatOffsetX = chrome.nowPlayingRepeatOffsetX,
+                            repeatOffsetY = chrome.nowPlayingRepeatOffsetY,
                             previousOffsetX = chrome.nowPlayingPreviousOffsetX,
                             previousOffsetY = chrome.nowPlayingPreviousOffsetY,
                             playOffsetX = chrome.nowPlayingPlayOffsetX,
                             playOffsetY = chrome.nowPlayingPlayOffsetY,
                             nextOffsetX = chrome.nowPlayingNextOffsetX,
                             nextOffsetY = chrome.nowPlayingNextOffsetY,
+                            editSession = customizeSession,
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Text(
-                            text = "XVOX",
-                            // The right card is an XVOX theme surface; this mark must not follow
-                            // an artwork/adaptive accent that belongs to the player backdrop.
-                            color = colors.secondaryText.copy(alpha = 0.58f),
-                            fontFamily = XvoxLogoFont,
-                            fontSize = 11.5.sp,
-                            letterSpacing = 2.sp,
+                        NowPlayingEditableTarget(
+                            session = customizeSession,
+                            itemId = NowPlayingEditItem.Brand,
                             modifier = Modifier
                                 .align(Alignment.CenterHorizontally)
                                 .offset(x = chrome.nowPlayingBrandOffsetX.dp, y = chrome.nowPlayingBrandOffsetY.dp)
-                                .padding(top = 4.dp, bottom = 2.dp)
-                        )
+                        ) {
+                            Text(
+                                text = "XVOX",
+                                // The right card is an XVOX theme surface; this mark must not follow
+                                // an artwork/adaptive accent that belongs to the player backdrop.
+                                color = colors.secondaryText.copy(alpha = 0.58f),
+                                fontFamily = XvoxLogoFont,
+                                fontSize = 11.5.sp,
+                                letterSpacing = 2.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -888,6 +945,10 @@ fun XvoxNowPlaying(
                                 .clip(RoundedCornerShape(currentCardRadius))
                         )
                     } else {
+                        NowPlayingEditableCover(
+                            session = customizeSession,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
                         XvoxNowPlayingArtworkPager(
                             queue = queue,
                             occurrenceIds = queueOccurrenceIds,
@@ -909,6 +970,7 @@ fun XvoxNowPlaying(
                             pageSpacing = 12.dp,
                             repeatMode = repeatMode
                         )
+                        }
                     }
                 }
             }
@@ -931,9 +993,17 @@ fun XvoxNowPlaying(
                     onMore = { openSettingsBox("Style") },
                     playingSource = playingSource,
                     optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
-                    controlsAlpha = chrome.nowPlayingControlsAlpha,
+                    controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                     surfaceAlpha = controlsSurfaceAlpha,
-                    modifier = Modifier.pointerInput(Unit) {
+                    customizeMode = isCustomizing,
+                    onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
+                    onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
+                    onCustomizeOkay = {
+                        settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
+                        customizeDraft = null
+                        activeSettingsBox = null
+                    },
+                    modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
                                 screenY = (screenY + dragAmount).coerceAtLeast(0f)
@@ -947,7 +1017,7 @@ fun XvoxNowPlaying(
                             },
                             onDragCancel = { returnToRest() }
                         )
-                    }
+                    } else Modifier
                 )
             }
 
@@ -1012,24 +1082,28 @@ fun XvoxNowPlaying(
                             onActionPageChange = onActionPageChange,
                             utilityPillSide = chrome.nowPlayingPillSide,
                             actionClusterSide = chrome.nowPlayingChangingActionsSide,
-                            controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                             surfaceAlpha = controlsSurfaceAlpha,
                             utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
                             utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
                             actionsOffsetX = chrome.nowPlayingActionsOffsetX,
-                            actionsOffsetY = chrome.nowPlayingActionsOffsetY
+                            actionsOffsetY = chrome.nowPlayingActionsOffsetY,
+                            editSession = customizeSession
                         )
 
                         Spacer(Modifier.height(14.dp))
                     }
                 }
 
-                Column(
+                NowPlayingEditableTarget(
+                    session = customizeSession,
+                    itemId = NowPlayingEditItem.Metadata,
                     modifier = Modifier.offset(
                         x = chrome.nowPlayingMetadataOffsetX.dp,
                         y = chrome.nowPlayingMetadataOffsetY.dp
                     )
                 ) {
+                    Column {
                     Text(
                         text = song.title,
                         color = colors.primaryText,
@@ -1049,22 +1123,28 @@ fun XvoxNowPlaying(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    }
                 }
 
                 Spacer(Modifier.height(if (isCompact) 8.dp else 12.dp))
 
+                NowPlayingEditableTarget(
+                    session = customizeSession,
+                    itemId = NowPlayingEditItem.Progress,
+                    modifier = Modifier.offset(
+                        x = chrome.nowPlayingProgressOffsetX.dp,
+                        y = chrome.nowPlayingProgressOffsetY.dp
+                    )
+                ) {
                 XvoxNowPlayingProgress(
                     currentSongId = song.id,
                     position = position,
                     duration = duration,
                     onSeek = onSeek,
                     showTime = !isCompact,
-                    style = chrome.nowPlayingSeekStyle,
-                    modifier = Modifier.offset(
-                        x = chrome.nowPlayingProgressOffsetX.dp,
-                        y = chrome.nowPlayingProgressOffsetY.dp
-                    )
+                    style = chrome.nowPlayingSeekStyle
                 )
+                }
 
                 Spacer(Modifier.height(if (isCompact) 4.dp else 8.dp))
 
@@ -1087,32 +1167,42 @@ fun XvoxNowPlaying(
                     previewIndex = previewIndex,
                     queueSize = queue.size,
                     shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
-                    controlsAlpha = chrome.nowPlayingControlsAlpha,
-                    playAlpha = chrome.nowPlayingPlayAlpha,
+                    controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
+                    playAlpha = if (isCustomizing) 1f else chrome.nowPlayingPlayAlpha,
                     surfaceAlpha = controlsSurfaceAlpha,
                     shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
                     shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
+                    shuffleOffsetX = chrome.nowPlayingShuffleOffsetX,
+                    shuffleOffsetY = chrome.nowPlayingShuffleOffsetY,
+                    repeatOffsetX = chrome.nowPlayingRepeatOffsetX,
+                    repeatOffsetY = chrome.nowPlayingRepeatOffsetY,
                     previousOffsetX = chrome.nowPlayingPreviousOffsetX,
                     previousOffsetY = chrome.nowPlayingPreviousOffsetY,
                     playOffsetX = chrome.nowPlayingPlayOffsetX,
                     playOffsetY = chrome.nowPlayingPlayOffsetY,
                     nextOffsetX = chrome.nowPlayingNextOffsetX,
                     nextOffsetY = chrome.nowPlayingNextOffsetY,
+                    editSession = customizeSession,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(Modifier.height(if (isCompact) 6.dp else 10.dp))
 
-                Text(
-                    text = "XVOX",
-                    color = colors.primaryText.copy(alpha = 0.55f),
-                    fontFamily = XvoxLogoFont,
-                    fontSize = 11.sp,
-                    letterSpacing = 2.sp,
+                NowPlayingEditableTarget(
+                    session = customizeSession,
+                    itemId = NowPlayingEditItem.Brand,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .offset(x = chrome.nowPlayingBrandOffsetX.dp, y = chrome.nowPlayingBrandOffsetY.dp)
-                )
+                ) {
+                    Text(
+                        text = "XVOX",
+                        color = colors.primaryText.copy(alpha = 0.55f),
+                        fontFamily = XvoxLogoFont,
+                        fontSize = 11.sp,
+                        letterSpacing = 2.sp
+                    )
+                }
 
                 Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
             }
@@ -1120,18 +1210,12 @@ fun XvoxNowPlaying(
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
-            if (activeSettingsBox == "Customize") {
-                NowPlayingLayoutCustomizer(
-                    chrome = chrome,
-                    onChromeChange = { updated -> settingsViewModel.setChromeStyle { updated } },
-                    onClose = { activeSettingsBox = null }
-                )
-            } else if (activeSettingsBox == "Style") {
+            if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
-                    onCustomize = { activeSettingsBox = "Customize" },
+                    onCustomize = { openSettingsBox("Customize") },
                     onDismiss = { activeSettingsBox = null }
                 )
-            } else {
+            } else if (activeSettingsBox != "Customize") {
                 val boxTitle = when (activeSettingsBox) {
                     "Equalizer" -> "Equalizer"
                     "3D sound" -> "3D Sound"

@@ -41,7 +41,7 @@ object XvoxWidgetHelper {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
     private val colours = LruCache<String, Int>(80)
-    private val steps = listOf(12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 80, 96, 120, 144, 160)
+    private val steps = listOf(12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 80, 96, 120, 144, 160, 192, 224, 256, 288, 320, 360)
     private fun size(value: Int) = steps.lastOrNull { it <= value } ?: 12
     private fun imageLayout(value: Int): Int = when (value) {
         12 -> R.layout.widget_image_12; 16 -> R.layout.widget_image_16; 20 -> R.layout.widget_image_20
@@ -49,7 +49,10 @@ object XvoxWidgetHelper {
         36 -> R.layout.widget_image_36; 40 -> R.layout.widget_image_40; 44 -> R.layout.widget_image_44
         48 -> R.layout.widget_image_48; 56 -> R.layout.widget_image_56; 64 -> R.layout.widget_image_64
         80 -> R.layout.widget_image_80; 96 -> R.layout.widget_image_96; 120 -> R.layout.widget_image_120
-        144 -> R.layout.widget_image_144; else -> R.layout.widget_image_160
+        144 -> R.layout.widget_image_144; 160 -> R.layout.widget_image_160
+        192 -> R.layout.widget_image_192; 224 -> R.layout.widget_image_224
+        256 -> R.layout.widget_image_256; 288 -> R.layout.widget_image_288
+        320 -> R.layout.widget_image_320; else -> R.layout.widget_image_360
     }
     suspend fun loadCurrentWidgetState(context: Context, song: Song?, isPlaying: Boolean, position: Long = 0, duration: Long = 0): WidgetDisplayState = withContext(Dispatchers.IO) {
         val repository = UserPreferencesRepository(context)
@@ -151,8 +154,14 @@ object XvoxWidgetHelper {
         val coverMaxH = (ch - controlsHeight - labelReserve - c.coverMarginY * 2).coerceAtLeast(12)
         val coverMaxW = (cw - c.coverMarginX * 2 - (if (placement == "inline") visible.size * 20 else 0) -
             (if (coverAt in setOf("left", "right")) 36 else 0)).coerceAtLeast(12)
+        // A non-zero free-canvas offset opts the cover out of its legacy lane. It may use the full
+        // widget canvas and the largest published RemoteViews image layout, rather than being
+        // cropped down to the body/label/control box it started in.
+        // Any explicit size or move opts the cover into the unrestricted root overlay. That means
+        // a resize alone is never silently squeezed back into its old left/top content lane.
+        val freeCover = c.coverMarginX != 0 || c.coverMarginY != 0 || c.coverSize > 0
         val initialCover = if (c.coverSize == 0) minOf(128, coverMaxH, coverMaxW) else c.coverSize
-        val coverSide = size(minOf(initialCover, coverMaxW, coverMaxH))
+        val coverSide = size(if (freeCover) initialCover.coerceAtMost(360) else minOf(initialCover, coverMaxW, coverMaxH))
         if (coverAt != "hidden") {
             val child = RemoteViews(context.packageName, imageLayout(coverSide))
             val radius = if (c.coverRadius < 0) (spec.radius - minOf(spec.paddingX, spec.paddingY)).coerceAtLeast(0f) else c.coverRadius.toFloat()
@@ -172,10 +181,18 @@ object XvoxWidgetHelper {
                 child.setViewPadding(R.id.widget_item_image, px(6), px(6), px(6), px(6))
             }
             val coverSlot = when (coverAt) { "right" -> R.id.widget_cover_right; "top" -> R.id.widget_cover_top; "bottom" -> R.id.widget_cover_bottom; else -> R.id.widget_cover_left }
-            views.setViewPadding(coverSlot, px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)),
-                px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)))
-            applyOffset(views, coverSlot, minOf(c.coverMarginX, 0), minOf(c.coverMarginY, 0))
-            views.addView(coverSlot, child)
+            if (freeCover) {
+                // Full-canvas placement is relative to the widget centre, not to an internal
+                // left/right/top/bottom lane. The child stays completely usable across the whole
+                // widget footprint on Android 12+ RemoteViews.
+                applyFreeOffset(child, R.id.widget_item, c.coverMarginX, c.coverMarginY, w, h, coverSide, coverSide)
+                views.addView(R.id.widget_overlay, child)
+            } else {
+                views.setViewPadding(coverSlot, px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)),
+                    px(c.coverMarginX.coerceAtLeast(0)), px(c.coverMarginY.coerceAtLeast(0)))
+                applyOffset(views, coverSlot, minOf(c.coverMarginX, 0), minOf(c.coverMarginY, 0))
+                views.addView(coverSlot, child)
+            }
         }
         fun side(id: String): String {
             val explicit = c.button(id).position
@@ -189,7 +206,10 @@ object XvoxWidgetHelper {
                 else -> (if (narrow || visible.map(::side).distinct().size == 1) cw else cw / 3) / sameZone
             }
             val wanted = if (st.size == 0) if (id == "play") 36 else 32 else st.size
-            return size(minOf(wanted, allowed.coerceAtLeast(12)))
+            // A manually sized/moved control belongs to the full widget canvas; do not clamp it
+            // against a legacy left/centre/right lane before adding it to the overlay.
+            val free = st.offsetX != 0 || st.offsetY != 0 || st.size > 0
+            return size(if (free) wanted.coerceIn(12, 360) else minOf(wanted, allowed.coerceAtLeast(12)))
         }
         val labelsAt = if (tiny && c.labelPlacement == "center") "bottom" else c.labelPlacement
         val textWidth = (if (labelsAt == "center") cw - (if (coverAt in setOf("left", "right")) coverSide else 0) -
@@ -201,9 +221,16 @@ object XvoxWidgetHelper {
             } }
             if (!show) continue
             val text = when (id) { "title" -> state.songTitle; "artist" -> state.songArtist; else -> "X" }
-            val child = label(context, style, text, textWidth, fg, density)
-            applyOffset(child, R.id.widget_label_text, style.offsetX, style.offsetY)
-            views.addView(when (labelsAt) { "top" -> R.id.widget_labels_top; "bottom" -> R.id.widget_labels_bottom; else -> R.id.widget_meta }, child)
+            val freeLabel = style.offsetX != 0 || style.offsetY != 0
+            val child = label(context, style, text, textWidth, fg, density, floating = freeLabel)
+            if (freeLabel) {
+                val estimatedWidth = minOf(textWidth, 200).coerceAtLeast(32)
+                val estimatedHeight = (style.size * 1.7f).roundToInt().coerceAtLeast(18)
+                applyFreeOffset(child, R.id.widget_item, style.offsetX, style.offsetY, w, h, estimatedWidth, estimatedHeight)
+                views.addView(R.id.widget_overlay, child)
+            } else {
+                views.addView(when (labelsAt) { "top" -> R.id.widget_labels_top; "bottom" -> R.id.widget_labels_bottom; else -> R.id.widget_meta }, child)
+            }
         }
         for (id in visible) {
             val style = c.button(id)
@@ -230,9 +257,15 @@ object XvoxWidgetHelper {
             button.setContentDescription(R.id.widget_item, when (id) { "prev" -> "Previous"; "next" -> "Next"; "like" -> "Like"; else -> "Play or pause" })
             if (interactive) button.setOnClickPendingIntent(R.id.widget_item, action(context, when (id) {
                 "prev" -> ACTION_PREVIOUS; "next" -> ACTION_NEXT; "like" -> ACTION_TOGGLE_LIKE; else -> ACTION_PLAY_PAUSE }, id.hashCode()))
-            // Buttons float freely: the per-button nudge shifts the control within its zone.
-            applyOffset(button, R.id.widget_item, style.offsetX, style.offsetY)
-            views.addView(buttonSlot(placement, zone), button)
+            val freeButton = style.offsetX != 0 || style.offsetY != 0 || style.size > 0
+            if (freeButton) {
+                // A moved control is no longer constrained by its original left/center/right
+                // lane. It is positioned against the complete widget canvas instead.
+                applyFreeOffset(button, R.id.widget_item, style.offsetX, style.offsetY, w, h, buttonSize, buttonSize)
+                views.addView(R.id.widget_overlay, button)
+            } else {
+                views.addView(buttonSlot(placement, zone), button)
+            }
         }
         if (interactive) views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, 105,
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -254,14 +287,50 @@ object XvoxWidgetHelper {
         views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_BOTTOM, (-dy).toFloat(), TypedValue.COMPLEX_UNIT_DIP)
     }
 
+    /**
+     * Positions an item in the full root FrameLayout rather than in a legacy content lane. The
+     * values are centred coordinates in dp, so the editor can move or resize a cover/control
+     * anywhere across the real launcher widget without an internal box clipping its range.
+     */
+    private fun applyFreeOffset(
+        views: RemoteViews,
+        viewId: Int,
+        offsetX: Int,
+        offsetY: Int,
+        canvasWidth: Int,
+        canvasHeight: Int,
+        itemWidth: Int,
+        itemHeight: Int
+    ) {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        val left = ((canvasWidth - itemWidth) / 2 + offsetX).coerceIn(-itemWidth / 2, canvasWidth - itemWidth / 2)
+        val top = ((canvasHeight - itemHeight) / 2 + offsetY).coerceIn(-itemHeight / 2, canvasHeight - itemHeight / 2)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_START, left.toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_END, (-left).toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_TOP, top.toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+        views.setViewLayoutMargin(viewId, RemoteViews.MARGIN_BOTTOM, (-top).toFloat(), TypedValue.COMPLEX_UNIT_DIP)
+    }
+
     private fun buttonSlot(row: String, side: String): Int = when (row) {
         "overlay" -> when (side) { "left" -> R.id.widget_overlay_left; "right" -> R.id.widget_overlay_right; else -> R.id.widget_overlay_center }
         "top" -> when (side) { "left" -> R.id.widget_top_left; "center" -> R.id.widget_top_center; else -> R.id.widget_top_right }
         "inline" -> when (side) { "left" -> R.id.widget_inline_left; "center" -> R.id.widget_inline_center; else -> R.id.widget_inline_right }
         else -> when (side) { "left" -> R.id.widget_bottom_left; "center" -> R.id.widget_bottom_center; else -> R.id.widget_bottom_right }
     }
-    private fun label(context: Context, style: WidgetLabelStyle, text: String, width: Int, foreground: Int, density: Float): RemoteViews {
-        val layout = when (style.font) { "cinzel" -> R.layout.widget_label_cinzel; "hand" -> R.layout.widget_label_hand; else -> R.layout.widget_label_inter }
+    private fun label(
+        context: Context,
+        style: WidgetLabelStyle,
+        text: String,
+        width: Int,
+        foreground: Int,
+        density: Float,
+        floating: Boolean = false
+    ): RemoteViews {
+        val layout = when (style.font) {
+            "cinzel" -> if (floating) R.layout.widget_label_cinzel_floating else R.layout.widget_label_cinzel
+            "hand" -> if (floating) R.layout.widget_label_hand_floating else R.layout.widget_label_hand
+            else -> if (floating) R.layout.widget_label_inter_floating else R.layout.widget_label_inter
+        }
         val font = when (style.font) { "cinzel" -> R.font.xvoxcinzeldecorative; "hand" -> R.font.xvoxnothingyoucoulddo; else -> R.font.xvox_inter_semibold }
         val views = RemoteViews(context.packageName, layout)
         views.setTextViewText(R.id.widget_label_text, text)

@@ -32,6 +32,9 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.player.playback.RepeatMode
+import com.xvox.music.player.nowplaying.components.NowPlayingEditItem
+import com.xvox.music.player.nowplaying.components.NowPlayingEditSession
+import com.xvox.music.player.nowplaying.components.NowPlayingEditableTarget
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -65,12 +68,17 @@ fun XvoxNowPlayingControls(
     surfaceAlpha: Float = .27f,
     shuffleRepeatOffsetX: Float = 0f,
     shuffleRepeatOffsetY: Float = 0f,
+    shuffleOffsetX: Float = shuffleRepeatOffsetX,
+    shuffleOffsetY: Float = shuffleRepeatOffsetY,
+    repeatOffsetX: Float = shuffleRepeatOffsetX,
+    repeatOffsetY: Float = shuffleRepeatOffsetY,
     previousOffsetX: Float = 0f,
     previousOffsetY: Float = 0f,
     playOffsetX: Float = 0f,
     playOffsetY: Float = 0f,
     nextOffsetX: Float = 0f,
-    nextOffsetY: Float = 0f
+    nextOffsetY: Float = 0f,
+    editSession: NowPlayingEditSession? = null
 ) {
     val colors = XvoxTheme.colors
     val isRepeatOne = repeatMode == RepeatMode.ONE
@@ -135,18 +143,23 @@ fun XvoxNowPlayingControls(
     }
 
     @Composable
-    fun controlSurface(alpha: Float, content: @Composable () -> Unit) {
-        Box(Modifier.graphicsLayer(alpha = alpha.coerceIn(0f, 1f))) { content() }
+    fun controlSurface(itemId: String, alpha: Float, content: @Composable () -> Unit) {
+        NowPlayingEditableTarget(session = editSession, itemId = itemId) {
+            Box(Modifier.graphicsLayer(alpha = alpha.coerceIn(0f, 1f))) { content() }
+        }
     }
 
-    val outerOffset = shuffleRepeatOffsetX to shuffleRepeatOffsetY
+    // The historical shared outer offset remains an API-compatible default. Once Customize is
+    // opened, Shuffle and Repeat each retain their own free position, scale, and hide state.
+    val shuffleOffset = shuffleOffsetX to shuffleOffsetY
+    val repeatOffset = repeatOffsetX to repeatOffsetY
     val previousOffset = previousOffsetX to previousOffsetY
     val playOffset = playOffsetX to playOffsetY
     val nextOffset = nextOffsetX to nextOffsetY
     val orderedOffsets = if (shuffleRepeatSide == "right") {
-        listOf(outerOffset, previousOffset, playOffset, nextOffset, outerOffset)
+        listOf(repeatOffset, previousOffset, playOffset, nextOffset, shuffleOffset)
     } else {
-        listOf(outerOffset, previousOffset, playOffset, nextOffset, outerOffset)
+        listOf(shuffleOffset, previousOffset, playOffset, nextOffset, repeatOffset)
     }
 
     Layout(
@@ -157,17 +170,17 @@ fun XvoxNowPlayingControls(
             // The user may swap only the two outer utility controls. Previous/next stay paired
             // around the Play circle, and Play itself is always measured at the true midpoint.
             if (shuffleRepeatSide == "right") {
-                key("nowPlayingRepeat") { controlSurface(controlsAlpha) { repeatControl() } }
-                key("nowPlayingPrevious") { controlSurface(controlsAlpha) { previousControl() } }
-                key("nowPlayingPlay") { controlSurface(playAlpha) { playControl() } }
-                key("nowPlayingNext") { controlSurface(controlsAlpha) { nextControl() } }
-                key("nowPlayingShuffle") { controlSurface(controlsAlpha) { shuffleControl() } }
+                key("nowPlayingRepeat") { controlSurface(NowPlayingEditItem.Repeat, controlsAlpha) { repeatControl() } }
+                key("nowPlayingPrevious") { controlSurface(NowPlayingEditItem.Previous, controlsAlpha) { previousControl() } }
+                key("nowPlayingPlay") { controlSurface(NowPlayingEditItem.Play, playAlpha) { playControl() } }
+                key("nowPlayingNext") { controlSurface(NowPlayingEditItem.Next, controlsAlpha) { nextControl() } }
+                key("nowPlayingShuffle") { controlSurface(NowPlayingEditItem.Shuffle, controlsAlpha) { shuffleControl() } }
             } else {
-                key("nowPlayingShuffle") { controlSurface(controlsAlpha) { shuffleControl() } }
-                key("nowPlayingPrevious") { controlSurface(controlsAlpha) { previousControl() } }
-                key("nowPlayingPlay") { controlSurface(playAlpha) { playControl() } }
-                key("nowPlayingNext") { controlSurface(controlsAlpha) { nextControl() } }
-                key("nowPlayingRepeat") { controlSurface(controlsAlpha) { repeatControl() } }
+                key("nowPlayingShuffle") { controlSurface(NowPlayingEditItem.Shuffle, controlsAlpha) { shuffleControl() } }
+                key("nowPlayingPrevious") { controlSurface(NowPlayingEditItem.Previous, controlsAlpha) { previousControl() } }
+                key("nowPlayingPlay") { controlSurface(NowPlayingEditItem.Play, playAlpha) { playControl() } }
+                key("nowPlayingNext") { controlSurface(NowPlayingEditItem.Next, controlsAlpha) { nextControl() } }
+                key("nowPlayingRepeat") { controlSurface(NowPlayingEditItem.Repeat, controlsAlpha) { repeatControl() } }
             }
         }
     ) { measurables, constraints ->

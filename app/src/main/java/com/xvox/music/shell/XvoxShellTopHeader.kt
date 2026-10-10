@@ -1,6 +1,8 @@
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -134,13 +136,12 @@ fun XvoxShellTopHeader(
                 onClick = { /* consume backdrop touch */ }
             )
             .xvoxGlassReflection(radius = 18, applyInDefault = true)
-            // In Light mode match the All Songs card's near-white surface instead of the former
-            // grey elevated header. Custom artwork remains completely unwashed at its endpoint.
+            // The uncustomized Header is a palette-owned grey material: light grey on light
+            // themes and dark grey on dark/AMOLED themes. It therefore reads as part of XVOX
+            // rather than a white/black page-background strip.
             .background(
                 if (hasCustomHeader) Color.Transparent
-                // Default Header is the application background itself: near-white in light mode
-                // and black/dark in dark modes, rather than an unrelated elevated strip.
-                else colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
+                else colors.cardElevated.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
             )
     ) {
         if (hasCustomHeader) {
@@ -240,6 +241,19 @@ fun XvoxShellTopHeader(
                             ) {
                                 libraryActions.forEach { action ->
                                     val isCurrentLibrary = libraryMode == action.mode
+                                    // Selection is intentionally a small physical lift rather than
+                                    // a hard swap: the active library icon rises and its tint
+                                    // smoothly resolves to the chosen accent in the same motion.
+                                    val iconLift by animateDpAsState(
+                                        targetValue = if (isCurrentLibrary) (-3).dp else 0.dp,
+                                        animationSpec = tween(190),
+                                        label = "headerLibraryLift_${action.mode}"
+                                    )
+                                    val iconTint by animateColorAsState(
+                                        targetValue = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
+                                        animationSpec = tween(190),
+                                        label = "headerLibraryTint_${action.mode}"
+                                    )
                                     Box(
                                         modifier = Modifier
                                             .size(36.dp)
@@ -254,8 +268,10 @@ fun XvoxShellTopHeader(
                                         Icon(
                                             painter = painterResource(action.icon),
                                             contentDescription = action.label,
-                                            tint = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                            modifier = Modifier.size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
+                                            tint = iconTint,
+                                            modifier = Modifier
+                                                .offset(y = iconLift)
+                                                .size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
                                         )
                                     }
                                 }

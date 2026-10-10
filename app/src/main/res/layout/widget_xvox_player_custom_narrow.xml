@@ -25,7 +25,8 @@
             <LinearLayout android:id="@+id/widget_bottom_right" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="end" />
         </LinearLayout>
     </LinearLayout>
-    <LinearLayout android:id="@+id/widget_overlay" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
+    <!-- Full-widget free canvas for manually moved widget items. -->
+    <FrameLayout android:id="@+id/widget_overlay" android:layout_width="match_parent" android:layout_height="match_parent" />
     <LinearLayout android:id="@+id/widget_overlay_left" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="start|center_vertical" />
     <LinearLayout android:id="@+id/widget_overlay_center" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center" />
     <LinearLayout android:id="@+id/widget_overlay_right" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="end|center_vertical" />

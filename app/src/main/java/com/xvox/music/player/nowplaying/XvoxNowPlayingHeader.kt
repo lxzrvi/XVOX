@@ -48,7 +48,12 @@ fun XvoxNowPlayingHeader(
     /** Independent Customize multiplier for header/right-pill controls. */
     controlsAlpha: Float = 1f,
     /** Shared lyrics-box material alpha used by all painted header surfaces. */
-    surfaceAlpha: Float = .27f
+    surfaceAlpha: Float = .27f,
+    /** True in-place Now Playing editor chrome; no secondary customization sheet is shown. */
+    customizeMode: Boolean = false,
+    onCustomizeCancel: (() -> Unit)? = null,
+    onCustomizeReset: (() -> Unit)? = null,
+    onCustomizeOkay: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -74,14 +79,14 @@ fun XvoxNowPlayingHeader(
                     indication = null,
                     onClick = {
                         haptics.tap()
-                        onClose()
+                        if (customizeMode) onCustomizeCancel?.invoke() else onClose()
                     }
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_xvox_collapse),
-                contentDescription = "Collapse Player",
+                painter = painterResource(if (customizeMode) R.drawable.ic_xvox_close else R.drawable.ic_xvox_collapse),
+                contentDescription = if (customizeMode) "Cancel customize" else "Collapse Player",
                 tint = colors.primaryText,
                 modifier = Modifier.size(20.dp)
             )
@@ -99,40 +104,82 @@ fun XvoxNowPlayingHeader(
             else -> playingSource
         }
 
+        // This is an actual screen-centred column, not the leftover width between edge buttons.
+        // Symmetric padding protects long text from either side while its visual centre remains
+        // at the physical display centre in normal and Customize modes.
         Column(
             modifier = Modifier
-                // The combined Share / overflow pill is 75dp wide. Reserve it on the side the
-                // user selected while retaining the stable collapse target on the opposite left.
-                .padding(
-                    start = if (optionsGroupSide == "left") 132.dp else 52.dp,
-                    end = if (optionsGroupSide == "left") 16.dp else 88.dp
-                )
-                .fillMaxWidth(),
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = 94.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = sourceTitle,
-                color = colors.primaryText.copy(alpha = 0.85f),
-                fontSize = 12.sp,
-                letterSpacing = 1.3.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (customizeMode) {
+                Text(
+                    text = "Customize",
+                    color = colors.primaryText,
+                    fontSize = 17.5.sp,
+                    lineHeight = 19.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Text(
+                    text = sourceTitle,
+                    color = colors.primaryText.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    letterSpacing = 1.3.sp,
+                    fontWeight = FontWeight.Bold
+                )
 
-            Text(
-                text = displaySource,
-                color = colors.primaryText,
-                fontSize = 17.5.sp,
-                lineHeight = 19.5.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = displaySource,
+                    color = colors.primaryText,
+                    fontSize = 17.5.sp,
+                    lineHeight = 19.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         // Share and overflow live in one compact pill so the header retains a single clear
         // right-side target while still exposing the complete Now Playing control editor.
-        if (onShare != null || onMore != null) {
+        if (customizeMode) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16, applyInDefault = true)
+                    .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
+                    .padding(horizontal = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Reset",
+                    color = colors.primaryText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .padding(horizontal = 7.dp, vertical = 10.dp)
+                        .xvoxPressScale { onCustomizeReset?.invoke() }
+                )
+                Text(
+                    text = "Okay",
+                    color = colors.primaryAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .padding(horizontal = 7.dp, vertical = 10.dp)
+                        .xvoxPressScale { onCustomizeOkay?.invoke() }
+                )
+            }
+        } else if (onShare != null || onMore != null) {
             Row(
                 modifier = Modifier
                     .align(if (optionsGroupSide == "left") Alignment.CenterStart else Alignment.CenterEnd)

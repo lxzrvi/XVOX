@@ -1,62 +1,59 @@
 package com.xvox.music.core.ui.effects
 
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalView
-import com.skydoves.cloudy.Sky
-import com.skydoves.cloudy.cloudy
+import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * One shared Cloudy backdrop source is installed at the app root.  Surfaces opt into this modifier
- * rather than painting a translucent tint that merely imitates glass.  Cloudy samples the actual
- * content behind each surface and follows nested scrolling while it is moving.
+ * The shared genuine Haze source installed at the application root. Every eligible glass surface
+ * reads from this one state rather than allocating a per-card recorder or painting a synthetic
+ * blur snapshot.
  */
-val LocalXvoxBlurSky = staticCompositionLocalOf<Sky?> { null }
+val LocalXvoxHazeState = staticCompositionLocalOf<HazeState?> { null }
 
 /**
- * Genuine live backdrop blur for Blur UI and explicitly translucent Default chrome. API 31+ uses
- * Cloudy's GPU path; older devices deliberately use Cloudy's cheap scrim fallback rather than a
- * per-card CPU blur that would make library flings jank. The material alpha remains readable.
+ * Genuine Chris Banes Haze backdrop blur for chrome, sheets, player surfaces, and other explicit
+ * glass targets. Haze owns platform capability handling itself: supported devices render its live
+ * backdrop blur; unsupported devices receive Haze's own material fallback rather than an XVOX
+ * static or fake blur implementation.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun Modifier.xvoxLiveBackdropBlur(
     shape: Shape = RectangleShape,
     radius: Int = 18,
-    /** Default UI requests Cloudy only for natural translucent chrome, never as a style rewrite. */
+    /** Default UI opts in only where an intentionally translucent chrome surface exists. */
     applyInDefault: Boolean = false
 ): Modifier {
-    val sky = LocalXvoxBlurSky.current
+    val hazeState = LocalXvoxHazeState.current
     val appearance = LocalXvoxExperimentalAppearance.current
-    val hostView = LocalView.current
-    // Cloudy's real RenderEffect capture is stable on API 31+ hardware-accelerated Compose
-    // views. Never ask its GPU recorder to emulate itself on an older/software canvas—the source
-    // readiness gate at the root leaves these frames as ordinary material instead of crashing.
-    val canRenderLiveCloudy = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hostView.isHardwareAccelerated
-    // Cloudy is intentionally opt-in at the actual chrome/sheet call site. In particular, a
-    // translucent palette must not turn every repeated song/playlist card into a live recorder
-    // target: that was both visually noisy and the source of Home instability while Blur was on.
-    // Eligible surfaces still use Cloudy's real moving capture in both modes; this is not a
-    // synthetic fallback or static snapshot.
-    val explicitlyEligible = applyInDefault
-    val enabled = sky != null && canRenderLiveCloudy && explicitlyEligible && (
-        appearance == XvoxExperimentalAppearance.BLUR ||
-            appearance == XvoxExperimentalAppearance.DEFAULT
+    val colors = XvoxTheme.colors
+    val shouldApply = hazeState != null && (
+        appearance == XvoxExperimentalAppearance.BLUR || applyInDefault
     )
-    return if (enabled) {
-        cloudy(
-            sky = sky!!,
-            radius = radius,
-            tint = Color.Transparent,
-            cpuBlurEnabled = false,
-            shape = shape
-        )
+
+    return if (shouldApply) {
+        // HazeMaterials supplies the genuine material/tint treatment while the modifier samples
+        // the live Haze source. Clipping sits outside the effect so no rectangular blur bleeds
+        // beyond a pill, circle, or rounded sheet edge.
+        clip(shape).hazeEffect(
+            state = hazeState,
+            style = HazeMaterials.ultraThin(containerColor = colors.surface.copy(alpha = 1f))
+        ) {
+            blurRadius = radius.coerceIn(8, 36).dp
+            noiseFactor = .08f
+        }
     } else {
         this
     }

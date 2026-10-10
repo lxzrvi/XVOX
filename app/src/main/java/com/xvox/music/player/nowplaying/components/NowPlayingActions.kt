@@ -94,7 +94,8 @@ fun NowPlayingActions(
     utilityOffsetX: Float = 0f,
     utilityOffsetY: Float = 0f,
     actionsOffsetX: Float = 0f,
-    actionsOffsetY: Float = 0f
+    actionsOffsetY: Float = 0f,
+    editSession: NowPlayingEditSession? = null
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -131,18 +132,22 @@ fun NowPlayingActions(
 
     val utilityPill: @Composable () -> Unit = {
         // Left cluster: Timer / Queue / Info in continuous pill
-        Row(
-            modifier = Modifier
-                .offset(x = utilityOffsetX.dp, y = ((-6f) + utilityOffsetY).dp)
-                .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
-                .height(42.dp)
-                .clip(RoundedCornerShape(21.dp))
-                .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16, applyInDefault = true)
-                .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
-                .padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        NowPlayingEditableTarget(
+            session = editSession,
+            itemId = NowPlayingEditItem.Utility,
+            modifier = Modifier.offset(x = utilityOffsetX.dp, y = ((-6f) + utilityOffsetY).dp)
         ) {
+            Row(
+                modifier = Modifier
+                    .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
+                    .height(42.dp)
+                    .clip(RoundedCornerShape(21.dp))
+                    .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16, applyInDefault = true)
+                    .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
             NowPlayingPillActionIcon(
                 resource = R.drawable.ic_xvox_timer,
                 onClick = onTimer,
@@ -152,22 +157,25 @@ fun NowPlayingActions(
                 resource = R.drawable.ic_xvox_queue,
                 onClick = onQueue
             )
-            NowPlayingPillActionIcon(
-                resource = R.drawable.ic_xvox_info,
-                onClick = onInfo
-            )
+                NowPlayingPillActionIcon(
+                    resource = R.drawable.ic_xvox_info,
+                    onClick = onInfo
+                )
+            }
         }
-
     }
 
     val changingActionCluster: @Composable () -> Unit = {
         // Right cluster: 2 action buttons with continuous bidirectional infinite swiping
-        Column(
-            modifier = Modifier
-                .offset(x = actionsOffsetX.dp, y = actionsOffsetY.dp)
-                .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f)),
-            horizontalAlignment = Alignment.CenterHorizontally
+        NowPlayingEditableTarget(
+            session = editSession,
+            itemId = NowPlayingEditItem.Actions,
+            modifier = Modifier.offset(x = actionsOffsetX.dp, y = actionsOffsetY.dp)
         ) {
+            Column(
+                modifier = Modifier.graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f)),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Box(
                 modifier = Modifier
                     .height(42.dp)
@@ -363,6 +371,7 @@ fun NowPlayingActions(
                 }
             }
         }
+    }
     }
 
     val utilityOnLeft = utilityPillSide != "right"

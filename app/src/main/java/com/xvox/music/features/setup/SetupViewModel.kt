@@ -75,13 +75,25 @@ class SetupViewModel(
 
     fun updatePermissions(
         audioGranted: Boolean,
-        notificationGranted: Boolean
+        notificationGranted: Boolean,
+        requestFinished: PermissionRequest? = null
     ) {
-        _state.update {
-            it.copy(
+        _state.update { current ->
+            current.copy(
                 audioGranted = audioGranted,
-                notificationGranted = notificationGranted
+                notificationGranted = notificationGranted,
+                audioRequestPending = if (requestFinished == PermissionRequest.AUDIO) false else current.audioRequestPending,
+                notificationRequestPending = if (requestFinished == PermissionRequest.NOTIFICATIONS) false else current.notificationRequestPending
             )
+        }
+    }
+
+    fun markPermissionRequestPending(request: PermissionRequest) {
+        _state.update { current ->
+            when (request) {
+                PermissionRequest.AUDIO -> current.copy(audioRequestPending = !current.audioGranted)
+                PermissionRequest.NOTIFICATIONS -> current.copy(notificationRequestPending = !current.notificationGranted)
+            }
         }
     }
 

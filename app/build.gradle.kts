@@ -46,8 +46,10 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
-    // 0.6.1 is the newest Cloudy release line compatible with this app's Android-36 toolchain.
-    // It retains the real shared-Sky live blur API without pulling Android-37-only artifacts.
-    implementation("com.github.skydoves:cloudy:0.6.1")
+    // Genuine Chris Banes Haze backdrop blur. Haze 1.6.5 is the newest line whose core and
+    // materials artifacts are both published together; the requested haze-blur:1.6.5 module
+    // does not exist on Maven Central (that module starts at Haze 2.x).
+    implementation("dev.chrisbanes.haze:haze:1.6.5")
+    implementation("dev.chrisbanes.haze:haze-materials:1.6.5")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }

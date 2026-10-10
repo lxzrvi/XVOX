@@ -50,6 +50,8 @@ import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun HomeScreen(
@@ -67,8 +69,13 @@ fun HomeScreen(
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
-    // Used only to keep the window-level selection popup off the full Now Playing surface.
-    val playerUiState by playerViewModel.state.collectAsState()
+    // Home only needs this one flag to hide its selection rail beneath Now Playing. Collecting the
+    // whole fast-progress player state used to recompose every visible All Songs tile on each
+    // playback tick, which made a four-column fling feel behind the finger.
+    val nowPlayingVisible by playerViewModel.state
+        .map { it.nowPlayingVisible }
+        .distinctUntilChanged()
+        .collectAsState(initial = false)
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -786,7 +793,7 @@ fun HomeScreen(
                 }
             }
 
-        if (!playerUiState.nowPlayingVisible) {
+        if (!nowPlayingVisible) {
             when {
                 isArtistSelectionMode -> {
                     val artistSongs = selectedArtists.flatMap { it.songs }.distinctBy { it.id }

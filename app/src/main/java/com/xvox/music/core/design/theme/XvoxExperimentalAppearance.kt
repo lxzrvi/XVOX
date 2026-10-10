@@ -31,15 +31,15 @@ val LocalXvoxExperimentalAppearance = staticCompositionLocalOf { XvoxExperimenta
 
 /**
  * Blur surfaces are translucent materials with no synthetic border or reflection. The content
- * behind explicitly eligible chrome is sampled by the shared Cloudy source. Repeated library
- * cards stay lightweight, while navigation, Mini Player, player chrome and sheets reveal a
- * genuine moving backdrop rather than a painted approximation.
+ * behind explicitly eligible chrome is sampled by the shared Chris Banes Haze source. Repeated
+ * library cards stay lightweight, while navigation, Mini Player, player chrome and sheets reveal
+ * a genuine moving backdrop rather than a painted approximation.
  */
 fun XvoxPalette.withExperimentalAppearance(mode: XvoxExperimentalAppearance): XvoxPalette = when (mode) {
     XvoxExperimentalAppearance.DEFAULT -> this
     XvoxExperimentalAppearance.BLUR -> {
-        // The alpha is only a readable material laid *over* the Cloudy backdrop capture. The
-        // blur itself is never a tint, gradient, reflection, or painted approximation.
+        // The alpha is only a readable material laid over Haze's live backdrop capture. The blur
+        // itself is never a tint, gradient, reflection, or painted approximation.
         val material = if (isLight) Color.White else Color(0xFF141414)
         copy(
             surface = material.copy(alpha = .48f),
@@ -73,7 +73,7 @@ fun XvoxChromeStyle.forExperimentalAppearance(mode: XvoxExperimentalAppearance):
 
 /**
  * Compatibility hook retained at the existing shared-surface call sites. Despite its historic
- * name it no longer paints a reflection: Blur UI always applies Cloudy's real backdrop capture;
+ * name it no longer paints a reflection: Blur UI always applies Haze's real backdrop capture;
  * Default applies it only to an explicitly natural/translucent surface, without changing borders.
  */
 @Composable

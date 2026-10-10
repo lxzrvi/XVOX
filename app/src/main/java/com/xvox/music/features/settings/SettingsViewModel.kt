@@ -163,6 +163,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _state.update { current ->
             current.copy(widgetSizes = current.widgetSizes + (key to sanitized))
         }
+        // Push the launcher surface in the same editor frame; DataStore observation remains the
+        // durable safety net for edits made while the app is not open.
+        com.xvox.music.widget.XvoxAppWidgetProvider.notifyWidgetUpdate(getApplication())
         viewModelScope.launch { prefs.setWidgetSizeCustomization(key, sanitized) }
     }
     fun setWidgetCustomizationForSize(key: String, value: com.xvox.music.widget.WidgetCustomization) =
@@ -187,6 +190,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val next = change(_state.value.widgetCustomization).sanitized()
         pendingWidget = next
         _state.update { it.copy(widgetCustomization = next) }
+        com.xvox.music.widget.XvoxAppWidgetProvider.notifyWidgetUpdate(getApplication())
         com.xvox.music.data.preferences.PreferenceWriteQueue.submit("widget") { prefs.setWidgetCustomization(next) }
     }
     fun updateLyrics(change: (com.xvox.music.data.preferences.LyricsSettings) -> com.xvox.music.data.preferences.LyricsSettings) {

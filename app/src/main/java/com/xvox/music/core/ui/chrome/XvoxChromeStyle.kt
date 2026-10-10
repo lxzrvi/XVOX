@@ -96,7 +96,18 @@ data class XvoxChromeStyle(
     val nowPlayingNextOffsetX: Float = 0f,
     val nowPlayingNextOffsetY: Float = 0f,
     val nowPlayingBrandOffsetX: Float = 0f,
-    val nowPlayingBrandOffsetY: Float = 0f
+    val nowPlayingBrandOffsetY: Float = 0f,
+    /** Draftable in-place editor state persisted only after its Okay action. */
+    val nowPlayingHiddenItems: String = "",
+    /** Comma-separated token=scale entries; compact encoding keeps old chrome records readable. */
+    val nowPlayingItemScales: String = "",
+    /** Cover may resize in Customize but is intentionally never movable or hideable. */
+    val nowPlayingCoverScale: Float = 1f,
+    /** Individual outer transport positions supersede the legacy shared outer offset. */
+    val nowPlayingShuffleOffsetX: Float = 0f,
+    val nowPlayingShuffleOffsetY: Float = 0f,
+    val nowPlayingRepeatOffsetX: Float = 0f,
+    val nowPlayingRepeatOffsetY: Float = 0f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -128,7 +139,10 @@ data class XvoxChromeStyle(
         nowPlayingPreviousOffsetX, nowPlayingPreviousOffsetY,
         nowPlayingPlayOffsetX, nowPlayingPlayOffsetY,
         nowPlayingNextOffsetX, nowPlayingNextOffsetY,
-        nowPlayingBrandOffsetX, nowPlayingBrandOffsetY
+        nowPlayingBrandOffsetX, nowPlayingBrandOffsetY,
+        nowPlayingHiddenItems, nowPlayingItemScales, nowPlayingCoverScale,
+        nowPlayingShuffleOffsetX, nowPlayingShuffleOffsetY,
+        nowPlayingRepeatOffsetX, nowPlayingRepeatOffsetY
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -149,7 +163,14 @@ data class XvoxChromeStyle(
         nowPlayingNextOffsetX = 0f,
         nowPlayingNextOffsetY = 0f,
         nowPlayingBrandOffsetX = 0f,
-        nowPlayingBrandOffsetY = 0f
+        nowPlayingBrandOffsetY = 0f,
+        nowPlayingHiddenItems = "",
+        nowPlayingItemScales = "",
+        nowPlayingCoverScale = 1f,
+        nowPlayingShuffleOffsetX = 0f,
+        nowPlayingShuffleOffsetY = 0f,
+        nowPlayingRepeatOffsetX = 0f,
+        nowPlayingRepeatOffsetY = 0f
     )
 
     companion object {
@@ -244,10 +265,68 @@ data class XvoxChromeStyle(
                 nowPlayingNextOffsetX = offsetX(54),
                 nowPlayingNextOffsetY = offsetY(55),
                 nowPlayingBrandOffsetX = offsetX(56),
-                nowPlayingBrandOffsetY = offsetY(57)
+                nowPlayingBrandOffsetY = offsetY(57),
+                nowPlayingHiddenItems = str(58),
+                nowPlayingItemScales = str(59),
+                nowPlayingCoverScale = number(60, 1f).coerceIn(.65f, 1.55f),
+                // Records before individual outer transport editing retain their shared offset.
+                nowPlayingShuffleOffsetX = number(61, offsetX(48)).coerceIn(-300f, 300f),
+                nowPlayingShuffleOffsetY = number(62, offsetY(49)).coerceIn(-300f, 300f),
+                nowPlayingRepeatOffsetX = number(63, offsetX(48)).coerceIn(-300f, 300f),
+                nowPlayingRepeatOffsetY = number(64, offsetY(49)).coerceIn(-300f, 300f)
             )
         }
     }
+}
+
+/** IDs shared by the live Now Playing editor and its durable chrome record. */
+val XvoxNowPlayingEditableItemIds = setOf(
+    "utility", "actions", "metadata", "progress", "outer", "shuffle", "repeat", "previous", "play", "next", "brand"
+)
+
+private fun XvoxChromeStyle.normalizedHiddenItems(): Set<String> {
+    val values = nowPlayingHiddenItems.split(',').map(String::trim)
+        .filter { it in XvoxNowPlayingEditableItemIds }.toMutableSet()
+    // Migrate the brief shared-outer implementation safely if a draft was persisted from it.
+    if ("outer" in values) {
+        values += "shuffle"
+        values += "repeat"
+        values -= "outer"
+    }
+    return values
+}
+
+private fun XvoxChromeStyle.normalizedItemScales(): Map<String, Float> {
+    val values = nowPlayingItemScales.split(',').mapNotNull { encoded ->
+        val key = encoded.substringBefore('=').trim()
+        val scale = encoded.substringAfter('=', "").toFloatOrNull()?.coerceIn(.65f, 1.55f)
+        key.takeIf { it in XvoxNowPlayingEditableItemIds }?.let { valid -> scale?.let { valid to it } }
+    }.toMap().toMutableMap()
+    values.remove("outer")?.let { legacyScale ->
+        values.putIfAbsent("shuffle", legacyScale)
+        values.putIfAbsent("repeat", legacyScale)
+    }
+    return values
+}
+
+fun XvoxChromeStyle.isNowPlayingItemHidden(itemId: String): Boolean = itemId in normalizedHiddenItems()
+
+fun XvoxChromeStyle.nowPlayingItemScale(itemId: String): Float =
+    normalizedItemScales()[itemId] ?: 1f
+
+fun XvoxChromeStyle.withNowPlayingItemHidden(itemId: String, hidden: Boolean): XvoxChromeStyle {
+    if (itemId !in XvoxNowPlayingEditableItemIds) return this
+    val next = normalizedHiddenItems().toMutableSet()
+    if (hidden) next += itemId else next -= itemId
+    return copy(nowPlayingHiddenItems = next.sorted().joinToString(","))
+}
+
+fun XvoxChromeStyle.withNowPlayingItemScale(itemId: String, scale: Float): XvoxChromeStyle {
+    if (itemId !in XvoxNowPlayingEditableItemIds) return this
+    val next = normalizedItemScales().toMutableMap()
+    val normalized = scale.coerceIn(.65f, 1.55f)
+    if (kotlin.math.abs(normalized - 1f) < .01f) next.remove(itemId) else next[itemId] = normalized
+    return copy(nowPlayingItemScales = next.toSortedMap().entries.joinToString(",") { (key, value) -> "$key=$value" })
 }
 
 /** Effective rendering chrome after an optional app-wide appearance experiment is applied. */
@@ -319,30 +398,37 @@ fun parseHexColor(hex: String): Color? {
 }
 
 /**
- * Rendering-side normalization for values restored before the full-panel editor existed. New
- * placements are authored only through discrete shape-safe slots; rounding protects old/corrupt
- * records without collapsing a valid cross-panel position back to the old tiny nudge lane.
+ * Rendering-side normalization for the in-place full-panel editor. Its invisible 16dp alignment
+ * lattice gives long-press drops clean shared rows/columns without ever drawing grid lines; broad
+ * bounds retain positions anywhere in the actual bottom box.
  */
 private fun xvoxSafePanelGrid(value: Float, lower: Float, upper: Float): Float =
-    (kotlin.math.round(value / 4f) * 4f).coerceIn(lower, upper)
+    (kotlin.math.round(value / 16f) * 16f).coerceIn(lower, upper)
 
 fun XvoxChromeStyle.normalizedNowPlayingGrid(): XvoxChromeStyle = copy(
-    nowPlayingMetadataOffsetX = xvoxSafePanelGrid(nowPlayingMetadataOffsetX, -96f, 96f),
-    nowPlayingMetadataOffsetY = xvoxSafePanelGrid(nowPlayingMetadataOffsetY, -64f, 64f),
-    nowPlayingProgressOffsetX = xvoxSafePanelGrid(nowPlayingProgressOffsetX, -64f, 64f),
-    nowPlayingProgressOffsetY = xvoxSafePanelGrid(nowPlayingProgressOffsetY, -64f, 64f),
-    nowPlayingUtilityOffsetX = xvoxSafePanelGrid(nowPlayingUtilityOffsetX, -300f, 300f),
-    nowPlayingUtilityOffsetY = xvoxSafePanelGrid(nowPlayingUtilityOffsetY, -80f, 144f),
-    nowPlayingActionsOffsetX = xvoxSafePanelGrid(nowPlayingActionsOffsetX, -300f, 300f),
-    nowPlayingActionsOffsetY = xvoxSafePanelGrid(nowPlayingActionsOffsetY, -80f, 144f),
-    nowPlayingShuffleRepeatOffsetX = 0f,
-    nowPlayingShuffleRepeatOffsetY = xvoxSafePanelGrid(nowPlayingShuffleRepeatOffsetY, -40f, 48f),
-    nowPlayingPreviousOffsetX = xvoxSafePanelGrid(nowPlayingPreviousOffsetX, -220f, 220f),
-    nowPlayingPreviousOffsetY = xvoxSafePanelGrid(nowPlayingPreviousOffsetY, -56f, 48f),
-    nowPlayingPlayOffsetX = xvoxSafePanelGrid(nowPlayingPlayOffsetX, -220f, 220f),
-    nowPlayingPlayOffsetY = xvoxSafePanelGrid(nowPlayingPlayOffsetY, -56f, 48f),
-    nowPlayingNextOffsetX = xvoxSafePanelGrid(nowPlayingNextOffsetX, -220f, 220f),
-    nowPlayingNextOffsetY = xvoxSafePanelGrid(nowPlayingNextOffsetY, -56f, 48f),
-    nowPlayingBrandOffsetX = xvoxSafePanelGrid(nowPlayingBrandOffsetX, -96f, 96f),
-    nowPlayingBrandOffsetY = xvoxSafePanelGrid(nowPlayingBrandOffsetY, -12f, 52f)
+    nowPlayingMetadataOffsetX = xvoxSafePanelGrid(nowPlayingMetadataOffsetX, -320f, 320f),
+    nowPlayingMetadataOffsetY = xvoxSafePanelGrid(nowPlayingMetadataOffsetY, -320f, 320f),
+    nowPlayingProgressOffsetX = xvoxSafePanelGrid(nowPlayingProgressOffsetX, -320f, 320f),
+    nowPlayingProgressOffsetY = xvoxSafePanelGrid(nowPlayingProgressOffsetY, -320f, 320f),
+    nowPlayingUtilityOffsetX = xvoxSafePanelGrid(nowPlayingUtilityOffsetX, -320f, 320f),
+    nowPlayingUtilityOffsetY = xvoxSafePanelGrid(nowPlayingUtilityOffsetY, -320f, 320f),
+    nowPlayingActionsOffsetX = xvoxSafePanelGrid(nowPlayingActionsOffsetX, -320f, 320f),
+    nowPlayingActionsOffsetY = xvoxSafePanelGrid(nowPlayingActionsOffsetY, -320f, 320f),
+    nowPlayingShuffleRepeatOffsetX = xvoxSafePanelGrid(nowPlayingShuffleRepeatOffsetX, -320f, 320f),
+    nowPlayingShuffleRepeatOffsetY = xvoxSafePanelGrid(nowPlayingShuffleRepeatOffsetY, -320f, 320f),
+    nowPlayingShuffleOffsetX = xvoxSafePanelGrid(nowPlayingShuffleOffsetX, -320f, 320f),
+    nowPlayingShuffleOffsetY = xvoxSafePanelGrid(nowPlayingShuffleOffsetY, -320f, 320f),
+    nowPlayingRepeatOffsetX = xvoxSafePanelGrid(nowPlayingRepeatOffsetX, -320f, 320f),
+    nowPlayingRepeatOffsetY = xvoxSafePanelGrid(nowPlayingRepeatOffsetY, -320f, 320f),
+    nowPlayingPreviousOffsetX = xvoxSafePanelGrid(nowPlayingPreviousOffsetX, -320f, 320f),
+    nowPlayingPreviousOffsetY = xvoxSafePanelGrid(nowPlayingPreviousOffsetY, -320f, 320f),
+    nowPlayingPlayOffsetX = xvoxSafePanelGrid(nowPlayingPlayOffsetX, -320f, 320f),
+    nowPlayingPlayOffsetY = xvoxSafePanelGrid(nowPlayingPlayOffsetY, -320f, 320f),
+    nowPlayingNextOffsetX = xvoxSafePanelGrid(nowPlayingNextOffsetX, -320f, 320f),
+    nowPlayingNextOffsetY = xvoxSafePanelGrid(nowPlayingNextOffsetY, -320f, 320f),
+    nowPlayingBrandOffsetX = xvoxSafePanelGrid(nowPlayingBrandOffsetX, -320f, 320f),
+    nowPlayingBrandOffsetY = xvoxSafePanelGrid(nowPlayingBrandOffsetY, -320f, 320f),
+    nowPlayingHiddenItems = normalizedHiddenItems().sorted().joinToString(","),
+    nowPlayingItemScales = normalizedItemScales().toSortedMap().entries.joinToString(",") { (key, value) -> "$key=$value" },
+    nowPlayingCoverScale = nowPlayingCoverScale.coerceIn(.65f, 1.55f)
 )

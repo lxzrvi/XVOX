@@ -95,11 +95,21 @@ fun SetupScreen(
     }
 
     val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        viewModel.updatePermissions(audioGranted(), notificationGranted())
+        // The real platform result is the sole source of the checked state. A denied/dismissed
+        // request simply returns the switch to its off state after the pending treatment.
+        viewModel.updatePermissions(
+            audioGranted(),
+            notificationGranted(),
+            requestFinished = PermissionRequest.AUDIO
+        )
     }
 
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        viewModel.updatePermissions(audioGranted(), notificationGranted())
+        viewModel.updatePermissions(
+            audioGranted(),
+            notificationGranted(),
+            requestFinished = PermissionRequest.NOTIFICATIONS
+        )
     }
 
     var croppingSetupUri by remember { mutableStateOf<Uri?>(null) }
@@ -213,18 +223,22 @@ fun SetupScreen(
                 PermissionCard(
                     audioGranted = state.audioGranted,
                     notificationGranted = state.notificationGranted,
+                    audioPending = state.audioRequestPending,
+                    notificationPending = state.notificationRequestPending,
                     onAudioClick = {
                         val permission = if (Build.VERSION.SDK_INT >= 33) {
                             Manifest.permission.READ_MEDIA_AUDIO
                         } else {
                             Manifest.permission.READ_EXTERNAL_STORAGE
                         }
-                        if (!audioGranted()) {
+                        if (!audioGranted() && !state.audioRequestPending) {
+                            viewModel.markPermissionRequestPending(PermissionRequest.AUDIO)
                             audioLauncher.launch(permission)
                         }
                     },
                     onNotificationClick = {
-                        if (Build.VERSION.SDK_INT >= 33 && !notificationGranted()) {
+                        if (Build.VERSION.SDK_INT >= 33 && !notificationGranted() && !state.notificationRequestPending) {
+                            viewModel.markPermissionRequestPending(PermissionRequest.NOTIFICATIONS)
                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
                     }

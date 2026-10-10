@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.xvox.music.R
@@ -67,6 +69,10 @@ fun WidgetStudioScreen(
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
+    // Activity-scoped playback state makes the Studio preview use the actual current title,
+    // artwork, play state, and like state when the app has a song loaded.
+    val playerViewModel: com.xvox.music.player.playback.MainPlayerViewModel = viewModel()
+    val playerState by playerViewModel.state.collectAsState()
     var liveSize by remember { mutableStateOf(XvoxWidgetHelper.activeHomeWidgetSize(context)) }
 
     LaunchedEffect(Unit) {
@@ -117,6 +123,7 @@ fun WidgetStudioScreen(
 
         WidgetStudioLivePreview(
             state = state,
+            playerState = playerState,
             liveSize = liveSize,
             modifier = Modifier
                 .fillMaxWidth()
@@ -147,12 +154,16 @@ fun WidgetStudioScreen(
 @Composable
 private fun WidgetStudioLivePreview(
     state: SettingsState,
+    playerState: com.xvox.music.player.playback.MainPlayerUiState,
     liveSize: XvoxWidgetHelper.LiveWidgetSize,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val colors = XvoxTheme.colors
     val customization = state.widgetSizes[liveSize.sizeKey] ?: state.widgetCustomization
+    val currentSong = playerState.queue.getOrNull(playerState.currentIndex)
+        ?.takeIf { it.id == playerState.currentSongId }
+        ?: playerState.queue.firstOrNull { it.id == playerState.currentSongId }
     val display = remember(
         customization,
         liveSize.sizeKey,
@@ -162,14 +173,21 @@ private fun WidgetStudioLivePreview(
         state.widgetShowLogo,
         state.widgetCornerRadius,
         state.widgetPaddingX,
-        state.widgetPaddingY
+        state.widgetPaddingY,
+        currentSong,
+        playerState.isPlaying,
+        playerState.currentSongId
     ) {
         XvoxWidgetHelper.WidgetDisplayState(
-            songTitle = "Your favourite track",
-            songArtist = "XVOX Music",
-            artworkUri = null,
-            isPlaying = true,
+            songTitle = currentSong?.title ?: "Your favourite track",
+            songArtist = currentSong?.artist ?: "XVOX Music",
+            artworkUri = currentSong?.artworkUri,
+            isPlaying = currentSong?.let { playerState.isPlaying } ?: true,
+            // Widget Studio has no library-like flow of its own; the live installed widget still
+            // receives the authoritative liked state from XvoxAppWidgetProvider.
             isLiked = false,
+            currentPosition = 0L,
+            duration = currentSong?.duration ?: 0L,
             transparency = state.widgetTransparency,
             theme = state.widgetTheme,
             customColor = state.widgetCustomColor,

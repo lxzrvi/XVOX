@@ -38,32 +38,15 @@ import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
 private const val StartupStrokeWidth = 3f
-// Keep the opening dots delicately smaller than the finished ring/rail. All five are visible
-// immediately; a single accent transfers across their fixed positions before becoming the ring.
-private const val StartupDotDiameter = 5f
-// Slightly tighter than the prior ring, matching the compact loader reference without making the
-// subsequent rail feel disconnected.
+// The loader now begins directly with a complete ring; there is no opening dot rail.
 private const val StartupRingRadius = 20f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
 private val StartupRingStart = -StartupPi / 5f
-// The last revealed row dot owns segment zero. It remains the accent through gather/stretch, and
-// the spinning arc starts on that very same completed segment with no carrier or extra dot.
-private const val StartupTerminalDotIndex = 4
 private const val StartupTerminalRingSegment = 0
-private val StartupRingOrder = intArrayOf(2, 3, 4, 1, StartupTerminalRingSegment)
-// The initial state is already a complete five-dot rail. Hold briefly on each stop and crossfade
-// only between neighbouring dots so the accent looks like a liquid handoff—not a sixth carrier.
-private const val StartupAccentLeadHold = 180f
-private const val StartupAccentTravel = 230f
-private const val StartupRingSegmentStagger = .105f
-private val StartupRingBuildOrder = intArrayOf(0, 1, 2, 3, 4)
 
-// Row, gather, stretch, spin, unroll, then fill. The opening begins with all five dots already
-// present; one accent flows left-to-right before the terminal dot grows into the ring.
-private val StartupPhaseDurations = floatArrayOf(
-    1550f, 560f, 840f, 2200f, 1200f, 2400f
-)
+// Ring, unroll, then fill. Starting on the completed ring avoids any pre-loader dot state.
+private val StartupPhaseDurations = floatArrayOf(2200f, 1200f, 2400f)
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
         bounds[index + 1] = bounds[index] + StartupPhaseDurations[index]
@@ -88,24 +71,13 @@ private fun startupEase(value: Float): Float = if (value < .5f) {
 
 private fun startupMix(first: Float, second: Float, amount: Float) = first + (second - first) * amount
 
-private fun startupMixColor(first: Color, second: Color, amount: Float) = Color(
-    red = startupMix(first.red, second.red, amount),
-    green = startupMix(first.green, second.green, amount),
-    blue = startupMix(first.blue, second.blue, amount),
-    alpha = startupMix(first.alpha, second.alpha, amount)
-)
-
 private fun startupRingPoint(segment: Float): Offset {
     val angle = StartupRingStart + 2f * StartupPi * segment
     return Offset(StartupRingRadius * cos(angle), StartupRingRadius * sin(angle))
 }
 
-private fun startupRowX(index: Int) = (index - 2) * 16f
-
 private fun startupPoints(count: Int, point: (Float) -> Offset): List<Offset> =
     List(count + 1) { index -> point(index / count.toFloat()) }
-
-private fun startupSegmentCenter(index: Int) = startupRingPoint((index + .5f) * .2f)
 
 private fun DrawScope.startupLine(
     points: List<Offset>,
@@ -135,89 +107,6 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/**
- * The rail is complete from frame one. Its accent rests briefly, then fluidly hands colour to the
- * next neighbour. At the end only the terminal dot remains accented, ready to become ring segment
- * zero without a flash, duplicate, or positional jump.
- */
-private fun startupRowAccentAmount(index: Int, time: Float): Float {
-    val travelTime = (time - StartupAccentLeadHold).coerceAtLeast(0f)
-    val rawStep = travelTime / StartupAccentTravel
-    val from = rawStep.toInt().coerceIn(0, StartupTerminalDotIndex)
-    if (from >= StartupTerminalDotIndex) return if (index == StartupTerminalDotIndex) 1f else 0f
-    val handoff = startupEase((rawStep - from).coerceIn(0f, 1f))
-    return when (index) {
-        from -> 1f - handoff
-        from + 1 -> handoff
-        else -> 0f
-    }
-}
-
-private fun startupRowDotColor(index: Int, time: Float, palette: StartupPalette): Color =
-    startupMixColor(palette.dot, palette.accent, startupRowAccentAmount(index, time))
-
-private fun startupRingColorForDot(index: Int, palette: StartupPalette): Color =
-    if (index == StartupTerminalDotIndex) palette.accent else palette.dot
-
-/** Five complete dots are visible immediately; only the accent moves from one to the next. */
-private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
-    repeat(5) { index ->
-        val accent = startupRowAccentAmount(index, time)
-        startupDot(
-            x = startupRowX(index),
-            y = 0f,
-            color = startupRowDotColor(index, time, palette),
-            // A restrained breathing scale makes the handoff read as fluid while preserving all
-            // five dots at their original locations.
-            radius = StartupDotDiameter / 2f * (1f + .10f * accent)
-        )
-    }
-}
-
-/** Each fully revealed dot moves to its own ring-segment centre; no sixth/pre-ring dot exists. */
-private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
-    val progress = startupEase(startupClamp01(time / StartupPhaseDurations[1]))
-    repeat(5) { index ->
-        val target = startupSegmentCenter(StartupRingOrder[index])
-        startupDot(
-            x = startupMix(startupRowX(index), target.x, progress),
-            y = startupMix(0f, target.y, progress),
-            color = startupRingColorForDot(index, palette),
-            radius = StartupDotDiameter / 2f
-        )
-    }
-}
-
-/**
- * Ring segments unfurl in a clockwise sequence from the terminal accent seed. This preserves the
- * exact terminal dot at segment zero while giving the ring a deliberate premium build rather than
- * five simultaneous strokes.
- */
-private fun DrawScope.drawStartupStretch(progress: Float, palette: StartupPalette) {
-    repeat(5) { index ->
-        val segment = StartupRingOrder[index]
-        val sequence = StartupRingBuildOrder.indexOf(segment).coerceAtLeast(0)
-        val local = startupEase(startupClamp01(
-            (progress - sequence * StartupRingSegmentStagger) /
-                (1f - (StartupRingBuildOrder.lastIndex * StartupRingSegmentStagger))
-        ))
-        val color = startupRingColorForDot(index, palette)
-        val width = startupMix(StartupDotDiameter, StartupStrokeWidth, local)
-        if (local < .004f) {
-            val center = startupSegmentCenter(segment)
-            startupDot(center.x, center.y, color, width / 2f)
-        } else {
-            startupLine(
-                points = startupPoints(18) { step ->
-                    startupRingPoint((segment + .5f + (step - .5f) * local) * .2f)
-                },
-                color = color,
-                width = width
-            )
-        }
-    }
-}
-
 /** The accent arc makes two full clockwise circuits around the ring. */
 private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) {
     val scale = density
@@ -231,8 +120,8 @@ private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) 
     )
     drawArc(
         color = palette.accent,
-        // At rotation zero this is the terminal dot's completed segment (zero), exactly
-        // matching drawStartupStretch's final [Start, Start + 72°] accent span.
+        // At rotation zero the accent begins on the ring's first 72-degree segment, keeping the
+        // first visible frame complete and stable before its clockwise travel.
         startAngle = Math.toDegrees(
             (StartupRingStart + StartupTerminalRingSegment * (2f * StartupPi / 5f) + rotation).toDouble()
         ).toFloat(),
@@ -286,9 +175,9 @@ private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, pal
 /**
  * Theme-aware XVOX startup animation.
  *
- * The sequence moves once from dots to ring to rail. Its gray/background/accent colors always
- * come from the active XVOX theme, and the completed accent rail releases Home as soon as the
- * real startup work is ready—there is no return-to-dot or replay phase.
+ * The sequence begins on a complete ring, then unrolls once into a rail. Its
+ * gray/background/accent colors always come from the active XVOX theme, and the completed accent
+ * rail releases Home as soon as real startup work is ready—there is no dot or replay phase.
  */
 @Composable
 fun XvoxStartupLoadingScreen(
@@ -351,29 +240,29 @@ fun XvoxStartupLoadingScreen(
         ) {
             translate(left = size.width / 2f, top = size.height / 2f) {
                 if (reducedMotion) {
-                    drawStartupLoadBar(
-                        progress = time / 2600f,
-                        complete = time >= 2600f,
-                        palette = palette
-                    )
+                    // Reduced motion keeps the first frame as a calm finished ring, then makes
+                    // only the essential ring-to-rail transition and fill visible.
+                    when {
+                        time < 500f -> drawStartupSpin(0f, palette)
+                        time < 1100f -> drawStartupUnroll((time - 500f) / 600f, palette)
+                        else -> drawStartupLoadBar(
+                            progress = (time - 1100f) / (StartupReducedMotionDuration - 1100f),
+                            complete = time >= StartupReducedMotionDuration,
+                            palette = palette
+                        )
+                    }
                 } else {
                     when {
-                        time < StartupPhaseBounds[1] -> drawStartupRow(time, palette)
-                        time < StartupPhaseBounds[2] -> drawStartupGather(time - StartupPhaseBounds[1], palette)
-                        time < StartupPhaseBounds[3] -> drawStartupStretch(
+                        time < StartupPhaseBounds[1] -> drawStartupSpin(
+                            time / StartupPhaseDurations[0],
+                            palette
+                        )
+                        time < StartupPhaseBounds[2] -> drawStartupUnroll(
+                            (time - StartupPhaseBounds[1]) / StartupPhaseDurations[1],
+                            palette
+                        )
+                        time < StartupPhaseBounds[3] -> drawStartupLoadBar(
                             (time - StartupPhaseBounds[2]) / StartupPhaseDurations[2],
-                            palette
-                        )
-                        time < StartupPhaseBounds[4] -> drawStartupSpin(
-                            (time - StartupPhaseBounds[3]) / StartupPhaseDurations[3],
-                            palette
-                        )
-                        time < StartupPhaseBounds[5] -> drawStartupUnroll(
-                            (time - StartupPhaseBounds[4]) / StartupPhaseDurations[4],
-                            palette
-                        )
-                        time < StartupPhaseBounds[6] -> drawStartupLoadBar(
-                            (time - StartupPhaseBounds[5]) / StartupPhaseDurations[5],
                             complete = false,
                             palette = palette
                         )
