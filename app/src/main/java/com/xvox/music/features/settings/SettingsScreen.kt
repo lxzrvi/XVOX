@@ -177,6 +177,18 @@ fun SettingsScreen(
         }
     }
 
+    fun openFontPicker() {
+        overlays.showBox("Fonts") {
+            XvoxFontPickerContent(
+                selectedKey = state.fontFamily,
+                onSelect = { key ->
+                    settingsViewModel.setFontFamily(key)
+                    overlays.hideBox()
+                }
+            )
+        }
+    }
+
     var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
     if (showingWidgetStudio) {
         WidgetStudioScreen(
@@ -238,7 +250,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AppearanceSectionCard(
-                            state, settingsViewModel, ::openCustomColorPicker,
+                            state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         WidgetSectionCard(
@@ -265,7 +277,7 @@ fun SettingsScreen(
                 // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker)
+                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
                 }
                 item(key = "section_widget") {
                     WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
@@ -288,6 +300,7 @@ private fun AppearanceSectionCard(
     state: SettingsState,
     viewModel: SettingsViewModel,
     onOpenColorWheel: () -> Unit,
+    onOpenFontPicker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -305,7 +318,7 @@ private fun AppearanceSectionCard(
         else -> "custom"
     }
 
-    // L retains the prior Medium physical scale; each lower label steps down one size.
+    // M is the fresh-install default; each other label maps to its explicit persisted scale.
     val scaleOptions = listOf(
         Triple("xs", "XS", 0.70f),
         Triple("s", "S", 0.80f),
@@ -346,7 +359,15 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            SettingsField("Text style") {
+            SettingsField("Fonts") {
+                XvoxFontPickerButton(
+                    selectedKey = state.fontFamily,
+                    onClick = onOpenFontPicker,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            SettingsField("Text size") {
                 XvoxSegmentedPill(
                     options = scaleOptions.map { it.first to it.second },
                     selectedKey = selectedScale,

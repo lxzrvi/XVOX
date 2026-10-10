@@ -50,7 +50,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.XvoxUiFont
+import com.xvox.music.core.design.theme.LocalXvoxUiFont
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.LyricsSettings
@@ -393,7 +393,7 @@ fun XvoxArtworkLyrics(
                             Text(
                                 text = rawLine.text.ifBlank { "♪" },
                                 color = effectiveTextColor.copy(alpha = .93f),
-                                fontFamily = XvoxUiFont,
+                                fontFamily = LocalXvoxUiFont.current,
                                 fontSize = lyricsSettings.currentSize.sp,
                                 lineHeight = (lyricsSettings.currentSize * 1.30f).sp,
                                 textAlign = when (lyricsSettings.alignment) {

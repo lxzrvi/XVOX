@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Shape
 import com.skydoves.cloudy.Sky
 import com.skydoves.cloudy.cloudy
 import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 
 /**
@@ -33,10 +32,15 @@ fun Modifier.xvoxLiveBackdropBlur(
 ): Modifier {
     val sky = LocalXvoxBlurSky.current
     val appearance = LocalXvoxExperimentalAppearance.current
-    val transparentDefaultSurface = applyInDefault || XvoxTheme.colors.card.alpha < .995f
-    val enabled = sky != null && (
+    // Cloudy is intentionally opt-in at the actual chrome/sheet call site. In particular, a
+    // translucent palette must not turn every repeated song/playlist card into a live recorder
+    // target: that was both visually noisy and the source of Home instability while Blur was on.
+    // Eligible surfaces still use Cloudy's real moving capture in both modes; this is not a
+    // synthetic fallback or static snapshot.
+    val explicitlyEligible = applyInDefault
+    val enabled = sky != null && explicitlyEligible && (
         appearance == XvoxExperimentalAppearance.BLUR ||
-            (appearance == XvoxExperimentalAppearance.DEFAULT && transparentDefaultSurface)
+            appearance == XvoxExperimentalAppearance.DEFAULT
     )
     return if (enabled) {
         cloudy(

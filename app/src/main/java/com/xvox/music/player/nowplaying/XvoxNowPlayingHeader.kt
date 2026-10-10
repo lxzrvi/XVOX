@@ -45,8 +45,10 @@ fun XvoxNowPlayingHeader(
     useSystemInsets: Boolean = true,
     /** Optional side for the compact share/options group; collapse remains at its stable edge. */
     optionsGroupSide: String = "right",
-    /** Shared transparency for collapse, options, and the utility-control family. */
-    controlsAlpha: Float = 1f
+    /** Independent Customize multiplier for header/right-pill controls. */
+    controlsAlpha: Float = 1f,
+    /** Shared lyrics-box material alpha used by all painted header surfaces. */
+    surfaceAlpha: Float = .27f
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -66,7 +68,7 @@ fun XvoxNowPlayingHeader(
                 .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                 .clip(CircleShape)
                 .xvoxLiveBackdropBlur(CircleShape, radius = 16, applyInDefault = true)
-                .background(colors.card.copy(alpha = colors.card.alpha * .72f))
+                .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -140,7 +142,7 @@ fun XvoxNowPlayingHeader(
                     .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(20.dp))
                     .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16, applyInDefault = true)
-                    .background(colors.card.copy(alpha = colors.card.alpha * .72f))
+                    .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

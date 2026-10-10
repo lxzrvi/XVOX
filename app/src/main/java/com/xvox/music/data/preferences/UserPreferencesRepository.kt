@@ -130,6 +130,8 @@ class UserPreferencesRepository(
         val experimentalAppearance = stringPreferencesKey("experimental_appearance")
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
+        /** Selected app-wide UI typeface ("inter" is the durable default). */
+        val fontFamily = stringPreferencesKey("font_family")
         /** Whole-interface density choice: small, medium, or large. */
         val displaySize = stringPreferencesKey("display_size")
         /** Forced app orientation, deliberately independent from the device rotation setting. */
@@ -446,9 +448,15 @@ class UserPreferencesRepository(
         .map { normalizeExperimentalAppearance(it[Keys.experimentalAppearance]) }
         .distinctUntilChanged()
     val hideStatusBar: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideStatusBar] ?: false }.distinctUntilChanged()
-    // L deliberately uses the former Medium physical scale; smaller labels step down from it.
+    // M is the fresh-install default; L remains available without changing older saved choices.
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data
-        .map { normalizeTextScale(it[Keys.fontSizeScale] ?: 1.0f) }
+        .map { normalizeTextScale(it[Keys.fontSizeScale] ?: .90f) }
+        .distinctUntilChanged()
+    val fontFamily: Flow<String> = context.xvoxDataStore.data
+        .map { raw ->
+            val key = raw[Keys.fontFamily].orEmpty()
+            if (com.xvox.music.core.design.theme.XvoxFontOptions.any { it.key == key }) key else "inter"
+        }
         .distinctUntilChanged()
     val displaySize: Flow<String> = context.xvoxDataStore.data
         .map { normalizeDisplaySize(it[Keys.displaySize]) }
@@ -703,6 +711,10 @@ class UserPreferencesRepository(
     }
     suspend fun setFontSizeScale(v: Float) {
         context.xvoxDataStore.edit { it[Keys.fontSizeScale] = normalizeTextScale(v) }
+    }
+    suspend fun setFontFamily(key: String) {
+        val normalized = if (com.xvox.music.core.design.theme.XvoxFontOptions.any { it.key == key }) key else "inter"
+        context.xvoxDataStore.edit { it[Keys.fontFamily] = normalized }
     }
     suspend fun setDisplaySize(value: String) {
         context.xvoxDataStore.edit { it[Keys.displaySize] = normalizeDisplaySize(value) }

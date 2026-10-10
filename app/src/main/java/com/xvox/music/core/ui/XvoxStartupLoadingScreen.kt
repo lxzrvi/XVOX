@@ -52,13 +52,15 @@ private val StartupRingStart = -StartupPi / 5f
 private const val StartupTerminalDotIndex = 4
 private const val StartupTerminalRingSegment = 0
 private val StartupRingOrder = intArrayOf(2, 3, 4, 1, StartupTerminalRingSegment)
-private const val StartupDotRevealCadence = 260f
+private const val StartupDotRevealCadence = 210f
 private const val StartupDotRevealDuration = 170f
+private const val StartupRingSegmentStagger = .105f
+private val StartupRingBuildOrder = intArrayOf(0, 1, 2, 3, 4)
 
-// Row, gather, stretch, spin, unroll, then fill. A completed fill exits into the app; it never
-// loops back to the initial dots or makes the finished ring replay.
+// Row, gather, stretch, spin, unroll, then fill. The opening is deliberately compact: five dots
+// reveal and pass one accent pulse left-to-right before their terminal accent becomes the ring.
 private val StartupPhaseDurations = floatArrayOf(
-    2300f, 560f, 680f, 2200f, 1200f, 2400f
+    1720f, 560f, 840f, 2200f, 1200f, 2400f
 )
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
@@ -136,29 +138,35 @@ private fun startupDotReveal(index: Int, time: Float): Float = startupEase(
     startupClamp01((time - index * StartupDotRevealCadence) / StartupDotRevealDuration)
 )
 
-/** The final dot resolves to the accent before it begins travelling toward its own ring segment. */
-private fun startupTerminalAccent(time: Float): Float {
-    val finalRevealEnd = StartupTerminalDotIndex * StartupDotRevealCadence + StartupDotRevealDuration
-    return startupEase(startupClamp01((time - finalRevealEnd) / 280f))
+/**
+ * Accent moves with each newly revealed dot. Earlier dots settle to the neutral rail; the fifth
+ * dot keeps the accent, so it can become segment zero without a colour or position discontinuity.
+ */
+private fun startupRowDotColor(index: Int, time: Float, palette: StartupPalette): Color {
+    val activeIndex = (time / StartupDotRevealCadence).toInt().coerceIn(0, StartupTerminalDotIndex)
+    val accent = when {
+        index == StartupTerminalDotIndex && time >=
+            StartupTerminalDotIndex * StartupDotRevealCadence + StartupDotRevealDuration -> 1f
+        // The active dot is already the accent as it fades in. Startup therefore begins in the
+        // fresh-install red/accent instead of briefly flashing the neutral rail first.
+        index == activeIndex -> 1f
+        else -> 0f
+    }
+    return startupMixColor(palette.dot, palette.accent, accent)
 }
 
-private fun startupRingColorForDot(index: Int, terminalAccent: Float, palette: StartupPalette): Color =
-    if (index == StartupTerminalDotIndex) {
-        startupMixColor(palette.dot, palette.accent, terminalAccent)
-    } else {
-        palette.dot
-    }
+private fun startupRingColorForDot(index: Int, palette: StartupPalette): Color =
+    if (index == StartupTerminalDotIndex) palette.accent else palette.dot
 
-/** Five dots appear one-by-one, then the last/terminal dot becomes the single accent seed. */
+/** Five dots appear one-by-one with a single travelling accent; there is never a carrier sixth dot. */
 private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
-    val terminalAccent = startupTerminalAccent(time)
     repeat(5) { index ->
         val reveal = startupDotReveal(index, time)
         if (reveal > .001f) {
             startupDot(
                 x = startupRowX(index),
                 y = 0f,
-                color = startupRingColorForDot(index, terminalAccent, palette).copy(alpha = reveal),
+                color = startupRowDotColor(index, time, palette).copy(alpha = reveal),
                 radius = StartupDotDiameter / 2f * reveal.coerceAtLeast(.42f)
             )
         }
@@ -168,34 +176,39 @@ private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
 /** Each fully revealed dot moves to its own ring-segment centre; no sixth/pre-ring dot exists. */
 private fun DrawScope.drawStartupGather(time: Float, palette: StartupPalette) {
     val progress = startupEase(startupClamp01(time / StartupPhaseDurations[1]))
-    // The final row frame already completed the accent resolve. Carry that exact color forward.
-    val terminalAccent = 1f
     repeat(5) { index ->
         val target = startupSegmentCenter(StartupRingOrder[index])
         startupDot(
             x = startupMix(startupRowX(index), target.x, progress),
             y = startupMix(0f, target.y, progress),
-            color = startupRingColorForDot(index, terminalAccent, palette),
+            color = startupRingColorForDot(index, palette),
             radius = StartupDotDiameter / 2f
         )
     }
 }
 
-/** Every dot stretches from its own centre into its corresponding ring segment in the same frame. */
+/**
+ * Ring segments unfurl in a clockwise sequence from the terminal accent seed. This preserves the
+ * exact terminal dot at segment zero while giving the ring a deliberate premium build rather than
+ * five simultaneous strokes.
+ */
 private fun DrawScope.drawStartupStretch(progress: Float, palette: StartupPalette) {
-    val easedProgress = startupEase(progress)
     repeat(5) { index ->
         val segment = StartupRingOrder[index]
-        val color = startupRingColorForDot(index, 1f, palette)
-        val width = startupMix(StartupDotDiameter, StartupStrokeWidth, easedProgress)
-        if (easedProgress < .004f) {
-            // Exactly one terminal seed exists here: it is the same dot that reached this centre.
+        val sequence = StartupRingBuildOrder.indexOf(segment).coerceAtLeast(0)
+        val local = startupEase(startupClamp01(
+            (progress - sequence * StartupRingSegmentStagger) /
+                (1f - (StartupRingBuildOrder.lastIndex * StartupRingSegmentStagger))
+        ))
+        val color = startupRingColorForDot(index, palette)
+        val width = startupMix(StartupDotDiameter, StartupStrokeWidth, local)
+        if (local < .004f) {
             val center = startupSegmentCenter(segment)
             startupDot(center.x, center.y, color, width / 2f)
         } else {
             startupLine(
-                points = startupPoints(16) { step ->
-                    startupRingPoint((segment + .5f + (step - .5f) * easedProgress) * .2f)
+                points = startupPoints(18) { step ->
+                    startupRingPoint((segment + .5f + (step - .5f) * local) * .2f)
                 },
                 color = color,
                 width = width

@@ -78,7 +78,7 @@ data class XvoxChromeStyle(
     val nowPlayingBottomBoxAlpha: Float = 1f,
     val nowPlayingControlsAlpha: Float = 1f,
     val nowPlayingPlayAlpha: Float = 1f,
-    /** Persisted freeform layout offsets in dp for the bottom Now Playing canvas. */
+    /** Persisted alignment-grid offsets in dp for the bottom Now Playing canvas. */
     val nowPlayingMetadataOffsetX: Float = 0f,
     val nowPlayingMetadataOffsetY: Float = 0f,
     val nowPlayingProgressOffsetX: Float = 0f,
@@ -314,3 +314,32 @@ fun parseHexColor(hex: String): Color? {
     val rgb = value.toLongOrNull(16) ?: return null
     return Color(0xFF000000L or rgb)
 }
+
+/**
+ * Makes legacy freeform Now Playing offsets safe at the render boundary. The customizer exposes
+ * these exact shape-aware slots, so an old stored coordinate can never make text, rails, pills,
+ * or transport controls overlap after the grid editor replaced arbitrary placement.
+ */
+private fun xvoxNearestGrid(value: Float, slots: FloatArray): Float =
+    slots.minByOrNull { candidate -> kotlin.math.abs(candidate - value) } ?: 0f
+
+fun XvoxChromeStyle.normalizedNowPlayingGrid(): XvoxChromeStyle = copy(
+    nowPlayingMetadataOffsetX = 0f,
+    nowPlayingMetadataOffsetY = xvoxNearestGrid(nowPlayingMetadataOffsetY, floatArrayOf(-10f, 0f, 10f)),
+    nowPlayingProgressOffsetX = 0f,
+    nowPlayingProgressOffsetY = xvoxNearestGrid(nowPlayingProgressOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingUtilityOffsetX = xvoxNearestGrid(nowPlayingUtilityOffsetX, floatArrayOf(-16f, 0f, 16f)),
+    nowPlayingUtilityOffsetY = xvoxNearestGrid(nowPlayingUtilityOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingActionsOffsetX = xvoxNearestGrid(nowPlayingActionsOffsetX, floatArrayOf(-14f, 0f, 14f)),
+    nowPlayingActionsOffsetY = xvoxNearestGrid(nowPlayingActionsOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingShuffleRepeatOffsetX = 0f,
+    nowPlayingShuffleRepeatOffsetY = xvoxNearestGrid(nowPlayingShuffleRepeatOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingPreviousOffsetX = xvoxNearestGrid(nowPlayingPreviousOffsetX, floatArrayOf(-10f, 0f, 10f)),
+    nowPlayingPreviousOffsetY = xvoxNearestGrid(nowPlayingPreviousOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingPlayOffsetX = 0f,
+    nowPlayingPlayOffsetY = xvoxNearestGrid(nowPlayingPlayOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingNextOffsetX = xvoxNearestGrid(nowPlayingNextOffsetX, floatArrayOf(-10f, 0f, 10f)),
+    nowPlayingNextOffsetY = xvoxNearestGrid(nowPlayingNextOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingBrandOffsetX = xvoxNearestGrid(nowPlayingBrandOffsetX, floatArrayOf(-12f, 0f, 12f)),
+    nowPlayingBrandOffsetY = xvoxNearestGrid(nowPlayingBrandOffsetY, floatArrayOf(-4f, 0f, 4f))
+)

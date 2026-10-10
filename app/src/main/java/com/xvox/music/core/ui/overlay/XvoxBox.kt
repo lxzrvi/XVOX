@@ -178,6 +178,13 @@ private val LocalXvoxSheetScrollBridge = staticCompositionLocalOf<XvoxSheetScrol
 val LocalXvoxSheetGrowthActive = staticCompositionLocalOf { false }
 
 /**
+ * A scroll body may report its natural maximum height. The sheet uses this to stop growth exactly
+ * when the last real row and its bottom inset fit, rather than creating a blank expanded viewport.
+ * The value is in pixels and is deliberately body-only (header/footer remain owned by XvoxSheet).
+ */
+val LocalXvoxSheetGrowthLimitReporter = staticCompositionLocalOf<((Float) -> Unit)?> { null }
+
+/**
  * Backwards-compatible name for the application-wide option sheet.  Every overlay deliberately
  * routes through [XvoxSheet] so Profile, pickers, confirmations, Song Options, and Equalizer all
  * share the same full-width, bottom-touching behaviour.
@@ -324,20 +331,49 @@ fun XvoxSheet(
                 val pillCloseHeightPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
+                var bodyViewportHeightPx by remember { mutableFloatStateOf(0f) }
+                // Default to no content cap. Scroll bodies such as Queue report their real
+                // natural list height so bottom-anchored growth ends on the last row, not blank.
+                val reportedBodyGrowthLimitPx = remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
+                val reportBodyGrowthLimit = remember {
+                    { naturalBodyHeightPx: Float ->
+                        reportedBodyGrowthLimitPx.floatValue = naturalBodyHeightPx.coerceAtLeast(0f)
+                    }
+                }
                 var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
                 var dragDeltaPx by remember { mutableFloatStateOf(0f) }
 
-                LaunchedEffect(maxSheetHeightPx) {
-                    if (requestedHeightPx > maxSheetHeightPx) {
-                        requestedHeightPx = maxSheetHeightPx
+                fun contentBoundedMaxHeightPx(): Float {
+                    val naturalBodyLimit = reportedBodyGrowthLimitPx.floatValue
+                    val contentBound = if (
+                        naturalBodyLimit.isFinite() && measuredHeightPx > 0 && bodyViewportHeightPx > 0f
+                    ) {
+                        // Header/chrome stays fixed while the body grows upward from the screen
+                        // bottom. Cap precisely at the final real body row and its inset.
+                        measuredHeightPx.toFloat() - bodyViewportHeightPx + naturalBodyLimit
+                    } else {
+                        maxSheetHeightPx
                     }
+                    return minOf(maxSheetHeightPx, contentBound).coerceAtLeast(1f)
+                }
+
+                LaunchedEffect(
+                    maxSheetHeightPx,
+                    reportedBodyGrowthLimitPx.floatValue,
+                    bodyViewportHeightPx,
+                    measuredHeightPx
+                ) {
+                    val cap = contentBoundedMaxHeightPx()
+                    if (requestedHeightPx > cap) requestedHeightPx = cap
                 }
                 val contentScrollBridge = remember(maxSheetHeightPx, density) {
                     XvoxSheetScrollBridge(
                         sheetHeight = { requestedHeightPx },
                         measuredHeight = { measuredHeightPx.toFloat() },
-                        maxHeight = { maxSheetHeightPx },
-                        setSheetHeight = { next -> requestedHeightPx = next.coerceIn(1f, maxSheetHeightPx) },
+                        maxHeight = { contentBoundedMaxHeightPx() },
+                        setSheetHeight = { next ->
+                            requestedHeightPx = next.coerceIn(1f, contentBoundedMaxHeightPx())
+                        },
                         dismiss = ::close,
                         dismissDistancePx = with(density) { 52.dp.toPx() }
                     )
@@ -348,7 +384,7 @@ fun XvoxSheet(
 
                 val requestedHeight: Dp? = requestedHeightPx
                     .takeIf { it > 0f }
-                    ?.let { with(density) { it.coerceIn(1f, maxSheetHeightPx).toDp() } }
+                    ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
                 val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
                 val sheetSizing = if (requestedHeight != null) {
                     Modifier.height(requestedHeight)
@@ -412,7 +448,7 @@ fun XvoxSheet(
                                                     measuredHeightPx >= maxSheetHeightPx - 2f
                                                 if (canGrow) {
                                                     requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
-                                                        .coerceIn(1f, maxSheetHeightPx)
+                                                        .coerceIn(1f, contentBoundedMaxHeightPx())
                                                 }
                                             } else if (dragStartHeightPx > contentContractFloorPx) {
                                                 // A pill drag can compact continuously; it only
@@ -430,7 +466,7 @@ fun XvoxSheet(
                                             if (dragDeltaPx > dismissThreshold && currentHeight <= pillCloseHeightPx + 2f) {
                                                 close()
                                             } else if (dragDeltaPx < 0f) {
-                                                requestedHeightPx = requestedHeightPx.coerceAtMost(maxSheetHeightPx)
+                                                requestedHeightPx = requestedHeightPx.coerceAtMost(contentBoundedMaxHeightPx())
                                             }
                                             dragDeltaPx = 0f
                                         },
@@ -480,6 +516,7 @@ fun XvoxSheet(
                                 .fillMaxWidth()
                                 .then(bodyViewport)
                                 .heightIn(min = 0.dp)
+                                .onGloballyPositioned { bodyViewportHeightPx = it.size.height.toFloat() }
                                 // The viewport stays clipped beneath Header/footer. Keep a small
                                 // content-safe inset, but deliberately draw no separator line.
                                 .clipToBounds()
@@ -487,7 +524,8 @@ fun XvoxSheet(
                         ) {
                             CompositionLocalProvider(
                                 LocalXvoxSheetScrollBridge provides contentScrollBridge,
-                                LocalXvoxSheetGrowthActive provides (requestedHeight != null)
+                                LocalXvoxSheetGrowthActive provides (requestedHeight != null),
+                                LocalXvoxSheetGrowthLimitReporter provides reportBodyGrowthLimit
                             ) {
                                 content()
                             }

@@ -100,7 +100,8 @@ fun XvoxAppRoot(
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
     val experimentalAppearanceRaw by prefs.experimentalAppearance.collectAsState(initial = "default")
     val experimentalAppearance = com.xvox.music.core.design.theme.XvoxExperimentalAppearance.fromStorage(experimentalAppearanceRaw)
-    val fontScale by prefs.fontSizeScale.collectAsState(initial = 1.0f)
+    val fontScale by prefs.fontSizeScale.collectAsState(initial = .90f)
+    val fontFamilyKey by prefs.fontFamily.collectAsState(initial = "inter")
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
     val chromePreview = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
     LaunchedEffect(chrome, chromePreview) {
@@ -142,10 +143,13 @@ fun XvoxAppRoot(
     }
 
     val currentDensity = LocalDensity.current
-    // Keep the existing app scale unchanged. Text style remains the one visible typography
-    // control; the retired Display size preference is retained only for compatibility records.
+    // Text size is the visible typography scale control; the retired Display size preference is
+    // retained only for compatibility records.
     val customDensity = remember(currentDensity.density, fontScale) {
         Density(density = currentDensity.density, fontScale = fontScale)
+    }
+    val selectedUiFont = remember(fontFamilyKey) {
+        com.xvox.music.core.design.theme.xvoxUiFontFor(fontFamilyKey)
     }
 
     XvoxTheme(
@@ -155,7 +159,8 @@ fun XvoxAppRoot(
         cardTransparency = cardTransparency,
         cardBorder = effectiveChrome.cardBorder,
         cardBorderAlpha = effectiveChrome.cardBorderAlpha,
-        experimentalAppearance = experimentalAppearance
+        experimentalAppearance = experimentalAppearance,
+        uiFontFamily = selectedUiFont
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
         // Default UI only starts a Cloudy recorder when a real backdrop can show through a

@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 
 enum class XvoxThemeMode {
     SYSTEM,
@@ -49,6 +50,8 @@ fun XvoxTheme(
     cardBorder: String = "",
     cardBorderAlpha: Float = 1f,
     experimentalAppearance: XvoxExperimentalAppearance = XvoxExperimentalAppearance.DEFAULT,
+    /** Persisted app text family. Branded logo/personalization marks remain intentionally fixed. */
+    uiFontFamily: FontFamily = XvoxUiFont,
     content: @Composable () -> Unit
 ) {
     val ordinaryDark = when (mode) {
@@ -110,17 +113,16 @@ fun XvoxTheme(
 
     CompositionLocalProvider(
         LocalXvoxPalette provides palette,
-        LocalXvoxExperimentalAppearance provides experimentalAppearance
+        LocalXvoxExperimentalAppearance provides experimentalAppearance,
+        LocalXvoxUiFont provides uiFontFamily
     ) {
         MaterialTheme(
             colorScheme = materialColors,
-            typography = XvoxTypography,
+            typography = xvoxTypographyFor(uiFontFamily),
             shapes = XvoxShapes
         ) {
             ProvideTextStyle(
-                value = TextStyle(
-                    fontFamily = XvoxUiFont
-                ),
+                value = TextStyle(fontFamily = uiFontFamily),
                 content = content
             )
         }

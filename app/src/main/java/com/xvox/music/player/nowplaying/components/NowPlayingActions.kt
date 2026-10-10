@@ -87,8 +87,10 @@ fun NowPlayingActions(
     /** User-selectable lanes; the transport play circle remains physically centered below. */
     utilityPillSide: String = "left",
     actionClusterSide: String = "right",
-    /** Full-screen customizer values for the utility/action groups. */
+    /** Full-screen customizer multiplier for utility/action groups. */
     controlsAlpha: Float = 1f,
+    /** Shared lyrics-box material alpha for utility and circular action surfaces. */
+    surfaceAlpha: Float = .27f,
     utilityOffsetX: Float = 0f,
     utilityOffsetY: Float = 0f,
     actionsOffsetX: Float = 0f,
@@ -136,7 +138,7 @@ fun NowPlayingActions(
                 .height(42.dp)
                 .clip(RoundedCornerShape(21.dp))
                 .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16, applyInDefault = true)
-                .background(colors.card.copy(alpha = 0.22f))
+                .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -224,6 +226,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_star,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = isInPlaylist,
                                     contentDescription = "Add to playlist",
@@ -234,6 +237,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = isLiked,
                                     contentDescription = if (isLiked) "Unlike" else "Like",
@@ -249,6 +253,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_equalizer,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = equalizerOn,
                                     contentDescription = "Equalizer",
@@ -264,6 +269,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_waveform,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = spaceOn,
                                     contentDescription = "3D Sound",
@@ -286,6 +292,7 @@ fun NowPlayingActions(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_bluetooth,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = bluetoothRouted,
                                     contentDescription = "Bluetooth / audio output",
@@ -301,6 +308,7 @@ fun NowPlayingActions(
                                 )
                                 NowPlayingCircleAction(
                                     resource = R.drawable.ic_xvox_crossfade,
+                                    surfaceAlpha = surfaceAlpha,
                                     
                                     active = crossfadeOn,
                                     contentDescription = "Crossfade",
@@ -431,6 +439,8 @@ fun NowPlayingPillActionIcon(
 @Composable
 fun NowPlayingCircleAction(
     resource: Int,
+    /** Shared now-playing material alpha, provided by the Lyrics-matched container. */
+    surfaceAlpha: Float = .27f,
     tint: Color? = null,
     active: Boolean = false,
     contentDescription: String? = null,
@@ -441,7 +451,7 @@ fun NowPlayingCircleAction(
     val haptics = LocalXvoxHaptics.current
     // An active option keeps exactly the same surface as every other option. Only its icon
     // changes to the accent, so toggling one never flashes or recolours the six-pill area.
-    val bgColor = colors.card.copy(alpha = 0.35f)
+    val bgColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f))
     val effectiveTint = if (active) colors.primaryAccent else {
         if (colors.isLight) Color.Black else colors.primaryText.copy(alpha = 0.85f)
     }

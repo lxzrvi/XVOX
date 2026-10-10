@@ -61,6 +61,8 @@ fun XvoxNowPlayingControls(
     /** Bottom-box customizer transparency and per-control freeform offsets in dp. */
     controlsAlpha: Float = 1f,
     playAlpha: Float = 1f,
+    /** Shared lyrics-box material alpha for the painted Play surface. */
+    surfaceAlpha: Float = .27f,
     shuffleRepeatOffsetX: Float = 0f,
     shuffleRepeatOffsetY: Float = 0f,
     previousOffsetX: Float = 0f,
@@ -129,7 +131,7 @@ fun XvoxNowPlayingControls(
 
     @Composable
     fun playControl() {
-        PlayControl(isPlaying = isPlaying, onClick = onTogglePlay)
+        PlayControl(isPlaying = isPlaying, onClick = onTogglePlay, surfaceAlpha = surfaceAlpha)
     }
 
     @Composable
@@ -295,11 +297,13 @@ private fun PreviewNavigationControl(
 @Composable
 private fun PlayControl(
     isPlaying: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    surfaceAlpha: Float
 ) {
     val colors = XvoxTheme.colors
     val darkMode = colors.background.luminance() < 0.5f
-    val circleColor = if (darkMode) Color.Black.copy(alpha = 0.22f) else colors.card.copy(alpha = 0.25f)
+    val surface = surfaceAlpha.coerceIn(0f, 1f)
+    val circleColor = if (darkMode) Color.Black.copy(alpha = surface) else colors.card.copy(alpha = surface)
 
     Box(
         modifier = Modifier

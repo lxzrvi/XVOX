@@ -47,6 +47,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
@@ -135,14 +136,10 @@ fun XvoxNowPlaying(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+        .normalizedNowPlayingGrid()
     val overlays = LocalXvoxOverlayController.current
-    val blurAppearance = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
-    // Default keeps the familiar lightly transparent player panels; Blur mode lets Cloudy sample
-    // the live artwork/backdrop through the same panels rather than forcing an opaque player.
-    val playerPanelAlpha = if (blurAppearance) .44f else .82f
-    // Bottom-box transparency is independently customizable without changing any other panel.
-    val bottomPanelAlpha = playerPanelAlpha * chrome.nowPlayingBottomBoxAlpha.coerceIn(0f, 1f)
+    // The player chrome adopts the lyrics-box material once the display mode is known below.
+    // The three Customize knobs remain independent multipliers above that shared baseline.
     val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
@@ -172,6 +169,10 @@ fun XvoxNowPlaying(
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
     val isLyricsShowing = currentMode >= 1
     val isFullscreen = currentMode == 2
+    // Exactly match XvoxArtworkLyrics' compact/expanded surface alpha (.27/.35).
+    val lyricsBoxAlpha = if (isFullscreen) .35f else .27f
+    val bottomPanelAlpha = lyricsBoxAlpha * chrome.nowPlayingBottomBoxAlpha.coerceIn(0f, 1f)
+    val controlsSurfaceAlpha = lyricsBoxAlpha
     val setMode: (Int) -> Unit = { mode ->
         internalDisplayMode = mode
         onDisplayModeChange?.invoke(mode)
@@ -682,6 +683,7 @@ fun XvoxNowPlaying(
                             useSystemInsets = false,
                             optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
                             controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            surfaceAlpha = controlsSurfaceAlpha,
                             modifier = Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
                                     onVerticalDrag = { _, dragAmount ->
@@ -724,6 +726,7 @@ fun XvoxNowPlaying(
                             utilityPillSide = chrome.nowPlayingPillSide,
                             actionClusterSide = chrome.nowPlayingChangingActionsSide,
                             controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            surfaceAlpha = controlsSurfaceAlpha,
                             utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
                             utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
                             actionsOffsetX = chrome.nowPlayingActionsOffsetX,
@@ -797,6 +800,7 @@ fun XvoxNowPlaying(
                             shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
                             controlsAlpha = chrome.nowPlayingControlsAlpha,
                             playAlpha = chrome.nowPlayingPlayAlpha,
+                            surfaceAlpha = controlsSurfaceAlpha,
                             shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
                             shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
                             previousOffsetX = chrome.nowPlayingPreviousOffsetX,
@@ -928,6 +932,7 @@ fun XvoxNowPlaying(
                     playingSource = playingSource,
                     optionsGroupSide = chrome.nowPlayingOptionsGroupSide,
                     controlsAlpha = chrome.nowPlayingControlsAlpha,
+                    surfaceAlpha = controlsSurfaceAlpha,
                     modifier = Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
@@ -1008,6 +1013,7 @@ fun XvoxNowPlaying(
                             utilityPillSide = chrome.nowPlayingPillSide,
                             actionClusterSide = chrome.nowPlayingChangingActionsSide,
                             controlsAlpha = chrome.nowPlayingControlsAlpha,
+                            surfaceAlpha = controlsSurfaceAlpha,
                             utilityOffsetX = chrome.nowPlayingUtilityOffsetX,
                             utilityOffsetY = chrome.nowPlayingUtilityOffsetY,
                             actionsOffsetX = chrome.nowPlayingActionsOffsetX,
@@ -1083,6 +1089,7 @@ fun XvoxNowPlaying(
                     shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
                     controlsAlpha = chrome.nowPlayingControlsAlpha,
                     playAlpha = chrome.nowPlayingPlayAlpha,
+                    surfaceAlpha = controlsSurfaceAlpha,
                     shuffleRepeatOffsetX = chrome.nowPlayingShuffleRepeatOffsetX,
                     shuffleRepeatOffsetY = chrome.nowPlayingShuffleRepeatOffsetY,
                     previousOffsetX = chrome.nowPlayingPreviousOffsetX,
@@ -1121,10 +1128,6 @@ fun XvoxNowPlaying(
                 )
             } else if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
-                    chrome = chrome,
-                    onChromeChange = { updated ->
-                        settingsViewModel.setChromeStyle { updated }
-                    },
                     onCustomize = { activeSettingsBox = "Customize" },
                     onDismiss = { activeSettingsBox = null }
                 )

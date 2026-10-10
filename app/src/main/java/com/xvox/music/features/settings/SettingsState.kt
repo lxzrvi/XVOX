@@ -18,8 +18,10 @@ data class SettingsState(
     val backgroundImageUri: String? = null,
     val hideStatusBar: Boolean = false,
     val cardTransparency: Float = 0f,
-    // L deliberately retains the former Medium physical scale.
-    val fontSizeScale: Float = 1.0f,
+    /** M is the fresh-install text size; XS/S/L remain explicit user choices. */
+    val fontSizeScale: Float = .90f,
+    /** App-wide selectable UI typeface; branded XVOX marks stay unchanged. */
+    val fontFamily: String = "inter",
     val hapticFeedbackEnabled: Boolean = true,
     val hapticIntensity: String = "medium",
     val fourRowsGrid: Boolean = true,

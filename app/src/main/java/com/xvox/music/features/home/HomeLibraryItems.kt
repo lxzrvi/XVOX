@@ -32,8 +32,11 @@ fun XvoxHomeSectionHeading(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            // Every library section reserves the same heading lane at XS/S/M/L. Text may change
+            // size, but All Songs, Recent, Liked, and Playlists never donate/steal list space.
+            .height(49.dp)
             .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)
+        verticalArrangement = Arrangement.Center
     ) {
         XvoxHomeSectionHeadingText(title, subtitle)
     }
@@ -42,15 +45,27 @@ fun XvoxHomeSectionHeading(
 @Composable
 internal fun XvoxHomeSectionHeadingText(title: String, subtitle: String) {
     val colors = XvoxTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+    Column(
+        modifier = Modifier.height(31.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
         Text(
             title,
             color = colors.primaryAccent,
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
-            lineHeight = 19.sp
+            lineHeight = 19.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        Text(subtitle, color = colors.mutedText, fontSize = 10.sp, lineHeight = 12.sp)
+        Text(
+            subtitle,
+            color = colors.mutedText,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -65,6 +80,7 @@ fun HomeCollectionHeader(
     Row(
         Modifier
             .fillMaxWidth()
+            .height(49.dp)
             .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

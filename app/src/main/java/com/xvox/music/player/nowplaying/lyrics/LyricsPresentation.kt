@@ -14,7 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.XvoxUiFont
+import com.xvox.music.core.design.theme.LocalXvoxUiFont
 import com.xvox.music.data.preferences.LyricsSettings
 import kotlin.math.abs
 
@@ -153,7 +153,7 @@ fun LyricPresentationLine(
         text = text.ifBlank { "♪" },
         color = resolvedColor,
         style = TextStyle(
-            fontFamily = XvoxUiFont,
+            fontFamily = LocalXvoxUiFont.current,
             fontSize = maximumSize.sp,
             lineHeight = (maximumSize * 1.30f).sp,
             fontWeight = if (active || !settings.focusActiveLine) {

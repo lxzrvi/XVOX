@@ -38,8 +38,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
@@ -82,13 +85,22 @@ fun XvoxMiniPlayer(
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
-    // The painted card sits at the host's lower edge. Its 56dp height plus a small clearance is
-    // enough to cross the physical bottom; include any upward custom placement so a lifted card
-    // still clears before Now Playing mounts. The former 246dp travel left a perceptible empty
-    // wait at both ends of the handoff.
+    val rootView = LocalView.current
+    var cardBottomInRootPx by remember { mutableFloatStateOf(Float.NaN) }
+    // The target is derived from the actual painted card rather than a guessed host offset. This
+    // includes any custom placement, keyboard lift, nav inset, and the 122dp interaction host.
+    // A fixed 76dp target could finish while the 56dp card was still visibly stuck at the bottom.
     val exitDistance = with(density) {
-        val upwardPlacement = (-totalPlacementY.value).coerceAtLeast(0f).dp
-        (76.dp + upwardPlacement).toPx()
+        val safetyClearance = 10.dp.toPx()
+        val minimumCardTravel = 66.dp.toPx()
+        val rootHeight = rootView.height.toFloat()
+        if (cardBottomInRootPx.isFinite() && rootHeight > 0f) {
+            (rootHeight - cardBottomInRootPx + safetyClearance).coerceAtLeast(minimumCardTravel)
+        } else {
+            // Layout reports the exact geometry on the first frame. This safe fallback also
+            // clears the complete painted card if a fast tap arrives before that callback.
+            188.dp.toPx()
+        }
     }
     val y = remember(riseKey) { Animatable(exitDistance) }
 
@@ -150,7 +162,7 @@ fun XvoxMiniPlayer(
             // There is no extra delay after the final frame: Now Playing starts its own bottom
             // entrance in the same handoff frame.
             dragX = 0f
-            y.snapTo(currentY.coerceAtLeast(0f))
+            y.snapTo(currentY.coerceIn(0f, exitDistance))
             dragY = 0f
             y.animateTo(exitDistance, XvoxMiniPlayerMotion.handoffSpec())
 
@@ -320,6 +332,11 @@ fun XvoxMiniPlayer(
                 onLike = onLike,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    // Graphics translation intentionally is not part of layout coordinates: we
+                    // need the resting physical card bottom so `exitDistance` can clear it.
+                    .onGloballyPositioned { coordinates ->
+                        cardBottomInRootPx = coordinates.boundsInRoot().bottom
+                    }
                     .graphicsLayer {
                         // The real vertical handoff remains the primary motion. Each experimental
                         // preset only adds a bounded visual layer, so the card always clears the

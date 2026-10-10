@@ -1,7 +1,5 @@
 package com.xvox.music.shell
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -14,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -69,6 +68,9 @@ import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthActive
+import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthLimitReporter
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.player.playback.XvoxSavedQueue
@@ -282,15 +284,29 @@ fun XvoxQueueBoxContent(
         }
     }
 
-    // Queue scrolling belongs exclusively to this bounded LazyColumn. It never asks the outer
-    // sheet for more height, so a fling cannot grow an obstruction below later rows. Include the
-    // fixed top/bottom insets in the measured viewport so the final item is fully visible.
-    val desiredQueueHeight = (queue.size * 64 + 12).dp.coerceAtMost(QueueViewportMaxHeight)
+    // A long Queue opens compact, then the real sheet bridge expands its bottom-anchored body
+    // upward before rows consume an upward drag. Report the full natural list height so XvoxBox
+    // stops exactly after the final row's 8dp inset rather than exposing empty sheet space.
+    val sheetGrowthActive = LocalXvoxSheetGrowthActive.current
+    val reportGrowthLimit = LocalXvoxSheetGrowthLimitReporter.current
+    val naturalQueueHeight = if (queue.isEmpty()) {
+        140.dp
+    } else {
+        RowHeight * queue.size.toFloat() +
+            RowSpacing * (queue.size - 1).coerceAtLeast(0).toFloat() + 12.dp
+    }
+    val desiredQueueHeight = naturalQueueHeight.coerceAtMost(QueueViewportMaxHeight)
+    // XvoxSheet owns a 6dp/10dp clipped body inset around its child. Include it in the reported
+    // ceiling so the list's own final 8dp padding is still fully visible at maximum growth.
+    val naturalQueueBodyHeight = naturalQueueHeight + 16.dp
+    LaunchedEffect(naturalQueueBodyHeight, density, reportGrowthLimit) {
+        reportGrowthLimit?.invoke(with(density) { naturalQueueBodyHeight.toPx() })
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .animateContentSize(animationSpec = tween(220))
     ) {
         if (queue.isEmpty()) {
             Box(
@@ -310,7 +326,10 @@ fun XvoxQueueBoxContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(desiredQueueHeight)
+                    // Once the bridge has requested a bounded outer height, consume the actual
+                    // body viewport. This keeps Queue pinned to the sheet bottom while new rows
+                    // are revealed above it, with no artificial gap after the last row.
+                    .then(if (sheetGrowthActive) Modifier.fillMaxHeight() else Modifier.height(desiredQueueHeight))
                     .clipToBounds()
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
@@ -402,7 +421,9 @@ fun XvoxQueueBoxContent(
                     userScrollEnabled = draggingEntry == null,
                     contentPadding = PaddingValues(top = 4.dp, bottom = QueueBottomPadding),
                     verticalArrangement = Arrangement.spacedBy(RowSpacing),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .xvoxBoxScroll(listState)
                 ) {
                     itemsIndexed(
                         items = displayEntries,

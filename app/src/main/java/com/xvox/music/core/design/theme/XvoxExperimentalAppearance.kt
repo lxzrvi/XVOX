@@ -31,8 +31,9 @@ val LocalXvoxExperimentalAppearance = staticCompositionLocalOf { XvoxExperimenta
 
 /**
  * Blur surfaces are translucent materials with no synthetic border or reflection. The content
- * behind them is sampled by the shared Cloudy source, so cards, navigation, Mini Player and
- * sheets reveal a genuine moving backdrop rather than a painted approximation.
+ * behind explicitly eligible chrome is sampled by the shared Cloudy source. Repeated library
+ * cards stay lightweight, while navigation, Mini Player, player chrome and sheets reveal a
+ * genuine moving backdrop rather than a painted approximation.
  */
 fun XvoxPalette.withExperimentalAppearance(mode: XvoxExperimentalAppearance): XvoxPalette = when (mode) {
     XvoxExperimentalAppearance.DEFAULT -> this
