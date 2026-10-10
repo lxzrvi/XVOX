@@ -66,7 +66,7 @@ fun XvoxFontPickerContent(
             }
         }
         Text(
-            text = "All listed families are bundled offline under SIL Open Font License 1.1.",
+            text = "System follows your phone font. All remaining families are bundled offline under SIL Open Font License 1.1.",
             color = XvoxTheme.colors.mutedText,
             fontSize = 10.sp,
             lineHeight = 13.sp,
@@ -82,7 +82,8 @@ fun XvoxFontPickerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val option = XvoxFontOptions.firstOrNull { it.key == selectedKey } ?: XvoxFontOptions.first()
+    val option = XvoxFontOptions.firstOrNull { it.key == selectedKey }
+        ?: XvoxFontOptions.first { it.key == "inter" }
     XvoxFontChoiceButton(option = option, selected = false, onClick = onClick, modifier = modifier, openLabel = true)
 }
 

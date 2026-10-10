@@ -6,8 +6,8 @@ import com.xvox.music.core.ui.navigation.XvoxNavigationGeometry
 
 object XvoxMiniPlayerPlacement {
     val horizontalEdge = 6.dp
-    /** Shared 5dp breathing room above either the Navbar or an open keyboard. */
-    val controlGap = 5.dp
+    /** Shared 7dp breathing room above either the Navbar or an open keyboard (adds 2dp below Mini Player). */
+    val controlGap = 7.dp
     val navigationHostBottom = 6.dp
 
     /** The floating nav retains its 20dp host allowance at every user-selected visual height. */

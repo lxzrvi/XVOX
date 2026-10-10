@@ -39,6 +39,9 @@ class XvoxApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Install before asynchronous startup work so a fatal startup/blur/render exception leaves
+        // a user-visible Downloads/xvoxcrash.txt report before Android terminates the process.
+        com.xvox.music.core.diagnostics.XvoxCrashReporter.install(this)
         armReminders()
 
         SingletonImageLoader.setSafe { context ->

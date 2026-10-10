@@ -32,9 +32,10 @@ val XvoxUiFont = FontFamily(
 )
 
 /**
- * Ten additional bundled Google Fonts choices use their upstream OFL-1.1 distributions. Variable
- * fonts deliberately use Compose's normal entry; Compose/Android synthesizes weight where a view
- * asks for it, while retaining the exact selected family across the app.
+ * System uses Android's default family, so it follows the font chosen in the device's own display
+ * settings. The remaining choices are bundled Google Fonts under their upstream OFL-1.1 licenses.
+ * Variable fonts deliberately use Compose's normal entry; Compose/Android synthesizes weight where
+ * a view asks for it, while retaining the exact selected family across the app.
  */
 data class XvoxFontOption(
     val key: String,
@@ -45,6 +46,8 @@ data class XvoxFontOption(
 private fun xvoxSingleFont(resourceId: Int) = FontFamily(Font(resourceId, FontWeight.Normal))
 
 val XvoxFontOptions: List<XvoxFontOption> = listOf(
+    // FontFamily.Default delegates to Android's selected system typeface instead of a bundled font.
+    XvoxFontOption("system", "System", FontFamily.Default),
     XvoxFontOption("inter", "Inter", XvoxUiFont),
     XvoxFontOption("abeezee", "ABeeZee", xvoxSingleFont(R.font.xvox_font_abeezee)),
     XvoxFontOption("caveat", "Caveat", xvoxSingleFont(R.font.xvox_font_caveat)),

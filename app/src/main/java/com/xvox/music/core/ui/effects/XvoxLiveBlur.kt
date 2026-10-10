@@ -1,11 +1,13 @@
 package com.xvox.music.core.ui.effects
 
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalView
 import com.skydoves.cloudy.Sky
 import com.skydoves.cloudy.cloudy
 import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
@@ -32,13 +34,18 @@ fun Modifier.xvoxLiveBackdropBlur(
 ): Modifier {
     val sky = LocalXvoxBlurSky.current
     val appearance = LocalXvoxExperimentalAppearance.current
+    val hostView = LocalView.current
+    // Cloudy's real RenderEffect capture is stable on API 31+ hardware-accelerated Compose
+    // views. Never ask its GPU recorder to emulate itself on an older/software canvas—the source
+    // readiness gate at the root leaves these frames as ordinary material instead of crashing.
+    val canRenderLiveCloudy = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hostView.isHardwareAccelerated
     // Cloudy is intentionally opt-in at the actual chrome/sheet call site. In particular, a
     // translucent palette must not turn every repeated song/playlist card into a live recorder
     // target: that was both visually noisy and the source of Home instability while Blur was on.
     // Eligible surfaces still use Cloudy's real moving capture in both modes; this is not a
     // synthetic fallback or static snapshot.
     val explicitlyEligible = applyInDefault
-    val enabled = sky != null && explicitlyEligible && (
+    val enabled = sky != null && canRenderLiveCloudy && explicitlyEligible && (
         appearance == XvoxExperimentalAppearance.BLUR ||
             appearance == XvoxExperimentalAppearance.DEFAULT
     )

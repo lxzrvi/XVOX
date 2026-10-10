@@ -86,19 +86,19 @@ fun XvoxMiniPlayer(
     val userPlacementY = chrome.miniPlayerOffsetY.coerceIn(-260f, 260f).dp
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
     val rootView = LocalView.current
-    var cardBottomInRootPx by remember { mutableFloatStateOf(Float.NaN) }
-    // The target is derived from the actual painted card rather than a guessed host offset. This
-    // includes any custom placement, keyboard lift, nav inset, and the 122dp interaction host.
-    // A fixed 76dp target could finish while the 56dp card was still visibly stuck at the bottom.
+    var cardTopInRootPx by remember { mutableFloatStateOf(Float.NaN) }
+    // Derive the travel from the painted card's TOP, not its bottom. A bottom-based distance only
+    // moves the bottom edge past the screen and leaves most of the 56dp Mini Player visible.
+    // Using the top clears the whole card under every custom placement, IME lift and nav inset.
     val exitDistance = with(density) {
-        val safetyClearance = 10.dp.toPx()
-        val minimumCardTravel = 66.dp.toPx()
+        val safetyClearance = 12.dp.toPx()
+        val minimumCardTravel = 76.dp.toPx()
         val rootHeight = rootView.height.toFloat()
-        if (cardBottomInRootPx.isFinite() && rootHeight > 0f) {
-            (rootHeight - cardBottomInRootPx + safetyClearance).coerceAtLeast(minimumCardTravel)
+        if (cardTopInRootPx.isFinite() && rootHeight > 0f) {
+            (rootHeight - cardTopInRootPx + safetyClearance).coerceAtLeast(minimumCardTravel)
         } else {
-            // Layout reports the exact geometry on the first frame. This safe fallback also
-            // clears the complete painted card if a fast tap arrives before that callback.
+            // Layout reports exact geometry on the first frame. This fallback still clears the
+            // full painted card when a very fast tap arrives before positioning completes.
             188.dp.toPx()
         }
     }
@@ -335,7 +335,7 @@ fun XvoxMiniPlayer(
                     // Graphics translation intentionally is not part of layout coordinates: we
                     // need the resting physical card bottom so `exitDistance` can clear it.
                     .onGloballyPositioned { coordinates ->
-                        cardBottomInRootPx = coordinates.boundsInRoot().bottom
+                        cardTopInRootPx = coordinates.boundsInRoot().top
                     }
                     .graphicsLayer {
                         // The real vertical handoff remains the primary motion. Each experimental

@@ -1,6 +1,7 @@
 package com.xvox.music
 
 import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -174,12 +175,30 @@ fun XvoxAppRoot(
         // Home; all surfaces below still share this single real live backdrop.
         key(experimentalAppearance, cloudySourceEnabled) {
             val blurSky = rememberSky()
+            // Cloudy targets must not attach until the Sky source has been composed and drawn at
+            // least once. Attaching target recorders in the same frame as a newly replaced source
+            // was the race that could close the app when Blur was enabled and Home mounted.
+            var cloudySourceReady by remember(experimentalAppearance, cloudySourceEnabled) {
+                mutableStateOf(false)
+            }
+            val canUseGpuLiveBlur = cloudySourceEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            LaunchedEffect(canUseGpuLiveBlur, blurSky) {
+                cloudySourceReady = false
+                if (canUseGpuLiveBlur) {
+                    withFrameNanos { }
+                    withFrameNanos { }
+                    cloudySourceReady = true
+                    blurSky.invalidate(220L)
+                }
+            }
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
-            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (cloudySourceEnabled) blurSky else null,
+            // A non-null sky means the real GPU source is attached and ready; callers never
+            // substitute a synthetic/static blur on unsupported or not-yet-ready frames.
+            com.xvox.music.core.ui.effects.LocalXvoxBlurSky provides if (canUseGpuLiveBlur && cloudySourceReady) blurSky else null,
             LocalXvoxHaptics provides haptics
         ) {
             Box(
@@ -192,7 +211,7 @@ fun XvoxAppRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (cloudySourceEnabled) Modifier.sky(blurSky) else Modifier)
+                        .then(if (canUseGpuLiveBlur) Modifier.sky(blurSky) else Modifier)
                 ) {
                     // The source keeps the chosen image sharp in a single Cloudy recorder.
                     // Individual translucent surfaces sample this actual moving hierarchy rather
@@ -202,14 +221,19 @@ fun XvoxAppRoot(
                             model = Uri.parse(backgroundImage),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            onSuccess = { blurSky.invalidate() },
+                            onSuccess = {
+                                // An image result can arrive after a Blur mode/source switch;
+                                // only refresh the current, mounted Sky recorder.
+                                if (cloudySourceReady) blurSky.invalidate()
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    LaunchedEffect(cloudySourceEnabled, backgroundImage) {
-                        // The source is mounted before this effect; invalidating it after a new
-                        // photo resolves is Cloudy's recommended live-backdrop refresh path.
-                        if (cloudySourceEnabled) blurSky.invalidate(220L)
+                    LaunchedEffect(canUseGpuLiveBlur, cloudySourceReady, backgroundImage) {
+                        // The readiness effect above performs the first safe invalidation. Later
+                        // backdrop image changes refresh the same mounted live source only after
+                        // it is known to be attached.
+                        if (canUseGpuLiveBlur && cloudySourceReady) blurSky.invalidate(220L)
                     }
                     if (state == AppUiState.Setup) {
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })

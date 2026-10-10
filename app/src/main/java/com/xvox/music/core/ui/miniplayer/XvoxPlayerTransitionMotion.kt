@@ -28,10 +28,10 @@ object XvoxPlayerTransitionMotion {
     const val DefaultStyle = "default"
     const val ScaleStyle = "scale"
 
-    /** The compact card clears the viewport quickly; there is never an idle handoff gap. */
-    const val HandoffDuration = 170
-    /** Full Now Playing has enough travel to read smoothly while beginning in the same handoff. */
-    const val NowPlayingDuration = 240
+    /** A relaxed but continuous card handoff; the next surface still begins on the finishing frame. */
+    const val HandoffDuration = 230
+    /** Slightly slower full-player travel makes both Default and Scale open/close feel smoother. */
+    const val NowPlayingDuration = 320
 
     val easing: Easing = CubicBezierEasing(0.22f, 0f, 0f, 1f)
 

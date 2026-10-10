@@ -160,8 +160,11 @@ data class XvoxChromeStyle(
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
             fun number(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull() ?: fallback
-            fun offsetX(i: Int): Float = number(i, 0f).coerceIn(-220f, 220f)
-            fun offsetY(i: Int): Float = number(i, 0f).coerceIn(-260f, 260f)
+            // The full bottom-box editor uses wide, discrete safe slots (the top clusters can
+            // legally exchange opposite sides), so persisted offsets need more than the former
+            // tiny free-nudge range while remaining bounded against corrupt records.
+            fun offsetX(i: Int): Float = number(i, 0f).coerceIn(-300f, 300f)
+            fun offsetY(i: Int): Float = number(i, 0f).coerceIn(-300f, 300f)
             fun side(i: Int, fallback: String): String =
                 if (str(i) == "left" || str(i) == "right") str(i) else fallback
             fun seekStyle(i: Int): String = when (str(i)) {
@@ -316,30 +319,30 @@ fun parseHexColor(hex: String): Color? {
 }
 
 /**
- * Makes legacy freeform Now Playing offsets safe at the render boundary. The customizer exposes
- * these exact shape-aware slots, so an old stored coordinate can never make text, rails, pills,
- * or transport controls overlap after the grid editor replaced arbitrary placement.
+ * Rendering-side normalization for values restored before the full-panel editor existed. New
+ * placements are authored only through discrete shape-safe slots; rounding protects old/corrupt
+ * records without collapsing a valid cross-panel position back to the old tiny nudge lane.
  */
-private fun xvoxNearestGrid(value: Float, slots: FloatArray): Float =
-    slots.minByOrNull { candidate -> kotlin.math.abs(candidate - value) } ?: 0f
+private fun xvoxSafePanelGrid(value: Float, lower: Float, upper: Float): Float =
+    (kotlin.math.round(value / 4f) * 4f).coerceIn(lower, upper)
 
 fun XvoxChromeStyle.normalizedNowPlayingGrid(): XvoxChromeStyle = copy(
-    nowPlayingMetadataOffsetX = 0f,
-    nowPlayingMetadataOffsetY = xvoxNearestGrid(nowPlayingMetadataOffsetY, floatArrayOf(-10f, 0f, 10f)),
-    nowPlayingProgressOffsetX = 0f,
-    nowPlayingProgressOffsetY = xvoxNearestGrid(nowPlayingProgressOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingUtilityOffsetX = xvoxNearestGrid(nowPlayingUtilityOffsetX, floatArrayOf(-16f, 0f, 16f)),
-    nowPlayingUtilityOffsetY = xvoxNearestGrid(nowPlayingUtilityOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingActionsOffsetX = xvoxNearestGrid(nowPlayingActionsOffsetX, floatArrayOf(-14f, 0f, 14f)),
-    nowPlayingActionsOffsetY = xvoxNearestGrid(nowPlayingActionsOffsetY, floatArrayOf(-8f, 0f, 8f)),
+    nowPlayingMetadataOffsetX = xvoxSafePanelGrid(nowPlayingMetadataOffsetX, -96f, 96f),
+    nowPlayingMetadataOffsetY = xvoxSafePanelGrid(nowPlayingMetadataOffsetY, -64f, 64f),
+    nowPlayingProgressOffsetX = xvoxSafePanelGrid(nowPlayingProgressOffsetX, -64f, 64f),
+    nowPlayingProgressOffsetY = xvoxSafePanelGrid(nowPlayingProgressOffsetY, -64f, 64f),
+    nowPlayingUtilityOffsetX = xvoxSafePanelGrid(nowPlayingUtilityOffsetX, -300f, 300f),
+    nowPlayingUtilityOffsetY = xvoxSafePanelGrid(nowPlayingUtilityOffsetY, -80f, 144f),
+    nowPlayingActionsOffsetX = xvoxSafePanelGrid(nowPlayingActionsOffsetX, -300f, 300f),
+    nowPlayingActionsOffsetY = xvoxSafePanelGrid(nowPlayingActionsOffsetY, -80f, 144f),
     nowPlayingShuffleRepeatOffsetX = 0f,
-    nowPlayingShuffleRepeatOffsetY = xvoxNearestGrid(nowPlayingShuffleRepeatOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingPreviousOffsetX = xvoxNearestGrid(nowPlayingPreviousOffsetX, floatArrayOf(-10f, 0f, 10f)),
-    nowPlayingPreviousOffsetY = xvoxNearestGrid(nowPlayingPreviousOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingPlayOffsetX = 0f,
-    nowPlayingPlayOffsetY = xvoxNearestGrid(nowPlayingPlayOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingNextOffsetX = xvoxNearestGrid(nowPlayingNextOffsetX, floatArrayOf(-10f, 0f, 10f)),
-    nowPlayingNextOffsetY = xvoxNearestGrid(nowPlayingNextOffsetY, floatArrayOf(-8f, 0f, 8f)),
-    nowPlayingBrandOffsetX = xvoxNearestGrid(nowPlayingBrandOffsetX, floatArrayOf(-12f, 0f, 12f)),
-    nowPlayingBrandOffsetY = xvoxNearestGrid(nowPlayingBrandOffsetY, floatArrayOf(-4f, 0f, 4f))
+    nowPlayingShuffleRepeatOffsetY = xvoxSafePanelGrid(nowPlayingShuffleRepeatOffsetY, -40f, 48f),
+    nowPlayingPreviousOffsetX = xvoxSafePanelGrid(nowPlayingPreviousOffsetX, -220f, 220f),
+    nowPlayingPreviousOffsetY = xvoxSafePanelGrid(nowPlayingPreviousOffsetY, -56f, 48f),
+    nowPlayingPlayOffsetX = xvoxSafePanelGrid(nowPlayingPlayOffsetX, -220f, 220f),
+    nowPlayingPlayOffsetY = xvoxSafePanelGrid(nowPlayingPlayOffsetY, -56f, 48f),
+    nowPlayingNextOffsetX = xvoxSafePanelGrid(nowPlayingNextOffsetX, -220f, 220f),
+    nowPlayingNextOffsetY = xvoxSafePanelGrid(nowPlayingNextOffsetY, -56f, 48f),
+    nowPlayingBrandOffsetX = xvoxSafePanelGrid(nowPlayingBrandOffsetX, -96f, 96f),
+    nowPlayingBrandOffsetY = xvoxSafePanelGrid(nowPlayingBrandOffsetY, -12f, 52f)
 )

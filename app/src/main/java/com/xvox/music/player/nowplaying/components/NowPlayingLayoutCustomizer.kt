@@ -3,6 +3,8 @@ package com.xvox.music.player.nowplaying.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -49,21 +52,30 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.player.nowplaying.XvoxNowPlayingHeader
 import kotlin.math.roundToInt
 
-/** A discrete position relative to a real Now Playing control's native lane. */
+/** A discrete offset from a real Now Playing control's native anchor. */
 private data class XvoxGridSlot(val x: Float, val y: Float)
+private data class XvoxCanvasPoint(val x: Float, val y: Float)
+
+/** Every movable replica target has an independent persisted offset pair. */
+private enum class XvoxLayoutToken {
+    METADATA, PROGRESS, UTILITY, ACTIONS, OUTER_TRANSPORT, PREVIOUS, PLAY, NEXT, BRAND
+}
 
 /**
- * Each token has a deliberately small safe lane. Wide text/rails cannot cross into button lanes;
- * pills keep their side of the card; circular transport controls retain their neighbor spacing.
- * This makes every accepted point visually aligned and collision-free by construction.
+ * Slots are shape-aware locations across the whole bottom panel. The grid intentionally has broad
+ * lanes rather than the former +/-8dp nudge: a user can drag a control through its complete legal
+ * panel zone, while a wide title/rail or paired edge control never overlaps an incompatible shape.
  */
 private data class XvoxGridSpec(
     val label: String,
     val shape: Shape,
+    val base: XvoxCanvasPoint,
+    val hitRadius: Float,
+    /** Only shapes in the same family may exchange a location. */
+    val swapFamily: String,
     val slots: List<XvoxGridSlot>
 ) {
     fun nearest(x: Float, y: Float): XvoxGridSlot = slots.minByOrNull { slot ->
@@ -73,92 +85,167 @@ private data class XvoxGridSpec(
     } ?: slots.first()
 }
 
-private fun xvoxCenteredSlots(x: List<Float>, y: List<Float>) =
-    x.flatMap { horizontal -> y.map { vertical -> XvoxGridSlot(horizontal, vertical) } }
+private fun xvoxPanelSlots(
+    base: XvoxCanvasPoint,
+    targets: List<XvoxCanvasPoint>
+): List<XvoxGridSlot> = targets.map { target ->
+    XvoxGridSlot(target.x - base.x, target.y - base.y)
+}.distinct()
+
+private val xvoxTopClusterTargets = listOf(
+    XvoxCanvasPoint(-126f, 34f), XvoxCanvasPoint(120f, 34f),
+    XvoxCanvasPoint(-126f, 82f), XvoxCanvasPoint(120f, 82f),
+    XvoxCanvasPoint(-126f, 130f), XvoxCanvasPoint(120f, 130f)
+)
+private val xvoxTransportTargets = listOf(160f, 205f, 240f).flatMap { y ->
+    // These are the real five live-control centers (10%, 30%, 50%, 70%, 90% on a 360dp frame),
+    // plus two safe vertical rows. Keeping native centers here means an untouched layout stays
+    // exactly untouched when the editor first normalizes it.
+    listOf(-144f, -72f, 0f, 72f, 144f).map { x -> XvoxCanvasPoint(x, y) }
+}
 
 private val XvoxMetadataGrid = XvoxGridSpec(
     label = "Song title and artist",
     shape = RoundedCornerShape(7.dp),
-    // Full-width text stays centered in its own vertical band; it cannot run into the rail.
-    slots = xvoxCenteredSlots(listOf(0f), listOf(-10f, 0f, 10f))
+    base = XvoxCanvasPoint(0f, 70f),
+    hitRadius = 42f,
+    swapFamily = "metadata",
+    slots = xvoxPanelSlots(
+        XvoxCanvasPoint(0f, 70f),
+        listOf(
+            XvoxCanvasPoint(-48f, 54f), XvoxCanvasPoint(0f, 54f), XvoxCanvasPoint(48f, 54f),
+            XvoxCanvasPoint(-48f, 70f), XvoxCanvasPoint(0f, 70f), XvoxCanvasPoint(48f, 70f),
+            XvoxCanvasPoint(-48f, 86f), XvoxCanvasPoint(0f, 86f), XvoxCanvasPoint(48f, 86f)
+        )
+    )
 )
 private val XvoxProgressGrid = XvoxGridSpec(
     label = "Progress rail and time",
     shape = RoundedCornerShape(7.dp),
-    slots = xvoxCenteredSlots(listOf(0f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(0f, 134f),
+    hitRadius = 46f,
+    swapFamily = "progress",
+    slots = xvoxPanelSlots(
+        XvoxCanvasPoint(0f, 134f),
+        listOf(XvoxCanvasPoint(-36f, 118f), XvoxCanvasPoint(0f, 118f), XvoxCanvasPoint(36f, 118f),
+            XvoxCanvasPoint(-36f, 134f), XvoxCanvasPoint(0f, 134f), XvoxCanvasPoint(36f, 134f),
+            XvoxCanvasPoint(-36f, 150f), XvoxCanvasPoint(0f, 150f), XvoxCanvasPoint(36f, 150f))
+    )
 )
 private val XvoxUtilityGrid = XvoxGridSpec(
     label = "Timer, queue, and info pill",
     shape = RoundedCornerShape(21.dp),
-    slots = xvoxCenteredSlots(listOf(-16f, 0f, 16f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(-126f, 34f),
+    hitRadius = 46f,
+    swapFamily = "top",
+    slots = xvoxPanelSlots(XvoxCanvasPoint(-126f, 34f), xvoxTopClusterTargets)
 )
 private val XvoxActionsGrid = XvoxGridSpec(
     label = "Action buttons",
     shape = RoundedCornerShape(21.dp),
-    slots = xvoxCenteredSlots(listOf(-14f, 0f, 14f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(120f, 34f),
+    hitRadius = 46f,
+    swapFamily = "top",
+    slots = xvoxPanelSlots(XvoxCanvasPoint(120f, 34f), xvoxTopClusterTargets)
 )
 private val XvoxOuterTransportGrid = XvoxGridSpec(
     label = "Shuffle and repeat",
     shape = RoundedCornerShape(21.dp),
-    // This token owns both outside controls, so it may only move vertically; horizontal travel
-    // would push one of the two real edge controls through the rounded panel boundary.
-    slots = xvoxCenteredSlots(listOf(0f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(0f, 205f),
+    hitRadius = 58f,
+    swapFamily = "outer",
+    slots = xvoxPanelSlots(
+        XvoxCanvasPoint(0f, 205f),
+        listOf(XvoxCanvasPoint(0f, 170f), XvoxCanvasPoint(0f, 205f), XvoxCanvasPoint(0f, 240f))
+    )
 )
 private val XvoxPreviousGrid = XvoxGridSpec(
     label = "Previous track",
     shape = CircleShape,
-    slots = xvoxCenteredSlots(listOf(-10f, 0f, 10f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(-72f, 205f),
+    hitRadius = 27f,
+    swapFamily = "transport",
+    slots = xvoxPanelSlots(XvoxCanvasPoint(-72f, 205f), xvoxTransportTargets)
 )
 private val XvoxPlayGrid = XvoxGridSpec(
     label = "Play or pause",
     shape = CircleShape,
-    // The play button remains on the true center line; it only steps vertically on its own lane.
-    slots = xvoxCenteredSlots(listOf(0f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(0f, 205f),
+    hitRadius = 32f,
+    swapFamily = "transport",
+    slots = xvoxPanelSlots(XvoxCanvasPoint(0f, 205f), xvoxTransportTargets)
 )
 private val XvoxNextGrid = XvoxGridSpec(
     label = "Next track",
     shape = CircleShape,
-    slots = xvoxCenteredSlots(listOf(-10f, 0f, 10f), listOf(-8f, 0f, 8f))
+    base = XvoxCanvasPoint(72f, 205f),
+    hitRadius = 27f,
+    swapFamily = "transport",
+    slots = xvoxPanelSlots(XvoxCanvasPoint(72f, 205f), xvoxTransportTargets)
 )
 private val XvoxBrandGrid = XvoxGridSpec(
     label = "XVOX label",
     shape = RoundedCornerShape(5.dp),
-    slots = xvoxCenteredSlots(listOf(-12f, 0f, 12f), listOf(-4f, 0f, 4f))
+    base = XvoxCanvasPoint(0f, 260f),
+    hitRadius = 22f,
+    swapFamily = "brand",
+    slots = xvoxPanelSlots(
+        XvoxCanvasPoint(0f, 260f),
+        listOf(XvoxCanvasPoint(-72f, 260f), XvoxCanvasPoint(0f, 260f), XvoxCanvasPoint(72f, 260f),
+            XvoxCanvasPoint(-72f, 284f), XvoxCanvasPoint(0f, 284f), XvoxCanvasPoint(72f, 284f),
+            XvoxCanvasPoint(-72f, 304f), XvoxCanvasPoint(0f, 304f), XvoxCanvasPoint(72f, 304f))
+    )
 )
 
-/** Existing pre-grid free offsets are normalized the first time the editor opens. */
-private fun XvoxChromeStyle.snapNowPlayingLayoutToGrid(): XvoxChromeStyle {
-    fun snapped(spec: XvoxGridSpec, x: Float, y: Float) = spec.nearest(x, y)
-    val metadata = snapped(XvoxMetadataGrid, nowPlayingMetadataOffsetX, nowPlayingMetadataOffsetY)
-    val progress = snapped(XvoxProgressGrid, nowPlayingProgressOffsetX, nowPlayingProgressOffsetY)
-    val utility = snapped(XvoxUtilityGrid, nowPlayingUtilityOffsetX, nowPlayingUtilityOffsetY)
-    val actions = snapped(XvoxActionsGrid, nowPlayingActionsOffsetX, nowPlayingActionsOffsetY)
-    val outer = snapped(XvoxOuterTransportGrid, nowPlayingShuffleRepeatOffsetX, nowPlayingShuffleRepeatOffsetY)
-    val previous = snapped(XvoxPreviousGrid, nowPlayingPreviousOffsetX, nowPlayingPreviousOffsetY)
-    val play = snapped(XvoxPlayGrid, nowPlayingPlayOffsetX, nowPlayingPlayOffsetY)
-    val next = snapped(XvoxNextGrid, nowPlayingNextOffsetX, nowPlayingNextOffsetY)
-    val brand = snapped(XvoxBrandGrid, nowPlayingBrandOffsetX, nowPlayingBrandOffsetY)
-    return copy(
-        nowPlayingMetadataOffsetX = metadata.x,
-        nowPlayingMetadataOffsetY = metadata.y,
-        nowPlayingProgressOffsetX = progress.x,
-        nowPlayingProgressOffsetY = progress.y,
-        nowPlayingUtilityOffsetX = utility.x,
-        nowPlayingUtilityOffsetY = utility.y,
-        nowPlayingActionsOffsetX = actions.x,
-        nowPlayingActionsOffsetY = actions.y,
-        nowPlayingShuffleRepeatOffsetX = outer.x,
-        nowPlayingShuffleRepeatOffsetY = outer.y,
-        nowPlayingPreviousOffsetX = previous.x,
-        nowPlayingPreviousOffsetY = previous.y,
-        nowPlayingPlayOffsetX = play.x,
-        nowPlayingPlayOffsetY = play.y,
-        nowPlayingNextOffsetX = next.x,
-        nowPlayingNextOffsetY = next.y,
-        nowPlayingBrandOffsetX = brand.x,
-        nowPlayingBrandOffsetY = brand.y
-    )
+private fun xvoxSpec(token: XvoxLayoutToken): XvoxGridSpec = when (token) {
+    XvoxLayoutToken.METADATA -> XvoxMetadataGrid
+    XvoxLayoutToken.PROGRESS -> XvoxProgressGrid
+    XvoxLayoutToken.UTILITY -> XvoxUtilityGrid
+    XvoxLayoutToken.ACTIONS -> XvoxActionsGrid
+    XvoxLayoutToken.OUTER_TRANSPORT -> XvoxOuterTransportGrid
+    XvoxLayoutToken.PREVIOUS -> XvoxPreviousGrid
+    XvoxLayoutToken.PLAY -> XvoxPlayGrid
+    XvoxLayoutToken.NEXT -> XvoxNextGrid
+    XvoxLayoutToken.BRAND -> XvoxBrandGrid
 }
+
+private fun XvoxChromeStyle.slotOf(token: XvoxLayoutToken): XvoxGridSlot = when (token) {
+    XvoxLayoutToken.METADATA -> XvoxGridSlot(nowPlayingMetadataOffsetX, nowPlayingMetadataOffsetY)
+    XvoxLayoutToken.PROGRESS -> XvoxGridSlot(nowPlayingProgressOffsetX, nowPlayingProgressOffsetY)
+    XvoxLayoutToken.UTILITY -> XvoxGridSlot(nowPlayingUtilityOffsetX, nowPlayingUtilityOffsetY)
+    XvoxLayoutToken.ACTIONS -> XvoxGridSlot(nowPlayingActionsOffsetX, nowPlayingActionsOffsetY)
+    XvoxLayoutToken.OUTER_TRANSPORT -> XvoxGridSlot(nowPlayingShuffleRepeatOffsetX, nowPlayingShuffleRepeatOffsetY)
+    XvoxLayoutToken.PREVIOUS -> XvoxGridSlot(nowPlayingPreviousOffsetX, nowPlayingPreviousOffsetY)
+    XvoxLayoutToken.PLAY -> XvoxGridSlot(nowPlayingPlayOffsetX, nowPlayingPlayOffsetY)
+    XvoxLayoutToken.NEXT -> XvoxGridSlot(nowPlayingNextOffsetX, nowPlayingNextOffsetY)
+    XvoxLayoutToken.BRAND -> XvoxGridSlot(nowPlayingBrandOffsetX, nowPlayingBrandOffsetY)
+}
+
+private fun XvoxChromeStyle.withSlot(token: XvoxLayoutToken, slot: XvoxGridSlot): XvoxChromeStyle = when (token) {
+    XvoxLayoutToken.METADATA -> copy(nowPlayingMetadataOffsetX = slot.x, nowPlayingMetadataOffsetY = slot.y)
+    XvoxLayoutToken.PROGRESS -> copy(nowPlayingProgressOffsetX = slot.x, nowPlayingProgressOffsetY = slot.y)
+    XvoxLayoutToken.UTILITY -> copy(nowPlayingUtilityOffsetX = slot.x, nowPlayingUtilityOffsetY = slot.y)
+    XvoxLayoutToken.ACTIONS -> copy(nowPlayingActionsOffsetX = slot.x, nowPlayingActionsOffsetY = slot.y)
+    XvoxLayoutToken.OUTER_TRANSPORT -> copy(nowPlayingShuffleRepeatOffsetX = slot.x, nowPlayingShuffleRepeatOffsetY = slot.y)
+    XvoxLayoutToken.PREVIOUS -> copy(nowPlayingPreviousOffsetX = slot.x, nowPlayingPreviousOffsetY = slot.y)
+    XvoxLayoutToken.PLAY -> copy(nowPlayingPlayOffsetX = slot.x, nowPlayingPlayOffsetY = slot.y)
+    XvoxLayoutToken.NEXT -> copy(nowPlayingNextOffsetX = slot.x, nowPlayingNextOffsetY = slot.y)
+    XvoxLayoutToken.BRAND -> copy(nowPlayingBrandOffsetX = slot.x, nowPlayingBrandOffsetY = slot.y)
+}
+
+private fun XvoxChromeStyle.canvasPoint(token: XvoxLayoutToken): XvoxCanvasPoint {
+    val base = xvoxSpec(token).base
+    val slot = xvoxSpec(token).nearest(slotOf(token).x, slotOf(token).y)
+    return XvoxCanvasPoint(base.x + slot.x, base.y + slot.y)
+}
+
+/** Existing free offsets become one of the full-panel safe slots as soon as the editor opens. */
+private fun XvoxChromeStyle.snapNowPlayingLayoutToGrid(): XvoxChromeStyle =
+    XvoxLayoutToken.values().fold(this) { style, token ->
+        val spec = xvoxSpec(token)
+        val raw = style.slotOf(token)
+        style.withSlot(token, spec.nearest(raw.x, raw.y))
+    }
 
 /**
  * A true visual replica of the portrait Now Playing frame. It intentionally uses the same panel,
@@ -173,14 +260,50 @@ fun NowPlayingLayoutCustomizer(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    // Keep the editor gesture stable while persistence flows catch up after each discrete snap.
+    // This is deliberately a transaction. Nothing reaches Settings/DataStore or live Now Playing
+    // until Done; Reset and all drag changes affect this local preview only.
     var draft by remember { mutableStateOf(chrome.snapNowPlayingLayoutToGrid()) }
     val latestDraft by rememberUpdatedState(draft)
+    val swallowInteraction = remember { MutableInteractionSource() }
 
-    fun update(next: XvoxChromeStyle, persist: Boolean = false) {
-        val snapped = next.snapNowPlayingLayoutToGrid()
-        draft = snapped
-        if (persist) onChromeChange(snapped)
+    fun update(next: XvoxChromeStyle) {
+        draft = next.snapNowPlayingLayoutToGrid()
+    }
+
+    fun commitDrop(token: XvoxLayoutToken, from: XvoxGridSlot, to: XvoxGridSlot) {
+        val sourceSpec = xvoxSpec(token)
+        val sourcePoint = XvoxCanvasPoint(sourceSpec.base.x + from.x, sourceSpec.base.y + from.y)
+        val destinationPoint = XvoxCanvasPoint(sourceSpec.base.x + to.x, sourceSpec.base.y + to.y)
+        // A drop onto another compatible target is a true swap: the target goes to the exact
+        // legal slot the dragged item occupied. Different footprints never trade places, so a
+        // title/rail cannot become an invalid circular-control overlap.
+        val target = XvoxLayoutToken.values()
+            .asSequence()
+            .filter { it != token }
+            .filter { xvoxSpec(it).swapFamily == sourceSpec.swapFamily }
+            .map { candidate ->
+                val point = latestDraft.canvasPoint(candidate)
+                val dx = point.x - destinationPoint.x
+                val dy = point.y - destinationPoint.y
+                candidate to (dx * dx + dy * dy)
+            }
+            .filter { (candidate, distance) ->
+                val radius = sourceSpec.hitRadius + xvoxSpec(candidate).hitRadius
+                distance <= radius * radius
+            }
+            .minByOrNull { it.second }
+            ?.first
+
+        var next = latestDraft.withSlot(token, to)
+        if (target != null) {
+            val targetSpec = xvoxSpec(target)
+            val returnSlot = targetSpec.nearest(
+                sourcePoint.x - targetSpec.base.x,
+                sourcePoint.y - targetSpec.base.y
+            )
+            next = next.withSlot(target, returnSlot)
+        }
+        update(next)
     }
 
     Box(
@@ -190,17 +313,31 @@ fun NowPlayingLayoutCustomizer(
             .background(colors.background)
             .semantics { contentDescription = "Customize Now Playing layout" }
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // This full-window hit target owns otherwise-empty editor space. It prevents a tap or
+        // drag from falling through to Now Playing/Home while leaving the targets above usable.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(swallowInteraction, indication = null) { }
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // The editor title begins beneath the status bar rather than under system icons.
+                .statusBarsPadding()
+                .zIndex(1f)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 16.dp, end = 10.dp, bottom = 7.dp),
+                    .padding(start = 16.dp, top = 10.dp, end = 10.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("Customize", color = colors.primaryText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Long-press an outlined target and drag to a dotted guide. Every item snaps to a safe shape-aware grid.",
+                        "Long-press and drag anywhere across a safe bottom-box grid. Drop on a compatible control to swap places. Changes apply only after Done.",
                         color = colors.secondaryText,
                         fontSize = 10.sp,
                         lineHeight = 13.sp
@@ -213,9 +350,7 @@ fun NowPlayingLayoutCustomizer(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .padding(10.dp)
-                        .xvoxPressScale {
-                            update(latestDraft.resetNowPlayingLayout(), persist = true)
-                        }
+                        .xvoxPressScale { update(latestDraft.resetNowPlayingLayout()) }
                 )
                 Text(
                     "Done",
@@ -231,7 +366,7 @@ fun NowPlayingLayoutCustomizer(
                 )
             }
 
-            // Reuse the live header composable rather than drawing an editor-only approximation.
+            // Reuse the real header geometry rather than drawing an editor-only imitation.
             XvoxNowPlayingHeader(
                 onClose = {},
                 onShare = {},
@@ -244,13 +379,14 @@ fun NowPlayingLayoutCustomizer(
                 modifier = Modifier.padding(horizontal = 10.dp)
             )
 
-            // The artwork field mirrors the real adaptive cover area without decoding music art
-            // in an editor. It gives the controls their exact top/bottom frame relationship.
+            // This reserved cover field matches the live player's gap immediately above the real
+            // bottom card. It is intentionally non-interactive: every movable target belongs to
+            // the exact panel below, not an approximate free-floating canvas.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .heightIn(min = 86.dp)
+                    .heightIn(min = 76.dp)
                     .padding(horizontal = 22.dp, vertical = 7.dp)
                     .clip(RoundedCornerShape(25.dp))
                     .background(colors.cardElevated.copy(alpha = .46f)),
@@ -275,20 +411,10 @@ fun NowPlayingLayoutCustomizer(
 
             XvoxBottomLayoutCanvas(
                 chrome = draft,
-                // Persist each discrete snap. There are only a few guide points, and this avoids
-                // losing a valid placement if the editor is closed immediately after a drag.
-                onDraftChange = { next -> update(next, persist = true) },
+                onDrop = ::commitDrop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(324.dp)
-            )
-
-            NowPlayingTransparencyEditor(
-                chrome = draft,
-                onChange = { update(it, persist = true) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 9.dp)
+                    .height(332.dp)
             )
         }
     }
@@ -297,7 +423,7 @@ fun NowPlayingLayoutCustomizer(
 @Composable
 private fun XvoxBottomLayoutCanvas(
     chrome: XvoxChromeStyle,
-    onDraftChange: (XvoxChromeStyle) -> Unit,
+    onDrop: (XvoxLayoutToken, XvoxGridSlot, XvoxGridSlot) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
@@ -314,12 +440,11 @@ private fun XvoxBottomLayoutCanvas(
         XvoxAlignmentGuides(Modifier.matchParentSize())
 
         XvoxGridToken(
+            token = XvoxLayoutToken.UTILITY,
             spec = XvoxUtilityGrid,
             x = chrome.nowPlayingUtilityOffsetX,
             y = chrome.nowPlayingUtilityOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingUtilityOffsetX = slot.x, nowPlayingUtilityOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.UTILITY, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 14.dp, top = 13.dp)
@@ -331,12 +456,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.ACTIONS,
             spec = XvoxActionsGrid,
             x = chrome.nowPlayingActionsOffsetX,
             y = chrome.nowPlayingActionsOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingActionsOffsetX = slot.x, nowPlayingActionsOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.ACTIONS, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 14.dp, top = 13.dp)
@@ -351,12 +475,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.METADATA,
             spec = XvoxMetadataGrid,
             x = chrome.nowPlayingMetadataOffsetX,
             y = chrome.nowPlayingMetadataOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingMetadataOffsetX = slot.x, nowPlayingMetadataOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.METADATA, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 14.dp, top = 68.dp)
@@ -369,12 +492,11 @@ private fun XvoxBottomLayoutCanvas(
 
         val railWidth = (maxWidth - 28.dp).coerceAtLeast(120.dp).coerceAtMost(280.dp)
         XvoxGridToken(
+            token = XvoxLayoutToken.PROGRESS,
             spec = XvoxProgressGrid,
             x = chrome.nowPlayingProgressOffsetX,
             y = chrome.nowPlayingProgressOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingProgressOffsetX = slot.x, nowPlayingProgressOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.PROGRESS, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 119.dp)
@@ -409,12 +531,11 @@ private fun XvoxBottomLayoutCanvas(
         val playStart = (maxWidth * .50f - 28.dp).coerceAtLeast(0.dp)
         val nextStart = (maxWidth * .70f - 21.dp).coerceAtMost((maxWidth - 42.dp).coerceAtLeast(0.dp))
         XvoxGridToken(
+            token = XvoxLayoutToken.OUTER_TRANSPORT,
             spec = XvoxOuterTransportGrid,
             x = chrome.nowPlayingShuffleRepeatOffsetX,
             y = chrome.nowPlayingShuffleRepeatOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingShuffleRepeatOffsetX = slot.x, nowPlayingShuffleRepeatOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.OUTER_TRANSPORT, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 174.dp)
@@ -431,12 +552,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.PREVIOUS,
             spec = XvoxPreviousGrid,
             x = chrome.nowPlayingPreviousOffsetX,
             y = chrome.nowPlayingPreviousOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingPreviousOffsetX = slot.x, nowPlayingPreviousOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.PREVIOUS, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = previousStart, top = 174.dp)
@@ -446,12 +566,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.PLAY,
             spec = XvoxPlayGrid,
             x = chrome.nowPlayingPlayOffsetX,
             y = chrome.nowPlayingPlayOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingPlayOffsetX = slot.x, nowPlayingPlayOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.PLAY, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = playStart, top = 167.dp)
@@ -474,12 +593,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.NEXT,
             spec = XvoxNextGrid,
             x = chrome.nowPlayingNextOffsetX,
             y = chrome.nowPlayingNextOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingNextOffsetX = slot.x, nowPlayingNextOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.NEXT, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = nextStart, top = 174.dp)
@@ -489,12 +607,11 @@ private fun XvoxBottomLayoutCanvas(
         }
 
         XvoxGridToken(
+            token = XvoxLayoutToken.BRAND,
             spec = XvoxBrandGrid,
             x = chrome.nowPlayingBrandOffsetX,
             y = chrome.nowPlayingBrandOffsetY,
-            onSlotChange = { slot ->
-                onDraftChange(chrome.copy(nowPlayingBrandOffsetX = slot.x, nowPlayingBrandOffsetY = slot.y))
-            },
+            onDrop = { from, slot -> onDrop(XvoxLayoutToken.BRAND, from, slot) },
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 252.dp)
@@ -599,31 +716,35 @@ private fun XvoxTransportIcon(
 }
 
 /**
- * Gesture layer for one real replica element. It never exposes raw coordinates: the visible offset
- * is always the nearest [XvoxGridSpec] slot, and the spec's shape-specific lanes prevent overlap.
+ * Gesture layer for one real replica target. The preview follows only legal grid slots while a
+ * long-press is held; the draft changes once on release, so a drop on a compatible target can
+ * atomically swap both locations without an intermediate overlapping persisted layout.
  */
 @Composable
 private fun XvoxGridToken(
+    token: XvoxLayoutToken,
     spec: XvoxGridSpec,
     x: Float,
     y: Float,
-    onSlotChange: (XvoxGridSlot) -> Unit,
+    onDrop: (XvoxGridSlot, XvoxGridSlot) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
     val latestX by rememberUpdatedState(x)
     val latestY by rememberUpdatedState(y)
-    val latestChange by rememberUpdatedState(onSlotChange)
-    var selected by remember(spec.label) { mutableStateOf(false) }
+    val latestDrop by rememberUpdatedState(onDrop)
+    var selected by remember(token) { mutableStateOf(false) }
+    var previewSlot by remember(token) { mutableStateOf<XvoxGridSlot?>(null) }
     val current = spec.nearest(latestX, latestY)
+    val visibleSlot = previewSlot ?: current
 
     Box(
         modifier = modifier
             .offset {
                 IntOffset(
-                    with(density) { current.x.dp.toPx() }.roundToInt(),
-                    with(density) { current.y.dp.toPx() }.roundToInt()
+                    with(density) { visibleSlot.x.dp.toPx() }.roundToInt(),
+                    with(density) { visibleSlot.y.dp.toPx() }.roundToInt()
                 )
             }
             .then(
@@ -633,79 +754,44 @@ private fun XvoxGridToken(
                     .padding(2.dp)
                 else Modifier
             )
-            // Keep this detector stable across snap recompositions: an in-progress long press
-            // must not restart merely because it crossed into another legal guide cell.
-            .pointerInput(spec.label) {
+            // Keep this detector stable across preview snaps: moving through the complete panel
+            // must not restart the long-press just because the displayed guide changed.
+            .pointerInput(token) {
                 var start = current
+                var candidate = current
                 var accumulated = Offset.Zero
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
                         start = spec.nearest(latestX, latestY)
+                        candidate = start
                         accumulated = Offset.Zero
+                        previewSlot = start
                         selected = true
                     },
                     onDrag = { change, amount ->
                         change.consume()
                         accumulated += amount
-                        val candidate = spec.nearest(
+                        candidate = spec.nearest(
                             start.x + with(density) { accumulated.x.toDp().value },
                             start.y + with(density) { accumulated.y.toDp().value }
                         )
-                        if (candidate != spec.nearest(latestX, latestY)) latestChange(candidate)
+                        previewSlot = candidate
                     },
-                    onDragEnd = { selected = false },
-                    onDragCancel = { selected = false }
+                    onDragEnd = {
+                        latestDrop(start, candidate)
+                        previewSlot = null
+                        selected = false
+                    },
+                    onDragCancel = {
+                        previewSlot = null
+                        selected = false
+                    }
                 )
             }
             .semantics {
-                contentDescription = "${spec.label}. Long press and drag to snap on its safe alignment grid."
+                contentDescription = "${spec.label}. Long press and drag across the safe bottom-box grid. Compatible targets swap when dropped together."
             }
     ) {
         content()
-    }
-}
-
-@Composable
-private fun NowPlayingTransparencyEditor(
-    chrome: XvoxChromeStyle,
-    onChange: (XvoxChromeStyle) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = XvoxTheme.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text("Transparency", color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        XvoxLayoutTransparencySlider(
-            "Bottom box",
-            1f - chrome.nowPlayingBottomBoxAlpha,
-            { onChange(chrome.copy(nowPlayingBottomBoxAlpha = 1f - it)) }
-        )
-        XvoxLayoutTransparencySlider(
-            "Header, right pills & playback controls",
-            1f - chrome.nowPlayingControlsAlpha,
-            { onChange(chrome.copy(nowPlayingControlsAlpha = 1f - it)) }
-        )
-        XvoxLayoutTransparencySlider(
-            "Play button",
-            1f - chrome.nowPlayingPlayAlpha,
-            { onChange(chrome.copy(nowPlayingPlayAlpha = 1f - it)) }
-        )
-    }
-}
-
-@Composable
-private fun XvoxLayoutTransparencySlider(label: String, value: Float, onChange: (Float) -> Unit) {
-    val colors = XvoxTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, color = colors.secondaryText, fontSize = 10.sp)
-            Text("${(value.coerceIn(0f, 1f) * 100f).roundToInt()}%", color = colors.primaryAccent, fontSize = 10.sp)
-        }
-        XvoxContinuousSlider(
-            value = value.coerceIn(0f, 1f),
-            onValueChange = { onChange(it.coerceIn(0f, 1f)) },
-            valueRange = 0f..1f,
-            defaultValue = 0f,
-            contentDescription = "$label transparency"
-        )
     }
 }

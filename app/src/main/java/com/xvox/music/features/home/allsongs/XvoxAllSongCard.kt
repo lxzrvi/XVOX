@@ -42,7 +42,8 @@ fun XvoxAllSongCard(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
-    val artworkShape = RoundedCornerShape(6.dp)
+    // The 3dp inner gutter keeps the cover flush with the card's own corner language.
+    val artworkShape = RoundedCornerShape(8.dp)
 
     Column(
         modifier = modifier

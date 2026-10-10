@@ -199,7 +199,9 @@ fun HomeScreen(
     val flowingPageLimit = if (config.direction == "horizontal") null
     // Keep vertical pages deliberately shallow: only the cards around the viewport are composed
     // during a fling, while the exact same 256px/512px artwork request classes are prefetched.
-    else (activeAllSongsColumns * 2).coerceIn(6, 10)
+    // Keep every normal vertical page on a full row boundary. In particular, six columns need
+    // twelve items for two complete rows; the old ten-item cap produced a recurring 6 + 4 pattern.
+    else (activeAllSongsColumns * 2).coerceIn(6, 12)
     val plans = remember(state.songs, config.style, config.rows, config.direction, activeAllSongsColumns, flowingPageLimit) {
         buildMosaicPagePlans(
             state.songs,
@@ -262,7 +264,12 @@ fun HomeScreen(
             selectedArtistNames = emptySet()
             selectedPlaylistIds = emptySet()
         }
-        if (state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
+        // Artist details live under the Artists destination. Clearing the selected name as soon
+        // as the destination recomposes made an artist's song page appear for one frame and then
+        // vanish. Only another unrelated library destination closes that detail.
+        if (state.libraryMode != XvoxHomeLibraryMode.ARTISTS &&
+            state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS
+        ) {
             selectedArtistName = null
         }
     }

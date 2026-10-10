@@ -535,6 +535,10 @@ fun XvoxSheet(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    // Nested IME insets are consumed by the outer sheet when it
+                                    // already moved; otherwise this is the final guarantee that
+                                    // Okay / Cancel / Reset stay above an opened keyboard.
+                                    .imePadding()
                                     .padding(horizontal = 16.dp, vertical = 10.dp)
                             ) {
                                 footer()
@@ -607,7 +611,11 @@ private fun XvoxCenteredBox(
     ) {
         XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
         BoxWithConstraints(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                // Centered secondary sheets need the same keyboard-safe viewport contract as
+                // bottom sheets; this shifts their footer controls above the IME as it opens.
+                .imePadding(),
             contentAlignment = Alignment.Center
         ) {
             // Centered secondary sheets share the same content-led height contract as bottom
@@ -702,6 +710,7 @@ private fun XvoxCenteredBox(
                         Box(
                             Modifier
                                 .fillMaxWidth()
+                                .imePadding()
                                 .padding(horizontal = 16.dp, vertical = 10.dp)
                         ) { footer() }
                     }

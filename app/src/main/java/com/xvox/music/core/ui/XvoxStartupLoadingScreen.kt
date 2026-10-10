@@ -38,8 +38,8 @@ import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
 private const val StartupStrokeWidth = 3f
-// Keep the opening dots delicately smaller than the finished ring/rail. Accent changes colour
-// one fixed dot at a time; no carrier dot travels between positions.
+// Keep the opening dots delicately smaller than the finished ring/rail. All five are visible
+// immediately; a single accent transfers across their fixed positions before becoming the ring.
 private const val StartupDotDiameter = 5f
 // Slightly tighter than the prior ring, matching the compact loader reference without making the
 // subsequent rail feel disconnected.
@@ -52,15 +52,17 @@ private val StartupRingStart = -StartupPi / 5f
 private const val StartupTerminalDotIndex = 4
 private const val StartupTerminalRingSegment = 0
 private val StartupRingOrder = intArrayOf(2, 3, 4, 1, StartupTerminalRingSegment)
-private const val StartupDotRevealCadence = 210f
-private const val StartupDotRevealDuration = 170f
+// The initial state is already a complete five-dot rail. Hold briefly on each stop and crossfade
+// only between neighbouring dots so the accent looks like a liquid handoff—not a sixth carrier.
+private const val StartupAccentLeadHold = 180f
+private const val StartupAccentTravel = 230f
 private const val StartupRingSegmentStagger = .105f
 private val StartupRingBuildOrder = intArrayOf(0, 1, 2, 3, 4)
 
-// Row, gather, stretch, spin, unroll, then fill. The opening is deliberately compact: five dots
-// reveal and pass one accent pulse left-to-right before their terminal accent becomes the ring.
+// Row, gather, stretch, spin, unroll, then fill. The opening begins with all five dots already
+// present; one accent flows left-to-right before the terminal dot grows into the ring.
 private val StartupPhaseDurations = floatArrayOf(
-    1720f, 560f, 840f, 2200f, 1200f, 2400f
+    1550f, 560f, 840f, 2200f, 1200f, 2400f
 )
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
@@ -133,43 +135,42 @@ private fun DrawScope.startupDot(
     drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
 }
 
-/** A dot is born once, in left-to-right order; it never has a travelling carrier twin. */
-private fun startupDotReveal(index: Int, time: Float): Float = startupEase(
-    startupClamp01((time - index * StartupDotRevealCadence) / StartupDotRevealDuration)
-)
-
 /**
- * Accent moves with each newly revealed dot. Earlier dots settle to the neutral rail; the fifth
- * dot keeps the accent, so it can become segment zero without a colour or position discontinuity.
+ * The rail is complete from frame one. Its accent rests briefly, then fluidly hands colour to the
+ * next neighbour. At the end only the terminal dot remains accented, ready to become ring segment
+ * zero without a flash, duplicate, or positional jump.
  */
-private fun startupRowDotColor(index: Int, time: Float, palette: StartupPalette): Color {
-    val activeIndex = (time / StartupDotRevealCadence).toInt().coerceIn(0, StartupTerminalDotIndex)
-    val accent = when {
-        index == StartupTerminalDotIndex && time >=
-            StartupTerminalDotIndex * StartupDotRevealCadence + StartupDotRevealDuration -> 1f
-        // The active dot is already the accent as it fades in. Startup therefore begins in the
-        // fresh-install red/accent instead of briefly flashing the neutral rail first.
-        index == activeIndex -> 1f
+private fun startupRowAccentAmount(index: Int, time: Float): Float {
+    val travelTime = (time - StartupAccentLeadHold).coerceAtLeast(0f)
+    val rawStep = travelTime / StartupAccentTravel
+    val from = rawStep.toInt().coerceIn(0, StartupTerminalDotIndex)
+    if (from >= StartupTerminalDotIndex) return if (index == StartupTerminalDotIndex) 1f else 0f
+    val handoff = startupEase((rawStep - from).coerceIn(0f, 1f))
+    return when (index) {
+        from -> 1f - handoff
+        from + 1 -> handoff
         else -> 0f
     }
-    return startupMixColor(palette.dot, palette.accent, accent)
 }
+
+private fun startupRowDotColor(index: Int, time: Float, palette: StartupPalette): Color =
+    startupMixColor(palette.dot, palette.accent, startupRowAccentAmount(index, time))
 
 private fun startupRingColorForDot(index: Int, palette: StartupPalette): Color =
     if (index == StartupTerminalDotIndex) palette.accent else palette.dot
 
-/** Five dots appear one-by-one with a single travelling accent; there is never a carrier sixth dot. */
+/** Five complete dots are visible immediately; only the accent moves from one to the next. */
 private fun DrawScope.drawStartupRow(time: Float, palette: StartupPalette) {
     repeat(5) { index ->
-        val reveal = startupDotReveal(index, time)
-        if (reveal > .001f) {
-            startupDot(
-                x = startupRowX(index),
-                y = 0f,
-                color = startupRowDotColor(index, time, palette).copy(alpha = reveal),
-                radius = StartupDotDiameter / 2f * reveal.coerceAtLeast(.42f)
-            )
-        }
+        val accent = startupRowAccentAmount(index, time)
+        startupDot(
+            x = startupRowX(index),
+            y = 0f,
+            color = startupRowDotColor(index, time, palette),
+            // A restrained breathing scale makes the handoff read as fluid while preserving all
+            // five dots at their original locations.
+            radius = StartupDotDiameter / 2f * (1f + .10f * accent)
+        )
     }
 }
 
