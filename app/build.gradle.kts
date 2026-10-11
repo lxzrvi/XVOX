@@ -49,6 +49,8 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Official PrismalAGSL Compose liquid glass: live recorded backdrop + AGSL refraction.
-    implementation("com.github.styropyr0:PrismalAGSL:Prismal:1.0.0")
+    // JitPack publishes PrismalAGSL v1.0.0's library module as com.github.styropyr0:Prismal.
+    // (The repository/module coordinate documented in the README does not resolve in Gradle.)
+    implementation("com.github.styropyr0:Prismal:1.0.0")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }
