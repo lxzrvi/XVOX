@@ -45,6 +45,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
@@ -107,7 +109,7 @@ fun XvoxNowPlaying(
     position: Long,
     duration: Long,
     onClose: () -> Unit,
-    /** Begins dismissal housekeeping and starts the Mini Player rise behind this surface. */
+    /** Begins dismissal housekeeping while this surface completes its fixed descent. */
     onDismissStart: () -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
@@ -138,6 +140,7 @@ fun XvoxNowPlaying(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
+    val liveLiquidBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val persistedChrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
         .normalizedNowPlayingGrid()
     // Customize is a true local transaction over this live player—not a second replica screen.
@@ -243,6 +246,9 @@ fun XvoxNowPlaying(
     var previewGestureActive by remember { mutableStateOf(false) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
+    // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
+    // this flag to prevent the button-release callback from dispatching the same track twice.
+    var lyricsDirectNavigation by remember { mutableStateOf(false) }
     var holdPagerPaletteDuringShuffle by remember { mutableStateOf(false) }
     var motionJob by remember { mutableStateOf<Job?>(null) }
     val latestQueue by rememberUpdatedState(queue)
@@ -301,8 +307,8 @@ fun XvoxNowPlaying(
         previewCommitJob = null
         onDismissStart()
         animateScreen(target = screenHeight) {
-            // The full player has crossed the bottom edge. The Mini Player has already completed
-            // its unchanged rise behind this sheet; now only finalize full-player visibility.
+            // This is the first frame after the full player has physically cleared the bottom.
+            // onClose mounts the Mini Player immediately; there is no post-animation delay.
             onClose()
         }
     }
@@ -369,13 +375,33 @@ fun XvoxNowPlaying(
             direction < 0 && repeatMode == RepeatMode.ALL && queue.size > 1 -> queue.lastIndex
             else -> return false
         }
-        previewGestureActive = true
         setPreviewTarget(target)
-        navigationRequest += direction.coerceIn(-1, 1)
+        if (isLyricsShowing) {
+            // The pager is intentionally absent behind lyrics. Drive the exact selected occurrence
+            // directly while warming/pinning its palette so the lyrics canvas and full backdrop
+            // morph through the same cover-matched colours a visible cover would use.
+            lyricsDirectNavigation = true
+            previewGestureActive = false
+            val targetSong = queue[target]
+            paletteState.pin(targetSong)
+            scope.launch { paletteState.show(targetSong) }
+            onPlayQueueIndex(target)
+        } else {
+            previewGestureActive = true
+            navigationRequest += direction.coerceIn(-1, 1)
+        }
         return true
     }
 
     fun commitPreview() {
+        if (lyricsDirectNavigation) {
+            // PreviewNavigationControl commits on release. Lyrics already committed its selected
+            // occurrence on press because there is no visible pager to settle, so release must be
+            // a no-op rather than replaying the same queue index.
+            lyricsDirectNavigation = false
+            previewGestureActive = false
+            return
+        }
         val targetOccurrence = previewIndex
         val targetToken = previewOccurrenceId
         val targetSongReference = previewSongReference ?: latestQueue.getOrNull(targetOccurrence)
@@ -418,6 +444,7 @@ fun XvoxNowPlaying(
 
     fun cancelPreview() {
         cancelPendingPreviewCommit()
+        lyricsDirectNavigation = false
         previewGestureActive = false
         if (latestCurrentIndex in latestQueue.indices) {
             previewIndex = latestCurrentIndex
@@ -541,7 +568,11 @@ fun XvoxNowPlaying(
                 scaleY = handoffScale
             }
             .clip(sheetCorner)
-            .background(colors.background)
+            // The whole player is a real Prismal surface in Blur mode. Its cover gradient is
+            // translucent below, so the recorded app backdrop remains visible instead of being
+            // covered by an opaque black canvas.
+            .xvoxLiveBackdropBlur(sheetCorner, radius = 30)
+            .background(if (liveLiquidBlur) Color.Transparent else colors.background)
             .pointerInput(activeSettingsBox) {
                 // The full-screen customizer owns its long-press/drag gestures. Outside it, the
                 // player still consumes backdrop taps so no event can click through to Home.
@@ -717,9 +748,13 @@ fun XvoxNowPlaying(
                             onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
                             onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
                             onCustomizeOkay = {
+                                // Commit the same draft currently drawing the real player. Nothing
+                                // is copied from a preview: the persisted layout is exactly what
+                                // the user has just moved/resized on this Now Playing surface.
                                 settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
                                 customizeDraft = null
                                 activeSettingsBox = null
+                                overlays.showP("Now Playing layout applied")
                             },
                             modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
@@ -999,9 +1034,11 @@ fun XvoxNowPlaying(
                     onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
                     onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
                     onCustomizeOkay = {
+                        // Persist the exact in-place draft that is currently rendered below.
                         settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
                         customizeDraft = null
                         activeSettingsBox = null
+                        overlays.showP("Now Playing layout applied")
                     },
                     modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(

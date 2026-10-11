@@ -1,5 +1,6 @@
 package com.xvox.music.player.nowplaying
 
+import android.os.SystemClock
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -18,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -38,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sin
 
@@ -75,6 +78,21 @@ fun XvoxNowPlayingProgress(
     var dragAnchorX by remember {
         mutableFloatStateOf(0f)
     }
+    // A tap/drag seek paints its chosen position immediately and holds it until playback catches
+    // up. This prevents the old progress sample briefly drawing again before the player reports
+    // the new position—the double-bar/repeat effect users can otherwise see after a seek.
+    var pendingSeekFraction by remember(currentSongId) {
+        mutableStateOf<Float?>(null)
+    }
+    var seekRequestVersion by remember(currentSongId) {
+        mutableFloatStateOf(0f)
+    }
+    // Tap and drag recognizers share the same rail. A recognizer can report the release of one
+    // physical drag as a tap on some devices, so gate that duplicate event before it reaches the
+    // player—not merely after the player has already been asked to seek twice.
+    var lastSeekGestureUptimeMs by remember(currentSongId) {
+        mutableLongStateOf(0L)
+    }
 
     val realFraction =
         if (duration > 0L) {
@@ -92,7 +110,37 @@ fun XvoxNowPlayingProgress(
         animationSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
         label = "nowPlayingPremiumProgress"
     )
-    val visibleFraction = if (dragging) dragFraction else animatedFraction
+
+    fun requestSeek(fraction: Float) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastSeekGestureUptimeMs < 140L) return
+        val target = fraction.coerceIn(0f, 1f)
+        lastSeekGestureUptimeMs = now
+        pendingSeekFraction = target
+        seekRequestVersion += 1f
+        onSeek((duration * target).toLong())
+    }
+
+    // Clear the optimistic value as soon as the playback sample confirms it. A short bounded
+    // fallback protects the rail if a player implementation intentionally coalesces a callback.
+    LaunchedEffect(position, duration, pendingSeekFraction) {
+        val pending = pendingSeekFraction ?: return@LaunchedEffect
+        val targetPosition = (duration * pending).toLong()
+        val tolerance = max(750L, (duration * .006f).toLong())
+        if (abs(position - targetPosition) <= tolerance) pendingSeekFraction = null
+    }
+    LaunchedEffect(seekRequestVersion) {
+        if (seekRequestVersion > 0f) {
+            delay(700)
+            pendingSeekFraction = null
+        }
+    }
+
+    val visibleFraction = when {
+        dragging -> dragFraction
+        pendingSeekFraction != null -> pendingSeekFraction!!
+        else -> animatedFraction
+    }
 
     val visiblePosition = if (duration > 0L) {
         (duration * visibleFraction).toLong()
@@ -149,6 +197,7 @@ fun XvoxNowPlayingProgress(
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
                             if (duration > 0L && size.width > 0) {
+                                pendingSeekFraction = null
                                 dragging = true
                                 dragAnchorFraction = latestRealFraction
                                 dragAnchorX = offset.x
@@ -165,12 +214,7 @@ fun XvoxNowPlayingProgress(
                             }
                         },
                         onDragEnd = {
-                            if (duration > 0L && dragging) {
-                                onSeek(
-                                    (duration * dragFraction)
-                                        .toLong()
-                                )
-                            }
+                            if (duration > 0L && dragging) requestSeek(dragFraction)
                             dragging = false
                         },
                         onDragCancel = {
@@ -188,10 +232,9 @@ fun XvoxNowPlayingProgress(
                                 (point.x / size.width)
                                     .coerceIn(0f, 1f)
 
-                            onSeek(
-                                (duration * fraction)
-                                    .toLong()
-                            )
+                            // requestSeek gates a drag-release event that a second recognizer
+                            // might also classify as this tap.
+                            requestSeek(fraction)
                         }
                     }
                 },
@@ -216,8 +259,8 @@ fun XvoxNowPlayingProgress(
                     offsetPhase: Float = 0f,
                     compression: Float = 1f
                 ): Float {
-                    // Android Wave is a stable waveform: playback moves only the progress beam
-                    // through it. No phase is tied to time, so it never appears to oscillate.
+                    // Android Wave is a stable waveform: playback changes only the filled rail
+                    // portion. No phase is tied to time, so it never appears to oscillate.
                     val envelope = .44f + .56f * kotlin.math.abs(
                         sin((normalizedX * PI * 3.1f) + offsetPhase).toFloat()
                     )
@@ -269,22 +312,13 @@ fun XvoxNowPlayingProgress(
 
                 when (normalizedStyle) {
                     "android_wave" -> {
-                        // A fixed Android-style waveform is the rail. The single beam is the only
-                        // moving element, so the track stays visually calm while progress travels.
+                        // A fixed Android-style waveform is the rail. Progress is expressed by
+                        // the filled portion only—no dot, knob, cursor, or other thumb marker.
                         drawAndroidWave(activeColor, .24f)
+                        clipRect(right = progressX) {
+                            drawAndroidWave(activeColor, .94f)
+                        }
                         drawWaveCrossfadeZones()
-                        val beamY = signalWaveY(
-                            normalizedX = if (size.width <= 0f) 0f else progressX / size.width,
-                            amplitude = 3.8.dp.toPx()
-                        )
-                        val beamColor = crossfadeColorAt(progressX)
-                        drawLine(
-                            color = beamColor,
-                            start = Offset(progressX, beamY - 5.5.dp.toPx()),
-                            end = Offset(progressX, beamY + 5.5.dp.toPx()),
-                            strokeWidth = 2.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
                     }
 
                     "pulse" -> {
@@ -306,7 +340,6 @@ fun XvoxNowPlayingProgress(
                                 cap = StrokeCap.Round
                             )
                         }
-                        drawCircle(crossfadeColorAt(progressX), radius = 2.8.dp.toPx(), center = Offset(progressX, y))
                     }
 
                     "aurora" -> {
@@ -320,12 +353,11 @@ fun XvoxNowPlayingProgress(
                         }
                         drawWaveCrossfadeZones(phaseOffset = .75f)
                         drawWaveCrossfadeZones()
-                        drawCircle(crossfadeColorAt(progressX), radius = 3.dp.toPx(), center = Offset(progressX, y))
                     }
 
                     "pill" -> {
-                        // Capsule retains its tactile vertical handle while blend zones visibly
-                        // colour the relevant portions of both inactive and active rail.
+                        // The capsule is deliberately thumb-free; blend zones remain visible on
+                        // both inactive and active portions without adding a progress dot.
                         val railHeight = 8.dp.toPx()
                         val top = y - railHeight / 2f
                         drawRoundRect(
@@ -348,14 +380,6 @@ fun XvoxNowPlayingProgress(
                         if (tailFraction > 0f) {
                             drawRect(XvoxBlendOutColor.copy(alpha = .92f), Offset(tailStartX, top), androidx.compose.ui.geometry.Size(size.width - tailStartX, railHeight))
                         }
-                        val handleHeight = 14.dp.toPx()
-                        val handleWidth = 5.dp.toPx()
-                        drawRoundRect(
-                            color = crossfadeColorAt(progressX),
-                            topLeft = Offset(progressX - handleWidth / 2f, y - handleHeight / 2f),
-                            size = androidx.compose.ui.geometry.Size(handleWidth, handleHeight),
-                            cornerRadius = CornerRadius(handleWidth / 2f, handleWidth / 2f)
-                        )
                     }
 
                     else -> {
@@ -396,7 +420,6 @@ fun XvoxNowPlayingProgress(
                                 cap = StrokeCap.Round
                             )
                         }
-                        drawCircle(crossfadeColorAt(progressX), radius = 2.3.dp.toPx(), center = Offset(progressX, y))
                     }
                     }
                 }

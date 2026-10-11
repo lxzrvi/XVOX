@@ -67,8 +67,6 @@ fun XvoxMiniPlayer(
     playQueueIndex: (Int) -> Unit,
     stopAndDismiss: () -> Unit,
     openPlayer: () -> Unit,
-    /** Called after the outgoing card completes its existing bottom travel behind Now Playing. */
-    onNowPlayingHandoffComplete: (Int) -> Unit = { _ -> },
     isLiked: Boolean = false,
     onLike: () -> Unit,
     onAddToPlaylist: () -> Unit = {},
@@ -89,7 +87,6 @@ fun XvoxMiniPlayer(
     val totalPlacementY = defaultPlacementY + userPlacementY + keyboardOffsetY
     val rootView = LocalView.current
     var cardTopInRootPx by remember { mutableFloatStateOf(Float.NaN) }
-    var cardBottomInRootPx by remember { mutableFloatStateOf(Float.NaN) }
     // Derive the travel from the painted card's TOP, not its bottom. A bottom-based distance only
     // moves the bottom edge past the screen and leaves most of the 56dp Mini Player visible.
     // Using the top clears the whole card under every custom placement, IME lift and nav inset.
@@ -105,17 +102,6 @@ fun XvoxMiniPlayer(
             188.dp.toPx()
         }
     }
-    // Start the full-player surface exactly when the outgoing card's lower edge crosses the real
-    // screen bottom—not after its top has travelled an additional card-height below the viewport.
-    // The Mini continues the unchanged exit motion behind the new surface for the remaining span.
-    val handoffStartDistance = with(density) {
-        val rootHeight = rootView.height.toFloat()
-        if (cardBottomInRootPx.isFinite() && rootHeight > 0f) {
-            (rootHeight - cardBottomInRootPx).coerceIn(0f, exitDistance)
-        } else {
-            42.dp.toPx().coerceAtMost(exitDistance)
-        }
-    }
     val y = remember(riseKey) { Animatable(exitDistance) }
 
     var dragX by remember { mutableFloatStateOf(0f) }
@@ -124,15 +110,11 @@ fun XvoxMiniPlayer(
     var rawY by remember { mutableFloatStateOf(0f) }
     var axis by remember { mutableStateOf(XvoxMiniAxis.NONE) }
     var moved by remember { mutableStateOf(false) }
-    // A dismissal that interrupts an opening handoff increments riseKey and replaces this state,
-    // so an old off-screen exit coroutine cannot leave the newly rising card non-interactive.
-    var exiting by remember(riseKey) { mutableStateOf(false) }
+    var exiting by remember { mutableStateOf(false) }
     var commitJob by remember { mutableStateOf<Job?>(null) }
     val setQuickActionsVisible by rememberUpdatedState(onQuickActionsVisibleChange)
     val addToPlaylist by rememberUpdatedState(onAddToPlaylist)
     val openMiniSettings by rememberUpdatedState(onOpenMiniPlayerSettings)
-    val openNowPlaying by rememberUpdatedState(openPlayer)
-    val completeNowPlayingHandoff by rememberUpdatedState(onNowPlayingHandoffComplete)
 
     var previewIndex by remember(currentSongId, queue) {
         mutableIntStateOf(currentIndex.takeIf { it in queue.indices } ?: 0)
@@ -140,8 +122,8 @@ fun XvoxMiniPlayer(
     var transitionDirection by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(riseKey) {
-        // Return begins immediately behind the dismissing full-player sheet. Its accepted 230ms
-        // rise therefore finishes before the 320ms sheet clears, avoiding a blank transition beat.
+        // closeNowPlaying mounts this card in the exact final frame of the full-player descent.
+        // The existing rise starts immediately from below the viewport—without overlapping sheets.
         y.animateTo(0f, XvoxMiniPlayerMotion.handoffSpec())
     }
 
@@ -176,25 +158,17 @@ fun XvoxMiniPlayer(
         cancelCommit()
 
         scope.launch {
-            // Keep the existing downward timing, but start Now Playing the instant the card's
-            // lower edge crosses the screen bottom. The remaining off-screen travel continues
-            // behind the full player, so there is no handoff dwell or visible sliver.
+            // The full Mini Player completes its fixed downward travel first. Now Playing starts
+            // in this exact completion frame—zero additional dwell, and no surface overlap.
             dragX = 0f
             y.snapTo(currentY.coerceIn(0f, exitDistance))
             dragY = 0f
-            var nowPlayingStarted = false
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.handoffSpec()) {
-                if (!stop && !nowPlayingStarted && value >= handoffStartDistance) {
-                    nowPlayingStarted = true
-                    openNowPlaying()
-                }
-            }
+            y.animateTo(exitDistance, XvoxMiniPlayerMotion.handoffSpec())
 
             if (stop) {
                 stopAndDismiss()
             } else if (exiting) {
-                if (!nowPlayingStarted) openNowPlaying()
-                completeNowPlayingHandoff(riseKey)
+                openPlayer()
             }
         }
     }
@@ -360,9 +334,7 @@ fun XvoxMiniPlayer(
                     // Graphics translation intentionally is not part of layout coordinates: we
                     // need the resting physical card bottom so `exitDistance` can clear it.
                     .onGloballyPositioned { coordinates ->
-                        val bounds = coordinates.boundsInRoot()
-                        cardTopInRootPx = bounds.top
-                        cardBottomInRootPx = bounds.bottom
+                        cardTopInRootPx = coordinates.boundsInRoot().top
                     }
                     .graphicsLayer {
                         // The real vertical handoff remains the primary motion. Each experimental

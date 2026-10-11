@@ -831,8 +831,8 @@ fun XvoxMainShell(
 
 
         val currentSongId = player.currentSongId
-        // Player surfaces retain their accepted travel speeds but overlap behind the incoming or
-        // outgoing surface at the lower boundary, removing the former handoff dwell.
+        // Player surfaces keep their accepted travel speeds and hand off on the exact terminal
+        // bottom frame: no overlap and no artificial wait between the two animations.
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
         // Settings lets the Mini Player visibly hand off downward in either orientation instead
         // of leaving it on the page or cutting it away mid-card.
@@ -895,10 +895,7 @@ fun XvoxMainShell(
                             togglePlay = { playerViewModel.togglePlay() },
                             playQueueIndex = { playerViewModel.playQueueIndex(it) },
                             stopAndDismiss = { playerViewModel.stopPlayback() },
-                            openPlayer = { playerViewModel.openNowPlaying(fromMiniPlayerHandoff = true) },
-                            onNowPlayingHandoffComplete = { handoffRiseKey ->
-                                playerViewModel.finishMiniPlayerToNowPlayingHandoff(handoffRiseKey)
-                            },
+                            openPlayer = { playerViewModel.openNowPlaying() },
                             isLiked = currentSong?.id in homeState.likedSongIds,
                             onLike = {
                                 currentSong?.let { song ->
@@ -951,10 +948,7 @@ fun XvoxMainShell(
                 onTogglePlay = { playerViewModel.togglePlay() },
                 onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
                 onStopAndDismiss = { playerViewModel.stopPlayback() },
-                onOpenPlayer = { playerViewModel.openNowPlaying(fromMiniPlayerHandoff = true) },
-                onNowPlayingHandoffComplete = { handoffRiseKey ->
-                    playerViewModel.finishMiniPlayerToNowPlayingHandoff(handoffRiseKey)
-                },
+                onOpenPlayer = { playerViewModel.openNowPlaying() },
                 isLiked = currentSong?.id in homeState.likedSongIds,
                 onLike = {
                     currentSong?.let { song ->

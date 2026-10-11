@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -65,6 +67,7 @@ fun SettingsScreen(
 ) {
     val state by settingsViewModel.state.collectAsState()
     val colors = XvoxTheme.colors
+    val liveLiquidBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
     var pendingDeviceDeletion by remember { mutableStateOf<com.xvox.music.core.model.Song?>(null) }
@@ -205,7 +208,9 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background),
+            // Let the root Prismal gradient remain visible between Settings cards in Blur mode;
+            // the cards themselves retain their live captured-backdrop treatment.
+            .background(colors.background.copy(alpha = if (liveLiquidBlur) .24f else 1f)),
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalGrid(

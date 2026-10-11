@@ -2,6 +2,11 @@ package com.xvox.music
 
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +46,39 @@ import coil3.compose.AsyncImage
 import com.styropyr0.prismal.sources.prismalGlassLayer
 import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import kotlinx.coroutines.delay
+
+private fun Color.xvoxMix(other: Color, amount: Float): Color {
+    val t = amount.coerceIn(0f, 1f)
+    return Color(
+        red = red + (other.red - red) * t,
+        green = green + (other.green - green) * t,
+        blue = blue + (other.blue - blue) * t,
+        alpha = alpha + (other.alpha - alpha) * t
+    )
+}
+
+/** A colourful but theme-tethered source for Prismal's app-wide Blur appearance. */
+private fun xvoxLiquidAppBrush(
+    background: Color,
+    accent: Color,
+    phase: Float,
+    alpha: Float = 1f
+): Brush {
+    val violetAccent = accent.xvoxMix(Color(0xFF7867FF), .38f)
+    val coralAccent = accent.xvoxMix(Color(0xFFFF7A9D), .22f)
+    val travel = phase.coerceIn(0f, 1f)
+    return Brush.linearGradient(
+        colors = listOf(
+            background.xvoxMix(coralAccent, .56f).copy(alpha = alpha),
+            background.xvoxMix(violetAccent, .48f).copy(alpha = alpha),
+            background.xvoxMix(accent, .36f).copy(alpha = alpha)
+        ),
+        // An unhurried diagonal drift keeps the source visibly liquid without a high-frequency
+        // animation. Prismal samples each rendered frame, so every glass layer follows it live.
+        start = Offset(-420f + 780f * travel, 120f - 80f * travel),
+        end = Offset(1240f - 500f * travel, 2140f + 190f * travel)
+    )
+}
 
 @Composable
 fun XvoxAppRoot(
@@ -177,12 +218,43 @@ fun XvoxAppRoot(
         uiFontFamily = selectedUiFont
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
+        val liquidBlurEnabled = experimentalAppearance ==
+            com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
+        // Blur is not a black fallback: Prismal samples this live, colourful app gradient (or
+        // the user's image plus a translucent colour wash) behind every eligible glass surface.
+        val liquidPhase by rememberInfiniteTransition(label = "xvoxLiquidBackdrop").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 10_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "xvoxLiquidBackdropPhase"
+        )
+        val liquidAppBrush = remember(
+            XvoxTheme.colors.background,
+            XvoxTheme.colors.primaryAccent,
+            liquidPhase
+        ) {
+            xvoxLiquidAppBrush(XvoxTheme.colors.background, XvoxTheme.colors.primaryAccent, liquidPhase)
+        }
+        val liquidImageWash = remember(
+            XvoxTheme.colors.background,
+            XvoxTheme.colors.primaryAccent,
+            liquidPhase
+        ) {
+            xvoxLiquidAppBrush(
+                XvoxTheme.colors.background,
+                XvoxTheme.colors.primaryAccent,
+                phase = liquidPhase,
+                alpha = .34f
+            )
+        }
         // Prismal samples one root-recorded layer behind the app chrome. Recording only mounts
         // when a translucent surface can actually reveal it, avoiding a per-card capture cost and
         // the old Home source-readiness race.
         val defaultBackdropCanShowThrough = backgroundImage.isNotBlank() || cardTransparency > .005f
-        val prismalSourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
-            defaultBackdropCanShowThrough
+        val prismalSourceEnabled = liquidBlurEnabled || defaultBackdropCanShowThrough
         val prismalBackdrop = rememberPrismalGlassLayer()
 
         CompositionLocalProvider(
@@ -196,7 +268,10 @@ fun XvoxAppRoot(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(XvoxTheme.colors.background)
+                    .then(
+                        if (liquidBlurEnabled) Modifier.background(liquidAppBrush)
+                        else Modifier.background(XvoxTheme.colors.background)
+                    )
             ) {
                 // Prismal follows its documented backdrop/effect sibling arrangement. This layer
                 // records the actual wallpaper/theme background only; sheets and controls draw
@@ -205,7 +280,10 @@ fun XvoxAppRoot(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(if (prismalSourceEnabled) Modifier.prismalGlassLayer(prismalBackdrop) else Modifier)
-                        .background(XvoxTheme.colors.background)
+                        .then(
+                            if (liquidBlurEnabled) Modifier.background(liquidAppBrush)
+                            else Modifier.background(XvoxTheme.colors.background)
+                        )
                 ) {
                     if (backgroundImage.isNotBlank()) {
                         AsyncImage(
@@ -214,6 +292,11 @@ fun XvoxAppRoot(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
+                        if (liquidBlurEnabled) {
+                            // Preserve the selected image while bathing it in the same animated-
+                            // feeling palette that supplies Prismal's live glass source.
+                            Box(Modifier.fillMaxSize().background(liquidImageWash))
+                        }
                     }
                 }
 

@@ -669,61 +669,29 @@ class MainPlayerViewModel(
     }
 
     /**
-     * Opens the player. A Mini Player-originated handoff deliberately keeps the outgoing card
-     * composed behind Now Playing until its bottom edge has cleared, eliminating the blank beat
-     * between the two existing animations without changing either animation's speed.
+     * Start Now Playing only after the Mini Player has physically completed its downward exit.
+     * There is no added delay after that final frame; this preserves the accepted motion speeds
+     * while preventing either surface from starting over the other.
      */
-    fun openNowPlaying(fromMiniPlayerHandoff: Boolean = false) {
+    fun openNowPlaying() {
         if (_state.value.currentSongId == null) return
         controller.setFastProgress(true)
-        _state.update { current ->
-            current.copy(
-                nowPlayingVisible = true,
-                miniPlayerVisible = if (fromMiniPlayerHandoff) current.miniPlayerVisible else false
-            )
-        }
+        _state.update { it.copy(nowPlayingVisible = true, miniPlayerVisible = false) }
     }
 
-    /**
-     * Removes an outgoing Mini Player only after its existing downward travel clears. An expected
-     * rise key prevents an old handoff coroutine from hiding a new Mini Player if the user closes
-     * Now Playing while its opening overlap is still in progress.
-     */
-    fun finishMiniPlayerToNowPlayingHandoff(expectedRiseKey: Int) {
-        _state.update { current ->
-            if (current.nowPlayingVisible && current.miniPlayerRiseKey == expectedRiseKey) {
-                current.copy(miniPlayerVisible = false)
-            } else {
-                current
-            }
-        }
-    }
-
-    /**
-     * Start Mini Player rise in the same frame that Now Playing begins moving down. It remains
-     * behind the full player while that surface travels, then is already at rest when the full
-     * player crosses the lower edge—there is no post-close interval to perceive.
-     */
+    /** The outgoing full player keeps its fixed descent; no Mini Player rises underneath it. */
     fun beginNowPlayingDismissal() {
         controller.setFastProgress(false)
-        _state.update { current ->
-            if (current.currentSongId == null) current
-            else current.copy(
-                miniPlayerVisible = true,
-                // This also safely reverses a rare Back press during the opening overlap: the
-                // prior exit's completion is key-guarded and cannot hide this fresh rise.
-                miniPlayerRiseKey = current.miniPlayerRiseKey + 1
-            )
-        }
     }
 
-    /** Complete the full-player exit without restarting a Mini Player that is already rising. */
+    /**
+     * The Mini Player is mounted in the exact completion callback of the full player's descent.
+     * Its existing rise begins immediately from below the viewport, with no artificial gap.
+     */
     fun closeNowPlaying() {
         _state.update { current ->
             if (current.currentSongId == null) {
                 current.copy(nowPlayingVisible = false, miniPlayerVisible = false)
-            } else if (current.miniPlayerVisible) {
-                current.copy(nowPlayingVisible = false)
             } else {
                 current.copy(
                     nowPlayingVisible = false,

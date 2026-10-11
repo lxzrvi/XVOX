@@ -95,9 +95,10 @@ private fun snapPanel(value: Float): Float =
     (kotlin.math.round(value / 16f) * 16f).coerceIn(-320f, 320f)
 
 /**
- * Decorates one real Now Playing item while Customize is active. A long press moves it on an
- * invisible 16dp lattice spanning the complete bottom panel; no grid is drawn. Pinch changes its
- * local scale. The close affordance hides it only in the transaction draft.
+ * Decorates one real Now Playing item while Customize is active. The visible top-left grip moves
+ * it immediately, while a long press anywhere also moves it on an invisible 16dp lattice spanning
+ * the complete bottom panel; no grid is drawn. The bottom-right < > grip (or pinch) changes local
+ * scale. The close affordance hides it only in the transaction draft.
  */
 @Composable
 fun NowPlayingEditableTarget(
@@ -205,6 +206,51 @@ fun NowPlayingEditableTarget(
         )
 
         if (!hidden) {
+            // A real grab button makes movement discoverable as well as preserving the existing
+            // long-press-anywhere gesture. Its direct drag edits only the local Customize draft.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(24.dp)
+                    .background(colors.primaryAccent.copy(alpha = .94f), CircleShape)
+                    .pointerInput("move_$itemId") {
+                        val scopeDensity = this
+                        var startX = 0f
+                        var startY = 0f
+                        var totalX = 0f
+                        var totalY = 0f
+                        detectDragGestures(
+                            onDragStart = {
+                                val (x, y) = latestSession.draft.offsetForNowPlayingItem(itemId)
+                                startX = x
+                                startY = y
+                                totalX = 0f
+                                totalY = 0f
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                totalX += amount.x
+                                totalY += amount.y
+                                val nextX = with(scopeDensity) { startX + totalX.toDp().value }
+                                val nextY = with(scopeDensity) { startY + totalY.toDp().value }
+                                latestSession.onDraftChange(
+                                    latestSession.draft
+                                        .withNowPlayingItemOffset(itemId, snapPanel(nextX), snapPanel(nextY))
+                                        .normalizedNowPlayingGrid()
+                                )
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_drag_dots),
+                    contentDescription = "Drag to move item",
+                    tint = colors.background,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -229,14 +275,14 @@ fun NowPlayingEditableTarget(
                 )
             }
 
-            // The lower-right < > affordance makes resizing discoverable without replacing the
+            // The lower-right < > affordance makes resizing unmistakable without replacing the
             // existing two-finger pinch. Drag it outward/down-right to enlarge, inward/up-left to
             // shrink; its result is written only to the local Customize draft.
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .size(22.dp)
-                    .background(colors.background.copy(alpha = .94f), CircleShape)
+                    .size(28.dp)
+                    .background(colors.primaryAccent.copy(alpha = .94f), CircleShape)
                     .pointerInput("resize_$itemId") {
                         val scopeDensity = this
                         var startScale = 1f
@@ -264,8 +310,8 @@ fun NowPlayingEditableTarget(
                 Icon(
                     painter = painterResource(R.drawable.ic_xvox_resize),
                     contentDescription = "Resize item",
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(13.dp)
+                    tint = colors.background,
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
@@ -318,8 +364,8 @@ fun NowPlayingEditableCover(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .size(24.dp)
-                .background(colors.background.copy(alpha = .94f), CircleShape)
+                .size(28.dp)
+                .background(colors.primaryAccent.copy(alpha = .94f), CircleShape)
                 .pointerInput("nowPlayingCoverResizeHandle") {
                     val scopeDensity = this
                     var startScale = 1f
@@ -347,8 +393,8 @@ fun NowPlayingEditableCover(
             Icon(
                 painter = painterResource(R.drawable.ic_xvox_resize),
                 contentDescription = "Resize cover",
-                tint = colors.primaryAccent,
-                modifier = Modifier.size(14.dp)
+                tint = colors.background,
+                modifier = Modifier.size(17.dp)
             )
         }
     }

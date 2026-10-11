@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -170,6 +171,14 @@ fun XvoxArtworkLyrics(
     val lyricsBackdropColor = backgroundColor.takeIf {
         it != Color.Unspecified && it != Color.Transparent
     } ?: colors.background
+    // Next/previous remains palette-synchronised even while the cover is replaced by lyrics.
+    // Interpolate the lyric canvas colour exactly like the cover/player backdrop instead of
+    // flashing the old or black colour between tracks.
+    val animatedLyricsBackdropColor by animateColorAsState(
+        targetValue = lyricsBackdropColor,
+        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        label = "lyricsCoverPaletteTransition"
+    )
 
     BoxWithConstraints(
         modifier = modifier
@@ -213,9 +222,9 @@ fun XvoxArtworkLyrics(
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    lyricsBackdropColor.copy(alpha = 0.85f),
-                                    lyricsBackdropColor.copy(alpha = 0.50f),
-                                    lyricsBackdropColor.copy(alpha = 0.18f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.85f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.50f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.18f),
                                     Color.Transparent
                                 ),
                                 center = Offset(cx, cy),
@@ -245,8 +254,8 @@ fun XvoxArtworkLyrics(
                             path = pTop,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    lyricsBackdropColor.copy(alpha = 0.55f),
-                                    lyricsBackdropColor.copy(alpha = 0.30f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.55f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.30f),
                                     Color.Transparent
                                 )
                             )
@@ -269,8 +278,8 @@ fun XvoxArtworkLyrics(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    lyricsBackdropColor.copy(alpha = 0.30f),
-                                    lyricsBackdropColor.copy(alpha = 0.55f)
+                                    animatedLyricsBackdropColor.copy(alpha = 0.30f),
+                                    animatedLyricsBackdropColor.copy(alpha = 0.55f)
                                 )
                             )
                         )
