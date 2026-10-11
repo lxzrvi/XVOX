@@ -222,6 +222,9 @@ fun XvoxAppRoot(
             com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
         // Blur is not a black fallback: Prismal samples this live, colourful app gradient (or
         // the user's image plus a translucent colour wash) behind every eligible glass surface.
+        // Capture CompositionLocal-derived colours outside remember's non-composable factory.
+        val appBackground = XvoxTheme.colors.background
+        val appAccent = XvoxTheme.colors.primaryAccent
         val liquidPhase by rememberInfiniteTransition(label = "xvoxLiquidBackdrop").animateFloat(
             initialValue = 0f,
             targetValue = 1f,
@@ -231,21 +234,13 @@ fun XvoxAppRoot(
             ),
             label = "xvoxLiquidBackdropPhase"
         )
-        val liquidAppBrush = remember(
-            XvoxTheme.colors.background,
-            XvoxTheme.colors.primaryAccent,
-            liquidPhase
-        ) {
-            xvoxLiquidAppBrush(XvoxTheme.colors.background, XvoxTheme.colors.primaryAccent, liquidPhase)
+        val liquidAppBrush = remember(appBackground, appAccent, liquidPhase) {
+            xvoxLiquidAppBrush(appBackground, appAccent, liquidPhase)
         }
-        val liquidImageWash = remember(
-            XvoxTheme.colors.background,
-            XvoxTheme.colors.primaryAccent,
-            liquidPhase
-        ) {
+        val liquidImageWash = remember(appBackground, appAccent, liquidPhase) {
             xvoxLiquidAppBrush(
-                XvoxTheme.colors.background,
-                XvoxTheme.colors.primaryAccent,
+                appBackground,
+                appAccent,
                 phase = liquidPhase,
                 alpha = .34f
             )
