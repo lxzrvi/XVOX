@@ -54,6 +54,9 @@ private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also
 }
 private val StartupTotalDuration = StartupPhaseBounds.last()
 private const val StartupReducedMotionDuration = 2600f
+// The loader must never hold a fully prepared Home hostage to a decorative timeline.
+private const val StartupMinimumVisibleDuration = 420f
+private const val StartupReducedMotionMinimumVisibleDuration = 180f
 
 private data class StartupPalette(
     val dot: Color,
@@ -210,16 +213,20 @@ fun XvoxStartupLoadingScreen(
         while (!finished) {
             withFrameNanos { nowNanos ->
                 val elapsedMs = (nowNanos - startNanos) / 1_000_000f
-                if (reducedMotion) {
-                    // Reduced motion retains a quiet linear rail and never runs ring/spin motion.
-                    time = elapsedMs.coerceAtMost(StartupReducedMotionDuration)
-                    if (latestReadyToEnter && elapsedMs >= StartupReducedMotionDuration) finished = true
+                // Decorative motion is allowed to continue while bootstrap work is pending, but
+                // it is never allowed to delay a ready shell. This removes the old apparent
+                // startup freeze caused by waiting for the entire 5.8-second art sequence.
+                time = if (reducedMotion) {
+                    elapsedMs.coerceAtMost(StartupReducedMotionDuration)
                 } else {
-                    // A completed rail stays full only while real bootstrap work is still pending.
-                    // It never rewinds to dots, so startup has one clean forward handoff.
-                    time = elapsedMs.coerceAtMost(StartupTotalDuration)
-                    if (latestReadyToEnter && elapsedMs >= StartupTotalDuration) finished = true
+                    elapsedMs.coerceAtMost(StartupTotalDuration)
                 }
+                val minimumVisible = if (reducedMotion) {
+                    StartupReducedMotionMinimumVisibleDuration
+                } else {
+                    StartupMinimumVisibleDuration
+                }
+                if (latestReadyToEnter && elapsedMs >= minimumVisible) finished = true
             }
         }
         latestSequenceComplete()

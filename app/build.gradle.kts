@@ -5,13 +5,15 @@ plugins {
 
 android {
     namespace = "com.xvox.music"
-    compileSdk = 36
+    // Matches PrismalAGSL's official Android API level requirement.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.xvox.music"
 
-        minSdk = 26
-        targetSdk = 36
+        // PrismalAGSL's liquid pipeline is an Android 13+ product requirement.
+        minSdk = 33
+        targetSdk = 37
 
         versionCode = 1
         versionName = "0.1.0"
@@ -46,10 +48,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
-    // Genuine Chris Banes Haze backdrop blur. Haze 1.6.5 is the newest line whose core and
-    // materials artifacts are both published together; the requested haze-blur:1.6.5 module
-    // does not exist on Maven Central (that module starts at Haze 2.x).
-    implementation("dev.chrisbanes.haze:haze:1.6.5")
-    implementation("dev.chrisbanes.haze:haze-materials:1.6.5")
+    // Official PrismalAGSL Compose liquid glass: live recorded backdrop + AGSL refraction.
+    implementation("com.github.styropyr0:PrismalAGSL:Prismal:1.0.0")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }

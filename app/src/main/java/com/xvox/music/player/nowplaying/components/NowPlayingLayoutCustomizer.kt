@@ -2,6 +2,7 @@ package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -227,11 +228,51 @@ fun NowPlayingEditableTarget(
                     modifier = Modifier.size(12.dp)
                 )
             }
+
+            // The lower-right < > affordance makes resizing discoverable without replacing the
+            // existing two-finger pinch. Drag it outward/down-right to enlarge, inward/up-left to
+            // shrink; its result is written only to the local Customize draft.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(22.dp)
+                    .background(colors.background.copy(alpha = .94f), CircleShape)
+                    .pointerInput("resize_$itemId") {
+                        val scopeDensity = this
+                        var startScale = 1f
+                        var totalDistance = 0f
+                        detectDragGestures(
+                            onDragStart = {
+                                startScale = latestSession.draft.nowPlayingItemScale(itemId)
+                                totalDistance = 0f
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                totalDistance += amount.x + amount.y
+                                val rangePx = with(scopeDensity) { 160.dp.toPx() }
+                                latestSession.onDraftChange(
+                                    latestSession.draft.withNowPlayingItemScale(
+                                        itemId,
+                                        startScale + totalDistance / rangePx
+                                    )
+                                )
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_resize),
+                    contentDescription = "Resize item",
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(13.dp)
+                )
+            }
         }
     }
 }
 
-/** Cover is resizable by pinch but deliberately has no move/hide wrapper or close affordance. */
+/** Cover remains anchored/no-hide, but offers both pinch and the visible lower-right resize handle. */
 @Composable
 fun NowPlayingEditableCover(
     session: NowPlayingEditSession?,
@@ -243,6 +284,7 @@ fun NowPlayingEditableCover(
         return
     }
     val latestSession by rememberUpdatedState(session)
+    val colors = XvoxTheme.colors
     val scale = session.draft.nowPlayingCoverScale.coerceIn(.65f, 1.55f)
     Box(
         modifier = modifier.graphicsLayer {
@@ -273,5 +315,41 @@ fun NowPlayingEditableCover(
                     onClick = { }
                 )
         )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(24.dp)
+                .background(colors.background.copy(alpha = .94f), CircleShape)
+                .pointerInput("nowPlayingCoverResizeHandle") {
+                    val scopeDensity = this
+                    var startScale = 1f
+                    var totalDistance = 0f
+                    detectDragGestures(
+                        onDragStart = {
+                            startScale = latestSession.draft.nowPlayingCoverScale
+                            totalDistance = 0f
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            totalDistance += amount.x + amount.y
+                            val rangePx = with(scopeDensity) { 190.dp.toPx() }
+                            latestSession.onDraftChange(
+                                latestSession.draft.copy(
+                                    nowPlayingCoverScale = (startScale + totalDistance / rangePx)
+                                        .coerceIn(.65f, 1.55f)
+                                )
+                            )
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_resize),
+                contentDescription = "Resize cover",
+                tint = colors.primaryAccent,
+                modifier = Modifier.size(14.dp)
+            )
+        }
     }
 }

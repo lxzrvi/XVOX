@@ -35,8 +35,8 @@ import com.xvox.music.core.ui.overlay.XvoxOverlayHost
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.SetupScreen
 import coil3.compose.AsyncImage
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import com.styropyr0.prismal.sources.prismalGlassLayer
+import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import kotlinx.coroutines.delay
 
 @Composable
@@ -79,10 +79,25 @@ fun XvoxAppRoot(
         delay(60)
     }
     var startupSequenceReleased by remember { mutableStateOf(false) }
+    var startupFallbackRelease by remember { mutableStateOf(false) }
     LaunchedEffect(state) {
         if (state == AppUiState.Setup) {
             startupSequenceReleased = false
+            startupFallbackRelease = false
             shellMounted = false
+        }
+    }
+    // A slow/misbehaving media scan must not pin a finished shell behind a decorative loader
+    // forever. Once the shell is safe to compose, reveal it after a bounded grace period and let
+    // the existing reactive data flows finish in place.
+    LaunchedEffect(state, shellMounted, dataReady) {
+        if (state != AppUiState.Home && shellMounted && !dataReady) {
+            delay(6_000)
+            if (state != AppUiState.Home && shellMounted && !dataReady) {
+                startupFallbackRelease = true
+            }
+        } else if (dataReady) {
+            startupFallbackRelease = false
         }
     }
 
@@ -162,21 +177,20 @@ fun XvoxAppRoot(
         uiFontFamily = selectedUiFont
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
-        // One Haze source sits behind the app chrome. It is only mounted when a true backdrop can
-        // be seen (Blur UI, a selected background image, or transparent cards), so normal opaque
-        // screens do not pay for a capture layer. Haze has no source-ready recorder race when
-        // Home mounts.
+        // Prismal samples one root-recorded layer behind the app chrome. Recording only mounts
+        // when a translucent surface can actually reveal it, avoiding a per-card capture cost and
+        // the old Home source-readiness race.
         val defaultBackdropCanShowThrough = backgroundImage.isNotBlank() || cardTransparency > .005f
-        val hazeSourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
+        val prismalSourceEnabled = experimentalAppearance == com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR ||
             defaultBackdropCanShowThrough
-        val hazeState = rememberHazeState(blurEnabled = hazeSourceEnabled)
+        val prismalBackdrop = rememberPrismalGlassLayer()
 
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides baseChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
-            com.xvox.music.core.ui.effects.LocalXvoxHazeState provides if (hazeSourceEnabled) hazeState else null,
+            com.xvox.music.core.ui.effects.LocalXvoxPrismalBackdrop provides if (prismalSourceEnabled) prismalBackdrop else null,
             LocalXvoxHaptics provides haptics
         ) {
             Box(
@@ -184,13 +198,14 @@ fun XvoxAppRoot(
                     .fillMaxSize()
                     .background(XvoxTheme.colors.background)
             ) {
-                // Haze follows its documented source/effect sibling arrangement. The source only
-                // contains what can sit behind glass; sheets and controls are siblings above it,
-                // so an effect can never capture or blur itself.
+                // Prismal follows its documented backdrop/effect sibling arrangement. This layer
+                // records the actual wallpaper/theme background only; sheets and controls draw
+                // above it, so liquid glass cannot recursively sample itself.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (hazeSourceEnabled) Modifier.hazeSource(hazeState) else Modifier)
+                        .then(if (prismalSourceEnabled) Modifier.prismalGlassLayer(prismalBackdrop) else Modifier)
+                        .background(XvoxTheme.colors.background)
                 ) {
                     if (backgroundImage.isNotBlank()) {
                         AsyncImage(
@@ -215,7 +230,7 @@ fun XvoxAppRoot(
                         exit = fadeOut(tween(260))
                     ) {
                         XvoxStartupLoadingScreen(
-                            readyToEnter = shellMounted && dataReady,
+                            readyToEnter = shellMounted && (dataReady || startupFallbackRelease),
                             progress = startupProgress,
                             onSequenceComplete = {
                                 if (!startupSequenceReleased && shellMounted) {

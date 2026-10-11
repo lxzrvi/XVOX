@@ -107,7 +107,7 @@ fun XvoxNowPlaying(
     position: Long,
     duration: Long,
     onClose: () -> Unit,
-    /** Begins dismissal housekeeping; the Mini Player is restored only after this surface exits. */
+    /** Begins dismissal housekeeping and starts the Mini Player rise behind this surface. */
     onDismissStart: () -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
@@ -301,8 +301,8 @@ fun XvoxNowPlaying(
         previewCommitJob = null
         onDismissStart()
         animateScreen(target = screenHeight) {
-            // The full player has crossed the bottom edge; restore Mini Player immediately with
-            // no translucent beat or delayed blank frame.
+            // The full player has crossed the bottom edge. The Mini Player has already completed
+            // its unchanged rise behind this sheet; now only finalize full-player visibility.
             onClose()
         }
     }

@@ -7,28 +7,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.styropyr0.prismal.PrismalBackdrop
+import com.styropyr0.prismal.drawPrismalGlass
+import com.styropyr0.prismal.effects.applyPrismalGlassEffects
+import com.styropyr0.prismal.shapes.PrismalCapsule
+import com.styropyr0.prismal.shapes.PrismalRoundedRectangle
 import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * The shared genuine Haze source installed at the application root. Every eligible glass surface
- * reads from this one state rather than allocating a per-card recorder or painting a synthetic
- * blur snapshot.
+ * The single, live Prismal backdrop captured at the application root. Eligible glass controls
+ * sample this real rendered layer; no card creates a fake/static bitmap blur of its own.
  */
-val LocalXvoxHazeState = staticCompositionLocalOf<HazeState?> { null }
+val LocalXvoxPrismalBackdrop = staticCompositionLocalOf<PrismalBackdrop?> { null }
 
 /**
- * Genuine Chris Banes Haze backdrop blur for chrome, sheets, player surfaces, and other explicit
- * glass targets. Haze owns platform capability handling itself: supported devices render its live
- * backdrop blur; unsupported devices receive Haze's own material fallback rather than an XVOX
- * static or fake blur implementation.
+ * Genuine PrismalAGSL liquid glass for app chrome, sheets, player surfaces, and intentionally
+ * translucent controls. The backdrop is recorded from the real XVOX background before glass is
+ * drawn, then Prismal's Android 13+ AGSL chain applies blur, vibrancy, refraction, and specular
+ * edges to the surface above it.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun Modifier.xvoxLiveBackdropBlur(
     shape: Shape = RectangleShape,
@@ -36,25 +34,37 @@ fun Modifier.xvoxLiveBackdropBlur(
     /** Default UI opts in only where an intentionally translucent chrome surface exists. */
     applyInDefault: Boolean = false
 ): Modifier {
-    val hazeState = LocalXvoxHazeState.current
+    val backdrop = LocalXvoxPrismalBackdrop.current
     val appearance = LocalXvoxExperimentalAppearance.current
-    val colors = XvoxTheme.colors
-    val shouldApply = hazeState != null && (
+    val shouldApply = backdrop != null && (
         appearance == XvoxExperimentalAppearance.BLUR || applyInDefault
     )
+    if (!shouldApply) return this
 
-    return if (shouldApply) {
-        // HazeMaterials supplies the genuine material/tint treatment while the modifier samples
-        // the live Haze source. Clipping sits outside the effect so no rectangular blur bleeds
-        // beyond a pill, circle, or rounded sheet edge.
-        clip(shape).hazeEffect(
-            state = hazeState,
-            style = HazeMaterials.ultraThin(containerColor = colors.surface.copy(alpha = 1f))
-        ) {
-            blurRadius = radius.coerceIn(8, 36).dp
-            noiseFactor = .08f
-        }
-    } else {
-        this
+    val glassRadius = radius.coerceIn(8, 36).dp
+    // Prismal's rounded shapes expose the edge geometry needed by its AGSL lens. We retain the
+    // caller's clip separately, so existing circles and custom rounded surfaces keep their exact
+    // visual containment while the liquid layer receives a physically meaningful shape.
+    val prismalShape: Shape = when (shape) {
+        RectangleShape -> PrismalRoundedRectangle(0.dp)
+        androidx.compose.foundation.shape.CircleShape -> PrismalCapsule()
+        else -> PrismalRoundedRectangle(glassRadius)
     }
+
+    return clip(shape).drawPrismalGlass(
+        backdrop = backdrop,
+        shape = { prismalShape },
+        effects = {
+            applyPrismalGlassEffects(
+                density = this,
+                adaptiveLuminance = false,
+                luminance = .5f,
+                blurRadiusPx = glassRadius.toPx(),
+                refractionHeightPx = (glassRadius * .72f).toPx(),
+                refractionAmountPx = (glassRadius * 1.5f).toPx(),
+                saturation = 1.35f,
+                useVibrancy = true
+            )
+        }
+    )
 }

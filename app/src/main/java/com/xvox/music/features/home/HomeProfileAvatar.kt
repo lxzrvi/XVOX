@@ -39,7 +39,9 @@ fun HomeProfileAvatar(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(colors.cardElevated)
+            // Keep the avatar's empty/default well visually part of the active app canvas in
+            // every theme instead of introducing a separate elevated-card colour behind the PFP.
+            .background(colors.background)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
