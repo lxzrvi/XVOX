@@ -98,6 +98,9 @@ fun XvoxShellTopHeader(
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
+    // Header dimness is still a persisted chrome preference; only the visible divider and
+    // refresh/library-pill outlines were intentionally removed.
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     // Header controls are translucent palette materials, never white placeholders in light mode.
     val controlSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
     val density = LocalDensity.current
