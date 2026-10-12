@@ -26,7 +26,7 @@ data class SettingsState(
     val hapticIntensity: String = "medium",
     val fourRowsGrid: Boolean = true,
     val homeLayoutStyle: String = "mosaic1",
-    val homeScrollDirection: String = "horizontal",
+    val homeScrollDirection: String = "vertical",
     /** Independent All Songs grid choices, resolved at the rendering orientation. */
     val homePortraitColumns: Int = 4,
     val homeLandscapeColumns: Int = 8,

@@ -3,7 +3,6 @@ package com.xvox.music.core.ui.miniplayer
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 
 /**
@@ -30,12 +29,14 @@ object XvoxPlayerTransitionMotion {
     const val ScaleStyle = "scale"
 
     /** A relaxed but continuous card handoff; the next surface still begins on the finishing frame. */
-    const val HandoffDuration = 230
+    const val HandoffDuration = 260
     /** The full player uses one uniform 300 ms physical slide in both directions. */
     const val NowPlayingDuration = 300
 
+    // Both surfaces use one continuous ease-out rather than a mechanical linear descent. The
+    // terminal callback still happens on the very last frame, so easing introduces no gap.
     val easing: Easing = CubicBezierEasing(0.22f, 0f, 0f, 1f)
-    private val nowPlayingEasing: Easing = LinearEasing
+    private val nowPlayingEasing: Easing = easing
 
     /** Old Scale variants migrate to Scale; every other retired experimental variant becomes Default. */
     fun normalizedStyle(value: String): String = when {

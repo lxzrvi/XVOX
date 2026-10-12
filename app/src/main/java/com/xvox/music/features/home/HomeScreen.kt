@@ -50,6 +50,7 @@ import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -703,11 +704,23 @@ fun HomeScreen(
 
             val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
             LaunchedEffect(listState) {
+                // Header travel matters only until its first spacer has left the viewport. Keep
+                // that tiny range visually smooth at 2px precision, then collapse all deeper
+                // scrolling into one terminal state. This avoids invalidating the shell for every
+                // pixel of a long four-column fling without trading artwork quality for speed.
                 androidx.compose.runtime.snapshotFlow {
-                    Pair(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
-                }.collect { (index, offset) ->
-                    currentOnScrollProgress(index, offset)
+                    val index = listState.firstVisibleItemIndex
+                    if (index > 0) {
+                        Pair(1, 0)
+                    } else {
+                        Pair(0, (listState.firstVisibleItemScrollOffset / 2) * 2)
+                    }
                 }
+                    .distinctUntilChanged()
+                    .conflate()
+                    .collect { (index, offset) ->
+                        currentOnScrollProgress(index, offset)
+                    }
             }
 
             LazyColumn(

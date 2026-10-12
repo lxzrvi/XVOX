@@ -1,6 +1,7 @@
 package com.xvox.music.player.nowplaying
 
 import android.net.Uri
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -54,16 +55,25 @@ fun XvoxNowPlayingBackdrop(
             .background(displayed.value)
     ) {
         if (showCover) {
-            AsyncImage(
-                model = artwork,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Overscan prevents a blurred image from exposing hard edges at the canvas.
-                    .graphicsLayer { scaleX = 1.08f; scaleY = 1.08f }
-                    .blur(coverBlur.coerceIn(0f, 48f).dp)
-            )
+            // The backdrop has its own artwork layer, so give it the same gentle cover-to-cover
+            // crossfade as the foreground artwork instead of letting Coil replace it abruptly.
+            // This remains local to Now Playing's Cover mode; it is not an app-wide blur surface.
+            Crossfade(
+                targetState = artwork,
+                animationSpec = tween(300, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
+                label = "nowPlayingCoverBackdropCrossfade"
+            ) { cover ->
+                AsyncImage(
+                    model = cover,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        // Overscan prevents a blurred image from exposing hard edges at the canvas.
+                        .graphicsLayer { scaleX = 1.08f; scaleY = 1.08f }
+                        .blur(coverBlur.coerceIn(12f, 50f).dp)
+                )
+            }
             // Keep text and controls readable over every album art palette without reverting to
             // a global glass material or an opaque, unrelated background surface.
             Box(

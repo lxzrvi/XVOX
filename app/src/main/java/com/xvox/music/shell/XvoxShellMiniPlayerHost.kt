@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
@@ -86,7 +87,12 @@ fun BoxScope.XvoxShellMiniPlayerHost(
         } else {
             ExitTransition.None
         },
-        modifier = Modifier.align(Alignment.BottomCenter)
+        // Keep the exiting physical card above the bottom navigation chrome. It must remain
+        // visible while it crosses that chrome and only disappear after it has cleared the real
+        // bottom edge; drawing it underneath made the handoff look like a navbar-level vanish.
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .zIndex(12f)
     ) {
         if (currentSongId != null) {
             val density = LocalDensity.current

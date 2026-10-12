@@ -397,7 +397,7 @@ private fun EqualizerSliderRow(
                 }
             }
         }
-        EqualizerThinSlider(
+        XvoxThinAmountSlider(
             value = value,
             onValueChange = onValueChange,
             defaultValue = defaultValue,
@@ -406,12 +406,16 @@ private fun EqualizerSliderRow(
     }
 }
 
-/** Thin, rounded amount slider with an intentional snap at its default/midpoint. */
+/**
+ * Shared thin rail used by the Equalizer and the local Now Playing Cover-blur control. The rail
+ * deliberately has no protruding thumb, matching XVOX's EQ treatment instead of Material's
+ * default slider shape.
+ */
 @Composable
-private fun EqualizerThinSlider(
+fun XvoxThinAmountSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
-    defaultValue: Float,
+    defaultValue: Float? = null,
     contentDescription: String
 ) {
     val colors = XvoxTheme.colors
@@ -419,7 +423,8 @@ private fun EqualizerThinSlider(
     val current = value.coerceIn(0f, 1f)
     fun snap(raw: Float): Float {
         val safe = raw.coerceIn(0f, 1f)
-        return if (abs(safe - defaultValue) <= .035f) defaultValue else safe
+        val marker = defaultValue
+        return if (marker != null && abs(safe - marker) <= .035f) marker else safe
     }
     BoxWithConstraints(
         modifier = Modifier
@@ -464,15 +469,18 @@ private fun EqualizerThinSlider(
                 .clip(shape)
                 .background(colors.primaryAccent)
         )
-        // Marker stays inside the 4dp track thickness instead of protruding above or below it.
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = (maxWidth * defaultValue) - .5.dp)
-                .width(1.dp)
-                .height(4.dp)
-                .background(colors.primaryText.copy(alpha = .42f))
-        )
+        // EQ marks its neutral point inside the rail. Other uses intentionally omit this
+        // marker while retaining the same compact rail and interaction behavior.
+        defaultValue?.let { marker ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = (maxWidth * marker) - .5.dp)
+                    .width(1.dp)
+                    .height(4.dp)
+                    .background(colors.primaryText.copy(alpha = .42f))
+            )
+        }
     }
 }
 

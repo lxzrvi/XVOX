@@ -16,7 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -42,43 +42,36 @@ fun XvoxAppRoot(
     val state by viewModel.state.collectAsState()
     val minimumReady by viewModel.minimumReady.collectAsState()
     val startupProgress by viewModel.progress.collectAsState()
-    val preparing = state == AppUiState.Preparing || state == AppUiState.Home
-    val homeVm: com.xvox.music.features.home.HomeViewModel? =
-        if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
-    val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? =
-        if (preparing) androidx.lifecycle.viewmodel.compose.viewModel() else null
-    val library = homeVm?.state?.collectAsState()?.value
-    val player = playerVm?.state?.collectAsState()?.value
-
-    // Progress remains tied to useful work, but its visual release never waits indefinitely for a
-    // media/provider callback. Home itself continues to populate reactively after it is visible.
-    LaunchedEffect(library?.songs?.isNotEmpty()) {
-        if (library?.songs?.isNotEmpty() == true) viewModel.report(0.42f, "Sorting your songs")
-    }
-    LaunchedEffect(library?.startupReady) {
-        if (library?.startupReady == true) viewModel.report(0.68f, "Warming up artwork")
-    }
-    LaunchedEffect(player?.connected) {
-        if (player?.connected == true) viewModel.report(0.80f, "Connecting playback")
-    }
-
-    // Mount the real shell behind the loader as soon as the minimum startup gate opens. Waiting
-    // for a second, decorative delay was the source of the perceptible release lag and could pin
-    // first launch on a slow provider. One rendered frame is enough to prevent a half-built reveal.
+    // Start the MediaStore/Home and playback jobs during Preparing, but keep their *screen trees*
+    // out of composition while the startup canvas is alive. In particular, do not collect either
+    // state here: a burst of artwork/library updates must never invalidate the loader's frame
+    // loop. The real shell is mounted just after its fade has finished, while Home has continued
+    // loading independently in the background.
     var shellMounted by remember { mutableStateOf(false) }
-    LaunchedEffect(minimumReady, preparing) {
-        if (preparing && minimumReady && !shellMounted) {
-            shellMounted = true
-            withFrameNanos { }
-        }
-    }
     var startupSequenceReleased by remember { mutableStateOf(false) }
     LaunchedEffect(state) {
-        if (state == AppUiState.Setup) {
-            shellMounted = false
-            startupSequenceReleased = false
+        when (state) {
+            AppUiState.Home -> {
+                // Let the loader complete its own fade before a first Home composition can do
+                // decode/layout work on the UI thread. The themed root is already visible, so
+                // this has no blank or intentional loading hold.
+                delay(280)
+                shellMounted = true
+            }
+            AppUiState.Setup -> {
+                shellMounted = false
+                startupSequenceReleased = false
+            }
+            else -> shellMounted = false
         }
     }
+    // ViewModels begin their IO/background work as soon as bootstrap enters Preparing. Their
+    // emitted states are intentionally not observed by this loader composition.
+    val bootstrapModels = state == AppUiState.Preparing || state == AppUiState.Home
+    val homeVm: com.xvox.music.features.home.HomeViewModel? =
+        if (bootstrapModels) androidx.lifecycle.viewmodel.compose.viewModel() else null
+    val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? =
+        if (bootstrapModels) androidx.lifecycle.viewmodel.compose.viewModel() else null
 
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
@@ -178,10 +171,13 @@ fun XvoxAppRoot(
                         exit = fadeOut(tween(260))
                     ) {
                         XvoxStartupLoadingScreen(
-                            readyToEnter = shellMounted,
+                            // The loader's release is a lightweight bootstrap decision, not a
+                            // proxy for Home/media readiness. Those jobs begin after this surface
+                            // has yielded, so they cannot stall its ring-to-bar animation.
+                            readyToEnter = state == AppUiState.Preparing && minimumReady,
                             progress = startupProgress,
                             onSequenceComplete = {
-                                if (!startupSequenceReleased && shellMounted) {
+                                if (!startupSequenceReleased && state == AppUiState.Preparing && minimumReady) {
                                     startupSequenceReleased = true
                                     viewModel.report(1f, "Ready")
                                     viewModel.onHomeReady()

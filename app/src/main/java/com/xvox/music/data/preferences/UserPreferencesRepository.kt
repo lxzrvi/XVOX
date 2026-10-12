@@ -339,7 +339,7 @@ class UserPreferencesRepository(
             emptySet()
         }
         HomePresentation(
-            style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "horizontal",
+            style = normalizeHomeStyle(it[Keys.homeLayoutStyle]), direction = it[Keys.homeScrollDirection] ?: "vertical",
             // Existing shared-column records migrate only into portrait. Landscape is intentionally
             // independent and always begins at its requested eight-column default.
             portraitColumns = (it[Keys.homePortraitColumns] ?: it[Keys.homeColumns] ?: 4).coerceIn(3, 6),
@@ -460,7 +460,7 @@ class UserPreferencesRepository(
     val fourRowsGrid: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.fourRowsGrid] ?: true }.distinctUntilChanged()
 
     val homeLayoutStyle: Flow<String> = context.xvoxDataStore.data.map { normalizeHomeStyle(it[Keys.homeLayoutStyle]) }.distinctUntilChanged()
-    val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "horizontal" }.distinctUntilChanged()
+    val homeScrollDirection: Flow<String> = context.xvoxDataStore.data.map { it[Keys.homeScrollDirection] ?: "vertical" }.distinctUntilChanged()
     /** Legacy compatibility alias: portrait is the only former shared presentation. */
     val homeColumns: Flow<Int> = context.xvoxDataStore.data.map {
         (it[Keys.homePortraitColumns] ?: it[Keys.homeColumns] ?: 4).coerceIn(3, 6)
@@ -555,7 +555,7 @@ class UserPreferencesRepository(
     val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
     val nowPlayingCoverBlur: Flow<Float> = context.xvoxDataStore.data
-        .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(0f, 48f) }.distinctUntilChanged()
+        .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(12f, 50f) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
@@ -848,7 +848,7 @@ class UserPreferencesRepository(
         context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style) }
     }
     suspend fun setNowPlayingCoverBlur(amount: Float) {
-        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(0f, 48f) }
+        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(12f, 50f) }
     }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }

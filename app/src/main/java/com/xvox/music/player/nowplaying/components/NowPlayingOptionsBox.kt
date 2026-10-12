@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.features.settings.sections.XvoxThinAmountSlider
 import com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles
 import kotlin.math.roundToInt
 
@@ -67,6 +67,14 @@ fun NowPlayingOptionsBox(
             }
 
             if (backgroundStyle == XvoxNowPlayingBackgroundStyles.COVER) {
+                // Storage stays in the local 12–50dp blur range. The control deliberately speaks
+                // in an intuitive 20%–100% strength scale instead of exposing implementation
+                // radius numbers to listeners.
+                val blurMin = 12f
+                val blurMax = 50f
+                val normalizedBlur = coverBlur.coerceIn(blurMin, blurMax)
+                val blurFraction = (normalizedBlur - blurMin) / (blurMax - blurMin)
+                val blurPercent = (20f + blurFraction * 80f).roundToInt().coerceIn(20, 100)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -84,19 +92,23 @@ fun NowPlayingOptionsBox(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "${coverBlur.roundToInt()}",
+                            text = "$blurPercent%",
                             color = colors.secondaryText,
                             fontSize = 11.sp
                         )
                     }
-                    Slider(
-                        value = coverBlur.coerceIn(0f, 48f),
-                        onValueChange = onCoverBlurChange,
-                        valueRange = 0f..48f,
-                        steps = 11,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
+                    // Reuse the thin, thumb-free EQ rail so Cover blur belongs to the same
+                    // XVOX control family rather than looking like a Material-system outlier.
+                    XvoxThinAmountSlider(
+                        value = blurFraction,
+                        onValueChange = { fraction ->
+                            onCoverBlurChange(
+                                (blurMin + fraction.coerceIn(0f, 1f) * (blurMax - blurMin))
+                                    .coerceIn(blurMin, blurMax)
+                            )
+                        },
+                        defaultValue = null,
+                        contentDescription = "Cover blur $blurPercent percent"
                     )
                 }
             }

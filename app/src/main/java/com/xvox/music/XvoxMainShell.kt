@@ -624,9 +624,6 @@ fun XvoxMainShell(
             showHomeControls = destination == XvoxDestination.HOME &&
                 homeState.sourceMode == com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
             // The Header itself remains mounted for an instant, non-black Now Playing return.
-            // Search alone hides its physical divider once it begins travelling, eliminating the
-            // hairline that could remain at the status boundary after the Header leaves.
-            showBottomDivider = !(destination == XvoxDestination.SEARCH && searchHeaderScrollPx > 0),
             useSystemInsets = true
         )
     }
@@ -776,10 +773,16 @@ fun XvoxMainShell(
                                             // Home's first LazyColumn item is the exact Header-height
                                             // spacer, so this is the page's own scroll position—not a
                                             // separately interpolated header animation.
-                                            homeHeaderScrollPx = if (index > 0) {
+                                            val nextHeaderScrollPx = if (index > 0) {
                                                 sharedHeaderHeightPx.roundToInt()
                                             } else {
-                                                offset
+                                                offset.coerceIn(0, sharedHeaderHeightPx.roundToInt())
+                                            }
+                                            // Home already coalesces the stream; retaining this
+                                            // equality guard keeps a deep fling from scheduling a
+                                            // redundant shell invalidation after the Header is out.
+                                            if (homeHeaderScrollPx != nextHeaderScrollPx) {
+                                                homeHeaderScrollPx = nextHeaderScrollPx
                                             }
                                         }
                                     }

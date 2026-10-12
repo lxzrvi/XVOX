@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -96,16 +95,11 @@ fun XvoxShellTopHeader(
     onRecentClick: () -> Unit = {},
     /** Search keeps the visual/profile Header but deliberately has no Home action cluster. */
     showHomeControls: Boolean = destination == XvoxDestination.HOME,
-    /** Hide the physical lower divider once a travelling Search Header has left the viewport. */
-    showBottomDivider: Boolean = true,
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder) ?: colors.cardBorder
     // Header controls are translucent palette materials, never white placeholders in light mode.
     val controlSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
-    val controlEdge = colors.cardBorder.copy(alpha = .88f)
     val density = LocalDensity.current
     val statusBarHeight = with(density) {
         if (useSystemInsets) WindowInsets.statusBars.getTop(this).toDp() else 0.dp
@@ -215,7 +209,6 @@ fun XvoxShellTopHeader(
                                 .size(42.dp)
                                 .clip(CircleShape)
                                 .background(controlSurface)
-                                .border(.8.dp, controlEdge, CircleShape)
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
                         ) {
@@ -234,7 +227,6 @@ fun XvoxShellTopHeader(
                                 .width(actionPillWidth)
                                 .clip(actionShape)
                                 .background(controlSurface)
-                                .border(.8.dp, controlEdge, actionShape)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -284,18 +276,6 @@ fun XvoxShellTopHeader(
                     }
                 }
 
-        }
-
-        // Once Search starts its accepted upward travel, this divider would otherwise be the
-        // one-pixel seam left at the status/content boundary after the Header has moved away.
-        if (showBottomDivider) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .height(1.dp)
-                    .background(headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(.42f, 1f)))
-            )
         }
     }
 }

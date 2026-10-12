@@ -19,6 +19,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val sourceModeRepository = com.xvox.music.data.sourcemode.XvoxSourceModeRepository(application)
     private var pendingWidget: com.xvox.music.widget.WidgetCustomization? = null
     private var pendingLyrics: com.xvox.music.data.preferences.LyricsSettings? = null
+    // The Cover-blur rail can emit a value every drag frame. Hold its immediate visual value until
+    // the coalesced DataStore write confirms it, avoiding stale-flow snap-back while dragging.
+    private var pendingNowPlayingCoverBlur: Float? = null
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
@@ -27,7 +30,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { sourceModeRepository.mode.collect { v -> _state.update { it.copy(sourceMode = v) } } }
             launch { prefs.nowPlayingStyle.collect { v -> _state.update { it.copy(nowPlayingStyle = v) } } }
             launch { prefs.nowPlayingBackgroundStyle.collect { v -> _state.update { it.copy(nowPlayingBackgroundStyle = v) } } }
-            launch { prefs.nowPlayingCoverBlur.collect { v -> _state.update { it.copy(nowPlayingCoverBlur = v) } } }
+            launch { prefs.nowPlayingCoverBlur.collect { value ->
+                if (pendingNowPlayingCoverBlur == null || pendingNowPlayingCoverBlur == value) {
+                    pendingNowPlayingCoverBlur = null
+                    _state.update { it.copy(nowPlayingCoverBlur = value) }
+                }
+            } }
             launch { prefs.splitShowPill.collect { v -> _state.update { it.copy(splitShowPill = v) } } }
             launch { prefs.splitHideCollection.collect { v -> _state.update { it.copy(splitHideCollection = v) } } }
             launch { prefs.playlistStyle.collect { v -> _state.update { it.copy(playlistStyle = v) } } }
@@ -149,7 +157,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
     fun setNowPlayingStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingStyle(style) }
     fun setNowPlayingBackgroundStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingBackgroundStyle(style) }
-    fun setNowPlayingCoverBlur(amount: Float) = viewModelScope.launch { prefs.setNowPlayingCoverBlur(amount) }
+    fun setNowPlayingCoverBlur(amount: Float) {
+        val normalized = amount.coerceIn(12f, 50f)
+        pendingNowPlayingCoverBlur = normalized
+        _state.update { it.copy(nowPlayingCoverBlur = normalized) }
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("now_playing_cover_blur") {
+            prefs.setNowPlayingCoverBlur(normalized)
+        }
+    }
     fun setPersistentBackgroundPlayback(enabled: Boolean) = viewModelScope.launch { prefs.setPersistentBackgroundPlayback(enabled) }
     fun setGreetingIntervalMs(value: Long) = viewModelScope.launch { prefs.setGreetingIntervalMs(value) }
     fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
