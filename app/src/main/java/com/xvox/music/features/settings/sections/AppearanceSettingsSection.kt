@@ -102,28 +102,6 @@ fun AppearanceSettingsSection(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "UI",
-                color = colors.secondaryText,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            SettingsChoiceRow(
-                options = listOf("default" to "Default", "blur" to "Blur"),
-                selected = state.experimentalAppearance,
-                onSelect = viewModel::setExperimentalAppearance
-            )
-            Text(
-                text = if (state.experimentalAppearance == "blur") {
-                    "Live GPU blur of your current page background with clean border-free materials."
-                } else {
-                    "Current XVOX interface. Your existing theme and surface settings stay unchanged."
-                },
-                color = colors.mutedText,
-                fontSize = 10.sp,
-                lineHeight = 13.sp
-            )
         }
 
         SettingsAccordionItem(

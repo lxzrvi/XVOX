@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -143,7 +142,6 @@ fun ArtistCircleItem(
             modifier = Modifier
                 .size(76.dp)
                 .clip(CircleShape)
-                .xvoxGlassReflection(shape = CircleShape, radius = 16)
                 .background(colors.card)
                 .then(
                     if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)

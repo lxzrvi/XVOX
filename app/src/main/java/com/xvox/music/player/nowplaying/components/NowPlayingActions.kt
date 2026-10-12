@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
-import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlinx.coroutines.delay
 
@@ -142,7 +141,6 @@ fun NowPlayingActions(
                     .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                     .height(42.dp)
                     .clip(RoundedCornerShape(21.dp))
-                    .xvoxLiveBackdropBlur(RoundedCornerShape(21.dp), radius = 16, applyInDefault = true)
                     .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                     .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -469,7 +467,6 @@ fun NowPlayingCircleAction(
         modifier = Modifier
             .size(42.dp)
             .clip(CircleShape)
-            .xvoxLiveBackdropBlur(CircleShape, radius = 14, applyInDefault = true)
             .background(bgColor, CircleShape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },

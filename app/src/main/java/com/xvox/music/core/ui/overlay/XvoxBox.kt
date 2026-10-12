@@ -80,7 +80,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -275,8 +274,7 @@ fun XvoxSheet(
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
     val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
-    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current !=
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR && chrome.optionBoxBorder.isNotBlank()
+    val showOptionBorder = true
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -410,7 +408,6 @@ fun XvoxSheet(
                             .fillMaxWidth()
                             .then(sheetSizing)
                             .clip(sheetShape)
-                            .xvoxGlassReflection(shape = sheetShape, radius = 22, applyInDefault = true)
                             .background(optionSurface)
                             .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, sheetShape) else Modifier)
                             .clickable(swallowInteraction, indication = null) { }
@@ -584,8 +581,7 @@ private fun XvoxCenteredBox(
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
     val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
-    val showOptionBorder = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current !=
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR && chrome.optionBoxBorder.isNotBlank()
+    val showOptionBorder = true
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
@@ -670,7 +666,6 @@ private fun XvoxCenteredBox(
                         .fillMaxWidth(.90f)
                         .then(centeredSizing)
                         .clip(centeredShape)
-                        .xvoxGlassReflection(shape = centeredShape, radius = 22, applyInDefault = true)
                         .background(optionSurface)
                         .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
                         .clickable(swallowInteraction, indication = null) { }

@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -29,7 +30,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.player.playback.RepeatMode
 import com.xvox.music.player.nowplaying.components.NowPlayingEditItem
@@ -314,15 +314,13 @@ private fun PlayControl(
     surfaceAlpha: Float
 ) {
     val colors = XvoxTheme.colors
+    val darkMode = colors.background.luminance() < 0.5f
     val surface = surfaceAlpha.coerceIn(0f, 1f)
-    // The primary transport control is glass too: in Blur it refracts the live player backdrop
-    // rather than becoming the previous opaque black/red-looking disc.
-    val circleColor = colors.card.copy(alpha = surface)
+    val circleColor = if (darkMode) Color.Black.copy(alpha = surface) else colors.card.copy(alpha = surface)
 
     Box(
         modifier = Modifier
             .size(56.dp)
-            .xvoxLiveBackdropBlur(CircleShape, radius = 18, applyInDefault = true)
             .background(circleColor, CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

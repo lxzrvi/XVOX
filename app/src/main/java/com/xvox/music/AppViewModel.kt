@@ -25,8 +25,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         /** After this interval, minimum readiness is relaxed but visual/shell readiness still gates entry. */
         const val HARD_CEILING_MS = 9000L
 
-        /** Enough for the shell to lay out once, so Home never appears half-drawn. */
-        const val MIN_VISIBLE_MS = 450L
+        /** A brief frame-safe gate; the shell itself finishes layout under the loader. */
+        const val MIN_VISIBLE_MS = 80L
     }
 
     private val prefs = UserPreferencesRepository(application)

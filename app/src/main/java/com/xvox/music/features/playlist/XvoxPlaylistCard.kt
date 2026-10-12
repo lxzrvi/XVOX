@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 
@@ -47,7 +46,6 @@ fun XvoxPlaylistCard(
         modifier = modifier
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f)
             .clip(shape)
-            .xvoxGlassReflection(shape = shape, radius = 18)
             .background(colors.card)
             .border(
                 width = if (selected) 2.dp else 0.7.dp,

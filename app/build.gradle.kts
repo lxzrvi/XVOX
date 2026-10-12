@@ -5,13 +5,12 @@ plugins {
 
 android {
     namespace = "com.xvox.music"
-    // Matches PrismalAGSL's official Android API level requirement.
     compileSdk = 37
 
     defaultConfig {
         applicationId = "com.xvox.music"
 
-        // PrismalAGSL's liquid pipeline is an Android 13+ product requirement.
+        // Android 13 remains the supported product baseline.
         minSdk = 33
         targetSdk = 37
 
@@ -48,9 +47,5 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
-    // Official PrismalAGSL Compose liquid glass: live recorded backdrop + AGSL refraction.
-    // JitPack's published PrismalAGSL root AAR contains the official :Prismal module classes.
-    // The README's four-segment module notation does not resolve as a Gradle dependency.
-    implementation("com.github.styropyr0:PrismalAGSL:1.0.0")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }

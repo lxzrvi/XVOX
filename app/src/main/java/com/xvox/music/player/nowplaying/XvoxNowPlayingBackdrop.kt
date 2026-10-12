@@ -1,5 +1,6 @@
 package com.xvox.music.player.nowplaying
 
+import android.net.Uri
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -11,29 +12,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import com.xvox.music.core.design.theme.XvoxTheme
 
 /**
- * Cover-matched two-colour Now Playing backdrop.
- *
- * During a cover drag, [dominant] tracks the pager under the finger. Between covers (including
- * next/previous while lyrics are open), it eases directly to the next palette. Default keeps the
- * original single adaptive cover colour; Blur alone opts into the richer, fully opaque gradient.
- * The main player therefore remains an intentional solid cover surface rather than exposing the
- * Home screen through its backdrop.
+ * Now Playing's ordinary adaptive canvas plus its optional local Cover background. Cover blur is
+ * intentionally scoped to this one artwork image; it does not capture or blur the surrounding UI.
  */
 @Composable
 fun XvoxNowPlayingBackdrop(
     dominant: Color,
+    artwork: Uri?,
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
+    coverBlur: Float = 24f,
     isCoverTransitionInProgress: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val target = xvoxNowPlayingBackgroundColor(style, dominant)
     val displayed = remember { Animatable(target, Color.VectorConverter(target.colorSpace)) }
-    val liquidBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
 
     LaunchedEffect(target, isCoverTransitionInProgress) {
         if (isCoverTransitionInProgress) {
@@ -46,19 +47,30 @@ fun XvoxNowPlayingBackdrop(
         }
     }
 
+    val showCover = style == XvoxNowPlayingBackgroundStyles.COVER && artwork != null
     Box(
         modifier = modifier
             .fillMaxSize()
-            .then(
-                if (liquidBlur) {
-                    // Blur mode owns the premium two-cover-colour gradient. It is deliberately
-                    // opaque: Home must not appear behind the actual Now Playing artwork canvas.
-                    Modifier.background(xvoxNowPlayingBackgroundBrush(style, displayed.value))
-                } else {
-                    // Preserve the established Default appearance exactly: one cover-matched
-                    // adaptive colour, without a Blur-only liquid gradient leaking into it.
-                    Modifier.background(displayed.value)
-                }
+            .background(displayed.value)
+    ) {
+        if (showCover) {
+            AsyncImage(
+                model = artwork,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Overscan prevents a blurred image from exposing hard edges at the canvas.
+                    .graphicsLayer { scaleX = 1.08f; scaleY = 1.08f }
+                    .blur(coverBlur.coerceIn(0f, 48f).dp)
             )
-    )
+            // Keep text and controls readable over every album art palette without reverting to
+            // a global glass material or an opaque, unrelated background surface.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(XvoxTheme.colors.background.copy(alpha = .30f))
+            )
+        }
+    }
 }

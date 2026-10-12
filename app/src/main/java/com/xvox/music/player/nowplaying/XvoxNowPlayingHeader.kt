@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 
 @Composable
@@ -72,7 +71,6 @@ fun XvoxNowPlayingHeader(
                 .size(40.dp)
                 .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                 .clip(CircleShape)
-                .xvoxLiveBackdropBlur(CircleShape, radius = 16, applyInDefault = true)
                 .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -166,7 +164,6 @@ fun XvoxNowPlayingHeader(
                     .align(Alignment.CenterEnd)
                     .height(40.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16, applyInDefault = true)
                     .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                     .padding(horizontal = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -199,7 +196,6 @@ fun XvoxNowPlayingHeader(
                     .height(40.dp)
                     .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(20.dp))
-                    .xvoxLiveBackdropBlur(RoundedCornerShape(20.dp), radius = 16, applyInDefault = true)
                     .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically

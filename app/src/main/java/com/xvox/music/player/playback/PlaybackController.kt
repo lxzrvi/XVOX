@@ -2,6 +2,7 @@ package com.xvox.music.player.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import java.util.ArrayDeque
 import java.util.IdentityHashMap
 import androidx.core.content.ContextCompat
@@ -56,6 +57,11 @@ class PlaybackController(
     private var progressJob: Job? = null
     private var fastProgress = false
     fun setFastProgress(enabled: Boolean) { fastProgress = enabled }
+    // Defensive command-level coalescing for one physical Now Playing rail gesture that reaches
+    // both pointer recognizers on particular devices.
+    private var lastSeekMediaId: String? = null
+    private var lastSeekTargetMs = Long.MIN_VALUE
+    private var lastSeekUptimeMs = 0L
     private var queueJob: Job? = null
 
     // Song.id identifies a library file, not an occurrence in the play queue. Every occurrence
@@ -502,9 +508,22 @@ class PlaybackController(
 
     fun seekTo(positionMs: Long) {
         val mediaController = controller ?: return
-        if (mediaController.currentMediaItem == null) return
+        val mediaItem = mediaController.currentMediaItem ?: return
         val duration = mediaController.duration.takeIf { it > 0L }
-        mediaController.seekTo(if (duration != null) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L))
+        val target = if (duration != null) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L)
+        val now = SystemClock.uptimeMillis()
+        // UI-side gesture handling already prevents duplicates. Keep this narrow final guard at
+        // the command boundary too, so the same media/position can never be sent twice from one
+        // accidental tap/drag release while legitimate different seeks still pass through.
+        if (
+            mediaItem.mediaId == lastSeekMediaId &&
+            kotlin.math.abs(target - lastSeekTargetMs) <= 80L &&
+            now - lastSeekUptimeMs < 700L
+        ) return
+        lastSeekMediaId = mediaItem.mediaId
+        lastSeekTargetMs = target
+        lastSeekUptimeMs = now
+        mediaController.seekTo(target)
         publishState()
     }
 

@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -71,10 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.xvox.music.R
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -91,23 +87,6 @@ import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
-@Composable
-private fun Modifier.searchLiveGlass(shape: Shape, radius: Int = 18): Modifier =
-    if (LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR) {
-        xvoxGlassReflection(shape = shape, radius = radius)
-    } else {
-        this
-    }
-
-@Composable
-private fun searchLiveSurface(default: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Color =
-    if (LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR) {
-        // Keep search controls/cards readable while the true Prismal source remains visible.
-        XvoxTheme.colors.card.copy(alpha = .30f)
-    } else {
-        default
-    }
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
@@ -119,7 +98,6 @@ fun SearchScreen(
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val colors = XvoxTheme.colors
-    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val homeState by homeViewModel.state.collectAsState()
     val playerState by playerViewModel.state.collectAsState()
     val recentSearches by homeViewModel.recentSearches.collectAsState()
@@ -374,8 +352,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .searchLiveGlass(CircleShape, radius = 16)
-                                        .background(searchLiveSurface(colors.card))
+                                        .background(colors.card)
                                         .clickable { drillDownPlaylist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -421,8 +398,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .searchLiveGlass(CircleShape, radius = 16)
-                                        .background(searchLiveSurface(colors.card))
+                                        .background(colors.card)
                                         .clickable { drillDownArtist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -556,8 +532,7 @@ fun SearchScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .searchLiveGlass(CircleShape, radius = 16)
-                                    .background(searchLiveSurface(colors.card))
+                                    .background(colors.card)
                                     .clickable {
                                         drillDownPlaylist = null
                                         drillDownArtist = null
@@ -689,7 +664,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = searchFieldTop)
-                    .background(colors.background.copy(alpha = if (liveBlur) .24f else 1f))
+                    .background(colors.background)
                     .padding(start = 14.dp, end = 14.dp, bottom = 4.dp)
             ) {
                 SearchBarComponent(
@@ -717,7 +692,7 @@ fun SearchScreen(
                     // Cover the full status-safe lane, including Search's small clamp gap, so
                     // fractional-pixel edges cannot leave a visible horizontal hairline.
                     .height(statusSafeSearchTop)
-                    .background(colors.background.copy(alpha = if (liveBlur) .62f else 1f))
+                    .background(colors.background)
                     .zIndex(10f)
             )
         }
@@ -736,14 +711,12 @@ private fun SearchBarComponent(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
 
-    val searchShape = RoundedCornerShape(24.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clip(searchShape)
-            .searchLiveGlass(searchShape)
-            .background(searchLiveSurface(colors.card))
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.card)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -812,7 +785,6 @@ private fun RecentSearchesSection(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val haptics = LocalXvoxHaptics.current
     val rowHeight = 38.dp
     val visibleRows = searches.size.coerceIn(1, 6)
@@ -906,11 +878,8 @@ private fun RecentSearchesSection(
                 // box grows naturally through six rows, then becomes a six-row scroll viewport.
                 .height(rowHeight * visibleRows)
                 .clip(boxShape)
-                .searchLiveGlass(boxShape)
-                .background(searchLiveSurface(colors.cardElevated))
-                .then(
-                    if (liveBlur) Modifier else Modifier.border(0.8.dp, colors.cardBorder, boxShape)
-                )
+                .background(colors.cardElevated)
+                .border(0.8.dp, colors.cardBorder, boxShape)
         ) {
             if (searches.size <= 6) {
                 Column(Modifier.fillMaxSize()) {
@@ -1059,21 +1028,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
         }
         items(matchingSongs, key = { "song_${it.id}" }) { song ->
             val colors = XvoxTheme.colors
-            val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
             val cardColor = rememberSongCardColor(song = song, current = false)
-            val cardShape = RoundedCornerShape(12.dp)
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
-                    .clip(cardShape)
-                    .searchLiveGlass(cardShape)
-                    .background(searchLiveSurface(cardColor))
-                    .then(
-                        if (liveBlur) Modifier
-                        else Modifier.border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), cardShape)
-                    )
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(cardColor)
+                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
                     .xvoxSongPress(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick(song) }
@@ -1126,7 +1089,6 @@ private fun SearchArtistCircleItem(
     onLongClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val artistShape = CircleShape
     Column(
         modifier = Modifier
             .width(72.dp)
@@ -1136,9 +1098,8 @@ private fun SearchArtistCircleItem(
         Box(
             modifier = Modifier
                 .size(64.dp)
-                .clip(artistShape)
-                .searchLiveGlass(artistShape, radius = 18)
-                .background(searchLiveSurface(colors.cardElevated)),
+                .clip(CircleShape)
+                .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {
             if (!artist.customImageUri.isNullOrBlank()) {
@@ -1186,16 +1147,13 @@ private fun SearchPlaylistCompactItem(
     onLongClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
-    val cardShape = RoundedCornerShape(12.dp)
     Row(
         modifier = Modifier
             .width(170.dp)
             .height(58.dp)
-            .clip(cardShape)
-            .searchLiveGlass(cardShape)
-            .background(searchLiveSurface(colors.card))
-            .then(if (liveBlur) Modifier else Modifier.border(0.8.dp, colors.cardBorder, cardShape))
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.card)
+            .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
             .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1261,21 +1219,15 @@ private fun SearchSongRow(
     onSongLongClick: (Song) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val cardColor = rememberSongCardColor(song = song, current = false)
-    val cardShape = RoundedCornerShape(12.dp)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp)
-            .clip(cardShape)
-            .searchLiveGlass(cardShape)
-            .background(searchLiveSurface(cardColor))
-            .then(
-                if (liveBlur) Modifier
-                else Modifier.border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), cardShape)
-            )
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardColor)
+            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
             .xvoxSongPress(
                 onClick = { onSongClick(song) },
                 onLongClick = { onSongLongClick(song) }

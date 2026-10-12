@@ -20,7 +20,7 @@ data class XvoxChromeStyle(
     // Home / top header strip.
     val headerBgAlpha: Float = 1f,
     val headerBorder: String = "",
-    val headerBorderAlpha: Float = 0f,
+    val headerBorderAlpha: Float = .62f,
     // Mini player bar.
     val miniBgAlpha: Float = .94f,
     val miniBorder: String = "",
@@ -329,10 +329,10 @@ fun XvoxChromeStyle.withNowPlayingItemScale(itemId: String, scale: Float): XvoxC
     return copy(nowPlayingItemScales = next.toSortedMap().entries.joinToString(",") { (key, value) -> "$key=$value" })
 }
 
-/** Effective rendering chrome after an optional app-wide appearance experiment is applied. */
+/** Effective rendering chrome for the default interface. */
 val LocalXvoxChromeStyle = staticCompositionLocalOf { XvoxChromeStyle() }
 
-/** Durable chrome before temporary Blur UI derives its visual-only surface values. */
+/** Durable chrome used by the editor and live previews. */
 val LocalXvoxBaseChromeStyle = staticCompositionLocalOf { XvoxChromeStyle() }
 
 /**

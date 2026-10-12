@@ -38,7 +38,7 @@ import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
 private const val StartupStrokeWidth = 3.2f
-// The loader begins directly with a complete premium ring; no opening/progress dots are drawn.
+// The loader begins directly with a complete ring; there is no opening/progress dot rail.
 private const val StartupRingRadius = 21f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
@@ -55,8 +55,8 @@ private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also
 private val StartupTotalDuration = StartupPhaseBounds.last()
 private const val StartupReducedMotionDuration = 2600f
 // The loader must never hold a fully prepared Home hostage to a decorative timeline.
-private const val StartupMinimumVisibleDuration = 420f
-private const val StartupReducedMotionMinimumVisibleDuration = 180f
+private const val StartupMinimumVisibleDuration = 80f
+private const val StartupReducedMotionMinimumVisibleDuration = 0f
 
 private data class StartupPalette(
     val dot: Color,
@@ -105,13 +105,8 @@ private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) 
     val scale = density
     val rotation = 4f * StartupPi * startupEase(progress)
     val stroke = Stroke(StartupStrokeWidth * scale, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    // A soft outer halo gives the first-frame ring depth without ever reverting to dots.
-    drawCircle(
-        color = palette.dot.copy(alpha = palette.dot.alpha * .28f),
-        radius = (StartupRingRadius + 4f) * scale,
-        center = Offset.Zero,
-        style = Stroke(1f * scale, cap = StrokeCap.Round)
-    )
+    // Keep the original ring that unrolls into the rail, but remove the extra outer halo that
+    // was added around it. There is exactly one loader outline on screen.
     drawCircle(
         color = palette.dot,
         radius = StartupRingRadius * scale,

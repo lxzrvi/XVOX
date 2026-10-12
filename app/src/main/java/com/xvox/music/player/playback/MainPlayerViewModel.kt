@@ -61,6 +61,7 @@ class MainPlayerViewModel(
                         playingSource = if (playback.externalQueue) "Queue" else it.playingSource,
                         miniPlayerVisible = if (playback.currentSongId == null) false else
                             if (playback.isPlaying && !it.nowPlayingVisible) true else it.miniPlayerVisible,
+                        nowPlayingPrepared = if (playback.currentSongId == null) false else it.nowPlayingPrepared,
                         connected = playback.connected,
                         currentSongId = playback.currentSongId,
                         currentIndex = playback.currentIndex,
@@ -539,6 +540,7 @@ class MainPlayerViewModel(
             it.copy(
                 queue = queue,
                 miniPlayerVisible = if (wasCurrent) false else it.miniPlayerVisible,
+                nowPlayingPrepared = if (wasCurrent) false else it.nowPlayingPrepared,
                 nowPlayingVisible = if (wasCurrent) false else it.nowPlayingVisible
             )
         }
@@ -570,6 +572,7 @@ class MainPlayerViewModel(
                 queue = mutable,
                 currentIndex = adjustedIndex,
                 miniPlayerVisible = if (wasCurrent) false else it.miniPlayerVisible,
+                nowPlayingPrepared = if (wasCurrent) false else it.nowPlayingPrepared,
                 nowPlayingVisible = if (wasCurrent) false else it.nowPlayingVisible
             )
         }
@@ -669,14 +672,24 @@ class MainPlayerViewModel(
     }
 
     /**
-     * Start Now Playing only after the Mini Player has physically completed its downward exit.
-     * There is no added delay after that final frame; this preserves the accepted motion speeds
-     * while preventing either surface from starting over the other.
+     * Mounts the full player below the viewport while the Mini Player performs its own exit.
+     * This does not start the entry animation; it only removes composition/layout latency from
+     * the terminal handoff frame.
+     */
+    fun prepareNowPlaying() {
+        if (_state.value.currentSongId == null) return
+        _state.update { it.copy(nowPlayingPrepared = true) }
+    }
+
+    /**
+     * Releases the already-prepared full player on Mini Player's exact terminal bottom frame.
      */
     fun openNowPlaying() {
         if (_state.value.currentSongId == null) return
         controller.setFastProgress(true)
-        _state.update { it.copy(nowPlayingVisible = true, miniPlayerVisible = false) }
+        _state.update {
+            it.copy(nowPlayingPrepared = true, nowPlayingVisible = true, miniPlayerVisible = false)
+        }
     }
 
     /** The outgoing full player keeps its fixed descent; no Mini Player rises underneath it. */
@@ -685,15 +698,16 @@ class MainPlayerViewModel(
     }
 
     /**
-     * The Mini Player is mounted in the exact completion callback of the full player's descent.
-     * Its existing rise begins immediately from below the viewport, with no artificial gap.
+     * The Mini Player is already composed below the boundary while the full player descends.
+     * This terminal callback only releases its rise, avoiding a post-animation mount gap.
      */
     fun closeNowPlaying() {
         _state.update { current ->
             if (current.currentSongId == null) {
-                current.copy(nowPlayingVisible = false, miniPlayerVisible = false)
+                current.copy(nowPlayingPrepared = false, nowPlayingVisible = false, miniPlayerVisible = false)
             } else {
                 current.copy(
+                    nowPlayingPrepared = false,
                     nowPlayingVisible = false,
                     miniPlayerVisible = true,
                     miniPlayerRiseKey = current.miniPlayerRiseKey + 1
@@ -709,7 +723,7 @@ class MainPlayerViewModel(
     fun stopPlayback() {
         controller.setFastProgress(false)
         controller.stop()
-        _state.update { it.copy(miniPlayerVisible = false, nowPlayingVisible = false) }
+        _state.update { it.copy(miniPlayerVisible = false, nowPlayingPrepared = false, nowPlayingVisible = false) }
     }
 
     fun toggleShuffle() {

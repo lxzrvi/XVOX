@@ -50,7 +50,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
-import com.xvox.music.core.ui.effects.xvoxLiveBackdropBlur
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
@@ -108,6 +107,8 @@ fun XvoxNowPlaying(
     isPlaying: Boolean,
     position: Long,
     duration: Long,
+    /** Set only after Mini Player has fully crossed below the bottom boundary. */
+    entranceEnabled: Boolean = true,
     onClose: () -> Unit,
     /** Begins dismissal housekeeping while this surface completes its fixed descent. */
     onDismissStart: () -> Unit = {},
@@ -184,8 +185,10 @@ fun XvoxNowPlaying(
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isCompact = (settingsState.nowPlayingStyle == "compact" || settingsState.nowPlayingStyle == "immersive") && !isLandscape
 
-    var screenY by rememberSaveable { mutableFloatStateOf(screenHeight) }
-    var entered by rememberSaveable { mutableStateOf(false) }
+    // These are intentionally composition-local, not saveable: every prepared handoff must begin
+    // below the viewport rather than restoring a prior open player's settled position.
+    var screenY by remember { mutableFloatStateOf(screenHeight) }
+    var entered by remember { mutableStateOf(false) }
     var internalDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
     val isLyricsShowing = currentMode >= 1
@@ -297,11 +300,15 @@ fun XvoxNowPlaying(
         }
     }
 
-    LaunchedEffect(screenHeight) {
+    LaunchedEffect(screenHeight, entranceEnabled) {
         if (!entered && screenHeight > 0f) {
-            entered = true
+            // Precomposition lays the whole player out just below the visible boundary. The
+            // entrance itself is deliberately held until the outgoing Mini Player is gone.
             screenY = screenHeight
-            animateScreen(target = 0f)
+            if (entranceEnabled) {
+                entered = true
+                animateScreen(target = 0f)
+            }
         }
     }
 
@@ -463,7 +470,7 @@ fun XvoxNowPlaying(
         lyricsViewModel.load(song)
     }
 
-    BackHandler {
+    BackHandler(enabled = entranceEnabled) {
         when {
             activeSettingsBox != null -> {
                 // Customize is transactional: X/back drops the in-place draft without touching
@@ -540,10 +547,11 @@ fun XvoxNowPlaying(
     }
     // Global queue/info sheets live in a sibling overlay host. Mark them immersive while this
     // landscape player is mounted so opening any sheet cannot make a status bar reappear.
-    DisposableEffect(overlays, isLandscape) {
-        overlays.immersiveNowPlayingSheets = isLandscape
+    DisposableEffect(overlays, isLandscape, entranceEnabled) {
+        val immersiveSheets = entranceEnabled && isLandscape
+        overlays.immersiveNowPlayingSheets = immersiveSheets
         onDispose {
-            if (overlays.immersiveNowPlayingSheets == isLandscape) {
+            if (overlays.immersiveNowPlayingSheets == immersiveSheets) {
                 overlays.immersiveNowPlayingSheets = false
             }
         }
@@ -557,8 +565,8 @@ fun XvoxNowPlaying(
             playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
         }
     }
-    LaunchedEffect(isLandscape, isFullscreen, playerInsetsController) {
-        if (isLandscape || isFullscreen) {
+    LaunchedEffect(isLandscape, isFullscreen, entranceEnabled, playerInsetsController) {
+        if (entranceEnabled && (isLandscape || isFullscreen)) {
             playerInsetsController?.hide(WindowInsetsCompat.Type.statusBars())
         } else {
             playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
@@ -577,10 +585,6 @@ fun XvoxNowPlaying(
                 scaleY = handoffScale
             }
             .clip(sheetCorner)
-            // The whole player remains a Prismal-capable surface for its internal controls, while
-            // XvoxNowPlayingBackdrop below paints the opaque cover gradient in Blur mode. Home is
-            // never visible through this main artwork canvas.
-            .xvoxLiveBackdropBlur(sheetCorner, radius = 30)
             .background(colors.background)
             .pointerInput(activeSettingsBox) {
                 // The full-screen customizer owns its long-press/drag gestures. Outside it, the
@@ -590,7 +594,9 @@ fun XvoxNowPlaying(
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
+            artwork = song.artworkUri,
             style = settingsState.nowPlayingBackgroundStyle,
+            coverBlur = settingsState.nowPlayingCoverBlur,
             isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
             modifier = Modifier.fillMaxSize()
         )
@@ -737,7 +743,6 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            .xvoxLiveBackdropBlur(RoundedCornerShape(18.dp), radius = 20, applyInDefault = true)
                             .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1106,7 +1111,6 @@ fun XvoxNowPlaying(
                         translationY = fullscreenProgress * (bottomHeightDp + 8.dp).toPx()
                     }
                     .clip(bottomBoxShape)
-                    .xvoxLiveBackdropBlur(bottomBoxShape, radius = 22, applyInDefault = true)
                     .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(
@@ -1282,7 +1286,10 @@ fun XvoxNowPlaying(
         if (activeSettingsBox != null) {
             if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
-                    onCustomize = { openSettingsBox("Customize") },
+                    backgroundStyle = settingsState.nowPlayingBackgroundStyle,
+                    coverBlur = settingsState.nowPlayingCoverBlur,
+                    onBackgroundStyleChange = settingsViewModel::setNowPlayingBackgroundStyle,
+                    onCoverBlurChange = settingsViewModel::setNowPlayingCoverBlur,
                     onDismiss = { activeSettingsBox = null }
                 )
             } else if (activeSettingsBox != "Customize") {

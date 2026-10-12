@@ -2,6 +2,7 @@ package com.xvox.music.features.home
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -36,12 +37,14 @@ fun HomeProfileAvatar(
         PfpType.valueOf(profile.selectedPfp)
     }.getOrDefault(PfpType.DEFAULT)
 
+    val avatarSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
     Box(
         modifier = modifier
             .clip(CircleShape)
-            // Keep the avatar's empty/default well visually part of the active app canvas in
-            // every theme instead of introducing a separate elevated-card colour behind the PFP.
-            .background(colors.background)
+            // The PFP control remains a translucent themed-gray material in light and dark mode,
+            // rather than turning into an isolated white circle above the app background.
+            .background(avatarSurface)
+            .border(.8.dp, colors.cardBorder.copy(alpha = .88f), CircleShape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(

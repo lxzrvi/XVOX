@@ -126,8 +126,6 @@ class UserPreferencesRepository(
         val themeBackground = stringPreferencesKey("theme_background")
         val themeBackgroundImage = stringPreferencesKey("theme_background_image")
         val cardTransparency = floatPreferencesKey("card_transparency")
-        /** Default or live Blur app-wide UI experiment. */
-        val experimentalAppearance = stringPreferencesKey("experimental_appearance")
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val fontSizeScale = floatPreferencesKey("font_size_scale")
         /** Selected app-wide UI typeface ("inter" is the durable default). */
@@ -184,8 +182,9 @@ class UserPreferencesRepository(
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
-        // Kept for migration; only Default is now valid.
         val nowPlayingBackgroundStyle = stringPreferencesKey("now_playing_background_style")
+        /** Local blur amount for the optional cover-art Now Playing background only. */
+        val nowPlayingCoverBlur = floatPreferencesKey("now_playing_cover_blur")
         val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
     }
 
@@ -211,9 +210,6 @@ class UserPreferencesRepository(
 
     private fun normalizeNowPlayingBackgroundStyle(value: String?): String =
         com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(value)
-
-    private fun normalizeExperimentalAppearance(value: String?): String =
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.fromStorage(value).storageValue
 
     val preferences: Flow<UserPreferences> = context.xvoxDataStore.data.map { prefs ->
         UserPreferences(
@@ -444,9 +440,6 @@ class UserPreferencesRepository(
     val themeBackground: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackground] ?: "Default" }.distinctUntilChanged()
     val themeBackgroundImage: Flow<String> = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage].orEmpty() }.distinctUntilChanged()
     val cardTransparency: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.cardTransparency] ?: 0f).coerceIn(0f, 0.6f) }.distinctUntilChanged()
-    val experimentalAppearance: Flow<String> = context.xvoxDataStore.data
-        .map { normalizeExperimentalAppearance(it[Keys.experimentalAppearance]) }
-        .distinctUntilChanged()
     val hideStatusBar: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.hideStatusBar] ?: false }.distinctUntilChanged()
     // M is the fresh-install default; L remains available without changing older saved choices.
     val fontSizeScale: Flow<Float> = context.xvoxDataStore.data
@@ -561,6 +554,8 @@ class UserPreferencesRepository(
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
     val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
+    val nowPlayingCoverBlur: Flow<Float> = context.xvoxDataStore.data
+        .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(0f, 48f) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
@@ -701,9 +696,6 @@ class UserPreferencesRepository(
     }
     suspend fun setCardTransparency(v: Float) {
         context.xvoxDataStore.edit { it[Keys.cardTransparency] = v.coerceIn(0f, 0.6f) }
-    }
-    suspend fun setExperimentalAppearance(value: String) {
-        context.xvoxDataStore.edit { it[Keys.experimentalAppearance] = normalizeExperimentalAppearance(value) }
     }
 
     suspend fun setHideStatusBar(v: Boolean) {
@@ -853,8 +845,10 @@ class UserPreferencesRepository(
         context.xvoxDataStore.edit { it[Keys.nowPlayingStyle] = normalized }
     }
     suspend fun setNowPlayingBackgroundStyle(style: String) {
-        // Old callers/data are migrated to Default instead of retaining retired treatments.
         context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style) }
+    }
+    suspend fun setNowPlayingCoverBlur(amount: Float) {
+        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(0f, 48f) }
     }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }

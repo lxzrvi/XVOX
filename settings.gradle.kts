@@ -12,8 +12,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Official PrismalAGSL publication repository.
-        maven(url = "https://jitpack.io")
     }
 }
 

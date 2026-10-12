@@ -25,6 +25,8 @@ data class MainPlayerUiState(
     val duration: Long = 0L,
     val miniPlayerVisible: Boolean = false,
     val miniPlayerRiseKey: Int = 0,
+    /** Precomposes the full player below the bottom edge while Mini Player completes its exit. */
+    val nowPlayingPrepared: Boolean = false,
     val nowPlayingVisible: Boolean = false,
     val isShuffleEnabled: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,

@@ -52,6 +52,7 @@ class PlayerSleepTimerManager(
                     sleepTimerProgress = null,
                     sleepTimerRemainingMillis = null,
                     miniPlayerVisible = false,
+                    nowPlayingPrepared = false,
                     nowPlayingVisible = false
                 )
             }
@@ -126,6 +127,7 @@ class PlayerSleepTimerManager(
                         sleepTimerProgress = null,
                         sleepTimerRemainingMillis = null,
                         miniPlayerVisible = false,
+                        nowPlayingPrepared = false,
                         nowPlayingVisible = false
                     )
                 }
@@ -140,6 +142,7 @@ class PlayerSleepTimerManager(
                         sleepTimerProgress = null,
                         sleepTimerRemainingMillis = null,
                         miniPlayerVisible = false,
+                        nowPlayingPrepared = false,
                         nowPlayingVisible = false,
                         sleepTimerShouldCloseApp = true
                     )

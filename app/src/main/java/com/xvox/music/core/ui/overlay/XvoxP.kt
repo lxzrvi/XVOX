@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import kotlinx.coroutines.delay
 
 private val XvoxPEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
@@ -72,7 +71,6 @@ fun XvoxP(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(24.dp))
-                .xvoxGlassReflection(shape = RoundedCornerShape(24.dp), radius = 18, applyInDefault = true)
                 .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .88f))
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {

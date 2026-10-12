@@ -107,8 +107,7 @@ fun XvoxMainShell(
     backgroundBrightness: Float = 0.8f
 ) {
     val colors = XvoxTheme.colors
-    // Rendering sees appearance-derived chrome; editors always operate on the durable base so
-    // temporary Blur UI material never gets saved over Default-mode values.
+    // Editors operate on the durable chrome values used by the default UI.
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val baseChrome = com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle.current
     val navigationBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
@@ -831,9 +830,12 @@ fun XvoxMainShell(
 
 
         val currentSongId = player.currentSongId
-        // Player surfaces keep their accepted travel speeds and hand off on the exact terminal
-        // bottom frame: no overlap and no artificial wait between the two animations.
+        // Keep both player surfaces measured below the bottom boundary during a handoff. Their
+        // entry gates remain closed until the preceding surface reaches its terminal frame, so
+        // there is no visual overlap and no composition-sized blank gap between them.
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
+        val miniSurfacePrepared = currentSongId != null && player.queue.isNotEmpty() &&
+            (player.miniPlayerVisible || player.nowPlayingPrepared || player.nowPlayingVisible)
         // Settings lets the Mini Player visibly hand off downward in either orientation instead
         // of leaving it on the page or cutting it away mid-card.
         val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
@@ -869,15 +871,17 @@ fun XvoxMainShell(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) row@ {
-                if (miniVisibleBase && currentSongId != null) {
+                if (miniSurfacePrepared && currentSongId != null) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(122.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        // Keep the landscape card measured below the edge while Now Playing is
+                        // active, exactly like the portrait host. There is no mount gap on close.
                         this@row.AnimatedVisibility(
-                            visible = miniVisible,
+                            visible = miniSurfacePrepared && destination != XvoxDestination.SETTINGS,
                             enter = androidx.compose.animation.EnterTransition.None,
                             exit = slideOutVertically(
                                 targetOffsetY = { it + with(density) { 18.dp.roundToPx() } },
@@ -886,28 +890,34 @@ fun XvoxMainShell(
                         ) {
                             XvoxMiniPlayer(
                                 queue = player.queue,
-                            currentSongId = currentSongId,
-                            currentIndex = player.currentIndex,
-                            isPlaying = player.isPlaying,
-                            position = player.position,
-                            duration = player.duration,
-                            riseKey = player.miniPlayerRiseKey,
-                            togglePlay = { playerViewModel.togglePlay() },
-                            playQueueIndex = { playerViewModel.playQueueIndex(it) },
-                            stopAndDismiss = { playerViewModel.stopPlayback() },
-                            openPlayer = { playerViewModel.openNowPlaying() },
-                            isLiked = currentSong?.id in homeState.likedSongIds,
-                            onLike = {
-                                currentSong?.let { song ->
-                                    val wasLiked = song.id in homeState.likedSongIds
-                                    homeViewModel.toggleLiked(song)
-                                    overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
-                                }
-                            },
-                            onAddToPlaylist = { currentSong?.let(::showAddCurrentSongToPlaylist) },
-                            onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
-                            quickActionsVisible = landscapeQuickActionsVisible,
-                            onQuickActionsVisibleChange = { landscapeQuickActionsVisible = it },
+                                currentSongId = currentSongId,
+                                currentIndex = player.currentIndex,
+                                isPlaying = player.isPlaying,
+                                position = player.position,
+                                duration = player.duration,
+                                riseKey = player.miniPlayerRiseKey,
+                                // Let the enclosing Settings exit own its accepted downward
+                                // motion; ordinary player handoffs keep the gate closed below.
+                                entranceEnabled = miniVisible || (
+                                    destination == XvoxDestination.SETTINGS && miniVisibleBase
+                                ),
+                                togglePlay = { playerViewModel.togglePlay() },
+                                playQueueIndex = { playerViewModel.playQueueIndex(it) },
+                                stopAndDismiss = { playerViewModel.stopPlayback() },
+                                prepareNowPlaying = playerViewModel::prepareNowPlaying,
+                                openPlayer = { playerViewModel.openNowPlaying() },
+                                isLiked = currentSong?.id in homeState.likedSongIds,
+                                onLike = {
+                                    currentSong?.let { song ->
+                                        val wasLiked = song.id in homeState.likedSongIds
+                                        homeViewModel.toggleLiked(song)
+                                        overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
+                                    }
+                                },
+                                onAddToPlaylist = { currentSong?.let(::showAddCurrentSongToPlaylist) },
+                                onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
+                                quickActionsVisible = landscapeQuickActionsVisible,
+                                onQuickActionsVisibleChange = { landscapeQuickActionsVisible = it },
                                 keyboardOffsetY = landscapeKeyboardOffset,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -934,20 +944,27 @@ fun XvoxMainShell(
         } else {
             // Portrait Mode: Stacked layout
             XvoxShellMiniPlayerHost(
-                visible = miniVisible,
+                // While Now Playing is open this remains a fully composed, below-screen card.
+                // It is released only by closeNowPlaying's terminal descent callback. Settings
+                // keeps its existing visible shell exit instead of retaining an off-screen host.
+                visible = miniSurfacePrepared && destination != XvoxDestination.SETTINGS,
                 // Entering Settings keeps the outgoing card composed just long enough for a
                 // visible downward handoff instead of an abrupt disappearance.
                 settingsExit = destination == XvoxDestination.SETTINGS,
-                currentSongId = if (miniVisibleBase) currentSongId else null,
+                currentSongId = if (miniSurfacePrepared) currentSongId else null,
                 queue = player.queue,
                 currentIndex = player.currentIndex,
                 isPlaying = player.isPlaying,
                 position = player.position,
                 duration = player.duration,
                 riseKey = player.miniPlayerRiseKey,
+                entranceEnabled = miniVisible || (
+                    destination == XvoxDestination.SETTINGS && miniVisibleBase
+                ),
                 onTogglePlay = { playerViewModel.togglePlay() },
                 onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
                 onStopAndDismiss = { playerViewModel.stopPlayback() },
+                onPrepareNowPlaying = playerViewModel::prepareNowPlaying,
                 onOpenPlayer = { playerViewModel.openNowPlaying() },
                 isLiked = currentSong?.id in homeState.likedSongIds,
                 onLike = {
@@ -977,7 +994,9 @@ fun XvoxMainShell(
         }
 
         AnimatedVisibility(
-            visible = player.nowPlayingVisible && currentSong != null,
+            // Prepare it below the screen as the Mini Player starts moving down. Its own entry
+            // gate opens only after that Mini Player reaches the terminal bottom frame.
+            visible = player.nowPlayingPrepared && currentSong != null,
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None,
             // Keep the Header composed underneath for a clean return, but the full player must
@@ -995,6 +1014,7 @@ fun XvoxMainShell(
                     isPlaying = player.isPlaying,
                     position = player.position,
                     duration = player.duration,
+                    entranceEnabled = player.nowPlayingVisible,
                     onClose = { playerViewModel.closeNowPlaying() },
                     onDismissStart = { playerViewModel.beginNowPlayingDismissal() },
                     displayMode = nowPlayingDisplayMode,
@@ -1100,14 +1120,10 @@ private fun TabSurface(
     backgroundBrightness: Float,
     content: @Composable () -> Unit
 ) {
-    val liveBlur = com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance.current ==
-        com.xvox.music.core.design.theme.XvoxExperimentalAppearance.BLUR
-
     Box(Modifier.fillMaxSize()) {
-        // Blur mode's true GPU-blurred image is owned once by XvoxAppRoot so it remains visible
-        // through every layered surface, including shell chrome and Dialog-backed sheets. Keep
-        // the normal image treatment route-local only for Default mode.
-        if (backgroundImage.isNotBlank() && !liveBlur) {
+        // A normal selected background image remains local to the active tab; no captured or
+        // GPU-blurred app-wide backdrop is used by the default interface.
+        if (backgroundImage.isNotBlank()) {
             AsyncImage(
                 model = Uri.parse(backgroundImage),
                 contentDescription = null,

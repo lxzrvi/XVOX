@@ -33,8 +33,7 @@ object XvoxTheme {
 
 /**
  * Keeps the caller shape stable while preserving the user's selected transparent card treatment
- * inside Now Playing. The player backdrop remains a separate adaptive-cover layer, while its
- * header, action pills, controls and sheets can again reveal the live surface beneath them.
+ * inside Now Playing. The player backdrop remains a separate adaptive-cover layer.
  */
 @Composable
 fun ProvideXvoxNowPlayingChrome(content: @Composable () -> Unit) {
@@ -49,7 +48,6 @@ fun XvoxTheme(
     cardTransparency: Float = 0f,
     cardBorder: String = "",
     cardBorderAlpha: Float = 1f,
-    experimentalAppearance: XvoxExperimentalAppearance = XvoxExperimentalAppearance.DEFAULT,
     /** Persisted app text family. Branded logo/personalization marks remain intentionally fixed. */
     uiFontFamily: FontFamily = XvoxUiFont,
     content: @Composable () -> Unit
@@ -59,7 +57,6 @@ fun XvoxTheme(
         XvoxThemeMode.DARK, XvoxThemeMode.AMOLED -> true
         XvoxThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    // Blur preserves the chosen Theme mode; it changes material treatment, not light/dark mode.
     val dark = ordinaryDark
 
     val ordinaryBasePalette = when (mode) {
@@ -80,10 +77,11 @@ fun XvoxTheme(
     val palette = basePalette
         .withAccent(accent, light = !dark)
         .withBackdrop(background, light = !dark, transparency = cardTransparency)
-        .withExperimentalAppearance(experimentalAppearance)
         .let { p ->
             val chosen = com.xvox.music.core.ui.chrome.parseHexColor(cardBorder) ?: p.cardBorder
-            val alpha = cardBorderAlpha.coerceIn(0f, 1f)
+            // Default cards retain a visible themed edge in every palette, including old saved
+            // chrome records whose border slider was previously allowed to reach zero.
+            val alpha = cardBorderAlpha.coerceIn(.42f, 1f)
             p.copy(cardBorder = chosen.copy(alpha = chosen.alpha * alpha))
         }
 
@@ -113,7 +111,6 @@ fun XvoxTheme(
 
     CompositionLocalProvider(
         LocalXvoxPalette provides palette,
-        LocalXvoxExperimentalAppearance provides experimentalAppearance,
         LocalXvoxUiFont provides uiFontFamily
     ) {
         MaterialTheme(

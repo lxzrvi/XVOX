@@ -93,6 +93,9 @@ fun XvoxNowPlayingProgress(
     var lastSeekGestureUptimeMs by remember(currentSongId) {
         mutableLongStateOf(0L)
     }
+    var lastSeekGestureFraction by remember(currentSongId) {
+        mutableFloatStateOf(Float.NaN)
+    }
 
     val realFraction =
         if (duration > 0L) {
@@ -113,9 +116,16 @@ fun XvoxNowPlayingProgress(
 
     fun requestSeek(fraction: Float) {
         val now = SystemClock.uptimeMillis()
-        if (now - lastSeekGestureUptimeMs < 140L) return
         val target = fraction.coerceIn(0f, 1f)
+        // Tap and drag gesture recognizers can both observe the release of the same finger. Do
+        // not make the player replay that same seek; distinct rapid seeks remain allowed.
+        if (
+            now - lastSeekGestureUptimeMs < 650L &&
+            lastSeekGestureFraction.isFinite() &&
+            abs(target - lastSeekGestureFraction) < .008f
+        ) return
         lastSeekGestureUptimeMs = now
+        lastSeekGestureFraction = target
         pendingSeekFraction = target
         seekRequestVersion += 1f
         onSeek((duration * target).toLong())

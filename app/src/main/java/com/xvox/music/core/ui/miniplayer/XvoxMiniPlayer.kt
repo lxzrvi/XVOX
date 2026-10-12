@@ -63,9 +63,13 @@ fun XvoxMiniPlayer(
     position: Long,
     duration: Long,
     riseKey: Int,
+    /** Keeps this already-composed card below the viewport until a terminal handoff releases it. */
+    entranceEnabled: Boolean = true,
     togglePlay: () -> Unit,
     playQueueIndex: (Int) -> Unit,
     stopAndDismiss: () -> Unit,
+    /** Mounts Now Playing below the bottom edge before this card begins its exit. */
+    prepareNowPlaying: () -> Unit = {},
     openPlayer: () -> Unit,
     isLiked: Boolean = false,
     onLike: () -> Unit,
@@ -121,10 +125,16 @@ fun XvoxMiniPlayer(
     }
     var transitionDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(riseKey) {
-        // closeNowPlaying mounts this card in the exact final frame of the full-player descent.
-        // The existing rise starts immediately from below the viewport—without overlapping sheets.
-        y.animateTo(0f, XvoxMiniPlayerMotion.handoffSpec())
+    LaunchedEffect(riseKey, entranceEnabled) {
+        if (entranceEnabled) {
+            // A precomposed card is released only on the terminal Now Playing frame. Reset its
+            // outgoing guard now so its next gesture can begin another sequential handoff.
+            exiting = false
+            y.animateTo(0f, XvoxMiniPlayerMotion.handoffSpec())
+        } else {
+            // Keep the fully measured/composed card below the boundary without drawing it.
+            y.snapTo(exitDistance)
+        }
     }
 
     LaunchedEffect(currentSongId, currentIndex) {
@@ -156,6 +166,7 @@ fun XvoxMiniPlayer(
         exiting = true
         setQuickActionsVisible(false)
         cancelCommit()
+        if (!stop) prepareNowPlaying()
 
         scope.launch {
             // The full Mini Player completes its fixed downward travel first. Now Playing starts

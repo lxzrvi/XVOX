@@ -25,10 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 
 @Composable
 fun XvoxBottomBar(
@@ -41,7 +38,6 @@ fun XvoxBottomBar(
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
     val colors = XvoxTheme.colors
-    val blurAppearance = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val availableWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 24.dp)
@@ -65,12 +61,13 @@ fun XvoxBottomBar(
     val selectorShape = RoundedCornerShape(selectorHeight / 2f)
 
     // Appearance › Home chrome overrides for the floating nav bar and its travelling pill.
-    // Blur must remain a real window into the moving Prismal source, not a mostly opaque themed
-    // colour wash; Default keeps the user's exact saved opacity.
-    val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f) * if (blurAppearance) .42f else 1f
+    val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
     val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
-    // At 100% transparency the bar's surface chrome disappears too; controls remain usable.
-    val navEdge = navEdgeBase.copy(alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
+    // Keep a thin themed edge even for a transparent bar/pill; it anchors the control against
+    // both light and dark page backgrounds without using a fixed accent colour.
+    val navEdge = navEdgeBase.copy(
+        alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
+    )
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
         // The bar itself follows the app background; this is the one quietly elevated element
         // that keeps the active destination legible in either theme.
@@ -113,7 +110,6 @@ fun XvoxBottomBar(
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
                 .clip(parentShape)
-                .xvoxGlassReflection(shape = parentShape, radius = 18, applyInDefault = true)
                 .border(
                     width = XvoxNavigationGeometry.barBorderWidth,
                     color = navEdge,

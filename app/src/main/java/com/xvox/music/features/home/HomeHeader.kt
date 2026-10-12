@@ -18,11 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
@@ -37,7 +34,6 @@ fun HomeHeader(
 ) {
     val colors =
         XvoxTheme.colors
-    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
 
     Row(
         modifier = Modifier
@@ -116,20 +112,15 @@ fun HomeHeader(
             modifier = Modifier
                 .height(42.dp)
                 .clip(actionShape)
-                .xvoxGlassReflection(shape = actionShape, radius = 18, applyInDefault = true)
                 .background(
-                    colors.card.copy(
-                        // In Blur this compact Refresh/Liked/Library pill remains an actual
-                        // translucent live-glass action group rather than a red/opaque overlay.
-                        alpha = if (liveBlur) .30f else .72f
+                    colors.cardElevated.copy(
+                        alpha = if (colors.isLight) .72f else .64f
                     )
                 )
                 .border(
-                    width = 0.65.dp,
-                    color =
-                        colors.cardBorder,
-                    shape =
-                        actionShape
+                    width = .8.dp,
+                    color = colors.cardBorder.copy(alpha = .88f),
+                    shape = actionShape
                 )
                 .padding(
                     horizontal = 2.dp

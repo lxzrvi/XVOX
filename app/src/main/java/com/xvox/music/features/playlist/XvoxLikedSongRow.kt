@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -57,7 +56,6 @@ fun XvoxLikedSongRow(
             .height(64.dp)
             .xvoxSongPress(onClick = onClick, onLongClick = onOptions, pressedScale = 0.95f)
             .clip(shape)
-            .xvoxGlassReflection(shape = shape, radius = 18)
             .background(cardColor)
             .border(width = 0.7.dp, color = colors.cardBorder, shape = shape)
             .padding(3.dp),

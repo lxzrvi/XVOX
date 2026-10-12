@@ -47,10 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -70,14 +67,10 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val blurAppearance = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
     val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
-    // In Blur, retain the same shape/setting but reveal the actively moving captured backdrop
-    // instead of covering it with an opaque theme/red-tinted Mini Player material.
-    val liveMiniAlpha = miniAlpha * if (blurAppearance) .42f else 1f
     val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f).dp
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
@@ -103,15 +96,11 @@ fun XvoxMiniPlayerCard(
             .fillMaxWidth()
             .height(56.dp)
             .clip(cardShape)
-            .xvoxGlassReflection(shape = cardShape, radius = 18, applyInDefault = true)
-            .background(colors.background.copy(alpha = liveMiniAlpha))
-            // Blur deliberately has no synthetic edge; default chrome retains its saved border.
-            .then(
-                if (blurAppearance) Modifier else Modifier.border(
-                    .7.dp,
-                    miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.28f, 1f) * miniAlpha),
-                    cardShape
-                )
+            .background(colors.background.copy(alpha = miniAlpha))
+            .border(
+                .8.dp,
+                miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha),
+                cardShape
             )
             .drawWithContent {
                 drawContent()
@@ -133,7 +122,7 @@ fun XvoxMiniPlayerCard(
             }
     ) {
         if (isFullCover) {
-            val alphaFraction = liveMiniAlpha
+            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 requestSize = 512,
@@ -145,7 +134,7 @@ fun XvoxMiniPlayerCard(
             // must remain the actual surface, not a theme-colour wash.  Any slight readability
             // tint lives only between the two transparency endpoints and disappears again at 100%.
             val surfaceTintAlpha = .36f * alphaFraction * (1f - alphaFraction)
-            if (!blurAppearance && surfaceTintAlpha > .001f) {
+            if (surfaceTintAlpha > .001f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

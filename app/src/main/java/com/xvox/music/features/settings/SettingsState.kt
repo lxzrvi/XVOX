@@ -5,12 +5,12 @@ data class SettingsState(
     /** Experimental source selection; Online is provider-gated and never enables unofficial streams. */
     val sourceMode: com.xvox.music.features.sourcemode.XvoxSourceMode =
         com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
-    /** Retained migration field; Default is the only valid backdrop. */
+    /** Default adaptive player canvas or the optional current-cover background. */
     val nowPlayingBackgroundStyle: String = "default",
+    /** Local blur amount for Cover background only; no app-wide blur mode exists. */
+    val nowPlayingCoverBlur: Float = 24f,
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",
-    /** Default or live Blur app-wide experimental UI. */
-    val experimentalAppearance: String = "default",
     val accentColor: String = "Red",
     val backgroundName: String = "Default",
     /** Custom photo behind the Home header; null keeps the theme surface. */
