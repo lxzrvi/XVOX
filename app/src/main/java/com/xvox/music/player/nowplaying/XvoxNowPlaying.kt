@@ -45,8 +45,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
-import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
@@ -70,7 +68,9 @@ import com.xvox.music.features.settings.sections.PlaybackSettingsDraftSection
 import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
 import com.xvox.music.player.nowplaying.components.NowPlayingActions
 import com.xvox.music.player.nowplaying.components.NowPlayingOptionsBox
+import com.xvox.music.player.nowplaying.components.NowPlayingAlignmentGuideOverlay
 import com.xvox.music.player.nowplaying.components.NowPlayingEditItem
+import com.xvox.music.player.nowplaying.components.NowPlayingAlignmentGuide
 import com.xvox.music.player.nowplaying.components.NowPlayingEditSession
 import com.xvox.music.player.nowplaying.components.NowPlayingEditableCover
 import com.xvox.music.player.nowplaying.components.NowPlayingEditableTarget
@@ -140,17 +140,22 @@ fun XvoxNowPlaying(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val colors = XvoxTheme.colors
-    val liveLiquidBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val persistedChrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
         .normalizedNowPlayingGrid()
     // Customize is a true local transaction over this live player—not a second replica screen.
     // The draft is discarded by X/back and reaches DataStore only from Okay.
     var customizeDraft by remember { mutableStateOf<com.xvox.music.core.ui.chrome.XvoxChromeStyle?>(null) }
+    var customizeAlignmentGuide by remember { mutableStateOf<NowPlayingAlignmentGuide?>(null) }
     val chrome = (customizeDraft ?: persistedChrome).normalizedNowPlayingGrid()
     val customizeSession = customizeDraft?.let {
-        NowPlayingEditSession(draft = chrome) { updated ->
-            customizeDraft = updated.normalizedNowPlayingGrid()
-        }
+        NowPlayingEditSession(
+            draft = chrome,
+            onDraftChange = { updated ->
+                customizeDraft = updated.normalizedNowPlayingGrid()
+            },
+            alignmentGuide = customizeAlignmentGuide,
+            onAlignmentGuideChange = { guide -> customizeAlignmentGuide = guide }
+        )
     }
     val isCustomizing = customizeSession != null
     val overlays = LocalXvoxOverlayController.current
@@ -202,6 +207,7 @@ fun XvoxNowPlaying(
         optionDraft = settingsState
         if (name == "Customize") {
             customizeDraft = persistedChrome.normalizedNowPlayingGrid()
+            customizeAlignmentGuide = null
         }
         activeSettingsBox = name
     }
@@ -462,7 +468,10 @@ fun XvoxNowPlaying(
             activeSettingsBox != null -> {
                 // Customize is transactional: X/back drops the in-place draft without touching
                 // live chrome. Ordinary option sheets remain live and simply close.
-                if (activeSettingsBox == "Customize") customizeDraft = null
+                if (activeSettingsBox == "Customize") {
+                    customizeDraft = null
+                    customizeAlignmentGuide = null
+                }
                 activeSettingsBox = null
             }
             currentMode == 2 -> setMode(1)
@@ -568,11 +577,11 @@ fun XvoxNowPlaying(
                 scaleY = handoffScale
             }
             .clip(sheetCorner)
-            // The whole player is a real Prismal surface in Blur mode. Its cover gradient is
-            // translucent below, so the recorded app backdrop remains visible instead of being
-            // covered by an opaque black canvas.
+            // The whole player remains a Prismal-capable surface for its internal controls, while
+            // XvoxNowPlayingBackdrop below paints the opaque cover gradient in Blur mode. Home is
+            // never visible through this main artwork canvas.
             .xvoxLiveBackdropBlur(sheetCorner, radius = 30)
-            .background(if (liveLiquidBlur) Color.Transparent else colors.background)
+            .background(colors.background)
             .pointerInput(activeSettingsBox) {
                 // The full-screen customizer owns its long-press/drag gestures. Outside it, the
                 // player still consumes backdrop taps so no event can click through to Home.
@@ -745,16 +754,24 @@ fun XvoxNowPlaying(
                             controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                             surfaceAlpha = controlsSurfaceAlpha,
                             customizeMode = isCustomizing,
-                            onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
-                            onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
+                            onCustomizeCancel = {
+                                customizeDraft = null
+                                customizeAlignmentGuide = null
+                                activeSettingsBox = null
+                            },
+                            onCustomizeReset = {
+                                customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid()
+                                customizeAlignmentGuide = null
+                            },
                             onCustomizeOkay = {
                                 // Commit the same draft currently drawing the real player. Nothing
                                 // is copied from a preview: the persisted layout is exactly what
                                 // the user has just moved/resized on this Now Playing surface.
                                 settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
                                 customizeDraft = null
+                                customizeAlignmentGuide = null
                                 activeSettingsBox = null
-                                overlays.showP("Now Playing layout applied")
+                                overlays.showP("Layout & cover size applied")
                             },
                             modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                                 detectVerticalDragGestures(
@@ -1031,14 +1048,22 @@ fun XvoxNowPlaying(
                     controlsAlpha = if (isCustomizing) 1f else chrome.nowPlayingControlsAlpha,
                     surfaceAlpha = controlsSurfaceAlpha,
                     customizeMode = isCustomizing,
-                    onCustomizeCancel = { customizeDraft = null; activeSettingsBox = null },
-                    onCustomizeReset = { customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid() },
+                    onCustomizeCancel = {
+                        customizeDraft = null
+                        customizeAlignmentGuide = null
+                        activeSettingsBox = null
+                    },
+                    onCustomizeReset = {
+                        customizeDraft = persistedChrome.resetNowPlayingLayout().normalizedNowPlayingGrid()
+                        customizeAlignmentGuide = null
+                    },
                     onCustomizeOkay = {
                         // Persist the exact in-place draft that is currently rendered below.
                         settingsViewModel.setChromeStyle { chrome.normalizedNowPlayingGrid() }
                         customizeDraft = null
+                        customizeAlignmentGuide = null
                         activeSettingsBox = null
-                        overlays.showP("Now Playing layout applied")
+                        overlays.showP("Layout & cover size applied")
                     },
                     modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
@@ -1243,6 +1268,14 @@ fun XvoxNowPlaying(
 
                 Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
             }
+        }
+
+        // Alignment guides sit over the exact live player layout, never in a separate preview.
+        if (isCustomizing) {
+            NowPlayingAlignmentGuideOverlay(
+                guide = customizeAlignmentGuide,
+                modifier = Modifier.fillMaxSize().zIndex(40f)
+            )
         }
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons

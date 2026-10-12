@@ -27,20 +27,11 @@ private fun Color.xvoxBlendTo(other: Color, amount: Float): Color {
     )
 }
 
-/**
- * Theme-safe fallback for very dark/near-neutral artwork. A black cover used to make the whole
- * player look like a black sheet; switching to the user's accent retains cover affinity without
- * losing the colourful liquid background.
- */
+/** Preserve Default's original adaptive-cover source; only missing analysis falls back to accent. */
 @Composable
 private fun backgroundSource(dominant: Color): Color {
     val colors = XvoxTheme.colors
-    val maximumChannel = maxOf(dominant.red, dominant.green, dominant.blue)
-    val minimumChannel = minOf(dominant.red, dominant.green, dominant.blue)
-    val hasUsefulCoverColor =
-        dominant != Color.Unspecified && dominant != Color.Transparent &&
-            maximumChannel > .16f && (maximumChannel - minimumChannel > .035f || maximumChannel > .38f)
-    return if (hasUsefulCoverColor) dominant else colors.primaryAccent
+    return dominant.takeIf { it != Color.Unspecified && it != Color.Transparent } ?: colors.primaryAccent
 }
 
 /**

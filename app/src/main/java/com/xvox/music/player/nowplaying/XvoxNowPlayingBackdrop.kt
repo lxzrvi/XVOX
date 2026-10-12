@@ -19,9 +19,10 @@ import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
  * Cover-matched two-colour Now Playing backdrop.
  *
  * During a cover drag, [dominant] tracks the pager under the finger. Between covers (including
- * next/previous while lyrics are open), it eases directly to the next palette. In Blur UI the
- * gradient is intentionally translucent so the Prismal-captured app background remains visible
- * through it instead of becoming an opaque black sheet.
+ * next/previous while lyrics are open), it eases directly to the next palette. Default keeps the
+ * original single adaptive cover colour; Blur alone opts into the richer, fully opaque gradient.
+ * The main player therefore remains an intentional solid cover surface rather than exposing the
+ * Home screen through its backdrop.
  */
 @Composable
 fun XvoxNowPlayingBackdrop(
@@ -48,11 +49,16 @@ fun XvoxNowPlayingBackdrop(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = xvoxNowPlayingBackgroundBrush(style, displayed.value),
-                // Default keeps the full cover gradient. Blur mode lays a breathable colour veil
-                // over the actual Prismal backdrop, letting the live glass beneath stay visible.
-                alpha = if (liquidBlur) .56f else 1f
+            .then(
+                if (liquidBlur) {
+                    // Blur mode owns the premium two-cover-colour gradient. It is deliberately
+                    // opaque: Home must not appear behind the actual Now Playing artwork canvas.
+                    Modifier.background(xvoxNowPlayingBackgroundBrush(style, displayed.value))
+                } else {
+                    // Preserve the established Default appearance exactly: one cover-matched
+                    // adaptive colour, without a Blur-only liquid gradient leaking into it.
+                    Modifier.background(displayed.value)
+                }
             )
     )
 }

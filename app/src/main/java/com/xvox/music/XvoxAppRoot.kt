@@ -46,6 +46,7 @@ import coil3.compose.AsyncImage
 import com.styropyr0.prismal.sources.prismalGlassLayer
 import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import kotlinx.coroutines.delay
+import kotlin.random.Random
 
 private fun Color.xvoxMix(other: Color, amount: Float): Color {
     val t = amount.coerceIn(0f, 1f)
@@ -57,21 +58,40 @@ private fun Color.xvoxMix(other: Color, amount: Float): Color {
     )
 }
 
-/** A colourful but theme-tethered source for Prismal's app-wide Blur appearance. */
+private data class XvoxLiquidToneSet(
+    val first: Color,
+    val second: Color,
+    val third: Color
+)
+
+// A fresh tone family is selected for each app process. The user's accent remains a small
+// theme-aware influence rather than turning every Blur surface red when the default red accent is
+// selected. Dark and light app backgrounds still anchor the resulting colours.
+private val XvoxLiquidToneSets = listOf(
+    XvoxLiquidToneSet(Color(0xFF5865F2), Color(0xFF23C6FF), Color(0xFFB07CFF)),
+    XvoxLiquidToneSet(Color(0xFF00BFA6), Color(0xFF2D7CFF), Color(0xFF76E5C0)),
+    XvoxLiquidToneSet(Color(0xFF9B6CFF), Color(0xFFEE79C8), Color(0xFF5EAAFF)),
+    XvoxLiquidToneSet(Color(0xFF00A8E8), Color(0xFF3DDC97), Color(0xFF8178FF)),
+    XvoxLiquidToneSet(Color(0xFFFFA45B), Color(0xFF8B7CFF), Color(0xFF4CC9F0))
+)
+
+/** A moving, colourful but theme-tethered source for Prismal's app-wide Blur appearance. */
 private fun xvoxLiquidAppBrush(
     background: Color,
     accent: Color,
     phase: Float,
+    seed: Int,
     alpha: Float = 1f
 ): Brush {
-    val violetAccent = accent.xvoxMix(Color(0xFF7867FF), .38f)
-    val coralAccent = accent.xvoxMix(Color(0xFFFF7A9D), .22f)
+    val tones = XvoxLiquidToneSets[(seed and Int.MAX_VALUE) % XvoxLiquidToneSets.size]
     val travel = phase.coerceIn(0f, 1f)
     return Brush.linearGradient(
         colors = listOf(
-            background.xvoxMix(coralAccent, .56f).copy(alpha = alpha),
-            background.xvoxMix(violetAccent, .48f).copy(alpha = alpha),
-            background.xvoxMix(accent, .36f).copy(alpha = alpha)
+            background.xvoxMix(tones.first, .56f).copy(alpha = alpha),
+            background.xvoxMix(tones.second, .50f).copy(alpha = alpha),
+            // Keep the active theme/accent recognisable without making a default-red theme tint
+            // every header, Mini Player, navigation bar, and card red.
+            background.xvoxMix(tones.third.xvoxMix(accent, .16f), .46f).copy(alpha = alpha)
         ),
         // An unhurried diagonal drift keeps the source visibly liquid without a high-frequency
         // animation. Prismal samples each rendered frame, so every glass layer follows it live.
@@ -225,7 +245,11 @@ fun XvoxAppRoot(
         // Capture CompositionLocal-derived colours outside remember's non-composable factory.
         val appBackground = XvoxTheme.colors.background
         val appAccent = XvoxTheme.colors.primaryAccent
-        val liquidPhase by rememberInfiniteTransition(label = "xvoxLiquidBackdrop").animateFloat(
+        // Each cold app start begins with a different premium colour family and point in the
+        // liquid drift; the remembered values stay stable throughout that process.
+        val liquidSeed = remember { Random.nextInt() }
+        val liquidStartPhase = remember { Random.nextFloat() }
+        val animatedLiquidPhase by rememberInfiniteTransition(label = "xvoxLiquidBackdrop").animateFloat(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
@@ -234,14 +258,16 @@ fun XvoxAppRoot(
             ),
             label = "xvoxLiquidBackdropPhase"
         )
-        val liquidAppBrush = remember(appBackground, appAccent, liquidPhase) {
-            xvoxLiquidAppBrush(appBackground, appAccent, liquidPhase)
+        val liquidPhase = (liquidStartPhase + animatedLiquidPhase * .58f) % 1f
+        val liquidAppBrush = remember(appBackground, appAccent, liquidPhase, liquidSeed) {
+            xvoxLiquidAppBrush(appBackground, appAccent, liquidPhase, liquidSeed)
         }
-        val liquidImageWash = remember(appBackground, appAccent, liquidPhase) {
+        val liquidImageWash = remember(appBackground, appAccent, liquidPhase, liquidSeed) {
             xvoxLiquidAppBrush(
                 appBackground,
                 appAccent,
                 phase = liquidPhase,
+                seed = liquidSeed,
                 alpha = .34f
             )
         }
@@ -250,7 +276,10 @@ fun XvoxAppRoot(
         // the old Home source-readiness race.
         val defaultBackdropCanShowThrough = backgroundImage.isNotBlank() || cardTransparency > .005f
         val prismalSourceEnabled = liquidBlurEnabled || defaultBackdropCanShowThrough
+        // Base samples drive cards/chrome. A second capture records the moving shell beneath
+        // modal sheets, so a Blur sheet can genuinely refract the scrolling content behind it.
         val prismalBackdrop = rememberPrismalGlassLayer()
+        val prismalOverlayBackdrop = rememberPrismalGlassLayer()
 
         CompositionLocalProvider(
             LocalDensity provides customDensity,
@@ -299,7 +328,22 @@ fun XvoxAppRoot(
                     SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                 } else {
                     if (shellMounted && homeVm != null && playerVm != null) {
-                        XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                        // This capture deliberately contains the live shell but not the overlay
+                        // host below. Sheets therefore see the scrolling/list content moving
+                        // beneath their AGSL glass without recursively sampling themselves.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (prismalSourceEnabled) {
+                                        Modifier.prismalGlassLayer(prismalOverlayBackdrop)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                        }
                     }
 
                     AnimatedVisibility(
@@ -321,7 +365,17 @@ fun XvoxAppRoot(
                     }
                 }
 
-                XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
+                CompositionLocalProvider(
+                    // When a shell exists, overlays sample that real moving shell. During setup
+                    // or before mounting, the base colourful source remains the safe fallback.
+                    com.xvox.music.core.ui.effects.LocalXvoxPrismalBackdrop provides when {
+                        !prismalSourceEnabled -> null
+                        shellMounted -> prismalOverlayBackdrop
+                        else -> prismalBackdrop
+                    }
+                ) {
+                    XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
+                }
             }
         }
     }

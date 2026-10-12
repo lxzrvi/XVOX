@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.xvoxGlassReflection
@@ -101,6 +103,7 @@ fun XvoxShellTopHeader(
     useSystemInsets: Boolean = true
 ) {
     val colors = XvoxTheme.colors
+    val blurAppearance = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val headerEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.headerBorder) ?: colors.cardBorder
     val density = LocalDensity.current
@@ -126,6 +129,8 @@ fun XvoxShellTopHeader(
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
     val hasCustomHeader = !visibleHeaderImage.isNullOrBlank()
+    val headerSurfaceAlpha = chrome.headerBgAlpha.coerceIn(0f, 1f) * if (blurAppearance) .38f else 1f
+    val actionSurfaceAlpha = if (blurAppearance) .28f else .46f
 
     Box(
         modifier = Modifier
@@ -142,7 +147,7 @@ fun XvoxShellTopHeader(
             // rather than a white/black page-background strip.
             .background(
                 if (hasCustomHeader) Color.Transparent
-                else colors.cardElevated.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f))
+                else colors.cardElevated.copy(alpha = headerSurfaceAlpha)
             )
     ) {
         if (hasCustomHeader) {
@@ -213,7 +218,8 @@ fun XvoxShellTopHeader(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(colors.card.copy(alpha = .46f))
+                                .xvoxGlassReflection(shape = CircleShape, radius = 16)
+                                .background(colors.card.copy(alpha = actionSurfaceAlpha))
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
                         ) {
@@ -231,7 +237,8 @@ fun XvoxShellTopHeader(
                                 .height(42.dp)
                                 .width(actionPillWidth)
                                 .clip(actionShape)
-                                .background(colors.card.copy(alpha = .46f))
+                                .xvoxGlassReflection(shape = actionShape, radius = 18)
+                                .background(colors.card.copy(alpha = actionSurfaceAlpha))
                         ) {
                             Row(
                                 modifier = Modifier

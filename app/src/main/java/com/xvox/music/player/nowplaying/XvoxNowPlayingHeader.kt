@@ -125,6 +125,17 @@ fun XvoxNowPlayingHeader(
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
+                // The header retains its existing fixed height/layout; this concise instruction
+                // lives under the title rather than opening a second preview/editor screen.
+                Text(
+                    text = "Bottom controls & cover size",
+                    color = colors.secondaryText.copy(alpha = .86f),
+                    fontSize = 8.5.sp,
+                    lineHeight = 9.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
             } else {
                 Text(
                     text = sourceTitle,

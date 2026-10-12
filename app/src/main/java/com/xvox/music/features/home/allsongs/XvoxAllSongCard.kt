@@ -21,7 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.LocalXvoxExperimentalAppearance
+import com.xvox.music.core.design.theme.XvoxExperimentalAppearance
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.xvoxGlassReflection
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -40,17 +43,23 @@ fun XvoxAllSongCard(
     dense: Boolean = false
 ) {
     val colors = XvoxTheme.colors
+    val liveBlur = LocalXvoxExperimentalAppearance.current == XvoxExperimentalAppearance.BLUR
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
     // The 3dp inner gutter keeps the cover flush with the card's own corner language.
     val artworkShape = RoundedCornerShape(8.dp)
+    val cardSurface = if (liveBlur) colors.card.copy(alpha = .30f) else cardColor
 
     Column(
         modifier = modifier
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f, hapticOnTap = false)
             .clip(cardShape)
-            .background(cardColor)
-            .border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
+            .xvoxGlassReflection(shape = cardShape, radius = 18)
+            .background(cardSurface)
+            .then(
+                if (liveBlur) Modifier
+                else Modifier.border(width = 0.7.dp, color = colors.cardBorder, shape = cardShape)
+            )
             .padding(3.dp)
     ) {
         Box(

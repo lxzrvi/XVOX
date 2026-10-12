@@ -75,6 +75,9 @@ fun XvoxMiniPlayerCard(
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
     val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
+    // In Blur, retain the same shape/setting but reveal the actively moving captured backdrop
+    // instead of covering it with an opaque theme/red-tinted Mini Player material.
+    val liveMiniAlpha = miniAlpha * if (blurAppearance) .42f else 1f
     val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f).dp
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
@@ -101,7 +104,7 @@ fun XvoxMiniPlayerCard(
             .height(56.dp)
             .clip(cardShape)
             .xvoxGlassReflection(shape = cardShape, radius = 18, applyInDefault = true)
-            .background(colors.background.copy(alpha = miniAlpha))
+            .background(colors.background.copy(alpha = liveMiniAlpha))
             // Blur deliberately has no synthetic edge; default chrome retains its saved border.
             .then(
                 if (blurAppearance) Modifier else Modifier.border(
@@ -130,7 +133,7 @@ fun XvoxMiniPlayerCard(
             }
     ) {
         if (isFullCover) {
-            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
+            val alphaFraction = liveMiniAlpha
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 requestSize = 512,

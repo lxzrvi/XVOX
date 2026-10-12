@@ -37,9 +37,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 // All geometry is expressed in density-independent canvas units and converted at draw time.
-private const val StartupStrokeWidth = 3f
-// The loader now begins directly with a complete ring; there is no opening dot rail.
-private const val StartupRingRadius = 20f
+private const val StartupStrokeWidth = 3.2f
+// The loader begins directly with a complete premium ring; no opening/progress dots are drawn.
+private const val StartupRingRadius = 21f
 private const val StartupBarLength = 210f
 private val StartupPi = PI.toFloat()
 private val StartupRingStart = -StartupPi / 5f
@@ -100,21 +100,18 @@ private fun DrawScope.startupLine(
     )
 }
 
-private fun DrawScope.startupDot(
-    x: Float,
-    y: Float,
-    color: Color,
-    radius: Float = StartupStrokeWidth / 2f
-) {
-    val scale = density
-    drawCircle(color = color, radius = radius * scale, center = Offset(x * scale, y * scale))
-}
-
 /** The accent arc makes two full clockwise circuits around the ring. */
 private fun DrawScope.drawStartupSpin(progress: Float, palette: StartupPalette) {
     val scale = density
     val rotation = 4f * StartupPi * startupEase(progress)
     val stroke = Stroke(StartupStrokeWidth * scale, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    // A soft outer halo gives the first-frame ring depth without ever reverting to dots.
+    drawCircle(
+        color = palette.dot.copy(alpha = palette.dot.alpha * .28f),
+        radius = (StartupRingRadius + 4f) * scale,
+        center = Offset.Zero,
+        style = Stroke(1f * scale, cap = StrokeCap.Round)
+    )
     drawCircle(
         color = palette.dot,
         radius = StartupRingRadius * scale,
@@ -149,10 +146,7 @@ private fun DrawScope.drawStartupUnroll(progress: Float, palette: StartupPalette
 
     startupLine(startupPoints(100) { point(it) }, palette.dot)
     val accentLength = .2f * (1f - startupEase(progress))
-    if (accentLength < .004f) {
-        val start = point(0f)
-        startupDot(start.x, start.y, palette.accent)
-    } else {
+    if (accentLength >= .004f) {
         startupLine(startupPoints(24) { step -> point(step * accentLength) }, palette.accent)
     }
 }
@@ -165,9 +159,7 @@ private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, pal
     )
     val fill = if (complete) 1f else startupEase(startupClamp01(progress))
     val endX = -StartupBarLength / 2f + fill * StartupBarLength
-    if (endX + StartupBarLength / 2f < .5f) {
-        startupDot(-StartupBarLength / 2f, 0f, palette.accent)
-    } else {
+    if (endX + StartupBarLength / 2f >= .5f) {
         startupLine(
             points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(endX, 0f)),
             color = palette.accent
