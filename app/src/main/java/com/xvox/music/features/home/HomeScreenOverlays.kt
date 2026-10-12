@@ -17,16 +17,22 @@ fun showCreatePlaylistOverlay(
     overlays: XvoxOverlayController,
     viewModel: HomeViewModel,
     songs: List<Song>,
-    initialSong: Song? = null
+    initialSong: Song? = null,
+    initialSongIds: Set<Long> = emptySet(),
+    onCreated: (() -> Unit)? = null
 ) {
     overlays.showBox("Create playlist") {
         CreatePlaylistBox(
             songs = songs,
             initialSong = initialSong,
+            initialSongIds = initialSongIds,
             onCreate = { name, ids ->
                 viewModel.createPlaylist(name, ids) { playlist ->
                     overlays.hideBox()
                     if (playlist != null) {
+                        // The preferences flow immediately feeds Home's reactive Playlist section;
+                        // clear any source selection only after creation actually succeeds.
+                        onCreated?.invoke()
                         overlays.showP("Playlist created")
                     }
                 }

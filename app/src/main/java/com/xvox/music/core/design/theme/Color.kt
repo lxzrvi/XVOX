@@ -59,7 +59,16 @@ data class XvoxPalette(
         val background = when (backgroundName) {
             "Midnight" -> if (light) Color(0xFFE9EDF7) else Color(0xFF070B16)
             "Warm" -> if (light) Color(0xFFF6F0E6) else Color(0xFF16130E)
-            else -> this.background
+            else -> {
+                // Appearance stores a direct #RRGGBB/#AARRGGBB value for the color-wheel
+                // choice. Invalid/legacy labels safely preserve the active theme background.
+                if (backgroundName.startsWith("#")) {
+                    runCatching { Color(android.graphics.Color.parseColor(backgroundName)) }
+                        .getOrElse { this.background }
+                } else {
+                    this.background
+                }
+            }
         }
         val keep = (1f - transparency.coerceIn(0f, 0.6f))
         return this.copy(

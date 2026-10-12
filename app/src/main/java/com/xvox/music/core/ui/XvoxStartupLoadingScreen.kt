@@ -54,9 +54,9 @@ private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also
 }
 private val StartupTotalDuration = StartupPhaseBounds.last()
 private const val StartupReducedMotionDuration = 2600f
-// The loader must never hold a fully prepared Home hostage to a decorative timeline.
-private const val StartupMinimumVisibleDuration = 80f
-private const val StartupReducedMotionMinimumVisibleDuration = 0f
+// Home/media work begins behind this complete ring-to-bar sequence. The sequence itself is the
+// visible startup contract: it is never cut short by a fast Home bootstrap, and it never waits
+// after the bar has completed for slow media/artwork work.
 
 private data class StartupPalette(
     val dot: Color,
@@ -194,26 +194,30 @@ fun XvoxStartupLoadingScreen(
     var time by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(reducedMotion) {
-        val startNanos = withFrameNanos { it }
+        // Do not let preference/setup work consume the animation clock. Home and playback begin
+        // together with this timeline, so even a slow first preference read still shows the full
+        // ring → rail → fill treatment rather than flashing straight to Home.
+        var sequenceStartNanos: Long? = null
         var finished = false
 
         while (!finished) {
             withFrameNanos { nowNanos ->
-                val elapsedMs = (nowNanos - startNanos) / 1_000_000f
-                // Decorative motion is allowed to continue while bootstrap work is pending, but
-                // it is never allowed to delay a ready shell. This removes the old apparent
-                // startup freeze caused by waiting for the entire 5.8-second art sequence.
-                time = if (reducedMotion) {
-                    elapsedMs.coerceAtMost(StartupReducedMotionDuration)
+                if (!latestReadyToEnter) {
+                    sequenceStartNanos = null
+                    time = 0f
                 } else {
-                    elapsedMs.coerceAtMost(StartupTotalDuration)
+                    val startNanos = sequenceStartNanos ?: nowNanos.also { sequenceStartNanos = it }
+                    val elapsedMs = (nowNanos - startNanos) / 1_000_000f
+                    val sequenceDuration = if (reducedMotion) {
+                        StartupReducedMotionDuration
+                    } else {
+                        StartupTotalDuration
+                    }
+                    time = elapsedMs.coerceAtMost(sequenceDuration)
+                    // The loader owns a finite, fluid visual sequence. Background Home work has
+                    // already started, but cannot prolong or stall the finished rail.
+                    if (elapsedMs >= sequenceDuration) finished = true
                 }
-                val minimumVisible = if (reducedMotion) {
-                    StartupReducedMotionMinimumVisibleDuration
-                } else {
-                    StartupMinimumVisibleDuration
-                }
-                if (latestReadyToEnter && elapsedMs >= minimumVisible) finished = true
             }
         }
         latestSequenceComplete()

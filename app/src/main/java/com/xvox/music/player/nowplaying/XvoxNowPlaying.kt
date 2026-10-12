@@ -181,13 +181,18 @@ fun XvoxNowPlaying(
     val screenHeight = with(density) {
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
+    // Experimental settings can place the full player farther below the physical bottom before
+    // Mini Player return. Zero retains the normal exact-edge handoff.
+    val belowBottomY = screenHeight + with(density) {
+        chrome.nowPlayingExitOvershootDp.coerceIn(0f, 220f).dp.toPx()
+    }
 
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isCompact = (settingsState.nowPlayingStyle == "compact" || settingsState.nowPlayingStyle == "immersive") && !isLandscape
 
     // These are intentionally composition-local, not saveable: every prepared handoff must begin
     // below the viewport rather than restoring a prior open player's settled position.
-    var screenY by remember { mutableFloatStateOf(screenHeight) }
+    var screenY by remember { mutableFloatStateOf(belowBottomY) }
     var entered by remember { mutableStateOf(false) }
     var internalDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
@@ -253,6 +258,11 @@ fun XvoxNowPlaying(
     }
     var previewSongReference by remember { mutableStateOf(queue.getOrNull(currentIndex)) }
     var previewGestureActive by remember { mutableStateOf(false) }
+    // The backdrop follows the pager's actual outgoing/incoming covers, not merely the audible
+    // song. That keeps Cover blur, palette and foreground artwork on the exact same timeline.
+    var backdropArtwork by remember { mutableStateOf(song.artworkUri) }
+    var backdropIncomingArtwork by remember { mutableStateOf<android.net.Uri?>(null) }
+    var backdropArtworkFraction by remember { mutableFloatStateOf(0f) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
@@ -276,7 +286,25 @@ fun XvoxNowPlaying(
         val baseIsAudible = base.xvoxArtworkPaletteKey() == song.xvoxArtworkPaletteKey()
         val isActivePagerTravel = fraction > .0001f
         if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
-            paletteState.blend(base, adjacent, fraction)
+            val safeFraction = fraction.coerceIn(0f, 1f)
+            paletteState.blend(base, adjacent, safeFraction)
+            backdropArtwork = base.artworkUri
+            backdropIncomingArtwork = adjacent?.artworkUri
+            backdropArtworkFraction = safeFraction
+        }
+    }
+
+    // Lyrics replaces the pager. When it is visible, update its matching local backdrop from the
+    // audible cover and let the backdrop crossfade the two images rather than retaining a stale
+    // preview card behind the orb/aurora canvas.
+    LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing) {
+        if (isLyricsShowing) {
+            backdropArtwork = song.artworkUri
+            backdropIncomingArtwork = null
+            backdropArtworkFraction = 0f
+            // There is no pager underneath lyrics to emit palette frames. Resolve the same cover
+            // directly; XvoxArtworkLyrics animates this live colour into its orb/aurora canvas.
+            paletteState.show(song)
         }
     }
 
@@ -290,7 +318,10 @@ fun XvoxNowPlaying(
             val animation = Animatable(start)
             animation.animateTo(
                 target,
-                XvoxPlayerTransitionMotion.nowPlayingSpec()
+                XvoxPlayerTransitionMotion.nowPlayingSpec(
+                    chrome.nowPlayingMotionDuration,
+                    chrome.nowPlayingMotionEase
+                )
             ) {
                 screenY = value
             }
@@ -300,11 +331,11 @@ fun XvoxNowPlaying(
         }
     }
 
-    LaunchedEffect(screenHeight, entranceEnabled) {
+    LaunchedEffect(screenHeight, belowBottomY, entranceEnabled) {
         if (!entered && screenHeight > 0f) {
-            // Precomposition lays the whole player out just below the visible boundary. The
-            // entrance itself is deliberately held until the outgoing Mini Player is gone.
-            screenY = screenHeight
+            // Precomposition lays the whole player out below the selected physical handoff point.
+            // Its entrance remains held until the outgoing Mini Player has reached its own point.
+            screenY = belowBottomY
             if (entranceEnabled) {
                 entered = true
                 animateScreen(target = 0f)
@@ -319,7 +350,7 @@ fun XvoxNowPlaying(
         previewCommitJob?.cancel()
         previewCommitJob = null
         onDismissStart()
-        animateScreen(target = screenHeight) {
+        animateScreen(target = belowBottomY) {
             // This is the first frame after the full player has physically cleared the bottom.
             // onClose mounts the Mini Player immediately; there is no post-animation delay.
             onClose()
@@ -594,7 +625,9 @@ fun XvoxNowPlaying(
     ) {
         XvoxNowPlayingBackdrop(
             dominant = paletteState.color,
-            artwork = song.artworkUri,
+            artwork = backdropArtwork,
+            incomingArtwork = backdropIncomingArtwork,
+            artworkTransitionFraction = backdropArtworkFraction,
             style = settingsState.nowPlayingBackgroundStyle,
             coverBlur = settingsState.nowPlayingCoverBlur,
             isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
@@ -1288,8 +1321,10 @@ fun XvoxNowPlaying(
                 NowPlayingOptionsBox(
                     backgroundStyle = settingsState.nowPlayingBackgroundStyle,
                     coverBlur = settingsState.nowPlayingCoverBlur,
+                    cardTransparency = settingsState.cardTransparency,
                     onBackgroundStyleChange = settingsViewModel::setNowPlayingBackgroundStyle,
                     onCoverBlurChange = settingsViewModel::setNowPlayingCoverBlur,
+                    onCardTransparencyChange = settingsViewModel::setCardTransparency,
                     onDismiss = { activeSettingsBox = null }
                 )
             } else if (activeSettingsBox != "Customize") {

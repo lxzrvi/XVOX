@@ -98,7 +98,7 @@ fun XvoxMiniPlayerCard(
             .clip(cardShape)
             .background(colors.background.copy(alpha = miniAlpha))
             .border(
-                .8.dp,
+                chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
                 miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha),
                 cardShape
             )

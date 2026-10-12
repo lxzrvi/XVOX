@@ -95,7 +95,7 @@ fun XvoxMiniPlayer(
     // moves the bottom edge past the screen and leaves most of the 56dp Mini Player visible.
     // Using the top clears the whole card under every custom placement, IME lift and nav inset.
     val exitDistance = with(density) {
-        val safetyClearance = 12.dp.toPx()
+        val safetyClearance = chrome.miniExitOvershootDp.coerceIn(0f, 180f).dp.toPx()
         val minimumCardTravel = 76.dp.toPx()
         val rootHeight = rootView.height.toFloat()
         if (cardTopInRootPx.isFinite() && rootHeight > 0f) {
@@ -125,12 +125,15 @@ fun XvoxMiniPlayer(
     }
     var transitionDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(riseKey, entranceEnabled) {
+    LaunchedEffect(riseKey, entranceEnabled, chrome.miniMotionDuration, chrome.miniMotionEase, chrome.miniExitOvershootDp) {
         if (entranceEnabled) {
             // A precomposed card is released only on the terminal Now Playing frame. Reset its
             // outgoing guard now so its next gesture can begin another sequential handoff.
             exiting = false
-            y.animateTo(0f, XvoxMiniPlayerMotion.handoffSpec())
+            y.animateTo(
+                0f,
+                XvoxMiniPlayerMotion.handoffSpec(chrome.miniMotionDuration, chrome.miniMotionEase)
+            )
         } else {
             // Keep the fully measured/composed card below the boundary without drawing it.
             y.snapTo(exitDistance)
@@ -174,12 +177,20 @@ fun XvoxMiniPlayer(
             dragX = 0f
             y.snapTo(currentY.coerceIn(0f, exitDistance))
             dragY = 0f
-            y.animateTo(exitDistance, XvoxMiniPlayerMotion.handoffSpec())
+            y.animateTo(
+                exitDistance,
+                XvoxMiniPlayerMotion.handoffSpec(chrome.miniMotionDuration, chrome.miniMotionEase)
+            )
 
             if (stop) {
                 stopAndDismiss()
             } else if (exiting) {
-                openPlayer()
+                // Experimental dwell is intentionally after the physical card clears its chosen
+                // below-edge point. Avoid even a coroutine yield at zero so the default handoff
+                // remains the exact terminal Mini Player frame.
+                val handoffDelay = chrome.miniToNowPlayingDelayMillis.coerceIn(0, 1200)
+                if (handoffDelay > 0) delay(handoffDelay.toLong())
+                if (exiting) openPlayer()
             }
         }
     }

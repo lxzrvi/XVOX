@@ -225,10 +225,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         com.xvox.music.core.design.theme.XvoxAccentPreview.publish(color)
         com.xvox.music.data.preferences.PreferenceWriteQueue.submit("accent") { prefs.setAccentColor(color) }
     }
-    fun setBackgroundName(name: String) = viewModelScope.launch { prefs.setThemeBackground(name) }
+    fun setBackgroundName(name: String) {
+        _state.update { it.copy(backgroundName = name) }
+        com.xvox.music.core.design.theme.XvoxBackgroundPreview.publish(name)
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("themeBackground") {
+            prefs.setThemeBackground(name)
+        }
+    }
     fun setBackgroundImage(uri: String?) = viewModelScope.launch { prefs.setThemeBackgroundImage(uri) }
     fun setHideStatusBar(hide: Boolean) = viewModelScope.launch { prefs.setHideStatusBar(hide) }
-    fun setCardTransparency(value: Float) = viewModelScope.launch { prefs.setCardTransparency(value) }
+    fun setCardTransparency(value: Float) {
+        val next = value.coerceIn(0f, .6f)
+        _state.update { it.copy(cardTransparency = next) }
+        com.xvox.music.core.design.theme.XvoxCardTransparencyPreview.publish(next)
+        com.xvox.music.data.preferences.PreferenceWriteQueue.submit("cardTransparency") {
+            prefs.setCardTransparency(next)
+        }
+    }
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setFontFamily(key: String) = viewModelScope.launch { prefs.setFontFamily(key) }
     fun setDisplaySize(value: String) = viewModelScope.launch { prefs.setDisplaySize(value) }

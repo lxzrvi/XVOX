@@ -231,12 +231,14 @@ fun ProfileEditorBox(
             edgeToEdge = true
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         // The sheet viewport itself is edge-to-edge for avatar choices. All form controls retain
         // their own readable 16dp inset rather than relying on a negative child padding hack.
         Column(
             modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            // Keep the controls below the editor's slider compact enough for the fixed IME
+            // footer without turning the form into a dense wall.
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Username", color = colors.secondaryText, fontSize = 11.sp)
@@ -357,7 +359,7 @@ fun ProfileEditorBox(
         } else {
             1f
         }
-        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -389,7 +391,7 @@ fun ProfileEditorBox(
             )
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(1.dp))
         }
     }
 }

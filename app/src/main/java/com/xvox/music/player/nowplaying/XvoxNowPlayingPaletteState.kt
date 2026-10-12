@@ -152,8 +152,17 @@ fun rememberXvoxNowPlayingPalette(
         XvoxNowPlayingPaletteState(loader, initialColor)
     }
 
+    var hasShownInitialPalette by remember { mutableStateOf(false) }
     LaunchedEffect(song.xvoxArtworkPaletteKey()) {
-        state.show(song)
+        if (!hasShownInitialPalette) {
+            // Establish the first visible player canvas. Subsequent track changes are driven by
+            // the pager's per-frame blend so background and cover move together instead of the
+            // palette jumping ahead when natural playback advances.
+            hasShownInitialPalette = true
+            state.show(song)
+        } else {
+            state.preload(song)
+        }
     }
 
     LaunchedEffect(queue, currentIndex) {

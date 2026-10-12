@@ -310,9 +310,7 @@ fun XvoxSheet(
             )
 
             BoxWithConstraints(
-                modifier = Modifier
-                    .matchParentSize()
-                    .imePadding(),
+                modifier = Modifier.matchParentSize(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 val statusTopPx = WindowInsets.statusBars.getTop(density)
@@ -536,7 +534,9 @@ fun XvoxSheet(
                                     // already moved; otherwise this is the final guarantee that
                                     // Okay / Cancel / Reset stay above an opened keyboard.
                                     .imePadding()
-                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                                    // Keep transactional buttons close to the body while still
+                                    // lifting the whole footer above the keyboard.
+                                    .padding(horizontal = 16.dp, vertical = 7.dp)
                             ) {
                                 footer()
                             }

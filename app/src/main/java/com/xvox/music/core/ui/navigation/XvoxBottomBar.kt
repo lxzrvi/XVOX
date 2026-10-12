@@ -68,6 +68,10 @@ fun XvoxBottomBar(
     val navEdge = navEdgeBase.copy(
         alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
     )
+    val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
+    val pillEdge = pillEdgeBase.copy(
+        alpha = pillEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
+    )
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
         // The bar itself follows the app background; this is the one quietly elevated element
         // that keeps the active destination legible in either theme.
@@ -111,7 +115,7 @@ fun XvoxBottomBar(
                 .size(navBarWidth, navBarHeight)
                 .clip(parentShape)
                 .border(
-                    width = XvoxNavigationGeometry.barBorderWidth,
+                    width = chrome.navBorderWidth.coerceIn(0f, 4f).dp,
                     color = navEdge,
                     shape = parentShape
                 )
@@ -152,8 +156,8 @@ fun XvoxBottomBar(
                 .clip(selectorShape)
                 .background(pillFill)
                 .border(
-                    width = XvoxNavigationGeometry.selectorBorderWidth,
-                    color = navEdge,
+                    width = chrome.pillBorderWidth.coerceIn(0f, 4f).dp,
+                    color = pillEdge,
                     shape = selectorShape
                 )
         )

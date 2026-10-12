@@ -177,6 +177,29 @@ fun SettingsScreen(
         }
     }
 
+    fun openCustomBackgroundColorPicker() {
+        overlays.showBox("App Background Color") {
+            val backgroundScroll = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(backgroundScroll)
+                    .xvoxBoxScroll(backgroundScroll)
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ColorPickerRow(
+                    label = "Pick App Background Color",
+                    hex = state.backgroundName.takeIf { it.startsWith("#") } ?: "#0A0A0A",
+                    onColorChange = settingsViewModel::setBackgroundName,
+                    subtitle = "Applies behind Home, sheets, and the Header",
+                    showPreview = false,
+                    initiallyExpanded = true
+                )
+            }
+        }
+    }
+
     fun openFontPicker() {
         overlays.showBox("Fonts") {
             XvoxFontPickerContent(
@@ -250,7 +273,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AppearanceSectionCard(
-                            state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
+                            state, settingsViewModel, ::openCustomColorPicker, ::openCustomBackgroundColorPicker, ::openFontPicker,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         WidgetSectionCard(
@@ -277,7 +300,7 @@ fun SettingsScreen(
                 // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
+                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openCustomBackgroundColorPicker, ::openFontPicker)
                 }
                 item(key = "section_widget") {
                     WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
@@ -300,6 +323,7 @@ private fun AppearanceSectionCard(
     state: SettingsState,
     viewModel: SettingsViewModel,
     onOpenColorWheel: () -> Unit,
+    onOpenBackgroundColorWheel: () -> Unit,
     onOpenFontPicker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -317,6 +341,8 @@ private fun AppearanceSectionCard(
         // the segmented control visually unselected.
         else -> "custom"
     }
+    val backgroundOptions = listOf("Default" to "Default", "custom" to "Custom")
+    val selectedBackground = if (state.backgroundName.startsWith("#")) "custom" else "Default"
 
     // M is the fresh-install default; each other label maps to its explicit persisted scale.
     val scaleOptions = listOf(
@@ -344,6 +370,17 @@ private fun AppearanceSectionCard(
                     onSelect = { key ->
                         if (key == "custom") onOpenColorWheel() else viewModel.setAccentColor(key)
                     }
+                )
+            }
+
+            SettingsField("App Background") {
+                XvoxSegmentedPill(
+                    options = backgroundOptions,
+                    selectedKey = selectedBackground,
+                    onSelect = { key ->
+                        if (key == "custom") onOpenBackgroundColorWheel() else viewModel.setBackgroundName("Default")
+                    },
+                    compact = true
                 )
             }
 
@@ -616,19 +653,21 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
                     Triple(200, "₹200", "Full Pack 📦"),
                     Triple(500, "₹500", "Treat 🥢")
                 )
+                val supportShape = RoundedCornerShape(14.dp)
+                val supportRed = Color(0xFFD9454E)
                 tiers.forEach { (amount, price, label) ->
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(CircleShape)
-                            .background(colors.cardElevated)
-                            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), CircleShape)
+                            .clip(supportShape)
+                            .background(supportRed)
+                            .border(.8.dp, Color(0xFFFFA0A5).copy(alpha = .72f), supportShape)
                             .xvoxPressScale { initiatePayment(amount) }
-                            .padding(vertical = 8.dp, horizontal = 2.dp),
+                            .padding(vertical = 9.dp, horizontal = 2.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(price, color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(label, color = colors.mutedText, fontSize = 9.5.sp, maxLines = 1)
+                        Text(price, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 9.5.sp, maxLines = 1)
                     }
                 }
             }

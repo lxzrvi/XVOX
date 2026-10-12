@@ -80,8 +80,10 @@ fun XvoxAppRoot(
     val accentStr by prefs.accentColor.collectAsState(initial = "Red")
     val accentPreview = com.xvox.music.core.design.theme.XvoxAccentPreview.value
     val backgroundStr by prefs.themeBackground.collectAsState(initial = "Default")
+    val backgroundPreview = com.xvox.music.core.design.theme.XvoxBackgroundPreview.value
     val backgroundImage by prefs.themeBackgroundImage.collectAsState(initial = "")
     val cardTransparency by prefs.cardTransparency.collectAsState(initial = 0f)
+    val cardTransparencyPreview = com.xvox.music.core.design.theme.XvoxCardTransparencyPreview.value
     val fontScale by prefs.fontSizeScale.collectAsState(initial = .90f)
     val fontFamilyKey by prefs.fontFamily.collectAsState(initial = "inter")
     val chrome by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
@@ -109,7 +111,19 @@ fun XvoxAppRoot(
             com.xvox.music.core.design.theme.XvoxAccentPreview.clearWhenPersisted(accentStr)
         }
     }
+    LaunchedEffect(cardTransparency, cardTransparencyPreview) {
+        if (cardTransparencyPreview != null) {
+            com.xvox.music.core.design.theme.XvoxCardTransparencyPreview.clearWhenPersisted(cardTransparency)
+        }
+    }
+    LaunchedEffect(backgroundStr, backgroundPreview) {
+        if (backgroundPreview != null && backgroundPreview == backgroundStr) {
+            com.xvox.music.core.design.theme.XvoxBackgroundPreview.clearWhenPersisted(backgroundStr)
+        }
+    }
     val effectiveAccent = accentPreview ?: accentStr
+    val effectiveBackground = backgroundPreview ?: backgroundStr
+    val effectiveCardTransparency = cardTransparencyPreview ?: cardTransparency
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
         "Dark" -> XvoxThemeMode.DARK
@@ -128,8 +142,8 @@ fun XvoxAppRoot(
     XvoxTheme(
         mode = mode,
         accent = effectiveAccent,
-        background = backgroundStr,
-        cardTransparency = cardTransparency,
+        background = effectiveBackground,
+        cardTransparency = effectiveCardTransparency,
         cardBorder = effectiveChrome.cardBorder,
         cardBorderAlpha = effectiveChrome.cardBorderAlpha,
         uiFontFamily = selectedUiFont
@@ -171,9 +185,9 @@ fun XvoxAppRoot(
                         exit = fadeOut(tween(260))
                     ) {
                         XvoxStartupLoadingScreen(
-                            // The loader's release is a lightweight bootstrap decision, not a
-                            // proxy for Home/media readiness. Those jobs begin after this surface
-                            // has yielded, so they cannot stall its ring-to-bar animation.
+                            // The loader release is a lightweight bootstrap decision, not a
+                            // proxy for Home/media readiness. Home/media jobs have already begun
+                            // alongside this sequence and cannot stall its ring-to-bar frames.
                             readyToEnter = state == AppUiState.Preparing && minimumReady,
                             progress = startupProgress,
                             onSequenceComplete = {

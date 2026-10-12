@@ -25,13 +25,20 @@ data class XvoxChromeStyle(
     val miniBgAlpha: Float = .94f,
     val miniBorder: String = "",
     val miniBorderAlpha: Float = 0.62f,
+    /** Experimental thickness control; 0 keeps a deliberately borderless Mini Player. */
+    val miniBorderWidth: Float = .8f,
     // Floating navigation bar.
     val navBgAlpha: Float = .94f,
     val navBorder: String = "",
     val navBorderAlpha: Float = 0.62f,
+    /** Experimental thickness control; 0 keeps a deliberately borderless navbar. */
+    val navBorderWidth: Float = .8f,
     // Navigation selector "pill".
     val pillColor: String = "",
     val pillAlpha: Float = 1f,
+    /** Optional selector outline separate from the navbar edge. */
+    val pillBorder: String = "",
+    val pillBorderWidth: Float = .8f,
     // Colour of the icon sitting inside the pill ("" = the theme accent).
     val pillIconColor: String = "",
     // Cards everywhere (border only; the card fill transparency lives in Theme's card alpha).
@@ -65,6 +72,18 @@ data class XvoxChromeStyle(
     val miniPlayerTransitionDuration: Int = 300,
     /** Default or the locked non-expanding Scale Mini Player animation. */
     val miniPlayerTransitionStyle: String = "default",
+    /** Experimental below-edge distance for the outgoing Mini Player. */
+    val miniExitOvershootDp: Float = 12f,
+    /** Experimental below-edge distance for the outgoing Now Playing surface. */
+    val nowPlayingExitOvershootDp: Float = 0f,
+    /** Intentional dwell after Mini Player clears its point and before Now Playing opens. */
+    val miniToNowPlayingDelayMillis: Int = 0,
+    /** Independent live experimental speeds for Mini Player and Now Playing travel. */
+    val miniMotionDuration: Int = 260,
+    val nowPlayingMotionDuration: Int = 300,
+    /** 0% is a gentle ease-in; 100% is a faster front-loaded handoff curve. */
+    val miniMotionEase: Float = .55f,
+    val nowPlayingMotionEase: Float = .55f,
     /** Now Playing seek rail: classic, pill, android_wave, pulse, or aurora. */
     val nowPlayingSeekStyle: String = "classic",
     /** User-selectable Now Playing lanes. Play itself remains physically centered by design. */
@@ -142,7 +161,11 @@ data class XvoxChromeStyle(
         nowPlayingBrandOffsetX, nowPlayingBrandOffsetY,
         nowPlayingHiddenItems, nowPlayingItemScales, nowPlayingCoverScale,
         nowPlayingShuffleOffsetX, nowPlayingShuffleOffsetY,
-        nowPlayingRepeatOffsetX, nowPlayingRepeatOffsetY
+        nowPlayingRepeatOffsetX, nowPlayingRepeatOffsetY,
+        // Experimental chrome/motion values are appended to preserve every earlier record.
+        miniBorderWidth, navBorderWidth, pillBorder, pillBorderWidth,
+        miniExitOvershootDp, nowPlayingExitOvershootDp, miniToNowPlayingDelayMillis,
+        miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -181,6 +204,10 @@ data class XvoxChromeStyle(
                 parts.getOrNull(i)?.trim()?.toFloatOrNull()?.coerceIn(0f, 1f) ?: fallback
             fun number(i: Int, fallback: Float): Float =
                 parts.getOrNull(i)?.trim()?.toFloatOrNull() ?: fallback
+            fun borderWidth(i: Int, fallback: Float): Float = number(i, fallback).coerceIn(0f, 4f)
+            fun motionDuration(i: Int, fallback: Int): Int =
+                parts.getOrNull(i)?.trim()?.toIntOrNull()?.coerceIn(120, 900) ?: fallback
+            fun motionEase(i: Int, fallback: Float): Float = number(i, fallback).coerceIn(0f, 1f)
             // The full bottom-box editor uses wide, discrete safe slots (the top clusters can
             // legally exchange opposite sides), so persisted offsets need more than the former
             // tiny free-nudge range while remaining bounded against corrupt records.
@@ -239,6 +266,17 @@ data class XvoxChromeStyle(
                 navigationBarOffsetY = number(27, 0f).coerceIn(-260f, 260f),
                 miniPlayerTransitionDuration = 300,
                 miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.normalizedStyle(str(30)),
+                miniBorderWidth = borderWidth(65, .8f),
+                navBorderWidth = borderWidth(66, .8f),
+                pillBorder = str(67),
+                pillBorderWidth = borderWidth(68, .8f),
+                miniExitOvershootDp = number(69, 12f).coerceIn(0f, 180f),
+                nowPlayingExitOvershootDp = number(70, 0f).coerceIn(0f, 220f),
+                miniToNowPlayingDelayMillis = parts.getOrNull(71)?.trim()?.toIntOrNull()?.coerceIn(0, 1200) ?: 0,
+                miniMotionDuration = motionDuration(72, 260),
+                nowPlayingMotionDuration = motionDuration(73, 300),
+                miniMotionEase = motionEase(74, .55f),
+                nowPlayingMotionEase = motionEase(75, .55f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

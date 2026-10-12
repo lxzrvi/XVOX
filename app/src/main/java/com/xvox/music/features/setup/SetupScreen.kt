@@ -55,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlin.math.max
 
 @Composable
@@ -68,6 +69,7 @@ fun SetupScreen(
 
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
+    val overlays = LocalXvoxOverlayController.current
 
     var personalizationBottom by remember { mutableFloatStateOf(0f) }
     val imeBottom = WindowInsets.ime.getBottom(density).toFloat()
@@ -155,7 +157,7 @@ fun SetupScreen(
                     .offset(y = screenHeight * 0.13f - 32.dp),
                 color = colors.primaryText,
                 fontFamily = XvoxLogoFont,
-                fontSize = 37.sp,
+                fontSize = 31.sp,
                 textAlign = TextAlign.Center
             )
 
@@ -197,7 +199,9 @@ fun SetupScreen(
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
                     onDeleteCustom = viewModel::deleteCustomPfp,
-                    size = 76.dp
+                    // Keep the first-install avatar strip compact and safely inset from both
+                    // edges, so every circular choice remains fully visible.
+                    size = 60.dp
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -254,17 +258,30 @@ fun SetupScreen(
                     SetupCloseButton(onClick = { (context as? Activity)?.finish() })
 
                     Button(
-                        onClick = { viewModel.completeSetup(onComplete = onSetupComplete) },
-                        enabled = state.setupComplete,
+                        onClick = {
+                            if (state.setupComplete) {
+                                viewModel.completeSetup(onComplete = onSetupComplete)
+                            } else {
+                                val missing = buildList {
+                                    if (state.name.isBlank()) add("Enter name")
+                                    if (!state.audioGranted) add("Give music permission")
+                                    if (!state.notificationGranted) add("Give notification permission")
+                                }
+                                // The Start control stays actionable while incomplete, so its
+                                // pill explains exactly what still needs attention.
+                                overlays.showP(missing.joinToString(" • "))
+                            }
+                        },
+                        // Do not disable this visually: an incomplete Start press is useful
+                        // feedback, not a dead control.
+                        enabled = true,
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),
                         shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.primaryAccent,
-                            contentColor = colors.background,
-                            disabledContainerColor = colors.accentSoft,
-                            disabledContentColor = colors.mutedText
+                            containerColor = if (state.setupComplete) colors.primaryAccent else colors.cardElevated,
+                            contentColor = if (state.setupComplete) colors.background else colors.primaryText
                         )
                     ) {
                         Text(

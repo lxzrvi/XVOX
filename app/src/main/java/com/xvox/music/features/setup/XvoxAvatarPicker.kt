@@ -81,10 +81,10 @@ fun XvoxAvatarPicker(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            // Profile's sheet viewport is already edge-to-edge. Do not reintroduce an outer
-            // gutter here: both endpoint PFP choices must scroll all the way to their own edge.
-            start = 0.dp,
-            end = 0.dp,
+            // Setup uses a small real gutter so endpoint circles never look cut by the screen;
+            // Profile's edge-to-edge sheet intentionally retains its full-width carousel.
+            start = if (edgeToEdge) 0.dp else 10.dp,
+            end = if (edgeToEdge) 0.dp else 10.dp,
             top = 6.dp,
             bottom = 6.dp
         )

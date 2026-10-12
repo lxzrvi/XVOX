@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -22,13 +23,16 @@ import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 
 /**
- * Now Playing's ordinary adaptive canvas plus its optional local Cover background. Cover blur is
- * intentionally scoped to this one artwork image; it does not capture or blur the surrounding UI.
+ * Now Playing's adaptive canvas plus its optional local Cover background. The two artwork inputs
+ * are supplied by the pager, so foreground cover, blurred background, palette, and lyric canvas
+ * all travel on one live timeline. This is intentionally local to Now Playing—not a global blur.
  */
 @Composable
 fun XvoxNowPlayingBackdrop(
     dominant: Color,
     artwork: Uri?,
+    incomingArtwork: Uri? = null,
+    artworkTransitionFraction: Float = 0f,
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
     coverBlur: Float = 24f,
     isCoverTransitionInProgress: Boolean = false,
@@ -39,6 +43,8 @@ fun XvoxNowPlayingBackdrop(
 
     LaunchedEffect(target, isCoverTransitionInProgress) {
         if (isCoverTransitionInProgress) {
+            // Pager frames already provide a precise blend. Do not make the background trail the
+            // actual artwork while someone swipes.
             displayed.snapTo(target)
         } else {
             displayed.animateTo(
@@ -49,38 +55,71 @@ fun XvoxNowPlayingBackdrop(
     }
 
     val showCover = style == XvoxNowPlayingBackgroundStyles.COVER && artwork != null
+    val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
+    val pagerArtworkTransition = showCover && incomingArtwork != null &&
+        incomingArtwork != artwork && fraction > .0001f
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(displayed.value)
     ) {
         if (showCover) {
-            // The backdrop has its own artwork layer, so give it the same gentle cover-to-cover
-            // crossfade as the foreground artwork instead of letting Coil replace it abruptly.
-            // This remains local to Now Playing's Cover mode; it is not an app-wide blur surface.
-            Crossfade(
-                targetState = artwork,
-                animationSpec = tween(300, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
-                label = "nowPlayingCoverBackdropCrossfade"
-            ) { cover ->
-                AsyncImage(
-                    model = cover,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // Overscan prevents a blurred image from exposing hard edges at the canvas.
-                        .graphicsLayer { scaleX = 1.08f; scaleY = 1.08f }
-                        .blur(coverBlur.coerceIn(12f, 50f).dp)
-                )
+            if (pagerArtworkTransition) {
+                // During drag/tap/natural completion, blend the same two decoded-art identities
+                // the pager is showing. The outgoing layer stays visible while the next one is
+                // resolving, preventing a flat or abrupt Cover backdrop.
+                PremiumBlurredCover(artwork = artwork, blur = coverBlur, alpha = 1f - fraction)
+                PremiumBlurredCover(incomingArtwork, blur = coverBlur, alpha = fraction)
+            } else {
+                // Lyrics/direct navigation has no visible pager. Preserve a tasteful cover-to-
+                // cover fade for that path while normal pager movement uses the live layers above.
+                Crossfade(
+                    targetState = artwork,
+                    animationSpec = tween(300, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
+                    label = "nowPlayingCoverBackdropCrossfade"
+                ) { cover ->
+                    PremiumBlurredCover(cover, blur = coverBlur, alpha = 1f)
+                }
             }
-            // Keep text and controls readable over every album art palette without reverting to
-            // a global glass material or an opaque, unrelated background surface.
+            // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
+            // retaining actual cover color—not an opaque unrelated replacement surface.
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(XvoxTheme.colors.background.copy(alpha = .30f))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                XvoxTheme.colors.background.copy(alpha = .22f),
+                                dominant.copy(alpha = .12f),
+                                XvoxTheme.colors.background.copy(alpha = .42f)
+                            )
+                        )
+                    )
             )
         }
     }
+}
+
+@Composable
+private fun PremiumBlurredCover(
+    artwork: Uri?,
+    blur: Float,
+    alpha: Float
+) {
+    artwork ?: return
+    AsyncImage(
+        model = artwork,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxSize()
+            // Overscan eliminates exposed hard edges as the local blur samples its boundaries.
+            .graphicsLayer {
+                this.alpha = alpha.coerceIn(0f, 1f)
+                scaleX = 1.15f
+                scaleY = 1.15f
+            }
+            .blur(blur.coerceIn(12f, 50f).dp)
+    )
 }

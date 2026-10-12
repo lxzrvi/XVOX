@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -33,7 +34,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -72,7 +72,12 @@ fun HomeCollectionMultiSelectBar(
             .coerceIn(20f, 48f)
         ).dp
 
-    Popup(alignment = Alignment.CenterEnd) {
+    // Stay in Home's fixed full-screen Box. A window Popup remeasures/repositions around the
+    // rail while it enters, which can read as diagonal even with a horizontal transition.
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.CenterEnd
+    ) {
         AnimatedVisibility(
             visible = entered,
             enter = slideInHorizontally(

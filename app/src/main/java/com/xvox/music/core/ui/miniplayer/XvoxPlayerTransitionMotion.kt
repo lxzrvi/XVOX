@@ -20,10 +20,10 @@ data class XvoxPlayerTransitionLayer(
 )
 
 object XvoxPlayerTransitionMotion {
-    /** Product timing is fixed at 300 ms; the former slider and experimental timing range retired. */
+    /** Established default timing; Experimental controls retain this until deliberately changed. */
     const val Duration = 300
-    const val MinDuration = Duration
-    const val MaxDuration = Duration
+    const val MinDuration = 120
+    const val MaxDuration = 900
 
     const val DefaultStyle = "default"
     const val ScaleStyle = "scale"
@@ -33,10 +33,27 @@ object XvoxPlayerTransitionMotion {
     /** The full player uses one uniform 300 ms physical slide in both directions. */
     const val NowPlayingDuration = 300
 
-    // Both surfaces use one continuous ease-out rather than a mechanical linear descent. The
+    // Both surfaces use one continuous curve rather than a mechanical linear descent. The
     // terminal callback still happens on the very last frame, so easing introduces no gap.
     val easing: Easing = CubicBezierEasing(0.22f, 0f, 0f, 1f)
-    private val nowPlayingEasing: Easing = easing
+
+    /**
+     * Experimental curve dial shared by the Mini Player settings graph. Low values accelerate
+     * gently; high values put more travel near the first half without ever overshooting.
+     */
+    fun easingFor(control: Float): Easing {
+        val amount = control.coerceIn(0f, 1f)
+        // .55 is the shipped curve exactly (.22, 0, 0, 1), so opening this Experimental editor
+        // does not silently change an established handoff. The dial fans out on either side.
+        val softer = ((.55f - amount) / .55f).coerceIn(0f, 1f)
+        val quicker = ((amount - .55f) / .45f).coerceIn(0f, 1f)
+        return CubicBezierEasing(
+            .22f + .20f * softer - .16f * quicker,
+            0f,
+            .20f * softer,
+            1f
+        )
+    }
 
     /** Old Scale variants migrate to Scale; every other retired experimental variant becomes Default. */
     fun normalizedStyle(value: String): String = when {
@@ -44,25 +61,31 @@ object XvoxPlayerTransitionMotion {
         else -> DefaultStyle
     }
 
-    /** Existing persisted slider values remain readable, but rendering is intentionally fixed. */
-    fun durationFor(@Suppress("UNUSED_PARAMETER") value: Int): Int = Duration
+    /** Kept for older callers while live settings use the surface-specific values directly. */
+    fun durationFor(value: Int): Int = value.coerceIn(MinDuration, MaxDuration)
 
-    /** Once the Mini Player has fully crossed the bottom edge, Now Playing starts with no pause. */
+    /** Legacy callers retain the no-dwell handoff; the Experimental field supplies new delays. */
     fun handoffDelayFor(@Suppress("UNUSED_PARAMETER") durationMillis: Int): Long = 0L
 
-    fun spec(@Suppress("UNUSED_PARAMETER") durationMillis: Int = Duration): AnimationSpec<Float> = tween(
-        durationMillis = Duration,
-        easing = easing
+    fun spec(durationMillis: Int = Duration, easeControl: Float = .55f): AnimationSpec<Float> = tween(
+        durationMillis = durationMillis.coerceIn(MinDuration, MaxDuration),
+        easing = easingFor(easeControl)
     )
 
-    fun handoffSpec(): AnimationSpec<Float> = tween(
-        durationMillis = HandoffDuration,
-        easing = easing
+    fun handoffSpec(
+        durationMillis: Int = HandoffDuration,
+        easeControl: Float = .55f
+    ): AnimationSpec<Float> = tween(
+        durationMillis = durationMillis.coerceIn(120, 900),
+        easing = easingFor(easeControl)
     )
 
-    fun nowPlayingSpec(): AnimationSpec<Float> = tween(
-        durationMillis = NowPlayingDuration,
-        easing = nowPlayingEasing
+    fun nowPlayingSpec(
+        durationMillis: Int = NowPlayingDuration,
+        easeControl: Float = .55f
+    ): AnimationSpec<Float> = tween(
+        durationMillis = durationMillis.coerceIn(120, 900),
+        easing = easingFor(easeControl)
     )
 
     /**

@@ -30,8 +30,10 @@ import kotlin.math.roundToInt
 fun NowPlayingOptionsBox(
     backgroundStyle: String,
     coverBlur: Float,
+    cardTransparency: Float,
     onBackgroundStyleChange: (String) -> Unit,
     onCoverBlurChange: (Float) -> Unit,
+    onCardTransparencyChange: (Float) -> Unit,
     onDismiss: () -> Unit
 ) {
     XvoxBox(onDismiss = onDismiss, title = "Now Playing Background") {
@@ -52,6 +54,7 @@ fun NowPlayingOptionsBox(
             ) {
                 XvoxBackgroundChoice(
                     label = "Default",
+                    description = "XVOX canvas",
                     selected = backgroundStyle == XvoxNowPlayingBackgroundStyles.DEFAULT,
                     shape = shape,
                     modifier = Modifier.weight(1f),
@@ -59,6 +62,7 @@ fun NowPlayingOptionsBox(
                 )
                 XvoxBackgroundChoice(
                     label = "Cover",
+                    description = "Artwork canvas",
                     selected = backgroundStyle == XvoxNowPlayingBackgroundStyles.COVER,
                     shape = shape,
                     modifier = Modifier.weight(1f),
@@ -112,6 +116,42 @@ fun NowPlayingOptionsBox(
                     )
                 }
             }
+
+            // Card translucency belongs beside the player canvas choices: the result is visible
+            // immediately behind song cards without reintroducing any global blur machinery.
+            val safeCardTransparency = cardTransparency.coerceIn(0f, .6f)
+            val cardTransparencyPercent = (safeCardTransparency / .6f * 100f).roundToInt()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(colors.cardElevated.copy(alpha = .62f))
+                    .border(.8.dp, colors.cardBorder.copy(alpha = .82f), shape)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Song-card transparency",
+                        color = colors.primaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "$cardTransparencyPercent%",
+                        color = colors.secondaryText,
+                        fontSize = 11.sp
+                    )
+                }
+                XvoxThinAmountSlider(
+                    value = safeCardTransparency / .6f,
+                    onValueChange = { fraction ->
+                        onCardTransparencyChange((fraction.coerceIn(0f, 1f) * .6f))
+                    },
+                    defaultValue = 0f,
+                    contentDescription = "Song card transparency $cardTransparencyPercent percent"
+                )
+            }
         }
     }
 }
@@ -119,6 +159,7 @@ fun NowPlayingOptionsBox(
 @Composable
 private fun XvoxBackgroundChoice(
     label: String,
+    description: String,
     selected: Boolean,
     shape: RoundedCornerShape,
     modifier: Modifier = Modifier,
@@ -127,7 +168,7 @@ private fun XvoxBackgroundChoice(
     val colors = XvoxTheme.colors
     Box(
         modifier = modifier
-            .height(48.dp)
+            .height(58.dp)
             .clip(shape)
             .background(if (selected) colors.accentSoft else colors.cardElevated.copy(alpha = .58f))
             .border(
@@ -135,14 +176,23 @@ private fun XvoxBackgroundChoice(
                 if (selected) colors.primaryAccent else colors.cardBorder.copy(alpha = .84f),
                 shape
             )
-            .xvoxPressScale(onClick = onClick),
-        contentAlignment = Alignment.Center
+            .xvoxPressScale(onClick = onClick)
+            .padding(horizontal = 11.dp, vertical = 8.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = label,
-            color = if (selected) colors.primaryAccent else colors.primaryText,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = label,
+                color = if (selected) colors.primaryAccent else colors.primaryText,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            )
+            Text(
+                text = description,
+                color = if (selected) colors.primaryAccent.copy(alpha = .74f) else colors.mutedText,
+                fontSize = 9.5.sp,
+                maxLines = 1
+            )
+        }
     }
 }

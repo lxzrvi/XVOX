@@ -716,7 +716,13 @@ private fun SearchBarComponent(
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(colors.card)
+            // Light palettes need a visible field boundary rather than a white-on-white bar.
+            .background(if (colors.isLight) colors.cardElevated else colors.card)
+            .border(
+                1.dp,
+                if (colors.isLight) colors.primaryText.copy(alpha = .24f) else colors.cardBorder.copy(alpha = .9f),
+                RoundedCornerShape(24.dp)
+            )
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1147,21 +1153,24 @@ private fun SearchPlaylistCompactItem(
     onLongClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val cardShape = RoundedCornerShape(12.dp)
+    // Keep the artwork height derived from the card's 4dp perimeter inset instead of letting a
+    // fixed cover crowd the horizontal gap at different display densities.
     Row(
         modifier = Modifier
             .width(170.dp)
-            .height(58.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(64.dp)
+            .clip(cardShape)
             .background(colors.card)
-            .border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
+            .border(0.8.dp, colors.cardBorder, cardShape)
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
-            .padding(3.dp),
+            .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(9.dp))
                 .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {
@@ -1188,7 +1197,7 @@ private fun SearchPlaylistCompactItem(
             }
         }
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -1224,7 +1233,8 @@ private fun SearchSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp)
+            // Results keep a deliberate but minimal gutter instead of the former inset-card look.
+            .padding(horizontal = 5.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(cardColor)
             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))

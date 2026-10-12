@@ -130,6 +130,14 @@ fun XvoxNowPlayingArtworkPager(
     // Prevent a stale 300 ms release commit when the user begins a fresh fast swipe or a queue
     // reorder changes the occurrence layout beneath an existing preview.
     var swipeEpoch by remember { mutableIntStateOf(0) }
+    // A current index can change for two very different reasons: playback advanced to another
+    // occurrence (animate like Next), or the same audible occurrence moved after a reorder
+    // (snap to avoid inventing a false cover transition). Keep the prior token to tell them apart.
+    fun occurrenceAt(index: Int): String? = occurrenceIds.getOrNull(index)
+        ?: queue.getOrNull(index)?.xvoxArtworkPaletteKey()
+    var previousAudibleOccurrence by remember {
+        mutableStateOf(occurrenceAt(initialIdx))
+    }
 
     LaunchedEffect(queue, occurrenceIds) {
         swipeEpoch++
@@ -151,14 +159,17 @@ fun XvoxNowPlayingArtworkPager(
         userSwiped = false
         val targetPage = targetPreviewPage
         if (targetPage in queue.indices && targetPage != pager.currentPage) {
-            val isOccurrenceRemap = targetPage == currentIndex && !isUserDragging
-            if (forceCurrentIndex || isOccurrenceRemap) {
-                // A queue drag/shuffle remaps indices while keeping the same audible occurrence.
-                // Snap the retained pager to that occurrence; animating through neighbours would
-                // falsely update/flicker the Now Playing cover.
+            val targetOccurrence = occurrenceAt(targetPage)
+            val isSameAudibleOccurrenceRemap =
+                targetPage == currentIndex && targetOccurrence != null &&
+                    targetOccurrence == previousAudibleOccurrence && !isUserDragging
+            if (forceCurrentIndex || isSameAudibleOccurrenceRemap) {
+                // A queue drag/shuffle remaps the same audible occurrence. Snap the retained
+                // pager so a reindex cannot invent a false neighbouring-cover transition.
                 pager.scrollToPage(targetPage)
             } else {
-                // Manual previous/next and manual swipe previews retain their deliberate motion.
+                // Button navigation, a swipe preview, and a natural completion all move between
+                // distinct occurrences, so they share one deliberate cover/background motion.
                 pager.animateScrollToPage(
                     page = targetPage,
                     animationSpec = tween(
@@ -167,6 +178,12 @@ fun XvoxNowPlayingArtworkPager(
                     )
                 )
             }
+        }
+        // Preview state can lag one composition behind a playback index. Advance the remembered
+        // audible token only once this pager target has caught up, otherwise natural completion
+        // would be mistaken for a same-occurrence remap on the next frame.
+        if (targetPage == currentIndex) {
+            previousAudibleOccurrence = occurrenceAt(currentIndex)
         }
     }
 

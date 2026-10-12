@@ -230,7 +230,7 @@ fun XvoxMainShell(
                         profileDraft.customPfpUri != null)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     ProfileSheetFooterButton(
                         text = "Cancel",
@@ -302,7 +302,7 @@ fun XvoxMainShell(
             bottomAction = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     ProfileSheetFooterButton(
                         text = "Cancel",
@@ -316,14 +316,27 @@ fun XvoxMainShell(
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            // Only controls exposed by this compact editor reset. All changes
-                            // apply at the moment the control is touched, including this reset.
+                            // All visible controls are live, including the still-experimental
+                            // motion/chrome dials, so Reset restores a coherent baseline.
                             val reset = miniPlayerNavLive.copy(
                                 miniCoverStyle = "default",
                                 miniBgAlpha = .94f,
                                 navBgAlpha = .94f,
+                                miniBorder = "",
+                                miniBorderWidth = .8f,
+                                navBorder = "",
+                                navBorderWidth = .8f,
+                                pillBorder = "",
+                                pillBorderWidth = .8f,
                                 miniPlayerTransitionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
-                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle
+                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle,
+                                miniExitOvershootDp = 12f,
+                                nowPlayingExitOvershootDp = 0f,
+                                miniToNowPlayingDelayMillis = 0,
+                                miniMotionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.HandoffDuration,
+                                nowPlayingMotionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.NowPlayingDuration,
+                                miniMotionEase = .55f,
+                                nowPlayingMotionEase = .55f
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }
@@ -731,6 +744,30 @@ fun XvoxMainShell(
             destination != XvoxDestination.SETTINGS && settledHeaderRoute == destination -> targetHeaderTranslationY
             else -> sharedHeaderTranslation.value
         }
+        // Keep Home's callback identities stable while the fast playback state drives other
+        // shell surfaces. Without this boundary a position-tick could recompose every visible
+        // four-column card through freshly captured lambdas, even though artwork quality and the
+        // Home player props themselves had not changed.
+        val latestHomeDestination by rememberUpdatedState(destination)
+        val latestHomeHeaderHeightPx by rememberUpdatedState(sharedHeaderHeightPx)
+        val homeScrollProgressCallback = remember {
+            { index: Int, offset: Int ->
+                if (latestHomeDestination == XvoxDestination.HOME) {
+                    val headerHeight = latestHomeHeaderHeightPx.roundToInt()
+                    val nextHeaderScrollPx = if (index > 0) headerHeight
+                    else offset.coerceIn(0, headerHeight)
+                    if (homeHeaderScrollPx != nextHeaderScrollPx) {
+                        homeHeaderScrollPx = nextHeaderScrollPx
+                    }
+                }
+            }
+        }
+        val homePlaylistSelectionCallback = remember {
+            { playlistId: String? -> hoistedSelectedPlaylistId = playlistId }
+        }
+        val queueReadyCallback = remember(playerViewModel) { { songs: List<Song> -> playerViewModel.setQueue(songs) } }
+        val homePlayCallback = remember(playerViewModel) { { nextSong: Song -> playerViewModel.play(nextSong) } }
+
         val tabState = rememberSaveableStateHolder()
         // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
         // remain locked together during a route motion. Settings itself intentionally consumes
@@ -764,28 +801,11 @@ fun XvoxMainShell(
                                     homeResetKey = homeResetKey,
                                     scrollResetKey = homeScrollResetKey,
                                     selectedPlaylistId = hoistedSelectedPlaylistId,
-                                    onSelectedPlaylistIdChange = { hoistedSelectedPlaylistId = it },
-                                    onQueueReady = playerViewModel::setQueue,
-                                    onPlay = playerViewModel::play,
+                                    onSelectedPlaylistIdChange = homePlaylistSelectionCallback,
+                                    onQueueReady = queueReadyCallback,
+                                    onPlay = homePlayCallback,
                                     playerViewModel = playerViewModel,
-                                    onScrollProgress = { index, offset ->
-                                        if (destination == XvoxDestination.HOME) {
-                                            // Home's first LazyColumn item is the exact Header-height
-                                            // spacer, so this is the page's own scroll position—not a
-                                            // separately interpolated header animation.
-                                            val nextHeaderScrollPx = if (index > 0) {
-                                                sharedHeaderHeightPx.roundToInt()
-                                            } else {
-                                                offset.coerceIn(0, sharedHeaderHeightPx.roundToInt())
-                                            }
-                                            // Home already coalesces the stream; retaining this
-                                            // equality guard keeps a deep fling from scheduling a
-                                            // redundant shell invalidation after the Header is out.
-                                            if (homeHeaderScrollPx != nextHeaderScrollPx) {
-                                                homeHeaderScrollPx = nextHeaderScrollPx
-                                            }
-                                        }
-                                    }
+                                    onScrollProgress = homeScrollProgressCallback
                                 )
                             }
                             XvoxDestination.SEARCH -> {

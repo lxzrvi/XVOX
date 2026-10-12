@@ -48,7 +48,9 @@ import com.xvox.music.features.home.XvoxSongArtwork
 @Composable
 fun CreatePlaylistBox(
     songs: List<Song>,
-    initialSong: Song?,
+    initialSong: Song? = null,
+    /** Prechecked source selection for multi-select → Create Playlist. */
+    initialSongIds: Set<Long> = emptySet(),
     onCreate: (String, Set<Long>) -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -56,9 +58,16 @@ fun CreatePlaylistBox(
     var name by remember { mutableStateOf("") }
     val safeSongs = remember(songs) { songs.distinctBy { it.id } }
 
-    val selected = remember(initialSong?.id) {
-        mutableStateListOf<Long>().apply {
+    val initiallySelectedIds = remember(initialSong?.id, initialSongIds) {
+        linkedSetOf<Long>().apply {
             initialSong?.let { add(it.id) }
+            addAll(initialSongIds)
+        }
+    }
+    val selected = remember(initiallySelectedIds) {
+        mutableStateListOf<Long>().apply {
+            // Preserve source order for the cover preview while accepting a multi-song seed.
+            safeSongs.filter { it.id in initiallySelectedIds }.forEach { add(it.id) }
         }
     }
 

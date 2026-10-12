@@ -171,7 +171,13 @@ fun showMultiAddToPlaylistOverlay(
             selectedSongs = songs,
             playlists = playlists,
             onCreate = {
-                showCreatePlaylistOverlay(overlays, viewModel, liveState.songs)
+                showCreatePlaylistOverlay(
+                    overlays = overlays,
+                    viewModel = viewModel,
+                    songs = liveState.songs,
+                    initialSongIds = songs.map { it.id }.toSet(),
+                    onCreated = onDone
+                )
             },
             onAdd = { pl ->
                 viewModel.addMultipleToPlaylist(pl.id, songs) {
