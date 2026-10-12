@@ -24,7 +24,26 @@ jobs:
           cache-read-only: false
 
       - name: Build
-        run: ./gradlew :app:assembleDebug
+        shell: bash
+        run: |
+          # Keep GitHub's check annotations useful when a Kotlin compiler failure occurs. This
+          # does not replace the raw log; it surfaces a compact diagnostic on the run summary so
+          # a headless verification pass can identify the exact source line without local builds.
+          set +e
+          ./gradlew :app:assembleDebug 2>&1 | tee gradle-build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            while IFS= read -r line; do
+              case "$line" in
+                *"e: "*|*"error: "*|*"FAILURE: Build failed"*|*"What went wrong"*|*"Execution failed"*)
+                  safe=${line//'%'/'%25'}
+                  safe=${safe//$'\r'/'%0D'}
+                  echo "::error title=Gradle build diagnostic::${safe}"
+                  ;;
+              esac
+            done < gradle-build.log
+            exit "$status"
+          fi
 
       - name: APK
         uses: actions/upload-artifact@v4
