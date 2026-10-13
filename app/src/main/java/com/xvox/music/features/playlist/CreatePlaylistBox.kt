@@ -74,6 +74,12 @@ fun CreatePlaylistBox(
     val selectedSongs = remember(selected.toList(), safeSongs) {
         safeSongs.filter { it.id in selected }
     }
+    // Keep selected tracks immediately reachable after every tap. Preserve the normal source
+    // order inside both groups so choosing/deselecting never scrambles the rest of the library.
+    val displaySongs = remember(selected.toList(), safeSongs) {
+        val selectedIds = selected.toSet()
+        safeSongs.filter { it.id in selectedIds } + safeSongs.filterNot { it.id in selectedIds }
+    }
     val songsListState = rememberLazyListState()
 
     Column(
@@ -177,7 +183,7 @@ fun CreatePlaylistBox(
                 .xvoxBoxScroll(songsListState),
             contentPadding = PaddingValues(bottom = 6.dp)
         ) {
-            items(items = safeSongs, key = { "create_pl_${it.id}" }) { song ->
+            items(items = displaySongs, key = { "create_pl_${it.id}" }) { song ->
                 val checked = song.id in selected
                 Row(
                     modifier = Modifier

@@ -90,17 +90,17 @@ private fun PermissionActionCard(
     val borderColor = if (granted) XvoxSuccess else colors.cardBorder.copy(alpha = .72f)
     Box(
         modifier = modifier
-            .heightIn(min = 108.dp)
+            .heightIn(min = 90.dp)
             .clip(shape)
             .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .82f))
             .border(if (granted) 1.dp else .7.dp, borderColor, shape)
             .then(if (!granted && !pending) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 11.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = title,

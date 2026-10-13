@@ -76,6 +76,9 @@ class XvoxArtworkPaletteLoader(
     private fun getCachedBitmap(uri: Uri): Bitmap? {
         val base = XvoxArtworkCache.keyFor(uri)
         return XvoxArtworkCache.get("${base}_1024")
+            // Now Playing prewarms its exact original key. Reuse that decoded bitmap for the
+            // tiny palette sample rather than triggering a parallel cover decode mid-swipe.
+            ?: XvoxArtworkCache.get("${base}_0")
             ?: XvoxArtworkCache.get("${base}_640")
             ?: XvoxArtworkCache.get("${base}_512")
             ?: XvoxArtworkCache.get("${base}_320")

@@ -142,7 +142,7 @@ fun ArtistCircleItem(
             modifier = Modifier
                 .size(76.dp)
                 .clip(CircleShape)
-                .background(colors.card)
+                .background(colors.background)
                 .then(
                     if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)
                     else Modifier

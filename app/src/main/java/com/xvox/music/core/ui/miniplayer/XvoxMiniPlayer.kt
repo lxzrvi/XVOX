@@ -95,7 +95,9 @@ fun XvoxMiniPlayer(
     // moves the bottom edge past the screen and leaves most of the 56dp Mini Player visible.
     // Using the top clears the whole card under every custom placement, IME lift and nav inset.
     val exitDistance = with(density) {
-        val safetyClearance = chrome.miniExitOvershootDp.coerceIn(0f, 180f).dp.toPx()
+        // Advanced below-edge tuning is no longer a product setting. Keep one fixed clearance
+        // so every Default/Scale handoff clears the physical bottom by the same visible amount.
+        val safetyClearance = 12.dp.toPx()
         val minimumCardTravel = 76.dp.toPx()
         val rootHeight = rootView.height.toFloat()
         if (cardTopInRootPx.isFinite() && rootHeight > 0f) {
@@ -125,14 +127,17 @@ fun XvoxMiniPlayer(
     }
     var transitionDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(riseKey, entranceEnabled, chrome.miniMotionDuration, chrome.miniMotionEase, chrome.miniExitOvershootDp) {
+    LaunchedEffect(riseKey, entranceEnabled) {
         if (entranceEnabled) {
             // A precomposed card is released only on the terminal Now Playing frame. Reset its
             // outgoing guard now so its next gesture can begin another sequential handoff.
             exiting = false
             y.animateTo(
                 0f,
-                XvoxMiniPlayerMotion.handoffSpec(chrome.miniMotionDuration, chrome.miniMotionEase)
+                XvoxMiniPlayerMotion.handoffSpec(
+                    XvoxPlayerTransitionMotion.HandoffDuration,
+                    .55f
+                )
             )
         } else {
             // Keep the fully measured/composed card below the boundary without drawing it.
@@ -179,17 +184,17 @@ fun XvoxMiniPlayer(
             dragY = 0f
             y.animateTo(
                 exitDistance,
-                XvoxMiniPlayerMotion.handoffSpec(chrome.miniMotionDuration, chrome.miniMotionEase)
+                XvoxMiniPlayerMotion.handoffSpec(
+                    XvoxPlayerTransitionMotion.HandoffDuration,
+                    .55f
+                )
             )
 
             if (stop) {
                 stopAndDismiss()
             } else if (exiting) {
-                // Experimental dwell is intentionally after the physical card clears its chosen
-                // below-edge point. Avoid even a coroutine yield at zero so the default handoff
-                // remains the exact terminal Mini Player frame.
-                val handoffDelay = chrome.miniToNowPlayingDelayMillis.coerceIn(0, 1200)
-                if (handoffDelay > 0) delay(handoffDelay.toLong())
+                // There is no configurable dwell: the full player mounts in the exact terminal
+                // Mini Player frame, after this card has visibly cleared the physical bottom.
                 if (exiting) openPlayer()
             }
         }

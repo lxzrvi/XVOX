@@ -46,7 +46,7 @@ fun XvoxPlaylistCard(
         modifier = modifier
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f)
             .clip(shape)
-            .background(colors.card)
+            .background(colors.background)
             .border(
                 width = if (selected) 2.dp else 0.7.dp,
                 color = if (selected) colors.primaryAccent else colors.cardBorder,
@@ -62,7 +62,7 @@ fun XvoxPlaylistCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
-                .clip(RoundedCornerShape(11.dp))
+                .clip(shape)
         )
 
         // Reserve the exact row-like metadata band instead of letting a smaller font scale

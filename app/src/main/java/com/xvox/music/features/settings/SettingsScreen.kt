@@ -177,29 +177,6 @@ fun SettingsScreen(
         }
     }
 
-    fun openCustomBackgroundColorPicker() {
-        overlays.showBox("App Background Color") {
-            val backgroundScroll = rememberScrollState()
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(backgroundScroll)
-                    .xvoxBoxScroll(backgroundScroll)
-                    .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ColorPickerRow(
-                    label = "Pick App Background Color",
-                    hex = state.backgroundName.takeIf { it.startsWith("#") } ?: "#0A0A0A",
-                    onColorChange = settingsViewModel::setBackgroundName,
-                    subtitle = "Applies behind Home, sheets, and the Header",
-                    showPreview = false,
-                    initiallyExpanded = true
-                )
-            }
-        }
-    }
-
     fun openFontPicker() {
         overlays.showBox("Fonts") {
             XvoxFontPickerContent(
@@ -273,7 +250,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AppearanceSectionCard(
-                            state, settingsViewModel, ::openCustomColorPicker, ::openCustomBackgroundColorPicker, ::openFontPicker,
+                            state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         WidgetSectionCard(
@@ -300,7 +277,7 @@ fun SettingsScreen(
                 // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openCustomBackgroundColorPicker, ::openFontPicker)
+                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
                 }
                 item(key = "section_widget") {
                     WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
@@ -323,7 +300,6 @@ private fun AppearanceSectionCard(
     state: SettingsState,
     viewModel: SettingsViewModel,
     onOpenColorWheel: () -> Unit,
-    onOpenBackgroundColorWheel: () -> Unit,
     onOpenFontPicker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -341,9 +317,6 @@ private fun AppearanceSectionCard(
         // the segmented control visually unselected.
         else -> "custom"
     }
-    val backgroundOptions = listOf("Default" to "Default", "custom" to "Custom")
-    val selectedBackground = if (state.backgroundName.startsWith("#")) "custom" else "Default"
-
     // M is the fresh-install default; each other label maps to its explicit persisted scale.
     val scaleOptions = listOf(
         Triple("xs", "XS", 0.70f),
@@ -370,17 +343,6 @@ private fun AppearanceSectionCard(
                     onSelect = { key ->
                         if (key == "custom") onOpenColorWheel() else viewModel.setAccentColor(key)
                     }
-                )
-            }
-
-            SettingsField("App Background") {
-                XvoxSegmentedPill(
-                    options = backgroundOptions,
-                    selectedKey = selectedBackground,
-                    onSelect = { key ->
-                        if (key == "custom") onOpenBackgroundColorWheel() else viewModel.setBackgroundName("Default")
-                    },
-                    compact = true
                 )
             }
 

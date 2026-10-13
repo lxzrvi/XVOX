@@ -129,16 +129,10 @@ fun LazyListScope.allSongsItems(
                     )
                 } ?: XvoxGridArtworkSize
             }
-            // Uniform cards all request the same 256px source, so warm up to three upcoming
-            // shallow pages in one bounded job. Mosaic keeps its exact per-page class to avoid
-            // trading a larger visible cover for a lower decode just to prefetch farther ahead.
-            val nextWindowCount = remember(pageIndex, plans, config.style, nextPlan) {
-                if (config.style == "uniform") {
-                    plans.drop(pageIndex + 1).take(3).sumOf { it.songCount }
-                } else {
-                    nextPlan?.songCount ?: 0
-                }
-            }
+            // Warm only the immediately upcoming page. A wider full-quality decode queue was
+            // competing with a fast fling for CPU/heap work; one exact page keeps the next cards
+            // warm without making the current All Songs scroll lag behind the finger.
+            val nextWindowCount = remember(nextPlan) { nextPlan?.songCount ?: 0 }
             LaunchedEffect(nextPlan?.startIndex, nextWindowCount, nextRequestSize) {
                 nextPlan?.let { candidate ->
                     onPrefetch(candidate.startIndex, nextWindowCount.coerceAtLeast(candidate.songCount), nextRequestSize)
@@ -184,12 +178,9 @@ fun HorizontalSongPages(
             .distinctUntilChanged()
             .collect { lastVisible ->
                 plans.getOrNull(lastVisible + 1)?.let { next ->
-                    val count = if (config.style == "uniform") {
-                        plans.drop(lastVisible + 1).take(3).sumOf { it.songCount }
-                    } else {
-                        next.songCount
-                    }
-                    prefetch(next.startIndex, count.coerceAtLeast(next.songCount), horizontalPrefetchSize)
+                    // Keep one exact next page hot without running several full-quality decode
+                    // batches alongside a horizontal fling.
+                    prefetch(next.startIndex, next.songCount, horizontalPrefetchSize)
                 }
             }
     }

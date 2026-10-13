@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
@@ -86,10 +87,12 @@ fun BoxScope.XvoxShellMiniPlayerHost(
         } else {
             ExitTransition.None
         },
-        // The navigation bar intentionally stays above the departing Mini Player. The card still
-        // travels its full measured distance below the physical bottom before Now Playing starts,
-        // but its final descent passes behind the stable navbar surface.
-        modifier = Modifier.align(Alignment.BottomCenter)
+        // Keep this host above the navbar while its card leaves. The Mini Player therefore stays
+        // visible for its complete measured descent to the physical bottom instead of appearing
+        // sliced off at the navigation surface during a tap or upward swipe.
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .zIndex(1f)
     ) {
         if (currentSongId != null) {
             val density = LocalDensity.current

@@ -72,10 +72,17 @@ fun XvoxBottomBar(
     val pillEdge = pillEdgeBase.copy(
         alpha = pillEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
     )
+    val defaultPillNeutral = if (colors.isLight) {
+        // A restrained light gray remains visible on bright app backgrounds without reading as a
+        // second accent treatment.
+        androidx.compose.ui.graphics.Color(0xFFB8BBC2)
+    } else {
+        // A true neutral gray, deliberately separate from the theme card colour, keeps the dark
+        // selector premium but quiet instead of looking like a black cutout or accent pill.
+        androidx.compose.ui.graphics.Color(0xFF50525A)
+    }
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
-        // The bar itself follows the app background; this is the one quietly elevated element
-        // that keeps the active destination legible in either theme.
-        ?: colors.cardElevated.copy(alpha = if (colors.isLight) .62f else .54f)
+        ?: defaultPillNeutral
     val customImageSurface = chrome.navigationImageUri.isNotBlank()
     val pillFill = if (chrome.pillColor.isBlank()) {
         // At 0% transparency a custom navbar image is the surface itself—do not wash a default
@@ -86,7 +93,7 @@ fun XvoxBottomBar(
         } else {
             // Surface transparency applies to the travelling pill as well. Icons remain the
             // accessible destination cue at the fully transparent endpoint.
-            (.30f + .28f * navSurfaceAlpha) * navSurfaceAlpha
+            (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
         }
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)

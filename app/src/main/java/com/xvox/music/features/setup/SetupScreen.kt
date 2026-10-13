@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -199,8 +200,11 @@ fun SetupScreen(
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
                     onDeleteCustom = viewModel::deleteCustomPfp,
-                    // Keep the first-install avatar strip compact and safely inset from both
-                    // edges, so every circular choice remains fully visible.
+                    // Unlike the form fields, the picker deliberately reaches the physical
+                    // screen edges. The carousel owns its own endpoint geometry, so choices stay
+                    // fully tappable while the surrounding setup content retains its 18dp inset.
+                    modifier = Modifier.requiredWidth(maxWidth + 36.dp),
+                    edgeToEdge = true,
                     size = 60.dp
                 )
 

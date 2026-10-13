@@ -391,7 +391,6 @@ fun ProfileEditorBox(
             )
         }
 
-        Spacer(Modifier.height(1.dp))
         }
     }
 }

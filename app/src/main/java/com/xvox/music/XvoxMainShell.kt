@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -317,27 +318,10 @@ fun XvoxMainShell(
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            // All visible controls are live, including the still-experimental
-                            // motion/chrome dials, so Reset restores a coherent baseline.
+                            // The sheet has one product control: restore its accepted Default
+                            // motion without mutating unrelated persisted chrome preferences.
                             val reset = miniPlayerNavLive.copy(
-                                miniCoverStyle = "default",
-                                miniBgAlpha = .94f,
-                                navBgAlpha = .94f,
-                                miniBorder = "",
-                                miniBorderWidth = .8f,
-                                navBorder = "",
-                                navBorderWidth = .8f,
-                                pillBorder = "",
-                                pillBorderWidth = .8f,
-                                miniPlayerTransitionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.Duration,
-                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle,
-                                miniExitOvershootDp = 12f,
-                                nowPlayingExitOvershootDp = 0f,
-                                miniToNowPlayingDelayMillis = 0,
-                                miniMotionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.HandoffDuration,
-                                nowPlayingMotionDuration = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.NowPlayingDuration,
-                                miniMotionEase = .55f,
-                                nowPlayingMotionEase = .55f
+                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }
@@ -1110,7 +1094,7 @@ private fun ProfileSheetFooterButton(
     val shape = RoundedCornerShape(if (rectangular) 10.dp else 19.dp)
     Box(
         modifier = modifier
-            .height(if (rectangular) 40.dp else 38.dp)
+            .requiredHeight(if (rectangular) 40.dp else 38.dp)
             .clip(shape)
             .background(
                 when {

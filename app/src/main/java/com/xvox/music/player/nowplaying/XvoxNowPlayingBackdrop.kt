@@ -19,8 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
+import com.xvox.music.features.home.XvoxSongArtwork
 
 /**
  * Now Playing's adaptive canvas plus its optional local Cover background. The two artwork inputs
@@ -108,10 +109,14 @@ private fun PremiumBlurredCover(
     alpha: Float
 ) {
     artwork ?: return
-    AsyncImage(
-        model = artwork,
-        contentDescription = null,
+    XvoxSongArtwork(
+        artwork = artwork,
+        requestSize = XvoxNowPlayingArtworkSize,
         contentScale = ContentScale.Crop,
+        // The pager has already requested this exact original-quality key. Retaining the last
+        // bitmap while an adjacent one resolves makes the two blurred layers crossfade instead of
+        // sticking on an empty/placeholder frame mid-swipe.
+        keepPreviousOnLoading = true,
         modifier = Modifier
             .fillMaxSize()
             // Overscan eliminates exposed hard edges as the local blur samples its boundaries.

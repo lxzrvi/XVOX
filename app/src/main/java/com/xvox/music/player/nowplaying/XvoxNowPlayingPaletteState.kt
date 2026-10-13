@@ -71,9 +71,9 @@ class XvoxNowPlayingPaletteState internal constructor(
         }
     }
 
-    /** Prioritise the immediate neighbours, then warm several covers in both directions. */
+    /** Prioritise only the immediate swipe neighbourhood so image decoding cannot tax paging. */
     suspend fun preloadNeighborhood(queue: List<Song>, currentIndex: Int) {
-        val offsets = listOf(0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8)
+        val offsets = listOf(0, 1, -1, 2, -2)
         val neighbours = offsets.mapNotNull { offset -> queue.getOrNull(currentIndex + offset) }
             .distinctBy { it.xvoxArtworkPaletteKey() }
 

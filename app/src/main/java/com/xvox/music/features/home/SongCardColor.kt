@@ -18,5 +18,10 @@ fun rememberSongCardColor(
     selected: Boolean = false
 ): Color {
     val colors = XvoxTheme.colors
-    return if (selected) colors.primaryAccent.copy(alpha = .16f).compositeOver(colors.card) else colors.card
+    // Song cards share the app canvas; only an explicit selection receives an accent tint.
+    return if (selected) {
+        colors.primaryAccent.copy(alpha = .16f).compositeOver(colors.background)
+    } else {
+        colors.background
+    }
 }

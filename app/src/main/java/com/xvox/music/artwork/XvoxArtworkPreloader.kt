@@ -6,6 +6,7 @@ import coil3.SingletonImageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
+import coil3.size.Size
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import kotlinx.coroutines.CancellationException
@@ -23,10 +24,16 @@ class XvoxArtworkPreloader(context: Context) {
         requestSize: Int = XvoxGridArtworkSize
     ) = withContext(Dispatchers.IO) {
         val start = fromIndex.coerceIn(0, songs.size)
-        val exactSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
-        // Standard 256px pages can warm a complete landscape page; 512px mosaic tiles retain a
-        // tighter queue to protect heap headroom without ever asking Coil for a smaller decode.
-        val maxCount = if (exactSize >= 512) 16 else 32
+        val originalQuality = requestSize == 0
+        val exactSize = if (originalQuality) 0 else requestSize.coerceAtLeast(XvoxGridArtworkSize)
+        // Full-player originals warm only the immediate three-cover window. Standard 256px pages
+        // can warm a complete landscape page; larger mosaic tiles retain a tighter queue. No path
+        // silently substitutes a smaller requested decode for a visible cover.
+        val maxCount = when {
+            originalQuality -> 3
+            exactSize >= 512 -> 16
+            else -> 32
+        }
         val end = (start + count.coerceIn(0, maxCount)).coerceAtMost(songs.size)
         if (start >= end) return@withContext
         val loader = SingletonImageLoader.get(app)
@@ -34,15 +41,22 @@ class XvoxArtworkPreloader(context: Context) {
         for (uri in uris) {
             coroutineContext.ensureActive()
             // Warm the exact size that the forthcoming card asks Coil to decode. In particular,
-            // non-unit mosaic tiles retain their 512px request instead of silently falling back
-            // to a smaller preview during a fast scroll.
+            // non-unit mosaic tiles retain their 512px request and Now Playing retains original
+            // artwork rather than falling back to a thumbnail during a fast gesture.
             val key = "${XvoxArtworkCache.keyFor(uri)}_$exactSize"
             if (XvoxArtworkCache.get(key) != null) continue
             try {
-                val result = loader.execute(ImageRequest.Builder(app).data(uri)
-                    .size(exactSize, exactSize)
-                    .precision(Precision.EXACT).memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED).networkCachePolicy(CachePolicy.DISABLED).build())
+                val builder = ImageRequest.Builder(app)
+                    .data(uri)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .networkCachePolicy(CachePolicy.DISABLED)
+                if (originalQuality) {
+                    builder.size(Size.ORIGINAL).precision(Precision.INEXACT)
+                } else {
+                    builder.size(exactSize, exactSize).precision(Precision.EXACT)
+                }
+                val result = loader.execute(builder.build())
                 (result.image as? BitmapImage)?.bitmap?.let { XvoxArtworkCache.put(key, it) }
             } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A missing cover must not delay the next visible card. */ }
         }

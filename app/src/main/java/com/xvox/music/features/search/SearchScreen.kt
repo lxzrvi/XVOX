@@ -1105,7 +1105,7 @@ private fun SearchArtistCircleItem(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(colors.cardElevated),
+                .background(colors.background),
             contentAlignment = Alignment.Center
         ) {
             if (!artist.customImageUri.isNullOrBlank()) {
@@ -1161,7 +1161,7 @@ private fun SearchPlaylistCompactItem(
             .width(170.dp)
             .height(64.dp)
             .clip(cardShape)
-            .background(colors.card)
+            .background(colors.background)
             .border(0.8.dp, colors.cardBorder, cardShape)
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
             .padding(4.dp),

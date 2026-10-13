@@ -515,7 +515,15 @@ fun XvoxSheet(
                                 // The viewport stays clipped beneath Header/footer. Keep a small
                                 // content-safe inset, but deliberately draw no separator line.
                                 .clipToBounds()
-                                .padding(start = bodyHorizontal, top = 6.dp, end = bodyHorizontal, bottom = 10.dp)
+                                .padding(
+                                    start = bodyHorizontal,
+                                    top = 6.dp,
+                                    end = bodyHorizontal,
+                                    // Profile's final Brightness slider belongs visually close to
+                                    // its fixed transaction footer; other sheet bodies retain the
+                                    // normal breathing room.
+                                    bottom = if (presentation == XvoxBoxPresentation.PROFILE) 2.dp else 10.dp
+                                )
                         ) {
                             CompositionLocalProvider(
                                 LocalXvoxSheetScrollBridge provides contentScrollBridge,
@@ -536,7 +544,13 @@ fun XvoxSheet(
                                     .imePadding()
                                     // Keep transactional buttons close to the body while still
                                     // lifting the whole footer above the keyboard.
-                                    .padding(horizontal = 16.dp, vertical = 7.dp)
+                                    .padding(
+                                        horizontal = 16.dp,
+                                        // Keep Profile's three fixed-size actions near its body,
+                                        // while imePadding above moves the entire footer rather
+                                        // than compressing individual buttons.
+                                        vertical = if (presentation == XvoxBoxPresentation.PROFILE) 4.dp else 7.dp
+                                    )
                             ) {
                                 footer()
                             }

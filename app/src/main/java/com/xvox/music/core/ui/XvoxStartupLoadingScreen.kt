@@ -54,9 +54,9 @@ private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also
 }
 private val StartupTotalDuration = StartupPhaseBounds.last()
 private const val StartupReducedMotionDuration = 2600f
-// Home/media work begins behind this complete ring-to-bar sequence. The sequence itself is the
-// visible startup contract: it is never cut short by a fast Home bootstrap, and it never waits
-// after the bar has completed for slow media/artwork work.
+// Home/media work begins behind this complete ring-to-bar sequence. The visible clock is never
+// cut short by a fast Home bootstrap; if Home is exceptionally slow, the completed bar simply
+// holds its finished state until the already-running bootstrap is ready to reveal.
 
 private data class StartupPalette(
     val dot: Color,
@@ -171,7 +171,10 @@ private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, pal
  */
 @Composable
 fun XvoxStartupLoadingScreen(
+    /** Starts the unchanged ring → rail → fill timeline. */
     readyToEnter: Boolean,
+    /** Allows Home only after both the visible bar and background Home bootstrap are complete. */
+    canEnterHome: Boolean = readyToEnter,
     onSequenceComplete: () -> Unit,
     progress: Float = 0f
 ) {
@@ -190,6 +193,7 @@ fun XvoxStartupLoadingScreen(
         ) == 0f
     }
     val latestReadyToEnter by rememberUpdatedState(readyToEnter)
+    val latestCanEnterHome by rememberUpdatedState(canEnterHome)
     val latestSequenceComplete by rememberUpdatedState(onSequenceComplete)
     var time by remember { mutableFloatStateOf(0f) }
 
@@ -214,9 +218,10 @@ fun XvoxStartupLoadingScreen(
                         StartupTotalDuration
                     }
                     time = elapsedMs.coerceAtMost(sequenceDuration)
-                    // The loader owns a finite, fluid visual sequence. Background Home work has
-                    // already started, but cannot prolong or stall the finished rail.
-                    if (elapsedMs >= sequenceDuration) finished = true
+                    // Background Home work runs concurrently with the whole animation. Never
+                    // stretch a phase for it: after the rail is visibly complete, hold that stable
+                    // terminal frame until Home is ready rather than revealing a still-loading UI.
+                    if (elapsedMs >= sequenceDuration && latestCanEnterHome) finished = true
                 }
             }
         }

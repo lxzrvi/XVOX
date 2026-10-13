@@ -25,11 +25,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -118,6 +120,20 @@ fun XvoxNowPlayingArtworkPager(
     // on a reorder: restarting it briefly paints a neighbouring/repeated cover even though audio
     // never changed. The effect below moves the retained pager directly to the active occurrence.
     val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
+    val context = LocalContext.current
+    val artworkPreloader = remember(context) { XvoxArtworkPreloader(context) }
+    LaunchedEffect(queue, currentIndex) {
+        val activeIndex = currentIndex.coerceIn(0, queue.lastIndex)
+        // The foreground page and blurred backdrop both consume the same original-quality cache
+        // key. Warming only previous/current/next removes first-drag decode stalls without the
+        // seven-page composition/decode burst that made rapid cover swipes feel heavy.
+        artworkPreloader.warm(
+            songs = queue,
+            fromIndex = (activeIndex - 1).coerceAtLeast(0),
+            count = 3,
+            requestSize = XvoxNowPlayingArtworkSize
+        )
+    }
 
     val settled by rememberUpdatedState(onSettledPage)
     val previewChanged by rememberUpdatedState(onPreviewIndexChange)
@@ -239,7 +255,7 @@ fun XvoxNowPlayingArtworkPager(
     if (verticalPaging) {
         VerticalPager(
             state = pager,
-            beyondViewportPageCount = 3,
+            beyondViewportPageCount = 1,
             snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
             flingBehavior = pagerFlingBehavior,
             contentPadding = contentPadding,
@@ -260,7 +276,7 @@ fun XvoxNowPlayingArtworkPager(
     } else {
         HorizontalPager(
             state = pager,
-            beyondViewportPageCount = 3,
+            beyondViewportPageCount = 1,
             snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
             flingBehavior = pagerFlingBehavior,
             contentPadding = contentPadding,

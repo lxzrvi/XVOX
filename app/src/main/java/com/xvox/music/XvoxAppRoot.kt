@@ -17,6 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,13 +68,20 @@ fun XvoxAppRoot(
             else -> shellMounted = false
         }
     }
-    // ViewModels begin their IO/background work as soon as bootstrap enters Preparing. Their
-    // emitted states are intentionally not observed by this loader composition.
+    // ViewModels begin their IO/background work as soon as bootstrap enters Preparing. The loader
+    // observes only this one terminal Home-ready flag, never the song/artwork stream, so MediaStore
+    // and cover work can run concurrently without invalidating its animation frames.
     val bootstrapModels = state == AppUiState.Preparing || state == AppUiState.Home
     val homeVm: com.xvox.music.features.home.HomeViewModel? =
         if (bootstrapModels) androidx.lifecycle.viewmodel.compose.viewModel() else null
     val playerVm: com.xvox.music.player.playback.MainPlayerViewModel? =
         if (bootstrapModels) androidx.lifecycle.viewmodel.compose.viewModel() else null
+    val homeStartupReady by remember(homeVm) {
+        homeVm?.state
+            ?.map { it.startupReady }
+            ?.distinctUntilChanged()
+            ?: flowOf(false)
+    }.collectAsState(initial = false)
 
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
@@ -184,14 +194,21 @@ fun XvoxAppRoot(
                         enter = fadeIn(tween(120)),
                         exit = fadeOut(tween(260))
                     ) {
+                        val loaderSequenceReady = state == AppUiState.Preparing && minimumReady
                         XvoxStartupLoadingScreen(
-                            // The loader release is a lightweight bootstrap decision, not a
-                            // proxy for Home/media readiness. Home/media jobs have already begun
-                            // alongside this sequence and cannot stall its ring-to-bar frames.
-                            readyToEnter = state == AppUiState.Preparing && minimumReady,
+                            // The ring-to-bar clock starts on the original lightweight bootstrap
+                            // signal. Home is already loading behind it; only the final Home reveal
+                            // waits for that terminal readiness flag, never for noisy Home frames.
+                            readyToEnter = loaderSequenceReady,
+                            canEnterHome = loaderSequenceReady && homeStartupReady,
                             progress = startupProgress,
                             onSequenceComplete = {
-                                if (!startupSequenceReleased && state == AppUiState.Preparing && minimumReady) {
+                                if (
+                                    !startupSequenceReleased &&
+                                    state == AppUiState.Preparing &&
+                                    minimumReady &&
+                                    homeStartupReady
+                                ) {
                                     startupSequenceReleased = true
                                     viewModel.report(1f, "Ready")
                                     viewModel.onHomeReady()

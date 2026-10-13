@@ -97,6 +97,47 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
     )
 }
 
+
+/**
+ * The pager updates this small state holder every drag frame. Keeping those reads in the backdrop
+ * child prevents a cover swipe from invalidating the full control/lyrics tree on every pixel.
+ */
+@Stable
+private class XvoxNowPlayingBackdropState(initialArtwork: android.net.Uri?) {
+    var artwork by mutableStateOf(initialArtwork)
+        private set
+    var incomingArtwork by mutableStateOf<android.net.Uri?>(null)
+        private set
+    var artworkTransitionFraction by mutableFloatStateOf(0f)
+        private set
+
+    fun update(base: android.net.Uri?, incoming: android.net.Uri?, fraction: Float) {
+        artwork = base
+        incomingArtwork = incoming
+        artworkTransitionFraction = fraction.coerceIn(0f, 1f)
+    }
+}
+
+@Composable
+private fun XvoxNowPlayingBackdropLayer(
+    backdropState: XvoxNowPlayingBackdropState,
+    paletteState: XvoxNowPlayingPaletteState,
+    style: String,
+    coverBlur: Float,
+    modifier: Modifier = Modifier
+) {
+    XvoxNowPlayingBackdrop(
+        dominant = paletteState.color,
+        artwork = backdropState.artwork,
+        incomingArtwork = backdropState.incomingArtwork,
+        artworkTransitionFraction = backdropState.artworkTransitionFraction,
+        style = style,
+        coverBlur = coverBlur,
+        isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
+        modifier = modifier
+    )
+}
+
 @Composable
 fun XvoxNowPlaying(
     song: Song,
@@ -167,25 +208,14 @@ fun XvoxNowPlaying(
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
-    // This is intentionally scoped to lyric text. All visible Now Playing chrome keeps its
-    // theme-derived colors; cover analysis is not allowed to recolour controls or metadata.
-    val lyricsTextColor = when (settingsState.lyrics.textColorMode) {
-        "black" -> Color.Black
-        "white" -> Color.White
-        // Preserve the cover hue in lyric-only matching mode, but pull it toward a contrast pole
-        // so glyphs stay visibly distinct from the adaptive cover backdrop without a glow.
-        else -> paletteState.color.xvoxReadableCoverLyricColor()
-    }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val screenHeight = with(density) {
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
-    // Experimental settings can place the full player farther below the physical bottom before
-    // Mini Player return. Zero retains the normal exact-edge handoff.
-    val belowBottomY = screenHeight + with(density) {
-        chrome.nowPlayingExitOvershootDp.coerceIn(0f, 220f).dp.toPx()
-    }
+    // The return handoff always travels to the physical bottom. Legacy experimental overshoot
+    // values are deliberately ignored now that Default/Scale are the only exposed motion modes.
+    val belowBottomY = screenHeight
 
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isCompact = (settingsState.nowPlayingStyle == "compact" || settingsState.nowPlayingStyle == "immersive") && !isLandscape
@@ -198,6 +228,13 @@ fun XvoxNowPlaying(
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
     val isLyricsShowing = currentMode >= 1
     val isFullscreen = currentMode == 2
+    // This is intentionally scoped to visible lyric text. In cover mode do not subscribe the
+    // outer player composition to a per-frame palette blend; the local backdrop child owns that.
+    val lyricsTextColor = when (settingsState.lyrics.textColorMode) {
+        "black" -> Color.Black
+        "white" -> Color.White
+        else -> if (isLyricsShowing) paletteState.color.xvoxReadableCoverLyricColor() else colors.primaryText
+    }
     // Exactly match XvoxArtworkLyrics' compact/expanded surface alpha (.27/.35).
     val lyricsBoxAlpha = if (isFullscreen) .35f else .27f
     val bottomPanelAlpha = lyricsBoxAlpha * chrome.nowPlayingBottomBoxAlpha.coerceIn(0f, 1f)
@@ -259,10 +296,8 @@ fun XvoxNowPlaying(
     var previewSongReference by remember { mutableStateOf(queue.getOrNull(currentIndex)) }
     var previewGestureActive by remember { mutableStateOf(false) }
     // The backdrop follows the pager's actual outgoing/incoming covers, not merely the audible
-    // song. That keeps Cover blur, palette and foreground artwork on the exact same timeline.
-    var backdropArtwork by remember { mutableStateOf(song.artworkUri) }
-    var backdropIncomingArtwork by remember { mutableStateOf<android.net.Uri?>(null) }
-    var backdropArtworkFraction by remember { mutableFloatStateOf(0f) }
+    // song. Its state stays local to the draw layer so cover drag frames do not recompose controls.
+    val backdropState = remember { XvoxNowPlayingBackdropState(song.artworkUri) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
@@ -288,9 +323,7 @@ fun XvoxNowPlaying(
         if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
             val safeFraction = fraction.coerceIn(0f, 1f)
             paletteState.blend(base, adjacent, safeFraction)
-            backdropArtwork = base.artworkUri
-            backdropIncomingArtwork = adjacent?.artworkUri
-            backdropArtworkFraction = safeFraction
+            backdropState.update(base.artworkUri, adjacent?.artworkUri, safeFraction)
         }
     }
 
@@ -299,9 +332,7 @@ fun XvoxNowPlaying(
     // preview card behind the orb/aurora canvas.
     LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing) {
         if (isLyricsShowing) {
-            backdropArtwork = song.artworkUri
-            backdropIncomingArtwork = null
-            backdropArtworkFraction = 0f
+            backdropState.update(song.artworkUri, null, 0f)
             // There is no pager underneath lyrics to emit palette frames. Resolve the same cover
             // directly; XvoxArtworkLyrics animates this live colour into its orb/aurora canvas.
             paletteState.show(song)
@@ -319,8 +350,8 @@ fun XvoxNowPlaying(
             animation.animateTo(
                 target,
                 XvoxPlayerTransitionMotion.nowPlayingSpec(
-                    chrome.nowPlayingMotionDuration,
-                    chrome.nowPlayingMotionEase
+                    XvoxPlayerTransitionMotion.NowPlayingDuration,
+                    .55f
                 )
             ) {
                 screenY = value
@@ -623,14 +654,11 @@ fun XvoxNowPlaying(
                 if (activeSettingsBox != "Customize") detectTapGestures { }
             }
     ) {
-        XvoxNowPlayingBackdrop(
-            dominant = paletteState.color,
-            artwork = backdropArtwork,
-            incomingArtwork = backdropIncomingArtwork,
-            artworkTransitionFraction = backdropArtworkFraction,
+        XvoxNowPlayingBackdropLayer(
+            backdropState = backdropState,
+            paletteState = paletteState,
             style = settingsState.nowPlayingBackgroundStyle,
             coverBlur = settingsState.nowPlayingCoverBlur,
-            isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
             modifier = Modifier.fillMaxSize()
         )
 
