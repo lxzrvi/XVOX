@@ -275,7 +275,6 @@ fun XvoxSheet(
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     // Bottom sheets are edge-attached materials: retain rounded top corners only, never a
     // floating side/bottom outline that makes the sheet look detached from the screen.
-    val showOptionBorder = false
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -415,7 +414,6 @@ fun XvoxSheet(
                             .then(sheetSizing)
                             .clip(sheetShape)
                             .background(optionSurface)
-                            .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, sheetShape) else Modifier)
                             .clickable(swallowInteraction, indication = null) { }
                             .onGloballyPositioned { measuredHeightPx = it.size.height }
                             .semantics { paneTitle = title }
