@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -272,15 +273,22 @@ fun XvoxSheet(
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val overlayController = LocalXvoxOverlayController.current
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
-    val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
-    val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
-    val showOptionBorder = true
+    // Bottom sheets are edge-attached materials: retain rounded top corners only, never a
+    // floating side/bottom outline that makes the sheet look detached from the screen.
+    val showOptionBorder = false
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    // The dimmed upper canvas owns an opacity-only morph. It is immediately full-screen and never
+    // rides upward with the sheet, avoiding a visible empty/slide-in strip behind a new sheet.
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (visible) .40f else 0f,
+        animationSpec = tween(190, easing = XvoxBoxEasing),
+        label = "sheetScrimAlpha"
+    )
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -305,7 +313,7 @@ fun XvoxSheet(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(scrimColor.copy(alpha = .40f))
+                    .background(scrimColor.copy(alpha = scrimAlpha))
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
 

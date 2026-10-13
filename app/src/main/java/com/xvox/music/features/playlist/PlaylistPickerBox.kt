@@ -356,6 +356,7 @@ fun PlaylistPickerBox(
                                 coverSongIds = playlist.coverSongIds,
                                 customCoverUri = playlist.customCoverUri,
                                 requestSize = 96,
+                                coverShape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(RoundedCornerShape(8.dp))

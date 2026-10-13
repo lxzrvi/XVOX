@@ -37,8 +37,12 @@ const val XvoxNowPlayingArtworkSize = 0
 
 /** Keep tiny/list fallbacks cheap; full player artwork retains a higher-quality seeded wave. */
 private fun fallbackBitmapSizeFor(requestSize: Int): Int = when {
+    // Full-player art still needs a dense source for its local blur/crossfade path.
     requestSize <= 0 -> 420
-    else -> requestSize.coerceIn(96, 360)
+    // A wave is geometric rather than photographic: library and Mini Player cells stay sharp at
+    // this density while their cancellable generation and cache footprint are quartered.
+    requestSize <= XvoxGridArtworkSize -> 128
+    else -> requestSize.coerceIn(160, 360)
 }
 
 /**
@@ -59,7 +63,7 @@ fun XvoxSongArtwork(
     skipDecodedMorph: Boolean = false,
     /** Use the same wave as a bitmap so a local blurred backdrop can morph it with real covers. */
     renderFallbackAsBitmap: Boolean = false,
-    /** Lockup sizing follows the surface that is showing this fallback. */
+    /** Fallback mark behavior follows the surface; visible artwork always centers the XVOX mark. */
     fallbackBrand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD,
     /** Stable per-song identity for a missing/failed cover's wave pattern. */
     fallbackSeed: Int? = null,

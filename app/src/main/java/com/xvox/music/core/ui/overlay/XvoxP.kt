@@ -45,8 +45,10 @@ fun XvoxP(
 
     LaunchedEffect(message.id) {
         visible = true
-        if (message.persistent) return@LaunchedEffect
-        delay(3600L)
+        // Normal action feedback remains brief. A persistent caller (currently the bounded
+        // crossfade status) may dismiss earlier, but has a safety expiry so one shared XVOX pill
+        // can never become a stranded permanent overlay or block a later action's pill.
+        delay(if (message.persistent) 15_000L else 3_600L)
         visible = false
         delay(220L)
         onFinished()

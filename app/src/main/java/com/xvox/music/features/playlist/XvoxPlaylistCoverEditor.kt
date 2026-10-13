@@ -42,13 +42,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -217,10 +215,12 @@ fun XvoxPlaylistCoverEditor(
                             )
                             .xvoxPressScale { selected.clear(); customUri = Uri.parse(stored) }
                     ) {
-                        AsyncImage(
-                            model = Uri.parse(stored),
-                            contentDescription = "Saved cover",
-                            contentScale = ContentScale.Crop,
+                        // A stale saved URI is still an artwork failure, so retain the same
+                        // centered XVOX fallback rather than showing an empty editor tile.
+                        XvoxSongArtwork(
+                            artwork = Uri.parse(stored),
+                            fallbackSeed = stored.hashCode(),
+                            requestSize = 112,
                             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
                         )
                     }

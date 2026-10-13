@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,12 @@ fun HomeMultiSelectBar(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    // Match the Default Mini Player's low-transparency material rather than introducing a harsh
+    // selection-only surface. The persisted Mini Player alpha is .94 by default (6% transparent).
+    val railSurface = colors.background.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f))
+    val railEdge = (com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder)
+        .copy(alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * chrome.miniBgAlpha.coerceIn(0f, 1f))
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
     val railShape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 0.dp, bottomEnd = 0.dp)
@@ -104,7 +111,12 @@ fun HomeMultiSelectBar(
                 modifier = modifier
                     .width(70.dp)
                     .clip(railShape)
-                    .background(colors.cardElevated)
+                    .background(railSurface)
+                    .border(
+                        chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
+                        railEdge,
+                        railShape
+                    )
                     .padding(start = 7.dp, top = 8.dp, end = 2.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(railSpacing)

@@ -1,5 +1,6 @@
 package com.xvox.music.features.artist
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,22 +18,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -149,28 +145,16 @@ fun ArtistCircleItem(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (artist.customImageUri != null) {
-                AsyncImage(
-                    model = artist.customImageUri,
-                    contentDescription = artist.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else if (artist.coverSong != null) {
-                XvoxSongArtwork(
-                    artwork = artist.coverSong.artworkUri,
-                    fallbackSeed = artist.coverSong.id.hashCode(),
-                    requestSize = 256,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_artist),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
+            // Artist imagery follows the same missing/failed-art rule as every cover surface.
+            XvoxSongArtwork(
+                artwork = artist.customImageUri
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(Uri::parse)
+                    ?: artist.coverSong?.artworkUri,
+                fallbackSeed = artist.coverSong?.id?.hashCode() ?: artist.name.hashCode(),
+                requestSize = 256,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         if (!hideText) {

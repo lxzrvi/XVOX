@@ -186,6 +186,8 @@ class UserPreferencesRepository(
         /** Local blur amount for the optional cover-art Now Playing background only. */
         val nowPlayingCoverBlur = floatPreferencesKey("now_playing_cover_blur")
         val persistentBackgroundPlayback = booleanPreferencesKey("persistent_background_playback")
+        /** Prevent repeated Android notification-permission prompts when Background playback is enabled. */
+        val backgroundPlaybackPermissionRequested = booleanPreferencesKey("background_playback_permission_requested")
     }
 
     /** Collapses retired scale values onto the four supported physical sizes. */
@@ -557,7 +559,9 @@ class UserPreferencesRepository(
     val nowPlayingCoverBlur: Flow<Float> = context.xvoxDataStore.data
         .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(12f, 50f) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
-        .map { it[Keys.persistentBackgroundPlayback] ?: true }.distinctUntilChanged()
+        .map { it[Keys.persistentBackgroundPlayback] ?: false }.distinctUntilChanged()
+    val backgroundPlaybackPermissionRequested: Flow<Boolean> = context.xvoxDataStore.data
+        .map { it[Keys.backgroundPlaybackPermissionRequested] ?: false }.distinctUntilChanged()
     val settingsPreviewHidden: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.settingsPreviewHidden] ?: false }.distinctUntilChanged()
     val lastSettingsTab: Flow<String> = context.xvoxDataStore.data
@@ -850,8 +854,18 @@ class UserPreferencesRepository(
     suspend fun setNowPlayingCoverBlur(amount: Float) {
         context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(12f, 50f) }
     }
+    /** Commit the overflow sheet's style and local cover-blur draft in one observable DataStore edit. */
+    suspend fun setNowPlayingBackground(style: String, coverBlur: Float) {
+        context.xvoxDataStore.edit {
+            it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style)
+            it[Keys.nowPlayingCoverBlur] = coverBlur.coerceIn(12f, 50f)
+        }
+    }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {
         context.xvoxDataStore.edit { it[Keys.persistentBackgroundPlayback] = enabled }
+    }
+    suspend fun setBackgroundPlaybackPermissionRequested(requested: Boolean) {
+        context.xvoxDataStore.edit { it[Keys.backgroundPlaybackPermissionRequested] = requested }
     }
     suspend fun setSettingsPreviewHidden(hidden: Boolean) {
         context.xvoxDataStore.edit { it[Keys.settingsPreviewHidden] = hidden }

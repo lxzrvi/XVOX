@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,10 +26,13 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Icon
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlin.math.PI
 import kotlin.math.cos
@@ -238,6 +242,17 @@ fun XvoxStartupLoadingScreen(
             .background(palette.background),
         contentAlignment = Alignment.Center
     ) {
+        // Same supplied XVOX vector used by the platform splash. The mark is a quiet fixed anchor
+        // for the loader rather than an additional text treatment or a substitute app icon.
+        Icon(
+            painter = painterResource(R.drawable.xvox),
+            contentDescription = "XVOX",
+            tint = colors.primaryText.copy(alpha = .86f),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = (-34).dp)
+                .size(26.dp)
+        )
         Canvas(
             modifier = Modifier
                 .size(300.dp, 120.dp)

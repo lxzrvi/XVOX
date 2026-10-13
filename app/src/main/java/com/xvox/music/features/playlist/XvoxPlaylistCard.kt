@@ -61,6 +61,7 @@ fun XvoxPlaylistCard(
             coverSongIds = playlist.coverSongIds,
             customCoverUri = playlist.customCoverUri,
             requestSize = 192,
+            coverShape = shape,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))

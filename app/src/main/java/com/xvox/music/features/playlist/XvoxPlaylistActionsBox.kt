@@ -138,6 +138,7 @@ private fun PlaylistActionsMain(
                     coverSongIds = playlist.coverSongIds,
                     customCoverUri = playlist.customCoverUri,
                     requestSize = 128,
+                    coverShape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .size(58.dp)
                         .clip(RoundedCornerShape(12.dp))

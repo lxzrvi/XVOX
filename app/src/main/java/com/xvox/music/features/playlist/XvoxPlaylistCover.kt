@@ -1,24 +1,16 @@
 package com.xvox.music.features.playlist
 
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import com.xvox.music.R
-import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -29,15 +21,21 @@ fun XvoxPlaylistCover(
     coverSongIds: List<Long> = emptyList(),
     customCoverUri: String? = null,
     requestSize: Int = 192,
+    /** Must match the immediate cover container; callers with a non-card preview pass theirs. */
+    coverShape: Shape = RoundedCornerShape(16.dp),
 ) {
-    val colors = XvoxTheme.colors
+    // Each rendering root owns the same shape as the immediate containing cover box. This keeps
+    // custom art, a single fallback, and mosaic tiles aligned even in compact picker/editor rows.
+    val clippedModifier = modifier.clip(coverShape)
 
     if (!customCoverUri.isNullOrBlank()) {
-        AsyncImage(
-            model = Uri.parse(customCoverUri),
-            contentDescription = "Playlist cover",
-            contentScale = ContentScale.Crop,
-            modifier = modifier,
+        // Route custom art through the shared renderer too: a bad/deleted URI falls back to the
+        // centered XVOX mark rather than leaving an unbranded blank playlist card.
+        XvoxSongArtwork(
+            artwork = Uri.parse(customCoverUri),
+            fallbackSeed = customCoverUri.hashCode(),
+            requestSize = requestSize,
+            modifier = clippedModifier,
         )
         return
     }
@@ -51,7 +49,7 @@ fun XvoxPlaylistCover(
             artwork = selectedCovers.first().artworkUri,
             fallbackSeed = selectedCovers.first().id.hashCode(),
             requestSize = requestSize,
-            modifier = modifier,
+            modifier = clippedModifier,
         )
         return
     }
@@ -66,17 +64,12 @@ fun XvoxPlaylistCover(
     }.take(4)
 
     if (coverSongs.isEmpty()) {
-        Box(
-            modifier = modifier.background(colors.cardElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_playlist),
-                contentDescription = null,
-                tint = colors.mutedText,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        XvoxSongArtwork(
+            artwork = null,
+            fallbackSeed = (coverSongIds.hashCode() * 31) + songs.hashCode(),
+            requestSize = requestSize,
+            modifier = clippedModifier,
+        )
         return
     }
 
@@ -85,12 +78,12 @@ fun XvoxPlaylistCover(
             artwork = coverSongs.first().artworkUri,
             fallbackSeed = coverSongs.first().id.hashCode(),
             requestSize = requestSize,
-            modifier = modifier,
+            modifier = clippedModifier,
         )
         return
     }
 
-    Column(modifier = modifier) {
+    Column(modifier = clippedModifier) {
         repeat(2) { row ->
             Row(modifier = Modifier.weight(1f)) {
                 repeat(2) { column ->

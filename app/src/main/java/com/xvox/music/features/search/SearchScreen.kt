@@ -1,6 +1,7 @@
 package com.xvox.music.features.search
 
 import android.app.Activity
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -53,7 +54,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -68,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
@@ -84,6 +83,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 import com.xvox.music.features.home.showPlaylistActions
 import com.xvox.music.features.home.showSongOptionsOverlay
+import com.xvox.music.features.playlist.XvoxPlaylistCover
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
 
@@ -1109,28 +1109,15 @@ private fun SearchArtistCircleItem(
                 .background(colors.background),
             contentAlignment = Alignment.Center
         ) {
-            if (!artist.customImageUri.isNullOrBlank()) {
-                AsyncImage(
-                    model = artist.customImageUri,
-                    contentDescription = artist.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else if (artist.coverSong != null) {
-                XvoxSongArtwork(
-                    artwork = artist.coverSong.artworkUri,
-                    fallbackSeed = artist.coverSong.id.hashCode(),
-                    requestSize = 128,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_artist),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            XvoxSongArtwork(
+                artwork = artist.customImageUri
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(Uri::parse)
+                    ?: artist.coverSong?.artworkUri,
+                fallbackSeed = artist.coverSong?.id?.hashCode() ?: artist.name.hashCode(),
+                requestSize = 128,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Spacer(Modifier.height(6.dp))
@@ -1178,28 +1165,17 @@ private fun SearchPlaylistCompactItem(
                 .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {
-            if (!playlist.customCoverUri.isNullOrBlank()) {
-                AsyncImage(
-                    model = playlist.customCoverUri,
-                    contentDescription = playlist.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else if (coverSong != null) {
-                XvoxSongArtwork(
-                    artwork = coverSong.artworkUri,
-                    fallbackSeed = coverSong.id.hashCode(),
-                    requestSize = 128,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_playlist),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            // Use the shared playlist renderer even in compact Search results. A stale custom URI
+            // or an empty playlist therefore gets the same centered XVOX fallback as every other
+            // playlist cover rather than an unrelated playlist glyph or a blank tile.
+            XvoxPlaylistCover(
+                songs = listOfNotNull(coverSong),
+                coverSongIds = playlist.coverSongIds,
+                customCoverUri = playlist.customCoverUri,
+                requestSize = 128,
+                coverShape = cardShape,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Spacer(Modifier.width(8.dp))

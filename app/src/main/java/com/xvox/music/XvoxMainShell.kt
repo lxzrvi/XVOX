@@ -1084,17 +1084,17 @@ fun XvoxMainShell(
 private fun ProfileSheetFooterButton(
     text: String,
     primary: Boolean,
-    /** Profile uses the Equalizer's compact rectangular footer language. */
-    rectangular: Boolean = false,
+    /** Retained for source-compatible call sites; all transactional footer actions are rounded. */
+    @Suppress("UNUSED_PARAMETER") rectangular: Boolean = false,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(if (rectangular) 10.dp else 19.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = modifier
-            .requiredHeight(if (rectangular) 40.dp else 38.dp)
+            .requiredHeight(40.dp)
             .clip(shape)
             .background(
                 when {

@@ -49,7 +49,7 @@ private fun XvoxTransactionalFooterButton(
     prominent: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = modifier
             .height(40.dp)

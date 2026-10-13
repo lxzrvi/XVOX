@@ -7,13 +7,10 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,15 +29,12 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.graphics.ColorUtils
 import com.xvox.music.R
 import com.xvox.music.artwork.XvoxImageWork
-import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxPalette
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.currentCoroutineContext
@@ -51,7 +45,7 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** Visible lockup sizing for the same fallback artwork at library, Mini Player, and Now Playing scale. */
+/** Fallback identity is centered everywhere; NONE is reserved for a deliberately blurred backdrop. */
 enum class XvoxFallbackBrand {
     STANDARD,
     MINI_PLAYER,
@@ -160,16 +154,8 @@ fun WavePatternSquare(
     } else {
         Color.Black.copy(alpha = .74f)
     }
-    val brandSpec = when (brand) {
-        XvoxFallbackBrand.STANDARD -> XvoxFallbackBrandSpec(13f, 10f, 3f, 12f, 10f)
-        XvoxFallbackBrand.MINI_PLAYER -> XvoxFallbackBrandSpec(7f, 5.5f, 1.5f, 5f, 4f)
-        XvoxFallbackBrand.NOW_PLAYING -> XvoxFallbackBrandSpec(19f, 16f, 4f, 20f, 17f)
-        XvoxFallbackBrand.NONE -> null
-    }
-
-    Box(
-        modifier = modifier.background(resolvedDark),
-        contentAlignment = Alignment.Center
+    BoxWithConstraints(
+        modifier = modifier.background(resolvedDark)
     ) {
         Canvas(Modifier.fillMaxSize()) {
             outgoingBitmap?.let { drawWaveBitmap(it, 1f - reveal.value) }
@@ -179,42 +165,23 @@ fun WavePatternSquare(
                 ?.takeIf { animatePatternSwap || displayedKey == patternKey }
                 ?.let { drawWaveBitmap(it, reveal.value) }
         }
-        brandSpec?.let { spec ->
-            // Original SVG stays in res/raw; the directly generated VectorDrawable keeps this
-            // exact XVOX mark usable in Compose and resource-only surfaces.
-            Row(
+        if (brand != XvoxFallbackBrand.NONE) {
+            // Every missing-cover surface uses the supplied XVOX mark alone at its physical
+            // centre—no secondary text or context-dependent lockup. Measuring the available box
+            // keeps the mark proportional in a tiny Mini Player, a card, widget-equivalent art,
+            // or a full Now Playing cover.
+            val logoSide = (minOf(maxWidth, maxHeight) * .34f).coerceAtLeast(8.dp)
+            Icon(
+                painter = painterResource(R.drawable.xvox),
+                contentDescription = "XVOX",
+                tint = brandTint,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = spec.end.dp, bottom = spec.bottom.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.xvox),
-                    contentDescription = "XVOX",
-                    tint = brandTint,
-                    modifier = Modifier.size(spec.mark.dp)
-                )
-                Text(
-                    text = "XVOX",
-                    color = brandTint,
-                    fontFamily = XvoxLogoFont,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = spec.text.sp,
-                    letterSpacing = if (brand == XvoxFallbackBrand.MINI_PLAYER) .08.sp else .35.sp,
-                    modifier = Modifier.padding(start = spec.gap.dp)
-                )
-            }
+                    .align(Alignment.Center)
+                    .size(logoSide)
+            )
         }
     }
 }
-
-private data class XvoxFallbackBrandSpec(
-    val mark: Float,
-    val text: Float,
-    val gap: Float,
-    val end: Float,
-    val bottom: Float
-)
 
 private fun DrawScope.drawWaveBitmap(bitmap: ImageBitmap, alpha: Float) {
     if (alpha <= .001f) return

@@ -199,11 +199,6 @@ object XvoxWidgetHelper {
             child.setViewPadding(R.id.widget_item_image, px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)),
                 px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)))
             applyOffset(child, R.id.widget_item_image, minOf(paddingX, 0), minOf(paddingY, 0))
-            if (art == null) {
-                child.setImageViewResource(R.id.widget_item_image, R.drawable.xvox_mark)
-                child.setInt(R.id.widget_item_image, "setColorFilter", fg)
-                child.setViewPadding(R.id.widget_item_image, px(6), px(6), px(6), px(6))
-            }
             val coverSlot = when (coverAt) { "right" -> R.id.widget_cover_right; "top" -> R.id.widget_cover_top; "bottom" -> R.id.widget_cover_bottom; else -> R.id.widget_cover_left }
             if (freeCover) {
                 // Full-canvas placement is relative to the widget centre, not to an internal
@@ -464,7 +459,7 @@ object XvoxWidgetHelper {
     /**
      * Bitmap/Canvas equivalent of [com.xvox.music.features.home.WavePatternSquare] for widgets.
      * RemoteViews cannot run Compose, but missing and failed URI artwork still gets a per-song,
-     * theme/accent-aware cover with the supplied brand lockup rather than a generic note icon.
+     * theme/accent-aware cover with the supplied centered XVOX mark rather than a generic icon.
      */
     private fun widgetWaveArtwork(context: Context, seed: Int, dark: Int, bright: Int): Bitmap {
         val key = "wave:$seed:$dark:$bright"
@@ -507,26 +502,16 @@ object XvoxWidgetHelper {
         } else {
             Color.argb(184, 0, 0, 0)
         }
-        val inset = (size * .065f).roundToInt()
-        val markSize = (size * .055f).roundToInt().coerceAtLeast(12)
-        val gap = (size * .012f).roundToInt().coerceAtLeast(3)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
-            color = lockupTint
-            typeface = ResourcesCompat.getFont(context, R.font.xvoxcinzeldecorative)
-            textSize = size * .044f
-            letterSpacing = .045f
-        }
-        val text = "XVOX"
-        val textWidth = paint.measureText(text)
-        val left = (size - inset - markSize - gap - textWidth).roundToInt().coerceAtLeast(inset)
-        val baseline = (size - inset).toFloat()
+        // Match Compose and notification fallback art: only the supplied mark, centered and
+        // proportionate to the artwork square, with no small text lockup in a corner.
+        val markSize = (size * .34f).roundToInt()
+        val left = (size - markSize) / 2
+        val top = (size - markSize) / 2
         ResourcesCompat.getDrawable(context.resources, R.drawable.xvox, null)?.mutate()?.let { mark ->
             mark.setTint(lockupTint)
-            val top = (baseline - markSize + paint.fontMetrics.descent).roundToInt()
             mark.setBounds(left, top, left + markSize, top + markSize)
             mark.draw(canvas)
         }
-        canvas.drawText(text, left + markSize + gap.toFloat(), baseline, paint)
         images.put(key, bitmap)
         return bitmap
     }

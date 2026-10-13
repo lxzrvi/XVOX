@@ -128,6 +128,7 @@ fun CreatePlaylistBox(
                         coverSongIds = selected.take(4),
                         customCoverUri = null,
                         requestSize = 128,
+                        coverShape = RoundedCornerShape(12.dp),
                         modifier = Modifier.size(54.dp)
                     )
                 }

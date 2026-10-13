@@ -3,6 +3,7 @@ package com.xvox.music.player.nowplaying
 import android.net.Uri
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -64,11 +65,20 @@ fun XvoxNowPlayingBackdrop(
         }
     }
 
-    val showCover = style == XvoxNowPlayingBackgroundStyles.COVER
+    val showCoverTarget = style == XvoxNowPlayingBackgroundStyles.COVER
+    // Style changes are committed only from the overflow sheet's Okay action. Keep the outgoing
+    // local cover layer alive while the default canvas arrives (and vice versa), so confirmation
+    // never flashes/jumps between the two entirely different background compositions.
+    val coverLayerAlpha by animateFloatAsState(
+        targetValue = if (showCoverTarget) 1f else 0f,
+        animationSpec = tween(320, easing = CubicBezierEasing(.2f, 0f, 0f, 1f)),
+        label = "nowPlayingCoverBackgroundAlpha"
+    )
+    val keepCoverLayer = showCoverTarget || coverLayerAlpha > .001f
     val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
     // Incoming identity—not URI—defines a transition. This lets two coverless songs blend their
     // distinct wave patterns, and avoids treating a shared URI as a new visual identity.
-    val pagerArtworkTransition = showCover && incomingArtworkKey != null &&
+    val pagerArtworkTransition = showCoverTarget && incomingArtworkKey != null &&
         incomingArtworkKey != artworkKey && fraction > .0001f
 
     // An incoming layer is never allowed to take over before it is drawable. A decoded bitmap,
@@ -114,7 +124,7 @@ fun XvoxNowPlayingBackdrop(
             .fillMaxSize()
             .background(displayed.value)
     ) {
-        if (showCover) {
+        if (keepCoverLayer) {
             // Keep one persistent primary slot in composition. XvoxSongArtwork retains/morphs a
             // decoded outgoing bitmap (or wave fallback) while the settled/lyrics song changes.
             PremiumBlurredCover(
@@ -122,7 +132,7 @@ fun XvoxNowPlayingBackdrop(
                 fallbackSeed = artworkSeed,
                 skipDecodedMorph = primaryAlreadyShownByPager,
                 blur = coverBlur,
-                alpha = 1f - displayedIncomingFraction,
+                alpha = coverLayerAlpha * (1f - displayedIncomingFraction),
                 onReady = { markArtworkReady(artworkKey) }
             )
             if (pagerArtworkTransition) {
@@ -133,7 +143,7 @@ fun XvoxNowPlayingBackdrop(
                     artwork = incomingArtwork,
                     fallbackSeed = incomingArtworkSeed,
                     blur = coverBlur,
-                    alpha = displayedIncomingFraction,
+                    alpha = coverLayerAlpha * displayedIncomingFraction,
                     onReady = { markArtworkReady(incomingArtworkKey) }
                 )
             }
@@ -145,9 +155,9 @@ fun XvoxNowPlayingBackdrop(
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                XvoxTheme.colors.background.copy(alpha = .22f),
-                                dominant.copy(alpha = .12f),
-                                XvoxTheme.colors.background.copy(alpha = .42f)
+                                XvoxTheme.colors.background.copy(alpha = .22f * coverLayerAlpha),
+                                dominant.copy(alpha = .12f * coverLayerAlpha),
+                                XvoxTheme.colors.background.copy(alpha = .42f * coverLayerAlpha)
                             )
                         )
                     )

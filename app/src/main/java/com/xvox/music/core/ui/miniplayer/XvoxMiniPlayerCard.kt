@@ -1,6 +1,8 @@
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -88,7 +91,16 @@ fun XvoxMiniPlayerCard(
         else -> "default"
     }
     val isFullCover = miniCoverStyle == "full"
-    val isBlurredCover = miniCoverStyle == "blur"
+    // Default keeps the Mini Player's framed material. Full cover and local blurred-cover modes
+    // are artwork surfaces, so an edge around either one would read as an unrelated card border.
+    val showMiniBorder = miniCoverStyle == "default"
+    // The border participates in the same cover-mode handoff instead of popping on the first
+    // settings frame. Its settled states remain Default-only versus borderless Full/Blur.
+    val miniBorderVisibility by animateFloatAsState(
+        targetValue = if (showMiniBorder) 1f else 0f,
+        animationSpec = tween(240, easing = XvoxPlayerTransitionMotion.easing),
+        label = "miniBorderCrossfade"
+    )
     val miniBlur = chrome.miniCoverBlur.coerceIn(12f, 50f).dp
 
     val controlInteraction = remember { MutableInteractionSource() }
@@ -107,7 +119,9 @@ fun XvoxMiniPlayerCard(
             .background(colors.background.copy(alpha = miniAlpha))
             .border(
                 chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
-                miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha),
+                miniEdge.copy(
+                    alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility
+                ),
                 cardShape
             )
             .drawWithContent {
@@ -129,104 +143,140 @@ fun XvoxMiniPlayerCard(
                 }
             }
     ) {
-        if (isFullCover) {
-            val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                fallbackSeed = song.id.hashCode(),
-                fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
-                requestSize = 512,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = alphaFraction }
-            )
-            // Solid (0% transparent) cover mode is intentionally un-tinted: the selected cover
-            // must remain the actual surface, not a theme-colour wash.  Any slight readability
-            // tint lives only between the two transparency endpoints and disappears again at 100%.
-            val surfaceTintAlpha = .36f * alphaFraction * (1f - alphaFraction)
-            if (surfaceTintAlpha > .001f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    colors.background.copy(alpha = .75f * surfaceTintAlpha),
-                                    Color.Transparent,
-                                    colors.background.copy(alpha = surfaceTintAlpha)
+        // An Okay-confirmed cover-style change crosses the actual visual layers rather than
+        // swapping a full-cover/blur/default branch in one frame. Mini Player imagery only needs
+        // the same 160px cache as its visible 48dp cover, which also avoids a late 512px decode
+        // flashing through the transition.
+        AnimatedContent(
+            targetState = miniCoverStyle,
+            transitionSpec = {
+                fadeIn(tween(280, easing = XvoxPlayerTransitionMotion.easing))
+                    .togetherWith(fadeOut(tween(240, easing = XvoxPlayerTransitionMotion.easing)))
+            },
+            modifier = Modifier.fillMaxSize(),
+            label = "miniCoverStyleCrossfade"
+        ) { visualStyle ->
+            when (visualStyle) {
+                "full" -> {
+                    val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
+                    XvoxSongArtwork(
+                        artwork = song.artworkUri,
+                        fallbackSeed = song.id.hashCode(),
+                        fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
+                        requestSize = 160,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = alphaFraction }
+                    )
+                    // Solid (0% transparent) cover mode is intentionally un-tinted: the selected
+                    // cover remains the actual surface rather than a theme-colour wash.
+                    val surfaceTintAlpha = .36f * alphaFraction * (1f - alphaFraction)
+                    if (surfaceTintAlpha > .001f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            colors.background.copy(alpha = .75f * surfaceTintAlpha),
+                                            Color.Transparent,
+                                            colors.background.copy(alpha = surfaceTintAlpha)
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
+                "blur" -> {
+                    // This is local artwork-derived blur only; no app-wide blur/Haze surface.
+                    XvoxSongArtwork(
+                        artwork = song.artworkUri,
+                        fallbackSeed = song.id.hashCode(),
+                        fallbackBrand = XvoxFallbackBrand.NONE,
+                        requestSize = 160,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = 1.16f
+                                scaleY = 1.16f
+                                alpha = (.70f + .24f * miniAlpha).coerceIn(0f, 1f)
+                            }
+                            .blur(miniBlur)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        colors.background.copy(alpha = .36f),
+                                        colors.background.copy(alpha = .14f),
+                                        colors.background.copy(alpha = .46f)
+                                    )
                                 )
                             )
-                        )
-                )
-            }
-        } else if (isBlurredCover) {
-            // Explicit Mini Player-only blur mode. It keeps Default's left cover while the bar
-            // receives the same song artwork as a local, overscanned blurred backdrop—no global
-            // blur infrastructure or Haze surface is involved.
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                fallbackSeed = song.id.hashCode(),
-                fallbackBrand = XvoxFallbackBrand.NONE,
-                requestSize = 512,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = 1.16f
-                        scaleY = 1.16f
-                        alpha = (.70f + .24f * miniAlpha).coerceIn(0f, 1f)
-                    }
-                    .blur(miniBlur)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                colors.background.copy(alpha = .36f),
-                                colors.background.copy(alpha = .14f),
-                                colors.background.copy(alpha = .46f)
-                            )
-                        )
                     )
-            )
+                }
+            }
         }
 
         val titleColor = colors.primaryText
         val artistColor = colors.secondaryText
+        val artworkSlotWidth by animateDpAsState(
+            targetValue = if (isFullCover) 0.dp else 48.dp,
+            animationSpec = tween(260, easing = XvoxPlayerTransitionMotion.easing),
+            label = "miniArtworkSlotWidth"
+        )
+        val artworkSlotAlpha by animateFloatAsState(
+            targetValue = if (isFullCover) 0f else 1f,
+            animationSpec = tween(220, easing = XvoxPlayerTransitionMotion.easing),
+            label = "miniArtworkSlotAlpha"
+        )
+        val rowStartPadding by animateDpAsState(
+            targetValue = if (isFullCover) 12.dp else 4.dp,
+            animationSpec = tween(260, easing = XvoxPlayerTransitionMotion.easing),
+            label = "miniRowStartPadding"
+        )
+        val metadataStartPadding by animateDpAsState(
+            targetValue = if (isFullCover) 0.dp else 9.dp,
+            animationSpec = tween(260, easing = XvoxPlayerTransitionMotion.easing),
+            label = "miniMetadataStartPadding"
+        )
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 // Reserve the two outlined 38-dp actions plus their gap so title text never
                 // slides beneath a control after the mini player was made shorter.
-                .padding(start = if (isFullCover) 12.dp else 4.dp, top = 4.dp, end = 94.dp, bottom = 4.dp),
+                .padding(start = rowStartPadding, top = 4.dp, end = 94.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!isFullCover) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(artworkShape)
-                ) {
-                    AnimatedContent(
-                        targetState = song,
-                        contentKey = { it.id },
-                        transitionSpec = {
-                            fadeIn(tween(280, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing))
-                                .togetherWith(fadeOut(tween(220, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing)))
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        label = "miniArtworkFade"
-                    ) { visualSong ->
-                        XvoxSongArtwork(
-                            artwork = visualSong.artworkUri,
-                            fallbackSeed = visualSong.id.hashCode(),
-                            fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
-                            requestSize = 160,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+            // Retain the artwork slot through a full-cover handoff and collapse it smoothly;
+            // otherwise the metadata would visibly jump while the backdrop is still crossfading.
+            Box(
+                modifier = Modifier
+                    .width(artworkSlotWidth)
+                    .height(48.dp)
+                    .clip(artworkShape)
+                    .graphicsLayer { alpha = artworkSlotAlpha }
+            ) {
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it.id },
+                    transitionSpec = {
+                        fadeIn(tween(280, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing))
+                            .togetherWith(fadeOut(tween(220, easing = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.easing)))
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    label = "miniArtworkFade"
+                ) { visualSong ->
+                    XvoxSongArtwork(
+                        artwork = visualSong.artworkUri,
+                        fallbackSeed = visualSong.id.hashCode(),
+                        fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
+                        requestSize = 160,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
 
@@ -268,7 +318,7 @@ fun XvoxMiniPlayerCard(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = if (isFullCover) 0.dp else 9.dp, end = 5.dp),
+                            .padding(start = metadataStartPadding, end = 5.dp),
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(

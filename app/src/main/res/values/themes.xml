@@ -10,8 +10,9 @@
             @color/xvox_splash_background
         </item>
 
+        <!-- Use the supplied canonical XVOX mark rather than the launcher foreground on splash. -->
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/ic_launcher_foreground_inset
+            @drawable/xvox
         </item>
 
         <item name="postSplashScreenTheme">

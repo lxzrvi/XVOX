@@ -8,11 +8,9 @@ import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
 import com.xvox.music.R
 import com.xvox.music.data.preferences.UserPreferencesRepository
@@ -197,25 +195,16 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
             val canvas = Canvas(bitmap)
             val tint = if (ColorUtils.calculateLuminance(dark) < .42) Color.argb(230, 255, 255, 255)
             else Color.argb(190, 0, 0, 0)
-            val inset = 18
-            val markSize = 18
-            val gap = 3
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
-                color = tint
-                typeface = ResourcesCompat.getFont(context, R.font.xvoxcinzeldecorative)
-                textSize = 13f
-                letterSpacing = .045f
-            }
-            val text = "XVOX"
-            val left = (size - inset - markSize - gap - paint.measureText(text)).roundToInt().coerceAtLeast(inset)
-            val baseline = (size - inset).toFloat()
-            ResourcesCompat.getDrawable(context.resources, R.drawable.xvox, null)?.mutate()?.let { mark ->
+            // The provider is the notification's actual artwork source, so it renders the same
+            // centered, mark-only fallback as Compose—never a generic app icon or text lockup.
+            val markSize = (size * .34f).roundToInt()
+            val left = (size - markSize) / 2
+            val top = (size - markSize) / 2
+            context.getDrawable(R.drawable.xvox)?.mutate()?.let { mark ->
                 mark.setTint(tint)
-                val top = (baseline - markSize + paint.fontMetrics.descent).roundToInt()
                 mark.setBounds(left, top, left + markSize, top + markSize)
                 mark.draw(canvas)
             }
-            canvas.drawText(text, left + markSize + gap.toFloat(), baseline, paint)
             return bitmap
         }
 

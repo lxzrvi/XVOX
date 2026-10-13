@@ -39,8 +39,7 @@ import kotlin.math.roundToInt
 fun NowPlayingOptionsBox(
     backgroundStyle: String,
     coverBlur: Float,
-    onBackgroundStyleChange: (String) -> Unit,
-    onCoverBlurChange: (Float) -> Unit,
+    onApplyBackground: (style: String, coverBlur: Float) -> Unit,
     onDismiss: () -> Unit
 ) {
     val blurMin = 12f
@@ -70,8 +69,7 @@ fun NowPlayingOptionsBox(
                     draftCoverBlur = resetCoverBlur
                 },
                 onOkay = {
-                    onBackgroundStyleChange(draftBackgroundStyle)
-                    onCoverBlurChange(draftCoverBlur)
+                    onApplyBackground(draftBackgroundStyle, draftCoverBlur)
                     onDismiss()
                 }
             )

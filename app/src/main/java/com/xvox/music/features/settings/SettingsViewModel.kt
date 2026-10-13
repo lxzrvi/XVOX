@@ -144,6 +144,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.greetingIntervalMs.collect { v -> _state.update { it.copy(greetingIntervalMs = v) } } }
             launch { prefs.remindersEnabled.collect { v -> _state.update { it.copy(remindersEnabled = v) } } }
             launch { prefs.persistentBackgroundPlayback.collect { v -> _state.update { it.copy(persistentBackgroundPlayback = v) } } }
+            launch {
+                prefs.backgroundPlaybackPermissionRequested.collect { requested ->
+                    _state.update { it.copy(backgroundPlaybackPermissionRequested = requested) }
+                }
+            }
         }
     }
 
@@ -165,7 +170,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.setNowPlayingCoverBlur(normalized)
         }
     }
+    /** One Okay-confirmed Now Playing draft must land atomically to preserve its visual crossfade. */
+    fun applyNowPlayingBackground(style: String, coverBlur: Float) {
+        val normalizedStyle = com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(style)
+        val normalizedBlur = coverBlur.coerceIn(12f, 50f)
+        pendingNowPlayingCoverBlur = normalizedBlur
+        _state.update {
+            it.copy(nowPlayingBackgroundStyle = normalizedStyle, nowPlayingCoverBlur = normalizedBlur)
+        }
+        viewModelScope.launch { prefs.setNowPlayingBackground(normalizedStyle, normalizedBlur) }
+    }
     fun setPersistentBackgroundPlayback(enabled: Boolean) = viewModelScope.launch { prefs.setPersistentBackgroundPlayback(enabled) }
+    fun markBackgroundPlaybackPermissionRequested() = viewModelScope.launch {
+        prefs.setBackgroundPlaybackPermissionRequested(true)
+    }
     fun setGreetingIntervalMs(value: Long) = viewModelScope.launch { prefs.setGreetingIntervalMs(value) }
     fun setLastSettingsTab(v: String) = viewModelScope.launch { prefs.setLastSettingsTab(v) }
     /** View-only: which widget size the settings preview is showing. */

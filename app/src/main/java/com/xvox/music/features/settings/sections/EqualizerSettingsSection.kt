@@ -370,7 +370,18 @@ private fun EqualizerSliderRow(
     contentDescription: String = label?.let { "$it amount" } ?: "Amount"
 ) {
     val colors = XvoxTheme.colors
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val sectionShape = RoundedCornerShape(14.dp)
+    // Amount labels and rails are one clear boxed setting, matching the Mini Player and
+    // three-dot sheets instead of leaving a loose label/track floating in the sheet body.
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(sectionShape)
+            .background(colors.cardElevated.copy(alpha = .62f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .82f), sectionShape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         // Reverb deliberately names its Amount rail; Noise reduction and Grain are already
         // named by their toggle rows, so their rails stay clean without repeated helper text.
         if (label != null || valueText != null) {
@@ -492,7 +503,7 @@ private fun EqualizerFooterButton(
     prominent: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(20.dp)
     val fill = if (prominent) colors.primaryAccent else colors.cardElevated
     val textColor = if (prominent) colors.background else colors.primaryText
     Box(

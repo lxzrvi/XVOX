@@ -58,7 +58,6 @@ fun PermissionCard(
         ) {
             PermissionActionCard(
                 title = "Music",
-                description = "Find songs on this device",
                 granted = audioGranted,
                 pending = audioPending,
                 onClick = onAudioClick,
@@ -66,7 +65,6 @@ fun PermissionCard(
             )
             PermissionActionCard(
                 title = "Notifications",
-                description = "Show playback controls",
                 granted = notificationGranted,
                 pending = notificationPending,
                 onClick = onNotificationClick,
@@ -79,7 +77,6 @@ fun PermissionCard(
 @Composable
 private fun PermissionActionCard(
     title: String,
-    description: String,
     granted: Boolean,
     pending: Boolean,
     onClick: () -> Unit,
@@ -90,12 +87,14 @@ private fun PermissionActionCard(
     val borderColor = if (granted) XvoxSuccess else colors.cardBorder.copy(alpha = .72f)
     Box(
         modifier = modifier
-            .heightIn(min = 90.dp)
+            // The two setup permissions are direct actions, so a compact title/status card is
+            // enough; explanatory copy belonged to the old taller first-install layout.
+            .heightIn(min = 64.dp)
             .clip(shape)
             .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .82f))
             .border(if (granted) 1.dp else .7.dp, borderColor, shape)
             .then(if (!granted && !pending) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -109,14 +108,6 @@ private fun PermissionActionCard(
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1
-            )
-            Text(
-                text = description,
-                color = colors.secondaryText,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 2
             )
             when {
                 pending -> CircularProgressIndicator(

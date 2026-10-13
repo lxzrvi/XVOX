@@ -155,6 +155,20 @@ fun HomeScreen(
     val isPlaylistSelectionMode = selectedPlaylistIds.isNotEmpty()
     val isSelectionMode = isSongSelectionMode || isArtistSelectionMode || isPlaylistSelectionMode
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    // A selection rail is contextual to the underlying Home surface. Once Now Playing has covered
+    // that surface and is subsequently closed, return Home in its normal non-selection state.
+    var selectionWasCoveredByNowPlaying by remember { mutableStateOf(false) }
+    LaunchedEffect(nowPlayingVisible) {
+        if (nowPlayingVisible) {
+            selectionWasCoveredByNowPlaying = true
+        } else if (selectionWasCoveredByNowPlaying) {
+            selectedSongIds = emptySet()
+            selectedArtistNames = emptySet()
+            selectedPlaylistIds = emptySet()
+            selectionCategoryName = null
+            selectionWasCoveredByNowPlaying = false
+        }
+    }
 
     if (showArtistInfo != null) {
         val currentArtist = showArtistInfo!!
@@ -494,8 +508,9 @@ fun HomeScreen(
                 onSongClick = { song ->
                     if (isSelectionMode) handleSongLongClick(song, "Recently Played")
                     else if (song.id == currentSongId) {
-                        playerViewModel.seekTo(0L)
-                        if (!isPlaying) playerViewModel.togglePlay()
+                        // Recently Played is a genuine play/pause control for its active card:
+                        // tap once to pause, tap again to resume. Do not rewind the track.
+                        playerViewModel.togglePlay()
                     } else {
                         viewModel.recordPlayedFromRecent(song, currentSongId)
                         val (queueSongs, queueName) = resolveOriginatingSongsForRecent(song)

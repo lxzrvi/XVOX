@@ -1367,8 +1367,7 @@ fun XvoxNowPlaying(
                 NowPlayingOptionsBox(
                     backgroundStyle = settingsState.nowPlayingBackgroundStyle,
                     coverBlur = settingsState.nowPlayingCoverBlur,
-                    onBackgroundStyleChange = settingsViewModel::setNowPlayingBackgroundStyle,
-                    onCoverBlurChange = settingsViewModel::setNowPlayingCoverBlur,
+                    onApplyBackground = settingsViewModel::applyNowPlayingBackground,
                     onDismiss = { activeSettingsBox = null }
                 )
             } else if (activeSettingsBox != "Customize") {

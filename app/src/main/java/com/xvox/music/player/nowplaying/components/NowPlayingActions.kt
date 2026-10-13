@@ -104,7 +104,8 @@ fun NowPlayingActions(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    var pageIndex by remember { mutableIntStateOf(actionPageIndex.coerceIn(0, 2)) }
+    // Do not clamp at the first/last action page: the pager is a three-stop ring.
+    var pageIndex by remember { mutableIntStateOf(((actionPageIndex % 3) + 3) % 3) }
     var showIndicator by remember { mutableStateOf(true) }
     var actionWidthPx by remember { mutableFloatStateOf(0f) }
     var liveSwipeOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -129,7 +130,7 @@ fun NowPlayingActions(
             targetPage = targetPage
         )
     }
-    fun requestActionPage(next: Int, forward: Boolean) {
+    fun requestActionPage(next: Int) {
         val normalized = normalizedPage(next)
         if (normalized == pageIndex) return
         if (actionWidthPx <= 1f) {
@@ -137,7 +138,11 @@ fun NowPlayingActions(
             onActionPageChange(normalized)
             return
         }
-        // Forward uses the same right → left physical route as a finger drag; back reverses it.
+        // Pick the short route on the three-page ring. Crucially, 0 → 2 is a one-step backward
+        // wrap and 2 → 0 is a one-step forward wrap—neither endpoint can ever feel like a stop.
+        val forwardDistance = (normalized - pageIndex + 3) % 3
+        val backwardDistance = (pageIndex - normalized + 3) % 3
+        val forward = forwardDistance <= backwardDistance
         startSettle(
             start = 0f,
             target = if (forward) -actionWidthPx else actionWidthPx,
@@ -146,7 +151,7 @@ fun NowPlayingActions(
     }
 
     LaunchedEffect(actionPageIndex) {
-        val next = actionPageIndex.coerceIn(0, 2)
+        val next = ((actionPageIndex % 3) + 3) % 3
         if (next != pageIndex) {
             actionSettle = null
             actionDragging = false
@@ -381,7 +386,7 @@ fun NowPlayingActions(
                                 indication = null
                             ) {
                                 haptics.tap()
-                                requestActionPage(dotIdx, forward = dotIdx >= pageIndex)
+                                requestActionPage(dotIdx)
                             }
                     )
                 }
@@ -395,16 +400,29 @@ fun NowPlayingActions(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        // Keep the utility and changing-action groups close without collapsing their touch areas.
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+        // The two control families read as one intentionally tight horizontal system rather than
+        // opposite screen-edge islands. Their configured sides still determine order only.
+        horizontalArrangement = Arrangement.Center
     ) {
-        // These lanes are independently configurable from the three-dot editor. Only their own
-        // horizontal lane changes; the transport row below remains physically centered.
-        if (utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
-        if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
-        Spacer(Modifier.weight(1f))
-        if (!utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
-        if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
+        var hasPlacedCluster = false
+        if (utilityOnLeft) {
+            key("nowPlayingUtilityPill") { utilityPill() }
+            hasPlacedCluster = true
+        }
+        if (actionsOnLeft) {
+            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
+            key("nowPlayingChangingActions") { changingActionCluster() }
+            hasPlacedCluster = true
+        }
+        if (!utilityOnLeft) {
+            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
+            key("nowPlayingUtilityPill") { utilityPill() }
+            hasPlacedCluster = true
+        }
+        if (!actionsOnLeft) {
+            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
+            key("nowPlayingChangingActions") { changingActionCluster() }
+        }
     }
 }
 
