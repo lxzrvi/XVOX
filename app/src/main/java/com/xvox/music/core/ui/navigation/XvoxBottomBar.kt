@@ -59,33 +59,20 @@ fun XvoxBottomBar(
     val parentShape = RoundedCornerShape(navBarHeight / 2f)
     val selectorShape = RoundedCornerShape(selectorHeight / 2f)
 
-    // In dark themes the bar now deliberately mirrors the Mini Player's own background and
-    // transparency controls. Light-mode keeps its accepted page-material treatment unchanged.
-    val usesMiniPlayerDarkSurface = !colors.isLight && chrome.navigationImageUri.isBlank()
-    val requestedNavSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
-    val navSurfaceAlpha = if (usesMiniPlayerDarkSurface) {
-        chrome.miniBgAlpha.coerceIn(0f, 1f)
-    } else {
-        requestedNavSurfaceAlpha
-    }
-    val navEdgeBase = if (usesMiniPlayerDarkSurface) {
-        com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
-    } else {
-        com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
-    }
-    val navBorderAlpha = if (usesMiniPlayerDarkSurface) {
-        chrome.miniBorderAlpha.coerceIn(.34f, 1f)
-    } else {
-        chrome.navBorderAlpha.coerceIn(.42f, 1f)
-    }
-    // Keep a thin themed edge even for a transparent bar/pill; it anchors the control against
-    // both light and dark page backgrounds without using a fixed accent colour.
+    // Navbar and Mini Player retain independent transparency sliders in both themes. Coupling the
+    // dark navbar to miniBgAlpha made the navbar slider appear broken and kept its selector heavy.
+    val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
+    val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
+    val navBorderAlpha = chrome.navBorderAlpha.coerceIn(.42f, 1f)
     val navEdge = navEdgeBase.copy(
-        alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha.coerceAtLeast(.72f)
+        alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha
     )
     val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
+    // A default dark selector needs no harsh capsule edge. Explicit user-selected borders remain
+    // respected, but the travelling pill itself stays as transparent as the accepted light mode.
+    val pillEdgeStrength = if (!colors.isLight && chrome.pillBorder.isBlank()) .14f else 1f
     val pillEdge = pillEdgeBase.copy(
-        alpha = pillEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha.coerceAtLeast(.72f)
+        alpha = pillEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha * pillEdgeStrength
     )
     val defaultNavSurface = colors.background
     val appliedNavSurfaceAlpha = navSurfaceAlpha
@@ -95,9 +82,9 @@ fun XvoxBottomBar(
         // second accent treatment.
         androidx.compose.ui.graphics.Color(0xFFB8BBC2)
     } else {
-        // A lightly transparent black selector is distinct from the Mini Player-matched dark
-        // navbar without returning to the earlier bright gray pill.
-        androidx.compose.ui.graphics.Color.Black
+        // A card-derived charcoal under a deliberately low alpha reads as glass, not as the old
+        // opaque black cutout, while the selected icon remains the destination cue.
+        colors.cardElevated
     }
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
         ?: defaultPillNeutral
@@ -108,11 +95,13 @@ fun XvoxBottomBar(
         val defaultPillAlpha = if (customImageSurface) {
             // Preserve the previously requested completely clear custom-image endpoint.
             navSurfaceAlpha * (1f - navSurfaceAlpha)
-        } else {
-            // Match the accepted light-mode translucency curve in dark mode too. The near-black
-            // selector remains distinct from the Mini Player-matched rail, but it never returns
-            // to an opaque cutout when the user has chosen a transparent navbar material.
+        } else if (colors.isLight) {
+            // Preserve the accepted light-mode curve exactly.
             (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
+        } else {
+            // Dark surfaces need a lower numeric alpha than light gray to look equally clear.
+            // This is intentionally a translucent travelling wash, never an opaque selector.
+            (.08f + .12f * navSurfaceAlpha) * navSurfaceAlpha
         }
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)

@@ -144,13 +144,36 @@ fun HomeSettingsSection(
             onToggle = { toggle("Mini Player & Nav Bar") }
         ) {
             Label("Cover style")
+            val miniCoverStyle = when (chrome.miniCoverStyle) {
+                "full", "blur" -> chrome.miniCoverStyle
+                else -> "default"
+            }
             SettingsChoiceRow(
-                listOf("default" to "Default", "full" to "Full cover"),
-                chrome.miniCoverStyle,
+                listOf(
+                    "default" to "Default",
+                    "full" to "Full cover",
+                    "blur" to "Blur background"
+                ),
+                miniCoverStyle,
                 onSelect = { style ->
                     viewModel.setChromeStyle { it.copy(miniCoverStyle = style) }
                 }
             )
+
+            if (miniCoverStyle == "blur") {
+                Spacer(Modifier.height(10.dp))
+                val miniBlur = chrome.miniCoverBlur.coerceIn(12f, 50f)
+                Label("Blur background · ${miniBlur.roundToInt()} dp")
+                XvoxContinuousSlider(
+                    value = miniBlur,
+                    onValueChange = { blur ->
+                        viewModel.setChromeStyle { it.copy(miniCoverBlur = blur.coerceIn(12f, 50f)) }
+                    },
+                    valueRange = 12f..50f,
+                    defaultValue = 26.25f,
+                    contentDescription = "Mini player background blur"
+                )
+            }
 
             Spacer(Modifier.height(10.dp))
 

@@ -44,7 +44,7 @@ data class XvoxChromeStyle(
     // Cards everywhere (border only; the card fill transparency lives in Theme's card alpha).
     val cardBorder: String = "",
     val cardBorderAlpha: Float = 1f,
-    // Mini player cover mode ("default" or "full").
+    // Mini player artwork mode: default, full, or a local cover-blurred background.
     val miniCoverStyle: String = "default",
     /** Rounded corner radius for the Mini Player only, in dp. */
     val miniCornerRadius: Float = 15f,
@@ -126,7 +126,9 @@ data class XvoxChromeStyle(
     val nowPlayingShuffleOffsetX: Float = 0f,
     val nowPlayingShuffleOffsetY: Float = 0f,
     val nowPlayingRepeatOffsetX: Float = 0f,
-    val nowPlayingRepeatOffsetY: Float = 0f
+    val nowPlayingRepeatOffsetY: Float = 0f,
+    /** Local artwork blur used only by the Mini Player's explicit Blur background mode. */
+    val miniCoverBlur: Float = 26.25f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -165,7 +167,8 @@ data class XvoxChromeStyle(
         // Experimental chrome/motion values are appended to preserve every earlier record.
         miniBorderWidth, navBorderWidth, pillBorder, pillBorderWidth,
         miniExitOvershootDp, nowPlayingExitOvershootDp, miniToNowPlayingDelayMillis,
-        miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase
+        miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase,
+        miniCoverBlur
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -219,6 +222,10 @@ data class XvoxChromeStyle(
                 "pill", "android_wave", "pulse", "aurora" -> str(i)
                 else -> "classic"
             }
+            fun miniCoverStyle(i: Int): String = when (str(i)) {
+                "full", "blur" -> str(i)
+                else -> "default"
+            }
             if (parts.size == 16) {
                 return XvoxChromeStyle(
                     optionBoxBgAlpha = flt(0, 1f), optionBoxBorder = str(1), optionBoxBorderAlpha = flt(2, 1f),
@@ -249,7 +256,7 @@ data class XvoxChromeStyle(
                 pillColor = str(12), pillAlpha = flt(13, 1f),
                 pillIconColor = str(14),
                 cardBorder = str(15), cardBorderAlpha = flt(16, 1f),
-                miniCoverStyle = if (str(17).isNotBlank()) str(17) else "default",
+                miniCoverStyle = miniCoverStyle(17),
                 miniCornerRadius = number(18, 15f).coerceIn(6f, 32f),
                 navigationBarHeight = number(19, 62f).coerceIn(52f, 88f),
                 headerDimEnabled = parts.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
@@ -277,6 +284,7 @@ data class XvoxChromeStyle(
                 nowPlayingMotionDuration = motionDuration(73, 300),
                 miniMotionEase = motionEase(74, .55f),
                 nowPlayingMotionEase = motionEase(75, .55f),
+                miniCoverBlur = number(76, 26.25f).coerceIn(12f, 50f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

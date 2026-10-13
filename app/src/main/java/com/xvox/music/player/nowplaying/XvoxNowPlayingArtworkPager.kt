@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxFallbackBrand
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.playback.RepeatMode
@@ -359,6 +360,7 @@ private fun XvoxNowPlayingArtworkPage(
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
+                fallbackBrand = XvoxFallbackBrand.NOW_PLAYING,
                 requestSize = XvoxNowPlayingArtworkSize,
                 // Never replace the outgoing decoded cover with a flat placeholder while the
                 // next original-quality image is resolving; this removes playback/queue flicker.

@@ -36,6 +36,10 @@ class XvoxArtworkPaletteLoader(
 
     companion object {
         private val cache = android.util.LruCache<String, Color>(1024)
+        // Keep failure provenance alongside the palette cache. A URI can be present yet unreadable;
+        // callers then need to use that song's themed wave palette rather than treating a generic
+        // hash estimate as extracted cover colour.
+        private val fallbackCache = android.util.LruCache<String, Boolean>(1024)
         private const val TargetSide = 64
         private const val SimilarRgbDistance = 48
         private const val SimilarRgbDistanceSquared = SimilarRgbDistance * SimilarRgbDistance
@@ -106,6 +110,10 @@ class XvoxArtworkPaletteLoader(
     fun cachedColor(uri: Uri?, songKey: String = ""): Color? =
         paletteCacheKey(uri, songKey).takeIf { it.isNotBlank() }?.let(cache::get)
 
+    /** True when this key resolved to an unreadable/missing image rather than decoded cover pixels. */
+    fun usedFallback(uri: Uri?, songKey: String = ""): Boolean =
+        paletteCacheKey(uri, songKey).takeIf { it.isNotBlank() }?.let(fallbackCache::get) == true
+
     fun fastEstimate(uri: Uri?, songKey: String = ""): Color =
         cachedColor(uri, songKey) ?: fallback(songKey)
 
@@ -121,6 +129,7 @@ class XvoxArtworkPaletteLoader(
         if (key.isBlank()) return fallback(songKey)
         cache[key]?.let { return it }
 
+        var fellBack = false
         val result = withContext(Dispatchers.IO) {
             val bitmap = uri?.let { coverUri ->
                 getCachedBitmap(coverUri) ?: runCatching {
@@ -134,12 +143,19 @@ class XvoxArtworkPaletteLoader(
                     (response.image as? coil3.BitmapImage)?.bitmap
                 }.getOrNull()
             }
-            bitmap?.let { source ->
-                runCatching { extract(source) }.getOrElse { fallback(songKey) }
-            } ?: fallback(songKey)
+            val extracted = bitmap?.let { source ->
+                runCatching { extract(source) }.getOrNull()
+            }
+            if (extracted == null) {
+                fellBack = true
+                fallback(songKey)
+            } else {
+                extracted
+            }
         }
 
         cache.put(key, result)
+        if (fellBack) fallbackCache.put(key, true) else fallbackCache.remove(key)
         return result
     }
 
@@ -148,8 +164,8 @@ class XvoxArtworkPaletteLoader(
      * scale a 1.5% cluster is roughly sixty pixels: small title lettering or a badge falls away,
      * while a genuine colourful region remains eligible.
      */
-    private fun extract(bitmap: Bitmap): Color {
-        if (bitmap.width <= 0 || bitmap.height <= 0) return fallback("")
+    private fun extract(bitmap: Bitmap): Color? {
+        if (bitmap.width <= 0 || bitmap.height <= 0) return null
         val resized = if (bitmap.width == TargetSide && bitmap.height == TargetSide) bitmap
         else Bitmap.createScaledBitmap(bitmap, TargetSide, TargetSide, true)
 
@@ -184,14 +200,14 @@ class XvoxArtworkPaletteLoader(
                 }
             }
 
-            if (clusters.isEmpty() || opaqueSamples == 0) return fallback("")
+            if (clusters.isEmpty() || opaqueSamples == 0) return null
             val minimumMeaningfulPopulation = max(
                 4,
                 ceil(opaqueSamples.toDouble() * TinyClusterShare.toDouble()).toInt()
             )
             val meaningful = clusters.filter { it.population >= minimumMeaningfulPopulation }
                 .ifEmpty { clusters }
-            val dominant = meaningful.maxByOrNull { it.population } ?: return fallback("")
+            val dominant = meaningful.maxByOrNull { it.population } ?: return null
 
             return adaptForBackground(
                 rgbColor(dominant.averageRed, dominant.averageGreen, dominant.averageBlue)

@@ -56,6 +56,14 @@
 
         </activity>
 
+        <!-- Media controllers such as Android Auto resolve the artwork URI outside this process.
+             This provider exposes only generated, non-library PNG fallback art for that purpose. -->
+        <provider
+            android:name=".artwork.XvoxFallbackArtworkProvider"
+            android:authorities="com.xvox.music.fallbackart"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <service
             android:name=".player.session.XvoxPlaybackService"
             android:exported="true"

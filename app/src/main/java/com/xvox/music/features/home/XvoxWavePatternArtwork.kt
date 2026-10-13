@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
@@ -36,19 +37,70 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.ColorUtils
 import com.xvox.music.R
+import com.xvox.music.artwork.XvoxImageWork
 import com.xvox.music.core.design.theme.XvoxLogoFont
+import com.xvox.music.core.design.theme.XvoxPalette
 import com.xvox.music.core.design.theme.XvoxTheme
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+/** Visible lockup sizing for the same fallback artwork at library, Mini Player, and Now Playing scale. */
+enum class XvoxFallbackBrand {
+    STANDARD,
+    MINI_PLAYER,
+    NOW_PLAYING,
+    NONE
+}
+
+/** The three colours shared by a song's wave artwork and its Default Now Playing canvas. */
+data class XvoxWavePalette(
+    val surface: Color,
+    val stripe: Color,
+    val dominant: Color
+)
+
+/**
+ * Produces an accent-derived but song-specific colour family. A fresh red-accent install still
+ * begins from XVOX red, but every stable song seed takes a different tonal route around that
+ * family instead of making a library of identical red/black placeholders.
+ */
+internal fun xvoxWavePalette(seed: Int, colors: XvoxPalette): XvoxWavePalette {
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(colors.primaryAccent.toArgb(), hsl)
+    val variation = xvoxSeedUnit(seed, 41)
+    val lane = xvoxSeedIndex(seed, 73, 8)
+    val hueOffsets = floatArrayOf(-7f, 38f, 83f, 129f, 174f, 220f, 266f, 313f)
+    val baseHue = if (hsl[1] < .08f) 0f else hsl[0]
+    val hue = (baseHue + hueOffsets[lane] + (variation - .5f) * 18f + 360f) % 360f
+    val saturation = (
+        if (hsl[1] < .15f) .60f
+        else .46f + hsl[1] * .40f + (variation - .5f) * .12f
+    ).coerceIn(.42f, .88f)
+    val lightness = if (colors.isLight) {
+        (.43f + variation * .12f).coerceIn(.43f, .55f)
+    } else {
+        (.48f + variation * .15f).coerceIn(.48f, .63f)
+    }
+    val stripe = Color(ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness)))
+    val baseSurface = if (colors.isLight) colors.cardElevated else colors.background
+    val surface = lerp(baseSurface, stripe, if (colors.isLight) .12f else .18f)
+    return XvoxWavePalette(
+        surface = surface,
+        stripe = stripe,
+        dominant = lerp(surface, stripe, if (colors.isLight) .50f else .56f)
+    )
+}
+
 /**
  * Theme-aware fallback artwork for songs whose embedded cover/thumbnail is absent or unreadable.
- * Each caller supplies a stable song-derived seed, so a song keeps its own soft wave identity.
+ * A stable song-derived seed controls both the unique warped stripe geometry and its colour family.
  */
 @Composable
 fun WavePatternSquare(
@@ -56,15 +108,19 @@ fun WavePatternSquare(
     darkColor: Color? = null,
     brightColor: Color? = null,
     seed: Int = 11,
-    bitmapSize: Int = 360
+    bitmapSize: Int = 256,
+    brand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD
 ) {
     val colors = XvoxTheme.colors
-    // Never hardcode the former red/black placeholder. A custom accent and either app theme
-    // generate their own cover surface while retaining enough base contrast for the wave texture.
-    val resolvedDark = darkColor ?: if (colors.isLight) colors.cardElevated else colors.background
-    val resolvedBright = brightColor ?: colors.primaryAccent
-    val safeBitmapSize = bitmapSize.coerceIn(180, 540)
+    val palette = remember(seed, colors) { xvoxWavePalette(seed, colors) }
+    val resolvedDark = darkColor ?: palette.surface
+    val resolvedBright = brightColor ?: palette.stripe
+    val safeBitmapSize = bitmapSize.coerceIn(96, 540)
     val patternKey = xvoxWavePatternKey(resolvedDark, resolvedBright, seed, safeBitmapSize)
+    // List cells should replace their own stable artwork directly. Crossfading two Canvas layers
+    // while Lazy layouts recycle rapidly is pure extra draw/recomposition work; reserve that
+    // premium morph only for the large Now Playing artwork surface.
+    val animatePatternSwap = brand == XvoxFallbackBrand.NOW_PLAYING
 
     var displayedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var outgoingBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -72,10 +128,10 @@ fun WavePatternSquare(
     val reveal = remember { Animatable(1f) }
 
     LaunchedEffect(patternKey) {
-        // Pixel generation remains off the main thread. A small process cache avoids regenerating
-        // the same song's pattern during list scrolls, Now Playing, and a Mini Player handoff.
+        // Generation is cancellable and cached. A quick All Songs fling therefore abandons covers
+        // that left the viewport instead of letting stale pixel jobs compete with scrolling.
         val next = xvoxCachedWaveBitmap(patternKey)?.asImageBitmap()
-            ?: withContext(Dispatchers.Default) {
+            ?: withContext(XvoxImageWork.waveContext) {
                 xvoxBuildWaveBitmap(safeBitmapSize, seed, resolvedDark, resolvedBright).also {
                     xvoxCacheWaveBitmap(patternKey, it)
                 }.asImageBitmap()
@@ -83,7 +139,7 @@ fun WavePatternSquare(
         val previous = displayedBitmap
         val previousKey = displayedKey
         displayedKey = patternKey
-        if (previous != null && previousKey != patternKey) {
+        if (animatePatternSwap && previous != null && previousKey != patternKey) {
             outgoingBitmap = previous
             displayedBitmap = next
             reveal.snapTo(0f)
@@ -99,45 +155,66 @@ fun WavePatternSquare(
         }
     }
 
-    // The original SVG is preserved in res/raw, with an Android VectorDrawable generated directly
-    // from it for resource-safe use here and anywhere else that needs @drawable/xvox.
     val brandTint = if (resolvedDark.luminance() < .42f) {
-        Color.White.copy(alpha = .88f)
+        Color.White.copy(alpha = .90f)
     } else {
-        Color.Black.copy(alpha = .72f)
+        Color.Black.copy(alpha = .74f)
     }
+    val brandSpec = when (brand) {
+        XvoxFallbackBrand.STANDARD -> XvoxFallbackBrandSpec(13f, 10f, 3f, 12f, 10f)
+        XvoxFallbackBrand.MINI_PLAYER -> XvoxFallbackBrandSpec(7f, 5.5f, 1.5f, 5f, 4f)
+        XvoxFallbackBrand.NOW_PLAYING -> XvoxFallbackBrandSpec(19f, 16f, 4f, 20f, 17f)
+        XvoxFallbackBrand.NONE -> null
+    }
+
     Box(
         modifier = modifier.background(resolvedDark),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.fillMaxSize()) {
             outgoingBitmap?.let { drawWaveBitmap(it, 1f - reveal.value) }
-            displayedBitmap?.let { drawWaveBitmap(it, reveal.value) }
+            // On a recycled list slot the old bitmap must not be painted for one extra frame
+            // while the new cancellable generation is queued; show the base palette instead.
+            displayedBitmap
+                ?.takeIf { animatePatternSwap || displayedKey == patternKey }
+                ?.let { drawWaveBitmap(it, reveal.value) }
         }
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 9.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.xvox),
-                contentDescription = "XVOX",
-                tint = brandTint,
-                modifier = Modifier.size(13.dp)
-            )
-            Text(
-                text = "XVOX",
-                color = brandTint,
-                fontFamily = XvoxLogoFont,
-                fontWeight = FontWeight.Normal,
-                fontSize = 10.sp,
-                letterSpacing = .35.sp,
-                modifier = Modifier.padding(start = 3.dp)
-            )
+        brandSpec?.let { spec ->
+            // Original SVG stays in res/raw; the directly generated VectorDrawable keeps this
+            // exact XVOX mark usable in Compose and resource-only surfaces.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = spec.end.dp, bottom = spec.bottom.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.xvox),
+                    contentDescription = "XVOX",
+                    tint = brandTint,
+                    modifier = Modifier.size(spec.mark.dp)
+                )
+                Text(
+                    text = "XVOX",
+                    color = brandTint,
+                    fontFamily = XvoxLogoFont,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = spec.text.sp,
+                    letterSpacing = if (brand == XvoxFallbackBrand.MINI_PLAYER) .08.sp else .35.sp,
+                    modifier = Modifier.padding(start = spec.gap.dp)
+                )
+            }
         }
     }
 }
+
+private data class XvoxFallbackBrandSpec(
+    val mark: Float,
+    val text: Float,
+    val gap: Float,
+    val end: Float,
+    val bottom: Float
+)
 
 private fun DrawScope.drawWaveBitmap(bitmap: ImageBitmap, alpha: Float) {
     if (alpha <= .001f) return
@@ -156,9 +233,9 @@ private fun DrawScope.drawWaveBitmap(bitmap: ImageBitmap, alpha: Float) {
     )
 }
 
-/** Bounded bitmap cache; patterns are tiny compared with decoded album art and safe to reuse. */
+/** Retain a larger nearby library window so reverse flings reuse existing wave rasters. */
 private object XvoxWavePatternCache {
-    private val cache = object : LruCache<String, Bitmap>(12 * 1024) {
+    private val cache = object : LruCache<String, Bitmap>(24 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int =
             (value.allocationByteCount / 1024).coerceAtLeast(1)
     }
@@ -170,7 +247,7 @@ private object XvoxWavePatternCache {
     }
 }
 
-/** Shared by the background bitmap path so null/error covers can morph without a blank frame. */
+/** Shared by the blurred background bitmap path so null/error covers morph without a blank frame. */
 internal fun xvoxWavePatternKey(dark: Color, bright: Color, seed: Int, size: Int): String =
     "${dark.toArgb()}:${bright.toArgb()}:$seed:$size"
 
@@ -180,8 +257,8 @@ internal fun xvoxCacheWaveBitmap(key: String, bitmap: Bitmap) {
     XvoxWavePatternCache.put(key, bitmap)
 }
 
-/** Red/dark reference waves, recoloured exclusively from the active app theme/accent. */
-internal fun xvoxBuildWaveBitmap(size: Int, seed: Int, dark: Color, bright: Color): Bitmap {
+/** Cancellable red/dark-reference waves, recoloured from each song's theme-aware palette. */
+internal suspend fun xvoxBuildWaveBitmap(size: Int, seed: Int, dark: Color, bright: Color): Bitmap {
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val pixels = IntArray(size * size)
 
@@ -196,6 +273,7 @@ internal fun xvoxBuildWaveBitmap(size: Int, seed: Int, dark: Color, bright: Colo
     val scale = reference / size
     val period = 92f
     for (py in 0 until size) {
+        if (py % 12 == 0) currentCoroutineContext().ensureActive()
         for (px in 0 until size) {
             val x = px * scale
             val y = py * scale
@@ -217,6 +295,20 @@ internal fun xvoxBuildWaveBitmap(size: Int, seed: Int, dark: Color, bright: Colo
     }
     bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
     return bitmap
+}
+
+private fun xvoxSeedIndex(seed: Int, salt: Int, bound: Int): Int {
+    var value = seed * 1103515245 + salt * 12345
+    value = value xor (value ushr 16)
+    return (value and Int.MAX_VALUE) % bound
+}
+
+private fun xvoxSeedUnit(seed: Int, salt: Int): Float {
+    var value = seed * 1103515245 + salt * 12345
+    value = value xor (value ushr 13)
+    value *= 1274126177
+    value = value xor (value ushr 16)
+    return (value and Int.MAX_VALUE).toFloat() / Int.MAX_VALUE.toFloat()
 }
 
 private fun xvoxWaveHash(ix: Int, iy: Int, seed: Int): Float {

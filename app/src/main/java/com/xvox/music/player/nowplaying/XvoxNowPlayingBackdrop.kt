@@ -88,13 +88,10 @@ fun XvoxNowPlayingBackdrop(
             !pagerArtworkTransition -> incomingAvailability.snapTo(0f)
             !incomingAvailable -> incomingAvailability.snapTo(0f)
             else -> {
-                // Restart a short release ramp for each incoming identity. It hides decoder timing
-                // without decoupling the actual blend from the foreground pager's fraction.
-                incomingAvailability.snapTo(0f)
-                incomingAvailability.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(150, easing = CubicBezierEasing(.22f, 0f, 0f, 1f))
-                )
+                // Once drawable, bind the background directly to the pager fraction. The previous
+                // delayed release ramp left a 0.5–0.9 layer behind a button Next/Previous motion,
+                // then jumped to the settled primary cover on the final frame.
+                incomingAvailability.snapTo(1f)
             }
         }
     }

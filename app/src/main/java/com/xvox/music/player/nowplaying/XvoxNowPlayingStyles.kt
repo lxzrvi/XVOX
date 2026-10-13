@@ -22,6 +22,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxFallbackBrand
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.player.styles.XvoxPlayerStyle
 import com.xvox.music.player.playback.RepeatMode
@@ -172,6 +173,7 @@ private fun XvoxFullArtPager(
                 XvoxSongArtwork(
                     artwork = queue[qIndex].artworkUri,
                     fallbackSeed = queue[qIndex].id.hashCode(),
+                    fallbackBrand = XvoxFallbackBrand.NOW_PLAYING,
                     requestSize = 2048,
                     modifier = Modifier.fillMaxSize()
                 )

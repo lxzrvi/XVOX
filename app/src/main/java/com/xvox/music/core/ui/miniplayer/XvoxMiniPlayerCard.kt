@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxFallbackBrand
 import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -81,7 +83,13 @@ fun XvoxMiniPlayerCard(
     val cardShape = RoundedCornerShape(miniRadius)
     // Artwork keeps its full 48dp footprint while following the card's corner language.
     val artworkShape = RoundedCornerShape((chrome.miniCornerRadius - 4f).coerceIn(7f, 28f).dp)
-    val isFullCover = chrome.miniCoverStyle == "full"
+    val miniCoverStyle = when (chrome.miniCoverStyle) {
+        "full", "blur" -> chrome.miniCoverStyle
+        else -> "default"
+    }
+    val isFullCover = miniCoverStyle == "full"
+    val isBlurredCover = miniCoverStyle == "blur"
+    val miniBlur = chrome.miniCoverBlur.coerceIn(12f, 50f).dp
 
     val controlInteraction = remember { MutableInteractionSource() }
 
@@ -126,6 +134,7 @@ fun XvoxMiniPlayerCard(
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
+                fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
                 requestSize = 512,
                 modifier = Modifier
                     .fillMaxSize()
@@ -150,6 +159,37 @@ fun XvoxMiniPlayerCard(
                         )
                 )
             }
+        } else if (isBlurredCover) {
+            // Explicit Mini Player-only blur mode. It keeps Default's left cover while the bar
+            // receives the same song artwork as a local, overscanned blurred backdrop—no global
+            // blur infrastructure or Haze surface is involved.
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
+                fallbackBrand = XvoxFallbackBrand.NONE,
+                requestSize = 512,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.16f
+                        scaleY = 1.16f
+                        alpha = (.70f + .24f * miniAlpha).coerceIn(0f, 1f)
+                    }
+                    .blur(miniBlur)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                colors.background.copy(alpha = .36f),
+                                colors.background.copy(alpha = .14f),
+                                colors.background.copy(alpha = .46f)
+                            )
+                        )
+                    )
+            )
         }
 
         val titleColor = colors.primaryText
@@ -182,6 +222,7 @@ fun XvoxMiniPlayerCard(
                         XvoxSongArtwork(
                             artwork = visualSong.artworkUri,
                             fallbackSeed = visualSong.id.hashCode(),
+                            fallbackBrand = XvoxFallbackBrand.MINI_PLAYER,
                             requestSize = 160,
                             modifier = Modifier.fillMaxSize()
                         )

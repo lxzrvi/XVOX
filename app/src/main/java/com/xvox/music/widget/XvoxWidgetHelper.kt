@@ -111,9 +111,15 @@ object XvoxWidgetHelper {
             state.appAccentColor,
             light = ColorUtils.calculateLuminance(base) > .5
         )
-        val art = decodedArtwork ?: widgetWaveArtwork(context, state.fallbackSeed, base, fallbackAccent)
+        val wavePalette = widgetWavePalette(state.fallbackSeed, base, fallbackAccent)
+        val art = decodedArtwork ?: widgetWaveArtwork(
+            context,
+            state.fallbackSeed,
+            wavePalette.surface,
+            wavePalette.stripe
+        )
         val artworkKey = state.artworkUri?.toString()?.let { "$it:${state.fallbackSeed}" }
-            ?: "wave:${state.fallbackSeed}:$base:$fallbackAccent"
+            ?: "wave:${state.fallbackSeed}:${wavePalette.surface}:${wavePalette.stripe}"
         val fg = if (!full && ColorUtils.calculateLuminance(base) > .5 && state.transparency < .7) Color.rgb(17, 17, 17) else Color.WHITE
         val background = ColorUtils.setAlphaComponent(base, ((1 - state.transparency.coerceIn(0f, 1f)) * 255).roundToInt())
         val views = RemoteViews(context.packageName, if (narrow) R.layout.widget_xvox_player_custom_narrow else R.layout.widget_xvox_player)
@@ -405,6 +411,45 @@ object XvoxWidgetHelper {
         images.put(key, out)
         return out
     }
+    private data class WidgetWavePalette(val surface: Int, val stripe: Int)
+
+    /** Per-song spectrum variation while retaining the active app/widget accent as its source. */
+    private fun widgetWavePalette(seed: Int, base: Int, accent: Int): WidgetWavePalette {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(accent, hsl)
+        val variation = widgetSeedUnit(seed, 41)
+        val offsets = floatArrayOf(-7f, 38f, 83f, 129f, 174f, 220f, 266f, 313f)
+        val lane = widgetSeedIndex(seed, 73, offsets.size)
+        val baseHue = if (hsl[1] < .08f) 0f else hsl[0]
+        val hue = (baseHue + offsets[lane] + (variation - .5f) * 18f + 360f) % 360f
+        val saturation = (
+            if (hsl[1] < .15f) .60f
+            else .46f + hsl[1] * .40f + (variation - .5f) * .12f
+        ).coerceIn(.42f, .88f)
+        val light = ColorUtils.calculateLuminance(base) > .5
+        val lightness = if (light) (.43f + variation * .12f).coerceIn(.43f, .55f)
+        else (.48f + variation * .15f).coerceIn(.48f, .63f)
+        val stripe = ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness))
+        return WidgetWavePalette(
+            surface = ColorUtils.blendARGB(base, stripe, if (light) .12f else .18f),
+            stripe = stripe
+        )
+    }
+
+    private fun widgetSeedIndex(seed: Int, salt: Int, bound: Int): Int {
+        var value = seed * 1103515245 + salt * 12345
+        value = value xor (value ushr 16)
+        return (value and Int.MAX_VALUE) % bound
+    }
+
+    private fun widgetSeedUnit(seed: Int, salt: Int): Float {
+        var value = seed * 1103515245 + salt * 12345
+        value = value xor (value ushr 13)
+        value *= 1274126177
+        value = value xor (value ushr 16)
+        return (value and Int.MAX_VALUE).toFloat() / Int.MAX_VALUE.toFloat()
+    }
+
     /** Mirrors the app accent contract without requiring Compose inside a RemoteViews process. */
     private fun widgetAccentColor(value: String, light: Boolean): Int = when {
         value.startsWith("#") -> runCatching { Color.parseColor(value) }

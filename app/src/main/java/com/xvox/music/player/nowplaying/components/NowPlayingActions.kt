@@ -255,9 +255,8 @@ fun NowPlayingActions(
             val swipeWidth = actionWidthPx.coerceAtLeast(1f)
             val swipeFraction = (kotlin.math.abs(visualSwipeOffsetPx) / swipeWidth).coerceIn(0f, 1f)
             val swipeTargetPage = targetForOffset(visualSwipeOffsetPx)
-            // The dot lane sits just beneath this 42dp action row. Use a small fraction of the
-            // measured pair width so its grow/shrink travel stays proportional at every density.
-            val dotLaneTravelPx = (swipeWidth * .18f).coerceAtMost(54f)
+            // Action pages travel strictly within their existing row. The former downward arc
+            // looked diagonal against the six-option control box and made page changes feel bent.
             val showingSwipePair = kotlin.math.abs(visualSwipeOffsetPx) > .25f
 
             Box(
@@ -315,17 +314,16 @@ fun NowPlayingActions(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // Outgoing controls follow the finger left/right and shrink downward toward the
-                // dot lane. This gives a true interactive swipe instead of a post-release slide.
+                // Outgoing controls follow the finger horizontally, shrink in place, and fade
+                // completely at the endpoint. They never dip diagonally into the indicator lane.
                 Box(
                     modifier = Modifier.graphicsLayer {
                         translationX = visualSwipeOffsetPx
-                        translationY = dotLaneTravelPx * swipeFraction
-                        val scale = 1f - .68f * swipeFraction
+                        val scale = (1f - .88f * swipeFraction).coerceAtLeast(.12f)
                         scaleX = scale
                         scaleY = scale
-                        alpha = 1f - .38f * swipeFraction
-                        transformOrigin = TransformOrigin(.5f, 1f)
+                        alpha = (1f - swipeFraction).coerceIn(0f, 1f)
+                        transformOrigin = TransformOrigin(.5f, .5f)
                     }
                 ) {
                     key("nowPlayingActionCurrent_$pageIndex") { ActionPage(pageIndex) }
@@ -333,18 +331,17 @@ fun NowPlayingActions(
 
                 if (showingSwipePair) {
                     // A left drag starts the next pair at the right edge and moves it left with
-                    // the finger; a right drag mirrors that route. It simultaneously grows up
-                    // from the dot lane, so incoming/outgoing controls never crop in their box.
+                    // the finger; a right drag mirrors it. Incoming controls grow and morph in
+                    // the same fixed row, with no vertical/diagonal bend or clipping.
                     val incomingStart = if (visualSwipeOffsetPx < 0f) swipeWidth else -swipeWidth
                     Box(
                         modifier = Modifier.graphicsLayer {
                             translationX = incomingStart + visualSwipeOffsetPx
-                            translationY = dotLaneTravelPx * (1f - swipeFraction)
-                            val scale = .32f + .68f * swipeFraction
+                            val scale = (.12f + .88f * swipeFraction).coerceIn(.12f, 1f)
                             scaleX = scale
                             scaleY = scale
-                            alpha = .18f + .82f * swipeFraction
-                            transformOrigin = TransformOrigin(.5f, 1f)
+                            alpha = swipeFraction.coerceIn(0f, 1f)
+                            transformOrigin = TransformOrigin(.5f, .5f)
                         }
                     ) {
                         key("nowPlayingActionIncoming_$swipeTargetPage") { ActionPage(swipeTargetPage) }
@@ -355,7 +352,7 @@ fun NowPlayingActions(
             // 3 indicator dots
             Row(
                 modifier = Modifier
-                    .padding(top = 7.dp)
+                    .padding(top = 4.dp)
                     .graphicsLayer { alpha = dotsAlpha },
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -398,7 +395,8 @@ fun NowPlayingActions(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp)
+        // Keep the utility and changing-action groups close without collapsing their touch areas.
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         // These lanes are independently configurable from the three-dot editor. Only their own
         // horizontal lane changes; the transport row below remains physically centered.

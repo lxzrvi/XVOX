@@ -716,11 +716,11 @@ private fun SearchBarComponent(
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(24.dp))
-            // Light palettes need a visible field boundary rather than a white-on-white bar.
             .background(if (colors.isLight) colors.cardElevated else colors.card)
+            // Match the restrained All Songs card edge: one thin themed border in both themes.
             .border(
-                1.dp,
-                if (colors.isLight) colors.primaryText.copy(alpha = .24f) else colors.cardBorder.copy(alpha = .9f),
+                .7.dp,
+                colors.cardBorder,
                 RoundedCornerShape(24.dp)
             )
             .padding(horizontal = 14.dp),

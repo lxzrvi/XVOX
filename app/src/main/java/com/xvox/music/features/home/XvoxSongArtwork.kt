@@ -26,14 +26,20 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.xvox.music.artwork.XvoxArtworkCache
+import com.xvox.music.artwork.XvoxImageWork
 import com.xvox.music.core.design.theme.XvoxTheme
 
 const val XvoxGridArtworkSize = 256
 const val XvoxRecentArtworkSize = 512
 const val XvoxNowPlayingArtworkSize = 0
+
+/** Keep tiny/list fallbacks cheap; full player artwork retains a higher-quality seeded wave. */
+private fun fallbackBitmapSizeFor(requestSize: Int): Int = when {
+    requestSize <= 0 -> 420
+    else -> requestSize.coerceIn(96, 360)
+}
 
 /**
  * Shared artwork renderer.
@@ -53,6 +59,8 @@ fun XvoxSongArtwork(
     skipDecodedMorph: Boolean = false,
     /** Use the same wave as a bitmap so a local blurred backdrop can morph it with real covers. */
     renderFallbackAsBitmap: Boolean = false,
+    /** Lockup sizing follows the surface that is showing this fallback. */
+    fallbackBrand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD,
     /** Stable per-song identity for a missing/failed cover's wave pattern. */
     fallbackSeed: Int? = null,
     /** Reports after either a decoded bitmap or the generated fallback is ready. */
@@ -69,7 +77,9 @@ fun XvoxSongArtwork(
         LaunchedEffect(fallbackSeed) { latestArtworkReady?.invoke() }
         WavePatternSquare(
             modifier = modifier,
-            seed = fallbackSeed ?: 11
+            seed = fallbackSeed ?: 11,
+            bitmapSize = fallbackBitmapSizeFor(requestSize),
+            brand = fallbackBrand
         )
         return
     }
@@ -78,10 +88,14 @@ fun XvoxSongArtwork(
         artwork?.let(XvoxArtworkCache::keyFor) ?: "xvox_wave_${fallbackSeed ?: 11}"
     }
     val resolvedFallbackSeed = fallbackSeed ?: baseKey.hashCode()
-    val fallbackDark = if (colors.isLight) colors.cardElevated else colors.background
-    val fallbackBright = colors.primaryAccent
-    val fallbackPatternKey = remember(fallbackDark, fallbackBright, resolvedFallbackSeed) {
-        xvoxWavePatternKey(fallbackDark, fallbackBright, resolvedFallbackSeed, 360)
+    val fallbackPalette = remember(resolvedFallbackSeed, colors) {
+        xvoxWavePalette(resolvedFallbackSeed, colors)
+    }
+    val fallbackDark = fallbackPalette.surface
+    val fallbackBright = fallbackPalette.stripe
+    val fallbackBitmapSize = fallbackBitmapSizeFor(requestSize)
+    val fallbackPatternKey = remember(fallbackDark, fallbackBright, resolvedFallbackSeed, fallbackBitmapSize) {
+        xvoxWavePatternKey(fallbackDark, fallbackBright, resolvedFallbackSeed, fallbackBitmapSize)
     }
     val cacheKey = remember(baseKey, requestSize, artwork, renderFallbackAsBitmap, fallbackPatternKey) {
         if (artwork == null && renderFallbackAsBitmap) fallbackPatternKey else "${baseKey}_$requestSize"
@@ -121,8 +135,8 @@ fun XvoxSongArtwork(
     LaunchedEffect(fallbackPatternKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
         if (renderFallbackAsBitmap && (artwork == null || fallbackRequested) && decodedBitmap == null) {
             val wave = xvoxCachedWaveBitmap(fallbackPatternKey)
-                ?: withContext(Dispatchers.Default) {
-                    xvoxBuildWaveBitmap(360, resolvedFallbackSeed, fallbackDark, fallbackBright).also {
+                ?: withContext(XvoxImageWork.waveContext) {
+                    xvoxBuildWaveBitmap(fallbackBitmapSize, resolvedFallbackSeed, fallbackDark, fallbackBright).also {
                         xvoxCacheWaveBitmap(fallbackPatternKey, it)
                     }
                 }
@@ -221,12 +235,16 @@ fun XvoxSongArtwork(
             // that brief empty initial state; a retained cover stays visible on an actual handoff.
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
-                seed = resolvedFallbackSeed
+                seed = resolvedFallbackSeed,
+                bitmapSize = fallbackBitmapSize,
+                brand = fallbackBrand
             )
         } else if (artworkFailed && visibleImageBitmap == null) {
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
-                seed = resolvedFallbackSeed
+                seed = resolvedFallbackSeed,
+                bitmapSize = fallbackBitmapSize,
+                brand = fallbackBrand
             )
         } else if (awaitingMorphStart) {
             // The launched morph begins immediately after this composition. Holding the old frame

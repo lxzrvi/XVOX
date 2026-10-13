@@ -3,12 +3,18 @@ package com.xvox.music.player.playback
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.xvox.music.artwork.XvoxFallbackArtworkProvider
 import com.xvox.music.core.model.Song
 
 /** A queue occurrence may intentionally repeat one library Song, so callers supply a unique media ID. */
 fun Song.toMediaItem(mediaId: String = id.toString()): MediaItem {
     return MediaItem.Builder().setMediaId(mediaId).setUri(contentUri)
-        .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setArtist(artist).setArtworkUri(artworkUri)
+        .setMediaMetadata(MediaMetadata.Builder()
+            .setTitle(title)
+            .setArtist(artist)
+            // Android's media notification loads this content URI lazily only for a coverless
+            // item, yielding the same seeded XVOX wave artwork instead of a generic placeholder.
+            .setArtworkUri(artworkUri ?: XvoxFallbackArtworkProvider.uriForSong(id))
             .setExtras(Bundle().apply {
                 putString("xvox_original_uri", contentUri.toString())
                 putLong("xvox_song_id", id)
